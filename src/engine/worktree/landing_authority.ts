@@ -14,7 +14,11 @@ import {
   configSchema,
   type DiscernConfig,
 } from "../../shared/config_schema.ts";
-import type { LandingConsent } from "../../shared/consent.ts";
+import type {
+  LandingAuthorityKind,
+  LandingConsent,
+  LandingConsentSource,
+} from "../../shared/consent.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { readTrunkConfig } from "../gate/standard_limits.ts";
 import { collectPaths, scopeNamesForPath } from "../scopes/scopes.ts";
@@ -43,6 +47,8 @@ export type LandingAuthorityResolution =
   | {
     readonly kind: "authorized";
     readonly consent: LandingConsent;
+    /** Every known standing scope recorded on the trunk, used or not. */
+    readonly standingScopes: readonly string[];
     readonly classifications: readonly ClassifiedLandingPath[];
     readonly uncovered: readonly [];
     readonly warnings: readonly string[];
@@ -51,6 +57,8 @@ export type LandingAuthorityResolution =
   }
   | {
     readonly kind: "conversation-required";
+    /** Every known standing scope recorded on the trunk, used or not. */
+    readonly standingScopes: readonly string[];
     readonly classifications: readonly ClassifiedLandingPath[];
     readonly uncovered: readonly ClassifiedLandingPath[];
     readonly warnings: readonly string[];
@@ -58,6 +66,18 @@ export type LandingAuthorityResolution =
     readonly trunkCommit?: string;
     readonly headCommit?: string;
   };
+
+/** The structured projection lifecycle envelopes publish when a grant exists. */
+export interface LandingAuthorityProjection {
+  readonly kind: LandingAuthorityKind;
+  readonly source?: LandingConsentSource;
+  /** Standing scopes that cover this exact tree (authorized posture only). */
+  readonly scopes?: string[];
+  /** Known trunk grants, useful before or outside full coverage. */
+  readonly standing_scopes?: string[];
+  readonly uncovered?: { path: string; scopes: string[] }[];
+  readonly warnings?: string[];
+}
 
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
@@ -76,6 +96,7 @@ export function resolveLandingAuthority(
     return {
       kind: "authorized",
       consent: { source: "effort-grant" },
+      standingScopes: [],
       classifications: facts.classifications,
       uncovered: [],
       warnings,
@@ -125,6 +146,7 @@ export function resolveLandingAuthority(
         source: "standing-grant",
         scopes: knownGranted.filter((scope) => used.has(scope)),
       },
+      standingScopes: knownGranted,
       classifications: facts.classifications,
       uncovered: [],
       warnings,
@@ -139,6 +161,7 @@ export function resolveLandingAuthority(
 
   return {
     kind: "conversation-required",
+    standingScopes: knownGranted,
     classifications: facts.classifications,
     uncovered,
     warnings,
@@ -317,6 +340,105 @@ export async function inspectLandingAuthority(
     trunkCommit: trunkConfig.commit,
     headCommit,
   });
+}
+
+/**
+ * Project one resolution into the public lifecycle shape. No grant and no
+ * authority warning stays absent, preserving the default envelopes exactly.
+ */
+export function landingAuthorityProjection(
+  authority: LandingAuthorityResolution,
+): LandingAuthorityProjection | undefined {
+  if (authority.kind === "authorized") {
+    return {
+      kind: authority.kind,
+      source: authority.consent.source,
+      ...(authority.consent.scopes !== undefined
+        ? { scopes: [...authority.consent.scopes] }
+        : {}),
+      ...(authority.standingScopes.length > 0
+        ? { standing_scopes: [...authority.standingScopes] }
+        : {}),
+      ...(authority.warnings.length > 0
+        ? { warnings: [...authority.warnings] }
+        : {}),
+    };
+  }
+  if (
+    authority.standingScopes.length === 0 &&
+    authority.uncovered.length === 0 &&
+    authority.warnings.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    kind: authority.kind,
+    ...(authority.standingScopes.length > 0
+      ? { standing_scopes: [...authority.standingScopes] }
+      : {}),
+    ...(authority.uncovered.length > 0
+      ? {
+        uncovered: authority.uncovered.map((entry) => ({
+          path: entry.path,
+          scopes: [...entry.scopes],
+        })),
+      }
+      : {}),
+    ...(authority.warnings.length > 0
+      ? { warnings: [...authority.warnings] }
+      : {}),
+  };
+}
+
+/**
+ * Project authority at effort creation, before this task has a final tree.
+ * Standing scopes are a possibility, never a promise: setup artifacts or a
+ * `--from` branch must not make start claim the eventual landing is covered.
+ */
+export function prospectiveLandingAuthorityProjection(
+  authority: LandingAuthorityResolution,
+): LandingAuthorityProjection | undefined {
+  if (
+    authority.kind === "authorized" &&
+    authority.consent.source === "effort-grant"
+  ) {
+    return landingAuthorityProjection(authority);
+  }
+  if (
+    authority.standingScopes.length === 0 && authority.warnings.length === 0
+  ) {
+    return undefined;
+  }
+  return {
+    kind: "conversation-required",
+    ...(authority.standingScopes.length > 0
+      ? { standing_scopes: [...authority.standingScopes] }
+      : {}),
+    ...(authority.warnings.length > 0
+      ? { warnings: [...authority.warnings] }
+      : {}),
+  };
+}
+
+/** Human-sized path evidence shared by every uncovered-authority surface. */
+export function uncoveredLandingAuthorityDetails(
+  authority: LandingAuthorityResolution,
+  cap = 8,
+): string[] {
+  if (authority.kind !== "conversation-required") {
+    return [];
+  }
+  const shown = authority.uncovered.slice(0, cap).map((entry) =>
+    `\`${entry.path}\` (${
+      entry.scopes.length === 0
+        ? "no matching scope"
+        : `scopes: ${entry.scopes.join(", ")}`
+    })`
+  );
+  if (authority.uncovered.length > shown.length) {
+    shown.push(`and ${authority.uncovered.length - shown.length} more`);
+  }
+  return shown;
 }
 
 /**

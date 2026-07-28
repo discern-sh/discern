@@ -44,6 +44,15 @@ export const LANDING_CONSENT_SOURCES = [
 /** One recorded landing-consent source. */
 export type LandingConsentSource = (typeof LANDING_CONSENT_SOURCES)[number];
 
+/** The two postures a read-only landing-authority observation can report. */
+export const LANDING_AUTHORITY_KINDS = [
+  "authorized",
+  "conversation-required",
+] as const;
+
+/** One landing-authority posture. */
+export type LandingAuthorityKind = (typeof LANDING_AUTHORITY_KINDS)[number];
+
 /** The consent evidence carried by acceptance results and local history. */
 export interface LandingConsent {
   readonly source: LandingConsentSource;

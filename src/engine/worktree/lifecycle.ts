@@ -173,6 +173,8 @@ import {
   landingAuthorityDetail,
   landingAuthorityExpiry,
   type LandingAuthorityResolution,
+  prospectiveLandingAuthorityProjection,
+  uncoveredLandingAuthorityDetails,
 } from "./landing_authority.ts";
 import { clearEffortGrant } from "./effort_grant.ts";
 
@@ -1373,33 +1375,12 @@ const ACCEPT_AWAITING_CONSENT_BASE =
   "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
   "or at the desk are checked automatically.";
 
-function uncoveredAuthorityDetail(
-  uncovered: readonly {
-    path: string;
-    scopes: readonly string[];
-  }[],
-): string | undefined {
-  if (uncovered.length === 0) {
-    return undefined;
-  }
-  const shown = uncovered.slice(0, 8).map((entry) =>
-    `\`${entry.path}\` (${
-      entry.scopes.length === 0
-        ? "no matching scope"
-        : `scopes: ${entry.scopes.join(", ")}`
-    })`
-  );
-  if (uncovered.length > shown.length) {
-    shown.push(`and ${uncovered.length - shown.length} more`);
-  }
-  return `Recorded standing grants do not cover ${shown.join(", ")}.`;
-}
-
 function acceptAwaitingConsentMessage(
   authority: LandingAuthorityResolution,
 ): string {
-  const detail = authority.kind === "conversation-required"
-    ? uncoveredAuthorityDetail(authority.uncovered)
+  const uncovered = uncoveredLandingAuthorityDetails(authority);
+  const detail = uncovered.length > 0
+    ? `Recorded standing grants do not cover ${uncovered.join(", ")}.`
     : undefined;
   const evidence = [
     ...(detail !== undefined ? [detail] : []),
@@ -2946,12 +2927,22 @@ export async function startResult(
       ? fire(HINTS["start-submodules-empty"])
       : undefined;
 
+  const landingAuthority = await inspectLandingAuthority(
+    dir,
+    ctx.config.repository.trunk,
+  );
+  const authorityProjection = prospectiveLandingAuthorityProjection(
+    landingAuthority,
+  );
   const data: StartData = {
     id,
     branch,
     path: dir,
     from: startPoint,
     ...(note !== undefined ? { name_note: note } : {}),
+    ...(authorityProjection !== undefined
+      ? { landing_authority: authorityProjection }
+      : {}),
   };
   const result: DiscernResult<StartData> = appliedResult("start", [
     {
@@ -2981,6 +2972,15 @@ export async function startResult(
   result.hints = hintTexts([
     ...(nameHint !== undefined ? [nameHint] : []),
     reRoot,
+    ...(authorityProjection !== undefined
+      ? [
+        fire(HINTS["start-landing-authority"], {
+          source: authorityProjection.source,
+          standingScopes: authorityProjection.standing_scopes ?? [],
+          warnings: authorityProjection.warnings ?? [],
+        }),
+      ]
+      : []),
     ...(submoduleNote !== undefined ? [submoduleNote] : []),
     ...(dirtyNote !== undefined ? [dirtyNote] : []),
   ]);

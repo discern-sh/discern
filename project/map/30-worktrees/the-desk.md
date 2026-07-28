@@ -39,17 +39,17 @@ Each row starts with the task name supplied to `discern start`. The state puts t
 
 The selected row offers only actions that fit its observed state:
 
-| Action                              | What it runs                                                                                 |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Accept                              | Shows the landing plan, asks for confirmation, then runs the acceptance core.                |
-| Pre-authorize landing once green    | Records one landing grant for this worktree in Git's administrative state.                   |
-| Revoke landing pre-authorization    | Removes that worktree's unconsumed effort grant.                                             |
-| Update                              | Brings the trunk into the selected worktree.                                                 |
-| Run script                          | Runs a discovered executable Project Script from that worktree.                              |
-| Open with agent                     | Starts or continues a configured coding-agent CLI inside the worktree.                       |
-| Open a shell                        | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.                  |
-| Inspect                             | Shows commits, uncommitted changes, and a diffstat relative to the trunk.                     |
-| Drop                                | Runs the guarded abandoned-work removal path.                                                |
+| Action                           | What it runs                                                                  |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| Accept                           | Shows the landing plan, asks for confirmation, then runs the acceptance core. |
+| Pre-authorize landing once green | Records one landing grant for this worktree in Git's administrative state.    |
+| Revoke landing pre-authorization | Removes that worktree's unconsumed effort grant.                              |
+| Update                           | Brings the trunk into the selected worktree.                                  |
+| Run script                       | Runs a discovered executable Project Script from that worktree.               |
+| Open with agent                  | Starts or continues a configured coding-agent CLI inside the worktree.        |
+| Open a shell                     | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.  |
+| Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
+| Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
 

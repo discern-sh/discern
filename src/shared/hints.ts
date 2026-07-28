@@ -17,6 +17,7 @@
 
 import type { FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
+import type { LandingConsentSource } from "./consent.ts";
 
 /**
  * How an entry means to steer the caller. `next-step` names the action to
@@ -563,6 +564,53 @@ export const HINTS = {
       `\`discern accept\` only after the user explicitly asks you to land it.`,
   }),
 
+  /** A ready receipt whose exact tree the authority resolver covered. */
+  "status-land-under-verified-authority": defineHint<{
+    source: LandingConsentSource;
+    scopes: readonly string[];
+  }>({
+    id: "status-land-under-verified-authority",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A clean, current branch has an honored receipt and machine-verified landing authority.",
+    family: "landing-authority",
+    example: { source: "standing-grant", scopes: ["docs"] },
+    template: ({ source, scopes }): string =>
+      source === "effort-grant"
+        ? "The owner pre-authorized this landing at the desk, and the clean HEAD has an honored receipt. Run `discern accept` now to land it; the command rechecks the grant at the fast-forward boundary."
+        : `The clean HEAD is covered by the standing grant for ${
+          scopes.join(", ")
+        } and has an honored receipt. Run \`discern accept\` now to land it; the command rechecks every changed path at the fast-forward boundary.`,
+  }),
+
+  /** A ready receipt whose recorded standing grant does not cover every path. */
+  "status-ready-uncovered-authority": defineHint<{
+    uncovered: readonly string[];
+    warnings: readonly string[];
+    trunk: string;
+    branch: string;
+  }>({
+    id: "status-ready-uncovered-authority",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A clean, current branch has an honored receipt but recorded authority does not cover it.",
+    family: "landing-authority",
+    example: {
+      uncovered: ["`src/main.ts` (scopes: engine)"],
+      warnings: [],
+      trunk: "main",
+      branch: "agent/hints",
+    },
+    template: ({ uncovered, warnings, trunk, branch }): string =>
+      `Report this branch to your owner and end with \`data.gate_receipt.receipt_line\` verbatim, then stop. The recorded grant does not cover ${
+        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
+      }.${
+        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
+      } Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
+  }),
+
   "status-missing-done-receipt": defineHint<{ trunk: string }>({
     id: "status-missing-done-receipt",
     category: "next-step",
@@ -640,6 +688,29 @@ export const HINTS = {
         boundedNameSummary(total, names)
       }. Use each branch ` +
       `from \`data.fleet\` with \`git diff ${trunk}...<branch>\`.`,
+  }),
+
+  /** Ready fleet rows whose recorded authority has already been verified. */
+  "status-fleet-authorized-landings": defineHint<{
+    total: number;
+    names: readonly string[];
+  }>({
+    id: "status-fleet-authorized-landings",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A fleet survey finds ready worktrees with machine-verified landing authority.",
+    family: "landing-authority",
+    example: {
+      total: 2,
+      names: ["docs-refresh", "release-notes"],
+    },
+    template: ({ total, names }): string =>
+      `${total} ready worktree${
+        total === 1 ? " has" : "s have"
+      } machine-verified landing authority: ${
+        boundedNameSummary(total, names)
+      }. Open each worktree and run \`discern accept\` now; acceptance rechecks its grant before landing.`,
   }),
 
   /** The fleet-wide collision check the survey-the-fleet skill once carried:
@@ -1571,6 +1642,49 @@ export const HINTS = {
       "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
   }),
 
+  /** A green receipt whose exact tree the authority resolver covered. */
+  "gate-land-under-verified-authority": defineHint<{
+    source: LandingConsentSource;
+    scopes: readonly string[];
+  }>({
+    id: "gate-land-under-verified-authority",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A successful gate records a receipt for a tree with machine-verified landing authority.",
+    family: "landing-authority",
+    example: { source: "standing-grant", scopes: ["docs"] },
+    template: ({ source, scopes }): string =>
+      source === "effort-grant"
+        ? "The owner pre-authorized this landing at the desk, and the receipt covers the clean HEAD. Run `discern accept` now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with `data.receipt_line` afterward."
+        : `The receipt's clean HEAD is covered by the standing grant for ${
+          scopes.join(", ")
+        }. Run \`discern accept\` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.receipt_line\` afterward.`,
+  }),
+
+  /** A green receipt whose recorded authority left changed paths uncovered. */
+  "gate-relay-uncovered-authority": defineHint<{
+    uncovered: readonly string[];
+    warnings: readonly string[];
+  }>({
+    id: "gate-relay-uncovered-authority",
+    category: "next-step",
+    audience: "agent",
+    when:
+      "A successful gate records a receipt but recorded authority does not cover its tree.",
+    family: "landing-authority",
+    example: {
+      uncovered: ["`src/main.ts` (scopes: engine)"],
+      warnings: [],
+    },
+    template: ({ uncovered, warnings }): string =>
+      `Report this task to your owner in your own words, end with \`data.receipt.line\` verbatim, and stop. The recorded grant does not cover ${
+        uncovered.length > 0 ? uncovered.join(", ") : "this landing"
+      }.${
+        warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
+      } Don't paste the full receipt: your owner pulls it with \`discern status --verbose\`.`,
+  }),
+
   "gate-update-docs": defineHint({
     id: "gate-update-docs",
     category: "next-step",
@@ -2032,6 +2146,38 @@ export const HINTS = {
     example: { name: "Hint Registry", slug: "hint-registry" },
     template: ({ name, slug }): string =>
       `Normalized the worktree name '${name}' to '${slug}'.`,
+  }),
+
+  /** Prospective authority at the moment a new effort begins. */
+  "start-landing-authority": defineHint<{
+    source: LandingConsentSource | undefined;
+    standingScopes: string[];
+    warnings: string[];
+  }>({
+    id: "start-landing-authority",
+    category: "notice",
+    audience: "agent",
+    when:
+      "`start` creates an effort under a recorded landing grant or finds authority evidence that needs attention.",
+    family: "landing-authority",
+    example: {
+      source: "standing-grant",
+      standingScopes: ["docs"],
+      warnings: [],
+    },
+    template: ({ source, standingScopes, warnings }): string => {
+      if (source === "effort-grant") {
+        return "The owner pre-authorized this effort's landing at the desk. discern will recheck that grant against the final branch before it lands.";
+      }
+      if (standingScopes.length > 0) {
+        return `Standing landing authority is recorded for ${
+          standingScopes.join(", ")
+        }. Changes kept within ${
+          standingScopes.length === 1 ? "that scope" : "those scopes"
+        } can land without a further conversation; discern will check the final changed paths.`;
+      }
+      return `Landing authority needs attention: ${warnings.join(" ")}`;
+    },
   }),
 
   /** The CLI cannot relocate the caller, so it gives the re-root instruction. */

@@ -70,10 +70,8 @@ import {
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import {
   clearEffortGrant,
-  type EffortGrantRead,
   type EffortGrantWrite,
   grantEffort,
-  readEffortGrant,
 } from "../worktree/effort_grant.ts";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
@@ -109,7 +107,6 @@ export interface DeskRuntime {
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
   receiptHonored(path: string): DeskMaybePromise<boolean>;
-  effortGrant(path: string): DeskMaybePromise<EffortGrantRead>;
   grantEffort(
     path: string,
     branch: string,
@@ -220,7 +217,6 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
   receiptHonored: (path) => gateReceiptHonored(path),
-  effortGrant: (path) => readEffortGrant(path),
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
@@ -940,18 +936,16 @@ export async function runDesk(
         !entry.is_main && entry.broken !== true &&
         entry.git_unavailable !== true
       ) {
-        const [receiptHonored, effortGrant, scripts, worktreeConfig] =
-          await Promise.all([
-            runtime.receiptHonored(entry.path),
-            runtime.effortGrant(entry.path),
-            runtime.scripts(entry.path),
-            loadWorktreeConfig(entry.path, runtime),
-          ]);
+        const [receiptHonored, scripts, worktreeConfig] = await Promise.all([
+          runtime.receiptHonored(entry.path),
+          runtime.scripts(entry.path),
+          loadWorktreeConfig(entry.path, runtime),
+        ]);
         receiptByPath.set(entry.path, receiptHonored);
         effortGrantByPath.set(
           entry.path,
-          effortGrant.status === "granted" &&
-            effortGrant.grant.branch === entry.branch,
+          entry.landing_authority?.kind === "authorized" &&
+            entry.landing_authority.source === "effort-grant",
         );
         scriptsByPath.set(entry.path, scripts);
         agentLaunchesByPath.set(

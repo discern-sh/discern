@@ -142,7 +142,6 @@ function scriptedRuntime(
     status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
     receiptHonored: () => false,
-    effortGrant: () => ({ status: "missing" }),
     grantEffort: (_path, branch) => ({
       status: "granted",
       grant: {
@@ -276,17 +275,12 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
     unlanded_branches: ["agent/orphan"],
   };
   const receiptPaths: string[] = [];
-  const grantPaths: string[] = [];
   const optionText: string[] = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
     receiptHonored: (path) => {
       receiptPaths.push(path);
       return path === ready.path;
-    },
-    effortGrant: (path) => {
-      grantPaths.push(path);
-      return { status: "missing" };
     },
     select: (options) => {
       assertEquals(options.info, false);
@@ -299,7 +293,6 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
 
   assertEquals(await runDesk({}, runtime), 0);
   assertEquals(receiptPaths, [ready.path, flying.path]);
-  assertEquals(grantPaths, [ready.path, flying.path]);
   const text = joined(output);
   assertStringIncludes(text, `heading:${DISCERN_MARK} demo`);
   assertStringIncludes(text, "4 tasks");
@@ -339,17 +332,17 @@ Deno.test("desk grants and revokes one effort only through its human action", as
   let granted = false;
   let pauses = 0;
   const runtime = scriptedRuntime(output, {
-    status: () => ({ ok: true, data }),
-    effortGrant: () =>
-      granted
-        ? {
-          status: "granted",
-          grant: {
-            branch: effort.branch,
-            granted_at: "2026-07-11T12:00:00.000Z",
-          },
-        }
-        : { status: "missing" },
+    status: () => {
+      if (granted) {
+        effort.landing_authority = {
+          kind: "authorized",
+          source: "effort-grant",
+        };
+      } else {
+        delete effort.landing_authority;
+      }
+      return { ok: true, data };
+    },
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       return choices.shift() ?? QUIT;

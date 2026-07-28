@@ -901,7 +901,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "Consent comes from evidence at the landing boundary, never from an agent's memory of an earlier conversation.",
         agent:
-          "An uncovered agent is routed back into the conversation. A covered one can proceed only when discern verifies the recorded grant against the exact changed paths.",
+          "The same resolver feeds `start`, `status`, green `done`, and the acceptance boundary. An uncovered agent is routed back into the conversation; a covered one proceeds only after discern verifies the recorded grant against the exact changed paths.",
         surfaces: ["config:acceptance"],
       },
       {

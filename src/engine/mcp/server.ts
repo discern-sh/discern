@@ -355,7 +355,9 @@ export const TOOLS: McpTool[] = orderTools([
       "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt_line " +
       "carries the one-line receipt you copy verbatim to end your report at the review moment — " +
       "data.gate_receipt.receipt is the full page, for your owner to read, never to paste " +
-      "into a message); " +
+      "into a message); data.landing_authority is present when a recorded standing " +
+      "or effort grant exists, resolving the exact tree as authorized or naming " +
+      "the uncovered paths that still need conversation consent; " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
       "resources; data.standards lists the configured quality standards — numbers " +
       "that can never get worse. " +
@@ -368,7 +370,8 @@ export const TOOLS: McpTool[] = orderTools([
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
       "Git-clean state, ahead/behind, a last_activity timestamp, is_current marking the row " +
       "this call is rooted in, and broken flagging a checkout whose creation never " +
-      "completed — every other row is a separate line of work, not a " +
+      "completed; each row also carries its landing_authority when a grant exists — " +
+      "every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); " +
       "data.unlanded_branches lists branches holding unlanded work with no " +
       "worktree; data.fleet_collisions lists pairs of fleet branches whose " +
@@ -422,9 +425,11 @@ export const TOOLS: McpTool[] = orderTools([
       "(tool, file/line when available, message, and the exact command to reproduce " +
       "each failure). A green run over a clean committed tree ahead of the trunk — " +
       "the shared landing branch (`{{main_branch}}`) — " +
-      "also carries data.receipt: when the task is complete, report it to your owner " +
-      "in your own words and end with data.receipt.line verbatim, then " +
-      "wait for their explicit instruction before calling discern_accept. Never paste " +
+      "also carries data.receipt and resolves any recorded grant into " +
+      "data.landing_authority. Follow the resolution-gated hints: an uncovered " +
+      "landing is reported to the owner in your own words and ends with " +
+      "data.receipt.line verbatim before you wait; a covered landing names the " +
+      "verified source and routes straight to discern_accept. Never paste " +
       "the full page (data.receipt.markdown) into a message — your owner pulls it from " +
       "discern directly. Set dry_run to preview the plan without " +
       "running anything.",
@@ -860,7 +865,10 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Create a fresh ISOLATED worktree — a separate checkout and branch for one " +
       "change — from the main checkout, set it up, and return where it landed " +
-      "(data.path). The new branch forks from the trunk (`{{main_branch}}`), the " +
+      "(data.path). When the trunk records standing landing scopes, " +
+      "data.landing_authority and the matching hint name them prospectively; final " +
+      "coverage is always rechecked against the changed paths. The new branch forks " +
+      "from the trunk (`{{main_branch}}`), the " +
       "shared landing branch, regardless of what " +
       "branch the main checkout is sitting on — you do NOT need to check or pass " +
       "anything for the normal case. " +

@@ -253,6 +253,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "landing-authority-kinds",
+    title: "Landing authority kinds",
+    what:
+      "The read-only outcomes lifecycle envelopes report after the landing-authority resolver checks recorded grants.",
+    source: {
+      kind: "module",
+      module: "src/shared/consent.ts",
+      exportName: "LANDING_AUTHORITY_KINDS",
+    },
+    guards: [
+      "tests/engine_landing_authority_test.ts",
+      "tests/engine_lifecycle_authority_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "two machine outcomes of the documented landing-authority concept",
+      },
+      featureCanon: { nodeId: "consent-attestations" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/consent.ts")).LANDING_AUTHORITY_KINDS,
+    ],
+  },
+  {
     id: "desk-actions",
     title: "Desk actions",
     what:

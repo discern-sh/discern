@@ -19,7 +19,9 @@ Use it at the start of every agent session and whenever the next workflow move i
 
 Inside a linked worktree, the default view is local. It reports the branch, cleanliness, commits ahead of and behind the [trunk](../00-orientation/glossary.md#trunk), incoming overlap, changed [scopes](../00-orientation/glossary.md#scope), the gate jobs those changes wake, generated-file currency, worktree identity, and whether the clean `HEAD` has an honored [receipt](../20-quality-gate/the-receipt.md). When it does, `data.gate_receipt` carries the stored receipt page and line.
 
-From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout and branch, git state, ahead/behind counts, last activity, and whether the checkout is broken. A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
+When a recorded grant exists, `data.landing_authority` carries the current answer from the shared resolver. `authorized` names `standing-grant` with the scopes covering this tree, or `effort-grant`; `conversation-required` carries the known standing scopes and any uncovered paths. A ready, authorized branch gets a resolution-gated landing hint. An uncovered branch gets the receipt-relay hint with the paths that kept it outside the grant. With no grant, the field is absent and the existing report-and-wait route is unchanged ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+
+From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout and branch, git state, ahead/behind counts, last activity, and whether the checkout is broken. A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. Granted rows carry the same `landing_authority` and gain an **AUTHORITY** column in the interactive table; the column stays absent when no row has a grant. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
 
 `--verbose` prints each honored receipt page in the interactive output — the local branch's, and every ready fleet row's beneath the table. The page prints dimmed, so the quoted Markdown reads as secondary next to the summary lines. The JSON and MCP payloads carry the receipt with or without the flag ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
@@ -45,13 +47,15 @@ Session findings are advice. They change no git fact, gate result, receipt, exit
 
 ## Where it lives in code
 
-| Concern                   | Source                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------- |
-| Status facts and hints    | [`status.ts`](../../../src/engine/status/status.ts)                                   |
-| Detector registry         | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                            |
-| Scope and tier routing    | [`routing.ts`](../../../src/engine/logbook/routing.ts)                                |
-| Bounded inline reader     | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                              |
-| End-to-end route coverage | [`engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts) |
+| Concern                      | Source                                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| Status facts and hints       | [`status.ts`](../../../src/engine/status/status.ts)                                       |
+| Landing-authority resolution | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
+| Detector registry            | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                                |
+| Scope and tier routing       | [`routing.ts`](../../../src/engine/logbook/routing.ts)                                    |
+| Bounded inline reader        | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                                  |
+| End-to-end authority routes  | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
+| End-to-end finding routes    | [`engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)     |
 
 ## Current state & gotchas
 

@@ -54,7 +54,9 @@ Commit the final tree and run `discern done`. A landing then needs one verified 
 - A standing grant in the trunk's committed `[acceptance].pre_authorized` covers the landing only when every changed path classifies into a granted scope.
 - A desk effort grant covers one worktree and is consumed by its successful landing.
 
-Recorded grants are checked directly, so `--confirmed` never stands in for them. Without conversation consent or full recorded coverage, acceptance points the agent back to the receipt, names any uncovered paths, and leaves every checkout untouched. An unscoped path is uncovered; an unknown granted scope covers nothing ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Recorded grants are checked directly, so `--confirmed` never stands in for them. Without conversation consent or full recorded coverage, acceptance points the agent back to the receipt, names any uncovered paths, and leaves every checkout untouched. A path outside every scope is uncovered; an unknown granted scope covers nothing ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+
+The lifecycle exposes that answer before acceptance. `start` names standing scopes prospectively, without promising that the final change will stay inside them. `status` reports current coverage, and a green `done` resolves the fork: covered receipts point at landing, while uncovered receipts name the paths to relay for review. All three call the same resolver acceptance uses; none reads grant storage itself.
 
 Acceptance requires the latest trunk, a clean worktree, a tracked-clean main checkout on the trunk, and an unlocked worktree. It validates the precise commit that will land. An honored `discern done` receipt skips a duplicate gate run. Any later commit invalidates the receipt and triggers the full gate again ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 

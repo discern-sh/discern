@@ -38,6 +38,10 @@ const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
     name: "work done auto-accepts",
     pattern: /`discern_accept`[\s\S]{0,120}work is\s+done/i,
   },
+  {
+    name: "run accept now",
+    pattern: /run `discern accept` now/i,
+  },
 ];
 
 /**
@@ -45,7 +49,11 @@ const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
  * landing authority. Static prose never joins this set. A new authority-aware
  * hint must name itself here and prove its gated emission separately.
  */
-const VERIFIED_AUTHORITY_HINT_IDS = new Set<string>();
+const VERIFIED_AUTHORITY_HINT_IDS = new Set([
+  "gate-land-under-verified-authority",
+  "status-land-under-verified-authority",
+  "status-fleet-authorized-landings",
+]);
 
 async function filesUnder(path: string): Promise<string[]> {
   const stat = await Deno.stat(path);
@@ -89,14 +97,24 @@ Deno.test("agent-facing instructions do not present acceptance as the next auton
 
 Deno.test("only exact machine-verified runtime hints may instruct landing", () => {
   const violations: string[] = [];
+  const exercised = new Set<string>();
   for (const [id, def] of Object.entries(HINTS)) {
     const rendered = def.template(def.example as never);
     const found = acceptanceViolations(`hint:${id}`, rendered);
-    if (found.length > 0 && !VERIFIED_AUTHORITY_HINT_IDS.has(id)) {
-      violations.push(...found);
+    if (found.length > 0) {
+      if (VERIFIED_AUTHORITY_HINT_IDS.has(id)) {
+        exercised.add(id);
+      } else {
+        violations.push(...found);
+      }
     }
   }
   assertEquals(violations, []);
+  assertEquals(
+    [...VERIFIED_AUTHORITY_HINT_IDS].filter((id) => !exercised.has(id)),
+    [],
+    "every exemption must name a live runtime hint that instructs acceptance",
+  );
 });
 
 Deno.test("the acceptance guard still catches an unconditional finish-to-land instruction", () => {
