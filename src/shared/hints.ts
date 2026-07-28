@@ -37,6 +37,29 @@ export type HintCategory = "next-step" | "guardrail" | "notice";
  */
 export type HintAudience = "all" | "agent";
 
+/**
+ * A data-only declaration of what observable action a delivered hint invites.
+ * The logbook reader interprets these shapes; shared hint definitions carry no
+ * detector functions or engine imports.
+ */
+export type HintFollowThroughRule =
+  | Readonly<{
+    family: string;
+    kind: "branch-action-before-boundary";
+    actionVerbs: readonly string[];
+    boundaryVerb: string;
+  }>
+  | Readonly<{
+    family: string;
+    kind: "session-action-before-repeat";
+    actionVerb: string;
+  }>
+  | Readonly<{
+    family: string;
+    kind: "main-session-start-before-dirty";
+    actionVerb: string;
+  }>;
+
 /** One registered hint: a stable id, its classification, and a typed template. */
 export interface HintDef<P = undefined> {
   /** Stable kebab-case identifier — the logbook, renderers, and tests key on it. */
@@ -50,6 +73,8 @@ export interface HintDef<P = undefined> {
    * generated-file-drift family) so wording reviews see them side by side.
    */
   readonly family?: string;
+  /** Optional observable-outcome declaration for the advisory logbook reader. */
+  readonly followThrough?: HintFollowThroughRule;
   /** Realistic placeholder parameters for validation and generated inventory. */
   readonly example: P;
   /** Renders the hint from named, compiler-checked parameters. */
@@ -59,6 +84,38 @@ export interface HintDef<P = undefined> {
 /** Identity helper so an entry's parameter type is inferred at the definition. */
 export function defineHint<P = undefined>(def: HintDef<P>): HintDef<P> {
   return def;
+}
+
+const STATUS_BRANCH_UPDATE_FOLLOW_THROUGH = Object.freeze(
+  {
+    family: "branch-update",
+    kind: "session-action-before-repeat",
+    actionVerb: "update",
+  } as const satisfies HintFollowThroughRule,
+);
+
+const RED_GATE_FOLLOW_THROUGH = Object.freeze(
+  {
+    family: "red-gate-remedy",
+    kind: "branch-action-before-boundary",
+    actionVerbs: Object.freeze(["prepare", "test"] as const),
+    boundaryVerb: "done",
+  } as const satisfies HintFollowThroughRule,
+);
+
+const MAIN_WORKTREE_FOLLOW_THROUGH = Object.freeze(
+  {
+    family: "main-worktree-first",
+    kind: "main-session-start-before-dirty",
+    actionVerb: "start",
+  } as const satisfies HintFollowThroughRule,
+);
+
+/** Every gate-failure remedy shares one declared outcome rule. */
+function defineGateFailureRemedyHint<P = undefined>(
+  def: HintDef<P> & { readonly family: "gate-failure-remedy" },
+): HintDef<P> {
+  return defineHint({ ...def, followThrough: RED_GATE_FOLLOW_THROUGH });
 }
 
 /** A hint fired at a call site: the in-process pair; only `text` reaches the wire. */
@@ -505,6 +562,7 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when: "`status` finds the current branch behind the trunk.",
+    followThrough: STATUS_BRANCH_UPDATE_FOLLOW_THROUGH,
     example: {
       behind: 2,
       trunk: "main",
@@ -1322,6 +1380,7 @@ export const HINTS = {
     when:
       "`done` is asked to re-run on the exact tree it last judged red, without `--confirmed`.",
     family: "done-rerun",
+    followThrough: RED_GATE_FOLLOW_THROUGH,
     example: undefined,
     template: (): string =>
       "Fix the failure the last run reported, iterating with `discern " +
@@ -1413,7 +1472,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for a failed fix stage. */
-  "gate-failure-fix": defineHint({
+  "gate-failure-fix": defineGateFailureRemedyHint({
     id: "gate-failure-fix",
     category: "next-step",
     audience: "all",
@@ -1424,7 +1483,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for a failed build stage. */
-  "gate-failure-build": defineHint({
+  "gate-failure-build": defineGateFailureRemedyHint({
     id: "gate-failure-build",
     category: "next-step",
     audience: "all",
@@ -1435,7 +1494,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for a standalone check-stage failure. */
-  "gate-failure-check": defineHint({
+  "gate-failure-check": defineGateFailureRemedyHint({
     id: "gate-failure-check",
     category: "next-step",
     audience: "all",
@@ -1446,7 +1505,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for a standalone test-stage failure. */
-  "gate-failure-test": defineHint({
+  "gate-failure-test": defineGateFailureRemedyHint({
     id: "gate-failure-test",
     category: "next-step",
     audience: "all",
@@ -1457,7 +1516,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for the full gate's combined check/test stage. */
-  "gate-failure-check-test": defineHint({
+  "gate-failure-check-test": defineGateFailureRemedyHint({
     id: "gate-failure-check-test",
     category: "next-step",
     audience: "all",
@@ -1468,7 +1527,7 @@ export const HINTS = {
   }),
 
   /** The diagnostic-driven remedy for failed changed-scope checks. */
-  "gate-failure-scope-gates": defineHint({
+  "gate-failure-scope-gates": defineGateFailureRemedyHint({
     id: "gate-failure-scope-gates",
     category: "next-step",
     audience: "all",
@@ -1480,7 +1539,7 @@ export const HINTS = {
   }),
 
   /** A gate stage changed a committed-clean tracked file. */
-  "gate-failure-tree-drift": defineHint({
+  "gate-failure-tree-drift": defineGateFailureRemedyHint({
     id: "gate-failure-tree-drift",
     category: "next-step",
     audience: "all",
@@ -1492,7 +1551,7 @@ export const HINTS = {
   }),
 
   /** Discern-managed ignored output was committed to the repository. */
-  "gate-failure-tracked-artifacts": defineHint({
+  "gate-failure-tracked-artifacts": defineGateFailureRemedyHint({
     id: "gate-failure-tracked-artifacts",
     category: "next-step",
     audience: "all",
@@ -1504,7 +1563,7 @@ export const HINTS = {
   }),
 
   /** Compiled agent guidance differs from its authored sources. */
-  "gate-failure-guidance": defineHint({
+  "gate-failure-guidance": defineGateFailureRemedyHint({
     id: "gate-failure-guidance",
     category: "next-step",
     audience: "all",
@@ -1516,7 +1575,7 @@ export const HINTS = {
   }),
 
   /** Materialized skills differ from the effective authored set. */
-  "gate-failure-skills": defineHint({
+  "gate-failure-skills": defineGateFailureRemedyHint({
     id: "gate-failure-skills",
     category: "next-step",
     audience: "all",
@@ -1528,7 +1587,7 @@ export const HINTS = {
   }),
 
   /** An effective skill cannot be read by supported agent runtimes. */
-  "gate-failure-skill-frontmatter": defineHint({
+  "gate-failure-skill-frontmatter": defineGateFailureRemedyHint({
     id: "gate-failure-skill-frontmatter",
     category: "next-step",
     audience: "all",
@@ -1540,7 +1599,7 @@ export const HINTS = {
   }),
 
   /** Two ADR records claim the same number. */
-  "gate-failure-adr-numbers": defineHint({
+  "gate-failure-adr-numbers": defineGateFailureRemedyHint({
     id: "gate-failure-adr-numbers",
     category: "next-step",
     audience: "all",
@@ -1552,7 +1611,7 @@ export const HINTS = {
   }),
 
   /** The maintained ADR index drifted from (or cannot be derived from) the records. */
-  "gate-failure-adr-index": defineHint({
+  "gate-failure-adr-index": defineGateFailureRemedyHint({
     id: "gate-failure-adr-index",
     category: "next-step",
     audience: "all",
@@ -1565,7 +1624,7 @@ export const HINTS = {
   }),
 
   /** The map or a guidance source carries a reference readers cannot follow. */
-  "gate-failure-map-integrity": defineHint({
+  "gate-failure-map-integrity": defineGateFailureRemedyHint({
     id: "gate-failure-map-integrity",
     category: "next-step",
     audience: "all",
@@ -1578,7 +1637,7 @@ export const HINTS = {
   }),
 
   /** The worktree branch does not contain the current trunk. */
-  "gate-failure-merge": defineHint({
+  "gate-failure-merge": defineGateFailureRemedyHint({
     id: "gate-failure-merge",
     category: "next-step",
     audience: "all",
@@ -1590,7 +1649,7 @@ export const HINTS = {
   }),
 
   /** A branch attempted to weaken a standard held by the trunk. */
-  "gate-failure-standards": defineHint({
+  "gate-failure-standards": defineGateFailureRemedyHint({
     id: "gate-failure-standards",
     category: "next-step",
     audience: "all",
@@ -1602,7 +1661,7 @@ export const HINTS = {
   }),
 
   /** The gate cannot persist its Discern-owned state. */
-  "gate-failure-write-access": defineHint({
+  "gate-failure-write-access": defineGateFailureRemedyHint({
     id: "gate-failure-write-access",
     category: "next-step",
     audience: "all",
@@ -2235,6 +2294,7 @@ export const HINTS = {
     category: "guardrail",
     audience: "agent",
     when: "`worktree ensure` runs on the main-checkout side at session start.",
+    followThrough: MAIN_WORKTREE_FOLLOW_THROUGH,
     example: undefined,
     template: (): string =>
       "Session opened in the main checkout — the trunk every effort lands " +
