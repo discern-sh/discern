@@ -205,6 +205,17 @@ previewable = true
 # gate  = "make -C native check"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [acceptance] — standing grants for landing. Each entry names a scope whose
+# changes may land without a per-landing conversation. The owner records this
+# decision on the trunk. Scope definitions become consent-bearing: widening a
+# named scope widens its grant. An empty list changes nothing; landing asks for
+# the owner's acceptance as it does today.
+# ─────────────────────────────────────────────────────────────────────────────
+
+[acceptance]
+pre_authorized = []
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
 # everything project-specific is a RESOURCE you declare below. A fresh install
 # declares none, so a worktree round is a clean no-op until you wire one.
@@ -624,5 +635,5 @@ dir = "project/scripts"
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 23
+schema_version = 24
 bootstrapped = true
