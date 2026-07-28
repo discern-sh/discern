@@ -387,6 +387,14 @@ const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
     "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; the optional flags tune the gate for changes there. Classification fails OPEN: a path matching no scope counts as a real code change.",
   );
 
+const acceptanceSection = z.strictObject({
+  pre_authorized: z.array(z.string()).default([]).describe(
+    "Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance.",
+  ),
+}).prefault({}).describe(
+  "Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.",
+);
+
 const resourceValue = z.strictObject({
   create: z.string().default("").describe(
     "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
@@ -506,6 +514,7 @@ export const configSchema = z.strictObject({
   map: mapSection,
   jobs: jobsSection,
   scopes: scopesSection,
+  acceptance: acceptanceSection,
   worktree: worktreeSection,
   standards: standardsSection,
   gate: gateSection,
@@ -746,6 +755,31 @@ function jobFormIssues(parsed: unknown): ConfigIssue[] {
   return issues;
 }
 
+/** Cross-section `[acceptance]` rules that JSON Schema cannot express alone. */
+function acceptanceGrantIssues(parsed: unknown): ConfigIssue[] {
+  if (!isRecord(parsed) || !isRecord(parsed.acceptance)) {
+    return [];
+  }
+  const configured = parsed.acceptance.pre_authorized;
+  if (!Array.isArray(configured)) {
+    return [];
+  }
+  const scopes = isRecord(parsed.scopes)
+    ? Object.keys(parsed.scopes).sort()
+    : [];
+  const defined = scopes.length === 0 ? "(none)" : scopes.join(", ");
+  return configured.flatMap((name, index) => {
+    if (typeof name !== "string" || scopes.includes(name)) {
+      return [];
+    }
+    return [{
+      path: `acceptance.pre_authorized.${index}`,
+      message:
+        `unknown scope "${name}". Define it under [scopes.${name}] or remove it; defined scopes: ${defined}.`,
+    }];
+  });
+}
+
 /**
  * Parse `discern.toml` text and validate it against the schema, collecting EVERY
  * problem rather than failing on the first — so `doctor` can report all of them.
@@ -762,7 +796,8 @@ export function parseConfig(
   } catch (err) {
     throw new ConfigParseError(tomlSyntaxHint(err));
   }
-  const formIssues = jobFormIssues(parsed);
+  const jobIssues = jobFormIssues(parsed);
+  const formIssues = [...jobIssues, ...acceptanceGrantIssues(parsed)];
   const result = configSchema.safeParse(parsed);
   if (result.success) {
     if (formIssues.length > 0) {
@@ -771,7 +806,7 @@ export function parseConfig(
     return { config: result.data as DiscernConfig, issues: [] };
   }
   const formOwners = new Set(
-    formIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
+    jobIssues.map((issue) => issue.path.split(".").slice(0, 2).join(".")),
   );
   const schemaIssues = result.error.issues.map(toConfigIssue).filter((issue) =>
     !formOwners.has(issue.path.split(".").slice(0, 2).join("."))
@@ -1034,13 +1069,20 @@ export function configWriteIssues(text: string): ConfigIssue[] {
   } catch (err) {
     return [{ path: "", message: tomlSyntaxHint(err) }];
   }
+  const semanticIssues = [
+    ...jobFormIssues(parsed),
+    ...acceptanceGrantIssues(parsed),
+  ];
   const result = configSchema.safeParse(parsed);
   if (result.success) {
-    return [];
+    return semanticIssues;
   }
-  return result.error.issues
-    .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
-    .map(toConfigIssue);
+  return [
+    ...semanticIssues,
+    ...result.error.issues
+      .filter((issue) => !isIncompleteRecordEntry(parsed, issue.path))
+      .map(toConfigIssue),
+  ];
 }
 
 /**

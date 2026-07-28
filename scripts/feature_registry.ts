@@ -902,6 +902,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Consent cannot go stale, and cannot be inherited from an earlier call.",
         agent:
           "An agent that skipped the conversation is routed back into it: the refusal re-serves the consent moment and the exact command to continue, so the guardrail teaches rather than dead-ends.",
+        surfaces: ["config:acceptance"],
       },
       {
         id: "doctor",

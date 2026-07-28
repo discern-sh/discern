@@ -50,6 +50,8 @@ aliases:
   - scopes.<name>.previewable
   - scopes.<name>.gate
   - scopes.<name>.timeout
+  - acceptance
+  - acceptance.pre_authorized
   - worktree
   - worktree.root
   - worktree.port
@@ -194,6 +196,14 @@ A custom job. Its name is open, but its stage and command are explicit.
 | `previewable` | boolean            | `false` | true: a person could see changes here — worth a preview link.                                                                                                        |
 | `gate`        | string \| string[] | —       | A command discern done runs when this scope changed (a sub-component with its own self-contained gate).                                                              |
 | `timeout`     | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.              |
+
+## `[acceptance]`
+
+Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.
+
+| Key              | Type     | Default | Description                                                                                                                                                                                                                                                          |
+| ---------------- | -------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pre_authorized` | string[] | `[]`    | Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance. |
 
 ## `[worktree]`
 

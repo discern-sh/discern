@@ -55,6 +55,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // records default to empty
   assertEquals(c.jobs, {});
   assertEquals(c.scopes, {});
+  assertEquals(c.acceptance.pre_authorized, []);
   assertEquals(c.standards, {});
   assertEquals(c.worktree.resources, {});
   assertEquals(c.worktree.setup.steps, []);
@@ -287,6 +288,51 @@ Deno.test("a standard margin cannot be negative (a negative margin pins a failin
       `margin ${margin} must validate`,
     );
   }
+});
+
+Deno.test("[acceptance].pre_authorized accepts defined scopes and rejects every unknown entry", () => {
+  const configured = parseConfigOrThrow(
+    [
+      "[scopes.docs]",
+      'paths = ["docs/**"]',
+      "",
+      "[scopes.release]",
+      'paths = ["release/**"]',
+      "",
+      "[acceptance]",
+      'pre_authorized = ["docs", "release"]',
+      "",
+    ].join("\n"),
+  );
+  assertEquals(configured.acceptance.pre_authorized, ["docs", "release"]);
+
+  const missing = parseConfig(
+    [
+      "[scopes.docs]",
+      'paths = ["docs/**"]',
+      "",
+      "[acceptance]",
+      'pre_authorized = ["ghost", "docs", "other"]',
+      "",
+    ].join("\n"),
+  );
+  assertEquals(missing.config, undefined);
+  assertEquals(
+    missing.issues.map((issue) => issue.path),
+    ["acceptance.pre_authorized.0", "acceptance.pre_authorized.2"],
+  );
+  for (const issue of missing.issues) {
+    assertStringIncludes(issue.message, "defined scopes: docs");
+  }
+});
+
+Deno.test("config writes cannot create a standing grant for an undefined scope", () => {
+  const issues = configWriteIssues(
+    '[acceptance]\npre_authorized = ["ghost"]\n',
+  );
+  assertEquals(issues.length, 1);
+  assertEquals(issues[0]?.path, "acceptance.pre_authorized.0");
+  assertStringIncludes(issues[0]?.message ?? "", "defined scopes: (none)");
 });
 
 Deno.test("a standard `per` extent with an empty pathspec array is refused (never measures the whole repo)", () => {

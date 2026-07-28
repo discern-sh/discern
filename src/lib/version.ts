@@ -85,9 +85,11 @@ export const UPDATE_CHANNEL =
  * convergence list `[repository].ensure` (ADR 0153); schema-21→22 merges
  * `[capabilities]` and `[checks]` into the single `[jobs]` namespace;
  * schema-22→23 enables gate-tail coupling advice and narrows the generated
- * neutral scope to discern's exact non-executable paths. See `MIGRATIONS`. A
+ * neutral scope to discern's exact non-executable paths; schema-23→24 adds the
+ * documented `[acceptance]` standing-grant section after the named scopes. See
+ * `MIGRATIONS`. A
  * config with no
  * `[meta].schema_version` is read as schema 1 (or a legacy manifest's recorded
  * version), then migrated forward.
  */
-export const SCHEMA_VERSION = 23;
+export const SCHEMA_VERSION = 24;

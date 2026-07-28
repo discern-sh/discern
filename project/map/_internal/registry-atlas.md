@@ -20,7 +20,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`jobs`](#jobs--gate-jobs)                                                     | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                    | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
 | [`step-kinds`](#step-kinds--step-kinds)                                        | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
-| [`config-tables`](#config-tables--config-tables)                               | `src/shared/config_schema.ts#configSchema`                                     | 13      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                               | `src/shared/config_schema.ts#configSchema`                                     | 14      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                  | `src/shared/paths_registry.ts#SOURCE_PATHS`                                    | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                            | `src/lib/skills.ts#bundledSkillNames`                                          | 8       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                         | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                    | 5       | —                | surface `agent`             |
@@ -220,7 +220,7 @@ The result-step operation vocabulary — what a step does; the doctor's annotati
 The top-level tables of the config schema — the whole configuration surface.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 13
+- Members: 14
 - Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `schema/discern-config.schema.json`, `project/map/70-reference/config-reference.md`
 - Glossary: not enrolled — config keys are reference material; the config reference documents every table
