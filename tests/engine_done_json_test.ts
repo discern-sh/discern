@@ -981,7 +981,7 @@ Deno.test("done --json: a stale generated file fails FAST — the currency check
       }`,
     );
 
-    // Stale a agent file → the guidance currency precondition fails FIRST.
+    // Stale an agent file → the guidance currency precondition fails FIRST.
     const claudePath = join(dir, "CLAUDE.md");
     await Deno.writeTextFile(
       claudePath,

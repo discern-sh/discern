@@ -892,7 +892,7 @@ Deno.test("update: behind main fast-forwards and re-materializes the agent files
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream work", "--no-gpg-sign");
-    // Stale a agent file (gitignored, so the tree stays clean to merge into).
+    // Stale an agent file (gitignored, so the tree stays clean to merge into).
     await Deno.writeTextFile(
       join(wt, "CLAUDE.md"),
       "STALE — update must regenerate this\n",

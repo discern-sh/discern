@@ -623,7 +623,7 @@ export async function runChecks(
   // before the user wonders why their guidance/skills aren't picked up.
   {
     const sources = await resolveGuidanceSources(destDir, config);
-    // A configured source that IS a agent file would feed the compiler
+    // A configured source that IS an agent file would feed the compiler
     // its own output; resolution refuses those (see resolveGuidanceSources), so
     // an explicit listing deserves a named diagnostic, not a silent zero-match.
     const outputs = allGuidanceFilePaths();

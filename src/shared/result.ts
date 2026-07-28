@@ -145,7 +145,7 @@ export interface StepResult {
  *  - `tree_drift` — a gate stage left uncommitted changes on committed-clean
  *    tracked files (ADR 0047, extended to every stage by ADR 0148);
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
- *  - `guidance` / `skills` — a agent file / materialized skills dir is stale
+ *  - `guidance` / `skills` — an agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
  *  - `skill_frontmatter` — an effective skill's SKILL.md frontmatter fails the
  *    consumer contract (valid YAML with a non-empty `name`/`description`

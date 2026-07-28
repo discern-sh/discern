@@ -157,7 +157,7 @@ Deno.test("resolveGuidanceSources: a root whose path contains glob metacharacter
   }
 });
 
-Deno.test("resolveGuidanceSources: never admits a agent file, for any provider — glob or explicit", async () => {
+Deno.test("resolveGuidanceSources: never admits an agent file, for any provider — glob or explicit", async () => {
   // The compiler's own OUTPUTS must never round-trip back in as sources: a
   // pattern like "*.md" that also matches the AGENTS.md discern just wrote
   // would make every refresh embed the previous compiled body (unbounded

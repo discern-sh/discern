@@ -442,7 +442,7 @@ const GUIDANCE: Category = {
         "Run `discern refresh` to (re)compile them.",
       evaluate: (ctx): { status: "pass" | "fail"; detail: string } =>
         ctx.agentFilePresent
-          ? { status: "pass", detail: "a agent file is present" }
+          ? { status: "pass", detail: "an agent file is present" }
           : {
             status: "fail",
             detail: "no agent file found",
