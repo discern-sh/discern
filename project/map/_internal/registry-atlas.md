@@ -35,7 +35,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`logbook-events`](#logbook-events--logbook-events)                            | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)            | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                            | `scripts/glossary_registry.ts#GLOSSARY`                                        | 36      | —                | node `glossary-canon`       |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                            | `scripts/glossary_registry.ts#GLOSSARY`                                        | 37      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                               | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                      | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)             | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
@@ -384,7 +384,7 @@ The improvement catalog's categories, in display order; the runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 36
+- Members: 37
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface

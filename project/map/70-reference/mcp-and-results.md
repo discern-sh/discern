@@ -105,7 +105,7 @@ Map search covers every page visible to the agent-facing map, including a page m
 
 Undefined fields are omitted. Callers must branch first on `ok`, then on the literal `verb` when they need the verb-specific `data` payload.
 
-`start`, `status`, and a green `done` can carry `data.landing_authority`. Its `kind` is either `authorized` or `conversation-required`; an authorized result names the verified `source` and any covering `scopes`. A partial standing grant carries `standing_scopes` plus the changed paths it leaves `uncovered`. At `start`, standing scopes are prospective only: the final tree is checked again before any landing. With no recorded grant and no authority warning, the field stays absent.
+`start`, `status`, and a green `done` can carry `data.landing_authority`. Its `kind` is `authorized` or `conversation-required`; the remaining fields name the source, granted scopes, uncovered paths, and warnings. At `start`, standing scopes are prospective only. With no grant or warning, the field stays absent. [Landing authority](../30-worktrees/landing-authority.md) covers the resolution rules.
 
 ### Plans and executed steps
 
