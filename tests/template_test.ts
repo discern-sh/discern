@@ -27,6 +27,7 @@ function tokens(): TokenMap {
     map_dir: "docs/",
     gotchas_doc: "docs/80-development/done-gate-gotchas.md",
     scopes_neutral: '"${map.dir}", ".discern/", ".claude/"',
+    scopes_guidance: '"discern/guidance.md", "discern/skills/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
     kit_version: "0.1.0",

@@ -82,15 +82,20 @@ Deno.test("config reconciliation preserves existing customized values", async ()
 
 Deno.test("config reconciliation treats named record tables as project-owned", async () => {
   const template = await renderedTemplate();
-  const drifted = template.replace(
-    /# Paths that need no gate at all:[\s\S]*?neutral = true\n\n/u,
-    "",
+  const guidanceStart = template.indexOf("# Agent-instruction surfaces:");
+  const acceptanceHeading = template.indexOf(
+    "# [acceptance] — standing grants",
   );
+  const acceptanceStart = template.lastIndexOf("# ─", acceptanceHeading);
+  assert(guidanceStart >= 0 && acceptanceStart > guidanceStart);
+  const drifted = template.slice(0, guidanceStart) +
+    template.slice(acceptanceStart);
 
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
   assertEquals(result.operations, []);
-  assert(!/^\[scopes\.docs\]$/m.test(result.text));
+  assert(/^\[scopes\.docs\]$/m.test(result.text));
+  assert(!/^\[scopes\.guidance\]$/m.test(result.text));
 });
 
 const RULE = `# ${"─".repeat(77)}`;

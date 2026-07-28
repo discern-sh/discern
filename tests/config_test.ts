@@ -6,7 +6,10 @@
 
 import { assert, assertEquals } from "@std/assert";
 import {
-  defaultNeutralScopes,
+  defaultDocumentationScopePaths,
+  defaultDocumentationScopes,
+  defaultGuidanceScopePaths,
+  defaultGuidanceScopes,
   isValidSlug,
   parseAgents,
   parseSourceGlobs,
@@ -16,6 +19,10 @@ import {
 import { renderTomlStringList } from "../src/lib/toml_render.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { isNeutralPath } from "../src/engine/scopes/scopes.ts";
+import {
+  SOURCE_PATH_NAMES,
+  SOURCE_PATHS,
+} from "../src/shared/paths_registry.ts";
 
 Deno.test("isValidSlug accepts the documented shape and rejects the rest", () => {
   for (const ok of ["a", "my-app", "app2", "x-1-y"]) {
@@ -72,18 +79,23 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.agents_array, '"claude_code", "codex"');
   assertEquals(map.map_dir, "docs/discern/");
   assertEquals(map.scopes_web, '"src/**", "lib/**"');
-  // The neutral/previewable/gotchas defaults are fixed. Neutral names only the
-  // path-registry sources classified as non-executable plus each provider's
-  // exact materialized-skills directory.
+  // The neutral/previewable/gotchas defaults are fixed. Pure documentation and
+  // agent-instruction surfaces render through separate seed-scope tokens.
   assertEquals(
     map.scopes_neutral,
-    defaultNeutralScopes().join(", "),
+    defaultDocumentationScopes().join(", "),
   );
-  assertEquals(defaultNeutralScopes(), [
-    '"discern/guidance.md"',
+  assertEquals(
+    map.scopes_guidance,
+    defaultGuidanceScopes().join(", "),
+  );
+  assertEquals(defaultDocumentationScopes(), [
     '"${map.dir}"',
-    '"discern/skills/"',
     '"discern/TODO.md"',
+  ]);
+  assertEquals(defaultGuidanceScopes(), [
+    '"discern/guidance.md"',
+    '"discern/skills/"',
     '"discern/brief.md"',
     '".claude/skills/"',
     '".agents/skills/"',
@@ -91,28 +103,60 @@ Deno.test("tokensFromConfig produces the full token contract", () => {
   assertEquals(map.scopes_previewable, '"public/**"');
 });
 
-Deno.test("the fresh neutral scope stops at non-executable discern-owned paths", () => {
+Deno.test("every gate-neutral authored path belongs to exactly one seed scope", () => {
+  const docs = defaultDocumentationScopePaths();
+  const guidance = defaultGuidanceScopePaths();
+  for (const name of SOURCE_PATH_NAMES) {
+    const entry = SOURCE_PATHS[name];
+    if (!entry.gateNeutral) continue;
+    const path = name === "map"
+      ? "${map.dir}"
+      : entry.pathKind === "directory"
+      ? `${entry.defaultPath.replace(/\/+$/, "")}/`
+      : entry.defaultPath;
+    assertEquals(
+      Number(docs.includes(path)) + Number(guidance.includes(path)),
+      1,
+      `${name}: every gate-neutral authored path must belong to exactly one seed scope`,
+    );
+  }
+});
+
+Deno.test("the fresh neutral scopes separate pure docs from owner-reviewed instructions", () => {
   const config = parseConfigOrThrow(
     [
       "[scopes.docs]",
-      `paths = [${defaultNeutralScopes().join(", ")}]`,
+      `paths = [${defaultDocumentationScopes().join(", ")}]`,
+      "neutral = true",
+      "",
+      "[scopes.guidance]",
+      `paths = [${defaultGuidanceScopes().join(", ")}]`,
       "neutral = true",
       "",
     ].join("\n"),
   );
 
+  for (const path of ["discern/map/README.md", "discern/TODO.md"]) {
+    assert(isNeutralPath(config, path), `${path} should be neutral`);
+  }
+
   for (
     const path of [
-      "discern/map/README.md",
       "discern/guidance.md",
       "discern/skills/review/SKILL.md",
-      "discern/TODO.md",
       "discern/brief.md",
       ".claude/skills/review/SKILL.md",
       ".agents/skills/review/SKILL.md",
     ]
   ) {
     assert(isNeutralPath(config, path), `${path} should be neutral`);
+  }
+
+  for (const path of defaultDocumentationScopePaths()) {
+    assert(
+      !defaultGuidanceScopePaths().includes(path),
+      `${path} must not share the owner-reviewed guidance scope`,
+    );
   }
 
   for (

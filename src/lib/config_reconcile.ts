@@ -23,7 +23,11 @@ import {
   sectionNamesFromTemplate,
 } from "./config_template.ts";
 import { substituteTokens, type TokenMap } from "./template.ts";
-import { defaultNeutralScopes, DEFAULTS } from "./config.ts";
+import {
+  defaultDocumentationScopes,
+  defaultGuidanceScopes,
+  DEFAULTS,
+} from "./config.ts";
 import { KIT_VERSION } from "./version.ts";
 import type { EnvReader } from "../shared/env.ts";
 import {
@@ -155,7 +159,8 @@ export function renderConfigTemplateForConfig(
     agents_array: renderTomlStringList(resolveConfiguredAgents(config)),
     map_dir: config.map.dir,
     gotchas_doc: config.project.gotchas_doc,
-    scopes_neutral: defaultNeutralScopes().join(", "),
+    scopes_neutral: defaultDocumentationScopes().join(", "),
+    scopes_guidance: defaultGuidanceScopes().join(", "),
     scopes_web: renderTomlStringList([...DEFAULTS.sourceGlobs]),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     kit_version: KIT_VERSION,

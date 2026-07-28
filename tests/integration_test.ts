@@ -16,7 +16,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { assembleInitPlan } from "../src/commands/setup.ts";
-import type { SetupConfig } from "../src/lib/config.ts";
+import {
+  defaultDocumentationScopePaths,
+  defaultGuidanceScopePaths,
+  type SetupConfig,
+} from "../src/lib/config.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { parseDiscernToml } from "../src/lib/toml_render.ts";
 import { schemaFromRaw } from "../src/lib/schema.ts";
@@ -67,6 +71,20 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       [],
       `unresolved content token(s) in discern.toml: ${leaked.join(", ")}`,
     );
+    const scopes = toml.raw.scopes as Record<
+      string,
+      { paths?: unknown; neutral?: unknown }
+    >;
+    assertEquals(Object.keys(scopes), ["docs", "guidance"]);
+    assertEquals(scopes.docs?.paths, defaultDocumentationScopePaths());
+    assertEquals(scopes.docs?.neutral, true);
+    assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
+    assertEquals(scopes.guidance?.neutral, true);
+    const acceptance = toml.raw.acceptance as
+      | { pre_authorized?: unknown }
+      | undefined;
+    assertEquals(acceptance?.pre_authorized, []);
+    assertStringIncludes(tomlText, 'pre_authorized = [] # e.g. ["docs"]');
 
     // 2. The schema version is stamped into the config's [meta] block.
     assertEquals(schemaFromRaw(toml.raw), SCHEMA_VERSION);

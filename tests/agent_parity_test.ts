@@ -37,7 +37,7 @@ import {
   providerFor,
   providersWithHooks,
 } from "../src/lib/providers.ts";
-import { defaultNeutralScopes } from "../src/lib/config.ts";
+import { defaultGuidanceScopes } from "../src/lib/config.ts";
 import {
   canonicalDiscernGitignoreBlock,
   ignoreCovers,
@@ -484,12 +484,12 @@ Deno.test("every rule in the canonical block maps to a registry-declared materia
   }
 });
 
-Deno.test("the seed neutral scopes neutralize EVERY known agent's materialized skills dir", () => {
-  const neutral = defaultNeutralScopes(); // TOML-quoted, e.g. '".claude/skills/"'
+Deno.test("the seed guidance scope neutralizes EVERY known agent's materialized skills dir", () => {
+  const guidance = defaultGuidanceScopes(); // TOML-quoted, e.g. '".claude/skills/"'
   for (const dir of neutralAgentScopePaths()) {
     assert(
-      neutral.includes(`"${dir}"`),
-      `defaultNeutralScopes() does not neutralize ${dir} — a materialized skill ` +
+      guidance.includes(`"${dir}"`),
+      `defaultGuidanceScopes() does not neutralize ${dir} — a materialized skill ` +
         `would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
     );
   }
@@ -529,8 +529,8 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       );
       const scopePath = `${p.skillsDir.path.replace(/\/+$/, "")}/`;
       assert(
-        defaultNeutralScopes().includes(`"${scopePath}"`),
-        `${name}: materialized skills dir ${scopePath} not in the seed neutral scopes`,
+        defaultGuidanceScopes().includes(`"${scopePath}"`),
+        `${name}: materialized skills dir ${scopePath} not in the seed guidance scope`,
       );
     }
 

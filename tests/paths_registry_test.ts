@@ -117,6 +117,7 @@ Deno.test("the shipped template's path values equal the registry defaults", asyn
     agents_array: '"claude_code", "codex"',
     map_dir: SOURCE_PATHS.map.defaultPath,
     scopes_neutral: '"${map.dir}"',
+    scopes_guidance: '"discern/guidance.md", "discern/skills/"',
     scopes_previewable: '"public/**"',
     kit_version: "0.0.0",
     project_name: "Demo",
