@@ -12,6 +12,52 @@ import type { EnvReader } from "../shared/env.ts";
 const DEFAULT_TERMINAL_WIDTH = 80;
 const ESC = String.fromCharCode(27);
 const ANSI_CSI = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+const MARK = /\p{Mark}/u;
+const PICTOGRAPH = /\p{Extended_Pictographic}/u;
+
+/** Whether one Unicode scalar is conventionally two terminal columns. */
+function isWideCodePoint(code: number): boolean {
+  return code >= 0x1100 &&
+    (
+      code <= 0x115f ||
+      code === 0x2329 ||
+      code === 0x232a ||
+      (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
+      (code >= 0xac00 && code <= 0xd7a3) ||
+      (code >= 0xf900 && code <= 0xfaff) ||
+      (code >= 0xfe10 && code <= 0xfe19) ||
+      (code >= 0xfe30 && code <= 0xfe6f) ||
+      (code >= 0xff00 && code <= 0xff60) ||
+      (code >= 0xffe0 && code <= 0xffe6) ||
+      (code >= 0x1b000 && code <= 0x1b2ff) ||
+      (code >= 0x1f200 && code <= 0x1f251) ||
+      (code >= 0x20000 && code <= 0x3fffd)
+    );
+}
+
+/** Terminal width of one extended grapheme cluster. */
+function graphemeWidth(grapheme: string): number {
+  if (PICTOGRAPH.test(grapheme)) {
+    return 2;
+  }
+  for (const scalar of grapheme) {
+    const code = scalar.codePointAt(0) ?? 0;
+    if (
+      MARK.test(scalar) ||
+      code === 0x200d ||
+      (code >= 0xfe00 && code <= 0xfe0f) ||
+      (code >= 0xe0100 && code <= 0xe01ef)
+    ) {
+      continue;
+    }
+    if (code === 0 || code < 0x20 || (code >= 0x7f && code < 0xa0)) {
+      return 0;
+    }
+    return isWideCodePoint(code) ? 2 : 1;
+  }
+  return 0;
+}
 
 /** Injectable boundaries for resolving the current terminal width. */
 export interface TerminalWidthOptions {
@@ -50,11 +96,16 @@ export function terminalWidth(options: TerminalWidthOptions = {}): number {
 }
 
 /**
- * Visible terminal columns in `text`: ANSI CSI escapes count as zero and each
- * remaining Unicode code point counts as one.
+ * Visible terminal columns in `text`: ANSI CSI escapes, controls, combining
+ * marks, and joiners count as zero; CJK/full-width and emoji graphemes count as
+ * two; other graphemes count as one.
  */
 export function displayWidth(text: string): number {
-  return [...text.replace(ANSI_CSI, "")].length;
+  let width = 0;
+  for (const { segment } of GRAPHEMES.segment(text.replace(ANSI_CSI, ""))) {
+    width += graphemeWidth(segment);
+  }
+  return width;
 }
 
 /**

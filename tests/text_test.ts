@@ -8,10 +8,15 @@ import {
 
 const ESC = String.fromCharCode(27);
 
-Deno.test("displayWidth ignores ANSI while retaining Unicode glyph width", () => {
+Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", () => {
   assertEquals(displayWidth("plain"), 5);
   assertEquals(displayWidth(`${ESC}[31mred${ESC}[0m`), 3);
   assertEquals(displayWidth("→ good"), 6);
+  assertEquals(displayWidth("e\u0301"), 1);
+  assertEquals(displayWidth("界"), 2);
+  assertEquals(displayWidth("A界"), 3);
+  assertEquals(displayWidth("👩‍💻"), 2);
+  assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
 });
 
 Deno.test("wrapText handles narrow, exact, long-token, empty, and hanging-indent cases", () => {
@@ -37,6 +42,11 @@ Deno.test("wrapText measures styled words by display width", () => {
     wrapText(`${styled} news today`, 9, "  "),
     [`${styled} news`, "  today"],
   );
+});
+
+Deno.test("wrapText measures wide and combining graphemes by terminal columns", () => {
+  assertEquals(wrapText("界界 a", 5), ["界界", "a"]);
+  assertEquals(wrapText("e\u0301 e\u0301", 3), ["e\u0301 e\u0301"]);
 });
 
 Deno.test("terminalWidth resolves console, environment, and conventional fallback", () => {
