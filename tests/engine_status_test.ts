@@ -461,6 +461,42 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
   });
 });
 
+Deno.test("status fleet (human): representative table rendering is pinned", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const r = await runAgent(dir, ["status"]);
+    assertEquals(r.code, 0, r.output);
+    const start = r.output.indexOf("\n  WORKTREE");
+    const caption =
+      "  Other worktrees are separate lines of work — don't start work in one you didn't create.";
+    const captionStart = r.output.indexOf(caption);
+    assert(start >= 0, `fleet header missing: ${r.output}`);
+    assert(captionStart >= 0, `fleet caption missing: ${r.output}`);
+    const block = r.output.slice(
+      start,
+      captionStart + caption.length + 1,
+    ).replaceAll(
+      /\b(?:just now|\d+(?:mo|[mhdwy]) ago)\b/g,
+      "<age>",
+    );
+
+    assertEquals(
+      block,
+      [
+        "",
+        "  WORKTREE  BRANCH       STATE  AHEAD/BEHIND  LAST ACTIVITY",
+        "  (main)    main         clean  —             <age> ← you",
+        "  alpha     agent/alpha  clean  0/0           <age>",
+        caption,
+        "",
+      ].join("\n"),
+    );
+  });
+});
+
 Deno.test("status fleet (human): a long worktree id and branch are shown in full, never truncated", async () => {
   // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
   // `discern worktree drop <id>` / a `git …<branch>` command. A fixed-width column
