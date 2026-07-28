@@ -264,10 +264,14 @@ function hasConfigPath(obj: unknown, path: string): boolean {
 }
 
 /**
- * Fixed template sections the repo must leave absent because writing them is an
- * owner decision, not scaffold parity. The section prefix enrolls future keys.
+ * Owner-decided template sections: scaffold parity never fills them, and the
+ * repo carries each only as the exact value the owner recorded. Changing one is
+ * a consent change — amend the record here, deliberately, in its own commit.
+ * (Jack, 2026-07-28: green docs-scope changes land without a conversation.)
  */
-const ROOT_CONFIG_OWNER_DECISION_SECTIONS = new Set(["acceptance"]);
+const ROOT_CONFIG_OWNER_DECISIONS: Record<string, unknown> = {
+  acceptance: { pre_authorized: ["docs"] },
+};
 
 // Makes the "a new template key (like [worktree.setup].ensure) is forgotten in the
 // repo's own config" class of drift impossible: it walks the keys the template
@@ -278,19 +282,24 @@ Deno.test("the repo's own discern.toml carries every fixed key the template ship
   const root = parseToml(
     await Deno.readTextFile(new URL("../discern.toml", import.meta.url)),
   );
-  for (const section of ROOT_CONFIG_OWNER_DECISION_SECTIONS) {
+  for (
+    const [section, decision] of Object.entries(ROOT_CONFIG_OWNER_DECISIONS)
+  ) {
     assert(
       hasConfigPath(template, section),
       `owner-decision exception names no template section: ${section}`,
     );
-    assert(
-      !hasConfigPath(root, section),
-      `discern.toml must leave [${section}] to an explicit owner decision`,
+    assertEquals(
+      root[section],
+      decision,
+      `discern.toml [${section}] must match the recorded owner decision — ` +
+        `a grant change is a consent change; amend the record in this test ` +
+        `deliberately, in its own commit`,
     );
   }
   const missing = fixedKeyPaths(template).filter((p) => {
     const section = p.split(".")[0] ?? "";
-    return !ROOT_CONFIG_OWNER_DECISION_SECTIONS.has(section) &&
+    return !Object.hasOwn(ROOT_CONFIG_OWNER_DECISIONS, section) &&
       !hasConfigPath(root, p);
   });
   assertEquals(
