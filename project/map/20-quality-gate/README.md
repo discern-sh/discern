@@ -26,8 +26,8 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [The receipt](the-receipt.md)                     | Understand the proof a clean green run hands to the reviewer.               |
 | [Strand detection](strand-detection.md)           | Fix tracked files a gate stage changed after the final commit.              |
 | [Run the gate in CI](ci.md)                       | Require the same gate on pull requests and trunk pushes.                    |
-| [The fleet test-run cap](concurrent-test-runs.md) | Queue concurrent test-stage runs so parallel agents share one machine.      |
 | [Continuous improvement](improvement.md)          | Find the highest-value practice to improve after the current change passes. |
 | [Co-change coupling](coupling.md)                 | Check whether this change omitted a file that usually moves with it.        |
 | [Practice patterns](patterns.md)                  | Read what the logbook shows about how agents drive discern here.            |
 | [`discern tidy`](tidy.md)                         | Format discern-owned Markdown and TOML directly or through the format job.  |
+| [The fleet test-run cap](concurrent-test-runs.md) | Queue concurrent test-stage runs so parallel agents share one machine.      |
