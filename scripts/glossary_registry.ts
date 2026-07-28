@@ -283,7 +283,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Logbook",
     definition:
-      "The local record of discern's own use: one metadata-only line per verb run, appended under `.git` and shared by a repository's worktrees ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).",
+      "The local record of discern's own use. With recording on and a readable `discern.toml`, it adds one metadata-only line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. The repository's worktrees share the lines under `.git` ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). The logbook never leaves your machine, and a test in discern's own gate keeps its code free of any network path. `[project].logbook = false` stops all writes. Covered in [The logbook](../70-reference/the-logbook.md).",
   },
   {
     term: "Map",
