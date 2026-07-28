@@ -1,6 +1,8 @@
 ## Isolated worktree workflow
 
-discern keeps each task in its own **linked git worktree** so parallel work doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.{{/if}}
+discern keeps each task in its own **linked git worktree** so parallel work doesn't collide.{{#if has_worktree_resources}} It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.{{else}}
+
+No per-worktree resources are configured. If parallel worktrees collide over shared state (a database, a port), the `[worktree.resources]` table isolates it per worktree.{{/if}}
 
 - **`discern_start`** — from the main checkout, create your isolated worktree (branch prefix `{{branch_prefix}}`, forked from `{{main_branch}}`) and re-root into the returned path: cd in, or start a session there. Can't change your working root? Prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Already in a worktree? Stay there.
 - **`discern_update`** brings `{{main_branch}}` into your branch when behind and reports upstream overlap. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
