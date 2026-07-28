@@ -9,9 +9,9 @@
  *      an exact site count, so a new spawner (or a new site inside an old
  *      home) fails here until it registers and declares its interrupt
  *      contract;
- *   2. a git spawn (`gitBin()` or a literal) funnels through the shared
- *      runGit home, so GIT_BIN handling, output decoding, and the
- *      spawn-failure fallback stay single-sourced;
+ *   2. a git spawn (`gitBin()` or a literal) lives in a registered Git home:
+ *      ordinary commands use runGit, while the attributed commit boundary owns
+ *      the only commit spawn;
  *   3. a literal `sh` spawn funnels through the homes registered for the
  *      shell — route a buffered shell command through runShell().
  */
@@ -111,7 +111,7 @@ Deno.test("every declared interrupt surface id is unique across homes", () => {
 /** A `new Deno.Command(…)` whose binary is git: the gitBin() resolver or a literal. */
 const GIT_SPAWN = /new Deno\.Command\(\s*(?:gitBin\(\)|["']git["'])/;
 
-Deno.test("every git spawn funnels through the shared runGit", async () => {
+Deno.test("every git spawn lives in a registered Git home", async () => {
   const gitHomes = homesThatMaySpawn("git");
   const offenders: string[] = [];
   for (const [rel, text] of await tsFiles(SRC, REPO_ROOT)) {
@@ -123,7 +123,8 @@ Deno.test("every git spawn funnels through the shared runGit", async () => {
     [],
     `git is spawned outside ${
       [...gitHomes].join(", ")
-    } — route it through runGit():\n  ${offenders.join("\n  ")}`,
+    } — route ordinary commands through runGit(), or use the attributed ` +
+      `commit boundary:\n  ${offenders.join("\n  ")}`,
   );
 });
 

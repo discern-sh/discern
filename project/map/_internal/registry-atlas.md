@@ -30,6 +30,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`agent-providers`](#agent-providers--agent-providers)                                  | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                    | 5       | —                | surface `agent`             |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                    | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)        | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                   | 3       | —                | —                           |
+| [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)    | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                         | 3       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)          | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                          | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                | `src/shared/hints.ts#HINTS`                                                    | 136     | "Advisory"       | node `hints`                |
@@ -52,12 +53,12 @@ One row per set, in registry order; the sections below follow the same order and
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                         | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                      | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored) | —       | —                | node `gotchas-pointer`      |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
-| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                     | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
+| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                     | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)           | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                      | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                     | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 44      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                     | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 45      | —                | node `canonical-sets`       |
 
-44 sets · 71 guard tests · 18 committed artifacts.
+45 sets · 72 guard tests · 18 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -136,6 +137,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/vocab_drift_test.ts`                | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                            |
 | `tests/voice_vale_parity_test.ts`          | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                                                |
 | `tests/worktree_tokens_test.ts`            | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                                                                                                                                                                                                                                 |
+| `tests/writer_boundary_enrolment_test.ts`  | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites), [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                                                                                                                                         |
 
 ## Generated artifacts
 
@@ -340,9 +342,19 @@ The workflows whose diffs discern composes and commits: setup wiring, setup comp
 
 - Source: `src/shared/discern_commit.ts` — `DISCERN_AUTHORED_COMMIT_SITES`
 - Members: 3
-- Guards: `tests/discern_commit_enrolment_test.ts`
+- Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — an internal provenance boundary over existing commands, not product vocabulary
 - Feature canon: not enrolled — cross-cutting commit metadata for setup and standards, not a separate product feature
+
+## `restricted-writer-modules` — Restricted writer modules
+
+The shipped capability modules whose importers are restricted: attributed commits, human effort grants, and effort-grant cleanup.
+
+- Source: `tests/writer_boundaries.ts` — `RESTRICTED_WRITER_MODULES`
+- Members: 3
+- Guards: `tests/writer_boundary_enrolment_test.ts`
+- Glossary: not enrolled — an internal authority relationship over existing workflows, not product vocabulary
+- Feature canon: not enrolled — cross-cutting enforcement for existing workflows, not a separate product feature
 
 ## `setup-completion-checks` — Setup completion checks
 
@@ -577,7 +589,7 @@ The generated third-party notice artifacts and their license cache.
 Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.
 
 - Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
-- Members: 7
+- Members: 8
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — an internal subprocess-ownership contract, not product vocabulary
 - Feature canon: described by the `interruption-safety` node
@@ -607,7 +619,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 44
+- Members: 45
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

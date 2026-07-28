@@ -54,6 +54,16 @@ export const SPAWN_HOMES = [
     },
   },
   {
+    home: "src/shared/discern_commit.ts",
+    sites: 1,
+    may: ["git"],
+    interrupt: {
+      exempt:
+        "the attributed, pathspec-limited commit of a discern-composed diff — " +
+        "a bounded git write that exits on its own.",
+    },
+  },
+  {
     home: "src/shared/third_party_codegen.ts",
     sites: 1,
     may: ["other"],

@@ -553,7 +553,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/discern_commit.ts",
       exportName: "DISCERN_AUTHORED_COMMIT_SITES",
     },
-    guards: ["tests/discern_commit_enrolment_test.ts"],
+    guards: [
+      "tests/discern_commit_enrolment_test.ts",
+      "tests/writer_boundary_enrolment_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -569,7 +572,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.values(
         (await import("../src/shared/discern_commit.ts"))
           .DISCERN_AUTHORED_COMMIT_SITES,
-      ),
+      ).map((site) => site.id),
+  },
+  {
+    id: "restricted-writer-modules",
+    title: "Restricted writer modules",
+    what:
+      "The shipped capability modules whose importers are restricted: attributed commits, human effort grants, and effort-grant cleanup.",
+    source: {
+      kind: "module",
+      module: "tests/writer_boundaries.ts",
+      exportName: "RESTRICTED_WRITER_MODULES",
+    },
+    guards: ["tests/writer_boundary_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal authority relationship over existing workflows, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "cross-cutting enforcement for existing workflows, not a separate product feature",
+      },
+    },
+    members: async () =>
+      (await import("../tests/writer_boundaries.ts"))
+        .RESTRICTED_WRITER_MODULES.map((boundary) => boundary.id),
   },
   {
     id: "setup-completion-checks",

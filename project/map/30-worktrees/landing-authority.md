@@ -55,7 +55,7 @@ No grant and no authority warning leave the field absent. That default preserves
 | Shared resolution and projection | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
 | Consent-source vocabulary        | [`consent.ts`](../../../src/shared/consent.ts)                                            |
 | Standing-grant configuration     | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                |
-| Per-effort grant record          | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
+| Per-effort grant reader          | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
 | Lifecycle result schema          | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                              |
 | Cross-surface guard              | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
 

@@ -1,20 +1,22 @@
 /**
- * The single home for spawning the external processes the engine drives: git and
- * operator-supplied shell commands.
+ * Shared subprocess mechanics for the ordinary Git commands and
+ * operator-supplied shell commands the engine drives.
  *
- * Every git invocation funnels through {@link runGit} and every buffered shell
- * command through {@link runShell}, so the GIT_BIN override, the `sh -c`
- * invocation, the empty-command `:` no-op ({@link shellCommand}), output decoding,
- * and the "could not spawn" fallback ({@link SPAWN_FAILED}, whose stderr carries
- * the REAL spawn error via {@link describeSpawnError}) are each defined once. With
- * a single git resolver the GIT_BIN override is honored at every call site.
+ * Every ordinary Git invocation funnels through {@link runGit} and every
+ * buffered shell command through {@link runShell}. The GIT_BIN resolver,
+ * `sh -c` invocation, empty-command `:` no-op ({@link shellCommand}), and
+ * "could not spawn" vocabulary ({@link SPAWN_FAILED} and
+ * {@link describeSpawnError}) stay shared. Discern-authored commits are the one
+ * narrower Git-spawn exception: the attributed commit boundary owns that
+ * command, and this generic runner refuses the subcommand before invoking Git.
  *
  * Two specialised shell spawners live outside this module by necessity and are
  * named in the guard: the gate's streaming, cancellable job runner
  * (engine/jobs/command.ts) and the logger-routed setup-step runner
  * (engine/worktree/shell.ts), which reserves its parent's stdout for a machine
  * result. An architectural guard (tests/engine_subprocess_ssot_test.ts) fails the
- * gate on a raw git or `sh -c` spawn anywhere else, pointing the author back here.
+ * gate on an unregistered raw Git or `sh -c` spawn, pointing ordinary calls
+ * back here and commits to their attributed boundary.
  */
 
 import { selfShimPath } from "./self_shim.ts";
@@ -63,6 +65,129 @@ export interface GitResult {
   stderr: string;
 }
 
+/** Diagnostic returned when generic Git execution reaches for commit authority. */
+export const GIT_COMMIT_BOUNDARY_ERROR =
+  "`git commit` must use discern's attributed commit boundary " +
+  "(commitDiscernChanges()).";
+
+/** Diagnostic returned when inline config tries to introduce a Git alias. */
+export const GIT_ALIAS_BOUNDARY_ERROR =
+  "Git alias configuration cannot run through the generic Git runner. " +
+  "Call the Git subcommand directly.";
+
+type GitConfigSource = "config" | "config-env" | "other";
+
+/** Global Git options whose next argv member is data, not the subcommand. */
+const GIT_GLOBAL_VALUE_OPTIONS = new Map<string, GitConfigSource>([
+  ["-C", "other"],
+  ["-c", "config"],
+  ["--git-dir", "other"],
+  ["--work-tree", "other"],
+  ["--namespace", "other"],
+  ["--super-prefix", "other"],
+  ["--config-env", "config-env"],
+]);
+
+/** Equals-form global options whose suffix is data, not the subcommand. */
+const GIT_GLOBAL_EQUALS_OPTIONS = [
+  ["--git-dir=", "other"],
+  ["--work-tree=", "other"],
+  ["--namespace=", "other"],
+  ["--super-prefix=", "other"],
+  ["--config-env=", "config-env"],
+  ["--exec-path=", "other"],
+] as const satisfies readonly (readonly [string, GitConfigSource])[];
+
+/** Global query options that exit before Git dispatches any subcommand. */
+const GIT_TERMINAL_GLOBAL_OPTIONS = new Set([
+  "-v",
+  "--version",
+  "-h",
+  "--help",
+  "--exec-path",
+  "--html-path",
+  "--man-path",
+  "--info-path",
+]);
+
+interface GitInvocation {
+  readonly subcommand: string;
+  readonly subcommandIndex: number;
+  readonly inlineConfigKeys: readonly string[];
+}
+
+/** The case-insensitive config key before its `=value` or `=environment`. */
+function gitConfigKey(value: string): string {
+  const separator = value.indexOf("=");
+  return (separator === -1 ? value : value.slice(0, separator))
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Resolve Git's actual subcommand after its global options. Values belonging to
+ * `-C`, `-c`, and the long path/config options are data: a ref or directory
+ * named `commit` there must not acquire commit authority by accident.
+ */
+function gitInvocation(args: readonly string[]): GitInvocation | undefined {
+  const inlineConfigKeys: string[] = [];
+  let index = 0;
+  while (index < args.length) {
+    const arg = args[index];
+    if (arg === undefined || arg === "--") return undefined;
+    if (
+      GIT_TERMINAL_GLOBAL_OPTIONS.has(arg) ||
+      arg.startsWith("--list-cmds=")
+    ) {
+      return undefined;
+    }
+
+    const valueSource = GIT_GLOBAL_VALUE_OPTIONS.get(arg);
+    if (valueSource !== undefined) {
+      const value = args[index + 1];
+      if (value === undefined) return undefined;
+      if (valueSource !== "other") {
+        inlineConfigKeys.push(gitConfigKey(value));
+      }
+      index += 2;
+      continue;
+    }
+
+    if (arg.startsWith("-c") && arg.length > 2) {
+      inlineConfigKeys.push(gitConfigKey(arg.slice(2)));
+      index += 1;
+      continue;
+    }
+    if (arg.startsWith("-C") && arg.length > 2) {
+      index += 1;
+      continue;
+    }
+
+    const equalsOption = GIT_GLOBAL_EQUALS_OPTIONS.find(([prefix]) =>
+      arg.startsWith(prefix)
+    );
+    if (equalsOption !== undefined) {
+      const [prefix, source] = equalsOption;
+      if (source === "config-env") {
+        inlineConfigKeys.push(gitConfigKey(arg.slice(prefix.length)));
+      }
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      index += 1;
+      continue;
+    }
+    return {
+      subcommand: arg,
+      subcommandIndex: index,
+      inlineConfigKeys,
+    };
+  }
+  return undefined;
+}
+
 /**
  * Run a git subcommand, capturing stdout+stderr. `cwd` is the required directory
  * git runs in (the equivalent of `-C`), so the checkout a git call targets is part
@@ -78,10 +203,39 @@ export async function runGit(
   args: string[],
   opts: { cwd: string; env?: Record<string, string> },
 ): Promise<GitResult> {
+  const invocation = gitInvocation(args);
+  if (invocation?.subcommand === "commit") {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: GIT_COMMIT_BOUNDARY_ERROR,
+    };
+  }
+  if (
+    invocation?.inlineConfigKeys.some((key) => key.startsWith("alias.")) ??
+      false
+  ) {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: GIT_ALIAS_BOUNDARY_ERROR,
+    };
+  }
+  // A configured alias is another spelling for an arbitrary command. Override
+  // the resolved subcommand's alias after all caller-supplied global options:
+  // built-ins still run, while an alias-only name fails instead of expanding.
+  const safeArgs = invocation === undefined ? args : [
+    ...args.slice(0, invocation.subcommandIndex),
+    "-c",
+    `alias.${invocation.subcommand}=`,
+    ...args.slice(invocation.subcommandIndex),
+  ];
   let output: Deno.CommandOutput;
   try {
     output = await new Deno.Command(gitBin(), {
-      args,
+      args: safeArgs,
       cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
       stdout: "piped",

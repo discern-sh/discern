@@ -345,7 +345,7 @@ async function prepareWithGotchas(root: string): Promise<BlackBoxRun> {
 
 /** The desk's launch wiring (owned_child.ts via desk/desk.ts): the inverse
  * contract — the child tree dies, the desk session survives. Driven through
- * the real DEFAULT_DESK_RUNTIME.interactive by a fixture that self-signals
+ * the real desk interactive-child boundary by a fixture that self-signals
  * its own PID and reports back. */
 async function assertDeskInterruptReapsAndResumes(
   signal: Deno.Signal,

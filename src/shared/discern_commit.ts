@@ -9,21 +9,47 @@
 
 import { DISCERN_BOT } from "./brand.ts";
 import { discernCommitAttributionEnabled, type EnvReader } from "./env.ts";
-import { type GitResult, runGit } from "./subprocess.ts";
+import {
+  describeSpawnError,
+  gitBin,
+  type GitResult,
+  SPAWN_FAILED,
+} from "./subprocess.ts";
+
+export interface DiscernAuthoredCommitSiteDefinition {
+  readonly id: string;
+  /** Shipped module allowed to import the commit capability for this site. */
+  readonly callerModule: `src/${string}.ts`;
+}
 
 /** Every workflow whose diff discern itself composes and commits. */
 export const DISCERN_AUTHORED_COMMIT_SITES = {
-  scaffoldWiring: "scaffold-wiring",
-  setupCompletion: "setup-completion",
-  standardsPin: "standards-pin",
-} as const;
+  scaffoldWiring: {
+    id: "scaffold-wiring",
+    callerModule: "src/commands/setup.ts",
+  },
+  setupCompletion: {
+    id: "setup-completion",
+    callerModule: "src/commands/setup.ts",
+  },
+  standardsPin: {
+    id: "standards-pin",
+    callerModule: "src/engine/gate/standards.ts",
+  },
+} as const satisfies Readonly<
+  Record<string, DiscernAuthoredCommitSiteDefinition>
+>;
 
 export type DiscernAuthoredCommitSite = typeof DISCERN_AUTHORED_COMMIT_SITES[
   keyof typeof DISCERN_AUTHORED_COMMIT_SITES
 ];
 
+const authoredCommitSites = new Set<DiscernAuthoredCommitSite>(
+  Object.values(DISCERN_AUTHORED_COMMIT_SITES),
+);
+
 export interface DiscernCommitOptions {
-  /** Canonical workflow identity; the enrolment guard holds one call per site. */
+  /** Canonical workflow identity; its registry entry also enrolls the caller. */
   readonly site: DiscernAuthoredCommitSite;
   readonly cwd: string;
   readonly subject: string;
@@ -54,13 +80,22 @@ export function discernCommitMessage(
 export async function commitDiscernChanges(
   options: DiscernCommitOptions,
 ): Promise<GitResult> {
+  if (!authoredCommitSites.has(options.site)) {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: "The discern-authored commit site is not registered in " +
+        "DISCERN_AUTHORED_COMMIT_SITES.",
+    };
+  }
   if (options.pathspecs.length === 0) {
     return {
       success: false,
       code: 2,
       stdout: "",
       stderr:
-        `discern-authored commit site '${options.site}' has no pathspecs; refusing an unscoped commit`,
+        `discern-authored commit site '${options.site.id}' has no pathspecs; refusing an unscoped commit`,
     };
   }
   const message = discernCommitMessage(
@@ -68,8 +103,28 @@ export async function commitDiscernChanges(
     options.body,
     options.env,
   );
-  return await runGit(
-    ["commit", "-m", message, "--", ...options.pathspecs],
-    { cwd: options.cwd },
-  );
+  const bin = gitBin();
+  let output: Deno.CommandOutput;
+  try {
+    output = await new Deno.Command(bin, {
+      args: ["commit", "-m", message, "--", ...options.pathspecs],
+      cwd: options.cwd,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+  } catch (error) {
+    return {
+      success: false,
+      code: SPAWN_FAILED,
+      stdout: "",
+      stderr: describeSpawnError(error, bin),
+    };
+  }
+  const decoder = new TextDecoder();
+  return {
+    success: output.success,
+    code: output.code,
+    stdout: decoder.decode(output.stdout),
+    stderr: decoder.decode(output.stderr),
+  };
 }

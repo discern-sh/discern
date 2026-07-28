@@ -176,7 +176,7 @@ import {
   prospectiveLandingAuthorityProjection,
   uncoveredLandingAuthorityDetails,
 } from "./landing_authority.ts";
-import { clearEffortGrant } from "./effort_grant.ts";
+import { clearEffortGrant } from "./effort_grant_cleanup.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {

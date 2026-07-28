@@ -1,12 +1,13 @@
 /**
- * The worktree-scoped landing grant written only by the interactive desk.
+ * Read the worktree-scoped landing grant. Mutation capabilities live in
+ * separately enrolled modules: the interactive desk owns grant creation, while
+ * desk revocation and successful acceptance share the cleanup capability.
  *
  * The marker resolves through GIT_ADMIN_STATE, so it lives under this linked
  * worktree's Git administrative directory and disappears when Git removes the
- * worktree. Agent-run CLI and MCP surfaces may read it, but expose no writer.
+ * worktree.
  */
 
-import { dirname } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 
 export interface EffortGrant {
@@ -19,10 +20,6 @@ export type EffortGrantRead =
   | { readonly status: "missing" }
   | { readonly status: "invalid"; readonly reason: string }
   | { readonly status: "unavailable"; readonly reason: string };
-
-export type EffortGrantWrite =
-  | { readonly status: "granted"; readonly grant: EffortGrant }
-  | { readonly status: "already_granted"; readonly grant: EffortGrant };
 
 function failureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -78,63 +75,5 @@ export async function readEffortGrant(cwd: string): Promise<EffortGrantRead> {
       return { status: "missing" };
     }
     return { status: "unavailable", reason: failureReason(error) };
-  }
-}
-
-/**
- * Record a desk-granted landing authority. Repeating the same grant is a no-op;
- * a branch rename replaces stale state with the human's current decision.
- */
-export async function grantEffort(
-  cwd: string,
-  branch: string,
-  grantedAt = new Date().toISOString(),
-): Promise<EffortGrantWrite> {
-  const current = await readEffortGrant(cwd);
-  if (current.status === "granted" && current.grant.branch === branch) {
-    return { status: "already_granted", grant: current.grant };
-  }
-  const path = await gitAdminStatePath(cwd, "effortGrant");
-  if (path === undefined) {
-    throw new Error("Git could not resolve the effort-grant path.");
-  }
-  const grant: EffortGrant = { branch, granted_at: grantedAt };
-  await Deno.mkdir(dirname(path), { recursive: true });
-  const temp = `${path}.tmp-${crypto.randomUUID()}`;
-  let cleanupError: unknown;
-  try {
-    await Deno.writeTextFile(temp, `${JSON.stringify(grant)}\n`, {
-      createNew: true,
-    });
-    await Deno.rename(temp, path);
-  } finally {
-    try {
-      await Deno.remove(temp);
-    } catch (error) {
-      if (!(error instanceof Deno.errors.NotFound)) {
-        cleanupError = error;
-      }
-    }
-  }
-  if (cleanupError !== undefined) {
-    throw cleanupError;
-  }
-  return { status: "granted", grant };
-}
-
-/** Revoke this worktree's grant. Repeating the revoke is a no-op. */
-export async function clearEffortGrant(cwd: string): Promise<boolean> {
-  const path = await gitAdminStatePath(cwd, "effortGrant");
-  if (path === undefined) {
-    return false;
-  }
-  try {
-    await Deno.remove(path);
-    return true;
-  } catch (error) {
-    if (error instanceof Deno.errors.NotFound) {
-      return false;
-    }
-    throw error;
   }
 }

@@ -68,11 +68,11 @@ import {
   type DeskRow,
 } from "./model.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
+import { clearEffortGrant } from "../worktree/effort_grant_cleanup.ts";
 import {
-  clearEffortGrant,
   type EffortGrantWrite,
   grantEffort,
-} from "../worktree/effort_grant.ts";
+} from "../worktree/effort_grant_writer.ts";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
 const REFRESH = "\x00refresh";
@@ -92,9 +92,9 @@ type DeskSelectOptions = SelectPromptOptions<string>;
 type DeskMaybePromise<T> = T | Promise<T>;
 
 /** The terminal and effect boundary behind the desk's interactive session.
- * Production uses {@link DEFAULT_DESK_RUNTIME}; tests replace it with a scripted
- * runtime so every supervisory path is exercised without pretending a pipe is a
- * terminal or touching a real worktree. */
+ * Production keeps its runtime private; tests replace it with a scripted
+ * runtime so every supervisory path is exercised without pretending a pipe is
+ * a terminal or touching a real worktree. */
 export interface DeskRuntime {
   canPrompt(): boolean;
   inDeskSession(): boolean;
@@ -206,10 +206,39 @@ function deskLogger(): Logger {
   return new Logger({ json: false, noColor: false, humanStream: "stdout" });
 }
 
+/** Launch one desk-owned interactive child with the desk's interrupt contract. */
+export async function runDeskInteractiveChild(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+  env: Record<string, string>,
+): Promise<number> {
+  const child = await runOwnedChild(command, {
+    args: [...args],
+    cwd,
+    env,
+    resumeAfterInterrupt: true,
+  });
+  return child.status.code;
+}
+
+/** Run one desk-owned Project Script with the desk's interrupt contract. */
+export async function runDeskProjectScript(
+  root: string,
+  name: string,
+  env: Record<string, string>,
+): Promise<number> {
+  return await runProjectScriptAt(root, name, [], {
+    cwd: root,
+    env,
+    resumeAfterInterrupt: true,
+  });
+}
+
 /** The real terminal/git implementation. Keeping the boundary in one value
  * makes the whole interactive surface scriptable while the CLI still calls the
  * same functions with the same options. */
-export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
+const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   canPrompt: () => canPrompt(false),
   inDeskSession: () => inDeskSession(),
   findRoot: () => findRoot(),
@@ -230,15 +259,8 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   update: (ctx, opts) => update(ctx, opts),
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
   git: (args, cwd) => runGit(args, { cwd }),
-  interactive: async (command, args, cwd, env) => {
-    const child = await runOwnedChild(command, {
-      args: [...args],
-      cwd,
-      env,
-      resumeAfterInterrupt: true,
-    });
-    return child.status.code;
-  },
+  interactive: (command, args, cwd, env) =>
+    runDeskInteractiveChild(command, args, cwd, env),
   detectAgents: () => detectAgentBinariesOnPath(),
   start: async (ctx, opts) => {
     const result = await startResult(ctx, {
@@ -260,12 +282,7 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
       return [];
     }
   },
-  runScript: (root, name, env) =>
-    runProjectScriptAt(root, name, [], {
-      cwd: root,
-      env,
-      resumeAfterInterrupt: true,
-    }),
+  runScript: (root, name, env) => runDeskProjectScript(root, name, env),
   now: () => Date.now(),
 };
 
