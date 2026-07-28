@@ -2289,7 +2289,10 @@ export async function branchIsMerged(
   ], repoRoot)).success;
 }
 
-async function commitIsMerged(
+/** Whether `commit` is reachable from `mainBranch` — the sha-level sibling of
+ * {@link branchIsMerged}, for callers that pinned a tip before the branch could
+ * be deleted (acceptance removes the branch as it lands). */
+export async function commitIsMerged(
   repoRoot: string,
   commit: string,
   mainBranch: string,
@@ -2301,6 +2304,26 @@ async function commitIsMerged(
       commit,
       `refs/heads/${mainBranch}`,
     ], repoRoot)).success;
+}
+
+/**
+ * The registered worktree path checked out on `branch`, or undefined when no
+ * checkout holds it. One porcelain read through {@link parseWorktreeList} (the
+ * single parser), with none of the per-checkout snapshots a full
+ * {@link listWorktreeFleet} pays for — the shape a repeated poll can afford.
+ */
+export async function worktreePathForBranch(
+  cwd: string,
+  branch: string,
+): Promise<string | undefined> {
+  const listRun = await git(["worktree", "list", "--porcelain"], cwd);
+  if (!listRun.success) {
+    return undefined;
+  }
+  const match = parseWorktreeList(listRun.stdout).find(
+    (rec) => rec.branch === `refs/heads/${branch}`,
+  );
+  return match === undefined ? undefined : await realPathOr(match.path);
 }
 
 function shortBranchName(ref: string): string {

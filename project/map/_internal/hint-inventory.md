@@ -99,6 +99,84 @@ Rendered example:
 Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (docs/_adr/README.md). Edit record files, not the generated lists. Refresh rewrites the lists between the markers.
 ```
 
+## `await-branch-missing`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `await` is asked to watch a branch that does not exist.
+
+Rendered example:
+
+```text
+Branch `agent/upload-retry` was not found. It may not have started yet — or its work may already have landed (acceptance deletes a landed branch). Check `discern status` from the main checkout; if it landed, `discern update` brings `main` beneath your branch.
+```
+
+## `await-green-met`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `await-met`
+- Emitting context: `await --green` finds the awaited branch's receipt honored.
+
+Rendered example:
+
+```text
+`agent/upload-retry` is green — its worktree holds an honored receipt. Build on it with `discern update --from agent/upload-retry` from your worktree, or `discern start --from agent/upload-retry` for a fresh one.
+```
+
+## `await-landed-met`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `await-met`
+- Emitting context: `await` finds the awaited work reachable from the trunk.
+
+Rendered example:
+
+```text
+The work from `agent/upload-retry` landed on `main` — run `discern update` to bring it beneath this branch. 2 incoming files overlap your own changes — re-read them after updating.
+```
+
+## `await-not-yet`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `await` times out before its condition holds.
+
+Rendered example:
+
+```text
+Not yet: `agent/upload-retry` has no honored receipt yet. Call again in about 180s — e.g. `discern await --green agent/upload-retry --timeout 180`.
+```
+
+## `await-timing-degraded`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: `await` times out with the logbook disabled.
+
+Rendered example:
+
+```text
+The retry delay is a flat default — the logbook is off, so no duration evidence exists to price the wait.
+```
+
+## `await-trunk-moved-met`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `await-met`
+- Emitting context: `await --trunk-moved` sees the trunk ref advance.
+
+Rendered example:
+
+```text
+`main` moved while you waited — run `discern update` to bring the latest beneath this branch.
+```
+
 ## `config-job-deferred`
 
 - Category: `next-step`
@@ -727,6 +805,32 @@ Rendered example:
 
 ```text
 Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limits can be verified. In CI, run `git fetch origin main:main`. The never-loosen check could not read the trunk (the local branch is missing).
+```
+
+## `gate-test-run-queued`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A test-stage run arrives with every [gate].concurrent_test_runs slot held.
+
+Rendered example:
+
+```text
+Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs); the tests start the moment a slot frees. In flight: done on agent/fix-upload-retry, typically ~3m.
+```
+
+## `gate-test-slots-unavailable`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: [gate].concurrent_test_runs is set but the slot files under .git could not be prepared.
+
+Rendered example:
+
+```text
+The concurrent test-run cap is not enforced for this run: could not create the slot directory. The tests run uncapped.
 ```
 
 ## `gate-trunk-advanced`

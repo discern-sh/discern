@@ -26,9 +26,10 @@ Treat every worktree as occupied, even when git reports it clean. [`discern stat
 |    30 | [Per-worktree resources](the-resources.md)             | Provisioning, teardown, the resource ledger, and orphan cleanup.                |
 |    40 | [Identity and environment](identity-and-env.md)        | Stable names, ports, env inheritance, and runtime discovery.                    |
 |    50 | [Parallel and team work](team-workflow.md)             | Fleet ownership, branch composition, multiple repos, and new clones.            |
-|    60 | [Multi-repo workspaces](multi-repo-workspaces.md)      | One install per repository: trunk links, registries, umbrellas, and submodules. |
-|    70 | [Status and session hints](status.md)                  | Read current worktree or fleet state and the next actions it implies.           |
-|    80 | [The desk](the-desk.md)                                | Start tasks, open agents, and supervise every active worktree.                  |
-|    90 | [Landing authority](landing-authority.md)              | See how conversation consent and recorded grants control landing.               |
-|   100 | [Interrupted landing recovery](acceptance-recovery.md) | Reconcile a journal without replaying authority or overwriting local data.      |
-|   110 | [Hand work back](hand-work-back.md)                    | Finish, report the receipt, wait for review, and accept after approval.         |
+|    60 | [Awaiting the fleet](awaiting-the-fleet.md)            | Block until a sibling is green, its work lands, or the trunk moves.             |
+|    70 | [Multi-repo workspaces](multi-repo-workspaces.md)      | One install per repository: trunk links, registries, umbrellas, and submodules. |
+|    80 | [Status and session hints](status.md)                  | Read current worktree or fleet state and the next actions it implies.           |
+|    90 | [The desk](the-desk.md)                                | Start tasks, open agents, and supervise every active worktree.                  |
+|   100 | [Landing authority](landing-authority.md)              | See how conversation consent and recorded grants control landing.               |
+|   110 | [Interrupted landing recovery](acceptance-recovery.md) | Reconcile a journal without replaying authority or overwriting local data.      |
+|   120 | [Hand work back](hand-work-back.md)                    | Finish, report the receipt, wait for review, and accept after approval.         |

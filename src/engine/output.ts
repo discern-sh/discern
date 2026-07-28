@@ -165,6 +165,23 @@ export function makeOut(
   };
 }
 
+/** Compact duration for one-line surfaces: `45s`, `3m`, `2h`, `1d`. */
+export function compactDuration(ms: number): string {
+  const seconds = Math.max(0, Math.floor(ms / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return `${hours}h`;
+  }
+  return `${Math.floor(hours / 24)}d`;
+}
+
 /** Adapt the gate's `Out` to a {@link RenderSink} (writes to its info stream). */
 export function outSink(out: Out): RenderSink {
   return {

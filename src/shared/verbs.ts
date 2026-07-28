@@ -12,6 +12,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "done",
   "prepare",
   "test",
+  "await",
   "improvement",
   "standards",
   "refresh",
@@ -54,6 +55,10 @@ export const KNOWN_VERBS: ReadonlySet<string> = new Set<string>([
  * Top-level verbs whose invocations only observe or host. Every other known
  * top-level verb can run project commands or change project state and therefore
  * receives an automatic logbook begin event.
+ *
+ * `await` reads only, yet deliberately stays OUT of this set: its begin event
+ * is what lets a fleet row report a blocked agent as `running: await` while the
+ * verb holds, so the wait itself is visible fleet activity.
  *
  * Mixed command groups stay outside this set. Their exact read forms are
  * classified below.

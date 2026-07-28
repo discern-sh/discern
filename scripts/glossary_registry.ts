@@ -414,6 +414,8 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
  * member the glossary later names fails as stale.
  */
 export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
+  "verb:await":
+    "blocks until a sibling branch is green, its work has landed, or the trunk has moved; a read-only coordination verb the CLI reference and the worktree docs document, not a term of art",
   "verb:doctor":
     "checks an installation without changing it; the Installer entry carries the subsystem and the CLI reference documents the verb",
   "verb:help":

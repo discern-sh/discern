@@ -13,7 +13,7 @@ aliases:
 
 _A green landing keeps its structured receipt beside the immutable trunk commit._
 
-After the trunk fast-forward, `discern accept` writes canonical JSON for `data.receipt` under `refs/notes/discern` ([ADR 0212](../_adr/0212-landing-receipts-travel-as-git-notes.md)). It adds no trunk commit.
+After the trunk fast-forward, `discern accept` writes canonical JSON for `data.receipt` under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md)). It adds no trunk commit.
 
 Read the current history with:
 

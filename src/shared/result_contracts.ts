@@ -12,6 +12,7 @@ import type { z } from "@zod/zod";
 import type { Command } from "@cliffy/command";
 import {
   AcceptOutputSchema,
+  AwaitOutputSchema,
   ConfigOutputSchema,
   CouplingOutputSchema,
   DeskOutputSchema,
@@ -281,6 +282,13 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "coupling",
     schema: CouplingOutputSchema,
     mcpTool: "discern_coupling",
+  },
+  {
+    id: "await",
+    commands: ["await"],
+    verb: "await",
+    schema: AwaitOutputSchema,
+    mcpTool: "discern_await",
   },
   {
     id: "patterns",

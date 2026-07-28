@@ -1105,6 +1105,111 @@ export const HINTS = {
       "skill covers the pattern.",
   }),
 
+  /** The composition move once a sibling proves green (the pull axis: build on
+   * any ref below the trunk). */
+  "await-green-met": defineHint<{ branch: string }>({
+    id: "await-green-met",
+    category: "next-step",
+    audience: "all",
+    when: "`await --green` finds the awaited branch's receipt honored.",
+    family: "await-met",
+    example: { branch: "agent/upload-retry" },
+    template: ({ branch }): string =>
+      `\`${branch}\` is green — its worktree holds an honored receipt. ` +
+      `Build on it with \`discern update --from ${branch}\` from your ` +
+      `worktree, or \`discern start --from ${branch}\` for a fresh one.`,
+  }),
+
+  /** The integration move once awaited work reaches the trunk. */
+  "await-landed-met": defineHint<{
+    branch: string;
+    trunk: string;
+    overlapTotal: number;
+  }>({
+    id: "await-landed-met",
+    category: "next-step",
+    audience: "all",
+    when: "`await` finds the awaited work reachable from the trunk.",
+    family: "await-met",
+    example: { branch: "agent/upload-retry", trunk: "main", overlapTotal: 2 },
+    template: ({ branch, trunk, overlapTotal }): string =>
+      `The work from \`${branch}\` landed on \`${trunk}\` — run ` +
+      `\`discern update\` to bring it beneath this branch.` +
+      (overlapTotal > 0
+        ? ` ${overlapTotal} incoming file${
+          overlapTotal === 1 ? " overlaps" : "s overlap"
+        } your own changes — re-read them after updating.`
+        : ""),
+  }),
+
+  "await-trunk-moved-met": defineHint<{
+    trunk: string;
+    overlapTotal: number;
+  }>({
+    id: "await-trunk-moved-met",
+    category: "next-step",
+    audience: "all",
+    when: "`await --trunk-moved` sees the trunk ref advance.",
+    family: "await-met",
+    example: { trunk: "main", overlapTotal: 0 },
+    template: ({ trunk, overlapTotal }): string =>
+      `\`${trunk}\` moved while you waited — run \`discern update\` to bring ` +
+      `the latest beneath this branch.` +
+      (overlapTotal > 0
+        ? ` ${overlapTotal} incoming file${
+          overlapTotal === 1 ? " overlaps" : "s overlap"
+        } your own changes — re-read them after updating.`
+        : ""),
+  }),
+
+  /** The timeout answer: not a failure, an appointment — one call, one number,
+   * no guessing at sleep intervals. */
+  "await-not-yet": defineHint<{
+    summary: string;
+    seconds: number;
+    command: string;
+  }>({
+    id: "await-not-yet",
+    category: "next-step",
+    audience: "all",
+    when: "`await` times out before its condition holds.",
+    example: {
+      summary: "`agent/upload-retry` has no honored receipt yet",
+      seconds: 180,
+      command: "discern await --green agent/upload-retry --timeout 180",
+    },
+    template: ({ summary, seconds, command }): string =>
+      `Not yet: ${summary}. Call again in about ${seconds}s — ` +
+      `e.g. \`${command}\`.`,
+  }),
+
+  /** Point-of-use honesty when the flat default replaces priced advice. */
+  "await-timing-degraded": defineHint({
+    id: "await-timing-degraded",
+    category: "notice",
+    audience: "all",
+    when: "`await` times out with the logbook disabled.",
+    example: undefined,
+    template: (): string =>
+      "The retry delay is a flat default — the logbook is off, so no " +
+      "duration evidence exists to price the wait.",
+  }),
+
+  /** The honest refusal when the awaited branch does not resolve at call
+   * start — there is no tip left to pin and watch. */
+  "await-branch-missing": defineHint<{ branch: string; trunk: string }>({
+    id: "await-branch-missing",
+    category: "next-step",
+    audience: "all",
+    when: "`await` is asked to watch a branch that does not exist.",
+    example: { branch: "agent/upload-retry", trunk: "main" },
+    template: ({ branch, trunk }): string =>
+      `Branch \`${branch}\` was not found. It may not have started yet — or ` +
+      `its work may already have landed (acceptance deletes a landed ` +
+      `branch). Check \`discern status\` from the main checkout; if it ` +
+      `landed, \`discern update\` brings \`${trunk}\` beneath your branch.`,
+  }),
+
   "patterns-logbook-empty": defineHint({
     id: "patterns-logbook-empty",
     category: "notice",
@@ -1293,6 +1398,53 @@ export const HINTS = {
       "Run `discern update`, then `discern done` again before `discern accept`. " +
       "The trunk advanced while the gate ran, so this branch is behind even " +
       "though the gate passed for this HEAD.",
+  }),
+
+  "gate-test-run-queued": defineHint<{
+    cap: number;
+    inFlight: string | undefined;
+    typical: string | undefined;
+    logbookOff: boolean;
+  }>({
+    id: "gate-test-run-queued",
+    category: "notice",
+    audience: "all",
+    when:
+      "A test-stage run arrives with every [gate].concurrent_test_runs slot held.",
+    example: {
+      cap: 1,
+      inFlight: "done on agent/fix-upload-retry",
+      typical: "3m",
+      logbookOff: false,
+    },
+    template: ({ cap, inFlight, typical, logbookOff }): string => {
+      const queued = `Tests queued: ${cap} of ${cap} concurrent test runs ` +
+        `in use across this repository's checkouts ` +
+        `([gate].concurrent_test_runs); the tests start the moment a slot ` +
+        `frees.`;
+      const flight = inFlight === undefined
+        ? ""
+        : ` In flight: ${inFlight}${
+          typical === undefined ? "" : `, typically ~${typical}`
+        }.`;
+      const estimate = logbookOff
+        ? " The logbook is off ([project].logbook = false), so there is no " +
+          "wait estimate."
+        : "";
+      return `${queued}${flight}${estimate}`;
+    },
+  }),
+
+  "gate-test-slots-unavailable": defineHint<{ reason: string }>({
+    id: "gate-test-slots-unavailable",
+    category: "notice",
+    audience: "all",
+    when:
+      "[gate].concurrent_test_runs is set but the slot files under .git could not be prepared.",
+    example: { reason: "could not create the slot directory" },
+    template: ({ reason }): string =>
+      `The concurrent test-run cap is not enforced for this run: ${reason}. ` +
+      `The tests run uncapped.`,
   }),
 
   "gate-standards-limits-unverified": defineHint<{

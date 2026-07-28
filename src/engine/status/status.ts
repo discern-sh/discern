@@ -106,7 +106,13 @@ import {
 } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
-import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
+import {
+  colorEnabled,
+  compactDuration,
+  makeOut,
+  type Out,
+  outSink,
+} from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
@@ -1260,23 +1266,6 @@ export function relativeAge(
   const months = Math.floor(days / 30);
   if (months < 12) return `${months}mo ago`;
   return `${Math.floor(days / 365)}y ago`;
-}
-
-/** Compact elapsed or typical duration for one fleet action cell. */
-function compactDuration(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return `${minutes}m`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return `${hours}h`;
-  }
-  return `${Math.floor(hours / 24)}d`;
 }
 
 /** The one-line action cell: live work takes precedence over its last completion. */

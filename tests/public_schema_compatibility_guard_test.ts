@@ -458,6 +458,106 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
   );
 });
 
+Deno.test("a discriminator on a role aggregate stays transparent and admits mappings only for new contracts", () => {
+  // Trunk: the CLI aggregate carries an OpenAPI-style discriminator over its
+  // oneOf — the shape the real generated artifact ships.
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const previousCli = (previous.$defs as JsonObject)
+    .VoyageCliResult as JsonObject;
+  previousCli.discriminator = {
+    propertyName: "verb",
+    mapping: { launch: "#/$defs/VoyageLaunchResult" },
+  };
+
+  // A new registered contract adds its definition, its oneOf alternative, AND
+  // its mapping key — the sanctioned additive change, in the artifact's shape.
+  const current = clone(previous);
+  const defs = current.$defs as JsonObject;
+  defs.VoyageLandResult = {
+    type: "object",
+    properties: {
+      verb: { const: "land" },
+      ok: { type: "boolean" },
+    },
+    required: ["verb", "ok"],
+  };
+  const cli = defs.VoyageCliResult as JsonObject;
+  cli.oneOf = [
+    ...(cli.oneOf as JsonValue[]),
+    { $ref: "#/$defs/VoyageLandResult" },
+  ];
+  (cli.discriminator as JsonObject).mapping = {
+    launch: "#/$defs/VoyageLaunchResult",
+    land: "#/$defs/VoyageLandResult",
+  };
+  current["x-discern-contracts"] = [
+    ...(current["x-discern-contracts"] as JsonValue[]),
+    {
+      id: "voyageLand",
+      verb: "land",
+      commands: ["land"],
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+    },
+  ];
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ),
+    [],
+    "a discriminator must not defeat the registered-contract addition allowance",
+  );
+
+  // An added mapping key with no registered new contract behind it stays a
+  // break — the mapping cannot smuggle routes the contract registry never
+  // sanctioned.
+  const smuggled = clone(previous);
+  const smuggledCli = (smuggled.$defs as JsonObject)
+    .VoyageCliResult as JsonObject;
+  (smuggledCli.discriminator as JsonObject).mapping = {
+    launch: "#/$defs/VoyageLaunchResult",
+    rogue: "#/$defs/VoyageStringSignal",
+  };
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      smuggled,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("discriminator.mapping.rogue")),
+    "an unsanctioned mapping addition must stay flagged",
+  );
+
+  // Re-routing an existing mapping stays a break, as does changing the
+  // discriminating property.
+  const rerouted = clone(previous);
+  const reroutedCli = (rerouted.$defs as JsonObject)
+    .VoyageCliResult as JsonObject;
+  (reroutedCli.discriminator as JsonObject).mapping = {
+    launch: "#/$defs/VoyageStringSignal",
+  };
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      rerouted,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("discriminator.mapping.launch")),
+    "a re-routed existing mapping must stay flagged",
+  );
+  const renamedProperty = clone(previous);
+  const renamedCli = (renamedProperty.$defs as JsonObject)
+    .VoyageCliResult as JsonObject;
+  (renamedCli.discriminator as JsonObject).propertyName = "kind";
+  assert(
+    publicSchemaCompatibilityIssues(
+      previous,
+      renamedProperty,
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    ).some((issue) => issue.includes("discriminator.propertyName")),
+    "a changed discriminator property must stay flagged",
+  );
+});
+
 Deno.test("ordinary open result objects permit optional fields", () => {
   for (const additionalProperties of [undefined, true] as const) {
     const previous = clone(RESULT_OUTPUT_FIXTURE);

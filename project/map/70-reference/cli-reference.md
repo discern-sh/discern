@@ -40,6 +40,7 @@ aliases:
   - discern skills eject
   - discern impact
   - discern coupling
+  - discern await
   - discern patterns
   - discern patterns reset
   - discern status
@@ -174,6 +175,20 @@ Usage: `discern update [options]`
 | `--json`       | Emit a machine-readable (plan, results) object on stdout.                                                                                                          |
 | `--dry-run`    | Show the update plan; touch nothing.                                                                                                                               |
 | `--from <ref>` | Pull this ref (a branch, tag, or commit) into the worktree instead of the trunk. For composing on unlanded work — omit it for the routine bring-the-trunk-in call. |
+
+### `discern await`
+
+Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Read-only; timing out is not an error — the result says what was observed and when to call again.
+
+Usage: `discern await [options]`
+
+| Option                | Description                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------- |
+| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                   |
+| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it). |
+| `--landed <branch>`   | Wait until this branch's work (its tip at call start) is reachable from the trunk.             |
+| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                |
+| `--timeout <seconds>` | Seconds before answering "not yet" with retry advice (default 100; 0 checks once).             |
 
 ### `discern accept`
 

@@ -177,6 +177,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "operating-policies",
+    title: "Operating policies",
+    what:
+      "The core policy statements carried by the bundled guidance and MCP server instructions, with the probes that recognize each authored restatement.",
+    source: {
+      kind: "module",
+      module: "src/shared/operating_policies.ts",
+      exportName: "OPERATING_POLICIES",
+    },
+    guards: ["tests/agent_policy_parity_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "policy ids are internal; existing glossary entries define each reader-facing concept",
+      },
+      featureCanon: {
+        absent:
+          "cross-cutting enforcement for guidance, worktrees, standards, and MCP; it adds no product feature",
+      },
+    },
+    members: async () =>
+      (await import("../src/shared/operating_policies.ts"))
+        .OPERATING_POLICIES.map((policy) => policy.id),
+  },
+  {
     id: "command-groups",
     title: "Command groups",
     what:
@@ -1617,8 +1643,6 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
-  "tests/agent_policy_parity_test.ts":
-    "asserts the two authored operating-model surfaces carry the same policies; a prose-parity contract, not a member-set satellite",
   "tests/adr_vocab_guard_test.ts":
     "sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set",
   "tests/engine_tree_drift_test.ts":

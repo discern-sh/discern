@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list._
 
-10 pillars · 121 nodes · 11 benefit statements · 36 agent-experience accounts · 67 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 122 nodes · 11 benefit statements · 37 agent-experience accounts · 68 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -25,7 +25,7 @@ _The nodes carrying an agent-experience account — the interaction design an ag
 
 - **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Normalized diagnostics · The gotchas pointer · The receipt · A rerun on an unchanged tree is attested
 - **Standards** — Input-keyed replay
-- **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Orphan reclamation · The fleet view
+- **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Orphan reclamation · The fleet view · Awaiting a fleet condition
 - **The map** — The discovery funnel · The docs integrity preflight
 - **Advisories and the logbook** — the pillar itself · Status · The logbook · Registered hints
 - **Install and lifecycle** — Agent-driven setup · Observable incompleteness · Ready-to-relay messages · Landing authority is proved per invocation · Doctor · Upgrade and migrations · Config without a parser
@@ -99,6 +99,7 @@ _Parallel agents cannot collide — with each other, or with the human's own che
 - **Env inheritance** — `[worktree].inherit_env` copies named values from the main checkout's env files into a new worktree's — the secrets a fresh checkout needs that version control doesn't carry.
 - **Ignored-file drift** — The lifecycle fingerprints ignored files at setup and reports top-level ignored paths that changed before the worktree is removed. _Work hiding outside version control gets named before teardown deletes it._
 - **The fleet view** — From the main checkout, `discern status` reports a row per worktree: branch, clean state, ahead/behind, last activity, a broken flag for a checkout whose creation never completed, and cross-worktree changed-file collisions. _The human steers parallel work without visiting each checkout, and two efforts touching the same file get named before either lands._ **Agent:** _Each row is another effort in flight, and a hint states the ownership rule: a clean tree is not a free workspace. The broken flag marks a checkout whose creation never completed, so the agent is told which siblings are workable at a glance._ (hints: `fleet-ownership`)
+- **Awaiting a fleet condition** — `discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved — woken by logbook appends and git ref changes, re-checked on a slow polling fallback. A timeout is an answer, not an error: the result reports the observed state plus a retry delay priced from the fleet's typical verb durations. _A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human._ **Agent:** _Conditions ground in git ancestry and the gate receipt — recorded history only wakes the wait and prices the retry, so the logbook stays advisory. While the verb holds, the blocked branch's own fleet row reads `running: await`. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it._ (hints: `await-not-yet`, `await-timing-degraded`)
 - **The desk** — Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches. _The human's day-to-day surface is one screen, and every action on it is one keypress._
 
 ## Agent guidance
@@ -226,6 +227,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 ### `verb`
 
 - `accept` — accept
+- `await` — await
 - `config` — config-command
 - `coupling` — coupling
 - `desk` — desk

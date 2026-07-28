@@ -50,17 +50,20 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 
 [`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
+The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
+
 ## Where it lives in code
 
-| Concern                           | Source                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                         |
-| Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                             |
-| Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                         |
-| Command and MCP contract registry | [`result_contracts.ts`](../../../src/shared/result_contracts.ts)                                                                     |
-| Generated contract builder        | [`result_codegen.ts`](../../../src/shared/result_codegen.ts)                                                                         |
-| MCP adapters                      | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                     |
-| Contract faithfulness             | [`result_schemas_test.ts`](../../../tests/result_schemas_test.ts), [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) |
+| Concern                           | Source                                                                                                                                                                                                            |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                                                                                                      |
+| Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                                                                                                          |
+| Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                                                                      |
+| Command and MCP contract registry | [`result_contracts.ts`](../../../src/shared/result_contracts.ts)                                                                                                                                                  |
+| Generated contract builder        | [`result_codegen.ts`](../../../src/shared/result_codegen.ts)                                                                                                                                                      |
+| MCP adapters                      | [`server.ts`](../../../src/engine/mcp/server.ts)                                                                                                                                                                  |
+| Operating policy registry         | [`operating_policies.ts`](../../../src/shared/operating_policies.ts)                                                                                                                                              |
+| Contract and policy faithfulness  | [`result_schemas_test.ts`](../../../tests/result_schemas_test.ts), [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts), [`agent_policy_parity_test.ts`](../../../tests/agent_policy_parity_test.ts) |
 
 ## Current state & gotchas
 

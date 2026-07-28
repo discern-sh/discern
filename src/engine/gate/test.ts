@@ -53,7 +53,7 @@ async function runTestGate(
 > {
   const cfg = await loadConfig(root);
   const group = stageGroup(cfg, "test");
-  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
+  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): test is
   // un-gated during setup, so a pass here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
@@ -78,7 +78,12 @@ async function runTestGate(
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts();
-  const { results, failedStage } = await runJobGroups([group], runOpts, out);
+  const { results, failedStage } = await runJobGroups(
+    [group],
+    runOpts,
+    out,
+    slots,
+  );
   const { steps, diagnostics, hints } = await serializeJobSteps(
     [group],
     results,
@@ -92,6 +97,9 @@ async function runTestGate(
   const gotchasHints = gotchasTail !== undefined
     ? [gotchasTail.hint, ...gotchasTail.warnings]
     : [];
+  // The fleet test-run cap's wait notices (the same lines the human run
+  // narrated live), so a --json/MCP caller sees why the run took longer.
+  const slotWaits = slots?.waits ?? [];
   return {
     result: {
       ok: failedStage === null,
@@ -99,11 +107,12 @@ async function runTestGate(
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
       ...(
-        inProgress !== undefined || hints.length > 0 ||
+        inProgress !== undefined || hints.length > 0 || slotWaits.length > 0 ||
           failedStage !== null || gotchasHints.length > 0
           ? {
             hints: hintTexts([
               ...(inProgress !== undefined ? [inProgress] : []),
+              ...slotWaits,
               ...hints,
               ...(failedStage !== null ? [gateFailureRemedy(failedStage)] : []),
               ...gotchasHints,

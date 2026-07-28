@@ -205,7 +205,10 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0209 — Fresh seed grants cover pure documentation](0209-fresh-seed-grants-cover-pure-documentation.md)
 - [0210 — Effectful verb starts are paired logbook events](0210-effectful-verb-starts-are-paired-logbook-events.md)
 - [0211 — Agent-context artifacts carry no provenance marker](0211-agent-context-artifacts-carry-no-provenance-marker.md)
-- [0212 — Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport](0212-landing-receipts-travel-as-git-notes.md)
+- [0212 — The fleet test-run cap is N OS-file-lock slots under the git common dir](0212-fleet-test-run-cap-os-lock-slots.md)
+- [0213 — `await` blocks on authoritative fleet conditions, with the logbook as wake signal only](0213-await-blocks-on-authoritative-fleet-conditions.md)
+- [0214 — MCP instructions render operating policies; guidance remains authored](0214-mcp-instructions-render-operating-policies.md)
+- [0215 — Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport](0215-landing-receipts-travel-as-git-notes.md)
 
 <!-- END GENERATED: current ADR records -->
 

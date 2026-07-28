@@ -485,6 +485,9 @@ const gateSection = z.strictObject({
   timeout: z.number().default(600).describe(
     "Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
   ),
+  concurrent_test_runs: z.number().int().min(0).default(0).describe(
+    "Cap on how many test-stage runs may be in flight at once across every checkout of this repository — the main checkout and all its linked worktrees. Counts whole runs: `discern done`'s and `discern test`'s test group, and `discern standards`' measurement pass; a test runner's own worker parallelism is untouched. A run arriving past the cap waits for a slot before its tests start (fix and check stages never wait), says what it is waiting for, and continues the moment a slot frees. A killed run's slot is released by the operating system, so a crash never blocks the others. 0 (the default) means no cap.",
+  ),
 }).prefault({}).describe(
   "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
 );

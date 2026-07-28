@@ -448,6 +448,19 @@ fail_fast = true
 # its own `timeout` on its config entry instead of a slower global.
 timeout = 600
 
+# Cap on how many test-stage runs may be in flight AT ONCE across every checkout
+# of this repository — the main checkout and all its linked worktrees. It counts
+# whole runs (`discern done`'s and `discern test`'s test group, and `discern
+# standards`' measurement pass); each run's own test-runner worker parallelism
+# is untouched. Parallel agents each running a machine-saturating suite slow
+# each other down more than a queue would; with a cap, a run arriving past it
+# waits for a slot before its tests start (fix and check stages never wait —
+# a broken check still fails fast), says what it is waiting for, and continues
+# the moment a slot frees. A killed run's slot is released by the operating
+# system, so a crash never blocks the others. 0 (the default) means no cap;
+# 1 runs every suite at full speed, one after another.
+concurrent_test_runs = 0
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [coupling] — co-change detection: a read-only advisory that mines git history

@@ -21,22 +21,23 @@ This subtree documents the public quality-gate workflow: fixing a failed run, th
 | `coupling.md`            | Concept and command guide for coupling; `order: 80`.                                       |
 | `patterns.md`            | Guide to the advisory practice-pattern report; `order: 90`.                                |
 | `tidy.md`                | Guide to formatting discern-owned prose and config surfaces; `order: 100`.                 |
+| `concurrent-test-runs.md` | Guide to the fleet-wide test-stage concurrency cap; `order: 110`.                          |
 
 ## Source files to read
 
 - `discern.toml`
 - `src/shared/config_schema.ts`
 - `src/shared/result.ts`, `src/shared/result_schemas.ts`, and `src/shared/result_contracts.ts`
-- `src/engine/gate/` and `src/engine/jobs/` (read `finish.ts`, `plan.ts`, `standard_plan.ts`, `standards_gate.ts`, `receipt.ts`, `receipt_notes.ts`, `receipt_render.ts`, `tree_drift.ts`, and the job runner centrally; sample the remaining helpers)
+- `src/engine/gate/` and `src/engine/jobs/` (read `finish.ts`, `plan.ts`, `standard_plan.ts`, `standards_gate.ts`, `receipt.ts`, `receipt_notes.ts`, `receipt_render.ts`, `test_slots.ts`, `tree_drift.ts`, and the job runner centrally; sample the remaining helpers)
 - `src/engine/coupling/coupling.ts`
 - `src/engine/improve/improve.ts`, `src/engine/improve/rules.ts`, and `src/engine/improve/types.ts`
 - `src/engine/mcp/server.ts`
-- `tests/engine_gate_*`, `tests/engine_standards_*`, `tests/engine_coupling_test.ts`, `tests/engine_improvement_test.ts`, `tests/engine_receipt_notes_test.ts`, `tests/engine_receipt_render_test.ts`, `tests/result_schemas_test.ts`, and `tests/result_codegen_test.ts`
+- `tests/engine_gate_*`, `tests/engine_standards_*`, `tests/engine_coupling_test.ts`, `tests/engine_gate_slots_test.ts`, `tests/engine_improvement_test.ts`, `tests/engine_receipt_notes_test.ts`, `tests/engine_receipt_render_test.ts`, `tests/result_schemas_test.ts`, and `tests/result_codegen_test.ts`
 - `.github/workflows/release.yml` and `install.sh`
 
 ## Area owned
 
-- The user-facing meaning and order of gate stages, preconditions, scope gates, standards, diagnostics, receipts, receipt-note transport, and strand detection.
+- The user-facing meaning and order of gate stages, preconditions, scope gates, standards, diagnostics, receipts, receipt-note transport, test-run concurrency, and strand detection.
 - The `discern prepare`, `discern done`, `discern standards`, `discern improvement`, and `discern coupling` tasks as users encounter them.
 - CI guidance for running the gate outside the local worktree workflow.
 

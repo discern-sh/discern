@@ -59,6 +59,7 @@ export {
   KNOWN_INSTALLER_VERBS,
   KNOWN_VERBS,
 } from "../shared/verbs.ts";
+import { AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS } from "./await/defaults.ts";
 
 // Verb BODIES load at dispatch time (`await import(…)` inside each action),
 // never at registration: every invocation — `--help` included — builds the
@@ -81,6 +82,7 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "done",
   "prepare",
   "test",
+  "await",
   "improvement",
   "standards",
   "refresh",
@@ -496,6 +498,45 @@ export function attachEngineCommands(
       return await runCoupling(await requireRoot("coupling", o.json ?? false), {
         json: o.json ?? false,
         ...(paths.length > 0 ? { paths } : {}),
+      });
+    }));
+
+  root
+    .command("await")
+    .description(
+      "Block until a fleet condition holds: a sibling branch is green (its " +
+        "worktree holds an honored gate receipt), a branch's work has landed " +
+        "on the trunk, or the trunk has moved. Read-only; timing out is not " +
+        "an error — the result says what was observed and when to call again.",
+    )
+    .option(
+      "--json",
+      "Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).",
+    )
+    .option(
+      "--green <branch:string>",
+      "Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).",
+    )
+    .option(
+      "--landed <branch:string>",
+      "Wait until this branch's work (its tip at call start) is reachable from the trunk.",
+    )
+    .option(
+      "--trunk-moved",
+      "Wait until the trunk ref moves from its position at call start.",
+    )
+    .option(
+      "--timeout <seconds:number>",
+      `Seconds before answering "not yet" with retry advice (default ${AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS}; 0 checks once).`,
+    )
+    .action(recordedExit("await", async (o) => {
+      const { runAwait } = await import("./await/await.ts");
+      return await runAwait(await requireRoot("await", o.json ?? false), {
+        json: o.json ?? false,
+        ...(o.green !== undefined ? { green: o.green } : {}),
+        ...(o.landed !== undefined ? { landed: o.landed } : {}),
+        ...(o.trunkMoved === true ? { trunkMoved: true } : {}),
+        ...(o.timeout !== undefined ? { timeoutSeconds: o.timeout } : {}),
       });
     }));
 

@@ -1,4 +1,4 @@
-# ADR 0212: Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport
+# ADR 0215: Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport
 
 **Status**: accepted
 
