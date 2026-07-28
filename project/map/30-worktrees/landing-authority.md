@@ -25,6 +25,8 @@ A green [receipt](../00-orientation/glossary.md#receipt) proves the gate. Landin
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
+Fresh setup's standing-grant example names `docs`, whose seed contains the map and deferred-work ledger. The separate `guidance` seed contains the project brief, guidance sources, authored skills, and materialized skills directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
+
 ## How discern resolves coverage
 
 `start` reports possible standing scopes. `status` and green `done` classify the final paths: every path must match a known granted scope. Unknown grants and unmatched paths stay uncovered. Effort grants bind to their branch.

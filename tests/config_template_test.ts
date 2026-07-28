@@ -73,6 +73,24 @@ Deno.test("extracts [guidance] including its {{agents_array}} token (for the cal
   assertStringIncludes(block, "agents = [{{agents_array}}]");
 });
 
+Deno.test("the seed scope comments keep guidance outside the docs grant example", async () => {
+  const template = await realTemplate();
+  const docs = sectionBlockFromTemplate(template, "scopes.docs");
+  const guidance = sectionBlockFromTemplate(template, "scopes.guidance");
+  const acceptance = sectionBlockFromTemplate(template, "acceptance");
+  assertExists(docs);
+  assertExists(guidance);
+  assertExists(acceptance);
+  assertStringIncludes(docs, "paths   = [{{scopes_neutral}}]");
+  assertStringIncludes(guidance, "paths   = [{{scopes_guidance}}]");
+  assertStringIncludes(guidance, "landing them stays owner-reviewed");
+  assertStringIncludes(acceptance, 'pre_authorized = [] # e.g. ["docs"]');
+  assertStringIncludes(
+    acceptance,
+    "agent-instruction surfaces stay owner-reviewed",
+  );
+});
+
 Deno.test("lists only active template section headers, in file order", async () => {
   // [project] opens the file and [meta] closes it: the first thing a user reads
   // is their project's own identity, and installer bookkeeping sits at the end.
@@ -84,6 +102,7 @@ Deno.test("lists only active template section headers, in file order", async () 
     "skills",
     "jobs",
     "scopes.docs",
+    "scopes.guidance",
     "acceptance",
     "worktree",
     "worktree.setup",

@@ -21,6 +21,12 @@ import {
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
 } from "../src/shared/public_schemas.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
+import {
+  defaultDocumentationScopePaths,
+  defaultDocumentationScopes,
+  defaultGuidanceScopePaths,
+  defaultGuidanceScopes,
+} from "../src/lib/config.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -116,6 +122,14 @@ Deno.test("the docs reference documents every section, with its describe() prose
   // a couple of describe() strings render verbatim (prose comes from the schema)
   assert(doc.includes("numbers that can never get worse"));
   assert(doc.includes("isolated-worktree workflow"));
+  assertStringIncludes(
+    doc,
+    "Fresh setup seeds `[scopes.docs]` with the map and deferred-work ledger.",
+  );
+  assertStringIncludes(
+    doc,
+    "Upgrade leaves existing named scopes unchanged",
+  );
 });
 
 Deno.test("the reference's [guidance].agents row matches what the resolver actually does (no misleading [] default)", () => {
@@ -163,7 +177,8 @@ async function renderedTemplate(): Promise<string> {
     gotchas_doc: "",
     agents_array: '"claude_code", "codex"',
     map_dir: SOURCE_PATHS.map.defaultPath,
-    scopes_neutral: '"${map.dir}"',
+    scopes_neutral: defaultDocumentationScopes().join(", "),
+    scopes_guidance: defaultGuidanceScopes().join(", "),
     scopes_previewable: '"public/**"',
     kit_version: KIT_VERSION,
     project_name: "Demo",
@@ -176,6 +191,24 @@ Deno.test("the shipped discern.toml.tmpl renders to a config that VALIDATES unde
   const { config, issues } = parseConfig(await renderedTemplate());
   assertEquals(issues, [], "the template must produce a schema-valid config");
   assert(config !== undefined);
+});
+
+Deno.test("a fresh config seeds separate documentation and guidance scopes", async () => {
+  const rendered = await renderedTemplate();
+  const raw = parseToml(rendered) as Record<string, unknown>;
+  const scopes = raw.scopes as Record<string, Record<string, unknown>>;
+  assertEquals(Object.keys(scopes), ["docs", "guidance"]);
+  assertEquals(scopes.docs?.paths, defaultDocumentationScopePaths());
+  assertEquals(scopes.docs?.neutral, true);
+  assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
+  assertEquals(scopes.guidance?.neutral, true);
+  for (const path of defaultDocumentationScopePaths()) {
+    assert(
+      !defaultGuidanceScopePaths().includes(path),
+      `${path} must belong to the documentation seed only`,
+    );
+  }
+  assertStringIncludes(rendered, 'pre_authorized = [] # e.g. ["docs"]');
 });
 
 Deno.test("discern.toml.tmpl starts at byte zero with the public config schema id", async () => {

@@ -101,6 +101,8 @@ Every section, key, type, and default below is generated from the canonical sche
 
 The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
+Fresh setup seeds `[scopes.docs]` with the map and deferred-work ledger. `[scopes.guidance]` carries the project brief, guidance sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `docs`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.
+
 ## `[meta]`
 
 Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.

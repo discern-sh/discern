@@ -202,6 +202,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0206 — Patterns finding tone is presentation only](0206-patterns-finding-tone-is-presentation-only.md)
 - [0207 — Hint follow-through is declared and episode-based](0207-hint-follow-through-is-declared-and-episode-based.md)
 - [0208 — Public contracts version by schema major](0208-public-contracts-version-by-schema-major.md)
+- [0209 — Fresh seed grants cover pure documentation](0209-fresh-seed-grants-cover-pure-documentation.md)
 
 <!-- END GENERATED: current ADR records -->
 
