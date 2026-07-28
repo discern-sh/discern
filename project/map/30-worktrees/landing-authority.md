@@ -13,7 +13,7 @@ aliases:
 
 _discern verifies who authorized a landing before it moves the trunk._
 
-Landing authority is evidence that the owner authorized one worktree to land. A green [receipt](../00-orientation/glossary.md#receipt) proves the branch passed its gate. It grants no permission by itself. Without authority, the agent reports the receipt and stops for review. With a recorded grant covering the exact tree, the runtime result tells the agent that the landing can continue without another conversation.
+Landing authority is evidence that the owner authorized one worktree to land. A green [receipt](../00-orientation/glossary.md#receipt) proves the branch passed its gate. It grants no permission by itself. Without authority, the agent reports the receipt and stops for review. With a recorded grant covering the exact tree, the runtime result tells the agent that the landing can continue without another conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 The authority check is one shared resolver. `start`, `status`, a green `done`, and `accept` all read its answer. The first three expose the answer without changing anything. Acceptance checks it again at the fast-forward boundary, so an earlier result never becomes a promise after the branch or [trunk](../00-orientation/glossary.md#trunk) moves.
 
@@ -45,6 +45,8 @@ When a grant exists, `data.landing_authority` carries the result:
 | `warnings`        | Evidence discern cannot trust, such as an invalid recorded grant.     |
 
 No grant and no authority warning leave the field absent. That default preserves the ordinary [hand-work-back](hand-work-back.md) route.
+
+A successful `accept` returns the verified evidence as `data.consent`. Its `source` names the conversation, standing grant, or effort grant, and `scopes` names standing-grant coverage. Acceptance also derives `data.receipt_line` from the validated gate-receipt line and appends the same consent evidence ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
 ## Where it lives in code
 

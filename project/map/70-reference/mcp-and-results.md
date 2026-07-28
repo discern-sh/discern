@@ -107,6 +107,8 @@ Undefined fields are omitted. Callers must branch first on `ok`, then on the lit
 
 `start`, `status`, and a green `done` can carry `data.landing_authority`. Its `kind` is `authorized` or `conversation-required`; the remaining fields name the source, granted scopes, uncovered paths, and warnings. At `start`, standing scopes are prospective only. With no grant or warning, the field stays absent. [Landing authority](../30-worktrees/landing-authority.md) covers the resolution rules.
 
+A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.receipt_line` derives from the validated gate-receipt line and appends that consent evidence.
+
 ### Plans and executed steps
 
 | Field              | Meaning                                                                                |

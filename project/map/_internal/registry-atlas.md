@@ -195,7 +195,7 @@ The named, ordered buckets the top-level verbs render under — the grouping tab
 
 ## `consent-gated-verbs` — Consent-gated verbs
 
-The verbs that refuse without a fresh `--confirmed` attestation; the consent-gate class test iterates this list, so a new gated act cannot ship without the shared structural refusal.
+The verbs with a `--confirmed` conversation-attestation boundary. The class test proves an authority-free call refuses without writing; accept can also satisfy landing consent through a machine-checked recorded grant.
 
 - Source: `src/shared/consent.ts` — `CONSENT_GATED_VERBS`
 - Members: 2
