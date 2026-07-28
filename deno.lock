@@ -10,7 +10,7 @@
     "jsr:@cliffy/prompt@^1.0.0-rc.8": "1.2.1",
     "jsr:@cliffy/table@1.2.1": "1.2.1",
     "jsr:@cliffy/table@^1.0.0-rc.8": "1.2.1",
-    "jsr:@discern-sh/design-system@0.8.0": "0.8.0",
+    "jsr:@discern-sh/design-system@0.9.0": "0.9.0",
     "jsr:@std/assert@^1.0.10": "1.0.19",
     "jsr:@std/assert@^1.0.19": "1.0.19",
     "jsr:@std/collections@^1.1.3": "1.2.0",
@@ -98,8 +98,8 @@
         "jsr:@std/fmt"
       ]
     },
-    "@discern-sh/design-system@0.8.0": {
-      "integrity": "cbb58f3a593fc83089141a916f483c4c664bc13b77d1f25cc08db221c4b223d3",
+    "@discern-sh/design-system@0.9.0": {
+      "integrity": "0d3871f7d4cf0464b807034f4021be4ef065d56b4e4f1d1954903521f46d3734",
       "dependencies": [
         "npm:@types/react",
         "npm:react"
@@ -961,7 +961,7 @@
       "jsr:@cliffy/command@^1.0.0-rc.8",
       "jsr:@cliffy/prompt@^1.0.0-rc.8",
       "jsr:@cliffy/table@^1.0.0-rc.8",
-      "jsr:@discern-sh/design-system@0.8.0",
+      "jsr:@discern-sh/design-system@0.9.0",
       "jsr:@std/assert@^1.0.10",
       "jsr:@std/encoding@^1.0.7",
       "jsr:@std/fs@^1.0.13",

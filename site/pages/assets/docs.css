@@ -406,7 +406,8 @@ body {
   opacity: 1;
 }
 
-.docs-copy.is-copy-failed {
+.docs-copy.is-copy-failed,
+.docs-command-copy.is-copy-failed {
   border-color: var(--discern-color-danger);
   color: var(--discern-color-danger);
 }

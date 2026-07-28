@@ -7,6 +7,7 @@ export const SITE_BUILD_INPUTS = [
   "site/build.ts",
   "site/brand.ts",
   "site/design_system.ts",
+  "site/workflow_registry.ts",
   "site/page-src",
   "src/lib/providers.ts",
   "src/shared/agent_catalogue.ts",

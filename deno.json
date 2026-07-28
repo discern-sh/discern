@@ -81,7 +81,7 @@
     "react/jsx-runtime": "npm:react@18.3.1/jsx-runtime",
     "react-dom/client": "npm:react-dom@18.3.1/client",
     "react-dom/server": "npm:react-dom@18.3.1/server",
-    "discern-design-system": "jsr:@discern-sh/design-system@0.8.0"
+    "discern-design-system": "jsr:@discern-sh/design-system@0.9.0"
   },
   "fmt": {
     "proseWrap": "never",

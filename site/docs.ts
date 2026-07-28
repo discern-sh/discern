@@ -47,6 +47,7 @@ import {
   THEME_SCRIPT_PATH,
   THEME_STYLESHEET_PATH,
 } from "./theme.ts";
+import { renderWorkflowMarkdown } from "./workflow.ts";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
@@ -670,9 +671,10 @@ export async function renderDoc(
   const projectedBody = page.kind === "guide"
     ? stripAuthoredLeafIndexes(humanBody, page, site)
     : humanBody;
-  const { html, headings } = renderMarkdownHtml(
+  const { html, headings } = renderWorkflowMarkdown(
     rewriteLinks(projectedBody, page, site),
     { renderProseText: createGlossaryProseRenderer(site) },
+    page.mapPath,
   );
   const toc: TocItem[] = headings
     .filter((h) => h.depth === 2 || h.depth === 3)

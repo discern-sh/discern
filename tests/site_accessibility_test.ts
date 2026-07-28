@@ -125,6 +125,56 @@ Deno.test("permalink controls stay outside every heading accessible name", async
   );
 });
 
+Deno.test("Workflow commands receive the accessible package copy anatomy", async () => {
+  const html = await (
+    await get("/docs/quality-gate/when-the-gate-fails")
+  ).text();
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/docs/quality-gate/when-the-gate-fails",
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  dom.window.document.querySelector(".docs-toc")?.remove();
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+
+  const document = dom.window.document;
+  const execution = document.querySelector(".discern-command__execution");
+  const copy = execution?.querySelector<HTMLButtonElement>(
+    ":scope > .discern-command__copy.docs-command-copy",
+  );
+  if (!copy) throw new Error("Workflow command has no copy enhancement");
+  const initial = {
+    label: copy.getAttribute("aria-label"),
+    live: copy.querySelector("[aria-live=polite]")?.textContent,
+    insidePre: copy.closest("pre") !== null,
+  };
+  copy.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  const unavailable = {
+    label: copy.getAttribute("aria-label"),
+    live: copy.querySelector("[aria-live=polite]")?.textContent,
+    state: copy.hasAttribute("data-discern-copied"),
+  };
+  dom.window.close();
+
+  assertEquals(initial, {
+    label: "Copy command",
+    live: "Copy command",
+    insidePre: false,
+  });
+  assertEquals(unavailable, {
+    label: "Command copy failed",
+    live: "Command copy failed",
+    state: false,
+  });
+});
+
 Deno.test("mobile drawer performs the complete modal focus contract", async () => {
   const html = await (await get("/docs")).text();
   const client = await Deno.readTextFile(
