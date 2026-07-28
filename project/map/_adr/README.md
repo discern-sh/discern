@@ -193,6 +193,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0196 — Coupling advice runs with the gate by default](0196-coupling-advice-runs-with-the-gate-by-default.md)
 - [0197 — Every standard declares its direction](0197-standard-direction-is-required.md)
 - [0198 — Worktree port export is opt-in](0198-worktree-port-export-is-opt-in.md)
+- [0200 — The ADR index is a refresh-maintained artifact, opted into by markers](0200-refresh-maintained-adr-index.md)
 
 <!-- END GENERATED: current ADR records -->
 

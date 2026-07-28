@@ -742,9 +742,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "adr-discipline",
         title: "Decision records",
         what:
-          "Architecture Decision Records live under `_adr/`, numbered continuously, with a canonical template and format guide scaffolded into every install. Citations take one strippable form, removed at render time on human surfaces.",
+          "Architecture Decision Records live under `_adr/`, numbered continuously, with a canonical template and format guide scaffolded into every install. `discern refresh` maintains the marker-delimited record index in the ADR README, and the gate refuses one that drifts from the files. Citations take one strippable form, removed at render time on human surfaces.",
         why:
-          "The why behind the code survives the sessions that wrote it, without leaking internal numbering into shipped prose.",
+          "The why behind the code survives the sessions that wrote it — findable from one self-maintaining index, without leaking internal numbering into shipped prose.",
       },
       {
         id: "bundled-help",

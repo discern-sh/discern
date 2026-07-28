@@ -35,7 +35,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`feature-canon`](#feature-canon--feature-canon)                               | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                      | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)             | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
-| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 193     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 194     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                   | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary) | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
@@ -373,7 +373,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 193
+- Members: 194
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
