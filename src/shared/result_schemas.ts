@@ -33,6 +33,7 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
+import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -306,6 +307,24 @@ export const StandardsLimitsSchema = z.strictObject({
 });
 export type StandardsLimitsData = z.infer<typeof StandardsLimitsSchema>;
 
+/** A read-only projection of recorded landing authority at one lifecycle moment. */
+export const LandingAuthorityDataSchema = z.strictObject({
+  kind: z.enum(LANDING_AUTHORITY_KINDS),
+  /** Present when a grant authorizes this exact tree. */
+  source: z.enum(LANDING_CONSENT_SOURCES).optional(),
+  /** Standing scopes that cover this exact tree. */
+  scopes: z.array(z.string()).optional(),
+  /** Known standing grants when the final tree is not yet or not fully covered. */
+  standing_scopes: z.array(z.string()).optional(),
+  /** Changed paths that keep this tree on the conversational path. */
+  uncovered: z.array(z.strictObject({
+    path: z.string(),
+    scopes: z.array(z.string()),
+  })).optional(),
+  warnings: z.array(z.string()).optional(),
+});
+export type LandingAuthorityData = z.infer<typeof LandingAuthorityDataSchema>;
+
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
@@ -319,6 +338,7 @@ export const GateDataSchema = z.strictObject({
   scopes_changed: z.array(z.string()),
   standards: z.array(GateStandardSchema).optional(),
   standards_limits: StandardsLimitsSchema.optional(),
+  landing_authority: LandingAuthorityDataSchema.optional(),
   receipt: ReceiptSchema.optional(),
   gate_receipt: z.strictObject({
     status: z.enum([
@@ -463,8 +483,17 @@ export const StartDataSchema = z.strictObject({
   path: z.string(),
   from: z.string(),
   name_note: z.string().optional(),
+  landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StartData = z.infer<typeof StartDataSchema>;
+
+/** The verified consent evidence used by one successful landing. */
+export const LandingConsentDataSchema = z.strictObject({
+  source: z.enum(LANDING_CONSENT_SOURCES),
+  /** Present only for a standing grant: the scopes that covered changed paths. */
+  scopes: z.array(z.string()).optional(),
+});
+export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
 
 /** `accept` — where the branch landed: `root` is the main checkout the worktree's
  * branch was landed into. The load-bearing field for the MCP working-root re-aim
@@ -475,6 +504,9 @@ export type StartData = z.infer<typeof StartDataSchema>;
  * when the server was launched from the trunk). */
 export const AcceptDataSchema = z.strictObject({
   root: z.string(),
+  consent: LandingConsentDataSchema,
+  /** Non-blocking authority evidence the caller should surface. */
+  authority_warnings: z.array(z.string()).optional(),
   gate_validation: GateValidationSchema.optional(),
   /** The receipt markdown for the tree that landed — the landing record, pasteable
    * into a PR body (from the honored marker on the fast path, or the fresh gate run
@@ -629,6 +661,7 @@ const statusFleetEntrySchema = z.strictObject({
   receipt_honored: z.boolean().optional(),
   receipt: z.string().optional(),
   receipt_line: z.string().optional(),
+  landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
 
@@ -664,6 +697,7 @@ export const StatusDataSchema = z.strictObject({
   gate: statusGateSchema.optional(),
   standards: z.array(z.string()),
   gate_receipt: GateReceiptCheckSchema.optional(),
+  landing_authority: LandingAuthorityDataSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),
   stale_integrations: z.array(z.string()).optional(),

@@ -5192,6 +5192,68 @@
                     "trunk"
                   ]
                 },
+                "landing_authority": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "authorized",
+                        "conversation-required"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "standing_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "scopes"
+                        ]
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
                 "receipt": {
                   "type": "object",
                   "properties": {
@@ -9128,6 +9190,68 @@
                     "status"
                   ]
                 },
+                "landing_authority": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "authorized",
+                        "conversation-required"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "standing_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "scopes"
+                        ]
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
                 "stale_generated": {
                   "type": "array",
                   "items": {
@@ -9249,6 +9373,68 @@
                       },
                       "receipt_line": {
                         "type": "string"
+                      },
+                      "landing_authority": {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "authorized",
+                              "conversation-required"
+                            ]
+                          },
+                          "source": {
+                            "type": "string",
+                            "enum": [
+                              "conversation",
+                              "standing-grant",
+                              "effort-grant"
+                            ]
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "standing_scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "uncovered": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "path": {
+                                  "type": "string"
+                                },
+                                "scopes": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "path",
+                                "scopes"
+                              ]
+                            }
+                          },
+                          "warnings": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "kind"
+                        ]
                       }
                     },
                     "required": [
@@ -9608,6 +9794,68 @@
                 },
                 "name_note": {
                   "type": "string"
+                },
+                "landing_authority": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "authorized",
+                        "conversation-required"
+                      ]
+                    },
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "standing_scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "uncovered": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "path": {
+                            "type": "string"
+                          },
+                          "scopes": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "path",
+                          "scopes"
+                        ]
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
                 }
               },
               "required": [
@@ -9885,6 +10133,34 @@
                 "root": {
                   "type": "string"
                 },
+                "consent": {
+                  "type": "object",
+                  "properties": {
+                    "source": {
+                      "type": "string",
+                      "enum": [
+                        "conversation",
+                        "standing-grant",
+                        "effort-grant"
+                      ]
+                    },
+                    "scopes": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "source"
+                  ]
+                },
+                "authority_warnings": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "gate_validation": {
                   "type": "object",
                   "properties": {
@@ -9979,7 +10255,8 @@
                 }
               },
               "required": [
-                "root"
+                "root",
+                "consent"
               ]
             },
             {

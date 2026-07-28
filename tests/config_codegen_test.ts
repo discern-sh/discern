@@ -243,6 +243,12 @@ function hasConfigPath(obj: unknown, path: string): boolean {
   return true;
 }
 
+/**
+ * Fixed template sections the repo must leave absent because writing them is an
+ * owner decision, not scaffold parity. The section prefix enrolls future keys.
+ */
+const ROOT_CONFIG_OWNER_DECISION_SECTIONS = new Set(["acceptance"]);
+
 // Makes the "a new template key (like [worktree.setup].ensure) is forgotten in the
 // repo's own config" class of drift impossible: it walks the keys the template
 // actually ships and fails on any the root omits. Driven off the live template +
@@ -252,9 +258,21 @@ Deno.test("the repo's own discern.toml carries every fixed key the template ship
   const root = parseToml(
     await Deno.readTextFile(new URL("../discern.toml", import.meta.url)),
   );
-  const missing = fixedKeyPaths(template).filter((p) =>
-    !hasConfigPath(root, p)
-  );
+  for (const section of ROOT_CONFIG_OWNER_DECISION_SECTIONS) {
+    assert(
+      hasConfigPath(template, section),
+      `owner-decision exception names no template section: ${section}`,
+    );
+    assert(
+      !hasConfigPath(root, section),
+      `discern.toml must leave [${section}] to an explicit owner decision`,
+    );
+  }
+  const missing = fixedKeyPaths(template).filter((p) => {
+    const section = p.split(".")[0] ?? "";
+    return !ROOT_CONFIG_OWNER_DECISION_SECTIONS.has(section) &&
+      !hasConfigPath(root, p);
+  });
   assertEquals(
     missing,
     [],

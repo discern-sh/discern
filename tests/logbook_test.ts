@@ -109,6 +109,7 @@ function sampleEvent(): VerbEvent {
       measurement: "measured",
     }],
     update: { behind: 3, files: 7, overlap: 1 },
+    consent: { source: "standing-grant", scopes: ["docs"] },
     epoch: "0a1b2c3d",
   };
 }

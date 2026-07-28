@@ -26,8 +26,39 @@
 export const AWAITING_CONSENT_SLUG = "awaiting_consent";
 
 /** The attestation flag both gated verbs accept — the fact the caller asserts:
- * the human has consented to this act, or gave standing pre-authorization. */
+ * the human has consented to this act in the current conversation. Recorded
+ * landing grants are checked directly and never asserted through this flag. */
 export const CONFIRMED_ATTESTATION = "--confirmed";
+
+/**
+ * The closed vocabulary recorded for every successful landing. Conversation
+ * consent comes through `--confirmed`; standing and effort grants are
+ * machine-checked records.
+ */
+export const LANDING_CONSENT_SOURCES = [
+  "conversation",
+  "standing-grant",
+  "effort-grant",
+] as const;
+
+/** One recorded landing-consent source. */
+export type LandingConsentSource = (typeof LANDING_CONSENT_SOURCES)[number];
+
+/** The two postures a read-only landing-authority observation can report. */
+export const LANDING_AUTHORITY_KINDS = [
+  "authorized",
+  "conversation-required",
+] as const;
+
+/** One landing-authority posture. */
+export type LandingAuthorityKind = (typeof LANDING_AUTHORITY_KINDS)[number];
+
+/** The consent evidence carried by acceptance results and local history. */
+export interface LandingConsent {
+  readonly source: LandingConsentSource;
+  /** The granted scopes that covered this landing (standing grants only). */
+  readonly scopes?: readonly string[];
+}
 
 /** One consent-gated verb — pure metadata, no behaviour. */
 export interface ConsentGatedVerb {

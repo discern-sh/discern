@@ -1560,6 +1560,17 @@ export type DiscernDoneResult = {
       trunk: string;
       reason?: string;
     };
+    landing_authority?: {
+      kind: "authorized" | "conversation-required";
+      source?: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+      standing_scopes?: Array<string>;
+      uncovered?: Array<{
+        path: string;
+        scopes: Array<string>;
+      }>;
+      warnings?: Array<string>;
+    };
     receipt?: {
       branch: string;
       trunk: string;
@@ -2754,6 +2765,17 @@ export type DiscernStatusResult = {
       receipt?: string;
       receipt_line?: string;
     };
+    landing_authority?: {
+      kind: "authorized" | "conversation-required";
+      source?: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+      standing_scopes?: Array<string>;
+      uncovered?: Array<{
+        path: string;
+        scopes: Array<string>;
+      }>;
+      warnings?: Array<string>;
+    };
     stale_generated?: Array<string>;
     stale_materialized?: Array<string>;
     stale_integrations?: Array<string>;
@@ -2784,6 +2806,17 @@ export type DiscernStatusResult = {
       receipt_honored?: boolean;
       receipt?: string;
       receipt_line?: string;
+      landing_authority?: {
+        kind: "authorized" | "conversation-required";
+        source?: "conversation" | "standing-grant" | "effort-grant";
+        scopes?: Array<string>;
+        standing_scopes?: Array<string>;
+        uncovered?: Array<{
+          path: string;
+          scopes: Array<string>;
+        }>;
+        warnings?: Array<string>;
+      };
     }>;
     fleet_collisions?: Array<{
       branches: unknown;
@@ -2889,6 +2922,17 @@ export type DiscernStartResult = {
     path: string;
     from: string;
     name_note?: string;
+    landing_authority?: {
+      kind: "authorized" | "conversation-required";
+      source?: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+      standing_scopes?: Array<string>;
+      uncovered?: Array<{
+        path: string;
+        scopes: Array<string>;
+      }>;
+      warnings?: Array<string>;
+    };
   } | {
     issues: Array<{
       path: string;
@@ -2979,6 +3023,11 @@ export type DiscernAcceptResult = {
   verb: "accept";
   data?: {
     root: string;
+    consent: {
+      source: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+    };
+    authority_warnings?: Array<string>;
     gate_validation?: {
       mode: "receipt" | "rerun";
       receipt: {

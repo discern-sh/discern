@@ -7,8 +7,9 @@
  * from `statusResult` (the fleet survey) plus the gate-receipt check, and every
  * mutation runs the same lifecycle core the CLI verb runs — a core's refusal is
  * rendered, never bypassed. Its only owned logic is the pure classification in
- * `model.ts`. Every action echoes the CLI command it is about to run, so the
- * desk teaches the verb vocabulary rather than becoming a second dialect.
+ * `model.ts`. Lifecycle actions echo their CLI command. The effort-grant action
+ * is deliberately desk-only: this TTY is the sole write boundary, while agent
+ * CLI and MCP surfaces can only read the resulting grant.
  *
  * Deliberately CLI-only — no MCP tool — for `worktree drop`'s reason: the desk
  * wields human supervisory actions over OTHER efforts' worktrees, which the
@@ -67,6 +68,11 @@ import {
   type DeskRow,
 } from "./model.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
+import {
+  clearEffortGrant,
+  type EffortGrantWrite,
+  grantEffort,
+} from "../worktree/effort_grant.ts";
 
 /** Sentinel Select values that are not fleet rows (NUL-prefixed: never a path). */
 const REFRESH = "\x00refresh";
@@ -101,6 +107,11 @@ export interface DeskRuntime {
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
   receiptHonored(path: string): DeskMaybePromise<boolean>;
+  grantEffort(
+    path: string,
+    branch: string,
+  ): DeskMaybePromise<EffortGrantWrite>;
+  clearEffortGrant(path: string): DeskMaybePromise<boolean>;
   makeOut(): Out;
   error(message: string): void;
   select(options: DeskSelectOptions): DeskMaybePromise<string>;
@@ -206,6 +217,8 @@ export const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
   receiptHonored: (path) => gateReceiptHonored(path),
+  grantEffort: (path, branch) => grantEffort(path, branch),
+  clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
   error: (message) => console.error(message),
   select: (options) => selectPrompt<string>(options),
@@ -290,6 +303,10 @@ function actionLabel(action: DeskAction, trunk: string): string {
   switch (action) {
     case "accept":
       return `Accept and land on ${trunk}`;
+    case "grant":
+      return "Pre-authorize landing once green";
+    case "revoke_grant":
+      return "Revoke landing pre-authorization";
     case "update":
       return `Update branch from ${trunk}`;
     case "script":
@@ -571,6 +588,48 @@ async function dispatchAction(
       // the consent attestation in — the desk's confirm IS the acceptance, and
       // accept must not double-refuse for a consent it already collected (ADR 0134).
       await runtime.accept(ctx, { confirmed: true });
+      await runtime.pause(out);
+      return true;
+    }
+    case "grant": {
+      if (
+        !(await runtime.confirm(
+          `Allow ${row.entry.branch} to land once green without a further conversation?`,
+          false,
+        ))
+      ) {
+        return false;
+      }
+      const result = await runtime.grantEffort(
+        row.entry.path,
+        row.entry.branch,
+      );
+      if (result.status === "already_granted") {
+        out.info(
+          `${row.entry.branch} was already pre-authorized to land once green.`,
+        );
+      } else {
+        out.ok(
+          `${row.entry.branch} may land once green without a further conversation.`,
+        );
+      }
+      await runtime.pause(out);
+      return true;
+    }
+    case "revoke_grant": {
+      if (
+        !(await runtime.confirm(
+          `Revoke landing pre-authorization for ${row.entry.branch}?`,
+          false,
+        ))
+      ) {
+        return false;
+      }
+      if (await runtime.clearEffortGrant(row.entry.path)) {
+        out.ok(`Landing pre-authorization revoked for ${row.entry.branch}.`);
+      } else {
+        out.info(`${row.entry.branch} had no landing pre-authorization.`);
+      }
       await runtime.pause(out);
       return true;
     }
@@ -865,6 +924,7 @@ export async function runDesk(
     clearBoard(out);
     const fleet = data.fleet ?? [];
     const receiptByPath = new Map<string, boolean>();
+    const effortGrantByPath = new Map<string, boolean>();
     const scriptsByPath = new Map<string, readonly ProjectScript[]>();
     const agentLaunchesByPath = new Map<
       string,
@@ -882,6 +942,11 @@ export async function runDesk(
           loadWorktreeConfig(entry.path, runtime),
         ]);
         receiptByPath.set(entry.path, receiptHonored);
+        effortGrantByPath.set(
+          entry.path,
+          entry.landing_authority?.kind === "authorized" &&
+            entry.landing_authority.source === "effort-grant",
+        );
         scriptsByPath.set(entry.path, scripts);
         agentLaunchesByPath.set(
           entry.path,
@@ -894,6 +959,7 @@ export async function runDesk(
     const rows = buildDeskRows(
       fleet,
       receiptByPath,
+      effortGrantByPath,
       scriptsByPath,
       agentLaunchesByPath,
       runtime.now(),

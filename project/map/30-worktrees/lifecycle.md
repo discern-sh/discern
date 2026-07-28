@@ -48,11 +48,11 @@ Choose the bucket by where a command is valid. Put dependency installation, code
 
 ## Land the reviewed commit
 
-Commit the final tree and run `discern done`. After the owner accepts the change, run `discern accept --confirmed` from the worktree. The confirmation attests to that review. Without it, acceptance points the agent back to the receipt and leaves every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md)).
+Commit the final tree and run `discern done`. A landing then needs verified [landing authority](landing-authority.md): consent from this conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from the desk. `start`, `status`, and a green `done` expose the answer from the shared resolver before acceptance. Uncovered work returns to receipt review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 Acceptance requires the latest trunk, a clean worktree, a tracked-clean main checkout on the trunk, and an unlocked worktree. It validates the precise commit that will land. An honored `discern done` receipt skips a duplicate gate run. Any later commit invalidates the receipt and triggers the full gate again ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-On success, discern fast-forwards the trunk to that validated commit. Before cleanup, it refreshes the main checkout, runs every `[repository].ensure` command there, runs the configured `smoke` job, and reports any tracked files those post-landing operations changed. It then destroys resources, removes the worktree, and deletes the merged branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance refuses and keeps this worktree intact for `update → done → accept`.
+On success, discern records `conversation`, `standing-grant` with its scope names, or `effort-grant` in the result, landing receipt, and logbook. It fast-forwards the trunk to that validated commit. Before cleanup, it refreshes the main checkout, runs every `[repository].ensure` command there, runs the configured `smoke` job, and reports any tracked files those post-landing operations changed. It then destroys resources, removes the worktree, and deletes the merged branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance refuses and keeps this worktree intact for `update → done → accept`.
 
 The branch has already landed when checkout convergence begins, so these post-landing operations are non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` run only in a linked worktree.
 
@@ -64,12 +64,13 @@ From the main checkout, `discern worktree drop <id|path>` removes an abandoned w
 
 ## Where it lives in code
 
-| Responsibility                | Source                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------- |
-| Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts) |
-| Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)             |
-| Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)           |
-| Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)       |
+| Responsibility                | Source                                                                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                 |
+| Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts) |
+| Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                             |
+| Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                           |
+| Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                       |
 
 ## Current state and gotchas
 

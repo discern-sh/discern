@@ -87,6 +87,10 @@ const CORPUS_EXEMPT_FROMS: ReadonlyMap<number, string> = new Map([
     19,
     "migration 19→20 renames Project Recipes to Project Scripts without losing their files",
   ],
+  [
+    23,
+    "migration 23→24 inserts the documented [acceptance] block after the scope family",
+  ],
 ]);
 
 function historicalFixtureName(from: number): string {
@@ -196,8 +200,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // ([ratchets] → [standards]), 18→19 ([docs] → [map], with the installed
   // directory pinned), 19→20 (Project Recipes → Project Scripts), and 20→21
   // ([project] repository policy → [repository]), and 21→22 merges the declared
-  // gate work into [jobs], and 22→23 enables gate-tail coupling advice while
-  // narrowing the generated neutral scope.
+  // gate work into [jobs], 22→23 enables gate-tail coupling advice while
+  // narrowing the generated neutral scope, and 23→24 adds [acceptance].
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -221,6 +225,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     20,
     21,
     22,
+    23,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -1658,6 +1663,46 @@ Deno.test("migration 22→23 preserves a custom neutral scope while enabling cou
     const coupling = raw.coupling as Record<string, unknown>;
     assertEquals(docs.paths, custom);
     assertEquals(coupling.in_gate, true);
+  });
+});
+
+Deno.test("migration 23→24 inserts the documented [acceptance] block after the scope family", async () => {
+  await withTempDir(async (dir) => {
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      configPath,
+      [
+        "[meta]",
+        "schema_version = 23",
+        "",
+        "[jobs]",
+        'test = "deno test"',
+        "",
+        "[scopes.docs]",
+        'paths = ["docs/**"]',
+        "",
+        "[scopes.release]",
+        'paths = ["release/**"]',
+        "",
+        "[worktree]",
+        'root = ""',
+        "",
+      ].join("\n"),
+    );
+
+    await applyMigrations({ destDir: dir, from: 23, to: 24 });
+    const migrated = await Deno.readTextFile(configPath);
+    assertStringIncludes(migrated, "# [acceptance] — standing grants");
+    assertStringIncludes(migrated, "[acceptance]\npre_authorized = []");
+    assert(
+      migrated.indexOf("[scopes.release]") <
+          migrated.indexOf("[acceptance]") &&
+        migrated.indexOf("[acceptance]") < migrated.indexOf("[worktree]"),
+      migrated,
+    );
+
+    await applyMigrations({ destDir: dir, from: 23, to: 24 });
+    assertEquals(await Deno.readTextFile(configPath), migrated);
   });
 });
 

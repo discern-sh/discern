@@ -170,7 +170,7 @@ Deno.test("accept: refuses without --confirmed, re-serving the review moment (sl
   });
 });
 
-Deno.test("accept: --confirmed lands exactly as before (byte-identical success path)", async () => {
+Deno.test("accept: --confirmed preserves the conversation-consent landing path", async () => {
   await withTempDir(async (dir) => {
     const wt = await worktreeReadyToLand(dir);
 
@@ -179,6 +179,11 @@ Deno.test("accept: --confirmed lands exactly as before (byte-identical success p
     const env = parseJson(r.stdout);
     assertEquals(env.ok, true);
     assertEquals(env.verb, "accept");
+    assertEquals(env.data.consent, { source: "conversation" });
+    assertStringIncludes(
+      env.data.receipt_line,
+      "landed with conversation consent",
+    );
     // The landing happened: worktree gone, branch work on the trunk, receipt carried.
     assertEquals(await exists(wt), false, `should have landed\n${r.output}`);
     assert(

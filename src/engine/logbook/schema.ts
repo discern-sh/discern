@@ -42,6 +42,7 @@
 
 import { z } from "@zod/zod";
 import { AGENT_SIGNAL_SOURCES } from "../../shared/agent_catalogue.ts";
+import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 
 /** The event-format major this build writes; readers skip unknown majors. */
 export const LOGBOOK_SCHEMA_VERSION = 1;
@@ -189,6 +190,12 @@ const updateShapeSchema = z.looseObject({
 /** One recorded update shape. */
 export type UpdateShape = z.infer<typeof updateShapeSchema>;
 
+/** Verified consent evidence lifted from a successful acceptance envelope. */
+const landingConsentSchema = z.looseObject({
+  source: z.enum(LANDING_CONSENT_SOURCES),
+  scopes: z.array(z.string()).optional(),
+});
+
 /** The fields every event kind carries. */
 const eventBase = {
   /** The event-format major ({@link LOGBOOK_SCHEMA_VERSION}). */
@@ -261,6 +268,8 @@ export const verbEventSchema = z.looseObject({
   standards: z.array(standardReadingSchema).optional(),
   /** What an `update` brought in ({@link UpdateShape}). */
   update: updateShapeSchema.optional(),
+  /** How a successful landing was authorized, with scope names only. */
+  consent: landingConsentSchema.optional(),
   /** The config-epoch fingerprint (see `epoch.ts`), or null when config was unreadable. */
   epoch: z.string().nullable(),
 });
