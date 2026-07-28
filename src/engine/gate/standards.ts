@@ -59,6 +59,10 @@ import {
 import { observeResult } from "../../shared/result_capture.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import { runGit } from "../../shared/subprocess.ts";
+import {
+  commitDiscernChanges,
+  DISCERN_AUTHORED_COMMIT_SITES,
+} from "../../shared/discern_commit.ts";
 import { isAbsolute, join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "../../shared/env.ts";
 import { TomlEditor } from "../../lib/toml_edit.ts";
@@ -1074,7 +1078,9 @@ function standardsWriteAccessFailure(
 
 /** The re-pin commit message: an imperative subject and a body listing each limit's
  * old→new and the measurement behind it, so `git log` explains why the bound moved. */
-function pinCommitMessage(pins: PinnedStandard[]): string {
+function pinCommitMessage(
+  pins: PinnedStandard[],
+): { subject: string; body: string } {
   const only = pins.length === 1 ? pins[0] : undefined;
   const subject = only !== undefined
     ? `Pin standard baseline: ${only.standard.name} ${only.standard.limit} → ${only.newLimit}`
@@ -1085,11 +1091,14 @@ function pinCommitMessage(pins: PinnedStandard[]): string {
       fmtRate(p.measured)
     })`;
   }).join("\n");
-  return `${subject}\n\n` +
-    "Capture a measured improvement so it cannot regress. `discern standards`\n" +
-    "measured these metrics past their limits; `--pin` tightens each limit to\n" +
-    "the measured value, leaving any configured margin of headroom:\n\n" +
-    body;
+  return {
+    subject,
+    body:
+      "Capture a measured improvement so it cannot regress. `discern standards`\n" +
+      "measured these metrics past their limits; `--pin` tightens each limit to\n" +
+      "the measured value, leaving any configured margin of headroom:\n\n" +
+      body,
+  };
 }
 
 /** Restore `rel`'s working-tree and index copy to HEAD, undoing a half-applied pin.
@@ -1156,8 +1165,11 @@ async function applyPinEdits(
       `could not stage ${rel}: ${add.stderr.trim()}`,
     );
   }
-  const commit = await runGit(["commit", "-m", pinCommitMessage(pins)], {
+  const commit = await commitDiscernChanges({
+    site: DISCERN_AUTHORED_COMMIT_SITES.standardsPin,
     cwd: root,
+    ...pinCommitMessage(pins),
+    pathspecs: [rel],
   });
   if (!commit.success) {
     return await failWithRollback(
