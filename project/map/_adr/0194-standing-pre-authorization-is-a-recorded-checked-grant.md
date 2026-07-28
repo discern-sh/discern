@@ -1,8 +1,10 @@
 # ADR 0194: Standing pre-authorization is a recorded, machine-checked grant — `[acceptance]`, covered landings, and the desk's effort grant
 
-> **Relationship clarification (2026-07-28):** This record both extends and amends [ADR 0134](0134-accept-attests-consent.md). It preserves the requirement that every landing has verified consent, narrows `--confirmed` to current-conversation consent, and adds machine-checked recorded grants as separate consent sources.
+> **Relationship clarification (2026-07-28):** This record both extends and amends [ADR 0134](0134-accept-attests-consent.md). It preserves the requirement that every landing has consent evidence, narrows `--confirmed` to current-conversation consent, and adds machine-checked recorded grants as separate consent sources.
 
 > **Atomic-boundary clarification (2026-07-28):** A checked grant authorizes one exact transition, not merely a tree that was covered earlier. Standing authority is pinned to the trunk commit that supplied it and lands through an expected-old compare-and-swap. An effort grant is atomically claimed before that transition. Concurrent trunk movement, revocation, or competing acceptance therefore refuses closed instead of reusing stale authority.
+
+> **Settlement clarification (2026-07-28):** The trunk ref, not checkout convergence, decides whether an effort grant was spent. A failed transition restores the claim; a transition that remains advanced consumes it even when the checkout could not converge. Claim-file cleanup is non-fatal after that irreversible boundary. Malformed committed landing policy remains blocking evidence for every consent source, including an effort grant.
 
 > **Writer-boundary amendment (2026-07-28):** Effort-grant reads, creation, and cleanup now live in separate capability modules. Only the desk may import creation; the desk and successful acceptance may import cleanup. A Deno-resolved production import-graph guard enforces those relationships, including imports spelled through aliases, re-exports, or helper modules. The desk's production runtime stays private so it cannot re-export the grant functions as a runtime object.
 

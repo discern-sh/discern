@@ -248,6 +248,82 @@ Deno.test("landing compare-and-swap preserves a colliding untracked file", async
   });
 });
 
+Deno.test("landing compare-and-swap preserves ignored file, directory, and symlink collisions", async (t) => {
+  const cases = [
+    {
+      name: "file",
+      localPath: "local-file",
+      makeLocal: async (path: string): Promise<void> => {
+        await Deno.writeTextFile(path, "ignored file\n");
+      },
+      proveLocal: async (path: string): Promise<void> => {
+        assertEquals(await Deno.readTextFile(path), "ignored file\n");
+      },
+    },
+    {
+      name: "directory",
+      localPath: "local-directory",
+      makeLocal: async (path: string): Promise<void> => {
+        await Deno.mkdir(path);
+        await Deno.writeTextFile(join(path, "kept.txt"), "ignored child\n");
+      },
+      proveLocal: async (path: string): Promise<void> => {
+        assertEquals(
+          await Deno.readTextFile(join(path, "kept.txt")),
+          "ignored child\n",
+        );
+      },
+    },
+    ...(Deno.build.os === "windows" ? [] : [{
+      name: "symlink",
+      localPath: "local-symlink",
+      makeLocal: async (path: string): Promise<void> => {
+        await Deno.symlink("machine-local-target", path);
+      },
+      proveLocal: async (path: string): Promise<void> => {
+        assertEquals(await Deno.readLink(path), "machine-local-target");
+      },
+    }]),
+  ];
+
+  for (const testCase of cases) {
+    await t.step(testCase.name, async () => {
+      await withTempDir(async (dir) => {
+        await scaffoldEngine(dir);
+        await writeConfig(dir, authorityConfig(["docs"]));
+        await Deno.writeTextFile(join(dir, ".gitignore"), "local-*\n");
+        await gitInit(dir);
+        const expected = await gitOut(dir, "rev-parse", "main");
+        const worktree = await addWorktree(dir, `ignored-${testCase.name}`);
+        const targetPath = join(worktree, testCase.localPath);
+        await Deno.writeTextFile(targetPath, "landed tracked bytes\n");
+        await git(worktree, "add", "-f", testCase.localPath);
+        await git(
+          worktree,
+          "commit",
+          "-q",
+          "-m",
+          "track ignored collision",
+          "--no-gpg-sign",
+        );
+        const validated = await gitOut(worktree, "rev-parse", "HEAD");
+        const localPath = join(dir, testCase.localPath);
+        await testCase.makeLocal(localPath);
+
+        const refused = await fastForwardCheckedOutBranch(
+          dir,
+          "main",
+          expected,
+          validated,
+        );
+        assertEquals(refused.kind, "dirty");
+        assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+        await testCase.proveLocal(localPath);
+      });
+    });
+  }
+});
+
 Deno.test("accept records confirmed conversation consent in its receipt and logbook", async () => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
@@ -376,6 +452,16 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and confi
     assertStringIncludes(
       JSON.parse(flagless.stdout).message,
       "could not be checked",
+    );
+
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    await grantEffort(worktree, branch, "2026-07-28T23:30:00.000Z");
+    const effort = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(effort.code, 1, effort.output);
+    assertStringIncludes(
+      effort.stdout,
+      "could not be checked",
+      "a recorded effort grant must not bypass malformed trunk policy",
     );
 
     const confirmed = await runAgent(worktree, [

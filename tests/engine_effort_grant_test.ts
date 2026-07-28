@@ -11,6 +11,7 @@ import {
   clearEffortGrant,
   consumeEffortGrantClaim,
   restoreEffortGrantClaim,
+  settleEffortGrantClaim,
 } from "../src/engine/worktree/effort_grant_cleanup.ts";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
@@ -152,8 +153,65 @@ Deno.test("effort grant claim linearizes accept against desk revoke and re-grant
 
     const final = await claimEffortGrant(worktree, branch);
     assert(final.status === "claimed");
-    await consumeEffortGrantClaim(final.claim);
+    assertEquals(await consumeEffortGrantClaim(final.claim), true);
     assertEquals(await readEffortGrant(worktree), { status: "missing" });
+  });
+});
+
+Deno.test("effort claim settlement follows the trunk ref, never the checkout report", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "claim-settlement");
+    const branch = await gitOut(worktree, "branch", "--show-current");
+
+    await grantEffort(worktree, branch, FIRST_GRANT);
+    const irreversible = await claimEffortGrant(worktree, branch);
+    assert(irreversible.status === "claimed");
+    assertEquals(
+      await settleEffortGrantClaim(worktree, irreversible.claim, {
+        kind: "checkout-failed",
+        detail: "checkout failed and ref rollback lost its race",
+        rolledBack: false,
+      }),
+      { disposition: "consume", settled: true },
+      "authority is spent whenever the trunk remained advanced",
+    );
+    assertEquals(await readEffortGrant(worktree), { status: "missing" });
+
+    await grantEffort(worktree, branch, SECOND_GRANT);
+    const refused = await claimEffortGrant(worktree, branch);
+    assert(refused.status === "claimed");
+    assertEquals(
+      await settleEffortGrantClaim(worktree, refused.claim, {
+        kind: "checkout-failed",
+        detail: "checkout failed but ref rollback succeeded",
+        rolledBack: true,
+      }),
+      { disposition: "restore", settled: true },
+      "authority returns only when the old trunk ref is known to be restored",
+    );
+    assertEquals(await readEffortGrant(worktree), {
+      status: "granted",
+      grant: { branch, granted_at: SECOND_GRANT },
+    });
+
+    const stuck = join(dir, "non-empty-claim");
+    await Deno.mkdir(stuck);
+    await Deno.writeTextFile(join(stuck, "kept"), "claim\n");
+    assertEquals(
+      await settleEffortGrantClaim(
+        worktree,
+        {
+          path: stuck,
+          grant: { branch, granted_at: SECOND_GRANT },
+          raw: "{}\n",
+        },
+        { kind: "updated" },
+      ),
+      { disposition: "consume", settled: false },
+      "claim cleanup failure is reported instead of throwing after the ref moved",
+    );
   });
 });
 

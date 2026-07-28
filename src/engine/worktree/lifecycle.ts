@@ -180,10 +180,22 @@ import {
 import {
   claimEffortGrant,
   clearEffortGrant,
-  consumeEffortGrantClaim,
   type EffortGrantClaim,
-  restoreEffortGrantClaim,
+  settleEffortGrantClaim,
 } from "./effort_grant_cleanup.ts";
+
+/**
+ * Worktree lifecycle verbs that require discern's project root to be the Git
+ * repository root. A linked worktree always checks out the whole repository,
+ * so a nested project root cannot safely create or land one.
+ */
+export const WORKTREE_LIFECYCLE_REPO_ROOT_VERBS = [
+  "start",
+  "accept",
+] as const;
+
+type WorktreeLifecycleRepoRootVerb =
+  (typeof WORKTREE_LIFECYCLE_REPO_ROOT_VERBS)[number];
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -1579,6 +1591,7 @@ async function executeAcceptPlan(
   receiptLine: string | undefined;
   convergenceHints: string[];
   diagnostics: Diagnostic[];
+  authorityWarnings: string[];
 }> {
   // ensure a named branch (the one mutating step the read-only diagnosis deferred)
   const settings = await loadIdentitySettings(ctx.root);
@@ -1672,6 +1685,7 @@ async function executeAcceptPlan(
   }
 
   const results: StepResult[] = [];
+  const authorityWarnings: string[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
   };
@@ -1790,15 +1804,27 @@ async function executeAcceptPlan(
     expectedTrunk,
     validatedSha,
   );
+  const effortSettlement = effortClaim === undefined
+    ? undefined
+    : await settleEffortGrantClaim(ctx.cwd, effortClaim, ff);
+  const effortSettlementWarning = effortSettlement?.settled === false
+    ? effortSettlement.disposition === "consume"
+      ? "Discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
+      : "Discern could not restore the effort grant cleanly. Inspect the grant in the desk and re-authorize this worktree before retrying."
+    : undefined;
+  if (effortSettlementWarning !== undefined) {
+    ctx.log.warn(effortSettlementWarning);
+    authorityWarnings.push(effortSettlementWarning);
+  }
   if (ff.kind !== "updated") {
-    if (effortClaim !== undefined) {
-      await restoreEffortGrantClaim(ctx.cwd, effortClaim);
-    }
     if (ff.kind === "checkout-failed" && !ff.rolledBack) {
       throw new WorktreeGitError(
         `Discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
           `converge the checked-out files and could not restore the old ref. Stop ` +
-          `and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}`,
+          `and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}` +
+          (effortSettlementWarning === undefined
+            ? ""
+            : ` ${effortSettlementWarning}`),
       );
     }
     const checkoutDetail = ff.kind === "checkout-failed"
@@ -1810,11 +1836,11 @@ async function executeAcceptPlan(
         `${checkoutDetail} Your worktree is fully intact, resources included, ` +
         `and your commits are safe on ${worktreeBranch} at ${worktreePath}. ` +
         `From that worktree, run \`discern update\`, then \`discern done\`, then ` +
-        `\`discern accept\` again. Git said: ${ff.detail}`,
+        `\`discern accept\` again. Git said: ${ff.detail}` +
+        (effortSettlementWarning === undefined
+          ? ""
+          : ` ${effortSettlementWarning}`),
     );
-  }
-  if (effortClaim !== undefined) {
-    await consumeEffortGrantClaim(effortClaim);
   }
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
@@ -2030,6 +2056,7 @@ async function executeAcceptPlan(
     receiptLine,
     convergenceHints,
     diagnostics,
+    authorityWarnings,
   };
 }
 
@@ -2076,6 +2103,7 @@ export async function acceptResult(
 ): Promise<DiscernResult<AcceptData>> {
   const dryRun = opts.dryRun ?? false;
   const confirmed = opts.confirmed ?? false;
+  await assertProjectRootIsRepoToplevel(ctx, "accept");
   // Resolve authority before the ordinary preconditions so an uncovered
   // flagless call still receives the consent refusal as its outermost contract.
   // Every read is mutation-free. A dry-run reports authority but needs none.
@@ -2124,8 +2152,13 @@ export async function acceptResult(
       source: consent.source,
       ...(consent.scopes !== undefined ? { scopes: [...consent.scopes] } : {}),
     },
-    ...(authority.warnings.length > 0
-      ? { authority_warnings: [...authority.warnings] }
+    ...(authority.warnings.length + executed.authorityWarnings.length > 0
+      ? {
+        authority_warnings: [
+          ...authority.warnings,
+          ...executed.authorityWarnings,
+        ],
+      }
       : {}),
     gate_validation: executed.gateValidation,
     ...(executed.receiptMarkdown !== undefined
@@ -2886,12 +2919,13 @@ async function resolveStartPoint(
  */
 async function assertProjectRootIsRepoToplevel(
   ctx: LifecycleContext,
+  verb: WorktreeLifecycleRepoRootVerb,
 ): Promise<void> {
   const toplevel = await repoToplevel(ctx.root);
   if (toplevel === undefined) {
     throw new WorktreeGitError(
-      "discern start needs a Git repository, but this project is outside one. Run " +
-        "`git init` and make a first commit, then re-run.",
+      `discern ${verb} needs a Git repository, but this project is outside one. Run ` +
+        `\`git init\` and make a first commit, then re-run.`,
     );
   }
   const root = await Deno.realPath(ctx.root).catch(() => ctx.root);
@@ -2901,7 +2935,7 @@ async function assertProjectRootIsRepoToplevel(
         `${toplevel}. Worktrees are whole-repository checkouts, so discern must ` +
         `be installed at the repository root — move discern.toml (and its ` +
         `authored files) to ${toplevel}, or make ${root} its own repository, then ` +
-        `re-run \`discern start\`.`,
+        `re-run \`discern ${verb}\`.`,
     );
   }
 }
@@ -2933,7 +2967,7 @@ export async function startResult(
   },
 ): Promise<DiscernResult<StartData>> {
   await assertOpSide("start", ctx.cwd);
-  await assertProjectRootIsRepoToplevel(ctx);
+  await assertProjectRootIsRepoToplevel(ctx, "start");
   const startPoint = await resolveStartPoint(ctx, opts.from);
 
   const settings = await loadIdentitySettings(ctx.root);

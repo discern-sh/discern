@@ -7,6 +7,7 @@
 
 import { join } from "@std/path";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
+import type { CheckedOutFastForwardResult } from "./git.ts";
 import {
   type EffortGrant,
   effortGrantFailureReason,
@@ -140,19 +141,65 @@ export async function restoreEffortGrantClaim(
       return false;
     }
   }
-  await consumeEffortGrantClaim(claim);
-  return true;
+  return await consumeEffortGrantClaim(claim);
 }
 
-/** Permanently consume a claim after the trunk CAS succeeds. */
+/**
+ * Permanently consume a claim after the trunk CAS succeeds. Missing is already
+ * settled; every other removal failure stays visible without throwing after an
+ * irreversible ref transition.
+ */
 export async function consumeEffortGrantClaim(
   claim: EffortGrantClaim,
-): Promise<void> {
+): Promise<boolean> {
   try {
     await Deno.remove(claim.path);
+    return true;
   } catch (error) {
-    if (!(error instanceof Deno.errors.NotFound)) {
-      throw error;
+    return error instanceof Deno.errors.NotFound;
+  }
+}
+
+/** How an effort claim must settle after the exact trunk transition attempt. */
+export interface EffortGrantClaimSettlement {
+  readonly disposition: "restore" | "consume";
+  readonly settled: boolean;
+}
+
+/**
+ * Settle one claimed effort grant from the ref outcome, without throwing.
+ *
+ * Authority is restored only when the old trunk ref is known to remain in
+ * place. Once the trunk remains advanced, even with a failed checkout
+ * convergence, the grant is spent and can only be consumed.
+ */
+export async function settleEffortGrantClaim(
+  cwd: string,
+  claim: EffortGrantClaim,
+  outcome: CheckedOutFastForwardResult,
+): Promise<EffortGrantClaimSettlement> {
+  let disposition: EffortGrantClaimSettlement["disposition"];
+  switch (outcome.kind) {
+    case "updated":
+      disposition = "consume";
+      break;
+    case "checkout-failed":
+      disposition = outcome.rolledBack ? "restore" : "consume";
+      break;
+    case "not-fast-forward":
+    case "moved":
+    case "dirty":
+      disposition = "restore";
+      break;
+    default: {
+      const unreachable: never = outcome;
+      return unreachable;
     }
   }
+  return {
+    disposition,
+    settled: disposition === "restore"
+      ? await restoreEffortGrantClaim(cwd, claim)
+      : await consumeEffortGrantClaim(claim),
+  };
 }

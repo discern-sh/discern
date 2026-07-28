@@ -36,7 +36,7 @@ Setup runs in this order:
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.       |
 | Agent files          | Rebuilds guidance and materializes skills in the new checkout.                      |
 
-`start` creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
+`start` creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. `accept` enforces the same repository-root boundary: a nested discern project cannot classify one subtree and then land sibling repository changes. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
 
 ## Bring the trunk into the branch
 
@@ -48,13 +48,13 @@ Choose the bucket by where a command is valid. Put dependency installation, code
 
 ## Land the reviewed commit
 
-Commit the final tree and run `discern done`. A landing then needs verified [landing authority](landing-authority.md): consent from this conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from the desk. `start`, `status`, and a green `done` expose the answer from the shared resolver before acceptance. Uncovered work returns to receipt review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Commit the final tree and run `discern done`. A landing then needs [landing authority](landing-authority.md): consent from this conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from the desk. `start`, `status`, and a green `done` expose the answer from the shared resolver before acceptance. Uncovered work returns to receipt review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires the latest trunk, a clean worktree, a tracked-clean main checkout on the trunk, and an unlocked worktree. It validates the precise commit that will land. An honored `discern done` receipt skips a duplicate gate run. Any later commit invalidates the receipt and triggers the full gate again ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
+Acceptance requires the latest trunk, a clean worktree, a tracked-clean main checkout on the trunk, and an unlocked worktree. Ignored or untracked main-checkout data may stay, but acceptance refuses if the landed tree would overwrite it. It validates the precise commit that will land. An honored `discern done` receipt skips a duplicate gate run. Any later commit invalidates the receipt and triggers the full gate again ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
 On success, discern records `conversation`, `standing-grant` with its scope names, or `effort-grant` in the result, landing receipt, and logbook. It fast-forwards the trunk to that validated commit. Before cleanup, it refreshes the main checkout, runs every `[repository].ensure` command there, runs the configured `smoke` job, and reports any tracked files those post-landing operations changed. It then destroys resources, removes the worktree, and deletes the merged branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance refuses and keeps this worktree intact for `update → done → accept`.
 
-The branch has already landed when checkout convergence begins, so these post-landing operations are non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` run only in a linked worktree.
+The branch has already landed when checkout convergence begins, so these post-landing operations are non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. Failure to remove a consumed effort-grant claim is also reported without interrupting cleanup: the claim is no longer an authority marker and worktree removal reaps it. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` run only in a linked worktree.
 
 ## Remove abandoned work
 
@@ -78,4 +78,4 @@ From the main checkout, `discern worktree drop <id|path>` removes an abandoned w
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
-- `discern doctor` reports repository layouts that `start` cannot use.
+- `discern doctor` reports repository layouts that `start` and `accept` cannot use.

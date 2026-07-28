@@ -92,7 +92,7 @@ export function resolveLandingAuthority(
   facts: LandingAuthorityFacts,
 ): LandingAuthorityResolution {
   const warnings = [...(facts.warnings ?? [])];
-  if (facts.effortGranted) {
+  if (facts.effortGranted && facts.blockingReason === undefined) {
     return {
       kind: "authorized",
       consent: { source: "effort-grant" },
@@ -261,15 +261,6 @@ export async function inspectLandingAuthority(
   const effortGranted = effort.status === "granted" &&
     branch !== undefined && effort.grant.branch === branch;
   const warnings = effortWarnings(effort, branch);
-  if (effortGranted) {
-    return resolveLandingAuthority({
-      effortGranted: true,
-      classifications: [],
-      grantedScopes: [],
-      definedScopes: [],
-      warnings,
-    });
-  }
 
   const trunkConfig = await readTrunkConfig(cwd, trunk);
   if (trunkConfig.kind === "unreadable") {
@@ -279,6 +270,15 @@ export async function inspectLandingAuthority(
     ]);
   }
   if (trunkConfig.kind === "absent") {
+    if (effortGranted) {
+      return resolveLandingAuthority({
+        effortGranted: true,
+        classifications: [],
+        grantedScopes: [],
+        definedScopes: [],
+        warnings,
+      });
+    }
     return conversationRequired(warnings);
   }
   if (trunkConfig.kind === "parse_failed") {
@@ -302,6 +302,15 @@ export async function inspectLandingAuthority(
       ],
       reason,
     );
+  }
+  if (effortGranted) {
+    return resolveLandingAuthority({
+      effortGranted: true,
+      classifications: [],
+      grantedScopes: [],
+      definedScopes: Object.keys(typed.config.scopes),
+      warnings,
+    });
   }
   const grantedScopes = typed.config.acceptance.pre_authorized;
   if (grantedScopes.length === 0) {

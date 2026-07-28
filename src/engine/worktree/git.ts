@@ -329,6 +329,70 @@ export type CheckedOutFastForwardResult =
     readonly rolledBack: boolean;
   };
 
+function checkoutPathsCollide(left: string, right: string): boolean {
+  return left === right ||
+    left.startsWith(`${right}/`) ||
+    right.startsWith(`${left}/`);
+}
+
+/**
+ * Find ignored, untracked checkout entries a transition would overwrite.
+ *
+ * Git protects ordinary untracked paths during a two-tree update but treats
+ * ignored paths as disposable. They are machine-local data all the same. Read
+ * both lists as NUL records and include ancestor/descendant collisions so a
+ * tracked file cannot replace an ignored directory (or vice versa).
+ */
+async function ignoredCheckoutCollisions(
+  cwd: string,
+  expected: string,
+  target: string,
+): Promise<string[] | undefined> {
+  const [writes, ignored] = await Promise.all([
+    git(
+      [
+        "diff",
+        "--name-only",
+        "--no-renames",
+        "--diff-filter=ACMRTUXB",
+        "-z",
+        expected,
+        target,
+        "--",
+      ],
+      cwd,
+    ),
+    git(
+      [
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "-z",
+        "--",
+      ],
+      cwd,
+    ),
+  ]);
+  if (!writes.success || !ignored.success) {
+    return undefined;
+  }
+  const targetWrites = splitNulRecords(writes.stdout);
+  return splitNulRecords(ignored.stdout).filter((localPath) =>
+    targetWrites.some((targetPath) =>
+      checkoutPathsCollide(localPath, targetPath)
+    )
+  );
+}
+
+function ignoredCollisionDetail(paths: readonly string[]): string {
+  const shown = paths.slice(0, 3).map((path) => JSON.stringify(path)).join(
+    ", ",
+  );
+  const more = paths.length > 3 ? ` and ${paths.length - 3} more` : "";
+  return `the landing would overwrite ignored checkout data at ${shown}${more}`;
+}
+
 /**
  * Compare-and-swap `refs/heads/<branch>` from `expected` to `target`, then
  * update the branch's checked-out index/worktree through a two-tree read.
@@ -359,6 +423,24 @@ export async function fastForwardCheckedOutBranch(
     };
   }
 
+  const ignoredBefore = await ignoredCheckoutCollisions(
+    cwd,
+    expected,
+    target,
+  );
+  if (ignoredBefore === undefined) {
+    return {
+      kind: "dirty",
+      detail: "Git could not verify ignored checkout paths",
+    };
+  }
+  if (ignoredBefore.length > 0) {
+    return {
+      kind: "dirty",
+      detail: ignoredCollisionDetail(ignoredBefore),
+    };
+  }
+
   const dirty = await hasUncommittedTrackedChanges(cwd);
   if (dirty !== false) {
     return {
@@ -385,6 +467,21 @@ export async function fastForwardCheckedOutBranch(
     return {
       kind: "moved",
       detail: update.stderr.trim() || `could not compare-and-swap ${ref}`,
+    };
+  }
+
+  // Close the validation-to-ref window before the two-tree update. If ignored
+  // data appeared while the CAS ran, restore the exact old ref without touching
+  // checkout files.
+  const ignoredAfter = await ignoredCheckoutCollisions(cwd, expected, target);
+  if (ignoredAfter === undefined || ignoredAfter.length > 0) {
+    const rollback = await git(["update-ref", ref, expected, target], cwd);
+    return {
+      kind: "checkout-failed",
+      detail: ignoredAfter === undefined
+        ? "Git could not re-verify ignored checkout paths after the ref moved"
+        : ignoredCollisionDetail(ignoredAfter),
+      rolledBack: rollback.success,
     };
   }
 

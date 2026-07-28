@@ -279,6 +279,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "worktree-lifecycle-repo-root-verbs",
+    title: "Repository-root worktree lifecycle verbs",
+    what:
+      "The worktree lifecycle verbs that refuse when discern.toml lives below the Git repository root, because each creates or lands a whole-repository checkout.",
+    source: {
+      kind: "module",
+      module: "src/engine/worktree/lifecycle.ts",
+      exportName: "WORKTREE_LIFECYCLE_REPO_ROOT_VERBS",
+    },
+    guards: ["tests/engine_nested_root_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "a repository-layout precondition over documented lifecycle verbs, not product vocabulary",
+      },
+      featureCanon: { nodeId: "worktrees" },
+    },
+    members: async () => [
+      ...(await import("../src/engine/worktree/lifecycle.ts"))
+        .WORKTREE_LIFECYCLE_REPO_ROOT_VERBS,
+    ],
+  },
+  {
     id: "desk-actions",
     title: "Desk actions",
     what:

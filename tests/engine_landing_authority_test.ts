@@ -81,6 +81,18 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
     effort.kind === "authorized" ? effort.consent : undefined,
     { source: "effort-grant" },
   );
+  const blockedEffort = resolveLandingAuthority({
+    effortGranted: true,
+    classifications,
+    grantedScopes: [],
+    definedScopes: ["docs", "engine"],
+    blockingReason: "the trunk policy is malformed",
+  });
+  assertEquals(
+    blockedEffort.kind,
+    "conversation-required",
+    "recorded effort authority cannot bypass blocking trunk-policy evidence",
+  );
 
   const standing = resolveLandingAuthority({
     effortGranted: false,

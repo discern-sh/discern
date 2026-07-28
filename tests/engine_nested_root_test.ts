@@ -27,12 +27,15 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { WORKTREE_LIFECYCLE_REPO_ROOT_VERBS } from "../src/engine/worktree/lifecycle.ts";
 import { couplingResult } from "../src/engine/coupling/coupling.ts";
 import type { CouplingData } from "../src/shared/result_schemas.ts";
 import { worktreeDirtyPaths } from "../src/engine/gate/tree_drift.ts";
@@ -320,6 +323,7 @@ Deno.test("nested root: finish fires the changed scope's gate", async () => {
 // half-work here instead, this is the test that catches it.
 
 Deno.test("nested root: start refuses with the actionable repository-shape message", async () => {
+  assertEquals(WORKTREE_LIFECYCLE_REPO_ROOT_VERBS, ["start", "accept"]);
   await withTempDir(async (repo) => {
     const app = await scaffoldNested(
       repo,
@@ -338,6 +342,61 @@ Deno.test("nested root: start refuses with the actionable repository-shape messa
     assert(r.code !== 0, `start must refuse under a nested root: ${r.output}`);
     assertStringIncludes(r.output, "repository");
     assertStringIncludes(r.output, "move discern.toml");
+  });
+});
+
+Deno.test("nested root: accept refuses before a standing grant can hide sibling changes", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(
+      repo,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[scopes.docs]",
+        'paths = ["docs/**"]',
+        "neutral = true",
+        "",
+        "[acceptance]",
+        'pre_authorized = ["docs"]',
+        "",
+      ].join("\n"),
+    );
+    const mainBefore = await gitOut(repo, "rev-parse", "main");
+    const worktree = await addWorktree(repo, "nested-accept");
+    const worktreeApp = join(worktree, "app");
+    await Deno.mkdir(join(worktreeApp, "docs"), { recursive: true });
+    await Deno.mkdir(join(worktree, "infra"), { recursive: true });
+    await Deno.writeTextFile(
+      join(worktreeApp, "docs", "guide.md"),
+      "covered\n",
+    );
+    await Deno.writeTextFile(
+      join(worktree, "infra", "production.yml"),
+      "unclassified sibling\n",
+    );
+    await git(worktree, "add", "-A");
+    await git(
+      worktree,
+      "commit",
+      "-q",
+      "-m",
+      "mix nested and sibling changes",
+      "--no-gpg-sign",
+    );
+
+    const refused = await runAgent(worktreeApp, ["accept", "--json"]);
+    assert(
+      refused.code !== 0,
+      `accept must refuse the unsupported repository shape: ${refused.output}`,
+    );
+    assertStringIncludes(refused.output, "git repository's root");
+    assertStringIncludes(refused.output, "move discern.toml");
+    assertEquals(await gitOut(repo, "rev-parse", "main"), mainBefore);
+    assertEquals(app, join(repo, "app"));
   });
 });
 
