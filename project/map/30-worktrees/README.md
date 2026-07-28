@@ -17,7 +17,7 @@ Each worktree gets a stable identity, development port, and declared resources. 
 
 Follow one path: start from the main checkout, commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
 
-Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk for task and fleet decisions.
+Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to inspect, update, land, or drop tasks across the fleet.
 
 | Order | Read next                                         | What's in it                                                                    |
 | ----: | ------------------------------------------------- | ------------------------------------------------------------------------------- |

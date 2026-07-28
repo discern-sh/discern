@@ -1070,21 +1070,22 @@ function buildGateHints(
       ? []
       : [gotchasTail.hint, ...gotchasTail.warnings];
   }
+  const receiptRoute = landingAuthority?.kind === "authorized"
+    ? fire(HINTS["gate-land-under-verified-authority"], {
+      source: landingAuthority.consent.source,
+      scopes: landingAuthority.consent.scopes ?? [],
+    })
+    : landingAuthority !== undefined &&
+        landingAuthorityProjection(landingAuthority) !== undefined
+    ? fire(HINTS["gate-relay-uncovered-authority"], {
+      uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
+      warnings: landingAuthority.warnings,
+    })
+    : fire(HINTS["gate-relay-receipt"]);
   const hints = receiptEmitted
     ? [
       fire(HINTS["gate-prove-it-works"]),
-      landingAuthority?.kind === "authorized"
-        ? fire(HINTS["gate-land-under-verified-authority"], {
-          source: landingAuthority.consent.source,
-          scopes: landingAuthority.consent.scopes ?? [],
-        })
-        : landingAuthority !== undefined &&
-            landingAuthorityProjection(landingAuthority) !== undefined
-        ? fire(HINTS["gate-relay-uncovered-authority"], {
-          uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
-          warnings: landingAuthority.warnings,
-        })
-        : fire(HINTS["gate-relay-receipt"]),
+      receiptRoute,
     ]
     : [];
   hints.push(fire(HINTS["gate-update-docs"]));
