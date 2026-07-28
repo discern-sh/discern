@@ -1,5 +1,5 @@
 /**
- * The map's metadata contract, enforced at the gate.
+ * The map's metadata contract — this repository's OWN strict standard.
  *
  * Every Markdown file in the live map (minus `_private`, which carries no
  * shipped contract) must satisfy the strict frontmatter schema: a typo'd key,
@@ -7,6 +7,13 @@
  * silently vanishing into the lenient reader. Published siblings must not
  * reuse an explicit `order`, and the destination-owned redirect claims must
  * assemble into a serve-safe registry against the site's live routes.
+ *
+ * Deliberately repo-local: the shipped map-integrity preflight applies only
+ * the domain-neutral shape tier (`frontmatterShapeIssues`) — unknown keys,
+ * length bounds, duplicate sibling orders, and the redirect registry are the
+ * discern.sh site's house style, which end-user projects never inherit.
+ * Strict layers over the same per-key shape rules, so this suite subsumes the
+ * neutral tier on this repo's corpus.
  *
  * All three checks iterate the live tree, so a newly added page auto-enrols.
  */

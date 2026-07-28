@@ -719,11 +719,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "docs-integrity",
-        title: "The docs integrity gate",
+        title: "The docs integrity preflight",
         what:
-          "The gate validates the map's substance: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry, frontmatter against a schema, and the published tiers against the audience boundary.",
+          "Every `discern done` validates the map's substance before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), frontmatter blocks against the readers' shape rules, published pages against the `_internal`/`_private` audience boundary, and skill citations against the effective skill set.",
         why:
-          "A rename breaks the docs loudly, in the same change, instead of quietly a month later.",
+          "A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose.",
+        agent:
+          "A red `map_integrity` stage lists every finding as file:line with its rule and remedy — one edit loop clears it.",
       },
       {
         id: "map-freshness",
