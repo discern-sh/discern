@@ -33,7 +33,7 @@ A green landing records its structured receipt under the local Git ref `refs/not
 
 This local record is default-on. It changes no remote setting and sends nothing anywhere. `[repository].receipt_notes = "fetch"` is the separate opt-in for transport: refresh adds an extra fetch mapping into `refs/discern/remotes/<remote>/notes`. Your ordinary `git fetch` can then carry the remote receipt history. discern still makes no network request.
 
-There is no push mapping. Configuring one would change what a plain `git push` means, so publishing is always the explicit `git push <remote> refs/notes/discern`. GitHub stores the ref but does not show notes on commit pages. Branch and tag CI triggers do not run for a notes-only push; raw push webhooks and integrations listening to every ref may still observe it. Enable transport only when that repository-level visibility is wanted. [The receipt](../20-quality-gate/the-receipt.md#the-landed-receipt-note) has the commands and multi-clone recovery.
+There is no push mapping. Configuring one would change plain `git push`, so publishing stays explicit. GitHub stores the ref but does not show it on commit pages. Branch and tag CI triggers ignore a notes-only push; raw push webhooks may still observe it. [Receipt notes](../20-quality-gate/receipt-notes.md) has the commands and recovery.
 
 ## It runs your commands, and only when you run the gate
 

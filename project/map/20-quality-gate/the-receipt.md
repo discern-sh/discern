@@ -48,56 +48,9 @@ discern stores the validated commit, structured receipt, and both renderings in 
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
-## The landed receipt note
+## After landing
 
-After the trunk fast-forward succeeds, `discern accept` attaches the structured `discern done` receipt to the landed commit under `refs/notes/discern` ([ADR 0212](../_adr/0212-landing-receipts-travel-as-git-notes.md)). The note body is the canonical JSON encoding of `data.receipt`, plus one final newline. Trunk history does not change.
-
-Read the current history with:
-
-```sh
-git log --notes=discern
-```
-
-Read one receipt object with:
-
-```sh
-git notes --ref=discern show <commit>
-```
-
-The notes commit is authored and committed by `discern-bot <bot@discern.sh>`. Set `DISCERN_NO_ATTRIBUTION` to a non-empty value and the receipt still records, using the repository's configured Git identity. The receipt still exists; only its authorship changes.
-
-The note write happens after landing and fails open. `data.receipt_note.write` says `recorded`, `already_present`, `missing_receipt`, or `record_failed`; a failure carries its cause and never rolls the trunk back. This differs from the pre-gate marker probe: losing the marker would discard a future green result, while losing the durable copy cannot un-land the commit.
-
-### Carry notes between clones
-
-Local recording is on by default and makes no change to remote transport. Enable fetch transport when repository data needs to support verification in another clone:
-
-```toml
-[repository]
-receipt_notes = "fetch"
-```
-
-The next refresh or lifecycle convergence adds this mapping once for each remote:
-
-```text
-+refs/notes/discern:refs/discern/remotes/<remote>/notes
-```
-
-An ordinary `git fetch` can then update the separate tracking copy. discern never configures `remote.<name>.push`, never changes what plain `git push` means, and never starts a network request. After a landing with fetch transport enabled, the result gives the explicit publication command:
-
-```sh
-git push <remote> refs/notes/discern
-```
-
-Before writing a local note, acceptance merges any already-fetched `refs/discern/remotes/*/notes` histories. Separate clones can still publish between each other's last fetch and push. If Git rejects a later push as a non-fast-forward, recover with:
-
-```sh
-git fetch <remote>
-git notes --ref=discern merge refs/discern/remotes/<remote>/notes
-git push <remote> refs/notes/discern
-```
-
-GitHub stores the ref but does not render notes on its commit page. Git-native readers and discern consume it.
+Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. The local record is default-on and fail-open; fetch transport is a separate opt-in. [Receipt notes](receipt-notes.md) covers inspection, authorship, publication, and cross-clone recovery.
 
 ## Re-running an unchanged tree
 
@@ -112,7 +65,6 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
 | Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
-| Landed note and fetch mapping  | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)   |
 | Gate integration               | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
 | Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
 
@@ -120,7 +72,5 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 - A green result over a dirty tree is useful while iterating, but it cannot describe a reviewable commit. Look at `data.gate_receipt.status` before claiming the branch is ready.
 - The marker is a cache of a real gate result. If it is missing, stale, or unreadable, acceptance validates the tree again.
-- A marker written by an older discern can carry the validated commit and rendered page without the structured object. Acceptance may still honor that proof, but it reports `missing_receipt` instead of inventing note content.
 - The preflight is a point-in-time proof. Receipt writes remain best-effort against a permission change or filesystem failure that occurs after the probe; that rare late failure remains visible in `data.gate_receipt`.
-- Fetched notes prove the local tracking state. Check publication separately with the explicit push in [Carry notes between clones](#carry-notes-between-clones).
 - A logbook hint is advice beside the receipt. The stored markdown and its commit identity remain unchanged.
