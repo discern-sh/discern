@@ -1068,7 +1068,7 @@ export const HINTS = {
     when: "`patterns` reports one or more advisory findings.",
     example: undefined,
     template: (): string =>
-      "Inspect or enforce the next step in each advisory finding.",
+      "Use each finding's next step to investigate or improve the practice.",
   }),
 
   "patterns-recording-off": defineHint({

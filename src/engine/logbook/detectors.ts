@@ -59,6 +59,12 @@ import {
 } from "./cohorts.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 
+/** Stable marker carried in standard observations when their series crosses
+ * a configuration or release boundary. The human report recognizes the same
+ * marker and states the attribution caveat once per trajectory section. */
+export const TRAJECTORY_BOUNDARY_ATTRIBUTION =
+  "segments are attributed, not blended";
+
 // ── the stream, pre-digested ────────────────────────────────────────────────
 
 /** The event stream plus everything detectors keep re-deriving, computed once. */
@@ -1923,7 +1929,7 @@ const standardTrajectory: Detector = {
             formatHumanNumber(boundaries)
           } config/release boundar${
             boundaries === 1 ? "y" : "ies"
-          }, so segments are attributed, not blended`,
+          }, so ${TRAJECTORY_BOUNDARY_ATTRIBUTION}`,
         );
       }
       // Direction-aware slack: the last three readings all strictly better
@@ -2087,8 +2093,8 @@ const redRateHistory: Detector = {
 };
 
 /**
- * The registry — every detector the `patterns` verb runs, in family order.
- * The single source of truth: the verb, the report schema, and the
+ * The registry — every detector the `patterns` verb runs, in stable detector
+ * order. The single source of truth: the verb, the report schema, and the
  * parameterized test harness all iterate THIS list, so a new detector
  * auto-enrols everywhere (and the harness fails until it brings fixtures).
  */

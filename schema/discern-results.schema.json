@@ -6310,10 +6310,10 @@
                           "family": {
                             "type": "string",
                             "enum": [
-                              "behaviour",
+                              "trajectory",
                               "gate-fit",
-                              "funnel",
-                              "trajectory"
+                              "behaviour",
+                              "funnel"
                             ]
                           },
                           "scope": {
@@ -8351,10 +8351,10 @@
                       "family": {
                         "type": "string",
                         "enum": [
-                          "behaviour",
+                          "trajectory",
                           "gate-fit",
-                          "funnel",
-                          "trajectory"
+                          "behaviour",
+                          "funnel"
                         ]
                       },
                       "scope": {
@@ -8425,10 +8425,10 @@
                       "family": {
                         "type": "string",
                         "enum": [
-                          "behaviour",
+                          "trajectory",
                           "gate-fit",
-                          "funnel",
-                          "trajectory"
+                          "behaviour",
+                          "funnel"
                         ]
                       },
                       "scope": {

@@ -685,7 +685,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/patterns_vocabulary.ts",
       exportName: "DETECTOR_FAMILIES",
     },
-    guards: ["tests/patterns_test.ts"],
+    guards: [
+      "tests/patterns_test.ts",
+      "tests/engine_patterns_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -709,7 +712,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/patterns_vocabulary.ts",
       exportName: "PATTERN_FINDING_TONES",
     },
-    guards: ["tests/patterns_test.ts"],
+    guards: [
+      "tests/patterns_test.ts",
+      "tests/engine_patterns_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
@@ -727,13 +733,17 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "patterns-detectors",
     title: "Patterns detectors",
     what:
-      "Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.",
+      "Every detector the patterns verb runs over the logbook, in stable registry order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.",
     source: {
       kind: "module",
       module: "src/engine/logbook/detectors.ts",
       exportName: "DETECTORS",
     },
-    guards: ["tests/patterns_test.ts", "tests/logbook_routing_test.ts"],
+    guards: [
+      "tests/patterns_test.ts",
+      "tests/logbook_routing_test.ts",
+      "tests/engine_patterns_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: { term: "Patterns" },

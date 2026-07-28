@@ -3,8 +3,9 @@
  * third question: `doctor` asks whether the install is valid, `improvement`
  * whether the setup follows best practice, `patterns` whether the practice is
  * actually healthy. It runs the detector registry (`detectors.ts`) over the
- * recorded event stream and reports findings ranked by evidence strength —
- * each an observation in plain counts, a scope, and a recommended next step.
+ * recorded event stream. The result keeps findings ranked by evidence strength;
+ * the human report groups that same order into canonical family sections and
+ * collapses repeated detector guidance into one block.
  *
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * `--json`, and the MCP tool are three renderings of the same object.
@@ -24,13 +25,18 @@ import {
   resolveConfiguredAgents,
 } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type {
-  PatternsData,
-  PatternsPopulation,
-  PatternsResetData,
+import {
+  DETECTOR_FAMILIES,
+  type DetectorFamily,
+  type PatternFindingTone,
+  type PatternsData,
+  type PatternsFinding,
+  type PatternsPopulation,
+  type PatternsResetData,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
+import { formatHumanNumber } from "../../shared/human_number.ts";
 import {
   fire,
   type FiredHint,
@@ -38,7 +44,13 @@ import {
   hintTexts,
   interactiveHintTexts,
 } from "../../shared/hints.ts";
-import { colorEnabled, makeOut, type Out } from "../output.ts";
+import {
+  displayWidth,
+  renderAlignedTable,
+  terminalWidth,
+  wrapText,
+} from "../../lib/text.ts";
+import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
@@ -47,6 +59,7 @@ import {
   buildStreamFacts,
   runDetectors,
   type StreamFacts,
+  TRAJECTORY_BOUNDARY_ATTRIBUTION,
 } from "./detectors.ts";
 import { routeDetectorReports, routedFindingData } from "./routing.ts";
 
@@ -175,94 +188,347 @@ export async function patternsResult(
 
 // ── human rendering ─────────────────────────────────────────────────────────
 
-/** "312 events · 3 months · 8 branches · 2026-06-02 → 2026-07-20" */
+interface FamilyPresentation {
+  heading: string;
+}
+
+/** Human section labels keyed exhaustively by the canonical family vocabulary.
+ * `DETECTOR_FAMILIES` alone owns their order. */
+export const PATTERNS_FAMILY_SECTIONS = {
+  trajectory: { heading: "Trajectory: how the numbers moved" },
+  "gate-fit": { heading: "Gate fit: time and failure patterns" },
+  behaviour: { heading: "Agent behavior: workflow habits" },
+  funnel: { heading: "Task funnel: the path to green" },
+} satisfies Record<DetectorFamily, FamilyPresentation>;
+
+type ToneColor = "green" | "dim" | "yellow";
+
+interface TonePresentation {
+  glyph: string;
+  color: ToneColor;
+}
+
+/** The compact report's glyphs, exhaustively bound to the canonical tones. */
+export const PATTERNS_TONE_GLYPHS = {
+  good: { glyph: "✓", color: "green" },
+  neutral: { glyph: "·", color: "dim" },
+  attention: { glyph: "!", color: "yellow" },
+} satisfies Record<PatternFindingTone, TonePresentation>;
+
+/** The one human caveat for trajectory series that cross a boundary. */
+export const PATTERNS_TRAJECTORY_CAVEAT =
+  "Series crossing configuration or release boundaries keep each segment attributed to its setup.";
+
+const DAY_MS = 86_400_000;
+const PIN_COMMAND = "`discern standards --pin`";
+
+function plural(
+  value: number,
+  singular: string,
+  pluralForm = `${singular}s`,
+): string {
+  return `${formatHumanNumber(value)} ${value === 1 ? singular : pluralForm}`;
+}
+
+function inclusiveSpanDays(first: string, last: string): number | undefined {
+  const start = Date.parse(first);
+  const end = Date.parse(last);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return undefined;
+  }
+  return Math.max(1, Math.floor(Math.abs(end - start) / DAY_MS) + 1);
+}
+
+/** "7 days (2026-07-20 → 2026-07-26) · 2,851 events · 73 branches" */
 function summaryLine(data: PatternsData): string {
   const log = data.logbook;
-  const parts = [
-    `${log.events} event${log.events === 1 ? "" : "s"}`,
-    `${log.months} month${log.months === 1 ? "" : "s"}`,
-    `${log.branches} branch${log.branches === 1 ? "" : "es"}`,
-  ];
+  const parts: string[] = [];
   if (log.first_at !== undefined && log.last_at !== undefined) {
-    parts.push(`${log.first_at.slice(0, 10)} → ${log.last_at.slice(0, 10)}`);
+    const days = inclusiveSpanDays(log.first_at, log.last_at);
+    if (days !== undefined) {
+      parts.push(
+        `${plural(days, "day")} (${log.first_at.slice(0, 10)} → ${
+          log.last_at.slice(0, 10)
+        })`,
+      );
+    }
   }
+  parts.push(
+    plural(log.events, "event"),
+    plural(log.branches, "branch", "branches"),
+  );
   if (log.unparsed > 0) {
-    parts.push(
-      `${log.unparsed} unparsable line${log.unparsed === 1 ? "" : "s"} skipped`,
-    );
+    parts.push(`${plural(log.unparsed, "unparsable line")} skipped`);
   }
   return parts.join(" · ");
 }
 
-/** "drivers: 231 agent · 60 interactive · 21 unknown — Claude Code 190, …" */
+/** "driven by agents 1,421 (Claude Code 757 · Codex 528) · humans 66 · unknown 183" */
 function driversLine(population: PatternsPopulation): string {
-  const parts = [
-    `${population.agent} agent`,
-    `${population.human} interactive`,
-    `${population.unknown} unknown`,
-  ];
   const identities = population.identities
-    .map((i) => `${i.label} ${i.runs}`)
-    .join(", ");
-  return `drivers: ${parts.join(" · ")}${
-    identities !== "" ? ` — ${identities}` : ""
+    .map((identity) => `${identity.label} ${formatHumanNumber(identity.runs)}`)
+    .join(" · ");
+  return `driven by agents ${formatHumanNumber(population.agent)}${
+    identities !== "" ? ` (${identities})` : ""
+  } · humans ${formatHumanNumber(population.human)} · unknown ${
+    formatHumanNumber(population.unknown)
   }`;
 }
 
-/** Render the report for a person: the ranked findings, then the registry's
- * own accounting (quiet and too-young detector counts), then the boundary. */
+function scoreboardLine(data: PatternsData): string {
+  const spoke = data.detectors.filter((d) => d.status === "fired").length;
+  const clear = data.detectors.filter((d) => d.status === "quiet").length;
+  const young =
+    data.detectors.filter((d) => d.status === "insufficient-evidence").length;
+  return `${plural(data.detectors.length, "detector")} · ${
+    formatHumanNumber(spoke)
+  } spoke · ${formatHumanNumber(clear)} all clear · ${
+    formatHumanNumber(young)
+  } too young to say`;
+}
+
+function writeWrapped(
+  out: Out,
+  prefix: string,
+  text: string,
+  width: number,
+  style?: (line: string) => string,
+): void {
+  const prefixWidth = displayWidth(prefix);
+  const lines = wrapText(text, Math.max(1, width - prefixWidth));
+  const continuation = " ".repeat(prefixWidth);
+  for (const [index, line] of lines.entries()) {
+    out.raw(
+      `${index === 0 ? prefix : continuation}${
+        style === undefined ? line : style(line)
+      }\n`,
+    );
+  }
+}
+
+function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
+  const presentation = PATTERNS_TONE_GLYPHS[tone];
+  return `${palette[presentation.color]}${presentation.glyph}${palette.reset}`;
+}
+
+interface FindingRow {
+  finding: PatternsFinding;
+}
+
+function renderFindingRows(
+  out: Out,
+  findings: readonly PatternsFinding[],
+  width: number,
+): void {
+  const rows = findings.map((finding) => ({ finding }));
+  const prefixes = renderAlignedTable<FindingRow>([
+    {
+      header: "",
+      value: (row) => toneGlyph(row.finding.tone, out.c),
+    },
+    {
+      header: "",
+      value: (row) => row.finding.subject ?? "",
+    },
+    { header: "", value: () => "" },
+  ], rows).slice(1);
+  for (const [index, row] of rows.entries()) {
+    writeWrapped(
+      out,
+      `    ${prefixes[index] ?? ""}`,
+      row.finding.brief,
+      width,
+    );
+  }
+}
+
+function detectorNextStep(findings: readonly PatternsFinding[]): string {
+  const pinFindings = findings.filter((finding) =>
+    finding.detector === "standard-trajectory" &&
+    finding.next_step.includes("discern standards --pin")
+  );
+  const steps: string[] = [];
+  if (pinFindings.length > 0) {
+    const subjects = pinFindings
+      .map((finding) => finding.subject)
+      .filter((subject): subject is string => subject !== undefined)
+      .map((subject) => `\`${subject}\``);
+    const named = subjects.length > 0 ? `: ${subjects.join(" · ")}` : "";
+    steps.push(
+      `${plural(pinFindings.length, "standard")} ${
+        pinFindings.length === 1 ? "has" : "have"
+      } measured better than ${
+        pinFindings.length === 1 ? "its limit" : "their limits"
+      } for the last 3 readings${named}. Capture ${
+        pinFindings.length === 1 ? "the gain" : "the gains"
+      }: ${PIN_COMMAND}.`,
+    );
+  }
+
+  for (const finding of findings) {
+    if (
+      pinFindings.includes(finding) ||
+      steps.includes(finding.next_step)
+    ) {
+      continue;
+    }
+    steps.push(finding.next_step);
+  }
+  return steps.join(" ");
+}
+
+function findingsByDetector(
+  findings: readonly PatternsFinding[],
+): Map<string, PatternsFinding[]> {
+  const groups = new Map<string, PatternsFinding[]>();
+  for (const finding of findings) {
+    const group = groups.get(finding.detector);
+    if (group === undefined) {
+      groups.set(finding.detector, [finding]);
+    } else {
+      group.push(finding);
+    }
+  }
+  return groups;
+}
+
+function renderFamily(
+  out: Out,
+  family: DetectorFamily,
+  data: PatternsData,
+  width: number,
+): void {
+  const familyFindings = data.findings.filter((finding) =>
+    finding.family === family
+  );
+  if (familyFindings.length === 0) {
+    return;
+  }
+  const titleById = new Map(
+    data.detectors.map((detector) => [detector.id, detector.title]),
+  );
+  const groups = findingsByDetector(familyFindings);
+  const c = out.c;
+  out.raw(
+    `${c.bold}${PATTERNS_FAMILY_SECTIONS[family].heading}${c.reset}\n`,
+  );
+  for (const [detector, findings] of groups) {
+    writeWrapped(
+      out,
+      "  ",
+      titleById.get(detector) ?? detector,
+      width,
+      (line) => `${c.bold}${line}${c.reset}`,
+    );
+    renderFindingRows(out, findings, width);
+    writeWrapped(
+      out,
+      `    ${c.cyan}→${c.reset} `,
+      detectorNextStep(findings),
+      width,
+    );
+    out.raw("\n");
+  }
+
+  const crossesBoundary = family === "trajectory" &&
+    familyFindings.some((finding) =>
+      finding.observed.includes(TRAJECTORY_BOUNDARY_ATTRIBUTION)
+    );
+  if (crossesBoundary) {
+    writeWrapped(
+      out,
+      "  ",
+      `(${PATTERNS_TRAJECTORY_CAVEAT})`,
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
+    out.raw("\n");
+  }
+}
+
+function renderClosingAccount(
+  out: Out,
+  data: PatternsData,
+  width: number,
+): void {
+  const c = out.c;
+  const quiet = data.detectors.filter((d) => d.status === "quiet");
+  const young = data.detectors.filter((d) =>
+    d.status === "insufficient-evidence"
+  );
+  if (quiet.length > 0) {
+    writeWrapped(
+      out,
+      "  All clear: ",
+      `${quiet.map((d) => d.title).join(" · ")}.`,
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
+  }
+  if (young.length > 0) {
+    writeWrapped(
+      out,
+      "  Too young: ",
+      `${young.map((d) => d.title).join(" · ")}.`,
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
+  }
+  writeWrapped(
+    out,
+    "  ",
+    "Advisory only. Nothing here fails the gate. Evidence: `discern patterns --json`.",
+    width,
+    (line) => `${c.dim}${line}${c.reset}`,
+  );
+}
+
+/** Render the recurring report for a person. The wire findings stay
+ * strength-ranked; this projection groups them by canonical family and
+ * collapses repeated detector guidance. */
 function renderReport(out: Out, data: PatternsData, slug: string): void {
   const c = out.c;
+  const width = terminalWidth();
   out.heading(`discern patterns${slug ? ` · ${slug}` : ""}`);
-  out.raw(`  ${c.dim}${summaryLine(data)}${c.reset}\n`);
+  writeWrapped(
+    out,
+    "  ",
+    summaryLine(data),
+    width,
+    (line) => `${c.dim}${line}${c.reset}`,
+  );
   if (data.population.analyzed > 0) {
-    out.raw(`  ${c.dim}${driversLine(data.population)}${c.reset}\n`);
+    writeWrapped(
+      out,
+      "  ",
+      driversLine(data.population),
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
   }
+  writeWrapped(
+    out,
+    "  ",
+    scoreboardLine(data),
+    width,
+    (line) => `${c.dim}${line}${c.reset}`,
+  );
   out.raw("\n");
 
   if (data.logbook.events === 0) {
-    out.raw(
-      "  The logbook is empty. discern records one event per verb run,\n" +
-        "  locally under the repository's git directory — nothing leaves\n" +
-        "  the machine. Check back after some use.\n",
+    writeWrapped(
+      out,
+      "  ",
+      "The logbook is empty. discern records one event per verb run under this repository's Git directory. Nothing leaves the machine. Check back after some use.",
+      width,
     );
     return;
   }
 
-  for (const f of data.findings) {
-    const subject = f.subject !== undefined ? ` · ${f.subject}` : "";
-    out.raw(
-      `  ${c.bold}${f.detector}${c.reset}${c.dim}${subject} · ${f.family}, ${f.scope} scope${c.reset}\n`,
-    );
-    out.raw(`    ${f.observed}\n`);
-    out.raw(`    ${c.cyan}next${c.reset}  ${f.next_step}\n\n`);
+  for (const family of DETECTOR_FAMILIES) {
+    renderFamily(out, family, data, width);
   }
-
-  const quiet = data.detectors.filter((d) => d.status === "quiet").length;
-  const young =
-    data.detectors.filter((d) => d.status === "insufficient-evidence").length;
-  if (data.findings.length === 0) {
-    out.raw("  No patterns to report.\n");
-  }
-  const accounting: string[] = [];
-  if (quiet > 0) {
-    accounting.push(
-      `${quiet} detector${
-        quiet === 1 ? "" : "s"
-      } saw enough evidence and found nothing`,
-    );
-  }
-  if (young > 0) {
-    accounting.push(
-      `the logbook is too young for ${young} of ${data.detectors.length}`,
-    );
-  }
-  if (accounting.length > 0) {
-    out.raw(`  ${c.dim}${accounting.join("; ")}.${c.reset}\n`);
-  }
-  out.raw(
-    `  ${c.dim}Advisory findings.${c.reset}\n`,
-  );
+  renderClosingAccount(out, data, width);
 }
 
 /** Options accepted by the patterns CLI. */
