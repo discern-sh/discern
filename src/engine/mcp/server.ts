@@ -52,6 +52,7 @@ import {
 import {
   type AcceptData,
   AcceptOutputSchema,
+  AwaitOutputSchema,
   CouplingOutputSchema,
   type DocsData,
   DoctorOutputSchema,
@@ -92,6 +93,8 @@ import { improvementResult } from "../improve/improve.ts";
 import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
+import { awaitResult } from "../await/await.ts";
+import { AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS } from "../await/defaults.ts";
 import { patternsResult } from "../logbook/patterns.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
@@ -286,6 +289,7 @@ const TOOL_PRIORITY = [
   "discern_prepare",
   "discern_test",
   "discern_update",
+  "discern_await",
   "discern_standards",
   "discern_accept",
   "discern_impact",
@@ -615,6 +619,59 @@ export const TOOLS: McpTool[] = orderTools([
         ),
       });
     },
+  }),
+  defineTool({
+    name: "discern_await",
+    title: "Await a fleet condition",
+    outputSchema: AwaitOutputSchema.shape,
+    annotations: READ_ONLY,
+    description:
+      "Block until a fleet condition holds, then return the observed state and " +
+      "the next step — one call instead of guessed polling while a sibling " +
+      "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
+      "waits until that branch's worktree holds an honored gate receipt — a " +
+      "green `discern_done` on its current clean HEAD (the work landing on " +
+      "`{{main_branch}}` also satisfies it, since only a validated tree " +
+      "lands); `landed` (a branch name) waits until that branch's work — its " +
+      "tip at call start — is reachable from `{{main_branch}}`; `trunk_moved` " +
+      "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
+      "ancestry and the gate receipt, never in recorded history. Timing out " +
+      "is NOT an error: the result reports data.met false with " +
+      "data.retry_after_seconds — priced from the fleet's typical verb " +
+      "durations when work is in flight — saying when to call again, so " +
+      "bounded calls compose into an arbitrarily long watch. `timeout` " +
+      `defaults to ${AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS}s here, conservative ` +
+      "enough for strict MCP client budgets; raise it only when your " +
+      "client's tool-call budget allows. On success the hints name the " +
+      "follow-up (`discern_update`, or update from the green branch to " +
+      "compose below the trunk).",
+    inputSchema: {
+      green: z.string().optional().describe(
+        "Branch whose worktree must hold an honored gate receipt (e.g. an " +
+          "agent/* sibling this task builds on). Its landing also satisfies " +
+          "the wait.",
+      ),
+      landed: z.string().optional().describe(
+        "Branch whose work must become reachable from the trunk. The tip is " +
+          "pinned at call start, so the answer survives the branch's " +
+          "deletion when it lands.",
+      ),
+      trunk_moved: z.boolean().optional().describe(
+        "Wait until the trunk ref moves from its position at call start.",
+      ),
+      timeout: z.number().optional().describe(
+        'Seconds before answering "not yet" with retry advice ' +
+          `(default ${AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS}; 0 checks once).`,
+      ),
+      ...PATH_PARAM,
+    },
+    run: (root, args, signal) =>
+      awaitResult(root, {
+        ...(args.green !== undefined ? { green: args.green } : {}),
+        ...(args.landed !== undefined ? { landed: args.landed } : {}),
+        ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
+        timeoutSeconds: args.timeout ?? AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS,
+      }, signal),
   }),
   defineTool({
     name: "discern_patterns",

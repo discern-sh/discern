@@ -34,6 +34,11 @@ const SPEC: Record<string, OutsideSpec> = {
   done: { run: ["done"], verb: "done", expect: "not_initialized" },
   prepare: { run: ["prepare"], verb: "prepare", expect: "not_initialized" },
   test: { run: ["test"], verb: "test", expect: "not_initialized" },
+  await: {
+    run: ["await", "--trunk-moved", "--timeout", "0"],
+    verb: "await",
+    expect: "not_initialized",
+  },
   improvement: {
     run: ["improvement"],
     verb: "improvement",
