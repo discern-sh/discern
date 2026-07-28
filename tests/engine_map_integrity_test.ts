@@ -26,14 +26,28 @@ import {
 } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
-// deno-lint-ignore no-explicit-any
-function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+interface GateJsonDiagnostic {
+  tool: string;
+  message: string;
+  output?: string;
 }
 
-// deno-lint-ignore no-explicit-any
-const diagFor = (obj: any, tool: string) =>
-  (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+interface GateJson {
+  ok: boolean;
+  diagnostics?: GateJsonDiagnostic[];
+  data: { failed_stage: string | null };
+}
+
+function parseJson(stdout: string): GateJson {
+  return JSON.parse(stdout.trim()) as GateJson;
+}
+
+function diagFor(
+  obj: GateJson,
+  tool: string,
+): GateJsonDiagnostic | undefined {
+  return (obj.diagnostics ?? []).find((diagnostic) => diagnostic.tool === tool);
+}
 
 /** Write one map page (creating the configured default map dir), returning
  * its absolute path. The engine scaffold seeds no map — a docs-less project is
@@ -63,7 +77,8 @@ async function expectMapIntegrityFailure(dir: string): Promise<string> {
     `expected a map-integrity diagnostic: ${r.stdout}`,
   );
   assertStringIncludes(diag.message, "integrity");
-  return diag.output as string;
+  assert(diag.output !== undefined, "diagnostic must carry captured output");
+  return diag.output;
 }
 
 Deno.test("done --json: a dead link fails the map_integrity preflight; repointing fixes it", async () => {
