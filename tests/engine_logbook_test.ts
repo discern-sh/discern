@@ -33,7 +33,8 @@ import {
 } from "../src/engine/logbook/schema.ts";
 import { beginRecording } from "../src/engine/logbook/record.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
-import { HINTS } from "../src/shared/hints.ts";
+import { fire, HINTS } from "../src/shared/hints.ts";
+import { observeSupplementalHints } from "../src/shared/result_capture.ts";
 
 /** All well-formed events across the project's logbook, in file line order. */
 async function readEvents(dir: string): Promise<LogbookEvent[]> {
@@ -137,6 +138,23 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
   });
 });
 
+Deno.test("logbook: the envelope-less main-worktree orientation records its delivered hint", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["worktree", "ensure"]);
+    assertEquals(r.code, 0, r.output);
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 1);
+    assertEquals(events[0]?.verb, "worktree ensure");
+    assertEquals(events[0]?.hint_ids, [
+      HINTS["ensure-main-worktree-first"].id,
+    ]);
+  });
+});
+
 Deno.test("logbook: a human-rendered verb records the ids on its observed result", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -178,8 +196,8 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
     );
     assertEquals(
       event.hint_ids,
-      [],
-      "new writers distinguish no fired hints from legacy missing evidence",
+      [HINTS["failure-recovery"].id],
+      "the recorded refusal preserves the wire contract's actionable recovery floor",
     );
   });
 });
@@ -551,6 +569,12 @@ Deno.test('logbook: the MCP chokepoint records with surface "mcp"', async () => 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
+    // Supplemental capture belongs to the CLI's delivered ctx.log channel.
+    // Seed one stale id to prove the long-lived MCP process drains rather than
+    // attributing it to an unrelated tool result.
+    observeSupplementalHints([
+      fire(HINTS["ensure-main-worktree-first"]),
+    ]);
     const status = TOOLS.find((t) => t.name === "discern_status");
     assert(status !== undefined);
     const result = await runTool(

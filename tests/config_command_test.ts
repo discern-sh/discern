@@ -659,7 +659,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
       assertEquals(r.code, 1, r.stderr);
       const result = JSON.parse(r.stdout);
       assertEquals(result.ok, false);
-      assertEquals(result.error, "invalid_argument");
+      assertEquals(result.error, "invalid_arguments");
       assertStringIncludes(result.message, `${kind} name must be`);
     });
   }
@@ -900,6 +900,7 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
     assertEquals(r.code, 0, r.stderr);
     const result = JSON.parse(r.stdout);
     assertEquals(result.dry_run, true);
+    assertEquals(result.data.operation, "edit");
     assertEquals(result.data.file, "discern.toml");
     assert(
       result.data.edits.some((e: { key: string; literal: string }) =>
@@ -907,5 +908,103 @@ Deno.test("config set --dry-run --json reports the edit and writes nothing", asy
       ),
     );
     assertEquals(await readToml(dir), before); // unchanged
+  });
+});
+
+Deno.test("config reads keep bare shell output and use a discriminated envelope under --json", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+
+    const rawGet = await runCli(["config", "get", "project.slug"], dir);
+    assertEquals(rawGet.code, 0, rawGet.stderr);
+    assertEquals(rawGet.stdout, "demo\n");
+
+    const rawMissing = await runCli(["config", "has", "missing.key"], dir);
+    assertEquals(
+      rawMissing.code,
+      1,
+      rawMissing.stdout + rawMissing.stderr,
+    );
+    assertEquals(rawMissing.stdout, "");
+
+    const cases = [
+      {
+        args: ["config", "get", "project.slug"],
+        operation: "get",
+        check: (data: Record<string, unknown>) =>
+          assertEquals(data.value, "demo"),
+      },
+      {
+        args: ["config", "array", "project.slug"],
+        operation: "array",
+        check: (data: Record<string, unknown>) =>
+          assertEquals(data.values, ["demo"]),
+      },
+      {
+        args: ["config", "has", "missing.key"],
+        operation: "has",
+        check: (data: Record<string, unknown>) =>
+          assertEquals(data.present, false),
+      },
+      {
+        args: ["config", "subsections", "scopes"],
+        operation: "subsections",
+        check: (data: Record<string, unknown>) =>
+          assert(Array.isArray(data.values)),
+      },
+      {
+        args: ["config", "keys", "project"],
+        operation: "keys",
+        check: (data: Record<string, unknown>) =>
+          assert(
+            Array.isArray(data.values) && data.values.includes("slug"),
+          ),
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const result = await runCli([...testCase.args, "--json"], dir);
+      assertEquals(
+        result.code,
+        0,
+        `${testCase.args.join(" ")}: ${result.stdout}${result.stderr}`,
+      );
+      assertEquals(result.stderr, "");
+      assertEquals(result.stdout.trim().includes("\n"), false);
+      const envelope = JSON.parse(result.stdout);
+      assertEquals(envelope.ok, true);
+      assertEquals(envelope.verb, "config");
+      assertEquals(envelope.data.operation, testCase.operation);
+      assertEquals(envelope.data.key, testCase.args[2]);
+      testCase.check(envelope.data);
+    }
+  });
+});
+
+Deno.test("bare config and malformed config reads are controlled JSON argument refusals", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    for (
+      const args of [
+        ["config", "--json"],
+        ["config", "get", "--json"],
+      ]
+    ) {
+      const result = await runCli(args, dir);
+      assert(
+        result.code !== 0,
+        `${args.join(" ")} should refuse: ${result.stdout}${result.stderr}`,
+      );
+      assertEquals(result.stderr, "");
+      assertEquals(result.stdout.trim().includes("\n"), false);
+      const envelope = JSON.parse(result.stdout);
+      assertEquals(envelope.ok, false);
+      assertEquals(envelope.verb, "config");
+      assertEquals(envelope.error, "invalid_arguments");
+      assert(
+        Array.isArray(envelope.hints) && envelope.hints.length > 0,
+        "the argument refusal should include registered recovery",
+      );
+    }
   });
 });

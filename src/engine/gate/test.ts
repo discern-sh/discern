@@ -15,6 +15,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
 import {
   fire,
+  gateFailureRemedy,
   HINTS,
   hintTexts,
   interactiveHintTexts,
@@ -98,11 +99,13 @@ async function runTestGate(
       steps,
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
       ...(
-        inProgress !== undefined || hints.length > 0 || gotchasHints.length > 0
+        inProgress !== undefined || hints.length > 0 ||
+          failedStage !== null || gotchasHints.length > 0
           ? {
             hints: hintTexts([
               ...(inProgress !== undefined ? [inProgress] : []),
               ...hints,
+              ...(failedStage !== null ? [gateFailureRemedy(failedStage)] : []),
               ...gotchasHints,
             ]),
           }

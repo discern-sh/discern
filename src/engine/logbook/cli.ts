@@ -23,6 +23,7 @@
 
 import {
   takeObservedResult,
+  takeSupplementalHintIds,
   takeVerbTarget,
 } from "../../shared/result_capture.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
@@ -126,6 +127,9 @@ export async function recordedRun(
   surface: LogbookSurface,
   body: () => number | undefined | Promise<number | undefined>,
 ): Promise<number> {
+  // A CLI process normally serves one verb, but the accumulator is process
+  // local: clear any stale test/embedded-call state before this invocation.
+  takeSupplementalHintIds();
   const recording = beginRecording(Deno.cwd());
   // Everything after a `script` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so
@@ -138,6 +142,7 @@ export async function recordedRun(
     code = (await body()) ?? 0;
   } finally {
     const observed = takeObservedResult();
+    const supplementalHintIds = takeSupplementalHintIds();
     const target = takeVerbTarget();
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `script` namespace is excluded from
@@ -155,7 +160,12 @@ export async function recordedRun(
       durationMs: performance.now() - started,
       driver: await driver,
       ...(result !== undefined ? { result } : {}),
-      hintIds: observed?.hintIds ?? [],
+      hintIds: [
+        ...new Set([
+          ...(observed?.hintIds ?? []),
+          ...supplementalHintIds,
+        ]),
+      ],
       ...(dryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),

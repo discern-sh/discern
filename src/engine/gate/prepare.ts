@@ -19,7 +19,11 @@
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { setupInProgressHint } from "../../shared/setup_state.ts";
-import { hintTexts, interactiveHintTexts } from "../../shared/hints.ts";
+import {
+  gateFailureRemedy,
+  hintTexts,
+  interactiveHintTexts,
+} from "../../shared/hints.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
@@ -81,6 +85,7 @@ async function runPrepareGate(
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),
     ...jobOutputHints,
+    ...(failedStage !== null ? [gateFailureRemedy(failedStage)] : []),
     ...(gotchasTail !== undefined
       ? [gotchasTail.hint, ...gotchasTail.warnings]
       : []),

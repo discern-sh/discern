@@ -51,7 +51,7 @@ import {
   type DetectorFamily,
   PATTERN_FINDING_TONES,
 } from "../src/shared/patterns_vocabulary.ts";
-import { HINTS } from "../src/shared/hints.ts";
+import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 // ── writer/reader parity ───────────────────────────────────────────────────
@@ -318,6 +318,147 @@ function unknownMcpClient(name: string): Partial<VerbEvent> {
   };
 }
 
+interface MeasuredHint {
+  id: string;
+  followThrough: HintFollowThroughRule;
+}
+
+/** Every hint that declares an outcome rule. The registry is the population:
+ * adding a measured hint enrolls it in the followed/not-followed class test. */
+function measuredHints(): MeasuredHint[] {
+  return Object.values(HINTS).flatMap((hint) =>
+    hint.followThrough === undefined
+      ? []
+      : [{ id: hint.id, followThrough: hint.followThrough }]
+  );
+}
+
+type EpisodeVerdict = "followed" | "not-followed";
+
+function firedHint(
+  hint: MeasuredHint,
+  over: Partial<VerbEvent> = {},
+): Partial<VerbEvent> {
+  const rule = hint.followThrough;
+  switch (rule.kind) {
+    case "branch-action-before-boundary":
+      return {
+        verb: "done",
+        outcome: "failed",
+        failed_stage: "check/test",
+        hint_ids: [hint.id],
+        ...over,
+      };
+    case "session-action-before-repeat":
+      return { verb: "status", hint_ids: [hint.id], ...over };
+    case "main-session-start-before-dirty":
+      return {
+        verb: "worktree ensure",
+        branch: "main",
+        hint_ids: [hint.id],
+        ...over,
+      };
+  }
+}
+
+/** Three resolved episodes plus one censored firing, for one live registry
+ * member. Each rule kind supplies its own observable boundary. */
+function followThroughFixture(
+  hint: MeasuredHint,
+  verdict: EpisodeVerdict,
+): LogbookEvent[] {
+  const events: Partial<VerbEvent>[] = [];
+  const rule = hint.followThrough;
+  switch (rule.kind) {
+    case "branch-action-before-boundary":
+      for (let i = 0; i < 3; i += 1) {
+        const actionVerb = rule.actionVerbs[i % rule.actionVerbs.length];
+        assert(actionVerb !== undefined, `${hint.id}: no action verb`);
+        events.push(
+          firedHint(hint),
+          verdict === "followed"
+            ? { verb: actionVerb }
+            : { verb: rule.boundaryVerb },
+        );
+      }
+      events.push(firedHint(hint));
+      break;
+    case "session-action-before-repeat":
+      if (verdict === "followed") {
+        for (let i = 0; i < 3; i += 1) {
+          events.push(firedHint(hint), { verb: rule.actionVerb });
+        }
+        events.push(
+          firedHint(hint),
+          {
+            verb: rule.actionVerb,
+            surface: "mcp",
+            driver: {
+              session: "mcp:other",
+              json: false,
+              tty: false,
+              ci: false,
+            },
+          },
+        );
+      } else {
+        events.push(
+          firedHint(hint),
+          firedHint(hint),
+          firedHint(hint),
+          firedHint(hint),
+          {
+            verb: rule.actionVerb,
+            surface: "mcp",
+            driver: {
+              session: "mcp:other",
+              json: false,
+              tty: false,
+              ci: false,
+            },
+          },
+        );
+      }
+      break;
+    case "main-session-start-before-dirty":
+      for (let i = 0; i < 3; i += 1) {
+        events.push(
+          firedHint(hint),
+          verdict === "followed" ? { verb: rule.actionVerb, branch: "main" } : {
+            verb: "status",
+            branch: "main",
+            clean: false,
+            tree: `dirty-${i}`,
+          },
+        );
+      }
+      events.push(
+        firedHint(hint),
+        {
+          verb: rule.actionVerb,
+          surface: "mcp",
+          branch: "main",
+          driver: {
+            session: "mcp:other",
+            json: false,
+            tty: false,
+            ci: false,
+          },
+        },
+      );
+      break;
+  }
+  return run(events);
+}
+
+function measuredHint(id: string): MeasuredHint {
+  const hint = measuredHints().find((entry) => entry.id === id);
+  assert(hint !== undefined, `${id} carries no follow-through rule`);
+  return hint;
+}
+
+const STATUS_UPDATE_HINT = measuredHint("status-branch-behind");
+
 // ── the fixture table (keyed by detector id — the forcing tie) ──────────────
 
 /** A quiet state that cannot exist gets a recorded reason instead of events. */
@@ -358,25 +499,15 @@ const FIXTURES: Record<string, DetectorFixtures> = {
     ]),
   },
   "hint-follow-through": {
-    firing: run([
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-    ]),
-    quiet: run([
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "update" },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "update" },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "update" },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-    ]),
+    firing: followThroughFixture(STATUS_UPDATE_HINT, "not-followed"),
+    quiet: {
+      impossible:
+        "informational: three resolved episodes always report the family's raw outcomes, including an all-followed result",
+    },
     sparse: run([
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
-      { verb: "status", hint_ids: [HINTS["status-branch-behind"].id] },
+      firedHint(STATUS_UPDATE_HINT),
+      firedHint(STATUS_UPDATE_HINT),
+      firedHint(STATUS_UPDATE_HINT),
     ]),
   },
   "skipped-prepare": {
@@ -980,6 +1111,159 @@ function report(d: Detector, events: LogbookEvent[]): DetectorReport {
     buildStreamFacts(events, "main", fixturesOf(d).configured_agents ?? []),
   );
 }
+
+function detector(id: string): Detector {
+  const found = DETECTORS.find((entry) => entry.id === id);
+  assert(found !== undefined, `no detector ${id}`);
+  return found;
+}
+
+Deno.test("hint follow-through: every declaring registry entry resolves followed, not-followed, and censored episodes", () => {
+  const entries = measuredHints();
+  assert(entries.length > 0, "the hint registry carries no outcome rules");
+  const gateRemedies = Object.values(HINTS).filter((hint) =>
+    hint.family === "gate-failure-remedy"
+  );
+  assert(gateRemedies.length > 0, "the gate-failure remedy family is empty");
+  for (const hint of gateRemedies) {
+    assert(
+      hint.followThrough !== undefined,
+      `${hint.id}: every gate-failure remedy inherits the family outcome rule`,
+    );
+  }
+  for (
+    const required of [
+      "status-branch-behind",
+      "done-unchanged-tree-red",
+      "ensure-main-worktree-first",
+    ] as const
+  ) {
+    assert(
+      HINTS[required].followThrough !== undefined,
+      `${required}: required follow-through declaration is missing`,
+    );
+  }
+  const familyRules = new Map<string, HintFollowThroughRule>();
+  const followThrough = detector("hint-follow-through");
+  assertEquals(followThrough.threshold, 3);
+
+  for (const hint of entries) {
+    const rule = hint.followThrough;
+    assert(
+      Object.isFrozen(rule),
+      `${hint.id}: follow-through declarations are frozen shared data`,
+    );
+    if (rule.kind === "branch-action-before-boundary") {
+      assert(
+        Object.isFrozen(rule.actionVerbs),
+        `${hint.id}: action verbs are frozen shared data`,
+      );
+    }
+    const existing = familyRules.get(rule.family);
+    if (existing === undefined) {
+      familyRules.set(rule.family, rule);
+    } else {
+      assert(
+        existing === rule,
+        `${hint.id}: ${rule.family} must reuse its one shared rule object`,
+      );
+    }
+
+    const ignored = runDetector(
+      followThrough,
+      buildStreamFacts(
+        followThroughFixture(hint, "not-followed"),
+        "main",
+      ),
+    );
+    assertEquals(ignored.status, "fired", hint.id);
+    assertEquals(ignored.considered, 3, hint.id);
+    const ignoredFinding = ignored.findings.find((finding) =>
+      finding.subject === rule.family
+    );
+    assert(ignoredFinding !== undefined, `${hint.id}: no ignored finding`);
+    assertEquals(ignoredFinding.evidence, {
+      fired: 4,
+      followed: 0,
+      not_followed: 3,
+      censored: 1,
+    }, hint.id);
+    assertEquals(ignoredFinding.tone, "attention", hint.id);
+
+    const followed = runDetector(
+      followThrough,
+      buildStreamFacts(
+        followThroughFixture(hint, "followed"),
+        "main",
+      ),
+    );
+    assertEquals(followed.status, "fired", hint.id);
+    assertEquals(followed.considered, 3, hint.id);
+    const followedFinding = followed.findings.find((finding) =>
+      finding.subject === rule.family
+    );
+    assert(followedFinding !== undefined, `${hint.id}: no followed finding`);
+    assertEquals(followedFinding.evidence, {
+      fired: 4,
+      followed: 3,
+      not_followed: 0,
+      censored: 1,
+    }, hint.id);
+    assertEquals(
+      followedFinding.tone,
+      "good",
+      `${hint.id}: all-followed evidence stays informational`,
+    );
+  }
+});
+
+Deno.test("hint follow-through stays distinct from skipped prepare", () => {
+  const hintDetector = detector("hint-follow-through");
+  const prepareDetector = detector("skipped-prepare");
+  const doneOnly = run([
+    redDone(),
+    redDone(),
+    redDone(),
+    { verb: "done" },
+  ]);
+
+  assertEquals(
+    runDetector(
+      hintDetector,
+      buildStreamFacts(doneOnly, "main"),
+    ).status,
+    "insufficient-evidence",
+    "done-heavy iteration without a delivered hint is not hint evidence",
+  );
+  assertEquals(
+    runDetector(
+      prepareDetector,
+      buildStreamFacts(doneOnly, "main"),
+    ).status,
+    "fired",
+  );
+
+  const gateHint = measuredHints().find((entry) =>
+    entry.followThrough.kind === "branch-action-before-boundary"
+  );
+  assert(gateHint !== undefined, "no red-gate outcome rule");
+  const followed = followThroughFixture(gateHint, "followed");
+  assertEquals(
+    runDetector(
+      hintDetector,
+      buildStreamFacts(followed, "main"),
+    ).findings[0]?.tone,
+    "good",
+  );
+  assertEquals(
+    runDetector(
+      prepareDetector,
+      buildStreamFacts(followed, "main"),
+    ).status,
+    "quiet",
+    "prepare/test follow-through does not erase skipped-prepare's independent population",
+  );
+});
 
 for (const d of DETECTORS) {
   Deno.test(`patterns detector ${d.id}: fires on its firing stream with plain-count evidence`, () => {

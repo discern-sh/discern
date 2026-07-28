@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { Command } from "@cliffy/command";
+import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
   buildResultJsonSchema,
@@ -9,8 +9,12 @@ import {
 import {
   CLI_JSON_CONTRACT_EXCLUSIONS,
   CLI_JSON_RESULT_CONTRACTS,
+  cliJsonContractCoverage,
   MCP_RESULT_CONTRACTS,
+  normalizeCliCommandPath,
 } from "../src/shared/result_contracts.ts";
+import { RESULT_SCHEMA_ID } from "../src/shared/public_schemas.ts";
+import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 
@@ -25,6 +29,10 @@ Deno.test("schema/discern-results.schema.json matches the generator (run `deno t
     renderResultJsonSchema(),
     "schema/discern-results.schema.json is stale — run `deno task codegen`",
   );
+});
+
+Deno.test("the generated result schema uses the versioned public id", () => {
+  assertEquals(buildResultJsonSchema().$id, RESULT_SCHEMA_ID);
 });
 
 Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen`)", async () => {
@@ -76,6 +84,41 @@ Deno.test("public JSON schema is additive-compatible for output objects", () => 
   );
 });
 
+Deno.test("public result contracts publish known error slugs without closing the field", () => {
+  const schema = buildResultJsonSchema();
+  assertEquals(schema["x-discern-error-slugs"], [...ERROR_SLUGS]);
+  assert(isRecord(schema.$defs), "result schema should carry $defs");
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const typeName = `Discern${pascalCase(contract.id)}Result`;
+    const def = schema.$defs[typeName];
+    assert(isRecord(def), `${typeName} should be present in $defs`);
+    assert(isRecord(def.properties), `${typeName} should declare properties`);
+    const error = def.properties.error;
+    assert(isRecord(error), `${typeName}.error should be a schema`);
+    assertEquals(
+      error,
+      { type: "string" },
+      `${typeName}.error must accept future slugs in the public schema`,
+    );
+  }
+
+  const types = renderResultTypesDts();
+  const alias = types.match(
+    /export type DiscernKnownErrorSlug =\n?([\s\S]*?);\n\n/,
+  );
+  assert(
+    alias !== null,
+    "generated types should publish the known-error union",
+  );
+  const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
+    .map((match) => match[1]);
+  assertEquals(members, [...ERROR_SLUGS]);
+  assert(
+    !types.includes("error?:\n    |"),
+    "generated envelope error fields should remain forward-compatible strings",
+  );
+});
+
 Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", () => {
   const schema = buildResultJsonSchema();
   assert(isRecord(schema.$defs), "result schema should carry $defs");
@@ -123,19 +166,62 @@ Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", 
 
 Deno.test("every registered CLI command is classified as JSON-contracted or intentionally excluded", () => {
   const root = buildCli(false) as unknown as Command;
-  const all = collectCommandPaths(root);
-  const contracted = CLI_JSON_RESULT_CONTRACTS.flatMap((
-    contract,
-  ) => [...contract.commands]);
-  const classified = new Set([
-    ...contracted,
-    ...CLI_JSON_CONTRACT_EXCLUSIONS,
-  ]);
   assertEquals(
-    sorted(all),
-    sorted(classified),
-    "each CLI command path should either have a public --json result contract or be explicitly excluded",
+    cliJsonContractCoverage(root),
+    {
+      uncontracted: [],
+      staleContracts: [],
+      staleExclusions: [],
+      overlaps: [],
+      duplicateContracts: [],
+      duplicateExclusions: [],
+      nonCanonicalDeclarations: [],
+      reasonlessExclusions: [],
+    },
+    "each canonical CLI command path should have exactly one public --json result contract or one explicit protocol exclusion",
   );
+});
+
+Deno.test("CLI JSON exclusions are only the non-result protocols, each with a reason", () => {
+  assertEquals(
+    CLI_JSON_CONTRACT_EXCLUSIONS.map((entry) => entry.command),
+    [
+      "mcp",
+      "worktree create",
+      "worktree remove",
+      "worktree ensure",
+    ],
+  );
+  for (const entry of CLI_JSON_CONTRACT_EXCLUSIONS) {
+    assert(
+      entry.reason.trim().length > 0,
+      `${entry.command} needs an exclusion reason`,
+    );
+  }
+});
+
+Deno.test("a future nested command under an enrolled parent is uncontracted automatically", () => {
+  const root = buildCli(false) as unknown as Command;
+  const config = root.getCommands(true).find((command) =>
+    command.getName() === "config"
+  );
+  assert(config !== undefined, "config command group should exist");
+  config.command("zz-future", new Command());
+  assertEquals(
+    cliJsonContractCoverage(root).uncontracted,
+    ["config zz-future"],
+  );
+});
+
+Deno.test("command aliases normalize to their canonical JSON contract path", () => {
+  const root = new Command().name("fixture");
+  const parent = new Command().alias("cfg");
+  parent.command("read", new Command().alias("r"));
+  root.command("config", parent);
+
+  assertEquals(normalizeCliCommandPath(root, "config read"), "config read");
+  assertEquals(normalizeCliCommandPath(root, "cfg r"), "config read");
+  assertEquals(normalizeCliCommandPath(root, "cfg missing"), undefined);
 });
 
 Deno.test("MCP tools use the same schemas as the public result registry", () => {
@@ -162,21 +248,6 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
     );
   }
 });
-
-function collectCommandPaths(root: Command): string[] {
-  const out: string[] = [];
-  // Hidden commands included: a command hidden from help (preset, the worktree
-  // hook entry points) still dispatches, so it still needs a JSON classification.
-  const visit = (command: Command, prefix: string[]): void => {
-    for (const child of command.getCommands(true)) {
-      const path = [...prefix, child.getName()];
-      out.push(path.join(" "));
-      visit(child as unknown as Command, path);
-    }
-  };
-  visit(root, []);
-  return out;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

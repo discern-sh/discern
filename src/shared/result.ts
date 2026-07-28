@@ -109,7 +109,7 @@ export interface EnginePlan {
 
 /** A step's outcome after execution, for the generic results serialization. A const
  * tuple so `result_schemas.ts` derives its Zod enum from it (not a hand mirror). */
-export const STEP_OUTCOMES = ["ok", "failed", "skipped"] as const;
+export const STEP_OUTCOMES = ["ok", "failed", "skipped", "cancelled"] as const;
 /** One executed-step outcome ({@link STEP_OUTCOMES}). */
 export type StepOutcome = (typeof STEP_OUTCOMES)[number];
 
@@ -254,20 +254,93 @@ export interface Diagnostic {
 // ── ring 3: the universal envelope ──────────────────────────────────────────
 
 /**
+ * Every machine-stable error slug a live result may emit. Runtime schemas derive
+ * their closed enum from this tuple; public artifacts publish it as advisory
+ * vocabulary while keeping the envelope's `error` field forward-compatible.
+ */
+export const ERROR_SLUGS = [
+  "active_worktrees",
+  "ambiguous",
+  "apply_failed",
+  "awaiting_consent",
+  "below_min_score",
+  "brief_unparseable",
+  "checkout_failed",
+  "config_template_unavailable",
+  "confirmation_required",
+  "conflict",
+  "desk_already_active",
+  "detached_head",
+  "diagrams_misaligned",
+  "dirty_worktree",
+  "edit_error",
+  "gate_failed",
+  "gitignore_template_unavailable",
+  "identity_error",
+  "incomplete",
+  "interactive_only",
+  "internal_error",
+  "invalid_arguments",
+  "invalid_config",
+  "invalid_config_file",
+  "invalid_migrated_config",
+  "invalid_preset",
+  "invalid_settings_file",
+  "invalid_toml",
+  "invalid_value",
+  "no_help",
+  "no_map",
+  "no_project",
+  "no_repository",
+  "no_such_step",
+  "no_target",
+  "not_found",
+  "not_initialized",
+  "not_main_checkout",
+  "not_on_integration_branch",
+  "not_set_up",
+  "not_setup_branch",
+  "partial_materialization",
+  "partial_refresh",
+  "pin_failed",
+  "precondition_failed",
+  "read_error",
+  "renamed_command",
+  "renamed_config_key",
+  "schema_version_too_new",
+  "setup_plan_failed",
+  "skills_eject_failed",
+  "templates_not_found",
+  "tidy_parse_failed",
+  "tidy_write_failed",
+  "uncommitted_changes",
+  "unchanged_tree_rerun",
+  "unknown_category",
+  "unknown_command",
+  "unknown_key",
+  "unknown_preset",
+  "unknown_standard",
+  "write_access",
+] as const;
+
+/** One known live error slug ({@link ERROR_SLUGS}). */
+export type ErrorSlug = (typeof ERROR_SLUGS)[number];
+
+/**
  * The uniform result every `discern` verb returns. An agent can rely on `ok`,
  * `verb`, `error`, and `diagnostics` being present on EVERY verb; the structural
  * `plan`/`steps` carry the verbs that have steps (finish, worktree, standards,
  * accept), and `data` carries each verb's own payload (doctor's checks, schema migration data
  * schema versions, init's written-files list).
  *
- * `serializeResult` renders it to `--json`; the human path renders the same fields
+ * `result_serialization.ts` renders it to `--json`; the human path renders the same fields
  * (so the two can never disagree on WHAT happened) and may add verb-specific advice.
  *
  * Generic over its `data` payload (`TData`, default `unknown`): a verb core narrows
  * it to its own schema-backed type (`DiscernResult<StatusData>`, `<GateData>`, …) so
  * a core that builds the wrong `data` shape is a COMPILE error and a consumer reads
  * `result.data` already typed — no `as` cast back from `unknown`. The dataless verbs
- * and the generic renderers keep the `unknown` default; `serializeResult` and the
+ * and the generic renderers keep the `unknown` default; serialization and the
  * other sinks accept any specialization (every `DiscernResult<T>` widens to
  * `DiscernResult<unknown>`).
  */
@@ -299,7 +372,7 @@ export interface DiscernResult<TData = unknown> {
    */
   hints?: string[] | undefined;
   /** A machine-stable error slug when the verb refused/aborted (e.g. "dirty_worktree"). */
-  error?: string | undefined;
+  error?: ErrorSlug | undefined;
   /** A human sentence accompanying `error`. */
   message?: string | undefined;
 }
@@ -516,6 +589,7 @@ const OUTCOME_LABEL: Record<StepOutcome, string> = {
   ok: "ok",
   failed: "failed",
   skipped: "skipped",
+  cancelled: "cancelled",
 };
 
 function stepResultNote(result: StepResult): string | undefined {
@@ -646,7 +720,7 @@ export function planToJson(plan: EnginePlan): PlanJson {
 
 /**
  * Serialize (plan, results) into the legacy generic apply-mode shape `{ok, steps}`.
- * Retained for the verbs not yet migrated to {@link serializeResult}; new code
+ * Retained for the verbs not yet migrated to a {@link DiscernResult}; new code
  * should build a {@link DiscernResult} and serialize that instead.
  */
 export function resultsToJson(results: StepResult[]): {
@@ -690,42 +764,4 @@ export function appliedResult(
       ? diagnostics
       : undefined,
   };
-}
-
-// ── the envelope serializer ─────────────────────────────────────────────────
-
-/**
- * Serialize a {@link DiscernResult} to the single `--json` object every verb emits.
- * Undefined fields are dropped so a verb's payload stays minimal — a dry-run shows
- * `plan` and no `steps`; a clean apply shows `steps` and no `diagnostics`. This is
- * the ONE place the wire shape is defined; the human renderer reads the same
- * `DiscernResult`, so the two presentations can never disagree on what happened.
- */
-export function serializeResult(r: DiscernResult): Record<string, unknown> {
-  const out: Record<string, unknown> = { ok: r.ok, verb: r.verb };
-  if (r.dry_run !== undefined) {
-    out.dry_run = r.dry_run;
-  }
-  if (r.plan !== undefined) {
-    out.plan = planToJson(r.plan);
-  }
-  if (r.steps !== undefined) {
-    out.steps = r.steps.map(stepResultToJson);
-  }
-  if (r.diagnostics !== undefined) {
-    out.diagnostics = r.diagnostics;
-  }
-  if (r.data !== undefined) {
-    out.data = r.data;
-  }
-  if (r.hints !== undefined && r.hints.length > 0) {
-    out.hints = r.hints;
-  }
-  if (r.error !== undefined) {
-    out.error = r.error;
-  }
-  if (r.message !== undefined) {
-    out.message = r.message;
-  }
-  return out;
 }

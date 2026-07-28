@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { SELF_TITLED_PAGES } from "../site/brand.ts";
 import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
+import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
   buildSiteRedirectTable,
   canonicalUrl,
@@ -102,6 +103,11 @@ function sameItems(
       );
     }
   }
+}
+
+function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
+  return actual.length === expected.length &&
+    actual.every((value, index) => value === expected[index]);
 }
 
 function securityFailures(response: Response, label: string): string[] {
@@ -510,6 +516,29 @@ export async function runSiteSmoke(
     fail,
   );
 
+  await parallel(PUBLIC_SCHEMA_PUBLICATIONS, async (publication) => {
+    const route = new URL(publication.id).pathname;
+    const response = await get(route);
+    secure(response, route);
+    if (response.status !== 200) {
+      fail(`${route}: status ${response.status}`);
+    }
+    const contentType = response.headers.get("content-type");
+    if (contentType !== "application/json; charset=utf-8") {
+      fail(`${route}: content type ${JSON.stringify(contentType)}`);
+    }
+    const expected = await Deno.readFile(
+      new URL(`../${publication.artifactPath}`, import.meta.url),
+    );
+    const actual = new Uint8Array(await response.arrayBuffer());
+    if (!sameBytes(actual, expected)) {
+      fail(
+        `${route}: ${actual.length} response bytes differ from ` +
+          `${expected.length} bytes in ${publication.artifactPath}`,
+      );
+    }
+  });
+
   for (const path of ["/robots.txt", "/assets/og-card.png", "/install"]) {
     const response = await get(path);
     secure(response, path);
@@ -594,6 +623,7 @@ export async function runSiteSmoke(
     `${redirectTable.redirects.size} declared historical redirects`,
     `${checkedInternal.size} linked non-HTML internal endpoints`,
     `${guidance.length} guidance pages in cross-surface parity`,
+    `${PUBLIC_SCHEMA_PUBLICATIONS.length} versioned public schemas byte-matched`,
   );
   return {
     ok: failures.length === 0,

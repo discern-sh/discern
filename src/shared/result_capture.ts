@@ -1,7 +1,9 @@
 /**
  * The **observed-result seam** — a one-slot, process-local mailbox carrying the
  * invocation's final {@link DiscernResult} from wherever it is rendered to the
- * logbook recorder, without threading a parameter through every verb.
+ * logbook recorder, without threading a parameter through every verb. A
+ * separate accumulator carries ids for advisory lines that were delivered
+ * outside an envelope; it never invents an envelope to hold them.
  *
  * The CLI has no single point where a verb's envelope surfaces: `emitResult`
  * sees every `--json` run, and the gate entry points hold their result in both
@@ -42,6 +44,28 @@ export function takeObservedResult(): ObservedResult | undefined {
   const result = observed;
   observed = undefined;
   return result;
+}
+
+const supplementalHintIds = new Set<string>();
+
+/**
+ * Record hints that were delivered outside a result envelope. This is the
+ * narrow exception for a real output channel such as the session-start
+ * `ctx.log` line; generating a hint without delivering it does not belong here.
+ */
+export function observeSupplementalHints(
+  firedHints: readonly FiredHint[],
+): void {
+  for (const hint of firedHints) {
+    supplementalHintIds.add(hint.id);
+  }
+}
+
+/** Take and clear every supplemental delivered-hint id, preserving insertion order. */
+export function takeSupplementalHintIds(): string[] {
+  const ids = [...supplementalHintIds];
+  supplementalHintIds.clear();
+  return ids;
 }
 
 let observedTarget: string | undefined;

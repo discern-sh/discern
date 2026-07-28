@@ -152,6 +152,15 @@ Deno.test("logbook schema: unknown fields pass through untouched (forward compat
   assertEquals(raw.a_future_field, "kept");
 });
 
+Deno.test("logbook schema: historical error slugs remain string-compatible", () => {
+  const parsed = parseLogbookLine(JSON.stringify({
+    ...sampleEvent(),
+    error: "retired_or_future_error_slug",
+  }));
+  assert(parsed.kind === "event");
+  assertEquals(parsed.event.error, "retired_or_future_error_slug");
+});
+
 Deno.test("logbook schema: an unknown schema major is foreign, never misread", () => {
   const parsed = parseLogbookLine(
     JSON.stringify({ ...sampleEvent(), schema: LOGBOOK_SCHEMA_VERSION + 1 }),

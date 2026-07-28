@@ -1022,7 +1022,7 @@ Deno.test("map export validates scope and incompatible flags", async () => {
       dir,
     );
     assertEquals(json.code, 1);
-    assertEquals(JSON.parse(json.stdout).error, "invalid_options");
+    assertEquals(JSON.parse(json.stdout).error, "invalid_arguments");
     assertEquals(json.stderr, "");
   });
 });

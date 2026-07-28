@@ -18,7 +18,10 @@ import {
   hintTexts,
   interactiveHintTexts,
 } from "../shared/hints.ts";
-import { observeResult } from "../shared/result_capture.ts";
+import {
+  observeResult,
+  observeSupplementalHints,
+} from "../shared/result_capture.ts";
 import {
   findSkeletonMarkers,
   setupUnfinishedHint,
@@ -40,7 +43,11 @@ import {
   materializeSkills,
   skillsListResult,
 } from "../lib/skills.ts";
-import type { SkillsEjectData } from "../shared/result_schemas.ts";
+import type {
+  ConfigData,
+  IdentityData,
+  SkillsEjectData,
+} from "../shared/result_schemas.ts";
 import { skillsDirsForAgents } from "../lib/providers.ts";
 import { TomlEditor } from "../lib/toml_edit.ts";
 import { writeDiscernToml } from "../lib/tidy_format.ts";
@@ -64,7 +71,7 @@ import {
   IdentityError,
   identityField,
   identityResourceHandle,
-  identityResourcesList,
+  identityResources,
   type LifecycleContext,
   lifecycleContext,
   start,
@@ -91,6 +98,7 @@ import { discoverProjectScripts, runProjectScript } from "./project_scripts.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { recordedExit } from "./logbook/cli.ts";
+import { runCommandGroup } from "../shared/command_group.ts";
 
 export { runProjectScript } from "./project_scripts.ts";
 export { reportUnknownCommand } from "./unknown_command.ts";
@@ -767,34 +775,80 @@ export function attachEngineCommands(
     )
     .option(
       "--json",
-      "Emit refusals as a JSON DiscernResult on stdout; field values print raw.",
+      "Emit the selected identity value as a JSON DiscernResult envelope on stdout.",
     )
     .arguments("[path:string]")
     .action(recordedExit("identity", async (o, path) => {
-      const root = await requireRoot("identity", o.json ?? false);
+      const json = o.json ?? false;
+      const root = await requireRoot("identity", json);
       const target = path ?? Deno.cwd();
+      const selectedFields = WORKTREE_FIELDS.filter((field) =>
+        o[field] === true
+      );
+      const selectorCount = selectedFields.length +
+        (o.resource === undefined ? 0 : 1) + (o.resources ? 1 : 0);
+      if (selectorCount > 1) {
+        const message =
+          "choose one identity field, --resource <name>, or --resources.";
+        if (json) {
+          emitResult({
+            ok: false,
+            verb: "identity",
+            error: "invalid_arguments",
+            message,
+          });
+        } else {
+          console.error(message);
+        }
+        return 1;
+      }
       try {
+        let data: IdentityData;
         if (o.resource !== undefined) {
-          console.log(await identityResourceHandle(root, o.resource, target));
+          data = {
+            kind: "resource",
+            name: o.resource,
+            value: await identityResourceHandle(root, o.resource, target),
+          };
         } else if (o.resources) {
-          for (const line of await identityResourcesList(root, target)) {
-            console.log(line);
-          }
+          data = {
+            kind: "resources",
+            resources: await identityResources(root, target),
+          };
         } else {
           // Derive the selected field from the WORKTREE_FIELDS SSOT (id is the
           // default), so a new identity field is selectable here without editing this
           // branch — the CLI flags themselves are tied to the SSOT by a parity test.
-          const field = WORKTREE_FIELDS.find((f) =>
-            f !== "id" && o[f] === true
-          ) ??
-            "id";
-          console.log(await identityField(root, field, target));
+          const field = selectedFields[0] ?? "id";
+          data = {
+            kind: "field",
+            field,
+            value: await identityField(root, field, target),
+          };
+        }
+        if (json) {
+          emitResult({ ok: true, verb: "identity", data });
+        } else if (data.kind === "resources") {
+          for (const [name, value] of Object.entries(data.resources)) {
+            console.log(`${name}=${value}`);
+          }
+        } else {
+          console.log(data.value);
         }
         return 0;
       } catch (e) {
         if (e instanceof IdentityError) {
-          console.error(e.message);
-          return 1;
+          if (json) {
+            emitResult({
+              ok: false,
+              verb: "identity",
+              error: "identity_error",
+              message: e.message,
+            });
+          } else {
+            console.error(e.message);
+          }
+          return e.code;
         }
         throw e;
       }
@@ -819,8 +873,15 @@ export function attachEngineCommands(
     .description(
       "Manage worktrees — separate checkouts and branches for individual changes.",
     )
-    .action(recordedExit("worktree", function (this: Command): void {
-      this.showHelp();
+    .action(recordedExit("worktree", function (
+      this: Command,
+      o,
+    ): number {
+      return runCommandGroup(
+        this,
+        "worktree",
+        (o as { json?: boolean } | undefined)?.json ?? false,
+      );
     }))
     .command("setup", worktreeSetupCommand)
     .command(
@@ -838,7 +899,11 @@ export function attachEngineCommands(
                   // Main-checkout side: the session hook injects this stdout
                   // as agent context, the only channel that can pre-empt a
                   // trunk edit (a file edit calls no verb first).
-                  ctx.log.info(fire(HINTS["ensure-main-worktree-first"]).text);
+                  const orientation = fire(
+                    HINTS["ensure-main-worktree-first"],
+                  );
+                  ctx.log.info(orientation.text);
+                  observeSupplementalHints([orientation]);
                 }
               }),
           ),
@@ -952,8 +1017,15 @@ function attachSkillsCommand(root: Command): void {
     .description(
       "Manage skills: list the effective set, or eject a built-in to customize it.",
     )
-    .action(recordedExit("skills", function (this: Command): void {
-      this.showHelp();
+    .action(recordedExit("skills", function (
+      this: Command,
+      o,
+    ): number {
+      return runCommandGroup(
+        this,
+        "skills",
+        (o as { json?: boolean } | undefined)?.json ?? false,
+      );
     }))
     .command(
       "list",
@@ -1309,7 +1381,7 @@ export async function runConfigRead(
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json ?? false) {
-      emitResult(notInitializedResult(`config ${op}`));
+      emitResult(notInitializedResult("config"));
     } else {
       console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }
@@ -1318,27 +1390,45 @@ export async function runConfigRead(
   // The Project-Script-facing passthrough reads arbitrary dotted keys verbatim, so it uses
   // the raw reader (no schema, no defaults) rather than the typed loader.
   const cfg = await RawConfig.load(root);
+  let data: ConfigData;
   switch (op) {
     case "get":
-      console.log(cfg.get(key));
+      data = { operation: "get", key, value: cfg.get(key) };
+      break;
+    case "array":
+      data = { operation: "array", key, values: cfg.array(key) };
+      break;
+    case "has":
+      data = { operation: "has", key, present: cfg.has(key) };
+      break;
+    case "subsections":
+      data = {
+        operation: "subsections",
+        key,
+        values: cfg.subsections(key),
+      };
+      break;
+    case "keys":
+      data = { operation: "keys", key, values: cfg.keys(key) };
+      break;
+  }
+  if (opts.json ?? false) {
+    emitResult({ ok: true, verb: "config", data });
+    return 0;
+  }
+  switch (data.operation) {
+    case "get":
+      console.log(data.value);
       return 0;
     case "array":
-      for (const v of cfg.array(key)) {
-        console.log(v);
+    case "subsections":
+    case "keys":
+      for (const value of data.values) {
+        console.log(value);
       }
       return 0;
     case "has":
-      return cfg.has(key) ? 0 : 1;
-    case "subsections":
-      for (const v of cfg.subsections(key)) {
-        console.log(v);
-      }
-      return 0;
-    case "keys":
-      for (const v of cfg.keys(key)) {
-        console.log(v);
-      }
-      return 0;
+      return data.present ? 0 : 1;
   }
 }
 

@@ -13,6 +13,7 @@ import {
   DISCERN_MARK_OUTLINE_PATH,
 } from "../site/brand.ts";
 import { handler, PAGES, TEXT_EDITION, wantsText } from "../site/serve.ts";
+import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 
 const BROWSER = {
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -131,6 +132,58 @@ Deno.test("/install serves the repository installer for every reader", async () 
       "text/x-shellscript",
     );
     assertEquals(await res.text(), installer);
+  }
+});
+
+Deno.test("every public schema route serves its root artifact byte for byte", async () => {
+  const routes = PUBLIC_SCHEMA_PUBLICATIONS.map((publication) =>
+    new URL(publication.id).pathname
+  );
+  assertEquals(
+    new Set(routes).size,
+    routes.length,
+    "public schema URL paths must be unique",
+  );
+
+  const sitemap = await (await get("/sitemap.xml", BROWSER)).text();
+  for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
+    const route = new URL(publication.id).pathname;
+    const expected = await Deno.readFile(
+      new URL(`../${publication.artifactPath}`, import.meta.url),
+    );
+    const schema = JSON.parse(new TextDecoder().decode(expected)) as {
+      $id?: unknown;
+    };
+    assertEquals(
+      schema.$id,
+      publication.id,
+      `${publication.artifactPath} must carry its public id`,
+    );
+
+    const response = await get(route, BROWSER);
+    assertEquals(response.status, 200, route);
+    assertEquals(
+      response.headers.get("content-type"),
+      "application/json; charset=utf-8",
+      route,
+    );
+    assertEquals(response.headers.get("x-content-type-options"), "nosniff");
+    assertEquals(response.headers.get("referrer-policy"), "no-referrer");
+    assertEquals(response.headers.get("x-frame-options"), "DENY");
+    assertStringIncludes(
+      response.headers.get("content-security-policy") ?? "",
+      "default-src 'self'",
+      route,
+    );
+    assertEquals(
+      new Uint8Array(await response.arrayBuffer()),
+      expected,
+      `${route} must serve ${publication.artifactPath} without a copied site artifact`,
+    );
+    assert(
+      !sitemap.includes(publication.id),
+      `${route} is a machine schema route and must stay out of the sitemap`,
+    );
   }
 });
 

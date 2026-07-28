@@ -293,7 +293,7 @@ Deno.test("begin rejects a verbatim --map placeholder instead of scaffolding a l
     ]);
     assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
-    assertEquals(res.error, "invalid_option");
+    assertEquals(res.error, "invalid_arguments");
     assertStringIncludes(res.message, "placeholder");
     assertStringIncludes(res.message, "--map notes/map/");
     // Nothing was written — no literal `<their-docs-path>/` tree, no config.
@@ -890,7 +890,7 @@ Deno.test("re-entry (B47): a retry that STARTS on discern-setup stamps the real 
       "claude_code",
     ]);
     assertEquals(first.code, 1, first.output);
-    assertEquals(JSON.parse(first.stdout).error, "invalid_option");
+    assertEquals(JSON.parse(first.stdout).error, "invalid_arguments");
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
       "discern-setup",

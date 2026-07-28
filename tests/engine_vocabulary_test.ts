@@ -49,6 +49,9 @@ Deno.test("retired command spellings hard-error with their canonical successor",
         verb: retired,
         error: "renamed_command",
         message: retiredCommandMessage(retired, successor),
+        hints: [
+          HINTS["failure-recovery"].template({ verb: retired }),
+        ],
       });
     }
   });
