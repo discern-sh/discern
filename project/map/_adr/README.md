@@ -203,6 +203,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0207 — Hint follow-through is declared and episode-based](0207-hint-follow-through-is-declared-and-episode-based.md)
 - [0208 — Public contracts version by schema major](0208-public-contracts-version-by-schema-major.md)
 - [0209 — Fresh seed grants cover pure documentation](0209-fresh-seed-grants-cover-pure-documentation.md)
+- [0210 — Agent-context artifacts carry no provenance marker](0210-agent-context-artifacts-carry-no-provenance-marker.md)
 
 <!-- END GENERATED: current ADR records -->
 
