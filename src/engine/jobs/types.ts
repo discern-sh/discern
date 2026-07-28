@@ -54,7 +54,7 @@ export interface JobResult {
   /**
    * True when fail-fast aborted the run and this job did not exit clean — a
    * cancelled sibling, NOT a real failure (even one that trapped SIGTERM and exited
-   * non-zero). It is excluded from `diagnostics` and reported as `skipped`.
+   * non-zero). It is excluded from `diagnostics` and reported as `cancelled`.
    */
   cancelled?: boolean;
   /**
@@ -82,8 +82,8 @@ export interface StageRunResult {
   ok: boolean;
   /**
    * Per-job results, in declaration order. runParallel returns one per input job
-   * (a cancelled sibling included, as a failure); runSerial omits jobs after the
-   * first failure (they never ran), so finish reports them as "skipped".
+   * (including a sibling with its cancellation marker); runSerial omits jobs
+   * after the first failure (they never ran), so finish reports them as "skipped".
    */
   results: JobResult[];
 }

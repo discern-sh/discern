@@ -1,6 +1,6 @@
 # ADR 0208: Public contracts version by schema major
 
-**Status**: accepted
+**Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0097](0097-publish-json-result-contracts.md), and applies the closed-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md)
 
 ## Context
 

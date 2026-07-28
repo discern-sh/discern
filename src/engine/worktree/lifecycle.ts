@@ -1392,14 +1392,15 @@ function acceptAwaitingConsentMessage(
 }
 
 /**
- * The read-only refusal `accept` serves when its `--confirmed` attestation is
- * absent (ADR 0134, extending ADR 0086's pattern to the landing verb). Landing is
- * the highest-stakes act, so structure — not a guidance sentence — forces the
- * relay moment into the transcript: an agent under context pressure that runs
- * `accept` without the attestation is handed the review moment, not silently
- * landed. Shares the {@link AWAITING_CONSENT_SLUG} slug with `setup begin` so the
- * consent-gated class is one contract. Carries ≥1 actionable hint; the honored
- * receipt and the raw-diff command it points at live once, on `discern status`.
+ * The read-only refusal `accept` serves when no recorded grant authorizes the
+ * landing and its `--confirmed` conversation attestation is absent (ADR 0134,
+ * amended by ADR 0194). Landing is the highest-stakes act, so structure — not a
+ * guidance sentence — forces the relay moment into the transcript: an agent
+ * under context pressure that runs `accept` without authority is handed the
+ * review moment, not silently landed. Shares the
+ * {@link AWAITING_CONSENT_SLUG} slug with `setup begin` so the consent-gated
+ * class is one contract. Carries ≥1 actionable hint; the honored receipt and
+ * the raw-diff command it points at live once, on `discern status`.
  */
 function acceptAwaitingConsentResult(
   authority: LandingAuthorityResolution,
@@ -1984,11 +1985,13 @@ async function executeAcceptPlan(
  * refreshes and converges the receiving checkout, tears down the worktree's
  * external resources, removes the clean worktree directory, and deletes the
  * now-merged branch.
- * Refuses without the `--confirmed` attestation (ADR 0134), then dirty worktrees,
- * dirty main checkouts, and a main checkout parked on a branch other than the
- * trunk. `--dry-run` shows the plan (after the read-only preconditions pass) and
- * touches nothing — and needs no attestation, since it never lands. Throws
- * `WorktreeGitError` on any unrecoverable error (the branch keeps its commits).
+ * Refuses without either a verified recorded grant or the `--confirmed`
+ * conversation attestation (ADR 0134, amended by ADR 0194), then dirty
+ * worktrees, dirty main checkouts, and a main checkout parked on a branch other
+ * than the trunk. `--dry-run` shows the plan (after the read-only preconditions
+ * pass) and touches nothing — and needs no authority, since it never lands.
+ * Throws `WorktreeGitError` on any unrecoverable error (the branch keeps its
+ * commits).
  */
 export async function accept(
   ctx: LifecycleContext,

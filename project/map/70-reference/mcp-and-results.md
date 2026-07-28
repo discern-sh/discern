@@ -107,6 +107,8 @@ Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective; an absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
+A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.receipt_line` derives from the validated gate-receipt line and appends that consent evidence.
+
 ### Plans and executed steps
 
 | Field              | Meaning                                                                                |
@@ -161,6 +163,6 @@ For a published JSON result, exit `0` means `ok: true`; a controlled non-zero re
 
 ### Version 1 compatibility
 
-The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) has a major for breaking changes, not releases. In version 1, fields keep their type and meaning; optional fields may be added. Consumers ignore unknown object fields and handle unknown `error` slugs. Removing or renaming fields or slugs, or changing a field's type or meaning, needs a new major.
+The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) advances its major when the contract breaks. Discern package releases do not advance it. In version 1, fields keep their type and meaning; optional fields may be added. Consumers ignore unknown object fields and handle unknown `error` slugs. Removing or renaming fields or slugs, or changing a field's type or meaning, needs a new major.
 
 Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, treats `error` as a string, and lists known slugs in `x-discern-error-slugs`, so pinned version-1 schemas accept additions. There is no top-level `schema_version`: the URL owns identity, and a payload field would duplicate it ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).

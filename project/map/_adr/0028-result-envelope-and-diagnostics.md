@@ -1,5 +1,7 @@
 # ADR 0028: One result envelope per verb, with normalized failure diagnostics
 
+> **Wire-contract amendment (2026-07-28; [ADR 0172](0172-hints-compile-from-a-registry.md), [ADR 0208](0208-public-contracts-version-by-schema-major.md)):** Live result errors are now the closed `ErrorSlug` vocabulary derived from `ERROR_SLUGS`. CLI and MCP prepare every failed public result with a registered `next-step` hint, and `serializeResult` refuses a failure that still lacks one. `StepOutcome` distinguishes a fail-fast `cancelled` job from a configured step that never ran (`skipped`). `identity --json` and the config read subcommands emit typed envelopes while their no-flag forms preserve shell-friendly bare output. The serialization authority moved from `result.ts` to `result_serialization.ts` so it can enforce the hint invariant; the one-envelope and single-wire-definition decisions stand.
+
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, `scopes` → `impact` where it names the verb, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted; **supersedes [ADR 0004](_superseded/0004-structured-finish-json.md)**; extends [ADR 0027](0027-plan-apply-engine-execution.md)

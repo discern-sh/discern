@@ -1,5 +1,7 @@
 # ADR 0203: Discern co-authors only commits it composes
 
+> **Extension links (2026-07-28):** This record extends [ADR 0076](0076-engine-commits-scaffolded-machinery.md) for setup wiring and completion commits, and [ADR 0106](0106-standards-pin-carries-the-gate-receipt.md) for standards-pin commits. Their commit ownership, failure, and receipt semantics stand; this record adds the shared attribution boundary.
+
 **Status**: accepted
 
 ## Context

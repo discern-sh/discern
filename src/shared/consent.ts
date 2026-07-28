@@ -3,12 +3,13 @@
  *
  * Two acts in discern are destructive enough that structure — not a guidance
  * sentence — must guard them: scaffolding a fresh install (`setup begin`, ADR
- * 0086) and landing a branch on the trunk (`accept`, ADR 0134). Each refuses,
- * read-only, unless its caller passes an explicit `--confirmed` attestation, and
- * each refusal re-serves the moment the attestation stands in for — the setup
- * conversation, or the owner's acceptance of a landing. An agent under context
- * pressure drops prose; a structural refusal forces the moment into the
- * transcript instead.
+ * 0086) and landing a branch on the trunk (`accept`, ADR 0134). Fresh setup
+ * requires an explicit `--confirmed` attestation. Landing accepts either that
+ * current-conversation attestation or a machine-checked standing/effort grant
+ * (ADR 0194). When no valid source satisfies the act, the verb refuses
+ * read-only and re-serves the setup conversation or landing-review moment. An
+ * agent under context pressure drops prose; a structural refusal forces the
+ * moment into the transcript instead.
  *
  * This module is the single source both verbs share: one refusal slug, and the
  * registry of which verbs are gated. Keeping them here — not duplicated in two
@@ -17,11 +18,11 @@
  */
 
 /**
- * The stable failure slug every consent-gated verb refuses with when its
- * attestation is absent. One spelling across the class (ADR 0086 minted it for
- * `setup begin`; ADR 0134 shares it with `accept`) so an agent — and the class
- * test — recognises the refusal wherever it fires. The envelope's `verb` field
- * disambiguates which act is awaiting consent.
+ * The stable failure slug every consent-gated verb uses when no accepted consent
+ * source satisfies the act. One spelling across the class (ADR 0086 minted it
+ * for `setup begin`; ADR 0134 shares it with `accept`) so an agent — and the
+ * class test — recognises the refusal wherever it fires. The envelope's `verb`
+ * field disambiguates which act is awaiting consent.
  */
 export const AWAITING_CONSENT_SLUG = "awaiting_consent";
 

@@ -1,5 +1,7 @@
 # ADR 0194: Standing pre-authorization is a recorded, machine-checked grant — `[acceptance]`, covered landings, and the desk's effort grant
 
+> **Relationship clarification (2026-07-28):** This record both extends and amends [ADR 0134](0134-accept-attests-consent.md). It preserves the requirement that every landing has verified consent, narrows `--confirmed` to current-conversation consent, and adds machine-checked recorded grants as separate consent sources.
+
 **Status**: accepted — extends [ADR 0134](0134-accept-attests-consent.md) (the consent gate stays; one of its consent sources gains a verifiable referent) the way ADR 0134 extended [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md). Builds on [ADR 0110](0110-the-landing-model.md) (the landing model), [ADR 0067](0067-accept-validates-the-landed-tree.md)/[ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md) (receipts and the validated tree), [ADR 0119](0119-bare-discern-opens-the-operators-desk.md)/[ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0160](0160-local-logbook-advisory-readers.md)/[ADR 0162](0162-logbook-day-one-vocabulary.md) (the logbook). Leans on [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md) for one explicit _no_.
 
 ## Context

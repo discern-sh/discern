@@ -624,10 +624,11 @@ Deno.test("a pre-verb config error is still the uniform envelope (verb + single 
 });
 
 Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint", async () => {
-  // The wire shape is defined once (result.ts) and printed once (emit.ts). The MCP
-  // server is the one other legitimate caller — it folds the serialized envelope
-  // into a JSON-RPC tool result, not onto stdout. Any other file calling
-  // serializeResult is a verb hand-rolling an emit that escapes the silence rule.
+  // The wire shape is defined once (result_serialization.ts) and printed once
+  // (emit.ts). The MCP server is the one other legitimate caller — it folds the
+  // serialized envelope into a JSON-RPC tool result, not onto stdout. Any other
+  // file calling serializeResult is a verb hand-rolling an emit that escapes the
+  // silence rule.
   const allowed = new Set([
     join("src", "shared", "result_serialization.ts"), // the definition
     join("src", "shared", "emit.ts"), // the single print site

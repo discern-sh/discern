@@ -1,5 +1,7 @@
 # ADR 0097: Publish generated JSON result contracts
 
+> **Version-1 publication amendment (2026-07-28; [ADR 0208](0208-public-contracts-version-by-schema-major.md)):** The config and result schemas now identify themselves at `https://discern.sh/schema/v1/discern-config.schema.json` and `https://discern.sh/schema/v1/discern-results.schema.json`; the site serves the root generated artifacts byte-for-byte at those paths. The live CLI tree is reconciled mechanically: every canonical command path has a `CLI_JSON_RESULT_CONTRACTS` entry or an explicit protocol exclusion. `identity --json` and config reads have contracts, while their no-flag forms remain bare. Version 1 permits additive optional fields; consumers ignore unknown fields and handle unknown error slugs, while removing or changing existing fields or slugs requires a new major path. Runtime schemas remain strict; the public result schema stays additive and publishes current slugs as metadata.
+
 **Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0041](0041-self-describing-mcp-surface.md)
 
 ## Context

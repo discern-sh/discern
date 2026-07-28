@@ -72,7 +72,7 @@ export type LogbookOutcome = (typeof LOGBOOK_OUTCOMES)[number];
  * kind, and outcome the gate already reports, plus the duration the job runner
  * already measured. The recorder re-measures nothing. `disposition` preserves
  * the plan's intent, so a reader can tell a deliberate skip (`"skip"` — scope
- * classified out) from fail-fast collateral (`"run"` that ended `"skipped"`).
+ * classified out) from fail-fast collateral (`"run"` that ended `"cancelled"`).
  * `error_like_lines` is the runner's count of diagnostic-looking output lines —
  * a free "how red was it" magnitude. Loose: a future field passes through. */
 const stepTimingSchema = z.looseObject({

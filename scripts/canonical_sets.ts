@@ -204,7 +204,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "consent-gated-verbs",
     title: "Consent-gated verbs",
     what:
-      "The verbs that refuse without a fresh `--confirmed` attestation; the consent-gate class test iterates this list, so a new gated act cannot ship without the shared structural refusal.",
+      "The verbs with a `--confirmed` conversation-attestation boundary. The class test proves an authority-free call refuses without writing; accept can also satisfy landing consent through a machine-checked recorded grant.",
     source: {
       kind: "module",
       module: "src/shared/consent.ts",

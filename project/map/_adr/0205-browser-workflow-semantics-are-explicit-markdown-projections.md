@@ -1,5 +1,7 @@
 # ADR 0205: Browser Workflow semantics are explicit Markdown projections
 
+> **Build-on links (2026-07-28):** This record builds on [ADR 0135](0135-site-pages-use-build-time-react-and-static-runtime.md), which keeps the browser runtime static, and [ADR 0139](0139-the-design-system-is-an-independent-package.md), which makes the exact external package release the component and semantics boundary.
+
 **Status**: accepted
 
 ## Context

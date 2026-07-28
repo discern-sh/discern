@@ -1,5 +1,7 @@
 # ADR 0176: The closed sets are a closed set
 
+> **Wire-registry amendment (2026-07-28; [ADR 0208](0208-public-contracts-version-by-schema-major.md)):** The meta-registry now enrolls `public-schema-publications` from `PUBLIC_SCHEMA_PUBLICATIONS`, plus `error-slugs` and `step-outcomes` from `ERROR_SLUGS` and `STEP_OUTCOMES`. Their declarations name the site/publication guards, strict-runtime and generated-contract guards, and the generated result schema and TypeScript artifacts where applicable. The registry atlas renders those memberships and guard edges, so a new publication, slug, or outcome must pass through its canonical authority and enrolled proofs.
+
 > **Formatter amendment ([ADR 0178](0178-discern-tidy-is-the-embedded-convention-for-discern-owned-surfaces.md)):** Generated Markdown artifacts are now required to be canonical under the embedded formatter, and codegen formats them at its write chokepoint. The fmt-exclusion sweep described below retired with the four page-level exclusions; the meta-registry decision and its remaining sweeps stand.
 
 **Status**: accepted
