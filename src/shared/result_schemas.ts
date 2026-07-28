@@ -365,13 +365,17 @@ const GateValidationSchema = z.strictObject({
 });
 export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
-/** `refresh` — generated guidance, skills, and provider integration artifacts. */
+/** `refresh` — generated guidance, skills, provider integration artifacts, and
+ * the maintained ADR index. `adr_index_written` names the ADR README whose
+ * marker-delimited record lists this run regenerated (at most one path; empty
+ * when the index is current or the project carries no index markers). */
 export const RefreshDataSchema = z.strictObject({
   agents_written: z.array(z.string()),
   mcp_wired: z.array(z.string()),
   hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),
   project_rules_wired: z.array(z.string()),
+  adr_index_written: z.array(z.string()),
   skills: z.strictObject({
     copied: z.number(),
     linked: z.number(),

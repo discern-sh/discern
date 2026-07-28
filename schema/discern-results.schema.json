@@ -6933,6 +6933,12 @@
                     "type": "string"
                   }
                 },
+                "adr_index_written": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "skills": {
                   "type": "object",
                   "properties": {
@@ -6965,6 +6971,7 @@
                 "hooks_wired",
                 "worktree_app_wired",
                 "project_rules_wired",
+                "adr_index_written",
                 "skills",
                 "errors"
               ]

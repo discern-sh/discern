@@ -448,7 +448,8 @@ export function attachEngineCommands(
   root
     .command("refresh")
     .description(
-      "Refresh the agent files, skills, and provider integrations. Use " +
+      "Refresh the agent files, skills, provider integrations, and the " +
+        "maintained ADR index. Use " +
         "`discern update` for this branch; use `discern upgrade` for discern itself.",
     )
     .option(

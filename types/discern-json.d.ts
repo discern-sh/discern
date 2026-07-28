@@ -2099,6 +2099,7 @@ export type DiscernRefreshResult = {
     hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;
     project_rules_wired: Array<string>;
+    adr_index_written: Array<string>;
     skills: {
       copied: number;
       linked: number;

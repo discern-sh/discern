@@ -398,8 +398,10 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Refresh generated artifacts",
     outputSchema: RefreshOutputSchema.shape,
     annotations: REFRESH,
-    description: "Refresh the agent files, materialized skills, and provider " +
-      "integration artifacts. It rewrites discern-generated or co-managed artifacts " +
+    description: "Refresh the agent files, materialized skills, provider " +
+      "integration artifacts, and the maintained ADR index (the record lists " +
+      "between markers in the map's ADR README, regenerated from the record " +
+      "files on disk). It rewrites discern-generated or co-managed artifacts " +
       "only; edit guidance sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
       "Use discern_update for this branch; use `discern upgrade` for discern itself.",
