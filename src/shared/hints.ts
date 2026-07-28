@@ -540,7 +540,7 @@ export const HINTS = {
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words and end with the ` +
-      `one-line receipt in data.gate_receipt.receipt_line, then wait. This ` +
+      `receipt in \`data.gate_receipt.receipt_line\` verbatim, then wait. This ` +
       `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
       `full receipt: your owner pulls it with \`discern status --verbose\`, ` +
       `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
@@ -1526,7 +1526,7 @@ export const HINTS = {
     when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
+      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
   }),
 
   "gate-update-docs": defineHint({
@@ -1854,15 +1854,16 @@ export const HINTS = {
       `post-landing convergence changed tracked files there.`,
   }),
 
-  /** A successful acceptance exposes its receipt as the durable landing record. */
+  /** A successful acceptance exposes the system-rendered line for the agent's
+   * report and the full page as the durable landing record. */
   "accept-relay-landing-receipt": defineHint({
     id: "accept-relay-landing-receipt",
     category: "next-step",
-    audience: "all",
-    when: "`accept` lands successfully and returns a landing receipt.",
+    audience: "agent",
+    when: "`accept` lands successfully and returns a one-line landing receipt.",
     example: undefined,
     template: (): string =>
-      "data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.",
+      "Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */

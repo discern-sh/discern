@@ -94,7 +94,6 @@ const ALLOWED_AGENT_VOCABULARY: Record<string, readonly string[]> = {
   "upgrade-restart-session": ["agent session", "MCP"],
   "mcp-version-mismatch": ["agent session", "MCP"],
   "accept-review-via-status": ["data.<field>"],
-  "accept-relay-landing-receipt": ["data.<field>"],
   "coupling-evidence-summary": ["data.<field>"],
   "coupling-evidence-more": ["data.<field>"],
   "standards-pinnable-slack": ["data.<field>"],

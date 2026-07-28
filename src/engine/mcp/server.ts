@@ -353,7 +353,7 @@ export const TOOLS: McpTool[] = orderTools([
       "lists what the gate WOULD fire (declared jobs and triggered scope " +
       "gates); data.gate_receipt explains whether the current clean HEAD already " +
       "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt_line " +
-      "carries the one-line receipt you end your report with at the review moment — " +
+      "carries the one-line receipt you copy verbatim to end your report at the review moment — " +
       "data.gate_receipt.receipt is the full page, for your owner to read, never to paste " +
       "into a message); " +
       "data.worktree carries this worktree's id/port/db and provisioned " +
@@ -420,7 +420,7 @@ export const TOOLS: McpTool[] = orderTools([
       "each failure). A green run over a clean committed tree ahead of the trunk — " +
       "the shared landing branch (`{{main_branch}}`) — " +
       "also carries data.receipt: when the task is complete, report it to your owner " +
-      "in your own words and end with the one-line receipt in data.receipt.line, then " +
+      "in your own words and end with data.receipt.line verbatim, then " +
       "wait for their explicit instruction before calling discern_accept. Never paste " +
       "the full page (data.receipt.markdown) into a message — your owner pulls it from " +
       "discern directly. Set dry_run to preview the plan without " +
@@ -751,9 +751,9 @@ export const TOOLS: McpTool[] = orderTools([
       "so generated guidance, skills, and provider integrations match the landed " +
       "tree. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
-      "message first so it lands as a proper review commit, then relay the result " +
-      "(a green landing carries data.receipt — the landing record, pasteable into a " +
-      "PR body). " +
+      "message first so it lands as a proper review commit. After a green landing, " +
+      "report it in your own words and end with data.receipt_line verbatim; " +
+      "data.receipt is the full landing record, pasteable into a PR body. " +
       "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
