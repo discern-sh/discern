@@ -105,7 +105,24 @@ Map search covers every page visible to the agent-facing map, including a page m
 
 Undefined fields are omitted. Callers must branch first on `ok`, then on the literal `verb` when they need the verb-specific `data` payload.
 
+A result with `ok: false` carries at least one registered next action in `hints`.
+
 `start`, `status`, and a green `done` can carry `data.landing_authority`. Its `kind` is `authorized` or `conversation-required`; the remaining fields name the source, granted scopes, uncovered paths, and warnings. At `start`, standing scopes are prospective only. With no grant or warning, the field stays absent. [Landing authority](../30-worktrees/landing-authority.md) covers the resolution rules.
+
+### Version 1 compatibility
+
+Version 1 is identified by the result schema's `$id`, [`https://discern.sh/schema/v1/discern-results.schema.json`](https://discern.sh/schema/v1/discern-results.schema.json). The major changes only for a breaking contract change, not for each discern release.
+
+Within version 1:
+
+- existing fields keep their type and meaning;
+- releases may add optional fields;
+- consumers ignore unknown object fields and handle an unknown `error` slug defensively;
+- removing or renaming a field, changing its type or meaning, or removing or renaming an error slug requires a new major schema path.
+
+Runtime and public validation answer different questions. The runtime schemas are strict, and the current engine can emit only its closed error-slug vocabulary. The published schema permits unknown object fields and validates `error` as a string; its `x-discern-error-slugs` metadata lists the values known today. An earlier version-1 schema can therefore accept a later additive result without allowing the current engine to invent a slug.
+
+There is no top-level `schema_version` field. The schema URL is the identity a consumer pins; a breaking contract publishes a new major URL. A field on every envelope would duplicate that identity without replacing schema selection ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
 ### Plans and executed steps
 
@@ -115,13 +132,15 @@ Undefined fields are omitted. Callers must branch first on `ok`, then on the lit
 | `label`            | Stable name for the command, scope, resource, or lifecycle operation.                  |
 | `disposition`      | `run`, `skip`, or `gate` for a read-only precondition.                                 |
 | `note` / `group`   | Optional explanation and display group.                                                |
-| `outcome`          | `ok`, `failed`, or `skipped` on an executed step.                                      |
+| `outcome`          | `ok`, `failed`, `skipped`, or `cancelled` on an executed step.                         |
 | `duration_s`       | Whole-second duration when measured.                                                   |
 | `output_path`      | Best-effort path to the full combined output artifact.                                 |
 | `output_lines`     | Number of captured output lines.                                                       |
 | `error_like_lines` | Number of lines shaped like compiler or linter diagnostics.                            |
 
 Output metadata is advisory. A configured command's exit status decides the job verdict, except for standards: their `DISCERN_METRIC` value is the measurement contract.
+
+`cancelled` means fail-fast cancellation stopped a sibling after another step failed. `skipped` means a configured step did not run by design.
 
 ### Diagnostics
 
@@ -148,7 +167,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | Project Script's own code    | `discern script <name>` passes through the script's exit code because the script owns its result contract. |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.         |
 
-For commands with a published JSON result, exit `0` corresponds to `ok: true`; a controlled non-zero result corresponds to `ok: false`. Raw-value commands such as `discern identity` and the `discern config get|array|has|subsections|keys` helpers do not publish a `DiscernResult` data contract.
+For commands with a published JSON result, exit `0` corresponds to `ok: true`; a controlled non-zero result corresponds to `ok: false`. `discern identity` and the `discern config get|array|has|subsections|keys` helpers keep their shell-friendly bare output without a flag; with `--json`, they emit their published `DiscernResult` envelope.
 
 ## Published schemas and types
 

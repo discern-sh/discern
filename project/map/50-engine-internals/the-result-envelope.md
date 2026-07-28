@@ -37,6 +37,8 @@ The shared renderers consume `EnginePlan` and `StepResult`; verb-specific human 
 
 [`result_contracts.ts`](../../../src/shared/result_contracts.ts) is the public-contract registry. Each entry maps a command path and literal verb to its output schema, with an MCP tool name where the command is exposed. The faithfulness suite runs real cores and validates their serialized output. Its enrollment check requires every registered contract to have a test or explicit debt status; an MCP contract cannot sit in debt.
 
+`ERROR_SLUGS` is the closed vocabulary the current runtime may emit. Failed public results also carry a registered next action in `hints`; the shared serialization boundary refuses a failure that reaches it without one.
+
 ## Generated consumer contracts
 
 `deno task codegen` projects the registry into:
@@ -44,7 +46,7 @@ The shared renderers consume `EnginePlan` and `StepResult`; verb-specific human 
 - [`schema/discern-results.schema.json`](../../../schema/discern-results.schema.json), whose entry points cover CLI results and MCP tool wrappers;
 - [`types/discern-json.d.ts`](../../../types/discern-json.d.ts), including lookup maps by verb, command, and MCP tool.
 
-Runtime schemas remain strict. The generated JSON Schema permits additive object fields so an older consumer can accept a compatible later release. [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) fails when committed artifacts or command enrollment drift ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)).
+Runtime schemas remain strict. The generated JSON Schema permits additive object fields and validates `error` as a string, with the current closed vocabulary published as metadata. An older version-1 consumer can therefore accept a compatible later release. Breaking changes move to a new major schema path rather than adding a version field to every envelope ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)). [`result_codegen_test.ts`](../../../tests/result_codegen_test.ts) fails when committed artifacts or command enrollment drift ([ADR 0097](../_adr/0097-publish-json-result-contracts.md)).
 
 ## Protocol adapters
 
@@ -66,6 +68,7 @@ The public caller contract belongs in [MCP tools & results](../70-reference/mcp-
 ## Current state & gotchas
 
 - `steps` and `plan` are mutually exclusive on the wire. A preview cannot claim applied outcomes.
+- A fail-fast-cancelled step has outcome `cancelled`; `skipped` remains reserved for a configured step that did not run by design.
 - Full job output is a best-effort OS temporary artifact. Registered artifacts age out after 24 hours; failure to write or reap one cannot change a job's result.
 - A new JSON-emitting command needs registry enrollment, a per-verb schema, faithfulness coverage, and regenerated artifacts. MCP exposure also needs the server adapter and surface-parity coverage.
 - The relevant source files contain no unfinished-work markers for result-contract behavior.

@@ -22,13 +22,15 @@ The command and configuration pages are generated from the same registries the b
 
 The authored pages cover the contracts that need explanation. MCP tools share the same `DiscernResult` payload as CLI `--json`, wrapped in the protocol's text and structured channels. Files & ownership separates project-owned, shared, generated, tracked, and ignored artifacts. Platforms & prerequisites records the release targets, required executables, environment variables, identity selectors, and command-template tokens verified against the installer and runtime checks.
 
+The [MCP tools & results](mcp-and-results.md#version-1-compatibility) page also defines which result changes remain compatible within schema version 1.
+
 For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality gate](../20-quality-gate/) or [Worktrees](../30-worktrees/); this tier stays organized for lookup.
 
-| Reference                                             | Use it to                                                                          |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [CLI reference](cli-reference.md)                     | Find every visible command, subcommand, positional argument, and flag.             |
-| [`discern.toml` reference](config-reference.md)       | Find every section, key, type, default, and repeatable named table.                |
-| [MCP tools & results](mcp-and-results.md)             | Integrate with tools, resources, result envelopes, schemas, and exit codes.        |
-| [Files & ownership](artifact-ownership.md)            | See what discern writes, who owns it, how git treats it, and removal rules.        |
-| [The logbook](the-logbook.md)                         | See what discern records about its own runs, and read, delete, or disable it.      |
-| [Platforms & prerequisites](platforms-and-prereqs.md) | Check release targets, required tools, env values, identity selectors, and tokens. |
+| Reference                                             | Use it to                                                                           |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [CLI reference](cli-reference.md)                     | Find every visible command, subcommand, positional argument, and flag.              |
+| [`discern.toml` reference](config-reference.md)       | Find every section, key, type, default, and repeatable named table.                 |
+| [MCP tools & results](mcp-and-results.md)             | Integrate with tools, resources, result envelopes, schema compatibility, and exits. |
+| [Files & ownership](artifact-ownership.md)            | See what discern writes, who owns it, how git treats it, and removal rules.         |
+| [The logbook](the-logbook.md)                         | See what discern records about its own runs, and read, delete, or disable it.       |
+| [Platforms & prerequisites](platforms-and-prereqs.md) | Check release targets, required tools, env values, identity selectors, and tokens.  |
