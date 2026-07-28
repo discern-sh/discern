@@ -45,7 +45,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 32      | —                | node `canonical-sets`       |
 
-32 sets · 56 guard tests · 14 committed artifacts.
+32 sets · 57 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -65,6 +65,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`             | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
 | `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
 | `tests/engine_interrupt_surfaces_test.ts` | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
@@ -373,7 +374,7 @@ The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
 - Members: 193
-- Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
+- Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
 
