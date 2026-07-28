@@ -14,7 +14,7 @@ import {
   resolveScriptsDir,
   resolveSkillsDir,
 } from "../lib/paths.ts";
-import { CONFIG_REL, findRoot } from "../shared/env.ts";
+import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
 import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
@@ -214,9 +214,41 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-/** Run the installer-level checks against `destDir`. */
-export async function runChecks(destDir: string): Promise<Check[]> {
+/** Run the installer-level checks against `destDir`. `cwd` is where the caller
+ * was invoked from (defaults to the process cwd) — the start of the root-discovery
+ * walk, which the boundary check below compares against the resolved root. */
+export async function runChecks(
+  destDir: string,
+  opts: { cwd?: string } = {},
+): Promise<Check[]> {
   const checks: DraftCheck[] = [];
+
+  // 0. root discovery crossed a repository boundary — findRoot roots at the
+  // NEAREST discern.toml and does not stop at a `.git`, so a working directory
+  // inside a nested repository (a vendored checkout, a submodule, a sibling
+  // project folded under this one) that has no config of its own resolves
+  // outward to this project. Doing that on purpose is legitimate; believing the
+  // nested repo is the project is the trap — so the crossing is disclosed as
+  // advice, never a failure, and only when one actually happened. Needs no
+  // config, so it runs even when discern.toml is unreadable.
+  {
+    const crossed = await crossedRepoBoundaries(
+      opts.cwd ?? Deno.cwd(),
+      destDir,
+    );
+    const nearest = crossed[0];
+    if (nearest !== undefined) {
+      checks.push({
+        name: "root discovery",
+        ok: true,
+        status: "warn" as const,
+        detail:
+          `the working directory sits inside a nested git repository (${nearest}) that has no discern.toml — discern commands run from there operate on this project at ${destDir}`,
+        fix:
+          `working on this project? cd to ${destDir}. Working on the nested repository? Run \`discern setup\` inside it to give it its own config`,
+      });
+    }
+  }
 
   // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and is
   // syntactically valid TOML.

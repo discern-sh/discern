@@ -15,7 +15,7 @@
  * binary, not on disk.
  */
 
-import { dirname, join } from "@std/path";
+import { dirname, join, SEPARATOR } from "@std/path";
 import type { DiscernResult } from "./result.ts";
 
 /**
@@ -99,6 +99,47 @@ export async function findRoot(
     }
     dir = parent;
   }
+}
+
+/** True when any directory entry (file or directory) exists at `path` — `.git`
+ * is a directory in an ordinary checkout but a file in a linked worktree or a
+ * submodule checkout, so a file-only probe would miss half the repositories. */
+async function hasEntry(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The directories strictly below `root` on the walk from `start` up to `root`
+ * that are git repositories of their own (holding a `.git` entry). {@link findRoot}
+ * walks past such a directory whenever it holds no config marker, so `start`
+ * sits inside a NESTED repository while the nearest `discern.toml` belongs to
+ * an outer one — the crossing `doctor` discloses. (ADR 0115 records the
+ * complementary shape: a root BELOW its own repo's toplevel.) Both paths are
+ * realpath-normalized before comparison; returns [] when `start` does not sit
+ * under `root`, because then the discovery walk crossed nothing on this path.
+ */
+export async function crossedRepoBoundaries(
+  start: string,
+  root: string,
+): Promise<string[]> {
+  const real = (p: string): Promise<string | undefined> =>
+    Deno.realPath(p).catch(() => undefined);
+  const s = await real(start);
+  const r = await real(root);
+  if (s === undefined || r === undefined || s === r) return [];
+  if (!s.startsWith(r + SEPARATOR)) return [];
+  const crossed: string[] = [];
+  let dir = s;
+  while (dir !== r) {
+    if (await hasEntry(join(dir, ".git"))) crossed.push(dir);
+    dir = dirname(dir);
+  }
+  return crossed;
 }
 
 /**

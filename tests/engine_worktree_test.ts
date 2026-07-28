@@ -23,6 +23,11 @@ import {
   writeDiscernToml,
 } from "../src/lib/tidy_format.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import {
+  configSchema,
+  type DiscernConfig,
+} from "../src/shared/config_schema.ts";
+import { submoduleCommandWired } from "../src/engine/worktree/lifecycle.ts";
 import type { assertOpSide } from "../src/engine/worktree/git.ts";
 import {
   cliRefusalCases,
@@ -1694,4 +1699,76 @@ Deno.test("update: a partial refresh is recorded but never undoes the merge", as
       `result.ok reflects the partial refresh\n${r.stdout}`,
     );
   });
+});
+
+// ── start: submodule disclosure ─────────────────────────────────────────────────
+// `git worktree add` checks out `.gitmodules` but leaves every submodule
+// directory empty. `start` discloses that at creation time — unless a
+// configured lifecycle command already mentions submodules, in which case the
+// project has an answer and the notice would be noise.
+
+const GITMODULES =
+  '[submodule "vendor/lib"]\n\tpath = vendor/lib\n\turl = ../lib.git\n';
+
+Deno.test("start: hints when the fresh worktree carries .gitmodules and nothing populates it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await Deno.writeTextFile(join(dir, ".gitmodules"), GITMODULES);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["start", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as StartResult;
+    assertHasHint(result, HINTS["start-submodules-empty"]);
+  });
+});
+
+Deno.test("start: no submodule hint once a configured command mentions submodules", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const configPath = join(dir, "discern.toml");
+    const toml = await Deno.readTextFile(configPath);
+    assert(
+      toml.includes("ensure = []"),
+      "the scaffold seeds an empty [repository].ensure for this test to fill",
+    );
+    await Deno.writeTextFile(
+      configPath,
+      toml.replace(
+        "ensure = []",
+        'ensure = ["git submodule update --init --recursive"]',
+      ),
+    );
+    await Deno.writeTextFile(join(dir, ".gitmodules"), GITMODULES);
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["start", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as StartResult;
+    assert(result.ok, "start succeeds with the ensure command wired");
+    assert(
+      result.hints.every((h) => !h.includes("submodule")),
+      `no submodule hint expected: ${JSON.stringify(result.hints)}`,
+    );
+  });
+});
+
+Deno.test("submoduleCommandWired scans every lifecycle command surface", () => {
+  const parse = (overrides: Record<string, unknown>): DiscernConfig =>
+    configSchema.parse(overrides);
+  assert(!submoduleCommandWired(parse({})));
+  assert(submoduleCommandWired(parse({
+    repository: { ensure: ["git submodule update --init --recursive"] },
+  })));
+  assert(submoduleCommandWired(parse({
+    worktree: { setup: { steps: ["git submodule update --init"] } },
+  })));
+  assert(submoduleCommandWired(parse({
+    worktree: { setup: { ensure: ["scripts/sync-submodules"] } },
+  })));
+  assert(submoduleCommandWired(parse({
+    worktree: {
+      resources: { vendor: { create: "git submodule update --init" } },
+    },
+  })));
 });

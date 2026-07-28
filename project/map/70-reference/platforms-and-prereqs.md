@@ -55,7 +55,7 @@ Run the live prerequisite and install checks from any directory inside the proje
 discern doctor
 ```
 
-`doctor` checks `discern.toml`, schema currency, `sh`, `git`, repository shape, configured job commands, resource-command executables, generated guidance, skills, and provider integration state. A warning keeps the command green; a failed required check exits non-zero and carries a fix.
+`doctor` checks root discovery (a working directory nested in a repository that resolves to an outer project), `discern.toml`, schema currency, `sh`, `git`, repository shape, configured job commands, resource-command executables, generated guidance, skills, and provider integration state. A warning keeps the command green; a failed required check exits non-zero and carries a fix.
 
 ## Installer environment variables
 
