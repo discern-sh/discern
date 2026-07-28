@@ -11,9 +11,15 @@ import {
   buildCurrentPublicSchema,
   type JsonObject,
   type JsonValue,
+  publicSchemaArtifactEnrollmentIssues,
   publicSchemaCompatibilityIssues,
+  publicSchemaPublicationCompatibilityIssues,
+  publicSchemaPublicationIdentityIssues,
 } from "../scripts/public_schema_compatibility.ts";
-import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
+import {
+  PUBLIC_SCHEMA_PUBLICATIONS,
+  type PublicSchemaPublication,
+} from "../src/shared/public_schemas.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -39,10 +45,23 @@ const CONFIG_INPUT_FIXTURE: JsonObject = {
 const RESULT_OUTPUT_FIXTURE: JsonObject = {
   $schema: "https://json-schema.org/draft/2020-12/schema",
   $id: "https://discern.sh/schema/v1/voyage-results.schema.json",
-  oneOf: [{ $ref: "#/$defs/VoyageCliResult" }],
+  oneOf: [
+    { $ref: "#/$defs/VoyageCliResult" },
+    { $ref: "#/$defs/VoyageMcpResult" },
+  ],
   $defs: {
     VoyageCliResult: {
       oneOf: [{ $ref: "#/$defs/VoyageLaunchResult" }],
+    },
+    VoyageMcpResult: {
+      oneOf: [{ $ref: "#/$defs/VoyageLaunchMcpToolResult" }],
+    },
+    VoyageLaunchMcpToolResult: {
+      type: "object",
+      properties: {
+        structuredContent: { $ref: "#/$defs/VoyageLaunchResult" },
+      },
+      required: ["structuredContent"],
     },
     VoyageStringSignal: {
       type: "string",
@@ -70,10 +89,21 @@ const RESULT_OUTPUT_FIXTURE: JsonObject = {
       id: "voyageLaunch",
       verb: "launch",
       commands: ["launch"],
+      mcpTool: "voyage_launch",
       schema: "#/$defs/VoyageLaunchResult",
+      mcpToolResultSchema: "#/$defs/VoyageLaunchMcpToolResult",
     },
   ],
   "x-discern-error-slugs": ["launch_failed"],
+};
+
+const VOYAGE_PUBLICATION: PublicSchemaPublication = {
+  id: "https://discern.sh/schema/v1/voyage-results.schema.json",
+  artifactPath: "schema/voyage-results.schema.json",
+  major: 1,
+  compatibility: "result-output",
+  label: "voyage results",
+  contract: "voyage result envelopes",
 };
 
 Deno.test("same-major compatibility catches removed fields, type changes, and required-field changes", () => {
@@ -127,7 +157,7 @@ Deno.test("config compatibility permits optional keys without promising old cach
   );
 });
 
-Deno.test("result compatibility permits optional fields, new contracts, and new error slugs", () => {
+Deno.test("result compatibility permits optional fields, new CLI and MCP contracts, and new error slugs", () => {
   const current = clone(RESULT_OUTPUT_FIXTURE);
   const defs = current.$defs as JsonObject;
   const launch = defs.VoyageLaunchResult as JsonObject;
@@ -141,17 +171,31 @@ Deno.test("result compatibility permits optional fields, new contracts, and new 
     },
     required: ["verb", "ok"],
   };
+  defs.VoyageLandMcpToolResult = {
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageLandResult" },
+    },
+    required: ["structuredContent"],
+  };
   const cli = defs.VoyageCliResult as JsonObject;
   cli.oneOf = [
     { $ref: "#/$defs/VoyageLandResult" },
     ...(cli.oneOf as JsonValue[]),
+  ];
+  const mcp = defs.VoyageMcpResult as JsonObject;
+  mcp.oneOf = [
+    { $ref: "#/$defs/VoyageLandMcpToolResult" },
+    ...(mcp.oneOf as JsonValue[]),
   ];
   current["x-discern-contracts"] = [
     {
       id: "voyageLand",
       verb: "land",
       commands: ["land"],
+      mcpTool: "voyage_land",
       schema: "#/$defs/VoyageLandResult",
+      mcpToolResultSchema: "#/$defs/VoyageLandMcpToolResult",
     },
     ...(current["x-discern-contracts"] as JsonValue[]),
   ];
@@ -159,6 +203,92 @@ Deno.test("result compatibility permits optional fields, new contracts, and new 
     ...(current["x-discern-error-slugs"] as string[]),
     "landing_failed",
   ];
+
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      RESULT_OUTPUT_FIXTURE,
+      current,
+      "result-output",
+    ),
+    [],
+  );
+});
+
+Deno.test("result compatibility permits adding MCP exposure to an existing CLI contract", () => {
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const previousDefs = previous.$defs as JsonObject;
+  previousDefs.VoyageSurveyResult = {
+    type: "object",
+    properties: {
+      verb: { const: "survey" },
+      ok: { type: "boolean" },
+    },
+    required: ["verb", "ok"],
+  };
+  const previousCli = previousDefs.VoyageCliResult as JsonObject;
+  previousCli.oneOf = [
+    ...(previousCli.oneOf as JsonValue[]),
+    { $ref: "#/$defs/VoyageSurveyResult" },
+  ];
+  previous["x-discern-contracts"] = [
+    ...(previous["x-discern-contracts"] as JsonValue[]),
+    {
+      id: "voyageSurvey",
+      verb: "survey",
+      commands: ["survey"],
+      schema: "#/$defs/VoyageSurveyResult",
+    },
+  ];
+
+  const current = clone(previous);
+  const currentDefs = current.$defs as JsonObject;
+  currentDefs.VoyageSurveyMcpToolResult = {
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageSurveyResult" },
+    },
+    required: ["structuredContent"],
+  };
+  const currentMcp = currentDefs.VoyageMcpResult as JsonObject;
+  currentMcp.oneOf = [
+    ...(currentMcp.oneOf as JsonValue[]),
+    { $ref: "#/$defs/VoyageSurveyMcpToolResult" },
+  ];
+  const contracts = current["x-discern-contracts"] as JsonObject[];
+  const survey = contracts.find((contract) => contract.id === "voyageSurvey");
+  assert(survey !== undefined);
+  survey.mcpTool = "voyage_survey";
+  survey.mcpToolResultSchema = "#/$defs/VoyageSurveyMcpToolResult";
+
+  assertEquals(
+    publicSchemaCompatibilityIssues(
+      previous,
+      current,
+      "result-output",
+    ),
+    [],
+  );
+});
+
+Deno.test("result compatibility discovers future contract-definition references without a field allowlist", () => {
+  const current = clone(RESULT_OUTPUT_FIXTURE);
+  const defs = current.$defs as JsonObject;
+  defs.VoyageRelayEnvelope = {
+    type: "object",
+    properties: {
+      structuredContent: { $ref: "#/$defs/VoyageLaunchResult" },
+    },
+    required: ["structuredContent"],
+  };
+  const mcp = defs.VoyageMcpResult as JsonObject;
+  mcp.oneOf = [
+    ...(mcp.oneOf as JsonValue[]),
+    { $ref: "#/$defs/VoyageRelayEnvelope" },
+  ];
+  const contracts = current["x-discern-contracts"] as JsonObject[];
+  const launch = contracts.find((contract) => contract.id === "voyageLaunch");
+  assert(launch !== undefined);
+  launch.relayEnvelope = "#/$defs/VoyageRelayEnvelope";
 
   assertEquals(
     publicSchemaCompatibilityIssues(
@@ -260,11 +390,170 @@ Deno.test("result compatibility rejects removed contracts and known error slugs"
   );
 });
 
-Deno.test("generated public schemas remain compatible with the configured trunk artifact at the same id", async () => {
+Deno.test("schema publication identity rejects every non-major drift and malformed transition", () => {
+  const controls: {
+    readonly name: string;
+    readonly previousId: JsonValue;
+    readonly publication: PublicSchemaPublication;
+    readonly currentId?: string;
+    readonly expectedIssue: string;
+  }[] = [
+    {
+      name: "same-major host drift",
+      previousId: VOYAGE_PUBLICATION.id,
+      publication: {
+        ...VOYAGE_PUBLICATION,
+        id:
+          "https://archive.example/schema/v1/voyage-results.schema.json" as PublicSchemaPublication[
+            "id"
+          ],
+      },
+      currentId: "https://archive.example/schema/v1/voyage-results.schema.json",
+      expectedIssue:
+        'publication id: "https://archive.example/schema/v1/voyage-results.schema.json" is not a canonical public schema id',
+    },
+    {
+      name: "same-major basename drift",
+      previousId: VOYAGE_PUBLICATION.id,
+      publication: {
+        ...VOYAGE_PUBLICATION,
+        id: "https://discern.sh/schema/v1/renamed-voyage-results.schema.json",
+        artifactPath: "schema/renamed-voyage-results.schema.json",
+      },
+      currentId:
+        "https://discern.sh/schema/v1/renamed-voyage-results.schema.json",
+      expectedIssue:
+        '$.$id: schema identity changed from "voyage-results.schema.json" to "renamed-voyage-results.schema.json"; only the major may change',
+    },
+    {
+      name: "malformed previous major",
+      previousId:
+        "https://discern.sh/schema/vlatest/voyage-results.schema.json",
+      publication: VOYAGE_PUBLICATION,
+      expectedIssue:
+        '$.$id: "https://discern.sh/schema/vlatest/voyage-results.schema.json" is not a canonical public schema id',
+    },
+    {
+      name: "regressed major",
+      previousId: "https://discern.sh/schema/v2/voyage-results.schema.json",
+      publication: VOYAGE_PUBLICATION,
+      expectedIssue: "$.$id: schema major regressed from v2 to v1",
+    },
+    {
+      name: "registry major disagrees with id",
+      previousId: VOYAGE_PUBLICATION.id,
+      publication: { ...VOYAGE_PUBLICATION, major: 2 },
+      expectedIssue:
+        'publication id "https://discern.sh/schema/v1/voyage-results.schema.json" carries v1, not registered v2',
+    },
+  ];
+
+  for (const control of controls) {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    previous.$id = control.previousId;
+    const current = clone(RESULT_OUTPUT_FIXTURE);
+    if (control.currentId !== undefined) {
+      current.$id = control.currentId;
+    }
+    assertEquals(
+      publicSchemaPublicationCompatibilityIssues(
+        previous,
+        current,
+        control.publication,
+      ),
+      [control.expectedIssue],
+      control.name,
+    );
+  }
+});
+
+Deno.test("schema publication identity rejects generated-id drift and resets only for an increasing major", () => {
+  const drifted = clone(RESULT_OUTPUT_FIXTURE);
+  drifted.$id = "https://discern.sh/schema/v1/other-voyage-results.schema.json";
+  assertEquals(
+    publicSchemaPublicationCompatibilityIssues(
+      RESULT_OUTPUT_FIXTURE,
+      drifted,
+      VOYAGE_PUBLICATION,
+    ),
+    [
+      '$.$id: generated id "https://discern.sh/schema/v1/other-voyage-results.schema.json" does not match registered id "https://discern.sh/schema/v1/voyage-results.schema.json"',
+    ],
+  );
+
+  const previous = clone(RESULT_OUTPUT_FIXTURE);
+  const nextMajor = clone(RESULT_OUTPUT_FIXTURE);
+  const nextDefs = nextMajor.$defs as JsonObject;
+  delete nextDefs.VoyageLaunchResult;
+  assertEquals(
+    publicSchemaPublicationCompatibilityIssues(
+      previous,
+      nextMajor,
+      VOYAGE_PUBLICATION,
+    ),
+    ["$.$defs.VoyageLaunchResult: removed"],
+    "the same structural break remains blocked within v1",
+  );
+
+  nextMajor.$id = "https://discern.sh/schema/v2/voyage-results.schema.json";
+  assertEquals(
+    publicSchemaPublicationCompatibilityIssues(
+      previous,
+      nextMajor,
+      {
+        ...VOYAGE_PUBLICATION,
+        id: "https://discern.sh/schema/v2/voyage-results.schema.json",
+        major: 2,
+      },
+    ),
+    [],
+    "v1 to v2 starts a fresh structural baseline",
+  );
+});
+
+Deno.test("schema publication paths keep every trunk artifact enrolled while allowing additions", () => {
+  const moved = {
+    ...VOYAGE_PUBLICATION,
+    artifactPath: "schema/moved-voyage-results.schema.json",
+  } satisfies PublicSchemaPublication;
+  assertEquals(
+    publicSchemaArtifactEnrollmentIssues(
+      [VOYAGE_PUBLICATION.artifactPath],
+      [moved],
+    ),
+    [
+      "schema/voyage-results.schema.json: trunk public schema artifact is no longer enrolled",
+    ],
+  );
+
+  const added = {
+    ...VOYAGE_PUBLICATION,
+    id: "https://discern.sh/schema/v1/voyage-events.schema.json",
+    artifactPath: "schema/voyage-events.schema.json",
+  } satisfies PublicSchemaPublication;
+  assertEquals(
+    publicSchemaArtifactEnrollmentIssues(
+      [VOYAGE_PUBLICATION.artifactPath],
+      [VOYAGE_PUBLICATION, added],
+    ),
+    [],
+    "a new publication path does not reset or remove an existing baseline",
+  );
+});
+
+Deno.test("generated public schemas remain compatible with the configured trunk artifact or advance their major", async () => {
   const config = await loadConfig(REPO_ROOT);
   const trunk = config.repository.trunk;
   const listed = await runGit(
-    ["ls-tree", "-r", "--name-only", trunk, "--", "schema"],
+    [
+      "ls-tree",
+      "-r",
+      "--name-only",
+      trunk,
+      "--",
+      "schema",
+      "src/shared/public_schemas.ts",
+    ],
     { cwd: REPO_ROOT },
   );
   assert(
@@ -274,20 +563,34 @@ Deno.test("generated public schemas remain compatible with the configured trunk 
   const trunkPaths = new Set(
     listed.stdout.split("\n").filter((path) => path.length > 0),
   );
+  const trunkHasPublicationRegistry = trunkPaths.has(
+    "src/shared/public_schemas.ts",
+  );
+  const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
+    path.startsWith("schema/") && path.endsWith(".json")
+  );
+  if (trunkHasPublicationRegistry) {
+    assertEquals(
+      publicSchemaArtifactEnrollmentIssues(
+        trunkSchemaArtifactPaths,
+        PUBLIC_SCHEMA_PUBLICATIONS,
+      ),
+      [],
+      `configured trunk ${trunk} has a public schema artifact that is no longer enrolled`,
+    );
+  }
 
   for (const publication of PUBLIC_SCHEMA_PUBLICATIONS) {
-    assertEquals(
-      new URL(publication.id).pathname.split("/")[2],
-      `v${publication.major}`,
-      `${publication.id} must carry its registered schema major`,
-    );
     const current = buildCurrentPublicSchema(publication);
     assertEquals(
-      current.$id,
-      publication.id,
-      `${publication.artifactPath} must carry its registered public id`,
+      publicSchemaPublicationIdentityIssues(current, publication),
+      [],
+      `${publication.artifactPath} must carry its registered public identity`,
     );
-    if (!trunkPaths.has(publication.artifactPath)) {
+    if (
+      !trunkHasPublicationRegistry ||
+      !trunkPaths.has(publication.artifactPath)
+    ) {
       continue;
     }
     const previousResult = await runGit(
@@ -299,17 +602,14 @@ Deno.test("generated public schemas remain compatible with the configured trunk 
       `cannot read ${publication.artifactPath} from configured trunk ${trunk}: ${previousResult.stderr}`,
     );
     const previous = JSON.parse(previousResult.stdout) as JsonObject;
-    if (previous.$id !== publication.id) {
-      continue;
-    }
     assertEquals(
-      publicSchemaCompatibilityIssues(
+      publicSchemaPublicationCompatibilityIssues(
         previous,
         current,
-        publication.compatibility,
+        publication,
       ),
       [],
-      `${publication.artifactPath} breaks the ${publication.id} contract from configured trunk ${trunk}`,
+      `${publication.artifactPath} breaks or evades its registered public contract from configured trunk ${trunk}`,
     );
   }
 });

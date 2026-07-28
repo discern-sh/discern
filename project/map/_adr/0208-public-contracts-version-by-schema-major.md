@@ -22,7 +22,7 @@ No top-level `schema_version` field is added. The schema `$id` is the contract i
 
 ## Enforcement update — July 28, 2026
 
-`PUBLIC_SCHEMA_PUBLICATIONS` now records each schema's major and compatibility policy beside its public `$id` and generated artifact. The gate generates the branch schemas and compares them with the configured trunk's committed artifacts whenever the `$id` is unchanged. A new major starts a new comparison baseline.
+`PUBLIC_SCHEMA_PUBLICATIONS` now records each schema's major and compatibility policy beside its public `$id` and generated artifact. Once that registry exists on the configured trunk, every enrolled artifact path must remain enrolled. The gate validates each canonical identity against the trunk's committed artifact, then compares structure while the major stays the same. Only an increase at the same schema name starts a new comparison baseline. A changed artifact path, host, or schema name, a malformed identity, or a major regression fails the guard.
 
 The structural comparison rejects field, result-contract, definition, and known-error-slug removals, plus type and validation changes. It permits optional properties. Result output also permits new command or tool contracts and additions to the open known-error-slug metadata. Existing union alternatives and contract records are matched by `$ref` and contract id, so order has no compatibility meaning.
 

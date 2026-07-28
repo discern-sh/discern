@@ -267,10 +267,15 @@ function contractId(value: JsonValue): string | undefined {
   return isObject(value) && typeof value.id === "string" ? value.id : undefined;
 }
 
-function contractSchema(value: JsonValue): string | undefined {
-  return isObject(value) && typeof value.schema === "string"
-    ? value.schema
-    : undefined;
+function contractSchemaReferences(value: JsonValue): string[] {
+  if (!isObject(value)) {
+    return [];
+  }
+  return Object.values(value).filter(
+    (candidate): candidate is string =>
+      typeof candidate === "string" &&
+      definitionName(candidate) !== undefined,
+  );
 }
 
 function contractRecords(value: JsonValue | undefined): JsonValue[] {
@@ -298,30 +303,27 @@ function comparisonContext(
     previous["x-discern-contracts"],
   );
   const currentContracts = contractRecords(current["x-discern-contracts"]);
-  const previousIds = new Set(
-    previousContracts.map(contractId).filter((id) => id !== undefined),
-  );
   const previousContractRefs = new Set(
-    previousContracts.map(contractSchema).filter((ref) => ref !== undefined),
+    previousContracts.flatMap(contractSchemaReferences),
   );
   const previousDefinitions = isObject(previous.$defs) ? previous.$defs : {};
   const currentDefinitions = isObject(current.$defs) ? current.$defs : {};
   const newContractRefs = new Set<string>();
   for (const contract of currentContracts) {
     const id = contractId(contract);
-    const reference = contractSchema(contract);
-    const name = reference === undefined
-      ? undefined
-      : definitionName(reference);
-    if (
-      id !== undefined &&
-      !previousIds.has(id) &&
-      reference !== undefined &&
-      name !== undefined &&
-      previousDefinitions[name] === undefined &&
-      currentDefinitions[name] !== undefined
-    ) {
-      newContractRefs.add(reference);
+    if (id === undefined) {
+      continue;
+    }
+    for (const reference of contractSchemaReferences(contract)) {
+      const name = definitionName(reference);
+      if (
+        !previousContractRefs.has(reference) &&
+        name !== undefined &&
+        previousDefinitions[name] === undefined &&
+        currentDefinitions[name] !== undefined
+      ) {
+        newContractRefs.add(reference);
+      }
     }
   }
   return {
@@ -536,6 +538,159 @@ export function publicSchemaCompatibilityIssues(
     issues,
   );
   return issues;
+}
+
+interface PublicSchemaIdentity {
+  readonly major: number;
+  readonly name: string;
+}
+
+const PUBLIC_SCHEMA_ID_PATTERN =
+  /^https:\/\/discern\.sh\/schema\/v([1-9][0-9]*)\/([^/?#]+\.json)$/;
+
+function parsePublicSchemaIdentity(
+  value: JsonValue | undefined,
+  path: string,
+  issues: string[],
+): PublicSchemaIdentity | undefined {
+  if (typeof value !== "string") {
+    issues.push(`${path}: ${json(value)} is not a canonical public schema id`);
+    return undefined;
+  }
+  const match = PUBLIC_SCHEMA_ID_PATTERN.exec(value);
+  const majorText = match?.[1];
+  const name = match?.[2];
+  const major = majorText === undefined ? NaN : Number(majorText);
+  if (
+    match === null ||
+    name === undefined ||
+    !Number.isSafeInteger(major) ||
+    major < 1
+  ) {
+    issues.push(
+      `${path}: ${JSON.stringify(value)} is not a canonical public schema id`,
+    );
+    return undefined;
+  }
+  return { major, name };
+}
+
+/**
+ * Validate the generated identity against its registry record independently
+ * of any trunk artifact. Initial publication enrollment still proves this
+ * half before it establishes its first structural baseline.
+ */
+export function publicSchemaPublicationIdentityIssues(
+  current: JsonObject,
+  publication: PublicSchemaPublication,
+): string[] {
+  const issues: string[] = [];
+  const registered = parsePublicSchemaIdentity(
+    publication.id,
+    "publication id",
+    issues,
+  );
+  if (registered === undefined) {
+    return issues;
+  }
+  if (
+    !Number.isSafeInteger(publication.major) ||
+    publication.major < 1
+  ) {
+    issues.push(
+      `publication major ${json(publication.major)} is not a positive integer`,
+    );
+    return issues;
+  }
+  if (registered.major !== publication.major) {
+    issues.push(
+      `publication id ${JSON.stringify(publication.id)} carries ` +
+        `v${registered.major}, not registered v${publication.major}`,
+    );
+    return issues;
+  }
+  const expectedArtifactPath = `schema/${registered.name}`;
+  if (publication.artifactPath !== expectedArtifactPath) {
+    issues.push(
+      `publication artifact ${JSON.stringify(publication.artifactPath)} does ` +
+        `not match registered id path ${JSON.stringify(expectedArtifactPath)}`,
+    );
+    return issues;
+  }
+  if (current.$id !== publication.id) {
+    issues.push(
+      `$.$id: generated id ${json(current.$id)} does not match registered id ` +
+        JSON.stringify(publication.id),
+    );
+  }
+  return issues;
+}
+
+/**
+ * Keep every public artifact path enrolled after the publication registry has
+ * landed. New paths may join; an existing path cannot disappear by moving its
+ * generator and registry record together.
+ */
+export function publicSchemaArtifactEnrollmentIssues(
+  previousArtifactPaths: readonly string[],
+  currentPublications: readonly PublicSchemaPublication[],
+): string[] {
+  const currentPaths = new Set<string>(
+    currentPublications.map((publication) => publication.artifactPath),
+  );
+  return [...previousArtifactPaths]
+    .filter((path) => !currentPaths.has(path))
+    .sort()
+    .map((path) =>
+      `${path}: trunk public schema artifact is no longer enrolled`
+    );
+}
+
+/**
+ * Enforce one enrolled publication across a trunk transition.
+ *
+ * A structurally incompatible schema starts a new baseline only when its
+ * canonical identity keeps the same name and advances to a larger major.
+ * Everything else either compares within the current major or fails closed.
+ */
+export function publicSchemaPublicationCompatibilityIssues(
+  previous: JsonObject,
+  current: JsonObject,
+  publication: PublicSchemaPublication,
+): string[] {
+  const issues = publicSchemaPublicationIdentityIssues(current, publication);
+  if (issues.length > 0) {
+    return issues;
+  }
+  const registered = parsePublicSchemaIdentity(
+    publication.id,
+    "publication id",
+    issues,
+  );
+  const prior = parsePublicSchemaIdentity(previous.$id, "$.$id", issues);
+  if (registered === undefined || prior === undefined) {
+    return issues;
+  }
+  if (prior.name !== registered.name) {
+    return [
+      `$.$id: schema identity changed from ${JSON.stringify(prior.name)} to ` +
+      `${JSON.stringify(registered.name)}; only the major may change`,
+    ];
+  }
+  if (prior.major > registered.major) {
+    return [
+      `$.$id: schema major regressed from v${prior.major} to ` +
+      `v${registered.major}`,
+    ];
+  }
+  if (prior.major < registered.major) {
+    return [];
+  }
+  return publicSchemaCompatibilityIssues(
+    previous,
+    current,
+    publication.compatibility,
+  );
 }
 
 /** Generate the current branch schema enrolled by one publication record. */
