@@ -4,6 +4,7 @@ import type {
   ComponentGroup,
   RuntimeAssetSelection,
 } from "discern-design-system";
+import { WORKFLOW_COMPONENTS } from "./workflow_registry.ts";
 
 interface SiteDesignSystemBundle {
   readonly output: `pages/assets/design-system/${string}/`;
@@ -32,6 +33,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "kicker",
       "table",
       "breadcrumbs",
+      ...WORKFLOW_COMPONENTS,
       "table-of-contents",
     ],
     assets: ["fonts"],

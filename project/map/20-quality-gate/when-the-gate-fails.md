@@ -15,7 +15,15 @@ _Read the first real failure, use its reproduce command, and rerun the gate afte
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-Your agent reads these fields directly and usually fixes the failure without help. Handling it yourself? Work from the diagnostic instead of rerunning the full gate.
+<!-- discern-workflow:result-summary -->
+
+**Failed:** A stage or precondition stopped the gate before it could issue a review receipt.
+
+**Next action:** Run `reproduce_cmd` from the first diagnostic, fix the reported problem, then return to `discern done`.
+
+<!-- /discern-workflow -->
+
+Your agent reads the diagnostic directly and usually fixes the failure without help. Handling it yourself? Work from that focused result instead of rerunning the full gate.
 
 ## Match the failure to the fix
 
@@ -39,11 +47,21 @@ Your agent reads these fields directly and usually fixes the failure without hel
 
 Run the machine-readable form to hand the failure across sessions:
 
+<!-- discern-workflow:command -->
+
+**Run in:** the active worktree root.
+
 ```sh
 discern done --json
 ```
 
-JSON mode prints one result object and suppresses live narration. Each failed stage carries its remedy in `hints[]`, and each real failure carries its diagnostic. Fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
+**Expected result:** One `DiscernResult` object on stdout, with each real failure represented in `diagnostics[]`.
+
+**If this fails:** Read the command's stderr; JSON mode keeps narration out of stdout so the result stream stays machine-readable.
+
+<!-- /discern-workflow -->
+
+Each failed stage carries its remedy in `hints[]`. Fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 

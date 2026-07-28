@@ -734,6 +734,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "docs-workflow-directives",
+    title: "Docs Workflow directives",
+    what:
+      "The source Markdown markers the browser manual projects through the design system's Workflow grammar.",
+    source: {
+      kind: "module",
+      module: "site/workflow_registry.ts",
+      exportName: "WORKFLOW_DIRECTIVES",
+    },
+    guards: ["tests/site_workflow_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal Markdown projection labels, not reader-facing product vocabulary",
+      },
+      featureCanon: { nodeId: "bundled-help" },
+    },
+    members: async () =>
+      (await import("../site/workflow_registry.ts")).WORKFLOW_DIRECTIVES.map(
+        (directive) => directive.id,
+      ),
+  },
+  {
     id: "adrs",
     title: "Architecture Decision Records",
     what:

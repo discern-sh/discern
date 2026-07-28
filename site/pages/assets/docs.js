@@ -51,6 +51,11 @@ import { searchPages } from "./search.js";
   // ── Drawer ───────────────────────────────────────────────────────────────
 
   const nav = $("#docs-nav");
+  const navSections = nav ? $("[data-nav-sections]", nav) : null;
+  const navDisclosure = nav ? $("[data-nav-disclosure]", nav) : null;
+  const navDisclosureLabel = navDisclosure
+    ? $("[data-nav-disclosure-label]", navDisclosure)
+    : null;
   const drawerVeil = $("[data-drawer-close]");
   const burger = $("[data-drawer-toggle]");
   const drawerMedia = matchMedia("(max-width: 64em)");
@@ -65,6 +70,34 @@ import { searchPages } from "./search.js";
   ];
   let drawerOpen = false;
   let drawerReturnFocus = null;
+
+  const setNavMode = (mode) => {
+    if (!navSections) return;
+    const focused = mode === "focused";
+    navSections.dataset.navMode = mode;
+    for (const element of $$("[data-nav-context]", navSections)) {
+      element.hidden = focused && element.dataset.navContext === "other";
+    }
+    if (navDisclosure) {
+      navDisclosure.setAttribute("aria-expanded", String(!focused));
+    }
+    if (navDisclosureLabel) {
+      navDisclosureLabel.textContent = focused
+        ? "Full manual"
+        : "Current section";
+    }
+  };
+
+  if (navSections) {
+    setNavMode(
+      navSections.dataset.navDefault === "focused" ? "focused" : "full",
+    );
+  }
+  navDisclosure?.addEventListener("click", () => {
+    setNavMode(
+      navSections?.dataset.navMode === "focused" ? "full" : "focused",
+    );
+  });
 
   const focusFirstInDrawer = () => {
     const first = nav ? focusablesIn(nav)[0] : null;
@@ -127,17 +160,24 @@ import { searchPages } from "./search.js";
       const code = pre.querySelector("code");
       const lang = /language-([\w-]+)/.exec(code?.className ?? "")?.[1];
       if (lang) pre.dataset.lang = lang;
+      const commandExecution = pre.parentElement?.classList.contains(
+          "discern-command__execution",
+        )
+        ? pre.parentElement
+        : null;
 
       const copy = doc.createElement("button");
       copy.type = "button";
-      copy.className = "discern-copy-button docs-copy";
-      copy.textContent = "copy";
-      copy.setAttribute("aria-label", "Copy code");
-      copy.setAttribute("aria-live", "polite");
+      copy.className = commandExecution
+        ? "discern-copy-button discern-command__copy docs-command-copy"
+        : "discern-copy-button docs-copy";
+      const copyStatus = doc.createElement("span");
+      copyStatus.setAttribute("aria-live", "polite");
+      copy.append(copyStatus);
       let resetTimer = null;
 
       const setCopyState = (text, label, className = "") => {
-        copy.textContent = text;
+        copyStatus.textContent = text;
         copy.setAttribute("aria-label", label);
         if (className === "is-copied") {
           copy.setAttribute("data-discern-copied", "");
@@ -149,11 +189,19 @@ import { searchPages } from "./search.js";
           className === "is-copy-failed",
         );
       };
-      const resetCopy = () => setCopyState("copy", "Copy code");
+      const resetCopy = () =>
+        setCopyState(
+          commandExecution ? "Copy command" : "copy",
+          commandExecution ? "Copy command" : "Copy code",
+        );
+      resetCopy();
 
       copy.addEventListener("click", async () => {
         if (resetTimer !== null) clearTimeout(resetTimer);
-        setCopyState("copying…", "Copying code");
+        setCopyState(
+          commandExecution ? "Copying command…" : "copying…",
+          commandExecution ? "Copying command" : "Copying code",
+        );
         try {
           if (!navigator.clipboard) throw new Error("clipboard unavailable");
           await Promise.race([
@@ -165,13 +213,21 @@ import { searchPages } from "./search.js";
               );
             }),
           ]);
-          setCopyState("copied ✓", "Code copied", "is-copied");
+          setCopyState(
+            commandExecution ? "Command copied" : "copied ✓",
+            commandExecution ? "Command copied" : "Code copied",
+            "is-copied",
+          );
         } catch {
-          setCopyState("copy failed", "Copy failed", "is-copy-failed");
+          setCopyState(
+            commandExecution ? "Command copy failed" : "copy failed",
+            commandExecution ? "Command copy failed" : "Copy failed",
+            "is-copy-failed",
+          );
         }
         resetTimer = setTimeout(resetCopy, 2000);
       });
-      pre.append(copy);
+      (commandExecution ?? pre).append(copy);
     }
 
     for (const table of $$(".doc-body > table")) {
@@ -205,7 +261,9 @@ import { searchPages } from "./search.js";
       const link = byId.get(id);
       if (!link || link === active) return;
       active?.closest("li")?.classList.remove(currentClass);
+      active?.removeAttribute("aria-current");
       link.closest("li")?.classList.add(currentClass);
+      link.setAttribute("aria-current", "location");
       active = link;
     };
 

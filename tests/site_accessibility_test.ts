@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { loadDocsSite } from "../site/docs.ts";
+import { docsNavigationProjection, loadDocsSite } from "../site/docs.ts";
 import { handler } from "../site/serve.ts";
 
 const BROWSER = {
@@ -123,6 +123,207 @@ Deno.test("permalink controls stay outside every heading accessible name", async
       label: `Link to “${text}”`,
     })),
   );
+});
+
+Deno.test("Workflow commands receive the accessible package copy anatomy", async () => {
+  const html = await (
+    await get("/docs/quality-gate/when-the-gate-fails")
+  ).text();
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/docs/quality-gate/when-the-gate-fails",
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  dom.window.document.querySelector(".docs-toc")?.remove();
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+
+  const document = dom.window.document;
+  const execution = document.querySelector(".discern-command__execution");
+  const copy = execution?.querySelector<HTMLButtonElement>(
+    ":scope > .discern-command__copy.docs-command-copy",
+  );
+  if (!copy) throw new Error("Workflow command has no copy enhancement");
+  const initial = {
+    label: copy.getAttribute("aria-label"),
+    live: copy.querySelector("[aria-live=polite]")?.textContent,
+    insidePre: copy.closest("pre") !== null,
+  };
+  copy.click();
+  await Promise.resolve();
+  await Promise.resolve();
+  const unavailable = {
+    label: copy.getAttribute("aria-label"),
+    live: copy.querySelector("[aria-live=polite]")?.textContent,
+    state: copy.hasAttribute("data-discern-copied"),
+  };
+  dom.window.close();
+
+  assertEquals(initial, {
+    label: "Copy command",
+    live: "Copy command",
+    insidePre: false,
+  });
+  assertEquals(unavailable, {
+    label: "Command copy failed",
+    live: "Command copy failed",
+    state: false,
+  });
+});
+
+Deno.test("navigation disclosure preserves focus and one canonical tree", async () => {
+  const site = await loadDocsSite();
+  const page = site.pages.find((candidate) =>
+    candidate.route === "/docs/quality-gate/when-the-gate-fails"
+  );
+  if (!page) throw new Error("navigation fixture page is missing");
+  const html = await (await get(page.route)).text();
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: `https://discern.sh${page.route}`,
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  dom.window.document.querySelector(".docs-toc")?.remove();
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+
+  const document = dom.window.document;
+  const nav = document.querySelector("#docs-nav");
+  const disclosure = nav?.querySelector<HTMLButtonElement>(
+    "[data-nav-disclosure]",
+  );
+  if (!nav || !disclosure) {
+    throw new Error("focused navigation fixture has no disclosure");
+  }
+  const visibleRoutes = (): string[] =>
+    [...nav.querySelectorAll("[data-nav-page]:not([hidden]) > a")]
+      .filter((link) => link.closest("[data-nav-section][hidden]") === null)
+      .map((link) => link.getAttribute("href") ?? "");
+  const expectedFocused = docsNavigationProjection(site, page).sections
+    .flatMap((section) =>
+      section.pages
+        .filter(({ context }) => context !== "other")
+        .map(({ page: contextualPage }) => contextualPage.route)
+    );
+  const initial = {
+    label: disclosure.textContent?.trim(),
+    expanded: disclosure.getAttribute("aria-expanded"),
+    visibleRoutes: visibleRoutes(),
+    currentPages: nav.querySelectorAll('[aria-current="page"]').length,
+  };
+
+  disclosure.focus();
+  disclosure.click();
+  const full = {
+    label: disclosure.textContent?.trim(),
+    expanded: disclosure.getAttribute("aria-expanded"),
+    hidden: nav.querySelectorAll("[data-nav-context][hidden]").length,
+    routes: nav.querySelectorAll("[data-nav-page] > a").length,
+    focusPreserved: document.activeElement === disclosure,
+  };
+  disclosure.click();
+  const focusedAgain = {
+    label: disclosure.textContent?.trim(),
+    expanded: disclosure.getAttribute("aria-expanded"),
+    visibleRoutes: visibleRoutes(),
+    focusPreserved: document.activeElement === disclosure,
+  };
+  dom.window.close();
+
+  assertEquals(initial, {
+    label: "Full manual",
+    expanded: "false",
+    visibleRoutes: expectedFocused,
+    currentPages: 1,
+  });
+  assertEquals(full, {
+    label: "Current section",
+    expanded: "true",
+    hidden: 0,
+    routes: site.pages.length,
+    focusPreserved: true,
+  });
+  assertEquals(focusedAgain, {
+    label: "Full manual",
+    expanded: "false",
+    visibleRoutes: expectedFocused,
+    focusPreserved: true,
+  });
+});
+
+Deno.test("deep links expose page and heading context without competing claims", async () => {
+  const route = "/docs/quality-gate/when-the-gate-fails";
+  const hash = "#match-the-failure-to-the-fix";
+  const html = await (await get(route)).text();
+  const client = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.js", import.meta.url),
+  );
+  const tocClient = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs-toc.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: `https://discern.sh${route}${hash}`,
+  });
+  Object.defineProperty(dom.window, "matchMedia", {
+    value: () => ({ matches: false, addEventListener: () => undefined }),
+  });
+  Object.defineProperty(dom.window, "requestAnimationFrame", {
+    value: (callback: FrameRequestCallback) => {
+      callback(0);
+      return 1;
+    },
+  });
+  dom.window.eval(
+    `${tocClient.replace("export function", "function")}\n${
+      client.replace(/^import .*?;\n/gm, "")
+    }`,
+  );
+
+  const document = dom.window.document;
+  const leftNav = document.querySelector("#docs-nav");
+  const contentsNav = document.querySelector(".docs-toc");
+  const initial = {
+    page: [...leftNav?.querySelectorAll('[aria-current="page"]') ?? []]
+      .map((link) => link.getAttribute("href")),
+    heading: [
+      ...contentsNav?.querySelectorAll('[aria-current="location"]') ?? [],
+    ]
+      .map((link) => link.getAttribute("href")),
+  };
+  const nextHeading = document.querySelector<HTMLAnchorElement>(
+    '.docs-toc a[href="#give-the-result-to-an-agent"]',
+  );
+  if (!nextHeading) throw new Error("deep-link fixture has no second heading");
+  const nextHash = nextHeading.hash;
+  dom.window.location.hash = nextHash;
+  dom.window.dispatchEvent(new dom.window.HashChangeEvent("hashchange"));
+  const changed = {
+    page: [...leftNav?.querySelectorAll('[aria-current="page"]') ?? []]
+      .map((link) => link.getAttribute("href")),
+    heading: [
+      ...contentsNav?.querySelectorAll('[aria-current="location"]') ?? [],
+    ]
+      .map((link) => link.getAttribute("href")),
+  };
+  dom.window.close();
+
+  assertEquals(initial, {
+    page: [route],
+    heading: [hash],
+  });
+  assertEquals(changed, {
+    page: [route],
+    heading: [nextHash],
+  });
 });
 
 Deno.test("mobile drawer performs the complete modal focus contract", async () => {

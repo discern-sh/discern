@@ -14,6 +14,14 @@ The homepage source can compose the package's typed React adapters in [`site/pag
 
 Layout and display components render completely as semantic HTML. Reusable component behavior is a selection-scoped, framework-neutral progressive enhancement emitted by the package; page behavior remains page-owned. Product copy, routes, commands, bespoke artwork, docs rendering, and composition CSS remain in Discern; none moves into the reusable package.
 
+## Workflow projections in the manual
+
+The Markdown remains the complete manual for terminal, MCP, negotiated text, `.md`, search, and browser readers. A few source blocks carry explicit `discern-workflow` HTML-comment markers around otherwise ordinary Markdown. [`site/workflow.ts`](../../../site/workflow.ts) parses those marked blocks and emits the package's semantic Procedure, Command, Result summary, Path reference, Ownership badge, and Branch choice anatomy for browser pages. It does not infer meaning from arbitrary fences, lists, headings, or tables.
+
+[`site/workflow_registry.ts`](../../../site/workflow_registry.ts) is the canonical directive vocabulary and component selection. Each member must have a strict parser, a real source example, and a rendered root covered by the bundle tests. Malformed or unknown markers fail at the source path. The decision and rejected alternatives are recorded in [ADR 0205](../_adr/0205-browser-workflow-semantics-are-explicit-markdown-projections.md).
+
+The projection contains no second copy of a command or outcome: the marked Markdown supplies every fact. With CSS or JavaScript unavailable, the server HTML still states the complete procedure, result, ownership, and next action. Site-owned JavaScript adds the Command copy control in the package's documented slot; the production graph remains framework-free.
+
 [`site/page-src/branding.tsx`](../../../site/page-src/branding.tsx) owns the reusable public lockup. The component uses the `md` preset and renders `discern` beside the decorative Unicode mark in the `mono` typeface. During `site:build`, the tagline-free lockup is written to `site/pages/fragments/brand.html`; the docs shell reads that static fragment into its top bar without importing the React adapter. A homepage composition can import the same adapter.
 
 ## The homepage composition
@@ -38,6 +46,8 @@ The generic component catalog, examples, component implementation, assets, and p
 - the rule that consumer styles may compose package classes while leaving component-owned `.discern-*` selectors untouched.
 
 New package components and classes auto-enrol through the published manifest; new site selections and routes auto-enrol through `DESIGN_SYSTEM_BUNDLES`.
+
+[`tests/site_workflow_test.ts`](../../../tests/site_workflow_test.ts) ties the directive registry to its source examples, package roots, dependency closure, and pristine raw editions. The directive set itself is enrolled in the canonical-set atlas, so a new projection cannot bypass those obligations.
 
 ## Build and theme
 
