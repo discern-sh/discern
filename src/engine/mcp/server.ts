@@ -39,6 +39,7 @@ import { serializeResult } from "../../shared/result_serialization.ts";
 import {
   observeResult,
   takeObservedResult,
+  takeSupplementalHintIds,
 } from "../../shared/result_capture.ts";
 import { beginRecording } from "../logbook/record.ts";
 import type { DriverFacts } from "../logbook/schema.ts";
@@ -1205,6 +1206,10 @@ async function runVerb(
   signal?: AbortSignal,
   mcpClient?: RecordedMcpClient,
 ): Promise<DiscernResult> {
+  // Supplemental ids describe CLI-only output such as a session-start
+  // `ctx.log` line. A long-lived MCP server drains stale state defensively and
+  // never fabricates an envelope or attributes that output to a tool call.
+  takeSupplementalHintIds();
   const recording = beginRecording(root);
   const driver = mcpDriverFacts(mcpClient);
   const started = performance.now();
@@ -1224,6 +1229,7 @@ async function runVerb(
   // server must not leak one call's envelope or hint ids into the next.
   observeResult(result);
   const observed = takeObservedResult();
+  takeSupplementalHintIds();
   const { flags, target } = mcpCallFacts(args);
   await recording.finish({
     verb: verbOf(tool.name),

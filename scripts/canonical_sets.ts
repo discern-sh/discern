@@ -635,6 +635,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/gate_plan_test.ts",
       "tests/result_schemas_test.ts",
       "tests/engine_json_purity_test.ts",
+      "tests/engine_logbook_test.ts",
+      "tests/patterns_test.ts",
     ],
     artifacts: [
       {

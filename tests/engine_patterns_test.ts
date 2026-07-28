@@ -117,6 +117,134 @@ async function seedLogbook(dir: string): Promise<void> {
   );
 }
 
+/** Seed resolved and censored episodes for every initial follow-through family. */
+async function seedHintFollowThroughLogbook(dir: string): Promise<void> {
+  const events: Record<string, unknown>[] = [];
+  let hour = 0;
+  const cliDriver = {
+    session: "cli:follow-through",
+    json: true,
+    tty: false,
+    ci: false,
+  };
+  const add = (over: Record<string, unknown>): void => {
+    events.push({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 1, hour++)).toISOString(),
+      kind: "verb",
+      verb: "status",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: cliDriver,
+      branch: "agent/seeded",
+      head: `head-${hour}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 100,
+      epoch: "e1",
+      ...over,
+    });
+  };
+
+  // Branch update: four firings produce three ignored repeats and one
+  // cross-surface censored tail.
+  for (let i = 0; i < 4; i += 1) {
+    add({
+      verb: "status",
+      hint_ids: [HINTS["status-branch-behind"].id],
+    });
+  }
+  add({
+    verb: "update",
+    surface: "mcp",
+    driver: {
+      session: "mcp:other",
+      json: false,
+      tty: false,
+      ci: false,
+    },
+  });
+
+  // Red-gate remedy: two prepare/test actions, one next-done boundary, and a
+  // trailing unresolved firing.
+  add({
+    verb: "done",
+    outcome: "failed",
+    failed_stage: "check/test",
+    hint_ids: [HINTS["gate-failure-check-test"].id],
+  });
+  add({ verb: "prepare" });
+  add({
+    verb: "done",
+    outcome: "failed",
+    failed_stage: "check/test",
+    hint_ids: [HINTS["done-unchanged-tree-red"].id],
+  });
+  add({ verb: "done" });
+  add({
+    verb: "test",
+    outcome: "failed",
+    failed_stage: "test",
+    hint_ids: [HINTS["gate-failure-test"].id],
+  });
+  add({ verb: "test" });
+  add({
+    verb: "done",
+    outcome: "failed",
+    failed_stage: "check/test",
+    hint_ids: [HINTS["gate-failure-check-test"].id],
+  });
+
+  // Main-worktree-first: start, dirty-trunk activity, start, then one
+  // cross-surface start that cannot be correlated to the CLI session.
+  add({
+    verb: "worktree ensure",
+    branch: "main",
+    hint_ids: [HINTS["ensure-main-worktree-first"].id],
+  });
+  add({ verb: "start", branch: "main" });
+  add({
+    verb: "worktree ensure",
+    branch: "main",
+    hint_ids: [HINTS["ensure-main-worktree-first"].id],
+  });
+  add({
+    verb: "status",
+    branch: "main",
+    clean: false,
+    tree: "dirty-main",
+  });
+  add({
+    verb: "worktree ensure",
+    branch: "main",
+    hint_ids: [HINTS["ensure-main-worktree-first"].id],
+  });
+  add({ verb: "start", branch: "main" });
+  add({
+    verb: "worktree ensure",
+    branch: "main",
+    hint_ids: [HINTS["ensure-main-worktree-first"].id],
+  });
+  add({
+    verb: "start",
+    branch: "main",
+    surface: "mcp",
+    driver: {
+      session: "mcp:other",
+      json: false,
+      tty: false,
+      ci: false,
+    },
+  });
+
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+  );
+}
+
 const REPORT_STANDARD_NAMES = Array.from(
   { length: 16 },
   (_, index) => `metric-${String(index + 1).padStart(2, "0")}`,
@@ -341,6 +469,64 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     );
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
+  });
+});
+
+Deno.test("patterns: seeded hint episodes report raw outcomes through JSON and the compact human report", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedHintFollowThroughLogbook(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const findings = data.findings.filter((finding) =>
+      finding.detector === "hint-follow-through"
+    );
+    assertEquals(
+      findings.map((finding) => finding.subject).sort(),
+      ["branch-update", "main-worktree-first", "red-gate-remedy"],
+    );
+    const expected = {
+      "branch-update": {
+        fired: 4,
+        followed: 0,
+        not_followed: 3,
+        censored: 1,
+      },
+      "red-gate-remedy": {
+        fired: 4,
+        followed: 2,
+        not_followed: 1,
+        censored: 1,
+      },
+      "main-worktree-first": {
+        fired: 4,
+        followed: 2,
+        not_followed: 1,
+        censored: 1,
+      },
+    } as const;
+    for (const finding of findings) {
+      assert(finding.subject !== undefined);
+      assertEquals(
+        finding.evidence,
+        expected[finding.subject as keyof typeof expected],
+      );
+      assertEquals(finding.tone, "attention");
+    }
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "Hint follow-through by family");
+    for (const family of Object.keys(expected)) {
+      assertStringIncludes(human.output, family);
+    }
   });
 });
 

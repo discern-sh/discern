@@ -18,7 +18,10 @@ import {
   hintTexts,
   interactiveHintTexts,
 } from "../shared/hints.ts";
-import { observeResult } from "../shared/result_capture.ts";
+import {
+  observeResult,
+  observeSupplementalHints,
+} from "../shared/result_capture.ts";
 import {
   findSkeletonMarkers,
   setupUnfinishedHint,
@@ -896,7 +899,11 @@ export function attachEngineCommands(
                   // Main-checkout side: the session hook injects this stdout
                   // as agent context, the only channel that can pre-empt a
                   // trunk edit (a file edit calls no verb first).
-                  ctx.log.info(fire(HINTS["ensure-main-worktree-first"]).text);
+                  const orientation = fire(
+                    HINTS["ensure-main-worktree-first"],
+                  );
+                  ctx.log.info(orientation.text);
+                  observeSupplementalHints([orientation]);
                 }
               }),
           ),
