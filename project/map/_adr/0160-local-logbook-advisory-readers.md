@@ -2,6 +2,8 @@
 
 **Status**: accepted
 
+> **Invocation-start amendment (2026-07-28; [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md)):** Effectful verbs now append an automatic `begin` event, paired to their completion event by an invocation id. The local, metadata-only, non-interfering, and advisory boundaries below stand.
+
 > **Landing-consent amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** A successful `accept` event now records its consent source (`conversation`, `standing-grant`, or `effort-grant`) and the covering scope names for a standing grant. The local, metadata-only, evidence-first, and advisory boundaries below stand.
 
 > **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the logbook now records source-labelled coding-agent identity signals when cheap hints exist. They remain evidence, never a vendor verdict, and never steer product behaviour. The rest of this decision is unchanged.

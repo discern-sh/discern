@@ -649,6 +649,20 @@ export type StatusGate = z.infer<typeof statusGateSchema>;
 /** One row of the fleet survey. `is_current` marks the row the status call is
  * rooted in (the main row from the main checkout; the current worktree's row under
  * `--all`); every other row is a separate line of work. */
+const statusFleetLastActionSchema = z.strictObject({
+  verb: z.string(),
+  outcome: z.enum(["ok", "failed", "partial", "refused"]),
+  at: z.string(),
+  failed_stage: z.string().optional(),
+});
+
+const statusFleetRunningSchema = z.strictObject({
+  verb: z.string(),
+  started: z.string(),
+  elapsed_ms: z.number().nonnegative(),
+  typical_duration_ms: z.number().nonnegative().optional(),
+});
+
 const statusFleetEntrySchema = z.strictObject({
   path: z.string(),
   is_main: z.boolean(),
@@ -663,6 +677,10 @@ const statusFleetEntrySchema = z.strictObject({
   ahead: z.number().optional(),
   behind: z.number().optional(),
   last_activity: z.string().optional(),
+  /** The branch's newest completed logbook verb event. */
+  last_action: statusFleetLastActionSchema.optional(),
+  /** A fresh effectful begin event with no paired completion. */
+  running: statusFleetRunningSchema.optional(),
   /** Present (true) when git could not run inside this worktree (a missing
    * directory, a corrupted gitlink, a permission refusal): its state is
    * UNKNOWN, so the per-checkout git fields are absent rather than fabricated —

@@ -29,7 +29,9 @@
  * so a smarter future reader can re-interpret the whole accumulated history,
  * while a baked-in score would fossilize the heuristic of the day it shipped.
  *
- * Four event kinds:
+ * Five event kinds:
+ *  - `begin` — one effectful verb invocation started; its invocation id pairs
+ *    with the completion event and an unmatched line remains crash evidence;
  *  - `verb` — one verb invocation completed (the everyday event);
  *  - `config-change` — the config-epoch fingerprint moved between consecutive
  *    events on a branch, naming which sections moved (names only, never values);
@@ -220,6 +222,31 @@ const eventBase = {
 } as const;
 
 /**
+ * One effectful verb invocation started. The event carries only context known
+ * at invocation time. Its `invocation` id joins it to the later verb event
+ * without timing or branch heuristics.
+ */
+export const beginEventSchema = z.looseObject({
+  ...eventBase,
+  kind: z.literal("begin"),
+  /** Opaque id shared with this invocation's completion event. */
+  invocation: z.string(),
+  /** The invoked verb in display form ("done", "worktree drop"). */
+  verb: z.string(),
+  surface: z.enum(LOGBOOK_SURFACES),
+  /** Raw driver signals available at invocation start. */
+  driver: driverSchema,
+  /** Branch name at invocation ("HEAD" when detached; null when unresolvable). */
+  branch: z.string().nullable(),
+  /** Short commit hash at invocation, or null when unresolvable. */
+  head: z.string().nullable(),
+  /** The config-epoch fingerprint at invocation. */
+  epoch: z.string().nullable(),
+});
+/** One effectful invocation start event. */
+export type BeginEvent = z.infer<typeof beginEventSchema>;
+
+/**
  * One completed verb invocation. Git context is nullable rather than optional so
  * a line reads honestly (`"branch": null` outside a commit, not a silent
  * absence). Attribution is by BRANCH NAME, never the worktree path — the branch
@@ -229,6 +256,9 @@ const eventBase = {
 export const verbEventSchema = z.looseObject({
   ...eventBase,
   kind: z.literal("verb"),
+  /** Opaque id shared with the begin event. Optional so v1 lines without the
+   * field remain readable. New writers always include it. */
+  invocation: z.string().optional(),
   /** The invoked verb in display form ("done", "worktree drop", "config set"). */
   verb: z.string(),
   surface: z.enum(LOGBOOK_SURFACES),
@@ -366,6 +396,7 @@ export type PruneEvent = z.infer<typeof pruneEventSchema>;
 
 /** Every event kind the logbook records, discriminated on `kind`. */
 export const logbookEventSchema = z.discriminatedUnion("kind", [
+  beginEventSchema,
   verbEventSchema,
   configChangeEventSchema,
   pinEventSchema,

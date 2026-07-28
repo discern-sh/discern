@@ -58,6 +58,7 @@ import {
   splitByCohort,
 } from "./cohorts.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
+import { byBranch } from "./read.ts";
 
 /** Stable marker carried in standard observations when their series crosses
  * a configuration or release boundary. The human report recognizes the same
@@ -166,23 +167,6 @@ export interface Detector {
 }
 
 // ── shared analysis helpers ─────────────────────────────────────────────────
-
-/** Group verb events by branch, dropping branch-less (detached / unresolvable) ones. */
-function byBranch(events: VerbEvent[]): Map<string, VerbEvent[]> {
-  const groups = new Map<string, VerbEvent[]>();
-  for (const e of events) {
-    if (e.branch === null) {
-      continue;
-    }
-    const group = groups.get(e.branch);
-    if (group === undefined) {
-      groups.set(e.branch, [e]);
-    } else {
-      group.push(e);
-    }
-  }
-  return groups;
-}
 
 /** Group one branch's events by the recorder's session hint (the fallback that
  * separates interleaved conversations sharing a branch); hint-less events form

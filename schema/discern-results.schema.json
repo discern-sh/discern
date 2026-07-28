@@ -10310,6 +10310,58 @@
                       "last_activity": {
                         "type": "string"
                       },
+                      "last_action": {
+                        "type": "object",
+                        "properties": {
+                          "verb": {
+                            "type": "string"
+                          },
+                          "outcome": {
+                            "type": "string",
+                            "enum": [
+                              "ok",
+                              "failed",
+                              "partial",
+                              "refused"
+                            ]
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "failed_stage": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "verb",
+                          "outcome",
+                          "at"
+                        ]
+                      },
+                      "running": {
+                        "type": "object",
+                        "properties": {
+                          "verb": {
+                            "type": "string"
+                          },
+                          "started": {
+                            "type": "string"
+                          },
+                          "elapsed_ms": {
+                            "type": "number",
+                            "minimum": 0
+                          },
+                          "typical_duration_ms": {
+                            "type": "number",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "verb",
+                          "started",
+                          "elapsed_ms"
+                        ]
+                      },
                       "git_unavailable": {
                         "type": "boolean"
                       },

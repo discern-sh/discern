@@ -697,6 +697,17 @@ export const HINTS = {
       "Never work in a fleet worktree you didn't create. Each belongs to another line of work, and a clean tree may still be in use.",
   }),
 
+  "status-fleet-logbook-disabled": defineHint({
+    id: "status-fleet-logbook-disabled",
+    category: "notice",
+    audience: "all",
+    when:
+      "A fleet survey cannot show per-worktree actions because logbook recording is disabled.",
+    example: undefined,
+    template: (): string =>
+      "Per-worktree actions aren't available because `[project].logbook` is off.",
+  }),
+
   "status-no-active-worktrees": defineHint({
     id: "status-no-active-worktrees",
     category: "next-step",

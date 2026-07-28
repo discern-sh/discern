@@ -49,9 +49,11 @@ import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
+import { logbookVerbIsEffectful } from "../../shared/verbs.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import {
+  type BeginEvent,
   type ChangeScale,
   type DiagnosticClass,
   type DriverFacts,
@@ -104,6 +106,17 @@ export interface FinishReport {
   flags?: string[] | undefined;
   /** The requested object, when the surface knows it; a resolved payload wins. */
   target?: string | undefined;
+}
+
+/** What an interceptor knows when an invocation starts. */
+export interface BeginReport {
+  /** The invoked verb, display form ("done", "worktree drop"). */
+  verb: string;
+  surface: LogbookSurface;
+  /** Surface-specific driver signals, gathered beside the recorder context. */
+  driver: Promise<DriverFacts>;
+  /** Flag names already known at invocation start. */
+  flags?: readonly string[] | undefined;
 }
 
 /** A live recording: created at verb start, finished exactly once at completion. */
@@ -476,15 +489,48 @@ async function advanceEpoch(
 }
 
 /**
- * Begin recording an invocation rooted at `cwd`. Context gathering starts
- * immediately and runs concurrently with the verb; every failure inside it is
- * absorbed. Call {@link Recording.finish} once at verb completion.
+ * Begin recording an invocation rooted at `cwd`. Context gathering and the
+ * effectful-verb begin append start immediately and run concurrently with the
+ * verb; every failure inside either is absorbed. Call {@link Recording.finish}
+ * once at verb completion.
  */
-export function beginRecording(cwd: string): Recording {
+export function beginRecording(cwd: string, begin: BeginReport): Recording {
+  const invocation = crypto.randomUUID();
+  const startedAt = new Date().toISOString();
   const context = gatherContext(cwd).catch(() => undefined);
+  const beginAppend = logbookVerbIsEffectful(begin.verb, begin.flags)
+    ? (async (): Promise<void> => {
+      try {
+        const [ctx, driver] = await Promise.all([context, begin.driver]);
+        if (ctx === undefined) {
+          return;
+        }
+        const event: BeginEvent = {
+          schema: LOGBOOK_SCHEMA_VERSION,
+          at: startedAt,
+          writer: KIT_VERSION,
+          kind: "begin",
+          invocation,
+          verb: begin.verb,
+          surface: begin.surface,
+          driver,
+          branch: ctx.branch,
+          head: ctx.head,
+          epoch: ctx.epoch.fingerprint,
+        };
+        await appendEvent(ctx.commonGitDir, event);
+      } catch {
+        // Recording never interferes: a begin failure cannot delay or fail the verb.
+      }
+    })()
+    : Promise.resolve();
   return {
     async finish(report: FinishReport): Promise<void> {
       try {
+        // Preserve append order even when a very short verb finishes before its
+        // concurrent context gather. A swallowed begin failure still lets the
+        // completion append proceed.
+        await beginAppend;
         const ctx = await context;
         if (ctx === undefined) {
           return;
@@ -506,6 +552,7 @@ export function beginRecording(cwd: string): Recording {
           at,
           writer: KIT_VERSION,
           kind: "verb",
+          invocation,
           verb: report.verb,
           surface: report.surface,
           ...(report.driver !== undefined ? { driver: report.driver } : {}),

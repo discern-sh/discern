@@ -203,6 +203,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0207 — Hint follow-through is declared and episode-based](0207-hint-follow-through-is-declared-and-episode-based.md)
 - [0208 — Public contracts version by schema major](0208-public-contracts-version-by-schema-major.md)
 - [0209 — Fresh seed grants cover pure documentation](0209-fresh-seed-grants-cover-pure-documentation.md)
+- [0210 — Effectful verb starts are paired logbook events](0210-effectful-verb-starts-are-paired-logbook-events.md)
 
 <!-- END GENERATED: current ADR records -->
 

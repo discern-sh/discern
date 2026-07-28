@@ -105,7 +105,13 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
       env: { CODEX_THREAD_ID: envValue },
     });
     assertEquals(r.code, 0, r.output);
-    const events = verbEvents(await readEvents(dir));
+    const allEvents = await readEvents(dir);
+    assertEquals(
+      allEvents.filter((event) => event.kind === "begin"),
+      [],
+      "a pure-observation verb stays completion-only",
+    );
+    const events = verbEvents(allEvents);
     assertEquals(events.length, 1);
     const event = events[0];
     assert(event !== undefined);
@@ -162,6 +168,39 @@ Deno.test("logbook: a verb run appends one valid, branch-attributed event", asyn
       deletions: 0,
       commits: 0,
     });
+  });
+});
+
+Deno.test("logbook: an effectful verb pairs begin and completion by invocation id", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, `[jobs]\ntest = "true"\n`);
+    await gitInit(dir);
+
+    const run = await runAgent(dir, ["test", "--json"]);
+    assertEquals(run.code, 0, run.output);
+
+    const events = await readEvents(dir);
+    const begins = events.filter((event) =>
+      event.kind === "begin" && event.verb === "test"
+    );
+    const completions = events.filter((event) =>
+      event.kind === "verb" && event.verb === "test"
+    );
+    assertEquals(begins.length, 1);
+    assertEquals(completions.length, 1);
+    const begin = begins[0];
+    const completion = completions[0];
+    assert(begin !== undefined && begin.kind === "begin");
+    assert(completion !== undefined && completion.kind === "verb");
+    assertEquals(completion.invocation, begin.invocation);
+    assertEquals(begin.branch, "main");
+    assertEquals(begin.surface, "cli");
+    assertEquals(begin.driver, completion.driver);
+    assert(
+      Date.parse(begin.at) <= Date.parse(completion.at),
+      "the begin line must precede its paired completion",
+    );
   });
 });
 
@@ -278,7 +317,11 @@ Deno.test("logbook: map-fetch payloads lift by shape under an unrelated verb", a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const recording = beginRecording(dir);
+    const recording = beginRecording(dir, {
+      verb: "fresh-page-reader",
+      surface: "mcp",
+      driver: Promise.resolve({}),
+    });
     await recording.finish({
       verb: "fresh-page-reader",
       surface: "mcp",
