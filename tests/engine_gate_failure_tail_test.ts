@@ -23,6 +23,8 @@ import {
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
+const GATE_FAILURE_HELP_COMMAND =
+  "discern help 20-quality-gate/when-the-gate-fails";
 const TEMPLATE_GOTCHAS = join(
   REAL_TEMPLATES,
   "setup",
@@ -76,6 +78,17 @@ function gotchasMapCommand(output: string): {
   return { line, command };
 }
 
+/** The pasteable failure-guide command from the shared human failure tail. */
+function failureGuideCommand(output: string): string {
+  const line = output.split("\n").find((candidate) =>
+    candidate.includes("Failure guide:")
+  );
+  assert(line !== undefined, `expected a failure-guide reference in ${output}`);
+  const command = /`(discern help [^`]+)`/.exec(line)?.[1];
+  assert(command !== undefined, `expected a quoted help command in ${line}`);
+  return command;
+}
+
 /** Run a failure pointer's command byte-for-byte through the user's shell. */
 async function runPrintedCommand(
   dir: string,
@@ -106,7 +119,7 @@ async function assertActionableFailureTail(
   dir: string,
   argv: string[],
   verb: string,
-): Promise<void> {
+): Promise<string> {
   // --json is the machine SSOT for what failed and how to reproduce it.
   const j = await runAgent(dir, [...argv, "--json"]);
   assertEquals(j.code, 1, j.output);
@@ -121,7 +134,23 @@ async function assertActionableFailureTail(
   assertEquals(r.code, 1, r.output);
   const lines = r.stdout.split("\n").filter((l) => l.trim() !== "");
 
-  // 1. Parity — every reproduce command in the envelope is surfaced to the human.
+  // 1. Stranger identity — both the failure headline and the tail-safe BLUF name
+  //    the full discern command, and the shared tail carries one stable help route.
+  const failureIdentity = `discern ${verb} failed`;
+  assertEquals(
+    lines.filter((line) => line.includes(failureIdentity)).length,
+    2,
+    `${verb}: headline and BLUF must identify discern as the speaker`,
+  );
+  assertEquals(
+    lines.filter((line) => line.includes(GATE_FAILURE_HELP_COMMAND)).length,
+    1,
+    `${verb}: shared tail must carry one stable failure-guide command`,
+  );
+  const helpCommand = failureGuideCommand(r.stdout);
+  assertEquals(helpCommand, GATE_FAILURE_HELP_COMMAND);
+
+  // 2. Parity — every reproduce command in the envelope is surfaced to the human.
   for (const cmd of repros) {
     assertStringIncludes(
       r.stdout,
@@ -130,12 +159,12 @@ async function assertActionableFailureTail(
     );
   }
 
-  // 2. tail -1 safety — the LAST line is the BLUF: it names the verb and carries a
+  // 3. tail -1 safety — the LAST line is the BLUF: it names the command and carries a
   //    reproduce command.
   const last = lines.at(-1) ?? "";
   assertStringIncludes(
     last,
-    `${verb} failed`,
+    failureIdentity,
     `${verb}: last line must be the BLUF`,
   );
   assert(
@@ -143,7 +172,7 @@ async function assertActionableFailureTail(
     `${verb}: the BLUF must carry a reproduce command; got: ${last}`,
   );
 
-  // 3. tail -6 safety — the screenshot scenario: the last six lines must reach an
+  // 4. tail -6 safety — the screenshot scenario: the last six lines must reach an
   //    actionable reproduce command, not bottom out in the generic gotchas pointer.
   const tail6 = lines.slice(-6);
   assert(
@@ -152,6 +181,7 @@ async function assertActionableFailureTail(
       tail6.join("\n")
     }`,
   );
+  return helpCommand;
 }
 
 /** A failing check capability (lint) — fails finish's check/test stage and prepare's
@@ -188,7 +218,14 @@ Deno.test("done: a failing gate ends on the actionable recap, surviving `2>&1 | 
     await scaffoldEngine(dir);
     await writeConfig(dir, FAILING_CHECK);
     await gitInit(dir);
-    await assertActionableFailureTail(dir, ["done"], "done");
+    const helpCommand = await assertActionableFailureTail(
+      dir,
+      ["done"],
+      "done",
+    );
+    const help = await runPrintedCommand(dir, helpCommand);
+    assertEquals(help.code, 0, help.stderr);
+    assertStringIncludes(help.stdout, "When the gate fails");
   });
 });
 

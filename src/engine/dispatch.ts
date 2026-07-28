@@ -222,7 +222,7 @@ async function requireRoot(verb: string, json: boolean): Promise<string> {
 /** Map a thrown worktree error to an exit code, logging its message. */
 function handleWorktreeError(e: unknown, log: Logger): number {
   if (e instanceof WorktreeGitError || e instanceof IdentityError) {
-    log.error(e.message);
+    log.error(`discern: ${e.message}`);
     return 1;
   }
   throw e;
