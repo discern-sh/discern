@@ -346,11 +346,14 @@ function matchingContractReferenceRole(
 function transparentRoleAggregateAlternatives(
   definition: JsonValue | undefined,
 ): readonly JsonValue[] | undefined {
+  // A discriminator is transparent for aggregate detection: it only routes
+  // among the same oneOf alternatives, adding no constraint of its own (its
+  // mapping is held to the alternatives' own additive rules separately).
   if (
     !isObject(definition) ||
     !Array.isArray(definition.oneOf) ||
     !Object.keys(definition).every((key) =>
-      key === "oneOf" || ANNOTATION_KEYS.has(key)
+      key === "oneOf" || key === "discriminator" || ANNOTATION_KEYS.has(key)
     )
   ) {
     return undefined;
@@ -918,6 +921,87 @@ function compareContracts(
   }
 }
 
+/**
+ * A discriminator routes among its sibling oneOf's alternatives, so its
+ * `mapping` earns the same additive allowance those alternatives have: under
+ * the result policy a NEW key is legal when it routes to a schema the
+ * registered contract additions sanction for this aggregate's role.
+ * Everything else — `propertyName`, existing mappings, removals — stays as
+ * strict as the plain map compare this replaces.
+ */
+function compareDiscriminator(
+  previous: JsonValue | undefined,
+  current: JsonValue | undefined,
+  parentPath: string,
+  path: string,
+  context: ComparisonContext,
+  issues: string[],
+): void {
+  if (!isObject(previous) || !isObject(current)) {
+    if (!sameJson(previous, current)) {
+      issues.push(
+        `${path}: changed from ${json(previous)} to ${json(current)}`,
+      );
+    }
+    return;
+  }
+  const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
+  for (const key of keys) {
+    if (key === "mapping") {
+      continue;
+    }
+    if (!sameJson(previous[key], current[key])) {
+      issues.push(
+        `${pathKey(path, key)}: changed from ${json(previous[key])} to ${
+          json(current[key])
+        }`,
+      );
+    }
+  }
+  const previousMapping = previous.mapping;
+  const currentMapping = current.mapping;
+  if (previousMapping === undefined && currentMapping === undefined) {
+    return;
+  }
+  const mappingPath = pathKey(path, "mapping");
+  if (!isObject(previousMapping) || !isObject(currentMapping)) {
+    if (!sameJson(previousMapping, currentMapping)) {
+      issues.push(
+        `${mappingPath}: changed from ${json(previousMapping)} to ${
+          json(currentMapping)
+        }`,
+      );
+    }
+    return;
+  }
+  const role = context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
+    ? context.contractAggregateRoles.get(pathKey(parentPath, "oneOf"))
+    : undefined;
+  const mappingKeys = new Set([
+    ...Object.keys(previousMapping),
+    ...Object.keys(currentMapping),
+  ]);
+  for (const key of mappingKeys) {
+    const before = previousMapping[key];
+    const after = currentMapping[key];
+    if (sameJson(before, after)) {
+      continue;
+    }
+    const sanctionedAddition = before === undefined &&
+      role !== undefined &&
+      typeof after === "string" &&
+      context.newContractRefs[role].has(after);
+    if (sanctionedAddition) {
+      continue;
+    }
+    issues.push(
+      `${pathKey(mappingPath, key)}: changed from ${json(before)} to ${
+        json(after)
+      }`,
+    );
+  }
+}
+
 function compareAdditionalProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -1026,7 +1110,7 @@ function compareNode(
         compareAdditionalProperties(before, after, childPath, context, issues);
         break;
       case "discriminator":
-        compareMap(before, after, childPath, context, issues);
+        compareDiscriminator(before, after, path, childPath, context, issues);
         break;
       case "x-discern-error-slugs": {
         const localIssues: string[] = [];
