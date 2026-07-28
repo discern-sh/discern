@@ -195,6 +195,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0198 — Worktree port export is opt-in](0198-worktree-port-export-is-opt-in.md)
 - [0200 — The ADR index is a refresh-maintained artifact, opted into by markers](0200-refresh-maintained-adr-index.md)
 - [0199 — The gate ships the map-integrity preflight, scoped to domain-neutral rules](0199-the-gate-ships-the-map-integrity-preflight.md)
+- [0201 — Artifact validators ship or record their exemption](0201-artifact-validators-ship-or-record-their-exemption.md)
 
 <!-- END GENERATED: current ADR records -->
 
