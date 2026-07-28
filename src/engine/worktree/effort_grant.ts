@@ -94,6 +94,7 @@ export async function grantEffort(
   const grant: EffortGrant = { branch, granted_at: grantedAt };
   await Deno.mkdir(dirname(path), { recursive: true });
   const temp = `${path}.tmp-${crypto.randomUUID()}`;
+  let cleanupError: unknown;
   try {
     await Deno.writeTextFile(temp, `${JSON.stringify(grant)}\n`, {
       createNew: true,
@@ -104,9 +105,12 @@ export async function grantEffort(
       await Deno.remove(temp);
     } catch (error) {
       if (!(error instanceof Deno.errors.NotFound)) {
-        throw error;
+        cleanupError = error;
       }
     }
+  }
+  if (cleanupError !== undefined) {
+    throw cleanupError;
   }
   return { status: "granted", grant };
 }
