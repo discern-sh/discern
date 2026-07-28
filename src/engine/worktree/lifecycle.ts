@@ -121,7 +121,6 @@ import {
   assertOpSide,
   branchIsMerged,
   ensureWorktreeBranch,
-  fastForwardCheckedOutBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
   inheritMainEnvVars,
@@ -177,12 +176,12 @@ import {
   prospectiveLandingAuthorityProjection,
   uncoveredLandingAuthorityDetails,
 } from "./landing_authority.ts";
+import { clearEffortGrant } from "./effort_grant_cleanup.ts";
 import {
-  claimEffortGrant,
-  clearEffortGrant,
-  type EffortGrantClaim,
-  settleEffortGrantClaim,
-} from "./effort_grant_cleanup.ts";
+  performAcceptanceTransition,
+  recoverInterruptedAcceptance,
+  withAcceptanceTransactionLock,
+} from "./acceptance_transaction.ts";
 
 /**
  * Worktree lifecycle verbs that require discern's project root to be the Git
@@ -1779,34 +1778,29 @@ async function executeAcceptPlan(
     );
   }
 
-  let effortClaim: EffortGrantClaim | undefined;
-  if (consent.source === "effort-grant") {
-    const claimed = await claimEffortGrant(ctx.cwd, worktreeBranch);
-    if (claimed.status !== "claimed") {
-      const detail = claimed.status === "invalid" ||
-          claimed.status === "unavailable"
-        ? `: ${claimed.reason}`
-        : "";
-      throw new WorktreeGitError(
-        `Landing authority changed at the fast-forward boundary: the effort ` +
-          `grant could not be claimed${detail}. Nothing was landed and the ` +
-          `worktree is intact. Re-authorize it from the desk, then re-run ` +
-          `\`discern accept\`.`,
-      );
-    }
-    effortClaim = claimed.claim;
-  }
-
   ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
-  const ff = await fastForwardCheckedOutBranch(
+  const transition = await performAcceptanceTransition(ctx.cwd, {
     mainRepo,
     trunk,
+    worktreeBranch,
     expectedTrunk,
-    validatedSha,
-  );
-  const effortSettlement = effortClaim === undefined
-    ? undefined
-    : await settleEffortGrantClaim(ctx.cwd, effortClaim, ff);
+    target: validatedSha,
+    effortClaim: consent.source === "effort-grant",
+  });
+  if (transition.kind === "authority-changed") {
+    const detail = transition.claim.status === "invalid" ||
+        transition.claim.status === "unavailable"
+      ? `: ${transition.claim.reason}`
+      : "";
+    throw new WorktreeGitError(
+      `Landing authority changed at the fast-forward boundary: the effort ` +
+        `grant could not be claimed${detail}. Nothing was landed and the ` +
+        `worktree is intact. Re-authorize it from the desk, then re-run ` +
+        `\`discern accept\`.`,
+    );
+  }
+  const ff = transition.outcome;
+  const effortSettlement = transition.effortSettlement;
   const effortSettlementWarning = effortSettlement?.settled === false
     ? effortSettlement.disposition === "consume"
       ? "Discern could not remove the spent effort-grant claim. It cannot authorize another landing; worktree cleanup will reap it."
@@ -2103,7 +2097,32 @@ export async function acceptResult(
 ): Promise<DiscernResult<AcceptData>> {
   const dryRun = opts.dryRun ?? false;
   const confirmed = opts.confirmed ?? false;
+  if (!dryRun) {
+    return await withAcceptanceTransactionLock(
+      ctx.cwd,
+      () => executeAcceptResult(ctx, false, confirmed),
+    );
+  }
+  return await executeAcceptResult(ctx, true, confirmed);
+}
+
+/**
+ * Build or apply acceptance after the apply path has acquired its worktree lock.
+ * Dry-runs enter directly because they neither recover nor mutate transaction
+ * state.
+ */
+async function executeAcceptResult(
+  ctx: LifecycleContext,
+  dryRun: boolean,
+  confirmed: boolean,
+): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
+  if (!dryRun) {
+    await recoverInterruptedAcceptance(
+      ctx.cwd,
+      ctx.config.repository.trunk,
+    );
+  }
   // Resolve authority before the ordinary preconditions so an uncovered
   // flagless call still receives the consent refusal as its outermost contract.
   // Every read is mutation-free. A dry-run reports authority but needs none.

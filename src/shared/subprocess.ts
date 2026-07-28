@@ -201,7 +201,12 @@ function gitInvocation(args: readonly string[]): GitInvocation | undefined {
  */
 export async function runGit(
   args: string[],
-  opts: { cwd: string; env?: Record<string, string> },
+  opts: {
+    cwd: string;
+    env?: Record<string, string>;
+    /** Bytes supplied to commands whose protocol is defined on stdin. */
+    stdin?: string;
+  },
 ): Promise<GitResult> {
   const invocation = gitInvocation(args);
   if (invocation?.subcommand === "commit") {
@@ -234,13 +239,40 @@ export async function runGit(
   ];
   let output: Deno.CommandOutput;
   try {
-    output = await new Deno.Command(gitBin(), {
+    const command = new Deno.Command(gitBin(), {
       args: safeArgs,
       cwd: opts.cwd,
       ...(opts.env !== undefined ? { env: opts.env } : {}),
+      stdin: opts.stdin === undefined ? "null" : "piped",
       stdout: "piped",
       stderr: "piped",
-    }).output();
+    });
+    if (opts.stdin === undefined) {
+      output = await command.output();
+    } else {
+      const child = command.spawn();
+      const outputPromise = child.output();
+      const writer = child.stdin.getWriter();
+      let inputError: unknown;
+      try {
+        await writer.write(new TextEncoder().encode(opts.stdin));
+        await writer.close();
+      } catch (error) {
+        inputError = error;
+        try {
+          await writer.abort(error);
+        } catch {
+          // The child may already have closed its input after reporting its own
+          // more specific failure. Preserve that process result below.
+        }
+      } finally {
+        writer.releaseLock();
+      }
+      output = await outputPromise;
+      if (inputError !== undefined && output.success) {
+        throw inputError;
+      }
+    }
   } catch (error) {
     return {
       success: false,

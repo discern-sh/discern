@@ -27,6 +27,65 @@ export type EffortGrantClaimRead =
   | { readonly status: "claimed"; readonly claim: EffortGrantClaim }
   | Exclude<EffortGrantRead, { readonly status: "granted" }>;
 
+const CLAIM_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function effortGrantClaimPath(
+  cwd: string,
+  claimId: string,
+): Promise<string | undefined> {
+  if (!CLAIM_ID.test(claimId)) {
+    return undefined;
+  }
+  const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
+  return claimsDir === undefined ? undefined : join(claimsDir, claimId);
+}
+
+function parseClaim(
+  path: string,
+  raw: string,
+  branch: string,
+): EffortGrantClaimRead {
+  const parsed = parseEffortGrant(raw);
+  if (parsed.status !== "granted") {
+    return parsed;
+  }
+  if (parsed.grant.branch !== branch) {
+    return {
+      status: "invalid",
+      reason:
+        `the effort grant belongs to ${parsed.grant.branch}, not ${branch}`,
+    };
+  }
+  return {
+    status: "claimed",
+    claim: { path, grant: parsed.grant, raw },
+  };
+}
+
+/** Read the deterministic claim owned by one acceptance transaction. */
+export async function readEffortGrantClaim(
+  cwd: string,
+  branch: string,
+  claimId: string,
+): Promise<EffortGrantClaimRead> {
+  const path = await effortGrantClaimPath(cwd, claimId);
+  if (path === undefined) {
+    return {
+      status: "unavailable",
+      reason: "Git could not resolve the effort-grant claim path",
+    };
+  }
+  try {
+    return parseClaim(path, await Deno.readTextFile(path), branch);
+  } catch (error) {
+    return error instanceof Deno.errors.NotFound ? { status: "missing" } : {
+      status: "unavailable",
+      reason: effortGrantFailureReason(error),
+    };
+  }
+}
+
 /** Revoke this worktree's grant. Repeating the revoke is a no-op. */
 export async function clearEffortGrant(cwd: string): Promise<boolean> {
   const path = await gitAdminStatePath(cwd, "effortGrant");
@@ -56,10 +115,14 @@ export async function clearEffortGrant(cwd: string): Promise<boolean> {
 export async function claimEffortGrant(
   cwd: string,
   branch: string,
+  claimId: string = crypto.randomUUID(),
 ): Promise<EffortGrantClaimRead> {
   const marker = await gitAdminStatePath(cwd, "effortGrant");
   const claimsDir = await gitAdminStatePath(cwd, "effortGrantClaims");
-  if (marker === undefined || claimsDir === undefined) {
+  const claimPath = await effortGrantClaimPath(cwd, claimId);
+  if (
+    marker === undefined || claimsDir === undefined || claimPath === undefined
+  ) {
     return {
       status: "unavailable",
       reason: "Git could not resolve the effort-grant claim paths",
@@ -73,7 +136,20 @@ export async function claimEffortGrant(
       reason: effortGrantFailureReason(error),
     };
   }
-  const claimPath = join(claimsDir, crypto.randomUUID());
+  try {
+    await Deno.stat(claimPath);
+    return {
+      status: "unavailable",
+      reason: "the acceptance transaction's effort claim already exists",
+    };
+  } catch (error) {
+    if (!(error instanceof Deno.errors.NotFound)) {
+      return {
+        status: "unavailable",
+        reason: effortGrantFailureReason(error),
+      };
+    }
+  }
   try {
     await Deno.rename(marker, claimPath);
   } catch (error) {
@@ -95,8 +171,8 @@ export async function claimEffortGrant(
       reason: effortGrantFailureReason(error),
     };
   }
-  const parsed = parseEffortGrant(raw);
-  if (parsed.status !== "granted") {
+  const parsed = parseClaim(claimPath, raw, branch);
+  if (parsed.status !== "claimed") {
     await restoreEffortGrantClaim(cwd, {
       path: claimPath,
       grant: { branch: "", granted_at: "" },
@@ -104,22 +180,7 @@ export async function claimEffortGrant(
     });
     return parsed;
   }
-  if (parsed.grant.branch !== branch) {
-    await restoreEffortGrantClaim(cwd, {
-      path: claimPath,
-      grant: parsed.grant,
-      raw,
-    });
-    return {
-      status: "invalid",
-      reason:
-        `the effort grant belongs to ${parsed.grant.branch}, not ${branch}`,
-    };
-  }
-  return {
-    status: "claimed",
-    claim: { path: claimPath, grant: parsed.grant, raw },
-  };
+  return parsed;
 }
 
 /**
@@ -160,6 +221,22 @@ export async function consumeEffortGrantClaim(
   }
 }
 
+/** Consume a transaction-owned claim even when its payload cannot be parsed. */
+export async function consumeEffortGrantClaimById(
+  cwd: string,
+  claimId: string,
+): Promise<boolean> {
+  const path = await effortGrantClaimPath(cwd, claimId);
+  if (path === undefined) {
+    return false;
+  }
+  return await consumeEffortGrantClaim({
+    path,
+    grant: { branch: "", granted_at: "" },
+    raw: "",
+  });
+}
+
 /** How an effort claim must settle after the exact trunk transition attempt. */
 export interface EffortGrantClaimSettlement {
   readonly disposition: "restore" | "consume";
@@ -169,7 +246,7 @@ export interface EffortGrantClaimSettlement {
 /**
  * Settle one claimed effort grant from the ref outcome, without throwing.
  *
- * Authority is restored only when the old trunk ref is known to remain in
+ * Authority is restored only when the expected trunk ref is known to remain in
  * place. Once the trunk remains advanced, even with a failed checkout
  * convergence, the grant is spent and can only be consumed.
  */

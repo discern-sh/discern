@@ -43,9 +43,17 @@ export const RESTRICTED_WRITER_MODULES = [
     module: "src/engine/worktree/effort_grant_cleanup.ts",
     allowedImporters: [
       "src/engine/desk/desk.ts",
+      "src/engine/worktree/acceptance_transaction.ts",
       "src/engine/worktree/lifecycle.ts",
     ],
     authority:
-      "the desk may revoke and successful lifecycle cleanup may consume a grant",
+      "the desk may revoke, acceptance may claim or settle, and lifecycle cleanup may clear a grant",
+  },
+  {
+    id: "acceptance-transaction",
+    module: "src/engine/worktree/acceptance_transaction.ts",
+    allowedImporters: ["src/engine/worktree/lifecycle.ts"],
+    authority:
+      "only acceptance lifecycle orchestration may start or recover a landing transaction",
   },
 ] as const satisfies readonly RestrictedWriterModule[];

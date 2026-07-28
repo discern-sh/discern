@@ -76,21 +76,26 @@ Materialized skills and provider-local state are ignored. The managed `.gitignor
 
 ## Runtime state inside `.git`
 
-File ownership governs the project tree. discern's runtime records live beneath `discern/` in Git's administrative area, so they never enter a commit or need an ignore rule. Do not edit them. discern may replace or remove them as the worktree and repository change.
+Runtime records live under `discern/` in Git's administrative area. They are neither committed nor ignored; do not edit them.
 
-| Registered path                                | Lifetime   | What it is                                                                                                     |
-| ---------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `discern/resources/`                           | repository | The per-worktree resource ledger orphan GC reads.                                                              |
-| `discern/logbook/`                             | repository | The [logbook](../00-orientation/trust-and-data.md): one metadata-only line per verb run, plus its epoch state. |
-| `discern/gate-receipt`                         | worktree   | The last clean `done` outcome that can fast-path acceptance.                                                   |
-| `discern/standard-measurements`                | worktree   | Measurements a clean check can reuse on the same commit.                                                       |
-| `discern/ignored-baseline`                     | worktree   | The ignored-file snapshot used before removing a worktree.                                                     |
-| `discern/setup-machinery-commit-evidence.json` | worktree   | The staged blob record that can authorize an unchanged setup machinery retry.                                  |
-| `discern/worktree-ready`                       | worktree   | Proof that the worktree completed its one-time setup.                                                          |
+| Registered path                                | Lifetime   | Purpose                                                |
+| ---------------------------------------------- | ---------- | ------------------------------------------------------ |
+| `discern/resources/`                           | repository | Resource ledger.                                       |
+| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events. |
+| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                  |
+| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                     |
+| `discern/standard-measurements`                | worktree   | Reusable measurements.                                 |
+| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                 |
+| `discern/effort-grant`                         | worktree   | Desk landing grant.                                    |
+| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                             |
+| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                           |
+| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                       |
+| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                  |
+| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                |
 
-Repository-lifetime paths resolve beneath the common Git directory, so every linked worktree shares them. Worktree-lifetime paths use Git's own per-worktree admin directory: they appear under `.git/discern/` in the main checkout and `.git/worktrees/<key>/discern/` for linked worktrees, then disappear when Git removes that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)).
+Repository records use the common Git directory. Worktree records use its per-worktree directory and disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Registry guards enforce each path's namespace, lifetime, and reset behavior.
 
-The Git-admin registry enrolls each new path in its namespace, lifetime, and reset-preservation guards.
+Acceptance also creates `refs/worktree/discern/acceptance-transactions/<id>`. Its advisory lock covers the apply; the marker ref moves atomically with the trunk and reverses with rollback. Git reaps both with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
 
 ## Removing it all
 
