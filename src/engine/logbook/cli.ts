@@ -27,8 +27,7 @@ import {
   takeVerbTarget,
 } from "../../shared/result_capture.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
-import { beginRecording } from "./record.ts";
-import { type AgentSignal, detectAgentSignals } from "./agent_signals.ts";
+import type { AgentSignal } from "./agent_signals.ts";
 
 const recordedVerbs = new Set<string>();
 
@@ -59,6 +58,9 @@ async function cliDriverFacts(scanArgs: boolean): Promise<DriverFacts> {
   }
   let agentSignals: AgentSignal[] | undefined;
   try {
+    // Loaded when a verb actually dispatches — this module sits on every CLI
+    // action's registration path, so its static graph must stay routing-thin.
+    const { detectAgentSignals } = await import("./agent_signals.ts");
     agentSignals = await detectAgentSignals();
   } catch {
     // Driver enrichment is best-effort and must never affect the verb.
@@ -130,6 +132,10 @@ export async function recordedRun(
   // A CLI process normally serves one verb, but the accumulator is process
   // local: clear any stale test/embedded-call state before this invocation.
   takeSupplementalHintIds();
+  // The recorder reaches the git/config machinery; load it only when a verb
+  // actually runs, keeping this wrapper's static graph routing-thin (a bare
+  // `--help` builds the whole CLI tree through recordedExit without it).
+  const { beginRecording } = await import("./record.ts");
   const recording = beginRecording(Deno.cwd());
   // Everything after a `script` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so

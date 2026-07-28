@@ -37,71 +37,35 @@ import {
   resolveScriptsDir,
   resolveWorktreeRoot,
 } from "../lib/paths.ts";
-import {
-  ejectSkill,
-  listSkills,
-  materializeSkills,
-  skillsListResult,
-} from "../lib/skills.ts";
 import type {
   ConfigData,
   IdentityData,
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
-import { skillsDirsForAgents } from "../lib/providers.ts";
-import { TomlEditor } from "../lib/toml_edit.ts";
-import { writeDiscernToml } from "../lib/tidy_format.ts";
 import { Logger } from "../lib/log.ts";
-import { runFinish } from "./gate/finish.ts";
-import { runImprovement } from "./improve/improve.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
-import { runMcpServer } from "./mcp/server.ts";
-import { runPrepare } from "./gate/prepare.ts";
-import { runTestJob } from "./gate/test.ts";
-import { runStandards } from "./gate/standards.ts";
-import { runImpact } from "./scopes/scopes.ts";
-import { runCoupling } from "./coupling/coupling.ts";
-import { runPatterns, runPatternsReset } from "./logbook/patterns.ts";
-import { runStatus } from "./status/status.ts";
-import { runDesk } from "./desk/desk.ts";
-import { refreshResult } from "./guidelines.ts";
-import { guidanceAgents } from "./guidance_render.ts";
-import {
-  accept,
-  IdentityError,
-  identityField,
-  identityResourceHandle,
-  identityResources,
-  type LifecycleContext,
-  lifecycleContext,
-  start,
-  update,
-  worktreeDrop,
-  worktreeEnsure,
-  worktreeErrorResult,
-  WorktreeGitError,
-  worktreePrune,
-  worktreeSetup,
-  worktreeTeardown,
-} from "./worktree/lifecycle.ts";
-import { inheritMainEnvVars, removeWorktreeSafely } from "./worktree/git.ts";
-import { WORKTREE_FIELDS } from "./worktree/identity.ts";
-import {
-  worktreeCreateHook,
-  worktreeRemoveHook,
-} from "../lib/worktree_hooks.ts";
-import { gotchasHint } from "./gate/gotchas.ts";
+import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
 import { commandSynonymSuggestion } from "../shared/vocabulary.ts";
 import type { DiscernResult } from "../shared/result.ts";
-import { discoverProjectScripts, runProjectScript } from "./project_scripts.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { recordedExit } from "./logbook/cli.ts";
 import { runCommandGroup } from "../shared/command_group.ts";
 
-export { runProjectScript } from "./project_scripts.ts";
 export { reportUnknownCommand } from "./unknown_command.ts";
+
+// Verb BODIES load at dispatch time (`await import(…)` inside each action),
+// never at registration: every invocation — `--help` included — builds the
+// whole Cliffy tree through this module, so a static verb-body import would
+// tax every spawn with that verb's entire subtree. The pattern is load-bearing
+// for CLI startup; a new verb's action must lazy-import its implementation the
+// same way. Type-only imports stay static (they are erased at runtime).
+
+/** The worktree lifecycle module, loaded at verb-run time by
+ * {@link runWorktreeOp} and handed to each operation callback so the callback
+ * names its operation without re-importing. */
+type LifecycleModule = typeof import("./worktree/lifecycle.ts");
 
 /** The top-level engine verbs Cliffy owns.
  * Every verb is attached unconditionally — the subsystems are all core (ADR 0101). */
@@ -227,9 +191,15 @@ async function requireRoot(verb: string, json: boolean): Promise<string> {
   return root;
 }
 
-/** Map a thrown worktree error to an exit code, logging its message. */
-function handleWorktreeError(e: unknown, log: Logger): number {
-  if (e instanceof WorktreeGitError || e instanceof IdentityError) {
+/** Map a thrown worktree error to an exit code, logging its message. `lc` is
+ * the already-loaded lifecycle module — the caller holds it, so the error
+ * classes compared by `instanceof` are the same objects the operation threw. */
+function handleWorktreeError(
+  e: unknown,
+  log: Logger,
+  lc: Pick<LifecycleModule, "WorktreeGitError" | "IdentityError">,
+): number {
+  if (e instanceof lc.WorktreeGitError || e instanceof lc.IdentityError) {
     log.error(`discern: ${e.message}`);
     return 1;
   }
@@ -244,28 +214,29 @@ function handleWorktreeError(e: unknown, log: Logger): number {
  * human line — a precondition slug in `error`, the human sentence in `message`.
  */
 async function runWorktreeOp(
-  op: (ctx: LifecycleContext) => Promise<void>,
+  op: (ctx: LifecycleContext, lc: LifecycleModule) => Promise<void>,
   opts: { json?: boolean; verb?: string } = {},
 ): Promise<number> {
   const json = opts.json ?? false;
   const root = await requireRoot(opts.verb ?? "worktree", json);
+  const lc = await import("./worktree/lifecycle.ts");
   const log = new Logger({
     json,
     noColor: false,
     humanStream: json ? "stderr" : "stdout",
   });
   try {
-    await op(await lifecycleContext(root, log));
+    await op(await lc.lifecycleContext(root, log), lc);
     return 0;
   } catch (e) {
     if (json) {
-      const mapped = worktreeErrorResult(opts.verb ?? "worktree", e);
+      const mapped = lc.worktreeErrorResult(opts.verb ?? "worktree", e);
       if (mapped !== undefined) {
         emitResult(mapped);
         return 1;
       }
     }
-    return handleWorktreeError(e, log);
+    return handleWorktreeError(e, log, lc);
   }
 }
 
@@ -316,12 +287,14 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "done",
-        async (o) =>
-          await runFinish(await requireRoot("done", o.json ?? false), {
+        async (o) => {
+          const { runFinish } = await import("./gate/finish.ts");
+          return await runFinish(await requireRoot("done", o.json ?? false), {
             json: o.json ?? false,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
-          }),
+          });
+        },
       ),
     );
 
@@ -337,10 +310,13 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "prepare",
-        async (o) =>
-          await runPrepare(await requireRoot("prepare", o.json ?? false), {
-            json: o.json ?? false,
-          }),
+        async (o) => {
+          const { runPrepare } = await import("./gate/prepare.ts");
+          return await runPrepare(
+            await requireRoot("prepare", o.json ?? false),
+            { json: o.json ?? false },
+          );
+        },
       ),
     );
 
@@ -356,10 +332,12 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "test",
-        async (o) =>
-          await runTestJob(await requireRoot("test", o.json ?? false), {
+        async (o) => {
+          const { runTestJob } = await import("./gate/test.ts");
+          return await runTestJob(await requireRoot("test", o.json ?? false), {
             json: o.json ?? false,
-          }),
+          });
+        },
       ),
     );
 
@@ -383,15 +361,17 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "improvement",
-        async (o) =>
-          await runImprovement(
+        async (o) => {
+          const { runImprovement } = await import("./improve/improve.ts");
+          return await runImprovement(
             await requireRoot("improvement", o.json ?? false),
             {
               json: o.json ?? false,
               category: o.category,
               minScore: o.minScore,
             },
-          ),
+          );
+        },
       ),
     );
 
@@ -400,10 +380,12 @@ export function attachEngineCommands(
     .description(
       "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",
     )
-    .action(recordedExit("mcp", async () =>
+    .action(recordedExit("mcp", async () => {
       // The server resolves the project root itself and reports a missing one
       // per tool-call, so it need not requireRoot up front.
-      await runMcpServer()));
+      const { runMcpServer } = await import("./mcp/server.ts");
+      return await runMcpServer();
+    }));
 
   root
     .command("script")
@@ -413,8 +395,10 @@ export function attachEngineCommands(
     .arguments("[name:string] [...args:string]")
     .action(recordedExit(
       "script",
-      async (_o, name: string | undefined, ...args: string[]) =>
-        await runProjectScript(name, args),
+      async (_o, name: string | undefined, ...args: string[]) => {
+        const { runProjectScript } = await import("./project_scripts.ts");
+        return await runProjectScript(name, args);
+      },
     ));
 
   root
@@ -442,14 +426,19 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "standards",
-        async (o, ...names: string[]) =>
-          await runStandards(await requireRoot("standards", o.json ?? false), {
-            json: o.json ?? false,
-            dryRun: o.dryRun ?? false,
-            force: o.force ?? false,
-            pin: o.pin ?? false,
-            pinNames: names,
-          }),
+        async (o, ...names: string[]) => {
+          const { runStandards } = await import("./gate/standards.ts");
+          return await runStandards(
+            await requireRoot("standards", o.json ?? false),
+            {
+              json: o.json ?? false,
+              dryRun: o.dryRun ?? false,
+              force: o.force ?? false,
+              pin: o.pin ?? false,
+              pinNames: names,
+            },
+          );
+        },
       ),
     );
 
@@ -467,6 +456,7 @@ export function attachEngineCommands(
     .action(recordedExit("refresh", async (o) => {
       const json = o.json ?? false;
       const root = await requireRoot("refresh", json);
+      const { refreshResult } = await import("./guidelines.ts");
       // --json: narration → stderr, the result envelope → stdout. Human: narrate
       // to stdout via the default logger.
       const log = json
@@ -523,11 +513,13 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "impact",
-        async (o) =>
-          await runImpact(await requireRoot("impact", o.json ?? false), {
+        async (o) => {
+          const { runImpact } = await import("./scopes/scopes.ts");
+          return await runImpact(await requireRoot("impact", o.json ?? false), {
             json: o.json ?? false,
             ...(o.has !== undefined ? { has: o.has } : {}),
-          }),
+          });
+        },
       ),
     );
 
@@ -547,6 +539,7 @@ export function attachEngineCommands(
       const paths = [file, withFile].filter((p): p is string =>
         p !== undefined
       );
+      const { runCoupling } = await import("./coupling/coupling.ts");
       return await runCoupling(await requireRoot("coupling", o.json ?? false), {
         json: o.json ?? false,
         ...(paths.length > 0 ? { paths } : {}),
@@ -566,10 +559,13 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "patterns",
-        async (o) =>
-          await runPatterns(await requireRoot("patterns", o.json ?? false), {
-            json: o.json ?? false,
-          }),
+        async (o) => {
+          const { runPatterns } = await import("./logbook/patterns.ts");
+          return await runPatterns(
+            await requireRoot("patterns", o.json ?? false),
+            { json: o.json ?? false },
+          );
+        },
       ),
     )
     .command(
@@ -587,14 +583,18 @@ export function attachEngineCommands(
         .action(
           recordedExit(
             "patterns reset",
-            async (o) =>
-              await runPatternsReset(
+            async (o) => {
+              const { runPatternsReset } = await import(
+                "./logbook/patterns.ts"
+              );
+              return await runPatternsReset(
                 await requireRoot("patterns", o.json ?? false),
                 {
                   json: o.json ?? false,
                   dryRun: o.dryRun ?? false,
                 },
-              ),
+              );
+            },
           ),
         ),
     );
@@ -626,13 +626,15 @@ export function attachEngineCommands(
       "--json",
       "Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).",
     )
-    .action(recordedExit("status", async (o) =>
-      await runStatus({
+    .action(recordedExit("status", async (o) => {
+      const { runStatus } = await import("./status/status.ts");
+      return await runStatus({
         json: o.json ?? false,
         all: o.all ?? false,
         local: o.local ?? false,
         verbose: o.verbose ?? false,
-      })));
+      });
+    }));
 
   root
     .command("desk")
@@ -647,7 +649,10 @@ export function attachEngineCommands(
     .action(
       recordedExit(
         "desk",
-        async (o) => await runDesk({ json: o.json ?? false }),
+        async (o) => {
+          const { runDesk } = await import("./desk/desk.ts");
+          return await runDesk({ json: o.json ?? false });
+        },
       ),
     );
 
@@ -674,8 +679,8 @@ export function attachEngineCommands(
     .action(recordedExit("start", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
-        (ctx) =>
-          start(ctx, {
+        (ctx, lc) =>
+          lc.start(ctx, {
             json,
             dryRun: o.dryRun ?? false,
             name: o.name ?? "",
@@ -712,8 +717,8 @@ export function attachEngineCommands(
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
-        (ctx) =>
-          accept(ctx, {
+        (ctx, lc) =>
+          lc.accept(ctx, {
             json,
             dryRun: o.dryRun ?? false,
             confirmed: o.confirmed ?? false,
@@ -742,8 +747,8 @@ export function attachEngineCommands(
     .action(recordedExit("update", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
-        (ctx) =>
-          update(ctx, {
+        (ctx, lc) =>
+          lc.update(ctx, {
             json,
             dryRun: o.dryRun ?? false,
             ...(o.from !== undefined ? { from: o.from } : {}),
@@ -784,6 +789,13 @@ export function attachEngineCommands(
       const json = o.json ?? false;
       const root = await requireRoot("identity", json);
       const target = path ?? Deno.cwd();
+      const {
+        identityField,
+        identityResourceHandle,
+        identityResources,
+        IdentityError,
+      } = await import("./worktree/lifecycle.ts");
+      const { WORKTREE_FIELDS } = await import("./worktree/identity.ts");
       const selectedFields = WORKTREE_FIELDS.filter((field) =>
         o[field] === true
       );
@@ -866,7 +878,7 @@ export function attachEngineCommands(
     .action(recordedExit("worktree setup", async (o) => {
       const json = o.json ?? false;
       return await runWorktreeOp(
-        (ctx) => worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
+        (ctx, lc) => lc.worktreeSetup(ctx, { json, dryRun: o.dryRun ?? false }),
         { json, verb: "worktree setup" },
       );
     }));
@@ -894,9 +906,9 @@ export function attachEngineCommands(
           recordedExit(
             "worktree ensure",
             async () =>
-              await runWorktreeOp(async (ctx) => {
+              await runWorktreeOp(async (ctx, lc) => {
                 await remindIfSetupUnfinished(ctx);
-                const ensured = await worktreeEnsure(ctx);
+                const ensured = await lc.worktreeEnsure(ctx);
                 if (ensured.kind === "skipped") {
                   // Main-checkout side: the session hook injects this stdout
                   // as agent context, the only channel that can pre-empt a
@@ -925,7 +937,8 @@ export function attachEngineCommands(
         .action(recordedExit("worktree teardown", async (o) => {
           const json = o.json ?? false;
           return await runWorktreeOp(
-            (ctx) => worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
+            (ctx, lc) =>
+              lc.worktreeTeardown(ctx, { json, dryRun: o.dryRun ?? false }),
             { json, verb: "worktree teardown" },
           );
         })),
@@ -951,8 +964,8 @@ export function attachEngineCommands(
         .action(recordedExit("worktree drop", async (o, target) => {
           const json = o.json ?? false;
           return await runWorktreeOp(
-            (ctx) =>
-              worktreeDrop(ctx, target, {
+            (ctx, lc) =>
+              lc.worktreeDrop(ctx, target, {
                 json,
                 dryRun: o.dryRun ?? false,
                 force: o.force ?? false,
@@ -979,8 +992,8 @@ export function attachEngineCommands(
         .action(recordedExit("worktree prune", async (o) => {
           const json = o.json ?? false;
           return await runWorktreeOp(
-            (ctx) =>
-              worktreePrune(ctx, {
+            (ctx, lc) =>
+              lc.worktreePrune(ctx, {
                 assumeYes: o.yes ?? false,
                 dryRun: o.dryRun ?? false,
                 json,
@@ -999,14 +1012,24 @@ export function attachEngineCommands(
   const worktreeCreate = worktree.command(
     "create",
     new Command().action(
-      recordedExit("worktree create", async () => await worktreeCreateHook()),
+      recordedExit("worktree create", async () => {
+        const { worktreeCreateHook } = await import(
+          "../lib/worktree_hooks.ts"
+        );
+        return await worktreeCreateHook();
+      }),
     ),
   );
   worktreeCreate.hidden();
   const worktreeRemove = worktree.command(
     "remove",
     new Command().action(
-      recordedExit("worktree remove", async () => await worktreeRemoveHook()),
+      recordedExit("worktree remove", async () => {
+        const { worktreeRemoveHook } = await import(
+          "../lib/worktree_hooks.ts"
+        );
+        return await worktreeRemoveHook();
+      }),
     ),
   );
   worktreeRemove.hidden();
@@ -1072,6 +1095,7 @@ function attachSkillsCommand(root: Command): void {
 async function runSkillsList(opts: { json: boolean }): Promise<number> {
   const root = await requireRoot("skills list", opts.json);
   const cfg = await loadConfig(root);
+  const { listSkills, skillsListResult } = await import("../lib/skills.ts");
   if (opts.json) {
     emitResult(await skillsListResult(root, cfg));
     return 0;
@@ -1101,6 +1125,11 @@ async function skillsEjectResult(
   name: string,
 ): Promise<DiscernResult<SkillsEjectData>> {
   const cfg = await loadConfig(root);
+  const { ejectSkill, materializeSkills } = await import("../lib/skills.ts");
+  const { skillsDirsForAgents } = await import("../lib/providers.ts");
+  const { guidanceAgents } = await import("./guidance_render.ts");
+  const { TomlEditor } = await import("../lib/toml_edit.ts");
+  const { writeDiscernToml } = await import("../lib/tidy_format.ts");
   try {
     const result = await ejectSkill(root, cfg, name);
     // Persist [skills].dir when it wasn't explicitly set, so the override is
@@ -1233,6 +1262,7 @@ function matchCandidate(typo: string, name: string): boolean {
 
 /** Names of the executable project scripts in one configured directory. */
 async function projectScriptNames(scriptsAbs: string): Promise<string[]> {
+  const { discoverProjectScripts } = await import("./project_scripts.ts");
   return (await discoverProjectScripts(scriptsAbs)).map((script) =>
     script.name
   );
@@ -1319,11 +1349,13 @@ async function helperRemoveWorktree(args: string[]): Promise<number> {
     return 1;
   }
   const log = makeLogger();
+  const lc = await import("./worktree/lifecycle.ts");
   try {
+    const { removeWorktreeSafely } = await import("./worktree/git.ts");
     await removeWorktreeSafely(target, Deno.cwd());
     return 0;
   } catch (e) {
-    return handleWorktreeError(e, log);
+    return handleWorktreeError(e, log, lc);
   }
 }
 
@@ -1336,7 +1368,9 @@ async function helperInheritEnv(): Promise<number> {
   }
   const log = makeLogger();
   const cfg = await loadConfig(root);
+  const lc = await import("./worktree/lifecycle.ts");
   try {
+    const { inheritMainEnvVars } = await import("./worktree/git.ts");
     await inheritMainEnvVars({
       worktreeRoot: root,
       vars: cfg.worktree.inherit_env,
@@ -1345,7 +1379,7 @@ async function helperInheritEnv(): Promise<number> {
     });
     return 0;
   } catch (e) {
-    return handleWorktreeError(e, log);
+    return handleWorktreeError(e, log, lc);
   }
 }
 
@@ -1364,6 +1398,7 @@ async function helperWithGotchas(args: string[]): Promise<number> {
   if (code !== 0) {
     const root = await findRoot();
     if (root !== undefined) {
+      const { gotchasHint } = await import("./gate/gotchas.ts");
       gotchasHint(await loadConfig(root), root, colorEnabled());
     }
   }
