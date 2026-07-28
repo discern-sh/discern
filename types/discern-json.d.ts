@@ -2559,6 +2559,10 @@ export type DiscernImpactResult = {
   verb: "impact";
   data?: {
     scopes: Array<string>;
+    membership?: {
+      scope: string;
+      present: boolean;
+    };
   } | {
     issues: Array<{
       path: string;

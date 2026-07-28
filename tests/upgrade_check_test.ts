@@ -83,6 +83,11 @@ Deno.test("upgrade --check flags a stale schema and lists the pending steps", as
       res.data.pending_migrations.map((m: { from: number }) => m.from),
       MIGRATIONS.map((migration) => migration.from),
     );
+    const recovery = assertHasHint(
+      res,
+      HINTS["upgrade-check-pending"],
+    );
+    assertStringIncludes(recovery, "`discern upgrade`");
   });
 });
 

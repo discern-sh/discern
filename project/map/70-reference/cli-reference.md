@@ -456,7 +456,7 @@ Usage: `discern config array <key> [options]`
 
 #### `discern config has`
 
-Exit 0 if a key or section exists, 1 otherwise (silent).
+Test whether a key or section exists. Bare: print nothing and exit 0/1. JSON: report `data.present` and exit 0.
 
 Usage: `discern config has <key> [options]`
 
@@ -566,10 +566,10 @@ Show which configured scopes the branch and working tree wake in the quality gat
 
 Usage: `discern impact [options]`
 
-| Option          | Description                                                               |
-| --------------- | ------------------------------------------------------------------------- |
-| `--json`        | Emit a JSON DiscernResult (data.scopes lists the changed scopes/markers). |
-| `--has <scope>` | Exit 0/1 membership test for one scope (silent).                          |
+| Option          | Description                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------- |
+| `--json`        | Emit a JSON DiscernResult: changes in `data.scopes`; `--has` in `data.membership`.           |
+| `--has <scope>` | Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0. |
 
 ### `discern coupling`
 

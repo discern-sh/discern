@@ -53,12 +53,7 @@ import type {
   DoctorEnvironment,
   VerbPlan,
 } from "../shared/result_schemas.ts";
-import {
-  failureRecoveryHint,
-  fire,
-  HINTS,
-  hintTexts,
-} from "../shared/hints.ts";
+import { fire, HINTS, hintTexts } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import { inDeskSession } from "../engine/desk/session.ts";
 
@@ -903,7 +898,7 @@ export async function doctorResult(
   const ok = checks.every((c) => c.status !== "fail");
   const hints = [
     ...(midSetup(cfg) ? [fire(HINTS["setup-unfinished-doctor"])] : []),
-    ...(!ok ? [failureRecoveryHint("doctor")] : []),
+    ...(!ok ? [fire(HINTS["doctor-failed-checks"])] : []),
   ];
   return {
     ok,

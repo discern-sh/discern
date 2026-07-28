@@ -8,7 +8,10 @@ import {
 } from "../src/shared/result_codegen.ts";
 import {
   CLI_JSON_CONTRACT_EXCLUSIONS,
+  CLI_JSON_PREDICATE_CONTRACTS,
   CLI_JSON_RESULT_CONTRACTS,
+  CLI_PREDICATE_INVOCATION_MODES,
+  CLI_PREDICATE_STATES,
   cliJsonContractCoverage,
   MCP_RESULT_CONTRACTS,
   normalizeCliCommandPath,
@@ -180,6 +183,47 @@ Deno.test("every registered CLI command is classified as JSON-contracted or inte
     },
     "each canonical CLI command path should have exactly one public --json result contract or one explicit protocol exclusion",
   );
+});
+
+Deno.test("predicate invocation contracts publish their subject and boolean payload paths", () => {
+  const owners = new Map<string, string>();
+  const ids = new Set<string>();
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    for (const command of contract.commands) {
+      owners.set(command, contract.verb);
+    }
+  }
+  for (const predicate of CLI_JSON_PREDICATE_CONTRACTS) {
+    assert(
+      !ids.has(predicate.id),
+      `duplicate predicate contract id: ${predicate.id}`,
+    );
+    ids.add(predicate.id);
+    assertEquals(
+      owners.get(predicate.command),
+      predicate.verb,
+      `${predicate.id} must belong to a command path owned by its envelope verb`,
+    );
+    assert(
+      predicate.subjectPath.length > 0 &&
+        predicate.subjectPath.every((segment) => segment.length > 0),
+      `${predicate.id} needs a non-empty subject payload path`,
+    );
+    assert(
+      predicate.presentPath.length > 0 &&
+        predicate.presentPath.every((segment) => segment.length > 0),
+      `${predicate.id} needs a non-empty boolean payload path`,
+    );
+    if (predicate.option !== undefined) {
+      assert(
+        predicate.option.startsWith("--"),
+        `${predicate.id} option must use its long CLI spelling`,
+      );
+    }
+  }
+  assert(CLI_JSON_PREDICATE_CONTRACTS.length > 0);
+  assert(CLI_PREDICATE_INVOCATION_MODES.length > 0);
+  assertEquals(CLI_PREDICATE_STATES, ["true", "false"]);
 });
 
 Deno.test("CLI JSON exclusions are only the non-result protocols, each with a reason", () => {

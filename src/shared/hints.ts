@@ -2448,6 +2448,17 @@ export const HINTS = {
       ),
   }),
 
+  /** A failed install check already carries its specific fix in the report. */
+  "doctor-failed-checks": defineHint({
+    id: "doctor-failed-checks",
+    category: "next-step",
+    audience: "all",
+    when: "`doctor` reports one or more failed install checks.",
+    example: undefined,
+    template: (): string =>
+      "Apply the fix listed under each failed check, then run `discern doctor` again.",
+  }),
+
   /** Upgrade never checks the network, so it names the installed update channel. */
   "upgrade-newer-discern": defineHint<{ updateChannel: string }>({
     id: "upgrade-newer-discern",
@@ -2458,6 +2469,18 @@ export const HINTS = {
     template: ({ updateChannel }): string =>
       `To get a newer discern, ${updateChannel}. discern never checks the ` +
       `network for updates.`,
+  }),
+
+  /** A stale read-only check names the command that applies its pending work. */
+  "upgrade-check-pending": defineHint({
+    id: "upgrade-check-pending",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`upgrade --check` finds pending migrations or install reconciliation.",
+    example: undefined,
+    template: (): string =>
+      "Run `discern upgrade` to apply pending migrations and reconcile this install.",
   }),
 
   /** Post-upgrade lead-in to the shared restart-session lifecycle fact. */
@@ -2582,6 +2605,28 @@ const ACTIONABLE_HINT_IDS = new Set(
     .map((def) => def.id),
 );
 
+/** Evidence the generic failure-recovery instruction can truthfully cite. */
+export const FAILURE_RECOVERY_EVIDENCE = ["message", "diagnostic"] as const;
+export type FailureRecoveryEvidence =
+  (typeof FAILURE_RECOVERY_EVIDENCE)[number];
+
+const FAILURE_RECOVERY_EVIDENCE_READERS = {
+  message: (result: DiscernResult): boolean =>
+    result.message !== undefined && result.message.trim().length > 0,
+  diagnostic: (result: DiscernResult): boolean =>
+    result.diagnostics?.[0] !== undefined,
+} satisfies Record<
+  FailureRecoveryEvidence,
+  (result: DiscernResult) => boolean
+>;
+
+/** Whether the generic instruction can point at evidence the envelope carries. */
+export function hasFailureRecoveryEvidence(result: DiscernResult): boolean {
+  return FAILURE_RECOVERY_EVIDENCE.some((evidence) =>
+    FAILURE_RECOVERY_EVIDENCE_READERS[evidence](result)
+  );
+}
+
 /** Fire the registered actionable floor for a failed result. */
 export function failureRecoveryHint(verb: string): FiredHint {
   return fire(HINTS["failure-recovery"], { verb });
@@ -2605,15 +2650,29 @@ export function hasRegisteredActionableHint(
   );
 }
 
+/** Whether the result explicitly carries the generic recovery fallback. */
+export function hasGenericFailureRecoveryHint(
+  texts: readonly string[] | undefined,
+): boolean {
+  return firedHintsFromTexts(texts).some((hint) =>
+    hint.id === "failure-recovery"
+  );
+}
+
 /**
  * Add the registered recovery floor to a failed result only when no narrower
- * next step is already present. Both CLI and MCP call this before serialization,
- * so their wire envelopes and locally observed hint ids stay identical.
+ * next step is already present and the result carries the message or diagnostic
+ * the instruction tells the caller to use. Both CLI and MCP call this before
+ * serialization, so their wire envelopes and locally observed hint ids stay
+ * identical. A data-only failure must supply a tailored next step.
  */
 export function withFailureRecoveryHint<TData>(
   result: DiscernResult<TData>,
 ): DiscernResult<TData> {
-  if (result.ok || hasRegisteredActionableHint(result.hints)) {
+  if (
+    result.ok || hasRegisteredActionableHint(result.hints) ||
+    !hasFailureRecoveryEvidence(result)
+  ) {
     return result;
   }
   return {

@@ -41,6 +41,8 @@ import {
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import {
+  FAILURE_RECOVERY_EVIDENCE,
+  failureRecoveryHintTexts,
   fire,
   hasRegisteredActionableHint,
   HINTS,
@@ -209,6 +211,7 @@ Deno.test("failed-result serialization requires a registered next-step hint", ()
     ok: false,
     verb: "demo",
     error: "internal_error",
+    message: "The operation failed.",
     ...(hints === undefined ? {} : { hints }),
   });
   for (
@@ -246,6 +249,7 @@ Deno.test("wire preparation adds one registered recovery floor without clobberin
     ok: false,
     verb: "demo",
     error: "internal_error",
+    message: "The operation failed.",
     hints: notice,
   });
   assertEquals(recovered.hints?.[0], notice[0]);
@@ -271,6 +275,104 @@ Deno.test("wire preparation adds one registered recovery floor without clobberin
     tailored,
     "a registered tailored next step should pass through unchanged",
   );
+});
+
+Deno.test("generic failure recovery is legal only across the complete evidence × tailored-hint matrix", () => {
+  const tailored = hintTexts([fire(HINTS["unknown-command-help"])]);
+  const combinations = 1 << FAILURE_RECOVERY_EVIDENCE.length;
+
+  for (let mask = 0; mask < combinations; mask += 1) {
+    const evidence = new Set(
+      FAILURE_RECOVERY_EVIDENCE.filter((_, index) =>
+        (mask & (1 << index)) !== 0
+      ),
+    );
+    for (const hasTailoredHint of [false, true]) {
+      const failure = {
+        ok: false,
+        verb: "demo",
+        error: "internal_error",
+        data: { evidence: [...evidence] },
+        ...(evidence.has("message")
+          ? { message: "The configured operation failed." }
+          : {}),
+        ...(evidence.has("diagnostic")
+          ? {
+            diagnostics: [{
+              tool: "demo",
+              severity: "error",
+              message: "demo failed",
+              reproduce_cmd: "discern demo",
+            }] as const,
+          }
+          : {}),
+        ...(hasTailoredHint ? { hints: tailored } : {}),
+      } satisfies DiscernResult;
+      const prepared = withFailureRecoveryHint(failure);
+      const context = `evidence=${
+        [...evidence].join("+") || "none"
+      }, tailored=${hasTailoredHint}`;
+
+      if (hasTailoredHint) {
+        assertEquals(
+          prepared,
+          failure,
+          `${context}: tailored recovery must pass through unchanged`,
+        );
+        serializeResult(prepared);
+      } else if (evidence.size > 0) {
+        assert(
+          hasRegisteredActionableHint(prepared.hints),
+          `${context}: evidence-backed failure needs the generic recovery floor`,
+        );
+        serializeResult(prepared);
+      } else {
+        assertEquals(
+          prepared,
+          failure,
+          `${context}: data-only failures must not receive a fabricated fallback`,
+        );
+        assertThrows(
+          () => serializeResult(prepared),
+          Error,
+          "has no registered next-step hint",
+        );
+      }
+    }
+  }
+
+  const unsupported = {
+    ok: false,
+    verb: "demo",
+    error: "internal_error",
+    data: { only: "data" },
+    hints: failureRecoveryHintTexts("demo"),
+  } satisfies DiscernResult;
+  assertThrows(
+    () => serializeResult(unsupported),
+    Error,
+    "generic failure-recovery hint requires a message or diagnostic",
+  );
+
+  for (
+    const emptyEvidence of [
+      { message: "" },
+      { diagnostics: [] },
+    ] satisfies readonly Partial<DiscernResult>[]
+  ) {
+    const failure = {
+      ok: false,
+      verb: "demo",
+      error: "internal_error",
+      data: { only: "data" },
+      ...emptyEvidence,
+    } satisfies DiscernResult;
+    assertEquals(
+      withFailureRecoveryHint(failure),
+      failure,
+      "empty evidence must not legalize generic recovery",
+    );
+  }
 });
 
 Deno.test("runtime result schemas accept only the canonical error-slug vocabulary", () => {
