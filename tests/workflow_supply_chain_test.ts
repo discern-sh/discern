@@ -86,12 +86,14 @@ Deno.test("every published binary and checksum receives build provenance", async
   const checksum = build.indexOf("- name: Checksum");
   const attest = build.indexOf("- name: Attest build provenance");
   const upload = build.indexOf("- name: Upload build artifacts");
+  const cleanup = build.indexOf("- name: Remove Apple release credentials");
   assert(checksum >= 0, "the release creates a checksum");
   assert(
     attest > checksum,
     "provenance covers the completed binary + checksum",
   );
   assert(upload > attest, "attestation completes before artifact upload");
+  assert(cleanup > upload, "ephemeral release credentials are removed last");
 });
 
 Deno.test("the pin guard scans the complete workflow directory", async () => {

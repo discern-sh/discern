@@ -41,6 +41,12 @@ The full list of files discern writes is short, and a test fails the moment any 
 
 discern is a single file on your `PATH`. It's large (more than 100 MB) because it carries its own JavaScript runtime — which is also why an installed project needs no Node, no Deno, and nothing else to run the gate. What lands in your project is configuration and text.
 
+## Release downloads are verifiable
+
+The installer downloads the binary and its published SHA-256 checksum, then refuses to replace an existing installation unless they match. Public GitHub releases also carry build-provenance attestations for each binary and checksum.
+
+macOS binaries are signed with Developer ID and accepted by Apple's notary service before publication. Gatekeeper can verify a copy downloaded through a browser. Apple's notarization ticket cannot be stapled to a standalone executable, so that first Gatekeeper assessment needs network access. The command-line installer does not add the quarantine attribute.
+
 ## What discern does not do: restrict your agent
 
 discern does not limit what your coding agent can read, run, or change. That is your agent's own permission system, and you configure it there. discern's job is the quality gate and the workflow around it; deciding what an agent may touch is a separate control, and it stays entirely in your hands.

@@ -11,6 +11,7 @@ import { join } from "@std/path";
 import { BUILD_TARGETS, type BuildTarget } from "../scripts/build_targets.ts";
 import { releasePlan } from "../scripts/release_plan.ts";
 import { smokeReleaseBinary } from "../scripts/release_smoke.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
@@ -65,12 +66,17 @@ Deno.test("a tag/package mismatch is refused before the matrix exists", () => {
 Deno.test("the compiled release smoke gates artifact upload", () => {
   const compile = releaseSource.indexOf("deno task build ${{ matrix.target }}");
   const smoke = releaseSource.indexOf("scripts/release_smoke.ts");
+  const notarize = releaseSource.indexOf("- name: Notarize");
   const checksum = releaseSource.indexOf("- name: Checksum");
   const upload = releaseSource.indexOf("- name: Upload build artifacts");
   assert(compile >= 0, "the release compiles its matrix target");
   assert(smoke > compile, "the compiled binary is smoked after compilation");
+  assert(
+    notarize > smoke,
+    "macOS notarization follows the compiled binary smoke",
+  );
   assert(checksum > smoke, "checksums are made only after the smoke passes");
-  assert(upload > checksum, "artifact upload is the final build step");
+  assert(upload > checksum, "artifact upload follows the checksum");
   assertStringIncludes(releaseSource, '"dist/${{ matrix.output }}"');
   assertStringIncludes(
     releaseSource,
@@ -93,7 +99,7 @@ async function writeFakeDiscern(
   const docs = options.helpRoot === false ? [] : [{ path: "docs/README.md" }];
   const scaffoldMap = options.scaffoldMap === false
     ? ""
-    : "mkdir -p map; printf '# Map\\n' > map/README.md";
+    : `mkdir -p ${SOURCE_PATHS.map.defaultPath}; printf '# Map\\n' > ${SOURCE_PATHS.map.defaultPath}README.md`;
   await Deno.writeTextFile(
     binary,
     `#!/bin/sh
@@ -110,7 +116,7 @@ case "$1" in
   setup)
     mkdir -p discern
     printf '%s\\n' '[project]' > discern.toml
-    printf '%s\\n' '# Guidance' > discern/guidance.md
+    printf '%s\\n' '# Guidance' > ${SOURCE_PATHS.guidance.defaultPath}
     ${scaffoldMap}
     printf '%s\\n' '${JSON.stringify({ ok: true, verb: "setup" })}'
     ;;
@@ -161,7 +167,7 @@ Deno.test("release smoke rejects a binary missing embedded docs or templates", a
     await assertRejects(
       () => smokeReleaseBinary(noMap, "1.2.3"),
       Error,
-      "did not scaffold map/README.md",
+      `did not scaffold ${SOURCE_PATHS.map.defaultPath}README.md`,
     );
   } finally {
     await Deno.remove(dir, { recursive: true });
