@@ -338,6 +338,10 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "an unconfigured project gets the standards adoption seed",
     );
     assert(
+      bareBody.includes("## Quality standards"),
+      "the standards adoption seed keeps its section heading",
+    );
+    assert(
       !bareBody.includes("Standards are **numbers that can never get worse**"),
       "an unconfigured project omits the configured standards guidance",
     );
@@ -532,7 +536,7 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
   }
 });
 
-Deno.test("renderAgentFiles: every guidance variable is config-driven — no hardcoded value can creep in", async () => {
+Deno.test("renderAgentFiles: every guidance template input is config-driven — no hardcoded value can creep in", async () => {
   // Class guard for "built-in guidance states a discern.toml-configurable value but
   // hardcodes one literal instead of interpolating it" — the bug behind the
   // guidance.sources filename. Driven off the SSOT,
