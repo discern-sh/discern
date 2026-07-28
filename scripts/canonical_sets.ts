@@ -1022,6 +1022,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/config_codegen_test.ts",
+      "tests/public_schema_compatibility_guard_test.ts",
       "tests/result_codegen_test.ts",
       "tests/reference_docs_test.ts",
       "tests/site_serve_test.ts",
