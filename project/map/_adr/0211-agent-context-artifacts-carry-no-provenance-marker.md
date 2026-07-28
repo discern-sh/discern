@@ -1,4 +1,4 @@
-# ADR 0210: Agent-context artifacts carry no provenance marker
+# ADR 0211: Agent-context artifacts carry no provenance marker
 
 **Status**: accepted
 

@@ -31,7 +31,7 @@ Provider-local paths stand outside these buckets. The coding agent creates and m
 
 ## Provenance without context cost
 
-Every Shared or Generated artifact also declares one provenance class. An artifact loaded whole into agent context gets no marker. An artifact outside agent context gets one when its format supports comments ([ADR 0210](../_adr/0210-agent-context-artifacts-carry-no-provenance-marker.md)).
+Every Shared or Generated artifact also declares one provenance class. An artifact loaded whole into agent context gets no marker. An artifact outside agent context gets one when its format supports comments ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
 
 | Class                       | Marker rule                                                                                                                                                                                                                                              |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
