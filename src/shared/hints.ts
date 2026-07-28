@@ -1464,6 +1464,19 @@ export const HINTS = {
       "Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.",
   }),
 
+  /** The map or a guidance source carries a reference readers cannot follow. */
+  "gate-failure-map-integrity": defineHint({
+    id: "gate-failure-map-integrity",
+    category: "next-step",
+    audience: "all",
+    when:
+      "The gate finds a broken reference or stale example in the map or a guidance source.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      "Fix each documentation finding named by the diagnostics — repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist — then re-run the current discern command.",
+  }),
+
   /** The worktree branch does not contain the current trunk. */
   "gate-failure-merge": defineHint({
     id: "gate-failure-merge",
@@ -2311,6 +2324,7 @@ export const GATE_FAILURE_REMEDIES = {
   skills: HINTS["gate-failure-skills"],
   skill_frontmatter: HINTS["gate-failure-skill-frontmatter"],
   adr_numbers: HINTS["gate-failure-adr-numbers"],
+  map_integrity: HINTS["gate-failure-map-integrity"],
   merge: HINTS["gate-failure-merge"],
   standards: HINTS["gate-failure-standards"],
   write_access: HINTS["gate-failure-write-access"],

@@ -1538,6 +1538,7 @@ export type DiscernDoneResult = {
       | "skills"
       | "skill_frontmatter"
       | "adr_numbers"
+      | "map_integrity"
       | "merge"
       | "standards"
       | "write_access"

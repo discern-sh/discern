@@ -378,6 +378,19 @@ Rendered example:
 Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites Agent files.
 ```
 
+## `gate-failure-map-integrity`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The gate finds a broken reference or stale example in the map or a guidance source.
+
+Rendered example:
+
+```text
+Fix each documentation finding named by the diagnostics — repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist — then re-run the current discern command.
+```
+
 ## `gate-failure-merge`
 
 - Category: `next-step`

@@ -48,6 +48,13 @@ import {
   type AdrNumberDuplicate,
   duplicateAdrNumbers,
 } from "../../lib/adr_numbers.ts";
+import {
+  checkDocsIntegrity,
+  DOCS_INTEGRITY_REMEDIES,
+  type DocsIntegrityFinding,
+  type DocsIntegrityRule,
+} from "../../lib/map_integrity.ts";
+import { cliCommandModel } from "../../shared/cli_reference_codegen.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
@@ -251,6 +258,40 @@ async function adrNumbersDiagnostic(
     tool: "adr-numbers",
     severity: "error",
     message: `ADR number(s) claimed by more than one record: ${numbers}`,
+    reproduce_cmd: "discern done",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for MAP & GUIDANCE integrity findings: every finding as
+ * `file:line`, grouped by rule with each rule's remedy stated once — the fix
+ * is at the point of failure, and one loop from the diagnostic clears it.
+ * `discern refresh` cannot help here: the SOURCE files carry the defect, so
+ * the remedy is always an edit (or, for a stale example, a registry fix).
+ */
+async function mapIntegrityDiagnostic(
+  findings: DocsIntegrityFinding[],
+): Promise<Diagnostic> {
+  const byRule = new Map<DocsIntegrityRule, DocsIntegrityFinding[]>();
+  for (const finding of findings) {
+    byRule.set(finding.rule, [...(byRule.get(finding.rule) ?? []), finding]);
+  }
+  const sections = [...byRule.entries()].map(([rule, group]) =>
+    `${rule}:\n` +
+    group.map((f) => `  ${f.file}:${f.line} ${f.detail}`).join("\n") +
+    `\n  fix: ${DOCS_INTEGRITY_REMEDIES[rule]}`
+  );
+  const files = [...new Set(findings.map((f) => f.file))];
+  const outputFields = await diagnosticOutputFields(
+    "The map or guidance references things a reader cannot follow:\n\n" +
+      sections.join("\n\n"),
+  );
+  return {
+    tool: "map-integrity",
+    severity: "error",
+    message: `map or guidance integrity: ${findings.length} finding(s) ` +
+      `across ${files.length} file(s)`,
     reproduce_cmd: "discern done",
     ...outputFields,
   };
@@ -462,6 +503,30 @@ async function runGate(
     }
   }
 
+  // 1d-quater. Map & guidance integrity — the documentation agents and the
+  //     published projections read must not reference things that do not exist:
+  //     dead intra-map links and anchors, metadata blocks the lenient reader
+  //     would swallow, fenced `discern` examples the current CLI rejects,
+  //     published pages linking into the internal trees, and citations of
+  //     skills outside the effective set. Blocking, beside the other artifact
+  //     preflights: each finding is a defect a reader only discovers by
+  //     following the reference and failing, and no later stage can clear it.
+  //     The CLI model is built from the live command registry via a lazy
+  //     import, so the command tree stays off every other verb's load path.
+  let mapIntegrityDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const { buildCli } = await import("../../main.ts");
+    const findings = await checkDocsIntegrity(
+      root,
+      cfg,
+      cliCommandModel(buildCli(false)),
+    );
+    if (findings.length > 0) {
+      failedStage = "map_integrity";
+      mapIntegrityDiag = await mapIntegrityDiagnostic(findings);
+    }
+  }
+
   // 1e. Write authority — a REAL create/write/rename/remove probe, not permission
   //     metadata. The gate may need to stamp or clear its gate/measurement state
   //     after every outcome, so prove that tiny late effect before any project job
@@ -668,6 +733,9 @@ async function runGate(
   }
   if (adrNumbersDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), adrNumbersDiag];
+  }
+  if (mapIntegrityDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), mapIntegrityDiag];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];
