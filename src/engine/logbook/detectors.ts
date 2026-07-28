@@ -46,7 +46,7 @@ import type {
   PatternFindingTone,
 } from "../../shared/patterns_vocabulary.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
-import { HINTS } from "../../shared/hints.ts";
+import { type HintFollowThroughRule, HINTS } from "../../shared/hints.ts";
 import {
   COHORT_MINIMUMS,
   cohortDenominators,
@@ -453,50 +453,283 @@ const refusalLoop: Detector = {
   },
 };
 
+interface FollowThroughFamily {
+  family: string;
+  rule: HintFollowThroughRule;
+  hintIds: ReadonlySet<string>;
+}
+
+type EpisodeOutcome = "followed" | "not-followed" | "censored";
+
+/** Derive every measurable family from the hint registry. No detector-side
+ * hint-id table exists: a new declaration enrolls by being in `HINTS`. */
+function followThroughFamilies(): FollowThroughFamily[] {
+  const groups = new Map<
+    string,
+    { rule: HintFollowThroughRule; hintIds: Set<string> }
+  >();
+  for (const hint of Object.values(HINTS)) {
+    const rule = hint.followThrough;
+    if (rule === undefined) {
+      continue;
+    }
+    const existing = groups.get(rule.family);
+    if (existing === undefined) {
+      groups.set(rule.family, { rule, hintIds: new Set([hint.id]) });
+    } else {
+      existing.hintIds.add(hint.id);
+    }
+  }
+  return [...groups.entries()].map(([family, group]) => ({
+    family,
+    rule: group.rule,
+    hintIds: group.hintIds,
+  }));
+}
+
+function firesFamily(
+  event: VerbEvent,
+  family: FollowThroughFamily,
+): boolean {
+  return (event.hint_ids ?? []).some((id) => family.hintIds.has(id));
+}
+
+function sameRecordedSession(
+  firing: VerbEvent,
+  candidate: VerbEvent,
+): boolean | undefined {
+  const session = firing.driver?.session;
+  const candidateSession = candidate.driver?.session;
+  if (
+    session === undefined || candidateSession === undefined ||
+    firing.surface !== candidate.surface
+  ) {
+    return undefined;
+  }
+  return session === candidateSession;
+}
+
+function branchActionOutcome(
+  events: readonly VerbEvent[],
+  index: number,
+  rule: Extract<
+    HintFollowThroughRule,
+    { kind: "branch-action-before-boundary" }
+  >,
+): EpisodeOutcome {
+  const firing = events[index];
+  if (firing === undefined || firing.branch === null) {
+    return "censored";
+  }
+  for (const candidate of events.slice(index + 1)) {
+    if (candidate.branch !== firing.branch) {
+      continue;
+    }
+    if (rule.actionVerbs.includes(candidate.verb)) {
+      return "followed";
+    }
+    if (candidate.verb === rule.boundaryVerb) {
+      return "not-followed";
+    }
+  }
+  return "censored";
+}
+
+function repeatedHintOutcome(
+  events: readonly VerbEvent[],
+  index: number,
+  family: FollowThroughFamily,
+  rule: Extract<
+    HintFollowThroughRule,
+    { kind: "session-action-before-repeat" }
+  >,
+): EpisodeOutcome {
+  const firing = events[index];
+  if (
+    firing === undefined || firing.branch === null ||
+    firing.driver?.session === undefined
+  ) {
+    return "censored";
+  }
+  for (const candidate of events.slice(index + 1)) {
+    if (candidate.branch !== firing.branch) {
+      continue;
+    }
+    const action = candidate.verb === rule.actionVerb;
+    const repeated = firesFamily(candidate, family);
+    if (!action && !repeated) {
+      continue;
+    }
+    const sameSession = sameRecordedSession(firing, candidate);
+    if (sameSession === undefined) {
+      return "censored";
+    }
+    if (!sameSession) {
+      continue;
+    }
+    return action ? "followed" : "not-followed";
+  }
+  return "censored";
+}
+
+function mainWorktreeOutcome(
+  events: readonly VerbEvent[],
+  index: number,
+  trunk: string,
+  rule: Extract<
+    HintFollowThroughRule,
+    { kind: "main-session-start-before-dirty" }
+  >,
+): EpisodeOutcome {
+  const firing = events[index];
+  if (
+    firing === undefined || firing.branch !== trunk ||
+    firing.driver?.session === undefined
+  ) {
+    return "censored";
+  }
+  for (const candidate of events.slice(index + 1)) {
+    const action = candidate.verb === rule.actionVerb;
+    const dirtyTrunk = candidate.branch === trunk && candidate.clean === false;
+    if (!action && !dirtyTrunk) {
+      continue;
+    }
+    const sameSession = sameRecordedSession(firing, candidate);
+    if (sameSession === undefined) {
+      return "censored";
+    }
+    if (!sameSession) {
+      continue;
+    }
+    return action ? "followed" : "not-followed";
+  }
+  return "censored";
+}
+
+function episodeOutcome(
+  events: readonly VerbEvent[],
+  index: number,
+  family: FollowThroughFamily,
+  trunk: string,
+): EpisodeOutcome {
+  switch (family.rule.kind) {
+    case "branch-action-before-boundary":
+      return branchActionOutcome(events, index, family.rule);
+    case "session-action-before-repeat":
+      return repeatedHintOutcome(events, index, family, family.rule);
+    case "main-session-start-before-dirty":
+      return mainWorktreeOutcome(events, index, trunk, family.rule);
+  }
+}
+
+interface FollowThroughCounts {
+  fired: number;
+  followed: number;
+  notFollowed: number;
+  censored: number;
+}
+
+/**
+ * Measures delivered hint → observable outcome episodes. This is deliberately
+ * distinct from `skipped-prepare`: that detector judges done-heavy iteration
+ * whether or not any hint fired; this one has no denominator without a
+ * registry-declared, delivered hint.
+ */
 const hintFollowThrough: Detector = {
   id: "hint-follow-through",
-  title: "Repeated update advice without an update",
+  title: "Hint follow-through by family",
   family: "behaviour",
   scope: "session",
   tier: "inline",
   tone: "attention",
-  // 3 repeats: one reminder is ordinary, and a second can follow another state
-  // read; the third recurrence in one session is a loop worth reporting.
+  // Three RESOLVED episodes per family: one or two can be situational, while a
+  // third makes both follow-through and non-follow-through worth reporting.
+  // Trailing or uncorrelatable firings stay censored and never clear this bar.
   threshold: 3,
   next_step:
-    "Run `discern update`. It is idempotent and checks its own preconditions, so repeating `status` cannot resolve a branch that remains behind.",
+    "Review any family with not-followed episodes and improve the hint's timing or wording. If the action is indispensable, promote it to a refusal or structural check.",
   detect(facts): DetectorOutcome {
-    const hintId = HINTS["status-branch-behind"].id;
-    const firings = facts.agentish.filter((event) =>
-      (event.hint_ids ?? []).includes(hintId)
-    );
-    const findings: DetectorFinding[] = [];
-    for (const [branch, events] of byBranch(facts.agentish)) {
-      for (const session of bySession(events)) {
-        let repeats = 0;
-        for (const event of session) {
-          if (event.verb === "update") {
-            repeats = 0;
-          } else if ((event.hint_ids ?? []).includes(hintId)) {
-            repeats += 1;
-          }
+    const families = followThroughFamilies();
+    const counts = new Map<string, FollowThroughCounts>();
+    for (const family of families) {
+      counts.set(family.family, {
+        fired: 0,
+        followed: 0,
+        notFollowed: 0,
+        censored: 0,
+      });
+    }
+
+    for (const [index, event] of facts.agentish.entries()) {
+      for (const family of families) {
+        if (!firesFamily(event, family)) {
+          continue;
         }
-        if (repeats >= 3) {
-          findings.push({
-            subject: branch,
-            brief: `${formatHumanNumber(repeats)} update hints · no update`,
-            observed:
-              `\`${hintId}\` fired ${
-                formatHumanNumber(repeats)
-              } times in one session on ` +
-              `\`${branch}\` since its latest \`update\` run.`,
-            evidence: { hint_fires: repeats, update_runs: 0 },
-            strength: repeats,
-          });
+        const familyCounts = counts.get(family.family);
+        if (familyCounts === undefined) {
+          continue;
+        }
+        familyCounts.fired += 1;
+        switch (
+          episodeOutcome(facts.agentish, index, family, facts.trunk)
+        ) {
+          case "followed":
+            familyCounts.followed += 1;
+            break;
+          case "not-followed":
+            familyCounts.notFollowed += 1;
+            break;
+          case "censored":
+            familyCounts.censored += 1;
+            break;
         }
       }
     }
-    return { considered: firings.length, findings };
+
+    const findings: DetectorFinding[] = [];
+    let considered = 0;
+    for (const family of families) {
+      const familyCounts = counts.get(family.family);
+      if (familyCounts === undefined) {
+        continue;
+      }
+      const resolved = familyCounts.followed + familyCounts.notFollowed;
+      considered = Math.max(considered, resolved);
+      if (resolved < 3) {
+        continue;
+      }
+      const allFollowed = familyCounts.notFollowed === 0;
+      findings.push({
+        subject: family.family,
+        brief: `${formatHumanNumber(familyCounts.followed)} of ${
+          formatHumanNumber(resolved)
+        } resolved followed · ${
+          formatHumanNumber(familyCounts.notFollowed)
+        } not followed · ${formatHumanNumber(familyCounts.censored)} censored`,
+        tone: allFollowed ? "good" : "attention",
+        observed: `\`${family.family}\` fired ${
+          formatHumanNumber(familyCounts.fired)
+        } times: ${formatHumanNumber(familyCounts.followed)} followed, ${
+          formatHumanNumber(familyCounts.notFollowed)
+        } not followed, and ${
+          formatHumanNumber(familyCounts.censored)
+        } censored.`,
+        evidence: {
+          fired: familyCounts.fired,
+          followed: familyCounts.followed,
+          not_followed: familyCounts.notFollowed,
+          censored: familyCounts.censored,
+        },
+        strength: resolved,
+        ...(allFollowed
+          ? {
+            next_step:
+              "Keep collecting evidence; every resolved episode followed this hint family, so it currently calls for no channel change.",
+          }
+          : {}),
+      });
+    }
+    return { considered, findings };
   },
 };
 
