@@ -197,6 +197,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0200 — The ADR index is a refresh-maintained artifact, opted into by markers](0200-refresh-maintained-adr-index.md)
 - [0201 — Artifact validators ship or record their exemption](0201-artifact-validators-ship-or-record-their-exemption.md)
 - [0202 — The gate ships the map-integrity preflight, scoped to domain-neutral rules](0202-the-gate-ships-the-map-integrity-preflight.md)
+- [0203 — Discern co-authors only commits it composes](0203-discern-co-authors-only-commits-it-composes.md)
 
 <!-- END GENERATED: current ADR records -->
 

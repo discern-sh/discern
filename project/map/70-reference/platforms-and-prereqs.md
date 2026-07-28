@@ -15,6 +15,7 @@ aliases:
   - aarch64
   - arm64
   - environment variables
+  - DISCERN_NO_ATTRIBUTION
   - DISCERN_WORKTREE_ID
   - DISCERN_WORKTREE_PORT
   - DISCERN_RESOURCE
@@ -75,6 +76,7 @@ After installation, discern itself makes no network calls. Project commands rema
 | Variable                         | Consumer and value                                                                      |
 | -------------------------------- | --------------------------------------------------------------------------------------- |
 | `DISCERN_MAIN_BRANCH`            | Per-process override for the configured trunk branch.                                   |
+| `DISCERN_NO_ATTRIBUTION`         | Omits the `discern-bot` co-author trailer from discern-composed commits when non-empty. |
 | `DISCERN_PROJECT_SLUG`           | Per-process override for the project slug used in derived identity.                     |
 | `DISCERN_WORKTREE_BRANCH_PREFIX` | Per-process override for the worktree branch prefix.                                    |
 | `DISCERN_WORKTREE_ID`            | Optional explicit worktree id; accepts letters, numbers, dots, dashes, and underscores. |

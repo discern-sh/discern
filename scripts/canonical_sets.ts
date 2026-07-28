@@ -432,6 +432,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "authored-commit-sites",
+    title: "Discern-authored commit sites",
+    what:
+      "The workflows whose diffs discern composes and commits: setup wiring, setup completion, and standards pinning. Every member must route through the attributed, pathspec-limited commit boundary.",
+    source: {
+      kind: "module",
+      module: "src/shared/discern_commit.ts",
+      exportName: "DISCERN_AUTHORED_COMMIT_SITES",
+    },
+    guards: ["tests/discern_commit_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal provenance boundary over existing commands, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "cross-cutting commit metadata for setup and standards, not a separate product feature",
+      },
+    },
+    members: async () =>
+      Object.values(
+        (await import("../src/shared/discern_commit.ts"))
+          .DISCERN_AUTHORED_COMMIT_SITES,
+      ),
+  },
+  {
     id: "setup-completion-checks",
     title: "Setup completion checks",
     what:

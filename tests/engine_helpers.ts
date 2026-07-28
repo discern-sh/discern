@@ -412,6 +412,23 @@ export async function gitOut(dir: string, ...args: string[]): Promise<string> {
   return DECODER.decode(stdout).trim();
 }
 
+/** Parse one commit message through git's own trailer grammar. */
+export async function parsedCommitTrailers(
+  dir: string,
+  rev = "HEAD",
+): Promise<string> {
+  const message = await gitOut(dir, "show", "-s", "--format=%B", rev);
+  const path = await Deno.makeTempFile({
+    prefix: "discern-commit-message-",
+  });
+  try {
+    await Deno.writeTextFile(path, `${message}\n`);
+    return await gitOut(dir, "interpret-trailers", "--parse", path);
+  } finally {
+    await Deno.remove(path).catch(() => {});
+  }
+}
+
 /**
  * The DEFAULT worktree path for `name` under `mainDir` — what the create hook
  * resolves with an unset `[worktree].root`: a sibling of the repo

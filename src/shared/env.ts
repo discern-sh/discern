@@ -30,6 +30,17 @@ export interface EnvReader {
   get(key: string): string | undefined;
 }
 
+/** Suppress discern's co-author trailer when set to a non-empty value. */
+export const DISCERN_NO_ATTRIBUTION = "DISCERN_NO_ATTRIBUTION";
+
+/** Whether discern-authored commits carry the co-author trailer. */
+export function discernCommitAttributionEnabled(
+  env: EnvReader = Deno.env,
+): boolean {
+  const value = env.get(DISCERN_NO_ATTRIBUTION);
+  return value === undefined || value === "";
+}
+
 /** Relative path of the install marker the root walk looks for (the dissolved
  * single-file footprint). */
 export const CONFIG_REL = "discern.toml";

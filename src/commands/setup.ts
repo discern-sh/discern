@@ -107,6 +107,10 @@ import {
 } from "../shared/setup_checks.ts";
 import { worktreeState } from "../lib/git.ts";
 import { runGit } from "../shared/subprocess.ts";
+import {
+  commitDiscernChanges,
+  DISCERN_AUTHORED_COMMIT_SITES,
+} from "../shared/discern_commit.ts";
 import { parsePorcelainZ } from "../shared/git_paths.ts";
 import { writeDiscernToml } from "../lib/tidy_format.ts";
 import { RawConfig } from "../shared/config_read.ts";
@@ -1728,10 +1732,12 @@ async function commitMachineryPaths(
   if (!add.success) {
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
-  const commit = await runGit(
-    ["commit", "-m", "discern: scaffold wiring", "--", ...paths],
-    { cwd: root },
-  );
+  const commit = await commitDiscernChanges({
+    site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+    cwd: root,
+    subject: "discern: scaffold wiring",
+    pathspecs: paths,
+  });
   return commit.success
     ? { state: "committed" }
     : { state: "failed", detail: gitFailureLine(commit.stderr) };
@@ -1890,10 +1896,12 @@ async function commitCompletionMarker(
   if (!add.success) {
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
-  const commit = await runGit(
-    ["commit", "-m", "Mark discern setup complete", "--", configRel],
-    { cwd: root },
-  );
+  const commit = await commitDiscernChanges({
+    site: DISCERN_AUTHORED_COMMIT_SITES.setupCompletion,
+    cwd: root,
+    subject: "Mark discern setup complete",
+    pathspecs: [configRel],
+  });
   return commit.success
     ? { state: "committed" }
     : { state: "failed", detail: gitFailureLine(commit.stderr) };

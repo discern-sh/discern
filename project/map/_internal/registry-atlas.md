@@ -10,43 +10,44 @@ To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`t
 
 One row per set, in registry order; the sections below follow the same order and carry the full account. Member counts resolve from each set's single source at generation time; an authored table shows a dash. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.
 
-| Set                                                                            | Source                                                                         | Members | Glossary         | Feature canon               |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                             | `src/engine/dispatch.ts#KNOWN_VERBS`                                           | 29      | per member       | surface `verb`              |
-| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                       | `src/main.ts#dryRunCapableVerbs`                                               | 21      | —                | node `plan-apply`           |
-| [`mcp-tools`](#mcp-tools--mcp-tools)                                           | `src/engine/mcp/server.ts#TOOLS`                                               | 16      | —                | node `mcp-surface`          |
-| [`command-groups`](#command-groups--command-groups)                            | `src/cli_help.ts#COMMAND_GROUPS`                                               | 6       | —                | node `bundled-help`         |
-| [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)             | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                    | 2       | —                | node `consent-attestations` |
-| [`jobs`](#jobs--gate-jobs)                                                     | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
-| [`stages`](#stages--stages)                                                    | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
-| [`step-kinds`](#step-kinds--step-kinds)                                        | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
-| [`config-tables`](#config-tables--config-tables)                               | `src/shared/config_schema.ts#configSchema`                                     | 13      | —                | surface `config`            |
-| [`source-paths`](#source-paths--source-paths)                                  | `src/shared/paths_registry.ts#SOURCE_PATHS`                                    | 6       | —                | node `one-file-footprint`   |
-| [`bundled-skills`](#bundled-skills--bundled-skills)                            | `src/lib/skills.ts#bundledSkillNames`                                          | 8       | "Skill"          | surface `skill`             |
-| [`agent-providers`](#agent-providers--agent-providers)                         | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                    | 5       | —                | surface `agent`             |
-| [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                           | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
-| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks) | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
-| [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                 | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 129     | "Advisory"       | node `hints`                |
-| [`logbook-events`](#logbook-events--logbook-events)                            | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
-| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
-| [`improve-categories`](#improve-categories--improvement-categories)            | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                            | `scripts/glossary_registry.ts#GLOSSARY`                                        | 36      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                               | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                      | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
-| [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)             | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
-| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 197     | —                | node `adr-discipline`       |
-| [`project-artifacts`](#project-artifacts--project-artifacts)                   | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary) | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
-| [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
-| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)             | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored) | —       | —                | node `gotchas-pointer`      |
-| [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)       | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
-| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
-| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
-| [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 33      | —                | node `canonical-sets`       |
+| Set                                                                              | Source                                                                         | Members | Glossary         | Feature canon               |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------- | ---------------- | --------------------------- |
+| [`verbs`](#verbs--top-level-verbs)                                               | `src/engine/dispatch.ts#KNOWN_VERBS`                                           | 29      | per member       | surface `verb`              |
+| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                         | `src/main.ts#dryRunCapableVerbs`                                               | 21      | —                | node `plan-apply`           |
+| [`mcp-tools`](#mcp-tools--mcp-tools)                                             | `src/engine/mcp/server.ts#TOOLS`                                               | 16      | —                | node `mcp-surface`          |
+| [`command-groups`](#command-groups--command-groups)                              | `src/cli_help.ts#COMMAND_GROUPS`                                               | 6       | —                | node `bundled-help`         |
+| [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)               | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                    | 2       | —                | node `consent-attestations` |
+| [`jobs`](#jobs--gate-jobs)                                                       | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
+| [`stages`](#stages--stages)                                                      | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
+| [`step-kinds`](#step-kinds--step-kinds)                                          | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
+| [`config-tables`](#config-tables--config-tables)                                 | `src/shared/config_schema.ts#configSchema`                                     | 13      | —                | surface `config`            |
+| [`source-paths`](#source-paths--source-paths)                                    | `src/shared/paths_registry.ts#SOURCE_PATHS`                                    | 6       | —                | node `one-file-footprint`   |
+| [`bundled-skills`](#bundled-skills--bundled-skills)                              | `src/lib/skills.ts#bundledSkillNames`                                          | 8       | "Skill"          | surface `skill`             |
+| [`agent-providers`](#agent-providers--agent-providers)                           | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                    | 5       | —                | surface `agent`             |
+| [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                             | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
+| [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites) | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                   | 3       | —                | —                           |
+| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)   | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
+| [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                   | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
+| [`hints`](#hints--hints)                                                         | `src/shared/hints.ts#HINTS`                                                    | 129     | "Advisory"       | node `hints`                |
+| [`logbook-events`](#logbook-events--logbook-events)                              | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
+| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                  | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
+| [`improve-categories`](#improve-categories--improvement-categories)              | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                              | `scripts/glossary_registry.ts#GLOSSARY`                                        | 36      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                                 | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
+| [`result-contracts`](#result-contracts--result-contracts)                        | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
+| [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)               | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
+| [`adrs`](#adrs--architecture-decision-records)                                   | `src/lib/docs.ts#adrRecords`                                                   | 198     | —                | node `adr-discipline`       |
+| [`project-artifacts`](#project-artifacts--project-artifacts)                     | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)   | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
+| [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                  | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
+| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)               | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored) | —       | —                | node `gotchas-pointer`      |
+| [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)         | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
+| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                              | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
+| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)    | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
+| [`artifact-validators`](#artifact-validators--artifact-validators)               | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                              | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 34      | —                | node `canonical-sets`       |
 
-33 sets · 58 guard tests · 14 committed artifacts.
+34 sets · 59 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -66,6 +67,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`             | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/discern_commit_enrolment_test.ts`  | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                             |
 | `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
 | `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
@@ -266,6 +268,16 @@ The staged-setup handshake's sub-verb sequence.
 - Glossary: not enrolled — sub-verbs of one handshake; the CLI reference documents them under setup
 - Feature canon: described by the `setup` node
 
+## `authored-commit-sites` — Discern-authored commit sites
+
+The workflows whose diffs discern composes and commits: setup wiring, setup completion, and standards pinning. Every member must route through the attributed, pathspec-limited commit boundary.
+
+- Source: `src/shared/discern_commit.ts` — `DISCERN_AUTHORED_COMMIT_SITES`
+- Members: 3
+- Guards: `tests/discern_commit_enrolment_test.ts`
+- Glossary: not enrolled — an internal provenance boundary over existing commands, not product vocabulary
+- Feature canon: not enrolled — cross-cutting commit metadata for setup and standards, not a separate product feature
+
 ## `setup-completion-checks` — Setup completion checks
 
 The machine-checkable predicates behind setup's observable progress; each mirrors its setup page's completion-check field, so a resumed session derives what is done from the tree itself.
@@ -375,7 +387,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 197
+- Members: 198
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
@@ -467,7 +479,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 33
+- Members: 34
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

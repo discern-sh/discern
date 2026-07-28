@@ -18,6 +18,8 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -25,6 +27,7 @@ import {
   git,
   gitInit,
   gitOut,
+  parsedCommitTrailers,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -135,9 +138,46 @@ Deno.test("pin: tightens an up-standard floor to the measured value and commits"
       await gitOut(dir, "show", "--name-only", "--format=", "HEAD"),
       "discern.toml",
     );
-    const msg = await gitOut(dir, "log", "-1", "--format=%s%n%b");
+    const msg = await gitOut(dir, "log", "-1", "--format=%B");
     assertStringIncludes(msg, "Pin standard baseline: coverage 80 → 95");
     assertStringIncludes(msg, "floor 80 → 95 (measured 95)");
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(
+      msg.split(`\n\n${DISCERN_BOT.trailer}`)[0],
+      "Pin standard baseline: coverage 80 → 95\n\n" +
+        "Capture a measured improvement so it cannot regress. `discern standards`\n" +
+        "measured these metrics past their limits; `--pin` tightens each limit to\n" +
+        "the measured value, leaving any configured margin of headroom:\n\n" +
+        "- coverage: floor 80 → 95 (measured 95)",
+      "attribution must not rewrite the standards pin subject or audit body",
+    );
+  });
+});
+
+Deno.test("pin: DISCERN_NO_ATTRIBUTION omits the co-author trailer", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      pinConfig({
+        name: "coverage",
+        direction: "up",
+        limit: "80",
+        run: "echo 'DISCERN_METRIC coverage 95'",
+      }),
+    );
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["standards", "--pin"], {
+      env: { [DISCERN_NO_ATTRIBUTION]: "1" },
+    });
+    assertEquals(r.code, 0, r.output);
+    assertEquals(await parsedCommitTrailers(dir), "");
+    assert(
+      !(await gitOut(dir, "show", "-s", "--format=%B")).includes(
+        DISCERN_BOT.trailer,
+      ),
+    );
   });
 });
 

@@ -19,6 +19,7 @@ import {
   git,
   gitInit,
   gitOut,
+  parsedCommitTrailers,
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
@@ -29,6 +30,8 @@ import {
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
@@ -619,10 +622,14 @@ Deno.test("done/prepare/test/standards run before setup is recorded, carrying th
  * checks (ADR 0078) pass, leaving only the GATE to decide the outcome: real docs, a
  * guidance.md with a pitch + a Conventions section, and `test` wired to `cmd` (a
  * shell command whose exit status is the gate's verdict). */
-async function readyForDone(dir: string, cmd: string): Promise<void> {
+async function readyForDone(
+  dir: string,
+  cmd: string,
+  env: Record<string, string> = {},
+): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await runAgent(dir, ["setup", "begin", "--confirmed"]); // lay the skeletons
+  await runAgent(dir, ["setup", "begin", "--confirmed"], { env }); // lay the skeletons
   // Replace the marker-carrying skeletons with real, marker-free content. The
   // guidance.md carries a real pitch and a Conventions section so the per-step
   // guidance check (ADR 0078) passes; design-principles is left absent (N/A).
@@ -636,7 +643,9 @@ async function readyForDone(dir: string, cmd: string): Promise<void> {
     join(dir, "discern/guidance.md"),
     "# Project guidance\n\nA real pitch describing the project and who it serves.\n\n## Conventions\n\nReal, project-specific conventions.\n",
   );
-  const wired = await runAgent(dir, ["config", "set-job", "test", cmd]);
+  const wired = await runAgent(dir, ["config", "set-job", "test", cmd], {
+    env,
+  });
   assertEquals(wired.code, 0, wired.output);
 }
 
@@ -925,6 +934,7 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
       await gitOut(dir, "log", "-1", "--format=%s"),
       "Mark discern setup complete",
     );
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -932,6 +942,30 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
     assertStringIncludes(
       status,
       "?? .codex/",
+    );
+  });
+});
+
+Deno.test("setup-authored commits omit attribution when DISCERN_NO_ATTRIBUTION is set", async () => {
+  await withTempDir(async (dir) => {
+    const env = { [DISCERN_NO_ATTRIBUTION]: "1" };
+    await readyForDone(dir, "true", env);
+    assertEquals(
+      await parsedCommitTrailers(dir),
+      "",
+      "the scaffold-wiring commit should honor the environment opt-out",
+    );
+
+    await runAgent(dir, ["refresh"], { env });
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-m", "setup work");
+    const done = await runAgent(dir, ["setup", "done", "--json"], { env });
+    assertEquals(done.code, 0, done.output);
+    assertEquals(JSON.parse(done.stdout).data.marker_committed, true);
+    assertEquals(
+      await parsedCommitTrailers(dir),
+      "",
+      "the setup-completion commit should honor the environment opt-out",
     );
   });
 });
@@ -1418,6 +1452,17 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
     assertStringIncludes(
       await gitOut(dir, "log", "-1", "--format=%s"),
       "discern: scaffold wiring",
+    );
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(
+      await gitOut(
+        dir,
+        "log",
+        "-1",
+        "--format=%an <%ae>|%cn <%ce>",
+      ),
+      "Engine Test <engine-test@example.com>|Engine Test <engine-test@example.com>",
+      "discern must leave the invoking user's author and committer identities intact",
     );
 
     // The commit holds EXACTLY discern's machinery — the config, the gitignore fragment,
