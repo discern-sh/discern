@@ -329,6 +329,54 @@ export type CheckedOutFastForwardResult =
     readonly rolledBack: boolean;
   };
 
+export type CheckedOutFastForwardRecovery =
+  | { readonly kind: "converged"; readonly changed: boolean }
+  | { readonly kind: "preserved"; readonly detail: string };
+
+export interface CheckedOutFastForwardOptions {
+  /** Tags the CAS and any Discern rollback in the branch reflog for recovery. */
+  readonly transactionId?: string;
+  /** Worktree whose per-worktree marker ref joins the trunk ref transaction. */
+  readonly transactionCwd?: string;
+}
+
+export type AcceptanceTransactionMarkerRead =
+  | { readonly kind: "present"; readonly target: string }
+  | { readonly kind: "missing" }
+  | { readonly kind: "unavailable"; readonly detail: string };
+
+const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
+  "refs/worktree/discern/acceptance-transactions";
+
+export function acceptanceTransactionMarkerRef(
+  transactionId: string,
+): string {
+  return `${ACCEPTANCE_TRANSACTION_MARKER_PREFIX}/${transactionId}`;
+}
+
+/** Read the per-worktree ref proving an acceptance CAS committed. */
+export async function readAcceptanceTransactionMarker(
+  cwd: string,
+  transactionId: string,
+): Promise<AcceptanceTransactionMarkerRead> {
+  const marker = acceptanceTransactionMarkerRef(transactionId);
+  const exists = await git(["show-ref", "--verify", "--quiet", marker], cwd);
+  if (exists.code === 1) {
+    return { kind: "missing" };
+  }
+  if (!exists.success) {
+    return {
+      kind: "unavailable",
+      detail: exists.stderr.trim() || `Git could not inspect ${marker}`,
+    };
+  }
+  const read = await git(["rev-parse", "--verify", `${marker}^{commit}`], cwd);
+  return read.success ? { kind: "present", target: read.stdout.trim() } : {
+    kind: "unavailable",
+    detail: read.stderr.trim() || `Git could not read ${marker}`,
+  };
+}
+
 function checkoutPathsCollide(left: string, right: string): boolean {
   return left === right ||
     left.startsWith(`${right}/`) ||
@@ -393,6 +441,143 @@ function ignoredCollisionDetail(paths: readonly string[]): string {
   return `the landing would overwrite ignored checkout data at ${shown}${more}`;
 }
 
+function acceptanceReflogMessage(
+  transactionId: string | undefined,
+  action: "fast-forward" | "rollback",
+  branch: string,
+): string {
+  return transactionId === undefined
+    ? `discern accept: ${action} ${branch}`
+    : `discern accept transaction ${transactionId}: ${action} ${branch}`;
+}
+
+function updateRefTransaction(
+  cwd: string,
+  message: string,
+  commands: readonly string[],
+): Promise<GitResult> {
+  return runGit(
+    ["update-ref", "-m", message, "--stdin"],
+    {
+      cwd,
+      stdin: ["start", ...commands, "prepare", "commit", ""].join("\n"),
+    },
+  );
+}
+
+function rollbackCheckedOutBranchRef(
+  cwd: string,
+  branch: string,
+  expected: string,
+  target: string,
+  options: CheckedOutFastForwardOptions,
+): Promise<GitResult> {
+  const ref = `refs/heads/${branch}`;
+  const message = acceptanceReflogMessage(
+    options.transactionId,
+    "rollback",
+    branch,
+  );
+  if (options.transactionId === undefined) {
+    return git(["update-ref", "-m", message, ref, expected, target], cwd);
+  }
+  return updateRefTransaction(
+    options.transactionCwd ?? cwd,
+    message,
+    [
+      `update ${ref} ${expected} ${target}`,
+      `delete ${
+        acceptanceTransactionMarkerRef(options.transactionId)
+      } ${target}`,
+    ],
+  );
+}
+
+async function indexMatchesTree(
+  cwd: string,
+  commit: string,
+): Promise<boolean | undefined> {
+  const diff = await git(["diff", "--cached", "--quiet", commit, "--"], cwd);
+  return diff.code === 0 ? true : diff.code === 1 ? false : undefined;
+}
+
+async function worktreeMatchesIndex(
+  cwd: string,
+): Promise<boolean | undefined> {
+  const diff = await git(["diff", "--quiet", "--"], cwd);
+  return diff.code === 0 ? true : diff.code === 1 ? false : undefined;
+}
+
+/**
+ * Finish a recorded ref transition without treating its old checkout as user
+ * dirt. Only the two journaled trees are recognized: an exact target checkout
+ * is already converged; an exact expected index/worktree may receive the
+ * original two-tree update. Every other state is preserved byte-for-byte.
+ */
+export async function recoverCheckedOutFastForward(
+  cwd: string,
+  branch: string,
+  expected: string,
+  target: string,
+): Promise<CheckedOutFastForwardRecovery> {
+  const checkedOut = await git(["branch", "--show-current"], cwd);
+  if (!checkedOut.success || checkedOut.stdout.trim() !== branch) {
+    const current = checkedOut.success && checkedOut.stdout.trim() !== ""
+      ? checkedOut.stdout.trim()
+      : "(detached or unavailable)";
+    return {
+      kind: "preserved",
+      detail:
+        `the main checkout is on ${current}, not the recorded trunk ${branch}`,
+    };
+  }
+
+  const worktreeExact = await worktreeMatchesIndex(cwd);
+  const [atTarget, atExpected] = await Promise.all([
+    indexMatchesTree(cwd, target),
+    indexMatchesTree(cwd, expected),
+  ]);
+  if (
+    worktreeExact === undefined || atTarget === undefined ||
+    atExpected === undefined
+  ) {
+    return {
+      kind: "preserved",
+      detail: "Git could not compare the checkout with the recorded trees",
+    };
+  }
+  if (worktreeExact && atTarget) {
+    return { kind: "converged", changed: false };
+  }
+  if (!worktreeExact || !atExpected) {
+    return {
+      kind: "preserved",
+      detail:
+        "the index or tracked checkout no longer matches the recorded pre-landing tree",
+    };
+  }
+
+  const ignored = await ignoredCheckoutCollisions(cwd, expected, target);
+  if (ignored === undefined) {
+    return {
+      kind: "preserved",
+      detail: "Git could not verify ignored checkout paths",
+    };
+  }
+  if (ignored.length > 0) {
+    return { kind: "preserved", detail: ignoredCollisionDetail(ignored) };
+  }
+  const checkout = await git(
+    ["read-tree", "-u", "-m", expected, target],
+    cwd,
+  );
+  return checkout.success ? { kind: "converged", changed: true } : {
+    kind: "preserved",
+    detail: checkout.stderr.trim() ||
+      "the checked-out trunk could not be converged",
+  };
+}
+
 /**
  * Compare-and-swap `refs/heads/<branch>` from `expected` to `target`, then
  * update the branch's checked-out index/worktree through a two-tree read.
@@ -411,6 +596,7 @@ export async function fastForwardCheckedOutBranch(
   branch: string,
   expected: string,
   target: string,
+  options: CheckedOutFastForwardOptions = {},
 ): Promise<CheckedOutFastForwardResult> {
   const ancestor = await git(
     ["merge-base", "--is-ancestor", expected, target],
@@ -452,17 +638,33 @@ export async function fastForwardCheckedOutBranch(
   }
 
   const ref = `refs/heads/${branch}`;
-  const update = await git(
-    [
-      "update-ref",
-      "-m",
-      `discern accept: fast-forward ${branch}`,
-      ref,
-      target,
-      expected,
-    ],
-    cwd,
+  const updateMessage = acceptanceReflogMessage(
+    options.transactionId,
+    "fast-forward",
+    branch,
   );
+  const update = options.transactionId === undefined
+    ? await git(
+      [
+        "update-ref",
+        "-m",
+        updateMessage,
+        ref,
+        target,
+        expected,
+      ],
+      cwd,
+    )
+    : await updateRefTransaction(
+      options.transactionCwd ?? cwd,
+      updateMessage,
+      [
+        `update ${ref} ${target} ${expected}`,
+        `create ${
+          acceptanceTransactionMarkerRef(options.transactionId)
+        } ${target}`,
+      ],
+    );
   if (!update.success) {
     return {
       kind: "moved",
@@ -475,7 +677,13 @@ export async function fastForwardCheckedOutBranch(
   // checkout files.
   const ignoredAfter = await ignoredCheckoutCollisions(cwd, expected, target);
   if (ignoredAfter === undefined || ignoredAfter.length > 0) {
-    const rollback = await git(["update-ref", ref, expected, target], cwd);
+    const rollback = await rollbackCheckedOutBranchRef(
+      cwd,
+      branch,
+      expected,
+      target,
+      options,
+    );
     return {
       kind: "checkout-failed",
       detail: ignoredAfter === undefined
@@ -493,7 +701,13 @@ export async function fastForwardCheckedOutBranch(
     return { kind: "updated" };
   }
 
-  const rollback = await git(["update-ref", ref, expected, target], cwd);
+  const rollback = await rollbackCheckedOutBranchRef(
+    cwd,
+    branch,
+    expected,
+    target,
+    options,
+  );
   if (rollback.success) {
     // `read-tree` checks the whole update before writing, but run the inverse
     // convergence defensively in case a Git implementation touched the index.

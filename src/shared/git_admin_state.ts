@@ -69,6 +69,18 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  acceptanceTransaction: {
+    path: "discern/acceptance-transaction.json",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
+  acceptanceTransactionLock: {
+    path: "discern/acceptance-transaction.lock",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   setupMachineryCommitEvidence: {
     path: "discern/setup-machinery-commit-evidence.json",
     scope: "worktree",

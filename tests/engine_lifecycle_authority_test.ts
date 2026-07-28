@@ -376,7 +376,7 @@ Deno.test("landing authority has one runtime derivation boundary", async () => {
   const directPolicyReaders: string[] = [];
   for (const path of sourceFiles) {
     const text = await Deno.readTextFile(join(REPO_ROOT, path));
-    if (text.includes("readEffortGrant")) {
+    if (/\breadEffortGrant\b/.test(text)) {
       readers.push(path);
     }
     if (

@@ -17,11 +17,11 @@ _Use one path for every change: create an isolated checkout, keep it current, pr
 
 ## Start an isolated checkout
 
-Run `discern start` from the main checkout. It creates a fresh worktree and branch, readies the checkout, and returns the path the agent must enter. The branch starts from the configured trunk even if someone parked the main checkout elsewhere. Use `--from <ref>` only when the task builds on unlanded or experimental work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
+From the main checkout, `discern start` creates and readies a worktree, then returns its path. It starts from the configured trunk unless `--from <ref>` names unlanded or experimental work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
 
-An optional name becomes a branch-safe slug with a random hexadecimal suffix. Without a name, discern generates a readable codename. It checks the new directory, branch, and derived port for collisions with live worktrees before creating anything ([ADR 0109](../_adr/0109-worktree-start-optional-name.md)).
+An optional name becomes a branch-safe slug; otherwise discern generates a codename. It checks the directory, branch, and port for collisions first ([ADR 0109](../_adr/0109-worktree-start-optional-name.md)).
 
-The default location is a sibling directory, `<repo>.worktrees/<id>`. `[worktree].root` accepts a relative or absolute override. Keep the sibling default: nested worktrees confuse recursive tools and repository-root discovery ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
+The default is `<repo>.worktrees/<id>` beside the repository; `[worktree].root` overrides it. Nested worktrees confuse recursive tools and root discovery ([ADR 0052](../_adr/0052-worktree-sibling-placement.md)).
 
 Setup runs in this order:
 
@@ -36,41 +36,44 @@ Setup runs in this order:
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.       |
 | Agent files          | Rebuilds guidance and materializes skills in the new checkout.                      |
 
-`start` creates a worktree. It refuses an unborn repository, a missing trunk, a `discern.toml` below the repository root, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call made from another worktree. `accept` enforces the same repository-root boundary: a nested discern project cannot classify one subtree and then land sibling repository changes. Uncommitted main-checkout changes stay there. A failed creation removes only the branch and checkout it created.
+`start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation removes only its branch and checkout.
 
 ## Bring the trunk into the branch
 
-Run `discern update` before finishing. It merges the trunk into the current branch, reports incoming commits and files, and highlights files changed on both sides. `update --from <ref>` performs the same operation with another ref.
+Run `discern update` before finishing. It merges the trunk, reports incoming and overlapping files, and accepts `--from <ref>` for another base.
 
-Update accepts a tracked-clean tree. Commit or stash tracked edits first. Untracked scratch files remain in place. On conflict, the command aborts the merge and leaves the tree unchanged. Resolve the merge by hand, commit it, then run `discern update` again. Even when there is nothing left to merge, the command rebuilds agent files, runs checkout-shared `[repository].ensure`, then runs worktree-only `[worktree.setup].ensure`. That convergence updates dependencies after a lockfile or setup change ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
+Update requires a tracked-clean tree but leaves untracked scratch in place. A conflict aborts the merge cleanly; resolve it, commit, and retry. Even a no-op update rebuilds agent files, then runs `[repository].ensure` and `[worktree.setup].ensure` ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
-Choose the bucket by where a command is valid. Put dependency installation, code generation, and other operations safe in any checkout under `[repository].ensure`. Put commands that need `discern identity`, a worktree resource, a derived port, or another linked-worktree-only fact under `[worktree.setup].ensure`. Both lists are ordered and idempotent. `[worktree.setup].steps` remains one-shot scaffolding that runs only in a linked worktree.
+Put checkout-safe commands in `[repository].ensure` and identity-dependent commands in `[worktree.setup].ensure`. Both are ordered and idempotent. `[worktree.setup].steps` remains one-shot.
 
 ## Land the reviewed commit
 
-Commit the final tree and run `discern done`. A landing then needs [landing authority](landing-authority.md): consent from this conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from the desk. `start`, `status`, and a green `done` expose the answer from the shared resolver before acceptance. Uncovered work returns to receipt review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Commit the final tree and run `discern done`. Landing then needs [landing authority](landing-authority.md): conversation consent, a standing scope grant on the trunk, or a one-worktree effort grant from the desk. `start`, `status`, and a green `done` report the shared decision. Uncovered work returns to receipt review with every checkout untouched ([ADR 0134](../_adr/0134-accept-attests-consent.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-Acceptance requires the latest trunk, a clean worktree, a tracked-clean main checkout on the trunk, and an unlocked worktree. Ignored or untracked main-checkout data may stay, but acceptance refuses if the landed tree would overwrite it. It validates the precise commit that will land. An honored `discern done` receipt skips a duplicate gate run. Any later commit invalidates the receipt and triggers the full gate again ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
+Acceptance requires the latest trunk, a clean and unlocked worktree, and a tracked-clean main checkout on the trunk. Ignored or untracked main-checkout data may stay unless landing would overwrite it. It validates the commit that will land. An honored `discern done` receipt skips a duplicate gate run; any later commit invalidates it ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-On success, discern records `conversation`, `standing-grant` with its scope names, or `effort-grant` in the result, landing receipt, and logbook. It fast-forwards the trunk to that validated commit. Before cleanup, it refreshes the main checkout, runs every `[repository].ensure` command there, runs the configured `smoke` job, and reports any tracked files those post-landing operations changed. It then destroys resources, removes the worktree, and deletes the merged branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance refuses and keeps this worktree intact for `update → done → accept`.
+On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, receipt, and logbook. It fast-forwards the trunk, refreshes the main checkout, runs `[repository].ensure` and `smoke`, and reports tracked changes. It then destroys resources, removes the worktree, and deletes the branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance keeps this worktree for `update → done → accept`.
 
-The branch has already landed when checkout convergence begins, so these post-landing operations are non-transactional. A failed repository ensure command is recorded and the next command still runs; a failed smoke or tracked-clean check is recorded too. Failure to remove a consumed effort-grant claim is also reported without interrupting cleanup: the claim is no longer an authority marker and worktree removal reaps it. None can skip resource teardown or leave the accepted worktree half-removed. Worktree-only `steps` and `ensure` run only in a linked worktree.
+An operating-system lock covers recovery through cleanup; a concurrent `accept` refuses without touching active state. Before authority or refs move, a journal records the transition, and the trunk update creates its marker ref atomically. Rollback reverses both. A retry never replays landed authority or overwrites a checkout changed since the recorded tree: inspect preserved changes and retry, or run `discern worktree prune` after recovery converges ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+
+Checkout convergence is non-transactional because the branch has landed. Failures in repository ensure, smoke, tracked cleanliness, or consumed-claim removal are reported without interrupting cleanup. The claim no longer grants authority, and worktree removal reaps it. None can skip resource teardown. Worktree-only `steps` and `ensure` run only in a linked worktree.
 
 ## Remove abandoned work
 
-From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and its branch. It refuses uncommitted or unlanded work unless a human passes `--force`. A git-locked worktree remains protected even with force. The command is CLI-only because worktree ownership bars one agent from discarding another line of work.
+From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. Uncommitted or unlanded work needs human `--force`; a git lock still protects it. The command is CLI-only because agents cannot discard another line of work.
 
-`discern worktree prune` is narrower housekeeping. After confirmation, it removes only clean, fully merged worktrees and branches, stale registrations, orphan directories, and orphaned resource records. It checks eligibility again immediately before removal.
+After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
 
 ## Where it lives in code
 
-| Responsibility                | Source                                                                                          |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                 |
-| Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts) |
-| Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                             |
-| Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                           |
-| Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                       |
+| Responsibility                | Source                                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
+| Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
+| Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
+| Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
+| Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
+| Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
 
 ## Current state and gotchas
 

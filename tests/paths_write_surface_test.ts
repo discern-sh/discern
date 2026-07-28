@@ -135,6 +135,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "effort-grant revocation after desk choice or successful acceptance — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/worktree/acceptance_transaction.ts",
+    "acceptance recovery journal and advisory lock — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/engine/gate/receipt.ts",
     "the gate receipt — .git-internal, outside the project tree",
   ],

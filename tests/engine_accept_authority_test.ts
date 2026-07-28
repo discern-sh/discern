@@ -5,9 +5,18 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
-import { dirname, join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
-import { fastForwardCheckedOutBranch } from "../src/engine/worktree/git.ts";
+import { claimEffortGrant } from "../src/engine/worktree/effort_grant_cleanup.ts";
+import {
+  acceptanceTransactionMarkerRef,
+  fastForwardCheckedOutBranch,
+  readAcceptanceTransactionMarker,
+} from "../src/engine/worktree/git.ts";
+import {
+  ACCEPTANCE_TRANSACTION_BOUNDARIES,
+  type AcceptanceTransactionBoundary,
+} from "../src/engine/worktree/acceptance_transaction.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   type LogbookEvent,
@@ -23,6 +32,18 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+
+const INTERRUPTION_FIXTURES = {
+  "effort-claim": "pre-CAS claim and post-CAS consumption",
+  "trunk-ref": "post-CAS checkout convergence, local edits, and ABA movement",
+} as const satisfies Record<AcceptanceTransactionBoundary, string>;
+
+Deno.test("every acceptance transaction boundary has interruption fixtures", () => {
+  assertEquals(
+    ACCEPTANCE_TRANSACTION_BOUNDARIES.map((boundary) => boundary.id).sort(),
+    Object.keys(INTERRUPTION_FIXTURES).sort(),
+  );
+});
 
 function authorityConfig(grants: string[] = []): string {
   return [
@@ -106,6 +127,94 @@ async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
   return events;
 }
 
+async function waitForPath(path: string, timeoutMs = 10_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await exists(path)) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error(`timed out waiting for ${path}`);
+}
+
+async function resultWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+interface InterruptedAcceptanceFixture {
+  readonly id: string;
+  readonly journal: string;
+}
+
+/**
+ * Inject the durable evidence an acceptance must leave before it claims
+ * authority or advances the trunk.
+ */
+async function injectInterruptedAcceptance(
+  worktree: string,
+  mainRepo: string,
+  expected: string,
+  target: string,
+  effortClaimPath?: string,
+): Promise<InterruptedAcceptanceFixture> {
+  const id = effortClaimPath === undefined
+    ? crypto.randomUUID()
+    : basename(effortClaimPath);
+  const journal = await gitAdminStatePath(
+    worktree,
+    "acceptanceTransaction",
+  );
+  assert(journal !== undefined);
+  await Deno.mkdir(dirname(journal), { recursive: true });
+  await Deno.writeTextFile(
+    journal,
+    `${
+      JSON.stringify({
+        version: 1,
+        id,
+        worktree_branch: await gitOut(worktree, "branch", "--show-current"),
+        trunk: "main",
+        expected_trunk: expected,
+        target,
+        main_repo: mainRepo,
+        effort_claim: effortClaimPath !== undefined,
+      })
+    }\n`,
+  );
+  return { id, journal };
+}
+
+async function injectCommittedAcceptanceMarker(
+  worktree: string,
+  fixture: InterruptedAcceptanceFixture,
+  target: string,
+): Promise<void> {
+  await git(
+    worktree,
+    "update-ref",
+    acceptanceTransactionMarkerRef(fixture.id),
+    target,
+  );
+  assertEquals(
+    await readAcceptanceTransactionMarker(worktree, fixture.id),
+    { kind: "present", target },
+  );
+}
+
 Deno.test("accept lands flagless under a standing grant and records its scopes", async () => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
@@ -163,6 +272,7 @@ Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async ()
     const advanced = await gitOut(worktree, "rev-parse", "HEAD");
     await commitPaths(worktree, { "docs/guide.md": "validated C\n" });
     const validated = await gitOut(worktree, "rev-parse", "HEAD");
+    const staleTransaction = crypto.randomUUID();
 
     // A concurrent landing moves main A→B and converges its checkout.
     assertEquals(
@@ -182,9 +292,18 @@ Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async ()
       "main",
       expected,
       validated,
+      {
+        transactionId: staleTransaction,
+        transactionCwd: worktree,
+      },
     );
     assertEquals(stale.kind, "moved");
     assertEquals(await gitOut(dir, "rev-parse", "main"), advanced);
+    assertEquals(
+      await readAcceptanceTransactionMarker(worktree, staleTransaction),
+      { kind: "missing" },
+      "a refused trunk CAS must not create half of the coupled marker update",
+    );
     assertEquals(await exists(join(dir, "docs", "guide.md")), false);
     assert(await exists(worktree));
   });
@@ -199,6 +318,7 @@ Deno.test("landing compare-and-swap converges the unchanged trunk checkout", asy
     const worktree = await addWorktree(dir, "cas-control");
     await commitPaths(worktree, { "docs/guide.md": "landed\n" });
     const validated = await gitOut(worktree, "rev-parse", "HEAD");
+    const transactionId = crypto.randomUUID();
 
     assertEquals(
       await fastForwardCheckedOutBranch(
@@ -206,15 +326,130 @@ Deno.test("landing compare-and-swap converges the unchanged trunk checkout", asy
         "main",
         expected,
         validated,
+        { transactionId, transactionCwd: worktree },
       ),
       { kind: "updated" },
     );
     assertEquals(await gitOut(dir, "rev-parse", "main"), validated);
     assertEquals(
+      await readAcceptanceTransactionMarker(worktree, transactionId),
+      { kind: "present", target: validated },
+      "the successful trunk CAS must publish its recovery marker atomically",
+    );
+    assertEquals(
       await Deno.readTextFile(join(dir, "docs", "guide.md")),
       "landed\n",
     );
     assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("accept retry reconciles an interruption after trunk CAS without entering its dirty guard", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed before checkout convergence\n" },
+      "cas-interruption",
+    );
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+    );
+
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+    assert(
+      (await gitOut(dir, "status", "--porcelain")) !== "",
+      "the fixture must stop after the ref CAS and before read-tree",
+    );
+
+    const retried = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(retried.code, 1, retried.output);
+    const message = JSON.parse(retried.stdout).message as string;
+    assertStringIncludes(message, "reconciled the interrupted landing");
+    assertStringIncludes(message, "discern worktree prune");
+    assert(
+      !message.includes("uncommitted tracked changes"),
+      "the journal-owned stale checkout must not trip the ordinary dirty guard",
+    );
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    assertEquals(
+      await Deno.readTextFile(join(dir, "feature.txt")),
+      "landed before checkout convergence\n",
+    );
+    assertEquals(await exists(interrupted.journal), false);
+    assert(await exists(worktree));
+  });
+});
+
+Deno.test("accept recovery preserves tracked data changed after an interrupted trunk CAS", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed while local work exists\n" },
+      "cas-local-edit-interruption",
+    );
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      "operator edit after the process stopped\n",
+    );
+
+    const retried = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(retried.code, 1, retried.output);
+    const message = JSON.parse(retried.stdout).message as string;
+    assertStringIncludes(message, "preserved the trunk checkout");
+    assertStringIncludes(message, "git diff");
+    assertEquals(
+      await Deno.readTextFile(join(dir, "discern.toml")),
+      "operator edit after the process stopped\n",
+    );
+    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assertEquals(
+      await exists(interrupted.journal),
+      true,
+      "unresolved recovery evidence must survive until the local edit is handled",
+    );
+    assert(await exists(worktree));
   });
 });
 
@@ -364,6 +599,18 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     await grantEffort(worktree, branch, "2026-07-28T23:00:00.000Z");
     const marker = await gitAdminStatePath(worktree, "effortGrant");
     assert(marker !== undefined);
+    const worktreeGitDir = await gitOut(
+      worktree,
+      "rev-parse",
+      "--absolute-git-dir",
+    );
+    const transactionMarkers = join(
+      worktreeGitDir,
+      "refs",
+      "worktree",
+      "discern",
+      "acceptance-transactions",
+    );
 
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
@@ -374,11 +621,345 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
       "landed under effort grant",
     );
     assertEquals(await exists(marker), false);
+    assertEquals(
+      await exists(transactionMarkers),
+      false,
+      "worktree removal must reap its acceptance marker refs",
+    );
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
     assert(event?.kind === "verb");
     assertEquals(event.consent, { source: "effort-grant" });
+  });
+});
+
+Deno.test("concurrent accept refuses without recovering the active transaction", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "one acceptance owns the transition\n" },
+      "concurrent-acceptance",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    await grantEffort(worktree, branch, "2026-07-28T23:05:00.000Z");
+
+    const journal = await gitAdminStatePath(
+      worktree,
+      "acceptanceTransaction",
+    );
+    const grant = await gitAdminStatePath(worktree, "effortGrant");
+    const claims = await gitAdminStatePath(worktree, "effortGrantClaims");
+    assert(journal !== undefined);
+    assert(grant !== undefined);
+    assert(claims !== undefined);
+
+    const paused = join(dir, "accept-update-ref-paused");
+    const release = join(dir, "accept-update-ref-release");
+    const gitWrapper = join(dir, "accept-pausing-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'saw_update_ref=""',
+        'saw_stdin=""',
+        'for arg in "$@"; do',
+        '  if [ "$arg" = "update-ref" ]; then saw_update_ref=1; fi',
+        '  if [ "$arg" = "--stdin" ]; then saw_stdin=1; fi',
+        "done",
+        'if [ "$saw_update_ref" = 1 ] && [ "$saw_stdin" = 1 ]; then',
+        '  : > "$DISCERN_TEST_ACCEPT_PAUSED"',
+        '  while [ ! -e "$DISCERN_TEST_ACCEPT_RELEASE" ]; do',
+        "    sleep 0.01",
+        "  done",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(gitWrapper, 0o755);
+    const env = {
+      GIT_BIN: gitWrapper,
+      DISCERN_TEST_ACCEPT_PAUSED: paused,
+      DISCERN_TEST_ACCEPT_RELEASE: release,
+    };
+
+    const first = runAgent(worktree, ["accept", "--json"], { env });
+    let second:
+      | ReturnType<typeof runAgent>
+      | undefined;
+    let secondBeforeRelease:
+      | Awaited<ReturnType<typeof runAgent>>
+      | undefined;
+    let failure: unknown;
+    let journalBefore = "";
+    let claimPath = "";
+    let claimBefore = "";
+    try {
+      await waitForPath(paused);
+      journalBefore = await Deno.readTextFile(journal);
+      const transaction = JSON.parse(journalBefore);
+      assertEquals(transaction.worktree_branch, branch);
+      assertEquals(transaction.expected_trunk, expected);
+      assertEquals(transaction.effort_claim, true);
+      claimPath = join(claims, transaction.id);
+      claimBefore = await Deno.readTextFile(claimPath);
+      assertEquals(await exists(grant), false);
+      assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+      assertEquals(
+        await readAcceptanceTransactionMarker(worktree, transaction.id),
+        { kind: "missing" },
+      );
+
+      second = runAgent(worktree, ["accept", "--json"], { env });
+      secondBeforeRelease = await resultWithin(second, 2_000);
+      assert(
+        secondBeforeRelease !== undefined,
+        "a concurrent accept must refuse instead of waiting or recovering the active journal",
+      );
+      assertEquals(secondBeforeRelease.code, 1, secondBeforeRelease.output);
+      assertStringIncludes(
+        JSON.parse(secondBeforeRelease.stdout).message,
+        "Another acceptance is already running",
+      );
+
+      assertEquals(await Deno.readTextFile(journal), journalBefore);
+      assertEquals(await Deno.readTextFile(claimPath), claimBefore);
+      assertEquals(await exists(grant), false);
+      assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+      assertEquals(
+        await readAcceptanceTransactionMarker(worktree, transaction.id),
+        { kind: "missing" },
+      );
+    } catch (error) {
+      failure = error;
+    } finally {
+      await Deno.writeTextFile(release, "continue\n");
+    }
+
+    const landed = await first;
+    const refused = second === undefined ? undefined : await second;
+    if (failure !== undefined) {
+      throw failure;
+    }
+    assertEquals(landed.code, 0, landed.output);
+    assertEquals(refused, secondBeforeRelease);
+    assertEquals(
+      await gitOut(dir, "show", "main:feature.txt"),
+      "one acceptance owns the transition",
+    );
+    assertEquals(await exists(worktree), false);
+  });
+});
+
+Deno.test("accept retry restores and reuses an effort claim interrupted before trunk CAS", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "claimed before CAS\n" },
+      "pre-cas-claim-interruption",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    await grantEffort(worktree, branch, "2026-07-28T23:10:00.000Z");
+    const claimed = await claimEffortGrant(worktree, branch);
+    assert(claimed.status === "claimed");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      claimed.claim.path,
+    );
+
+    const retried = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(retried.code, 0, retried.output);
+    const envelope = JSON.parse(retried.stdout);
+    assertEquals(envelope.data.consent, { source: "effort-grant" });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "feature.txt")),
+      "claimed before CAS\n",
+    );
+    assertEquals(await exists(claimed.claim.path), false);
+    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await exists(worktree), false);
+  });
+});
+
+Deno.test("accept retry consumes an effort claim interrupted after trunk CAS without replaying authority", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "claimed and landed\n" },
+      "post-cas-claim-interruption",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    await grantEffort(worktree, branch, "2026-07-28T23:20:00.000Z");
+    const claimed = await claimEffortGrant(worktree, branch);
+    assert(claimed.status === "claimed");
+    const marker = await gitAdminStatePath(worktree, "effortGrant");
+    assert(marker !== undefined);
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      claimed.claim.path,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+
+    const retried = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(retried.code, 1, retried.output);
+    const message = JSON.parse(retried.stdout).message as string;
+    assertStringIncludes(message, "reconciled the interrupted landing");
+    assertStringIncludes(message, "discern worktree prune");
+    assert(
+      !message.includes("Re-authorize"),
+      "a post-CAS retry must never make the spent grant replayable",
+    );
+    assertEquals(await exists(marker), false);
+    assertEquals(await exists(claimed.claim.path), false);
+    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assert(await exists(worktree));
+  });
+});
+
+Deno.test("accept retry does not replay an effort claim after a landed ref is reset to its expected SHA", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed then reset\n" },
+      "aba-claim-interruption",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    await grantEffort(worktree, branch, "2026-07-28T23:25:00.000Z");
+    const claimed = await claimEffortGrant(worktree, branch);
+    assert(claimed.status === "claimed");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      claimed.claim.path,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      "operator reset after interrupted acceptance",
+      "refs/heads/main",
+      expected,
+      target,
+    );
+    await git(worktree, "reflog", "expire", "--expire=now", "--all");
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      "",
+      "ABA puts HEAD and the unchanged old checkout back in apparent agreement",
+    );
+
+    const retried = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(retried.code, 1, retried.output);
+    const message = JSON.parse(retried.stdout).message as string;
+    assertStringIncludes(message, "was later reset");
+    assertStringIncludes(message, "effort grant was consumed");
+    assertEquals(await exists(claimed.claim.path), false);
+    assertEquals(await exists(interrupted.journal), false);
+
+    const replay = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(replay.code, 1, replay.output);
+    assertEquals(JSON.parse(replay.stdout).error, "awaiting_consent");
+    assert(await exists(worktree));
+  });
+});
+
+Deno.test("accept retry reuses an effort claim only after its tagged CAS rollback", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "land after explicit rollback\n" },
+      "tagged-rollback-claim-interruption",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    await grantEffort(worktree, branch, "2026-07-28T23:27:00.000Z");
+    const claimed = await claimEffortGrant(worktree, branch);
+    assert(claimed.status === "claimed");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      claimed.claim.path,
+    );
+    const collision = join(dir, "feature.txt");
+    await Deno.writeTextFile(collision, "local collision\n");
+    const failedCheckout = await fastForwardCheckedOutBranch(
+      dir,
+      "main",
+      expected,
+      target,
+      { transactionId: interrupted.id, transactionCwd: worktree },
+    );
+    assertEquals(failedCheckout.kind, "checkout-failed");
+    if (failedCheckout.kind === "checkout-failed") {
+      assertEquals(failedCheckout.rolledBack, true);
+    }
+    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+    assertEquals(
+      await readAcceptanceTransactionMarker(worktree, interrupted.id),
+      { kind: "missing" },
+      "Discern's rollback must remove the marker in the same ref transaction",
+    );
+
+    await Deno.remove(collision);
+    const retried = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(retried.code, 0, retried.output);
+    assertEquals(JSON.parse(retried.stdout).data.consent, {
+      source: "effort-grant",
+    });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "feature.txt")),
+      "land after explicit rollback\n",
+    );
+    assertEquals(await exists(claimed.claim.path), false);
+    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await exists(worktree), false);
   });
 });
 

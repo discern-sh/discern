@@ -151,6 +151,24 @@ Deno.test("runGit: a spawn failure reports the real cause, not a fabricated PATH
   );
 });
 
+Deno.test("runGit supplies protocol input on stdin", async () => {
+  const first = await runGit(["hash-object", "--stdin"], {
+    cwd: Deno.cwd(),
+    stdin: "acceptance transaction A\n",
+  });
+  const second = await runGit(["hash-object", "--stdin"], {
+    cwd: Deno.cwd(),
+    stdin: "acceptance transaction B\n",
+  });
+  assertEquals(first.success, true, first.stderr);
+  assertEquals(second.success, true, second.stderr);
+  assert(
+    /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(first.stdout.trim()),
+    first.stdout,
+  );
+  assert(first.stdout !== second.stdout, "runGit dropped or reused stdin");
+});
+
 Deno.test("runShell: a spawn failure carries the real cause instead of being swallowed", async () => {
   // The old catch discarded the error, returning an EMPTY stderr — a shell spawn
   // failure told the user nothing. A missing cwd throws NotFound; the fix decodes

@@ -279,6 +279,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "acceptance-transaction-boundaries",
+    title: "Acceptance transaction boundaries",
+    what:
+      "The durable authority/ref facts acceptance journals before a later process or checkout phase, so interruption recovery cannot replay authority or overwrite local data.",
+    source: {
+      kind: "module",
+      module: "src/engine/worktree/acceptance_transaction.ts",
+      exportName: "ACCEPTANCE_TRANSACTION_BOUNDARIES",
+    },
+    guards: ["tests/engine_accept_authority_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal recovery boundaries of the documented acceptance workflow, not user-facing product vocabulary",
+      },
+      featureCanon: { nodeId: "worktrees" },
+    },
+    members: async () =>
+      (
+        await import("../src/engine/worktree/acceptance_transaction.ts")
+      ).ACCEPTANCE_TRANSACTION_BOUNDARIES.map((boundary) => boundary.id),
+  },
+  {
     id: "worktree-lifecycle-repo-root-verbs",
     title: "Repository-root worktree lifecycle verbs",
     what:
@@ -602,7 +626,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "restricted-writer-modules",
     title: "Restricted writer modules",
     what:
-      "The shipped capability modules whose importers are restricted: attributed commits, human effort grants, and effort-grant cleanup.",
+      "The shipped capability modules whose importers are restricted: attributed commits, human effort grants, effort-grant cleanup, and acceptance transactions.",
     source: {
       kind: "module",
       module: "tests/writer_boundaries.ts",
