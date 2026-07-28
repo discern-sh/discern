@@ -1,0 +1,442 @@
+/**
+ * `await` engine tests — the blocking fleet-condition verb, driven through the
+ * real core against scaffolded repos (fast, in-process) plus the CLI for the
+ * exit-code and interruption contracts. The behaviour under test:
+ *
+ *  - each condition grounds in authoritative state: `--landed` in git ancestry
+ *    (the tip pinned at call start, so the answer survives acceptance deleting
+ *    the branch), `--green` in the sibling worktree's gate receipt (a landing
+ *    satisfies it too), `--trunk-moved` in the trunk ref against its at-start
+ *    position;
+ *  - the wait wakes on git-ref changes mid-hold, not just at the deadline;
+ *  - timing out is NOT a failure: `ok` stays true, `met` is false, and
+ *    `retry_after_seconds` is priced from the logbook's duration priors —
+ *    in-flight work with a prior suggests the remainder, a quiet fleet the
+ *    long backoff, a disabled logbook the labelled flat default;
+ *  - the CLI exits 0 on met, 124 on "not yet", 1 on a refusal, and dies
+ *    promptly on SIGINT with nothing left behind.
+ */
+
+import { assert, assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import {
+  addWorktree,
+  DENO_JSON,
+  engineEnv,
+  git,
+  gitInit,
+  gitOut,
+  MAIN_TS,
+  runAgent,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
+import { awaitResult } from "../src/engine/await/await.ts";
+import { AWAIT_TIMEOUT_EXIT_CODE } from "../src/engine/await/defaults.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
+
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/** Commit one file in `dir` (add-all, no signing). */
+async function commitFile(
+  dir: string,
+  file: string,
+  content: string,
+  message: string,
+): Promise<void> {
+  await Deno.writeTextFile(join(dir, file), content);
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
+}
+
+/** Stamp an honored-shaped gate receipt for the worktree's current HEAD. */
+async function writeHonoredReceipt(worktree: string): Promise<void> {
+  const path = await gitAdminStatePath(worktree, "gateReceipt");
+  assert(path !== undefined, "receipt path must resolve in a worktree");
+  const head = await gitOut(worktree, "rev-parse", "HEAD");
+  await Deno.mkdir(join(path, ".."), { recursive: true });
+  await Deno.writeTextFile(path, `${head}\nline: gate green\n`);
+}
+
+/** Append raw logbook lines under the main checkout's common git dir. */
+async function appendLogbookLines(
+  dir: string,
+  lines: readonly unknown[],
+): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  const month = `${new Date().toISOString().slice(0, 7)}.jsonl`;
+  await Deno.writeTextFile(
+    join(logDir, month),
+    lines.map((l) => `${JSON.stringify(l)}\n`).join(""),
+    { append: true },
+  );
+}
+
+Deno.test("await --landed pins the tip at call start and survives the branch's deletion", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+    const tip = await gitOut(dep, "rev-parse", "HEAD");
+
+    // Not landed yet: a single evaluation answers immediately.
+    const notYet = await awaitResult(dir, {
+      landed: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assert(notYet.ok, "a timeout is not a failure");
+    assertEquals(notYet.data?.met, false);
+    assertEquals(notYet.data?.observed.landed, false);
+    assert(
+      typeof notYet.data?.retry_after_seconds === "number",
+      "a not-yet answer always says when to come back",
+    );
+
+    // Mid-wait, the landing happens the way acceptance performs it: the
+    // worktree is removed and the BRANCH DELETED before the sha reaches the
+    // trunk — only the pinned tip can still answer.
+    const wait = awaitResult(dir, {
+      landed: "agent/dep",
+      timeoutSeconds: 10,
+      pollIntervalMs: 100,
+    });
+    await delay(300);
+    await git(dir, "worktree", "remove", "--force", dep);
+    await git(dir, "branch", "-D", "agent/dep");
+    await git(dir, "merge", "-q", "--ff-only", tip);
+    const met = await wait;
+    assert(met.ok);
+    assertEquals(met.data?.met, true);
+    assertEquals(met.data?.observed.landed, true);
+    assertEquals(met.data?.observed.tip, tip);
+    assert(
+      (met.data?.waited_ms ?? Infinity) < 10_000,
+      "the wake fires well before the deadline",
+    );
+    assert(
+      met.hints?.some((h) => h.includes("discern update")) === true,
+      "a met landing hints the update",
+    );
+  });
+});
+
+Deno.test("await --landed met from a sibling worktree previews what update would bring in", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "shared.txt", "theirs", "dep touches shared");
+    const dependent = await addWorktree(dir, "dependent");
+    await commitFile(
+      dependent,
+      "shared.txt",
+      "mine",
+      "dependent touches shared",
+    );
+
+    await git(dir, "merge", "-q", "agent/dep");
+    const met = await awaitResult(dependent, {
+      landed: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assert(met.ok);
+    assertEquals(met.data?.met, true);
+    assert((met.data?.observed.behind ?? 0) >= 1, "the branch is now behind");
+    assert(
+      met.data?.observed.incoming_overlap?.includes("shared.txt") === true,
+      "the hot zone names the file both sides changed",
+    );
+    assert(
+      met.hints?.some((h) => h.includes("overlap")) === true,
+      "the hint carries the overlap count",
+    );
+  });
+});
+
+Deno.test("await --green reads the sibling's receipt, and a landing satisfies it too", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+
+    // No receipt yet → not met, with the receipt state named.
+    const missing = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assert(missing.ok);
+    assertEquals(missing.data?.met, false);
+    assertEquals(missing.data?.observed.receipt_status, "missing");
+    // The observed path is canonicalized (macOS /var → /private/var).
+    assertEquals(missing.data?.observed.worktree, await Deno.realPath(dep));
+
+    // An honored receipt over the worktree's clean HEAD meets the condition,
+    // and the hint teaches the below-trunk composition move.
+    await writeHonoredReceipt(dep);
+    const green = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assert(green.ok);
+    assertEquals(green.data?.met, true);
+    assertEquals(green.data?.observed.receipt_status, "honored");
+    assert(
+      green.hints?.some((h) => h.includes("--from agent/dep")) === true,
+      "a green sibling hints update --from",
+    );
+
+    // A branch with NO worktree reports that state honestly — and a freshly
+    // forked branch (tip trivially reachable from the trunk) never reads as
+    // met: vacuous reachability is not a landing.
+    await git(dir, "branch", "solo");
+    const solo = await awaitResult(dir, { green: "solo", timeoutSeconds: 0 });
+    assert(solo.ok);
+    assertEquals(solo.data?.met, false);
+    assertEquals(solo.data?.observed.receipt_status, "no-worktree");
+  });
+});
+
+Deno.test("await --green is satisfied by a landing it watched happen", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+
+    // The wait observes the branch unreachable, then the landing mid-hold:
+    // only a validated tree lands, so the transition proves the gate held —
+    // no receipt observation window required.
+    const wait = awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 10,
+      pollIntervalMs: 100,
+    });
+    await delay(300);
+    await git(dir, "merge", "-q", "agent/dep");
+    const met = await wait;
+    assert(met.ok);
+    assertEquals(met.data?.met, true);
+    assertEquals(met.data?.observed.landed, true);
+    assert((met.data?.waited_ms ?? Infinity) < 10_000);
+    assert(
+      met.hints?.some((h) => h.includes("discern update")) === true,
+      "a landing hints the update",
+    );
+  });
+});
+
+Deno.test("await --trunk-moved wakes on the ref change, not the deadline", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const start = await gitOut(dir, "rev-parse", "HEAD");
+    const wait = awaitResult(dir, {
+      trunkMoved: true,
+      timeoutSeconds: 10,
+      pollIntervalMs: 100,
+    });
+    await delay(300);
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "move",
+      "--no-gpg-sign",
+    );
+    const met = await wait;
+    assert(met.ok);
+    assertEquals(met.data?.met, true);
+    assertEquals(met.data?.observed.trunk_start, start);
+    assert(met.data?.observed.trunk_head !== start, "the head moved");
+    assert((met.data?.waited_ms ?? Infinity) < 10_000);
+  });
+});
+
+Deno.test("retry advice prices the wait from duration priors, and degrades honestly", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "dep");
+
+    // A quiet fleet: the long idle backoff.
+    const idle = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(idle.data?.retry_basis, "idle");
+
+    // The dependency is mid-`done`, one minute into a typical four-minute run:
+    // the advice is the remainder, about three minutes.
+    const now = Date.now();
+    const iso = (msAgo: number): string => new Date(now - msAgo).toISOString();
+    const completion = (msAgo: number): unknown => ({
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: iso(msAgo),
+      kind: "verb",
+      verb: "done",
+      surface: "cli",
+      branch: "agent/dep",
+      head: null,
+      clean: null,
+      outcome: "ok",
+      duration_ms: 240_000,
+      epoch: null,
+    });
+    await appendLogbookLines(dir, [
+      completion(3_600_000),
+      completion(1_800_000),
+      completion(900_000),
+      {
+        schema: LOGBOOK_SCHEMA_VERSION,
+        at: iso(60_000),
+        kind: "begin",
+        invocation: "inv-live",
+        verb: "done",
+        surface: "cli",
+        driver: {},
+        branch: "agent/dep",
+        head: null,
+        epoch: null,
+      },
+    ]);
+    const running = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(running.data?.retry_basis, "running");
+    assertEquals(running.data?.running?.verb, "done");
+    assertEquals(running.data?.running?.typical_duration_ms, 240_000);
+    const seconds = running.data?.retry_after_seconds ?? 0;
+    assert(
+      seconds >= 150 && seconds <= 181,
+      `~3 minutes of the typical run remain, got ${seconds}s`,
+    );
+    assert(
+      running.hints?.some((h) => h.includes(`${seconds}`)) === true,
+      "the not-yet hint names the delay",
+    );
+
+    // With the logbook off the advice is a flat default, and a point-of-use
+    // line says why the timing evidence is absent.
+    const configPath = join(dir, "discern.toml");
+    const config = await Deno.readTextFile(configPath);
+    await Deno.writeTextFile(
+      configPath,
+      config.replace("logbook = true", "logbook = false"),
+    );
+    const off = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(off.data?.retry_basis, "logbook-off");
+    assert(
+      off.hints?.some((h) => h.includes("flat default")) === true,
+      "the degraded advice is labelled at the point of use",
+    );
+  });
+});
+
+Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const notYet = await runAgent(dir, [
+      "await",
+      "--trunk-moved",
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(notYet.code, AWAIT_TIMEOUT_EXIT_CODE);
+    const envelope = JSON.parse(notYet.stdout) as {
+      ok: boolean;
+      data: { met: boolean };
+    };
+    assertEquals(
+      envelope.ok,
+      true,
+      "a timeout reports ok — not yet, not failed",
+    );
+    assertEquals(envelope.data.met, false);
+
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+    await git(dir, "merge", "-q", "agent/dep");
+    const met = await runAgent(dir, [
+      "await",
+      "--landed",
+      "agent/dep",
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(met.code, 0, met.output);
+
+    const refused = await runAgent(dir, [
+      "await",
+      "--landed",
+      "agent/zz-absent",
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(refused.code, 1);
+    const refusal = JSON.parse(refused.stdout) as {
+      ok: boolean;
+      error: string;
+    };
+    assertEquals(refusal.ok, false);
+    assertEquals(refusal.error, "not_found");
+  });
+});
+
+Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const child = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        MAIN_TS,
+        "await",
+        "--trunk-moved",
+        "--timeout",
+        "60",
+      ],
+      cwd: dir,
+      env: await engineEnv(),
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    // Give the process time to reach the wait loop (module load included).
+    await delay(2500);
+    child.kill("SIGINT");
+    const guard = setTimeout(() => child.kill("SIGKILL"), 8_000);
+    const killedAt = Date.now();
+    const status = await child.output();
+    clearTimeout(guard);
+    assert(
+      Date.now() - killedAt < 5_000,
+      "the interrupted wait must die promptly, not run out its timeout",
+    );
+    assert(!status.success, "an interrupted wait is not a success");
+    assert(
+      status.code !== AWAIT_TIMEOUT_EXIT_CODE,
+      "SIGINT death is distinct from the not-yet exit",
+    );
+  });
+});
