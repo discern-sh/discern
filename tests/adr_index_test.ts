@@ -14,8 +14,8 @@ import {
   type AdrRecord,
   adrRecords,
   discoverDocs,
+  maintainAdrIndexDocument,
   renderAdrIndexBlocks,
-  replaceAdrIndexBlocks,
 } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -60,14 +60,17 @@ Deno.test("ADR index: generated record lists match the records on disk", async (
   const readme = await Deno.readTextFile(join(ADR_DIR, "README.md"));
   const blocks = await renderAdrIndexBlocks(await adrRecordsIn(ADR_DIR));
   const path = join(ADR_DIR, "README.md");
+  const maintained = maintainAdrIndexDocument(readme, blocks);
+  assertEquals(
+    maintained.pairs,
+    2,
+    `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md must carry both marker pairs`,
+  );
   assertEquals(
     readme,
-    await canonicalGeneratedMarkdown(
-      path,
-      replaceAdrIndexBlocks(readme, blocks),
-    ),
+    await canonicalGeneratedMarkdown(path, maintained.text),
     `${REPO_AUTHORED_PATHS.mapRel}/_adr/README.md is stale — run ` +
-      "`deno task codegen`",
+      "`discern refresh`",
   );
 });
 

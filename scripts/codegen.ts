@@ -46,8 +46,8 @@ import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import {
   adrRecords,
   discoverDocs,
+  maintainAdrIndexDocument,
   renderAdrIndexBlocks,
-  replaceAdrIndexBlocks,
 } from "../src/lib/docs.ts";
 import {
   codegenWriteTargets,
@@ -164,10 +164,10 @@ if (adrTree === undefined) {
 const adrIndexDoc = await Deno.readTextFile(join(repoRoot, adrIndex));
 await write(
   adrIndex,
-  replaceAdrIndexBlocks(
+  maintainAdrIndexDocument(
     adrIndexDoc,
     await renderAdrIndexBlocks(adrRecords(adrTree.entries)),
-  ),
+  ).text,
 );
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
