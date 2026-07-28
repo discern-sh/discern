@@ -19,11 +19,11 @@ A dependent task used to poll `discern status` on a guessed interval or wait for
 
 Pass one condition per call:
 
-| Condition           | Holds when                                                                       | Grounded in          |
-| ------------------- | -------------------------------------------------------------------------------- | -------------------- |
+| Condition           | Holds when                                                                           | Grounded in          |
+| ------------------- | ------------------------------------------------------------------------------------ | -------------------- |
 | `--green <branch>`  | The branch's worktree holds an honored gate receipt (a watched landing also counts). | The gate receipt     |
-| `--landed <branch>` | The branch's work — its tip at call start — is reachable from the trunk.          | Git ancestry         |
-| `--trunk-moved`     | The trunk ref differs from its position at call start.                            | The trunk ref itself |
+| `--landed <branch>` | The branch's work — its tip at call start — is reachable from the trunk.             | Git ancestry         |
+| `--trunk-moved`     | The trunk ref differs from its position at call start.                               | The trunk ref itself |
 
 Every verdict comes from authoritative state: a git ancestry read or a receipt inspection. The logbook — one append per verb completion anywhere in the fleet — only wakes the wait early and prices the retry advice; recorded history never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)).
 
@@ -41,7 +41,7 @@ The CLI exits `0` when the condition was met, `1` on a refusal, and `124` on "no
 discern await --landed agent/upload-retry --timeout 100 && discern update
 ```
 
-Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the research in [ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md). `--timeout 0` checks once and answers immediately.
+Defaults sit just under the calling surface's own tool-call budget with headroom: 100 seconds on the CLI, 45 seconds over MCP (`discern_await`), each re-derivable from the recorded per-harness research ([ADR 0212](../_adr/0212-await-blocks-on-authoritative-fleet-conditions.md)). `--timeout 0` checks once and answers immediately.
 
 ## Compose below the trunk
 
@@ -58,8 +58,8 @@ The wait itself is visible fleet activity: `await` is a begin-recorded verb, so 
 
 ## Where it lives in code
 
-| Responsibility                     | Source                                                                  |
-| ---------------------------------- | ----------------------------------------------------------------------- |
+| Responsibility                      | Source                                                                  |
+| ----------------------------------- | ----------------------------------------------------------------------- |
 | Conditions, wait loop, retry advice | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)       |
 | Surface timeout defaults            | [`src/engine/await/defaults.ts`](../../../src/engine/await/defaults.ts) |
 | Behavioural coverage                | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)     |

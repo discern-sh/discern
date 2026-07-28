@@ -1196,7 +1196,7 @@ export const HINTS = {
   }),
 
   /** The honest refusal when the awaited branch does not resolve at call
-   * start — the sha to watch can no longer be pinned. */
+   * start — there is no tip left to pin and watch. */
   "await-branch-missing": defineHint<{ branch: string; trunk: string }>({
     id: "await-branch-missing",
     category: "next-step",
