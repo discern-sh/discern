@@ -2,6 +2,8 @@
 
 > **Relationship clarification (2026-07-28):** This record both extends and amends [ADR 0134](0134-accept-attests-consent.md). It preserves the requirement that every landing has verified consent, narrows `--confirmed` to current-conversation consent, and adds machine-checked recorded grants as separate consent sources.
 
+> **Atomic-boundary clarification (2026-07-28):** A checked grant authorizes one exact transition, not merely a tree that was covered earlier. Standing authority is pinned to the trunk commit that supplied it and lands through an expected-old compare-and-swap. An effort grant is atomically claimed before that transition. Concurrent trunk movement, revocation, or competing acceptance therefore refuses closed instead of reusing stale authority.
+
 **Status**: accepted — extends [ADR 0134](0134-accept-attests-consent.md) (the consent gate stays; one of its consent sources gains a verifiable referent) the way ADR 0134 extended [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md). Builds on [ADR 0110](0110-the-landing-model.md) (the landing model), [ADR 0067](0067-accept-validates-the-landed-tree.md)/[ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md) (receipts and the validated tree), [ADR 0119](0119-bare-discern-opens-the-operators-desk.md)/[ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0160](0160-local-logbook-advisory-readers.md)/[ADR 0162](0162-logbook-day-one-vocabulary.md) (the logbook). Leans on [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md) for one explicit _no_.
 
 ## Context
@@ -26,6 +28,8 @@ Two prior decisions box in any fix. ADR 0134: no config to disable the consent g
 
 5. **Lifecycle envelopes are authority-aware.** `start` states the effort's landing authority up front; a green `done` says either "relay the receipt and stop" or "covered by the standing grant for these scopes — land it", computed from the verified grant at that moment; `status` shows the same. Static guidance keeps its non-autonomy rule — the acceptance-instruction test is amended deliberately and narrowly so that only a runtime hint whose firing condition is a machine-verified grant may present `accept` as the next step. This is the routing test (ADR 0192) applied to trust: authority is delivered at the moment it is true, never as standing prose.
 
+6. **Authority and the landing transition share one atomic boundary.** A standing grant carries the exact trunk commit from which `[acceptance]` was read. Landing compares and swaps that ref from the recorded commit to the validated branch tip; even a concurrent ancestor advance refuses. An effort grant is moved atomically from its desk-visible marker into a unique acceptance claim before the same transition. Whichever of desk revocation or acceptance claims the marker first decides the race. A refused trunk transition restores the claim unless the desk has already recorded newer authority; a successful transition consumes it.
+
 The explicit *no*s:
 
 - **No gate toggle.** ADR 0134 stands: the consent gate itself remains unconditional. This record gives one consent source a referent; it adds no switch.
@@ -43,6 +47,7 @@ The explicit *no*s:
 - **Scope definitions become consent-bearing.** A carelessly wide scope now widens a grant; `[scopes]` carries trust weight it did not have, and the config reference and template comments must say so.
 - The acceptance-instruction test loses its absolute form; its amendment must stay narrow enough that static prose can never present `accept` as autonomous.
 - `accept` gains a second success path that must stay coherent with ADR 0067/0116: the covered path still lands only the validated sha of a green, receipted tree.
+- Authority checks no longer have a time-of-check/time-of-use gap at the Git transition. Competing landings and desk actions have one observable winner, while the losing acceptance leaves its worktree and resources intact.
 
 ## Alternatives considered
 

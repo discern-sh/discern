@@ -42,8 +42,12 @@ import { worktreeDirtyPaths } from "../src/engine/gate/tree_drift.ts";
  * one level above it, so the project root is a subdirectory of its git
  * toplevel. Returns the nested project root (`<repo>/app`).
  */
-async function scaffoldNested(repo: string, config: string): Promise<string> {
-  const app = join(repo, "app");
+async function scaffoldNested(
+  repo: string,
+  config: string,
+  projectDir = "app",
+): Promise<string> {
+  const app = join(repo, projectDir);
   await Deno.mkdir(app, { recursive: true });
   await scaffoldEngine(app);
   await writeConfig(app, config);
@@ -152,6 +156,27 @@ Deno.test("nested root: a sibling project's changes are not this project's code"
     assertEquals(r.code, 0, r.output);
     const scopes = JSON.parse(r.stdout.trim()).data.scopes as string[];
     assertEquals(scopes, [], `sibling dirt must not classify: ${r.stdout}`);
+  });
+});
+
+Deno.test("nested root: whitespace in the project prefix remains Git path data", async () => {
+  await withTempDir(async (repo) => {
+    const app = await scaffoldNested(repo, widgetConfig(), " app");
+    await git(repo, "checkout", "-q", "-b", "agent/x");
+
+    // This is a sibling named `app`, not the discern project named ` app`.
+    // Trimming `git rev-parse --show-prefix` aliases the two and grants the
+    // sibling's `widget/**` path this project's scope.
+    await Deno.mkdir(join(repo, "app", "widget"), { recursive: true });
+    await Deno.writeTextFile(join(repo, "app", "widget", "x.txt"), "sibling");
+
+    const r = await runAgent(app, ["impact", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(
+      JSON.parse(r.stdout.trim()).data.scopes,
+      [],
+      `a whitespace-distinct sibling must not classify: ${r.stdout}`,
+    );
   });
 });
 

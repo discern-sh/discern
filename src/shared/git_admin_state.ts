@@ -63,6 +63,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  effortGrantClaims: {
+    path: "discern/effort-grant-claims",
+    scope: "worktree",
+    kind: "directory",
+    validation: false,
+  },
   worktreeReady: {
     path: "discern/worktree-ready",
     scope: "worktree",

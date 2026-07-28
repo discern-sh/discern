@@ -6,9 +6,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, isAbsolute, join } from "@std/path";
 import {
+  claimEffortGrant,
   clearEffortGrant,
+  consumeEffortGrantClaim,
   grantEffort,
   readEffortGrant,
+  restoreEffortGrantClaim,
 } from "../src/engine/worktree/effort_grant.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, git, gitInit, gitOut } from "./engine_helpers.ts";
@@ -107,6 +110,51 @@ Deno.test("effort grant reads fail closed for malformed or unavailable state", a
           "the record instead of relying on storage shorthand",
       );
     }
+  });
+});
+
+Deno.test("effort grant claim linearizes accept against desk revoke and re-grant", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "claim-race");
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    await grantEffort(worktree, branch, FIRST_GRANT);
+
+    const first = await claimEffortGrant(worktree, branch);
+    assert(first.status === "claimed");
+    assertEquals(await readEffortGrant(worktree), { status: "missing" });
+    assertEquals(
+      await clearEffortGrant(worktree),
+      false,
+      "acceptance claimed the grant before revoke linearized",
+    );
+    assertEquals(
+      await restoreEffortGrantClaim(worktree, first.claim),
+      true,
+    );
+    assertEquals(await readEffortGrant(worktree), {
+      status: "granted",
+      grant: { branch, granted_at: FIRST_GRANT },
+    });
+
+    const second = await claimEffortGrant(worktree, branch);
+    assert(second.status === "claimed");
+    await grantEffort(worktree, branch, SECOND_GRANT);
+    assertEquals(
+      await restoreEffortGrantClaim(worktree, second.claim),
+      true,
+      "a newer desk grant wins over restoration of the consumed evidence",
+    );
+    assertEquals(await readEffortGrant(worktree), {
+      status: "granted",
+      grant: { branch, granted_at: SECOND_GRANT },
+    });
+
+    const final = await claimEffortGrant(worktree, branch);
+    assert(final.status === "claimed");
+    await consumeEffortGrantClaim(final.claim);
+    assertEquals(await readEffortGrant(worktree), { status: "missing" });
   });
 });
 

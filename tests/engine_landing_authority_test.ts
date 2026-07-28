@@ -4,7 +4,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { LANDING_CONSENT_SOURCES } from "../src/shared/consent.ts";
 import {
   inspectLandingAuthority,
@@ -35,6 +35,21 @@ const DOCS_CONFIG = [
   "",
   "[acceptance]",
   'pre_authorized = ["docs"]',
+  "",
+].join("\n");
+
+const EXACT_CONFIG = [
+  "[meta]",
+  "bootstrapped = true",
+  "",
+  "[repository]",
+  'trunk = "main"',
+  "",
+  "[scopes.release]",
+  'paths = ["release.txt"]',
+  "",
+  "[acceptance]",
+  'pre_authorized = ["release"]',
   "",
 ].join("\n");
 
@@ -177,6 +192,67 @@ Deno.test("landing authority covers neutral docs from the pinned trunk scope", a
       "standing authority must pin both sides of its decision",
     );
   });
+});
+
+Deno.test("landing authority classifies Git path bytes verbatim", async (t) => {
+  const cases = [
+    {
+      name: "leading space outside a granted directory",
+      config: DOCS_CONFIG,
+      path: " project/map/guide.md",
+      expected: "conversation-required",
+    },
+    {
+      name: "leading newline outside a granted directory",
+      config: DOCS_CONFIG,
+      path: "\nproject/map/guide.md",
+      expected: "conversation-required",
+    },
+    {
+      name: "trailing space differs from a granted exact path",
+      config: EXACT_CONFIG,
+      path: "release.txt ",
+      expected: "conversation-required",
+    },
+    {
+      name: "trailing space inside a granted directory remains covered",
+      config: DOCS_CONFIG,
+      path: "project/map/guide.md ",
+      expected: "authorized",
+    },
+    {
+      name: "non-ASCII path inside a granted directory remains covered",
+      config: DOCS_CONFIG,
+      path: "project/map/añadir.md",
+      expected: "authorized",
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    await t.step(testCase.name, async () => {
+      await withTempDir(async (dir) => {
+        await scaffoldEngine(dir);
+        await writeConfig(dir, testCase.config);
+        await gitInit(dir);
+        const worktree = await addWorktree(dir, "path-bytes");
+        const target = join(worktree, testCase.path);
+        await Deno.mkdir(dirname(target), { recursive: true });
+        await Deno.writeTextFile(target, "path fixture\n");
+        await git(worktree, "add", "-A");
+        await git(
+          worktree,
+          "commit",
+          "-q",
+          "-m",
+          "add unusual path",
+          "--no-gpg-sign",
+        );
+
+        const resolution = await inspectLandingAuthority(worktree, "main");
+        assertEquals(resolution.kind, testCase.expected);
+      });
+    });
+  }
 });
 
 Deno.test("landing authority treats a malformed trunk policy as blocking evidence", async () => {

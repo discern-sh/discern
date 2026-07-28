@@ -315,6 +315,101 @@ export async function assertMainMerged(
   return { kind: "behind", behind: behind === "" ? "?" : behind, branch };
 }
 
+/** Result of atomically moving a checked-out branch from one exact commit to
+ * another, then converging its index and worktree without overwriting local
+ * tracked edits. */
+export type CheckedOutFastForwardResult =
+  | { readonly kind: "updated" }
+  | { readonly kind: "not-fast-forward"; readonly detail: string }
+  | { readonly kind: "moved"; readonly detail: string }
+  | { readonly kind: "dirty"; readonly detail: string }
+  | {
+    readonly kind: "checkout-failed";
+    readonly detail: string;
+    readonly rolledBack: boolean;
+  };
+
+/**
+ * Compare-and-swap `refs/heads/<branch>` from `expected` to `target`, then
+ * update the branch's checked-out index/worktree through a two-tree read.
+ *
+ * `git merge --ff-only` rejects divergent movement but accepts a concurrent
+ * advance that remains an ancestor of `target`. That is too weak for landing
+ * authority: the exact trunk commit whose policy authorized the landing is
+ * evidence, so any movement must invalidate it. `update-ref <new> <old>` is the
+ * atomic boundary; its expected-old argument makes even an ancestor advance
+ * refuse. The two-tree update runs only after the ref moves and refuses local
+ * tracked edits rather than clobbering them. A convergence failure attempts an
+ * exact compare-and-swap rollback.
+ */
+export async function fastForwardCheckedOutBranch(
+  cwd: string,
+  branch: string,
+  expected: string,
+  target: string,
+): Promise<CheckedOutFastForwardResult> {
+  const ancestor = await git(
+    ["merge-base", "--is-ancestor", expected, target],
+    cwd,
+  );
+  if (!ancestor.success) {
+    return {
+      kind: "not-fast-forward",
+      detail: `${expected} is not an ancestor of ${target}`,
+    };
+  }
+
+  const dirty = await hasUncommittedTrackedChanges(cwd);
+  if (dirty !== false) {
+    return {
+      kind: "dirty",
+      detail: dirty === true
+        ? "the checkout gained uncommitted tracked changes"
+        : "Git could not verify that the checkout is clean",
+    };
+  }
+
+  const ref = `refs/heads/${branch}`;
+  const update = await git(
+    [
+      "update-ref",
+      "-m",
+      `discern accept: fast-forward ${branch}`,
+      ref,
+      target,
+      expected,
+    ],
+    cwd,
+  );
+  if (!update.success) {
+    return {
+      kind: "moved",
+      detail: update.stderr.trim() || `could not compare-and-swap ${ref}`,
+    };
+  }
+
+  const checkout = await git(
+    ["read-tree", "-u", "-m", expected, target],
+    cwd,
+  );
+  if (checkout.success) {
+    return { kind: "updated" };
+  }
+
+  const rollback = await git(["update-ref", ref, expected, target], cwd);
+  if (rollback.success) {
+    // `read-tree` checks the whole update before writing, but run the inverse
+    // convergence defensively in case a Git implementation touched the index.
+    await git(["read-tree", "-u", "-m", target, expected], cwd);
+  }
+  return {
+    kind: "checkout-failed",
+    detail: checkout.stderr.trim() ||
+      "the checked-out trunk could not be converged",
+    rolledBack: rollback.success,
+  };
+}
+
 /**
  * The read-only merged-state of an ARBITRARY source ref against HEAD — the
  * `update --from` counterpart of {@link assertMainMerged} (which is

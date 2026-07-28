@@ -7,6 +7,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { dirname, join } from "@std/path";
 import { grantEffort } from "../src/engine/worktree/effort_grant.ts";
+import { fastForwardCheckedOutBranch } from "../src/engine/worktree/git.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   type LogbookEvent,
@@ -137,6 +138,83 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
       source: "standing-grant",
       scopes: ["docs"],
     });
+  });
+});
+
+Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, authorityConfig(["docs"]));
+    await gitInit(dir);
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const worktree = await addWorktree(dir, "cas-race");
+
+    // B is a policy-changing ancestor of the final validated C.
+    await writeConfig(worktree, authorityConfig());
+    await git(worktree, "add", "discern.toml");
+    await git(
+      worktree,
+      "commit",
+      "-q",
+      "-m",
+      "revoke standing grant",
+      "--no-gpg-sign",
+    );
+    const advanced = await gitOut(worktree, "rev-parse", "HEAD");
+    await commitPaths(worktree, { "docs/guide.md": "validated C\n" });
+    const validated = await gitOut(worktree, "rev-parse", "HEAD");
+
+    // A concurrent landing moves main A→B and converges its checkout.
+    assertEquals(
+      await fastForwardCheckedOutBranch(
+        dir,
+        "main",
+        expected,
+        advanced,
+      ),
+      { kind: "updated" },
+    );
+
+    // B remains an ancestor of C, so `merge --ff-only C` would accept stale
+    // authority. The expected-old ref transaction must refuse instead.
+    const stale = await fastForwardCheckedOutBranch(
+      dir,
+      "main",
+      expected,
+      validated,
+    );
+    assertEquals(stale.kind, "moved");
+    assertEquals(await gitOut(dir, "rev-parse", "main"), advanced);
+    assertEquals(await exists(join(dir, "docs", "guide.md")), false);
+    assert(await exists(worktree));
+  });
+});
+
+Deno.test("landing compare-and-swap converges the unchanged trunk checkout", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, authorityConfig(["docs"]));
+    await gitInit(dir);
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const worktree = await addWorktree(dir, "cas-control");
+    await commitPaths(worktree, { "docs/guide.md": "landed\n" });
+    const validated = await gitOut(worktree, "rev-parse", "HEAD");
+
+    assertEquals(
+      await fastForwardCheckedOutBranch(
+        dir,
+        "main",
+        expected,
+        validated,
+      ),
+      { kind: "updated" },
+    );
+    assertEquals(await gitOut(dir, "rev-parse", "main"), validated);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "docs", "guide.md")),
+      "landed\n",
+    );
+    assertEquals(await gitOut(dir, "status", "--porcelain"), "");
   });
 });
 

@@ -54,7 +54,17 @@ export async function repoPathPrefix(
   root: string,
 ): Promise<string | undefined> {
   const r = await runGit(["rev-parse", "--show-prefix"], { cwd: root });
-  return r.success ? r.stdout.trim() : undefined;
+  if (!r.success) {
+    return undefined;
+  }
+  // `--show-prefix` is line-terminated, but the bytes before that terminator
+  // are a Git path. `trim()` would silently move a project rooted under
+  // `" app/"` to `"app/"` (and can widen scope/authority classification).
+  return r.stdout.endsWith("\r\n")
+    ? r.stdout.slice(0, -2)
+    : r.stdout.endsWith("\n")
+    ? r.stdout.slice(0, -1)
+    : r.stdout;
 }
 
 /**
@@ -167,9 +177,10 @@ export function isNeutralPath(config: DiscernConfig, path: string): boolean {
  * `paths` falls in, preserving that order — the one scope-matching loop every
  * classifier shares, so "which scopes do these paths touch?" is answered by a
  * single matcher regardless of WHICH subset of scopes the caller cares about
- * (the gated ones, the previewable ones). Each path is normalized here (trimmed,
- * leading slash stripped); the caller chooses the candidate set and whether the
- * paths were neutral-filtered first.
+ * (the gated ones, the previewable ones). Git-decoded paths stay byte-for-byte
+ * intact here: leading/trailing whitespace is legal filename data, not syntax.
+ * The caller chooses the candidate set and whether the paths were
+ * neutral-filtered first.
  */
 function scopesTouchedBy(
   paths: string[],
@@ -177,8 +188,7 @@ function scopesTouchedBy(
   candidates: string[],
 ): string[] {
   const fired = new Set<string>();
-  for (const raw of paths) {
-    const path = raw.trim().replace(/^\//, "");
+  for (const path of paths) {
     if (path === "") {
       continue;
     }
@@ -199,8 +209,7 @@ function scopesTouchedBy(
  * already has a path list in hand (update's incoming files) classifies it through
  * the SAME matcher rather than a parallel copy. It answers only "which gated scopes
  * do these paths fall in?"; neutral scopes and the derived markers are not its
- * concern (a path is normalized — trimmed, leading slash stripped — but not
- * neutral-filtered here).
+ * concern (paths remain verbatim and are not neutral-filtered here).
  */
 export function scopesForPaths(
   paths: string[],
@@ -264,13 +273,11 @@ export async function classifyScopes(
     return [...SCOPE_MARKERS, ...fireScopes];
   }
 
-  // All changed paths, normalized (trimmed, leading slash stripped, empties
-  // dropped). The `previewable` marker is derived over THIS unfiltered set:
+  // All changed paths, still verbatim except for impossible empty records. The
+  // `previewable` marker is derived over THIS unfiltered set:
   // its contract is "a previewable-flagged scope changed", and a previewable
   // scope may also be neutral, so filtering neutrals out first would hide it.
-  const normPaths = paths
-    .map((raw) => raw.trim().replace(/^\//, ""))
-    .filter((path) => path !== "");
+  const normPaths = paths.filter((path) => path !== "");
   // The real (non-neutral) changed paths: any one is a gated `code` change, and
   // the fire-scopes they fall in (via the shared matcher) are what the gate runs.
   const realPaths = normPaths.filter((path) => !isNeutralPath(config, path));

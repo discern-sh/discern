@@ -121,6 +121,7 @@ import {
   assertOpSide,
   branchIsMerged,
   ensureWorktreeBranch,
+  fastForwardCheckedOutBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
   inheritMainEnvVars,
@@ -176,7 +177,13 @@ import {
   prospectiveLandingAuthorityProjection,
   uncoveredLandingAuthorityDetails,
 } from "./landing_authority.ts";
-import { clearEffortGrant } from "./effort_grant.ts";
+import {
+  claimEffortGrant,
+  clearEffortGrant,
+  consumeEffortGrantClaim,
+  type EffortGrantClaim,
+  restoreEffortGrantClaim,
+} from "./effort_grant.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -1714,9 +1721,9 @@ async function executeAcceptPlan(
   // the prescribed update → finish → accept recovery actually works.
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   // Re-verify the main checkout is STILL on the trunk immediately before the
-  // fast-forward (the plan checked it, but the gate re-run above takes real time
-  // and `git merge` advances whatever branch is checked out) — never fast-forward
-  // a branch someone switched to mid-acceptance.
+  // fast-forward (the plan checked it, but the gate re-run above takes real
+  // time) — never compare-and-swap a branch someone switched away from
+  // mid-acceptance.
   const mainNow = (await run(["branch", "--show-current"], mainRepo)).stdout
     .trim();
   if (mainNow !== trunk) {
@@ -1728,10 +1735,10 @@ async function executeAcceptPlan(
       ),
     );
   }
-  // Land the VALIDATED sha, not the branch name: a branch name resolves at merge
-  // time, so a commit made after the validation above would ride onto the trunk
+  // Land the VALIDATED sha, not the branch name: resolving a branch at the ref
+  // transition would let a commit made after validation ride onto the trunk
   // untested. Re-check the tip still names the validated commit (so the branch
-  // deletion below deletes a fully-merged branch), then fast-forward to the sha.
+  // deletion below deletes a fully merged branch), then fast-forward to the sha.
   const tipNow = (await run(["rev-parse", "--verify", worktreeBranch], ctx.cwd))
     .stdout.trim();
   if (tipNow !== validatedSha) {
@@ -1739,26 +1746,75 @@ async function executeAcceptPlan(
       movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
     );
   }
-  ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
-  const ff = await run(
-    ["merge", "--ff-only", "--quiet", validatedSha],
-    mainRepo,
-  );
-  if (!ff.success) {
-    // The usual cause is a concurrent landing: another line of work fast-forwarded
-    // the trunk between this acceptance's checks and its own fast-forward. Say what
-    // happened and what to do — the raw git stderr rides along as evidence, not as
-    // the explanation.
+  const standingExpected = authority.kind === "authorized" &&
+      authority.consent.source === "standing-grant"
+    ? authority.trunkCommit
+    : undefined;
+  const currentTrunk = standingExpected === undefined
+    ? await run(
+      ["rev-parse", "--verify", `refs/heads/${trunk}^{commit}`],
+      mainRepo,
+    )
+    : undefined;
+  const expectedTrunk = standingExpected ??
+    (currentTrunk?.success ? currentTrunk.stdout.trim() : "");
+  if (expectedTrunk === "") {
     throw new WorktreeGitError(
-      `The trunk (${trunk}) moved while this acceptance was running — most ` +
-        `likely another line of work landed first — so Git did not move it and ` +
-        `nothing was changed. Your worktree is fully intact, ` +
-        `resources included, and your commits are safe on ` +
-        `${worktreeBranch} at ${worktreePath}. From that worktree, run ` +
-        `\`discern update\` to bring the new ${trunk} in beneath your work, ` +
-        `then \`discern done\`, then \`discern accept\` again. ` +
-        `Git said:\n    ${ff.stderr.trim()}`,
+      `Discern could not resolve the current ${trunk} commit at the landing boundary. ` +
+        `Nothing was landed and the worktree is intact. Re-run \`discern accept\`.`,
     );
+  }
+
+  let effortClaim: EffortGrantClaim | undefined;
+  if (consent.source === "effort-grant") {
+    const claimed = await claimEffortGrant(ctx.cwd, worktreeBranch);
+    if (claimed.status !== "claimed") {
+      const detail = claimed.status === "invalid" ||
+          claimed.status === "unavailable"
+        ? `: ${claimed.reason}`
+        : "";
+      throw new WorktreeGitError(
+        `Landing authority changed at the fast-forward boundary: the effort ` +
+          `grant could not be claimed${detail}. Nothing was landed and the ` +
+          `worktree is intact. Re-authorize it from the desk, then re-run ` +
+          `\`discern accept\`.`,
+      );
+    }
+    effortClaim = claimed.claim;
+  }
+
+  ctx.log.info(`Fast-forwarding ${trunk} to ${worktreeBranch}…`);
+  const ff = await fastForwardCheckedOutBranch(
+    mainRepo,
+    trunk,
+    expectedTrunk,
+    validatedSha,
+  );
+  if (ff.kind !== "updated") {
+    if (effortClaim !== undefined) {
+      await restoreEffortGrantClaim(ctx.cwd, effortClaim);
+    }
+    if (ff.kind === "checkout-failed" && !ff.rolledBack) {
+      throw new WorktreeGitError(
+        `Discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
+          `converge the checked-out files and could not restore the old ref. Stop ` +
+          `and inspect ${mainRepo} before doing more work. Git said: ${ff.detail}`,
+      );
+    }
+    const checkoutDetail = ff.kind === "checkout-failed"
+      ? " Git restored the old trunk ref after checkout convergence failed."
+      : "";
+    throw new WorktreeGitError(
+      `The trunk (${trunk}) or its checkout changed while this acceptance was ` +
+        `running, so discern's exact-commit compare-and-swap refused the landing.` +
+        `${checkoutDetail} Your worktree is fully intact, resources included, ` +
+        `and your commits are safe on ${worktreeBranch} at ${worktreePath}. ` +
+        `From that worktree, run \`discern update\`, then \`discern done\`, then ` +
+        `\`discern accept\` again. Git said: ${ff.detail}`,
+    );
+  }
+  if (effortClaim !== undefined) {
+    await consumeEffortGrantClaim(effortClaim);
   }
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
