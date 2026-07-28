@@ -15,6 +15,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 29      | per member       | surface `verb`              |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 16      | —                | node `mcp-surface`          |
+| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 6       | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `bundled-help`         |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
@@ -56,7 +57,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-help`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 205     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 206     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 26      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -65,9 +66,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 54      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 55      | —                | node `canonical-sets`       |
 
-54 sets · 75 guard tests · 20 committed artifacts.
+55 sets · 76 guard tests · 20 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -79,6 +80,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/adr_citations_test.ts`                     | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/adr_index_test.ts`                         | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/agent_parity_test.ts`                      | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `tests/agent_policy_parity_test.ts`               | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/artifact_ownership_test.ts`                | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/canonical_sets_enrolment_test.ts`          | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`             | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -208,6 +210,16 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
 - Feature canon: described by the `mcp-surface` node
+
+## `operating-policies` — Operating policies
+
+The core policy statements carried by the bundled guidance and MCP server instructions, with the probes that recognize each authored restatement.
+
+- Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
+- Members: 6
+- Guards: `tests/agent_policy_parity_test.ts`
+- Glossary: not enrolled — policy ids are internal; existing glossary entries define each reader-facing concept
+- Feature canon: not enrolled — cross-cutting enforcement for guidance, worktrees, standards, and MCP; it adds no product feature
 
 ## `command-groups` — Command groups
 
@@ -633,7 +645,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 205
+- Members: 206
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
@@ -725,7 +737,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 54
+- Members: 55
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
@@ -739,7 +751,6 @@ Recorded strays the convention sweeps accept. Each subsection names the record t
 
 Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_GUARDS`.
 
-- `tests/agent_policy_parity_test.ts` — asserts the two authored operating-model surfaces carry the same policies; a prose-parity contract, not a member-set satellite
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set

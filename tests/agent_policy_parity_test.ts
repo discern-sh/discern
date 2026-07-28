@@ -7,64 +7,23 @@
  * policy was already worded three different ways across surfaces before this
  * guard existed.
  *
- * POLICIES is the declared canonical set (ADR 0181) of rules both surfaces
- * must carry. Each probe set must match BOTH surfaces; a policy reworded off
- * its probes fails here, which is the moment to re-align the wording — or,
- * deliberately, the probe. A generalization of the acceptance anti-pattern
- * scan in `agent_acceptance_instruction_test.ts`, which bans wrong phrasings;
- * this asserts the right ones exist.
+ * The canonical set lives in `operating_policies.ts` (ADR 0181). MCP
+ * instructions render its statements; guidance remains authored Markdown
+ * verified by the same entries' probes. A generalization of the acceptance
+ * anti-pattern scan in `agent_acceptance_instruction_test.ts`, which bans
+ * wrong phrasings; this asserts the right ones exist.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { buildInstructions } from "../src/engine/mcp/server.ts";
+import {
+  OPERATING_POLICIES,
+  OPERATING_POLICY_SURFACES,
+  type OperatingPolicy,
+  type OperatingPolicySurface,
+} from "../src/shared/operating_policies.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-
-/** One core operating policy and the probes every surface must satisfy. */
-interface Policy {
-  readonly id: string;
-  readonly gist: string;
-  readonly probes: readonly RegExp[];
-}
-
-/** The canonical operating-model policy set both surfaces carry. */
-const POLICIES: readonly Policy[] = [
-  {
-    id: "worktree-first",
-    gist: "work happens in your own worktree, started with discern_start",
-    probes: [/(own|isolated) worktree/i, /discern_start/],
-  },
-  {
-    id: "never-adopt",
-    gist: "an existing worktree belongs to another effort — never adopt one",
-    probes: [/never (adopt|start work in one)/i],
-  },
-  {
-    id: "accept-on-handoff",
-    gist:
-      "discern_accept requires explicit conversation consent or machine-verified recorded authority",
-    probes: [
-      /explicit\w*[^.\n]{0,80}(consent|hand\s?-?off)/i,
-      /machine-verified[^.\n]{0,40}authority/i,
-      /discern_accept/,
-    ],
-  },
-  {
-    id: "done-is-the-bar",
-    gist: "discern_done on the final tree decides when a change is done",
-    probes: [/discern_done/, /final tree/i],
-  },
-  {
-    id: "iterate-fast-loop",
-    gist: "iteration runs through discern_prepare, not repeated full gates",
-    probes: [/discern_prepare/, /iterat/i],
-  },
-  {
-    id: "never-loosen",
-    gist: "a standard's limit may never loosen to pass the gate",
-    probes: [/(never loosen|no limit loosened)/i],
-  },
-];
 
 /** The bundled guidance templates as one searchable blob (source text, so
  * conditional sections are always present). */
@@ -80,29 +39,140 @@ async function guidanceBlob(): Promise<string> {
   return parts.join("\n");
 }
 
-Deno.test("both operating-model surfaces carry every canonical policy", async () => {
-  const surfaces: ReadonlyArray<{ label: string; text: string }> = [
-    { label: "templates/guidance", text: await guidanceBlob() },
-    { label: "mcp server instructions", text: buildInstructions() },
-  ];
+interface PolicySurfaceText {
+  readonly label: string;
+  readonly text: string;
+  readonly rendered: boolean;
+}
+
+function registryFailures(
+  policies: readonly OperatingPolicy[],
+): string[] {
   const failures: string[] = [];
-  for (const policy of POLICIES) {
-    for (const surface of surfaces) {
+  const ids = new Set<string>();
+  const requiredSurfaces = [...OPERATING_POLICY_SURFACES].sort();
+  for (const policy of policies) {
+    if (ids.has(policy.id)) {
+      failures.push(`duplicate operating policy id: ${policy.id}`);
+    }
+    ids.add(policy.id);
+    if (policy.statement.trim().length === 0) {
+      failures.push(`${policy.id}: empty statement`);
+    }
+    if (policy.probes.length === 0) {
+      failures.push(`${policy.id}: no fidelity probes`);
+    }
+    const actualSurfaces = [...new Set(policy.surfaces)].sort();
+    if (
+      actualSurfaces.length !== requiredSurfaces.length ||
+      actualSurfaces.some(
+        (surface, index) => surface !== requiredSurfaces[index],
+      )
+    ) {
+      failures.push(
+        `${policy.id}: every core policy must name both authored surfaces`,
+      );
+    }
+    for (const probe of policy.probes) {
+      if (!new RegExp(probe).test(policy.statement)) {
+        failures.push(
+          `${policy.id}: canonical statement fails its own probe ${probe}`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
+function parityFailures(
+  policies: readonly OperatingPolicy[],
+  surfaces: Readonly<Record<OperatingPolicySurface, PolicySurfaceText>>,
+): string[] {
+  const failures: string[] = [];
+  for (const policy of policies) {
+    for (const surfaceId of policy.surfaces) {
+      const surface = surfaces[surfaceId];
+      if (surface.rendered && !surface.text.includes(policy.statement)) {
+        failures.push(
+          `${policy.id} is not rendered verbatim on ${surface.label}`,
+        );
+      }
       for (const probe of policy.probes) {
-        if (!probe.test(surface.text)) {
+        if (!new RegExp(probe).test(surface.text)) {
           failures.push(
-            `${policy.id} missing from ${surface.label} (probe ${probe}): ` +
-              policy.gist,
+            `${policy.id} missing from ${surface.label} (probe ${probe})`,
           );
         }
       }
     }
   }
+  return failures;
+}
+
+Deno.test("the operating-policy registry is complete and self-consistent", () => {
+  assertEquals(registryFailures(OPERATING_POLICIES), []);
+});
+
+Deno.test("both operating-model surfaces carry every registered policy", async () => {
+  const surfaces: Record<OperatingPolicySurface, PolicySurfaceText> = {
+    "guidance-templates": {
+      label: "templates/guidance",
+      text: await guidanceBlob(),
+      rendered: false,
+    },
+    "mcp-instructions": {
+      label: "mcp server instructions",
+      text: buildInstructions(),
+      rendered: true,
+    },
+  };
+  const failures = parityFailures(OPERATING_POLICIES, surfaces);
   assertEquals(
     failures,
     [],
-    "every canonical policy must appear on both surfaces — restore the " +
-      "wording, or update the probe if the rewording is deliberate:\n  " +
+    "every registered policy must appear on every declared surface — restore " +
+      "the wording, or update the statement and probe as one policy change:\n  " +
       failures.join("\n  "),
+  );
+});
+
+const CONTROL_POLICY: OperatingPolicy = {
+  id: "future-policy",
+  statement: "Carry the future-policy marker.",
+  surfaces: OPERATING_POLICY_SURFACES,
+  probes: [/future-policy marker/],
+};
+
+Deno.test("control: a statement changed away from its probe fails the registry", () => {
+  assertEquals(
+    registryFailures([
+      { ...CONTROL_POLICY, statement: "A rewritten statement." },
+    ]),
+    [
+      "future-policy: canonical statement fails its own probe /future-policy marker/",
+    ],
+  );
+});
+
+Deno.test("control: a future policy carried by only one surface fails parity", () => {
+  assertEquals(
+    parityFailures(
+      [CONTROL_POLICY],
+      {
+        "guidance-templates": {
+          label: "templates/guidance",
+          text: "",
+          rendered: false,
+        },
+        "mcp-instructions": {
+          label: "mcp server instructions",
+          text: CONTROL_POLICY.statement,
+          rendered: true,
+        },
+      },
+    ),
+    [
+      "future-policy missing from templates/guidance (probe /future-policy marker/)",
+    ],
   );
 });

@@ -119,6 +119,7 @@ import {
   createInstalledVersionResolver,
   versionMismatchHint,
 } from "./version_check.ts";
+import { operatingPolicyStatementsFor } from "../../shared/operating_policies.ts";
 
 const SERVER_NAME = "discern";
 
@@ -1725,10 +1726,11 @@ function registerResources(
  * clients load when MCP connects (it rides in the `initialize` result). discern's
  * operating model in a few imperative lines, carrying the strong MCP-first stance:
  * these tools are the primary surface, not the CLI.
- * The worktree lifecycle is listed LINEARLY — start, then update, then accept —
- * not branched on the server's location: every lifecycle tool is always registered
- * (ADR 0062 retired the location-based hiding), and the server re-aims its working
- * root on `discern_start`, so an agent that starts on the trunk can drive the whole
+ * Capability-existence lines stay here for clients that load tool schemas only on
+ * demand; tool mechanics live in the descriptions. Core operating-policy lines
+ * render from the shared registry. Every lifecycle tool is always registered (ADR
+ * 0062 retired the location-based hiding), and the server re-aims its working root
+ * on `discern_start`, so an agent that starts on the trunk can drive the whole
  * lifecycle through this one connection.
  */
 export function buildInstructions(): string {
@@ -1741,12 +1743,7 @@ export function buildInstructions(): string {
     "- Orient at the start of a session with discern_status: the branch's " +
     "situation, what the gate would fire, and advisory next steps.",
     "- If agent files or materialized skills are missing/stale, call " +
-    "discern_refresh. It rewrites discern-generated and co-managed artifacts only.",
-    "- Before calling any change done, run discern_done on the final tree (the full gate). While " +
-    "iterating, use discern_prepare (the fast fix-then-check loop) and discern_test " +
-    "(just the tests). On a failure, read the result's diagnostics[] — the tool, " +
-    "the command to reproduce it, the captured output — and fix from those rather " +
-    "than re-running and scraping.",
+    "discern_refresh.",
     "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
     "discern_help.",
     "- Verify the install with discern_doctor when something looks misconfigured " +
@@ -1756,44 +1753,14 @@ export function buildInstructions(): string {
     "- Ask discern_patterns how the practice is going over time: findings " +
     "from the local logbook of discern's own runs — behaviour loops, gate " +
     "fit, funnel flow, and each standard's trajectory. A read-only advisory.",
-    "- Quality standards — numbers that can never get worse — are enforced by " +
-    "discern_done itself: every run verifies no limit loosened versus the " +
-    "trunk and measures each standard alongside the tests. Use " +
-    "discern_standards for the on-demand pass: deferred standards, and " +
-    "capturing a gain with pin. Non-dry-run standards require a " +
-    "clean worktree unless force=true while authoring standards.",
-    "- Starting work from the main checkout, which holds the trunk (the shared " +
-    "landing branch)? Run discern_start to " +
-    "create your own isolated worktree: it returns the new worktree's path and " +
-    "re-aims these tools at it, so your later done/update/accept calls operate " +
-    "on the new worktree automatically. You must still move your OWN file " +
-    "operations into that path: re-root there, or if you can't change your " +
-    "working root, prefix every shell command with `cd <path> &&` and pass `path` " +
-    "to every discern tool. Otherwise edits land on the trunk while the gate runs " +
-    "in the worktree. NEVER adopt an existing idle worktree; each is another line " +
-    "of work, and a clean working tree doesn't mean it's free.",
-    "- When the branch is behind `{{main_branch}}` (the gate's merge check " +
-    "points here), bring `{{main_branch}}` in with discern_update: it " +
-    "merges `{{main_branch}}` into this worktree's branch " +
-    "and re-materializes the agent files + skills in one step. Just call it — you " +
-    "don't need to run git to check first. It is idempotent (a no-op when already " +
-    "up to date), never touches the main checkout, and performs every precondition " +
-    "itself, refusing cleanly with the exact next step (e.g. a dirty tree or a " +
-    "merge conflict). Reproducing its steps by hand is slower and usually " +
-    "unnecessary.",
-    "- Only when the user explicitly asks to hand off or land a finished branch " +
-    '("accept this", "I\'ll take it from here", "move this back to {{main_branch}}"), ' +
-    "or a discern result reports machine-verified landing authority, should you " +
-    "use discern_accept. Do not treat a green gate run alone as permission to " +
-    "accept; without either authority, stop and report the branch ready for " +
-    "review. Commit the work with a real message, run the final " +
-    "clean discern_done for that commit, then just call the tool (the single deterministic implementation — " +
-    "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
-    "it refuses cleanly with the exact next step, e.g. run discern_update " +
-    "first) and relay its structured result. Landing is trunk-only and " +
-    "destructive: it fast-forwards `{{main_branch}}` to the branch tip, removes " +
-    "the worktree, and deletes the merged branch — set dry_run to preview the " +
-    "plan without touching anything.",
+    "- Use discern_standards for the on-demand pass: deferred standards, and " +
+    "capturing a gain with pin.",
+    "- When the branch is behind `{{main_branch}}`, bring `{{main_branch}}` " +
+    "in with discern_update.",
+    "",
+    ...operatingPolicyStatementsFor("mcp-instructions").map(
+      (statement) => `- ${statement}`,
+    ),
   ];
   return lines.join("\n");
 }
