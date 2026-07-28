@@ -23,6 +23,8 @@ import {
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
+const GATE_FAILURE_HELP_COMMAND =
+  "discern help 20-quality-gate/when-the-gate-fails";
 const TEMPLATE_GOTCHAS = join(
   REAL_TEMPLATES,
   "setup",
@@ -121,7 +123,21 @@ async function assertActionableFailureTail(
   assertEquals(r.code, 1, r.output);
   const lines = r.stdout.split("\n").filter((l) => l.trim() !== "");
 
-  // 1. Parity — every reproduce command in the envelope is surfaced to the human.
+  // 1. Stranger identity — both the failure headline and the tail-safe BLUF name
+  //    the full discern command, and the shared tail carries one stable help route.
+  const failureIdentity = `discern ${verb} failed`;
+  assertEquals(
+    lines.filter((line) => line.includes(failureIdentity)).length,
+    2,
+    `${verb}: headline and BLUF must identify discern as the speaker`,
+  );
+  assertEquals(
+    lines.filter((line) => line.includes(GATE_FAILURE_HELP_COMMAND)).length,
+    1,
+    `${verb}: shared tail must carry one stable failure-guide command`,
+  );
+
+  // 2. Parity — every reproduce command in the envelope is surfaced to the human.
   for (const cmd of repros) {
     assertStringIncludes(
       r.stdout,
@@ -130,12 +146,12 @@ async function assertActionableFailureTail(
     );
   }
 
-  // 2. tail -1 safety — the LAST line is the BLUF: it names the verb and carries a
+  // 3. tail -1 safety — the LAST line is the BLUF: it names the command and carries a
   //    reproduce command.
   const last = lines.at(-1) ?? "";
   assertStringIncludes(
     last,
-    `${verb} failed`,
+    failureIdentity,
     `${verb}: last line must be the BLUF`,
   );
   assert(
@@ -143,7 +159,7 @@ async function assertActionableFailureTail(
     `${verb}: the BLUF must carry a reproduce command; got: ${last}`,
   );
 
-  // 3. tail -6 safety — the screenshot scenario: the last six lines must reach an
+  // 4. tail -6 safety — the screenshot scenario: the last six lines must reach an
   //    actionable reproduce command, not bottom out in the generic gotchas pointer.
   const tail6 = lines.slice(-6);
   assert(
