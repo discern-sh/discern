@@ -15,6 +15,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { CONFIG_SCHEMA_ID } from "../src/shared/public_schemas.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
@@ -45,8 +46,7 @@ Deno.test("the generated editor schema fixes the two historical staleness bugs",
     "must not reference the abolished .discern/config.toml path",
   );
   assert(!json.includes(".discern"), "must not reference any .discern/ path");
-  // The $id points at the root discern.toml schema, generated (not hand-typed).
-  assert(String(schema.$id).endsWith("schema/discern-config.schema.json"));
+  assertEquals(schema.$id, CONFIG_SCHEMA_ID);
   // The document is strict (an editor flags a typo'd key).
   assertEquals(schema.additionalProperties, false);
 });
@@ -168,6 +168,18 @@ Deno.test("the shipped discern.toml.tmpl renders to a config that VALIDATES unde
   const { config, issues } = parseConfig(await renderedTemplate());
   assertEquals(issues, [], "the template must produce a schema-valid config");
   assert(config !== undefined);
+});
+
+Deno.test("discern.toml.tmpl starts at byte zero with the public config schema id", async () => {
+  const template = await Deno.readFile(
+    new URL("../templates/discern.toml.tmpl", import.meta.url),
+  );
+  const marker = new TextEncoder().encode(`#:schema ${CONFIG_SCHEMA_ID}\n`);
+  assertEquals(
+    template.slice(0, marker.length),
+    marker,
+    "templates/discern.toml.tmpl must begin with the public config schema marker",
+  );
 });
 
 // `setup` stamps the live SCHEMA_VERSION over the template's literal, so a stale

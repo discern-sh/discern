@@ -881,7 +881,7 @@ export async function runDesk(
     emitResult({
       ok: false,
       verb: "desk",
-      error: "interactive_only",
+      error: "invalid_arguments",
       message:
         "the desk is an interactive human surface with no JSON form — for the fleet survey use `discern status --json`.",
     });

@@ -1481,7 +1481,7 @@ export async function standardsResult(
     result = {
       ok: false,
       verb: "standards",
-      error: "invalid_args",
+      error: "invalid_arguments",
       message:
         "standard names only apply with --pin. Re-run as `discern standards --pin <name>…`, or drop the names to check every standard.",
     };

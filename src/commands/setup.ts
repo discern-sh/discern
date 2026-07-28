@@ -93,7 +93,7 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
-import type { DiscernResult } from "../shared/result.ts";
+import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
   getSetupPage,
@@ -626,7 +626,7 @@ async function scaffoldHarness(
   } catch (error) {
     // A bad explicit choice (e.g. an invalid --slug) — a clean diagnostic, not
     // a stack trace.
-    emitSetupError(log, opts, "invalid_option", errMsg(error));
+    emitSetupError(log, opts, "invalid_arguments", errMsg(error));
     return { stop: 1 };
   }
 
@@ -1082,7 +1082,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
     emitSetupError(
       log,
       opts,
-      "invalid_option",
+      "invalid_arguments",
       `--map received a literal placeholder (${opts.map}) — substitute the real project-relative directory for the map (e.g. --map notes/map/), or omit the flag to keep discern's map at its default home.`,
     );
     return 1;
@@ -2673,7 +2673,7 @@ async function emitAwaitingConsent(
 function emitSetupError(
   log: Logger,
   opts: SetupOptions,
-  error: string,
+  error: ErrorSlug,
   message: string,
 ): void {
   if (opts.json) {

@@ -350,13 +350,16 @@ export function buildGatePlan(
 export type { GateData };
 
 /**
- * A step's outcome from its result: absent (its stage aborted before it) OR
- * fail-fast-cancelled → `skipped` (neither is a failure to fix); a clean exit →
- * `ok`; anything else → `failed`.
+ * A step's outcome from its result: absent (its stage aborted before it) →
+ * `skipped`; fail-fast-cancelled → `cancelled` (not a failure to fix); a clean
+ * exit → `ok`; anything else → `failed`.
  */
 function stepOutcome(r: JobResult | undefined): StepOutcome {
-  if (r === undefined || r.cancelled === true) {
+  if (r === undefined) {
     return "skipped";
+  }
+  if (r.cancelled === true) {
+    return "cancelled";
   }
   return r.code === 0 ? "ok" : "failed";
 }

@@ -15,7 +15,7 @@
  * ADR-citation guard holds for these strings like any other).
  */
 
-import type { FailedStage } from "./result.ts";
+import type { DiscernResult, FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import type { LandingConsentSource } from "./consent.ts";
 
@@ -2487,6 +2487,23 @@ export const HINTS = {
       `the gate skips it.`,
   }),
 
+  /**
+   * Registered fallback for a failure whose domain-specific recovery has not
+   * supplied a narrower hint. The serialization invariant makes this an
+   * actionable floor, not the preferred ceiling for tailored remedies.
+   */
+  "failure-recovery": defineHint<{ verb: string }>({
+    id: "failure-recovery",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A failed result has no more specific registered recovery instruction.",
+    family: "failure-recovery",
+    example: { verb: "doctor" },
+    template: (): string =>
+      "Use this result's message or first diagnostic to correct the reported problem before retrying.",
+  }),
+
   /** The optional canonical suggestion in an unknown-command refusal. */
   "unknown-command-suggestion": defineHint<{ command: string }>({
     id: "unknown-command-suggestion",
@@ -2558,6 +2575,52 @@ export const HINTS = {
       ),
   }),
 } as const;
+
+const ACTIONABLE_HINT_IDS = new Set(
+  Object.values(HINTS)
+    .filter((def) => def.category === "next-step")
+    .map((def) => def.id),
+);
+
+/** Fire the registered actionable floor for a failed result. */
+export function failureRecoveryHint(verb: string): FiredHint {
+  return fire(HINTS["failure-recovery"], { verb });
+}
+
+/** Project the actionable fallback onto an envelope without losing its identity. */
+export function failureRecoveryHintTexts(verb: string): string[] {
+  return hintTexts([failureRecoveryHint(verb)]);
+}
+
+/**
+ * Whether an envelope carries at least one fired, registered `next-step`
+ * instruction. Plain strings, unknown ids, notices, and guardrails do not
+ * satisfy recovery: only identity retained by {@link hintTexts} counts.
+ */
+export function hasRegisteredActionableHint(
+  texts: readonly string[] | undefined,
+): boolean {
+  return firedHintsFromTexts(texts).some((hint) =>
+    ACTIONABLE_HINT_IDS.has(hint.id)
+  );
+}
+
+/**
+ * Add the registered recovery floor to a failed result only when no narrower
+ * next step is already present. Both CLI and MCP call this before serialization,
+ * so their wire envelopes and locally observed hint ids stay identical.
+ */
+export function withFailureRecoveryHint<TData>(
+  result: DiscernResult<TData>,
+): DiscernResult<TData> {
+  if (result.ok || hasRegisteredActionableHint(result.hints)) {
+    return result;
+  }
+  return {
+    ...result,
+    hints: appendHintTexts(result.hints, [failureRecoveryHint(result.verb)]),
+  };
+}
 
 /**
  * Failed-stage lookup into the registry. Total over {@link FailedStage}, so a new

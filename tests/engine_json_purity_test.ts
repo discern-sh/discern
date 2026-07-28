@@ -1,17 +1,17 @@
 /**
- * The `--json` purity guard (ADR 0030): the regression net that keeps every verb's
- * machine output to the single result envelope and nothing else.
+ * The `--json` purity guard (ADR 0030): the regression net that keeps every
+ * public command path's machine output to one result envelope and nothing else.
  *
  * Two layers:
  *  1. **Behavioural** — run each `--json` verb against a config whose commands print
  *     loudly to BOTH stdout and stderr, and assert the COMBINED stdout+stderr is
  *     exactly one envelope line. Combined (not just stdout) because an agent calling
  *     through a shell tool captures both; a leak on either stream fails the test.
- *     The case table is reconciled against the FULL verb registry (`KNOWN_VERBS`,
- *     installer + engine): every built-in verb is either swept here — in the noisy
- *     project, or through the worktree lifecycle — or consciously excepted in
- *     `NOT_SWEPT` with the reason it has no envelope to sweep. A new verb cannot
- *     join the registry without joining the sweep.
+ *     The cases are reconciled both against the top-level verb registry and
+ *     against every exact path in `CLI_JSON_RESULT_CONTRACTS`. Every result path
+ *     is swept here — in the noisy project or through the worktree lifecycle.
+ *     Only the long-lived MCP top-level verb is consciously excepted. A new
+ *     nested path cannot hide behind an already-enrolled parent.
  *  2. **Structural** — a source-level guard that `serializeResult` is called only
  *     through the one emission chokepoint, so a new verb cannot hand-roll an emit
  *     that bypasses the silence rule.
@@ -33,6 +33,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
+import { CLI_JSON_RESULT_CONTRACTS } from "../src/shared/result_contracts.ts";
 
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 const SRC = join(REPO_ROOT, "src");
@@ -98,77 +99,200 @@ const NOISY_CONFIGS = [
 ];
 
 /**
- * One swept `--json` invocation: the top-level registry verb it enrols (a
- * `KNOWN_VERBS` member — what the reconciliation below counts), the verb the
- * emitted envelope must carry (a subcommand's differs, e.g. `skills list`),
- * and the argv to run.
+ * One swept `--json` invocation: its canonical registry path, the verb the
+ * emitted envelope must carry (some paths share a family verb, such as all
+ * config reads), and the argv to run.
  */
 interface PurityCase {
-  readonly registryVerb: string;
+  /** Canonical path in the public CLI result-contract registry. */
+  readonly commandPath: string;
   readonly envelopeVerb: string;
   readonly args: readonly string[];
 }
 
+function topLevelVerb(commandPath: string): string {
+  return commandPath.split(" ")[0] ?? commandPath;
+}
+
 /**
- * The sweep over the noisy scaffolded project — every registry verb runnable
- * there, read-only verbs first, file-touching ones after. Some verbs are swept
- * through their one reachable envelope in this harness (a refusal or error is
- * still the envelope): `desk` refuses `--json` (interactive-only), `preset`
- * errors (discern ships no presets), and `map` reports the skeleton map. The
- * bare-value read surfaces (`config get`/`array`/…) are NOT the envelope by
- * design — `config` is swept through its editing side, which is.
+ * The sweep over the noisy scaffolded project — every public command path
+ * runnable there, read-only paths first, file-touching ones after. A refusal or
+ * error is still an envelope: `desk` refuses machine mode, `preset` reports a
+ * missing preset, and the bare command groups require a subcommand. Identity
+ * and config reads keep shell-friendly output without the flag, but every case
+ * here adds `--json` and therefore receives the same one-envelope protocol.
  */
 const PROJECT_CASES: readonly PurityCase[] = [
-  { registryVerb: "done", envelopeVerb: "done", args: ["done"] },
-  { registryVerb: "done", envelopeVerb: "done", args: ["done", "--dry-run"] },
-  { registryVerb: "prepare", envelopeVerb: "prepare", args: ["prepare"] },
-  { registryVerb: "test", envelopeVerb: "test", args: ["test"] },
-  { registryVerb: "standards", envelopeVerb: "standards", args: ["standards"] },
+  { commandPath: "discern", envelopeVerb: "discern", args: [] },
+  { commandPath: "done", envelopeVerb: "done", args: ["done"] },
+  { commandPath: "done", envelopeVerb: "done", args: ["done", "--dry-run"] },
+  { commandPath: "prepare", envelopeVerb: "prepare", args: ["prepare"] },
+  { commandPath: "test", envelopeVerb: "test", args: ["test"] },
   {
-    registryVerb: "improvement",
+    commandPath: "standards",
+    envelopeVerb: "standards",
+    args: ["standards"],
+  },
+  {
+    commandPath: "improvement",
     envelopeVerb: "improvement",
     args: ["improvement"],
   },
-  { registryVerb: "impact", envelopeVerb: "impact", args: ["impact"] },
-  { registryVerb: "status", envelopeVerb: "status", args: ["status"] },
-  { registryVerb: "coupling", envelopeVerb: "coupling", args: ["coupling"] },
-  { registryVerb: "patterns", envelopeVerb: "patterns", args: ["patterns"] },
-  { registryVerb: "desk", envelopeVerb: "desk", args: ["desk"] },
-  { registryVerb: "doctor", envelopeVerb: "doctor", args: ["doctor"] },
-  { registryVerb: "setup", envelopeVerb: "setup", args: ["setup"] },
-  { registryVerb: "map", envelopeVerb: "map", args: ["map", "--list"] },
-  { registryVerb: "help", envelopeVerb: "help", args: ["help", "--list"] },
-  { registryVerb: "licenses", envelopeVerb: "licenses", args: ["licenses"] },
+  { commandPath: "impact", envelopeVerb: "impact", args: ["impact"] },
+  { commandPath: "status", envelopeVerb: "status", args: ["status"] },
   {
-    registryVerb: "preset",
+    commandPath: "coupling",
+    envelopeVerb: "coupling",
+    args: ["coupling"],
+  },
+  { commandPath: "patterns", envelopeVerb: "patterns", args: ["patterns"] },
+  {
+    commandPath: "patterns reset",
+    envelopeVerb: "patterns reset",
+    args: ["patterns", "reset", "--dry-run"],
+  },
+  { commandPath: "desk", envelopeVerb: "desk", args: ["desk"] },
+  { commandPath: "doctor", envelopeVerb: "doctor", args: ["doctor"] },
+  { commandPath: "setup", envelopeVerb: "setup", args: ["setup"] },
+  {
+    commandPath: "setup verify",
+    envelopeVerb: "setup verify",
+    args: ["setup", "verify"],
+  },
+  {
+    commandPath: "setup begin",
+    envelopeVerb: "setup",
+    args: ["setup", "begin", "--force", "--dry-run", "--confirmed"],
+  },
+  {
+    commandPath: "setup step",
+    envelopeVerb: "setup step",
+    args: ["setup", "step", "1"],
+  },
+  {
+    commandPath: "setup done",
+    envelopeVerb: "setup done",
+    args: ["setup", "done"],
+  },
+  {
+    commandPath: "setup accept",
+    envelopeVerb: "setup accept",
+    args: ["setup", "accept", "--dry-run"],
+  },
+  { commandPath: "map", envelopeVerb: "map", args: ["map", "--list"] },
+  { commandPath: "help", envelopeVerb: "help", args: ["help", "--list"] },
+  {
+    commandPath: "licenses",
+    envelopeVerb: "licenses",
+    args: ["licenses"],
+  },
+  {
+    commandPath: "preset",
     envelopeVerb: "preset",
     args: ["preset", "zz-missing", "--yes"],
   },
-  { registryVerb: "script", envelopeVerb: "script", args: ["script"] },
+  { commandPath: "script", envelopeVerb: "script", args: ["script"] },
   {
-    registryVerb: "skills",
+    commandPath: "skills",
+    envelopeVerb: "skills",
+    args: ["skills"],
+  },
+  {
+    commandPath: "skills list",
     envelopeVerb: "skills list",
     args: ["skills", "list"],
   },
   {
-    registryVerb: "config",
+    commandPath: "config",
+    envelopeVerb: "config",
+    args: ["config"],
+  },
+  {
+    commandPath: "config set",
     envelopeVerb: "config",
     args: ["config", "set", "project.name", "Purity", "--dry-run"],
   },
   {
-    registryVerb: "uninstall",
+    commandPath: "config set-job",
+    envelopeVerb: "config",
+    args: ["config", "set-job", "lint", "true", "--dry-run"],
+  },
+  {
+    commandPath: "config set-scope",
+    envelopeVerb: "config",
+    args: [
+      "config",
+      "set-scope",
+      "json",
+      "src/**",
+      "--dry-run",
+    ],
+  },
+  {
+    commandPath: "config set-standard",
+    envelopeVerb: "config",
+    args: [
+      "config",
+      "set-standard",
+      "json",
+      "--direction",
+      "up",
+      "--limit",
+      "1",
+      "--run",
+      "true",
+      "--dry-run",
+    ],
+  },
+  {
+    commandPath: "config get",
+    envelopeVerb: "config",
+    args: ["config", "get", "project.slug"],
+  },
+  {
+    commandPath: "config array",
+    envelopeVerb: "config",
+    args: ["config", "array", "project.slug"],
+  },
+  {
+    commandPath: "config has",
+    envelopeVerb: "config",
+    args: ["config", "has", "missing.key"],
+  },
+  {
+    commandPath: "config subsections",
+    envelopeVerb: "config",
+    args: ["config", "subsections", "scopes"],
+  },
+  {
+    commandPath: "config keys",
+    envelopeVerb: "config",
+    args: ["config", "keys", "project"],
+  },
+  {
+    commandPath: "identity",
+    envelopeVerb: "identity",
+    args: ["identity"],
+  },
+  {
+    commandPath: "worktree",
+    envelopeVerb: "worktree",
+    args: ["worktree"],
+  },
+  {
+    commandPath: "uninstall",
     envelopeVerb: "uninstall",
     args: ["uninstall", "--dry-run"],
   },
-  { registryVerb: "refresh", envelopeVerb: "refresh", args: ["refresh"] },
-  { registryVerb: "tidy", envelopeVerb: "tidy", args: ["tidy"] },
+  { commandPath: "refresh", envelopeVerb: "refresh", args: ["refresh"] },
+  { commandPath: "tidy", envelopeVerb: "tidy", args: ["tidy"] },
   {
-    registryVerb: "skills",
+    commandPath: "skills eject",
     envelopeVerb: "skills eject",
     args: ["skills", "eject", "discern-write-adr"],
   },
   {
-    registryVerb: "upgrade",
+    commandPath: "upgrade",
     envelopeVerb: "upgrade",
     // Earlier file-touching cases (tidy, eject) dirty the tree by design.
     args: ["upgrade", "--allow-dirty"],
@@ -192,27 +316,27 @@ const STREAM_SENSITIVE: ReadonlySet<string> = new Set([
  * harness rather than the noisy project above.
  */
 interface LifecycleCase {
-  readonly registryVerb: string;
+  readonly commandPath: string;
   readonly envelopeVerb: string;
   readonly cwd: "worktree" | "main";
   args(id: string): string[];
 }
 
 const START_CASE: PurityCase = {
-  registryVerb: "start",
+  commandPath: "start",
   envelopeVerb: "start",
   args: ["start", "--name", "purity"],
 };
 
 const LIFECYCLE_CASES: readonly LifecycleCase[] = [
   {
-    registryVerb: "update",
+    commandPath: "update",
     envelopeVerb: "update",
     cwd: "worktree",
     args: () => ["update"],
   },
   {
-    registryVerb: "worktree",
+    commandPath: "worktree setup",
     envelopeVerb: "worktree setup",
     cwd: "worktree",
     args: () => ["worktree", "setup"],
@@ -220,25 +344,25 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
   // Without --confirmed, accept refuses read-only — the refusal must still be
   // the single envelope line.
   {
-    registryVerb: "accept",
+    commandPath: "accept",
     envelopeVerb: "accept",
     cwd: "worktree",
     args: () => ["accept"],
   },
   {
-    registryVerb: "worktree",
+    commandPath: "worktree teardown",
     envelopeVerb: "worktree teardown",
     cwd: "worktree",
     args: () => ["worktree", "teardown"],
   },
   {
-    registryVerb: "worktree",
+    commandPath: "worktree drop",
     envelopeVerb: "worktree drop",
     cwd: "main",
     args: (id) => ["worktree", "drop", id],
   },
   {
-    registryVerb: "worktree",
+    commandPath: "worktree prune",
     envelopeVerb: "worktree prune",
     cwd: "main",
     args: () => ["worktree", "prune", "--yes"],
@@ -252,18 +376,27 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
  */
 const NOT_SWEPT: ReadonlyMap<string, string> = new Map([
   ["mcp", "starts a long-lived stdio server — would hang the sweep"],
-  [
-    "identity",
-    "prints bare identity values for shell substitution in scripts and hooks — that plumbing output IS its machine interface; it has no envelope mode",
-  ],
 ]);
 
 /** Every registry verb the sweeps enrol (project + start + lifecycle). */
 const ENROLLED_VERBS: readonly string[] = [
-  ...PROJECT_CASES.map((c) => c.registryVerb),
-  START_CASE.registryVerb,
-  ...LIFECYCLE_CASES.map((c) => c.registryVerb),
+  ...PROJECT_CASES.filter((c) => c.commandPath !== "discern").map((c) =>
+    topLevelVerb(c.commandPath)
+  ),
+  topLevelVerb(START_CASE.commandPath),
+  ...LIFECYCLE_CASES.map((c) => topLevelVerb(c.commandPath)),
 ];
+
+/** Every exact public command path with a behavioral purity case. */
+const ENROLLED_COMMAND_PATHS: ReadonlySet<string> = new Set([
+  ...PROJECT_CASES.map((c) => c.commandPath),
+  START_CASE.commandPath,
+  ...LIFECYCLE_CASES.map((c) => c.commandPath),
+]);
+
+/** Every command path the published result registry says emits one envelope. */
+const CONTRACTED_COMMAND_PATHS: readonly string[] = CLI_JSON_RESULT_CONTRACTS
+  .flatMap((contract) => [...contract.commands]);
 
 /**
  * Registry members with neither a sweep case nor a `NOT_SWEPT` entry. Pure and
@@ -277,6 +410,16 @@ function unenrolledVerbs(
 ): string[] {
   const covered = new Set([...enrolled, ...excepted]);
   return [...registry].filter((verb) => !covered.has(verb)).sort();
+}
+
+function setDifference(
+  candidates: Iterable<string>,
+  covered: Iterable<string>,
+): string[] {
+  const coverage = new Set(covered);
+  return [...new Set(candidates)].filter((candidate) =>
+    !coverage.has(candidate)
+  ).sort();
 }
 
 Deno.test("the purity case table stays honest against the full verb registry", () => {
@@ -319,11 +462,36 @@ Deno.test("the reconciliation catches a fresh verb joining the registry unenroll
   );
 });
 
+Deno.test("every public JSON command path has a behavioral purity case", () => {
+  assertEquals(
+    setDifference(CONTRACTED_COMMAND_PATHS, ENROLLED_COMMAND_PATHS),
+    [],
+    "a public CLI result contract has no noisy --json behavioral case",
+  );
+  assertEquals(
+    setDifference(ENROLLED_COMMAND_PATHS, CONTRACTED_COMMAND_PATHS),
+    [],
+    "the purity sweep names a stale or uncontracted command path",
+  );
+});
+
+Deno.test("a future nested contract cannot hide behind an enrolled parent verb", () => {
+  assertEquals(
+    setDifference(
+      [...CONTRACTED_COMMAND_PATHS, "config zz-future"],
+      ENROLLED_COMMAND_PATHS,
+    ),
+    ["config zz-future"],
+  );
+});
+
 Deno.test("every swept --json verb emits ONLY the envelope (no human or subprocess leak)", async () => {
   for (const config of NOISY_CONFIGS) {
     const cases = config.name === "buffered"
       ? PROJECT_CASES
-      : PROJECT_CASES.filter((c) => STREAM_SENSITIVE.has(c.registryVerb));
+      : PROJECT_CASES.filter((c) =>
+        STREAM_SENSITIVE.has(topLevelVerb(c.commandPath))
+      );
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
       await writeConfig(dir, config.toml);
@@ -421,6 +589,25 @@ Deno.test("done --json: a FAILING gate captures output INTO the envelope, never 
   });
 });
 
+Deno.test("bare discern --json is one controlled result before and after setup", async () => {
+  await withTempDir(async (dir) => {
+    for (const phase of ["before setup", "after setup"]) {
+      if (phase === "after setup") {
+        await scaffoldEngine(dir);
+      }
+      const result = await runAgent(dir, ["--json"]);
+      assertEquals(result.code, 1, `${phase}: ${result.output}`);
+      assertEnvelopeOnly(result, "discern", phase);
+      const envelope = JSON.parse(result.stdout);
+      assertEquals(envelope.error, "invalid_arguments", phase);
+      assert(
+        Array.isArray(envelope.hints) && envelope.hints.length > 0,
+        `${phase}: root refusal needs registered recovery`,
+      );
+    }
+  });
+});
+
 Deno.test("a pre-verb config error is still the uniform envelope (verb + single line)", async () => {
   await withTempDir(async (dir) => {
     // A malformed discern.toml fails during the pre-flight config read, before the
@@ -442,7 +629,7 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
   // into a JSON-RPC tool result, not onto stdout. Any other file calling
   // serializeResult is a verb hand-rolling an emit that escapes the silence rule.
   const allowed = new Set([
-    join("src", "shared", "result.ts"), // the definition
+    join("src", "shared", "result_serialization.ts"), // the definition
     join("src", "shared", "emit.ts"), // the single print site
     join("src", "engine", "mcp", "server.ts"), // builds the MCP tool result
   ]);
@@ -463,4 +650,20 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
       `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
   );
+});
+
+Deno.test("CLI and MCP share the registered failure-recovery preparation", async () => {
+  for (
+    const rel of [
+      join("src", "shared", "emit.ts"),
+      join("src", "engine", "mcp", "server.ts"),
+    ]
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    assertStringIncludes(
+      text,
+      "withFailureRecoveryHint(",
+      `${rel} must prepare failures through the shared registered recovery floor`,
+    );
+  }
 });

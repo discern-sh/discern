@@ -80,7 +80,7 @@ const SPEC: Record<string, OutsideSpec> = {
   },
   config: {
     run: ["config", "get", "repository.trunk"],
-    verb: "config get",
+    verb: "config",
     expect: "not_initialized",
   },
 

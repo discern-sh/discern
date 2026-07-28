@@ -24,6 +24,7 @@ import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
+import type { ErrorSlug } from "../shared/result.ts";
 import { worktreeState } from "../lib/git.ts";
 import { integrationBranch } from "../engine/worktree/git.ts";
 
@@ -104,7 +105,7 @@ function emitAccept(
   opts: SetupAcceptOptions,
   result: {
     ok: boolean;
-    error?: string;
+    error?: ErrorSlug;
     message: string;
     detail?: string[];
     code: number;

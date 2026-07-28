@@ -53,7 +53,12 @@ import type {
   DoctorEnvironment,
   VerbPlan,
 } from "../shared/result_schemas.ts";
-import { fire, HINTS, hintTexts } from "../shared/hints.ts";
+import {
+  failureRecoveryHint,
+  fire,
+  HINTS,
+  hintTexts,
+} from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import { inDeskSession } from "../engine/desk/session.ts";
 
@@ -895,12 +900,15 @@ export async function doctorResult(
 ): Promise<DiscernResult<DoctorData>> {
   const checks = await runChecks(destDir);
   const cfg = await loadModelConfig(destDir);
+  const ok = checks.every((c) => c.status !== "fail");
+  const hints = [
+    ...(midSetup(cfg) ? [fire(HINTS["setup-unfinished-doctor"])] : []),
+    ...(!ok ? [failureRecoveryHint("doctor")] : []),
+  ];
   return {
-    ok: checks.every((c) => c.status !== "fail"),
+    ok,
     verb: "doctor",
-    ...(midSetup(cfg)
-      ? { hints: hintTexts([fire(HINTS["setup-unfinished-doctor"])]) }
-      : {}),
+    ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
     data: {
       kit_version: KIT_VERSION,
       environment: await doctorEnvironment(),

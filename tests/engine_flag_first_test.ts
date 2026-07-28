@@ -4,7 +4,7 @@
  * itself accepts the global flags BEFORE the subcommand. Any such decision
  * must key on the RESOLVED verb (the first non-global-flag token), or a
  * leading `--json`/`--no-color` smuggles the invocation past the router:
- * the ADR 0036 setup redirect, the operator help, the pre-setup welcome,
+ * the ADR 0036 setup redirect, the operator help, the root JSON refusal,
  * and project script dispatch all diverge.
  *
  * The matrices derive from the single sources of truth so a new member
@@ -22,6 +22,8 @@ import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 import { buildCli, globalFlagTokens, resolveInvocation } from "../src/main.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
+import { HINTS } from "../src/shared/hints.ts";
+import { assertHasHint } from "./hint_asserts.ts";
 
 /** Every global flag token, straight from the Cliffy registration. */
 const GLOBAL_FLAGS: readonly string[] = [
@@ -104,15 +106,16 @@ Deno.test("pre-setup: the redirect fires for every global flag before every gate
   });
 });
 
-Deno.test("pre-setup: a flags-only invocation routes to the welcome, structured under --json", async () => {
+Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     const res = JSON.parse(r.stdout);
-    assertEquals(res.ok, true, r.output);
-    assertEquals(res.verb, "setup", r.output);
-    assertEquals(res.data.phase, "in_progress", r.output);
+    assertEquals(res.ok, false, r.output);
+    assertEquals(res.verb, "discern", r.output);
+    assertEquals(res.error, "invalid_arguments", r.output);
+    assertHasHint(res, HINTS["failure-recovery"], { verb: "discern" });
   });
 });
 

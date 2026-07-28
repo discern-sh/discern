@@ -3523,18 +3523,22 @@ export async function identityResourceHandle(
 }
 
 /**
- * List every declared resource's handle as `name=handle` lines, for
- * `identity --resources` (visibility into a worktree's resources).
+ * Resolve every declared resource's stable handle by name. The dispatcher
+ * projects this one structured fact to JSON or shell-friendly `name=handle`
+ * lines.
  */
-export async function identityResourcesList(
+export async function identityResources(
   root: string,
   target: string = Deno.cwd(),
-): Promise<string[]> {
+): Promise<Record<string, string>> {
   const settings = await loadIdentitySettings(root);
   const id = await resolveWorktreeId(settings, target);
   const config = await loadConfig(root);
-  return readResourceSpecs(config).map(
-    (s) => `${s.name}=${resourceForId(settings.slug, id, s.name)}`,
+  return Object.fromEntries(
+    readResourceSpecs(config).map((spec) => [
+      spec.name,
+      resourceForId(settings.slug, id, spec.name),
+    ]),
   );
 }
 

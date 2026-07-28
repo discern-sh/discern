@@ -13,6 +13,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   appendHintTexts,
   defineHint,
+  failureRecoveryHint,
   fire,
   firedHintsFromTexts,
   type HintAudience,
@@ -22,6 +23,7 @@ import {
   interactiveHintTexts,
   mergeHintTexts,
 } from "../src/shared/hints.ts";
+import { RETIRED_COMMAND_REDIRECTS } from "../src/shared/vocabulary.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 const STATIC_HINT = defineHint({
@@ -122,6 +124,27 @@ Deno.test("every registry entry renders non-empty text from its example params",
     };
     const rendered = entry.template(entry.example);
     assert(rendered.trim().length > 0, `${key} rendered an empty example`);
+  }
+});
+
+Deno.test("failure recovery never fabricates a command from the result verb", () => {
+  const verbs = [
+    "discern",
+    "zz-future-unusual-verb",
+    ...Object.keys(RETIRED_COMMAND_REDIRECTS),
+  ];
+  const baseline = failureRecoveryHint("doctor").text;
+  for (const verb of verbs) {
+    const recovery = failureRecoveryHint(verb).text;
+    assertEquals(
+      recovery,
+      baseline,
+      `failure recovery must not derive instructions from ${verb}`,
+    );
+    assert(
+      !recovery.includes(`discern ${verb}`),
+      `failure recovery fabricated a command from ${verb}: ${recovery}`,
+    );
   }
 });
 

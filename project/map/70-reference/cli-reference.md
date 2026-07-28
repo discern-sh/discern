@@ -251,17 +251,17 @@ Print stable values that keep each worktree's branch, development host, port, da
 
 Usage: `discern identity [path] [options]`
 
-| Option              | Description                                                               |
-| ------------------- | ------------------------------------------------------------------------- |
-| `--id`              | Print the safe base name for this worktree (default).                     |
-| `--site`            | Print its development server's host name.                                 |
-| `--branch`          | Print its branch name.                                                    |
-| `--port`            | Print its stable development-server port.                                 |
-| `--db`              | Print its database-safe name.                                             |
-| `--worktree`        | Print its base resource handle — a stable project-prefixed external name. |
-| `--resource <name>` | Print the stable external name for one declared resource.                 |
-| `--resources`       | Print every declared resource as name=stable-external-name lines.         |
-| `--json`            | Emit refusals as a JSON DiscernResult on stdout; field values print raw.  |
+| Option              | Description                                                                  |
+| ------------------- | ---------------------------------------------------------------------------- |
+| `--id`              | Print the safe base name for this worktree (default).                        |
+| `--site`            | Print its development server's host name.                                    |
+| `--branch`          | Print its branch name.                                                       |
+| `--port`            | Print its stable development-server port.                                    |
+| `--db`              | Print its database-safe name.                                                |
+| `--worktree`        | Print its base resource handle — a stable project-prefixed external name.    |
+| `--resource <name>` | Print the stable external name for one declared resource.                    |
+| `--resources`       | Print every declared resource as name=stable-external-name lines.            |
+| `--json`            | Emit the selected identity value as a JSON DiscernResult envelope on stdout. |
 
 ## Project Scripts
 
@@ -440,9 +440,9 @@ Print a scalar config value.
 
 Usage: `discern config get <key> [options]`
 
-| Option   | Description                                                        |
-| -------- | ------------------------------------------------------------------ |
-| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 #### `discern config array`
 
@@ -450,9 +450,9 @@ Print an array config value, one item per line.
 
 Usage: `discern config array <key> [options]`
 
-| Option   | Description                                                        |
-| -------- | ------------------------------------------------------------------ |
-| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 #### `discern config has`
 
@@ -460,9 +460,9 @@ Exit 0 if a key or section exists, 1 otherwise (silent).
 
 Usage: `discern config has <key> [options]`
 
-| Option   | Description                                                        |
-| -------- | ------------------------------------------------------------------ |
-| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 #### `discern config subsections`
 
@@ -470,9 +470,9 @@ Print the immediate child table names under a section.
 
 Usage: `discern config subsections <key> [options]`
 
-| Option   | Description                                                        |
-| -------- | ------------------------------------------------------------------ |
-| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 #### `discern config keys`
 
@@ -480,9 +480,9 @@ Print the flat key names declared in a section.
 
 Usage: `discern config keys <key> [options]`
 
-| Option   | Description                                                        |
-| -------- | ------------------------------------------------------------------ |
-| `--json` | Emit refusals as a JSON DiscernResult on stdout; values print raw. |
+| Option   | Description                                                      |
+| -------- | ---------------------------------------------------------------- |
+| `--json` | Emit the read result as a JSON DiscernResult envelope on stdout. |
 
 ### `discern refresh`
 

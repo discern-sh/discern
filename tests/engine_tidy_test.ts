@@ -241,7 +241,7 @@ Deno.test("tidy CLI previews both types, applies selectors, and rejects an unkno
       error: string;
       message: string;
     };
-    assertEquals(invalidJson.error, "invalid_tidy_type");
+    assertEquals(invalidJson.error, "invalid_arguments");
     assertMatch(invalidJson.message, /discern tidy toml/);
   });
 });

@@ -9,21 +9,27 @@
  */
 
 import type { z } from "@zod/zod";
+import type { Command } from "@cliffy/command";
 import {
   AcceptOutputSchema,
   ConfigOutputSchema,
   CouplingOutputSchema,
+  DeskOutputSchema,
+  DiscernOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
   HelpOutputSchema,
+  IdentityOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
+  LicensesOutputSchema,
   MapOutputSchema,
   PatternsOutputSchema,
   PatternsResetOutputSchema,
   PrepareOutputSchema,
   PresetOutputSchema,
   RefreshOutputSchema,
+  ScriptOutputSchema,
   SetupAcceptOutputSchema,
   SetupDoneOutputSchema,
   SetupOutputSchema,
@@ -31,6 +37,7 @@ import {
   SetupVerifyOutputSchema,
   SkillsEjectOutputSchema,
   SkillsListOutputSchema,
+  SkillsOutputSchema,
   StandardsOutputSchema,
   StartOutputSchema,
   StatusOutputSchema,
@@ -40,6 +47,7 @@ import {
   UpdateOutputSchema,
   UpgradeOutputSchema,
   WorktreeDropOutputSchema,
+  WorktreeOutputSchema,
   WorktreePruneOutputSchema,
   WorktreeSetupOutputSchema,
   WorktreeTeardownOutputSchema,
@@ -59,6 +67,12 @@ export interface ResultContract {
 }
 
 export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
+  {
+    id: "discern",
+    commands: ["discern"],
+    verb: "discern",
+    schema: DiscernOutputSchema,
+  },
   {
     id: "setup",
     commands: ["setup", "setup begin"],
@@ -109,6 +123,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     mcpTool: "discern_doctor",
   },
   {
+    id: "licenses",
+    commands: ["licenses"],
+    verb: "licenses",
+    schema: LicensesOutputSchema,
+  },
+  {
     id: "preset",
     commands: ["preset"],
     verb: "preset",
@@ -131,10 +151,16 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
     id: "config",
     commands: [
+      "config",
       "config set-job",
       "config set-scope",
       "config set-standard",
       "config set",
+      "config get",
+      "config array",
+      "config has",
+      "config subsections",
+      "config keys",
     ],
     verb: "config",
     schema: ConfigOutputSchema,
@@ -215,6 +241,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: PatternsResetOutputSchema,
   },
   {
+    id: "desk",
+    commands: ["desk"],
+    verb: "desk",
+    schema: DeskOutputSchema,
+  },
+  {
     id: "status",
     commands: ["status"],
     verb: "status",
@@ -243,6 +275,24 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     mcpTool: "discern_update",
   },
   {
+    id: "identity",
+    commands: ["identity"],
+    verb: "identity",
+    schema: IdentityOutputSchema,
+  },
+  {
+    id: "script",
+    commands: ["script"],
+    verb: "script",
+    schema: ScriptOutputSchema,
+  },
+  {
+    id: "worktree",
+    commands: ["worktree"],
+    verb: "worktree",
+    schema: WorktreeOutputSchema,
+  },
+  {
     id: "worktreeSetup",
     commands: ["worktree setup"],
     verb: "worktree setup",
@@ -267,6 +317,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: WorktreePruneOutputSchema,
   },
   {
+    id: "skills",
+    commands: ["skills"],
+    verb: "skills",
+    schema: SkillsOutputSchema,
+  },
+  {
     id: "skillsList",
     commands: ["skills list"],
     verb: "skills list",
@@ -280,33 +336,197 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   },
 ] as const;
 
-/** CLI commands that intentionally do not emit a public `DiscernResult` JSON object. */
+/** One CLI command path that intentionally does not emit a public result. */
+export interface CliJsonContractExclusion {
+  /** Canonical, space-delimited path in the live Cliffy command tree. */
+  command: string;
+  /** Why this path cannot use the ordinary one-result envelope protocol. */
+  reason: string;
+}
+
+/**
+ * CLI commands that intentionally do not emit a public `DiscernResult` JSON
+ * object. This is limited to protocols whose stdout is owned by something other
+ * than the one-result CLI boundary.
+ */
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
-  "mcp",
-  "identity",
-  // Listing has a convenience envelope, but named project scripts own their
-  // output contract and receive their argument tail unchanged.
-  "script",
-  // `licenses` renders the third-party notices as human text; its `--json`
-  // returns the bundled-component list as a convenience, not a
-  // stability-guaranteed public data contract.
-  "licenses",
-  // Provider hook entry points (hidden from help, stdin/stdout hook payloads).
-  "worktree create",
-  "worktree remove",
-  // The interactive human surface: `--json` gets only a structured
-  // `interactive_only` refusal, never a data contract (ADR 0119).
-  "desk",
-  "config",
-  "worktree",
-  "worktree ensure",
-  "skills",
-  "config get",
-  "config array",
-  "config has",
-  "config subsections",
-  "config keys",
-] as const;
+  {
+    command: "mcp",
+    reason:
+      "long-lived JSON-RPC stdio server; its stream is the MCP protocol, not one CLI result",
+  },
+  {
+    command: "worktree create",
+    reason:
+      "provider hook entry point; stdin and stdout belong to the provider hook protocol",
+  },
+  {
+    command: "worktree remove",
+    reason:
+      "provider hook entry point; stdin and stdout belong to the provider hook protocol",
+  },
+  {
+    command: "worktree ensure",
+    reason:
+      "provider session hook; stdout is injected as session context rather than returned to a CLI caller",
+  },
+] as const satisfies readonly CliJsonContractExclusion[];
+
+/** The exact coverage diagnostics for the live CLI tree and result registry. */
+export interface CliJsonContractCoverage {
+  /** Real canonical command paths in neither the contract nor exclusion set. */
+  uncontracted: string[];
+  /** Contract declarations that do not resolve to a live command path. */
+  staleContracts: string[];
+  /** Exclusions that do not resolve to a live command path. */
+  staleExclusions: string[];
+  /** Canonical paths claimed by both a contract and an exclusion. */
+  overlaps: string[];
+  /** Canonical paths claimed by more than one result contract. */
+  duplicateContracts: string[];
+  /** Canonical paths excluded more than once. */
+  duplicateExclusions: string[];
+  /** Alias spellings in declarations; declarations publish canonical names. */
+  nonCanonicalDeclarations: string[];
+  /** Exclusions whose reason is blank. */
+  reasonlessExclusions: string[];
+}
+
+/**
+ * Normalize one space-delimited command path through the live Cliffy tree.
+ * Aliases resolve to the registered command's canonical name at every depth.
+ */
+export function normalizeCliCommandPath(
+  root: Command,
+  commandPath: string,
+): string | undefined {
+  const tokens = commandPath.trim().split(/\s+/).filter((token) =>
+    token.length > 0
+  );
+  if (tokens.length === 0) {
+    return undefined;
+  }
+  if (
+    tokens.length === 1 &&
+    (tokens[0] === root.getName() ||
+      root.getAliases().includes(tokens[0] ?? ""))
+  ) {
+    return root.getName();
+  }
+  const canonical: string[] = [];
+  let current = root;
+  for (const token of tokens) {
+    const child = current.getCommands(true).find((candidate) =>
+      candidate.getName() === token || candidate.getAliases().includes(token)
+    );
+    if (child === undefined) {
+      return undefined;
+    }
+    canonical.push(child.getName());
+    current = child as unknown as Command;
+  }
+  return canonical.join(" ");
+}
+
+/**
+ * Every canonical command path in the built tree, including hidden provider
+ * hooks. Hidden paths still dispatch, so they still require classification.
+ */
+export function registeredCliCommandPaths(root: Command): string[] {
+  const paths: string[] = [root.getName()];
+  const visit = (command: Command, prefix: readonly string[]): void => {
+    for (const child of command.getCommands(true)) {
+      const childPath = [...prefix, child.getName()];
+      paths.push(childPath.join(" "));
+      visit(child as unknown as Command, childPath);
+    }
+  };
+  visit(root, []);
+  return paths.sort();
+}
+
+/** The published result verb for one canonical command path. */
+export function cliJsonResultVerb(commandPath: string): string | undefined {
+  return CLI_JSON_RESULT_CONTRACTS.find((contract) =>
+    contract.commands.includes(commandPath)
+  )?.verb;
+}
+
+/**
+ * Reconcile public result contracts and explicit protocol exclusions against
+ * the actual nested command tree. The function accepts injected declarations
+ * so tests can prove the predicate with synthetic future siblings.
+ */
+export function cliJsonContractCoverage(
+  root: Command,
+  contracts: readonly ResultContract[] = CLI_JSON_RESULT_CONTRACTS,
+  exclusions: readonly CliJsonContractExclusion[] =
+    CLI_JSON_CONTRACT_EXCLUSIONS,
+): CliJsonContractCoverage {
+  const live = registeredCliCommandPaths(root);
+  const contractOwners = new Map<string, string[]>();
+  const exclusionOwners = new Map<string, string[]>();
+  const staleContracts: string[] = [];
+  const staleExclusions: string[] = [];
+  const nonCanonicalDeclarations: string[] = [];
+  const reasonlessExclusions: string[] = [];
+
+  for (const contract of contracts) {
+    for (const declared of contract.commands) {
+      const canonical = normalizeCliCommandPath(root, declared);
+      if (canonical === undefined) {
+        staleContracts.push(`${contract.id}: ${declared}`);
+        continue;
+      }
+      if (canonical !== declared) {
+        nonCanonicalDeclarations.push(
+          `contract ${contract.id}: ${declared} -> ${canonical}`,
+        );
+      }
+      const owners = contractOwners.get(canonical) ?? [];
+      owners.push(contract.id);
+      contractOwners.set(canonical, owners);
+    }
+  }
+
+  for (const exclusion of exclusions) {
+    if (exclusion.reason.trim().length === 0) {
+      reasonlessExclusions.push(exclusion.command);
+    }
+    const canonical = normalizeCliCommandPath(root, exclusion.command);
+    if (canonical === undefined) {
+      staleExclusions.push(exclusion.command);
+      continue;
+    }
+    if (canonical !== exclusion.command) {
+      nonCanonicalDeclarations.push(
+        `exclusion: ${exclusion.command} -> ${canonical}`,
+      );
+    }
+    const owners = exclusionOwners.get(canonical) ?? [];
+    owners.push(exclusion.command);
+    exclusionOwners.set(canonical, owners);
+  }
+
+  return {
+    uncontracted: live.filter((path) =>
+      !contractOwners.has(path) && !exclusionOwners.has(path)
+    ),
+    staleContracts: staleContracts.sort(),
+    staleExclusions: staleExclusions.sort(),
+    overlaps: [...contractOwners.keys()].filter((path) =>
+      exclusionOwners.has(path)
+    ).sort(),
+    duplicateContracts: [...contractOwners.entries()].flatMap((
+      [path, owners],
+    ) => owners.length > 1 ? [`${path}: ${owners.join(", ")}`] : []).sort(),
+    duplicateExclusions: [...exclusionOwners.entries()].flatMap((
+      [path, owners],
+    ) => owners.length > 1 ? [`${path}: ${owners.join(", ")}`] : []).sort(),
+    nonCanonicalDeclarations: nonCanonicalDeclarations.sort(),
+    reasonlessExclusions: reasonlessExclusions.sort(),
+  };
+}
 
 export const MCP_RESULT_CONTRACTS = CLI_JSON_RESULT_CONTRACTS.filter(
   (contract): contract is ResultContract & { mcpTool: string } =>

@@ -196,8 +196,8 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
     );
     assertEquals(
       event.hint_ids,
-      [],
-      "new writers distinguish no fired hints from legacy missing evidence",
+      [HINTS["failure-recovery"].id],
+      "the recorded refusal preserves the wire contract's actionable recovery floor",
     );
   });
 });

@@ -633,6 +633,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/hint_command_guard_test.ts",
       "tests/hint_inventory_codegen_test.ts",
       "tests/gate_plan_test.ts",
+      "tests/result_schemas_test.ts",
+      "tests/engine_json_purity_test.ts",
       "tests/engine_logbook_test.ts",
       "tests/patterns_test.ts",
     ],
@@ -857,7 +859,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/result_contracts.ts",
       exportName: "CLI_JSON_RESULT_CONTRACTS",
     },
-    guards: ["tests/result_codegen_test.ts"],
+    guards: [
+      "tests/result_codegen_test.ts",
+      "tests/engine_json_purity_test.ts",
+    ],
     artifacts: [
       {
         path: "schema/discern-results.schema.json",
@@ -880,6 +885,108 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () =>
       (await import("../src/shared/result_contracts.ts"))
         .CLI_JSON_RESULT_CONTRACTS.map((contract) => contract.id),
+  },
+  {
+    id: "public-schema-publications",
+    title: "Public schema publications",
+    what:
+      "The versioned public schema URLs and the root generated artifacts served at them.",
+    source: {
+      kind: "module",
+      module: "src/shared/public_schemas.ts",
+      exportName: "PUBLIC_SCHEMA_PUBLICATIONS",
+    },
+    guards: [
+      "tests/config_codegen_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/site_serve_test.ts",
+      "tests/site_smoke_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine contract locations; the config and result references carry the reader-facing terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      (await import("../src/shared/public_schemas.ts"))
+        .PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id),
+  },
+  {
+    id: "error-slugs",
+    title: "Result error slugs",
+    what:
+      "The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "ERROR_SLUGS",
+    },
+    guards: [
+      "tests/result_schemas_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/logbook_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "types/discern-json.d.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members:
+      async () => [...(await import("../src/shared/result.ts")).ERROR_SLUGS],
+  },
+  {
+    id: "step-outcomes",
+    title: "Step outcomes",
+    what:
+      "The executed-step outcomes shared by runtime validation, result rendering, and public contract artifacts.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "STEP_OUTCOMES",
+    },
+    guards: [
+      "tests/result_schemas_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/gate_plan_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "types/discern-json.d.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "wire-level states whose plain-language meanings are shown directly with each executed step",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members:
+      async () => [...(await import("../src/shared/result.ts")).STEP_OUTCOMES],
   },
   {
     id: "public-doc-surfaces",
