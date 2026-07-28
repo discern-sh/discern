@@ -1,5 +1,7 @@
 # ADR 0076: The engine commits discern machinery it scaffolds
 
+> **Commit-attribution amendment (2026-07-28; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The setup-wiring and setup-completion commits now pass through the shared, pathspec-limited discern commit boundary. They keep the invoking user's author and committer identity and add the `discern-bot` co-author trailer by default. Agent-authored commits remain outside that boundary. The ownership and fail-open decisions below stand.
+
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
 
 **Status**: accepted

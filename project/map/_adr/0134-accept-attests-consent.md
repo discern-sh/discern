@@ -1,5 +1,7 @@
 # ADR 0134: Landing attests consent — `accept` requires a `--confirmed` attestation
 
+> **Consent-source amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** `--confirmed` now attests only that the owner accepted this landing in the current conversation. Standing scope grants and one-effort desk grants are recorded and checked directly; a covered landing needs no flag. Every applied landing still requires one verified consent source. The broader standing-pre-authorization meaning in the original decision below is historical.
+
 **Status**: accepted — extends [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md)'s `--confirmed` pattern from the fresh-scaffold act to the landing act. Builds on [ADR 0110](0110-the-landing-model.md) (the landing model: land only on the trunk) and [ADR 0028](0028-result-envelope-and-diagnostics.md) (one result envelope per verb). Reinforces, and does not revise, ADR 0110's entry contract — the explicit-user-request rule it already states becomes structural.
 
 ## Context

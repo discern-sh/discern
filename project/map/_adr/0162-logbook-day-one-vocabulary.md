@@ -2,6 +2,8 @@
 
 **Status**: accepted
 
+> **Consent-vocabulary amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** Verb events now carry optional `consent` evidence lifted from successful acceptance results. Its source comes from the canonical `conversation`, `standing-grant`, and `effort-grant` vocabulary; standing-grant evidence may also carry the covering scope names. The recorder still stores evidence rather than inference.
+
 > **Identity amendment ([ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md)):** the driver vocabulary now accretes source-labelled coding-agent hints and bounded MCP client metadata. It still stores no agent verdict, confidence, or behavioural branch. The rest of this decision is unchanged.
 
 ## Context

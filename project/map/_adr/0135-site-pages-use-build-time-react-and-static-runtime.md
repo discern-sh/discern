@@ -1,5 +1,7 @@
 # ADR 0135: Site pages use build-time React and a static runtime
 
+> **Current-consumer amendment (2026-07-28; [ADR 0205](0205-browser-workflow-semantics-are-explicit-markdown-projections.md)):** `/design-system-demo` was the first consumer at the time of this decision. The homepage and browser manual now consume the external package too, and selected manual blocks project its published Workflow semantics from complete Markdown. The build-time React and framework-free browser-runtime decision stands.
+
 **Status**: accepted
 
 **Ownership amendment**: [ADR 0139](0139-the-design-system-is-an-independent-package.md) makes the authored design system an external package. This ADR's build-time React and static-browser-runtime decision remains active.
