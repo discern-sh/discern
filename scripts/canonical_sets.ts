@@ -960,6 +960,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "artifact-validators",
+    title: "Artifact validators",
+    what:
+      "Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot quietly end up applied only by this repository's tests.",
+    source: {
+      kind: "module",
+      module: "tests/validator_registry.ts",
+      exportName: "ARTIFACT_VALIDATORS",
+    },
+    guards: ["tests/validator_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal enforcement-parity contract, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "guard infrastructure for this repository's own wiring, not a product feature",
+      },
+    },
+    members: async () =>
+      (await import("../tests/validator_registry.ts")).ARTIFACT_VALIDATORS
+        .map((entry) => `${entry.module}#${entry.exportName}`),
+  },
+  {
     id: "canonical-sets",
     title: "Canonical sets",
     what: "This meta-registry: the closed set of closed sets.",

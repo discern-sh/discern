@@ -43,9 +43,10 @@ One row per set, in registry order; the sections below follow the same order and
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)       | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 32      | —                | node `canonical-sets`       |
+| [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 33      | —                | node `canonical-sets`       |
 
-32 sets · 57 guard tests · 14 committed artifacts.
+33 sets · 58 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -107,6 +108,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/skill_name_parity_test.ts`         | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                          |
 | `tests/ssot_claim_guard_test.ts`          | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                          |
 | `tests/third_party_notices_test.ts`       | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                     |
+| `tests/validator_enrolment_test.ts`       | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                           |
 | `tests/vocab_drift_test.ts`               | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
 | `tests/voice_vale_parity_test.ts`         | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                              |
 | `tests/worktree_tokens_test.ts`           | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                                                                                                                                                                                                               |
@@ -450,12 +452,22 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
 - Glossary: not enrolled — this repository's internal scan universe, not product vocabulary
 - Feature canon: not enrolled — guard infrastructure for this repository's own sweeps, not a product feature
 
+## `artifact-validators` — Artifact validators
+
+Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot quietly end up applied only by this repository's tests.
+
+- Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
+- Members: 9
+- Guards: `tests/validator_enrolment_test.ts`
+- Glossary: not enrolled — an internal enforcement-parity contract, not product vocabulary
+- Feature canon: not enrolled — guard infrastructure for this repository's own wiring, not a product feature
+
 ## `canonical-sets` — Canonical sets
 
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 32
+- Members: 33
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
