@@ -716,6 +716,32 @@ Rendered example:
 Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limits can be verified. In CI, run `git fetch origin main:main`. The never-loosen check could not read the trunk (the local branch is missing).
 ```
 
+## `gate-test-run-queued`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A test-stage run arrives with every [gate].concurrent_test_runs slot held.
+
+Rendered example:
+
+```text
+Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs). In flight: done on agent/fix-upload-retry, typically ~3m. This run starts when a slot frees.
+```
+
+## `gate-test-slots-unavailable`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: [gate].concurrent_test_runs is set but the slot files under .git could not be prepared.
+
+Rendered example:
+
+```text
+The concurrent test-run cap is not enforced for this run: could not create the slot directory. The tests run uncapped.
+```
+
 ## `gate-trunk-advanced`
 
 - Category: `next-step`
