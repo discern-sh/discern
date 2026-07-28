@@ -18,6 +18,7 @@ import {
   type ReceiptNoteWriteData,
   ReceiptSchema,
 } from "../../shared/result_schemas.ts";
+import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 
 export const RECEIPT_NOTES_REF = "refs/notes/discern";
@@ -247,6 +248,13 @@ export async function reconcileReceiptNotesFetch(
   };
 }
 
+/** Whether fetch transport reconciliation completed without an error. */
+export function receiptNotesFetchSucceeded(
+  result: Pick<ReceiptNotesFetchData, "errors">,
+): boolean {
+  return result.errors.length === 0;
+}
+
 /** One deterministic byte representation for every structured receipt note. */
 export function canonicalReceiptNote(receipt: Receipt): string {
   return JSON.stringify({
@@ -428,13 +436,14 @@ async function noteContentFromTrackingRef(
   ref: string,
   commit: string,
 ): Promise<string | undefined> {
-  const tree = await runGit(["ls-tree", "-r", "--name-only", ref], {
-    cwd: root,
-  });
+  const tree = await runGit(
+    ["ls-tree", "-r", "-z", "--format=%(path)", ref],
+    { cwd: root },
+  );
   if (!tree.success) {
     return undefined;
   }
-  const path = tree.stdout.split(/\r?\n/).find((candidate) =>
+  const path = splitNulRecords(tree.stdout).find((candidate) =>
     candidate.replaceAll("/", "") === commit
   );
   if (path === undefined) {

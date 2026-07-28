@@ -114,14 +114,16 @@ async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
   )).split("\0");
 }
 
-Deno.test("accept records matching receipt notes, status reads them, and later landings preserve earlier notes", async () => {
+Deno.test("accept records matching receipt notes without a remote, status reads them, and later landings preserve earlier notes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, receiptConfig("local"));
+    await writeConfig(dir, receiptConfig("fetch"));
     await gitInit(dir);
 
     const first = await land(dir, "first");
-    assertEquals(first.result.data?.receipt_note?.fetch.status, "local");
+    assertEquals(first.result.data?.receipt_note?.fetch.status, "no_remote");
+    assertEquals(first.result.data?.receipt_note?.fetch.remotes, []);
+    assertEquals(first.result.data?.receipt_note?.fetch.added, []);
     assertEquals(first.result.data?.receipt_note?.write.status, "recorded");
     assertEquals(await noteAt(dir, first.target), first.receipt);
     assertEquals(await notesIdentity(dir), [
@@ -375,12 +377,22 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "refs/notes/remote-copy",
       commonNotes,
     );
+    await git(
+      dir,
+      "update-ref",
+      "refs/discern/remotes/origin/notes",
+      commonNotes,
+    );
+    await git(dir, "update-ref", "-d", RECEIPT_NOTES_REF);
 
     const receiptTwo = syntheticReceipt(two, "agent/two");
-    assertEquals(
-      (await writeReceiptNote(dir, two, receiptTwo)).status,
-      "recorded",
-    );
+    const initialized = await writeReceiptNote(dir, two, receiptTwo);
+    assertEquals(initialized.status, "recorded");
+    assertEquals(initialized.merged_refs, [
+      "refs/discern/remotes/origin/notes",
+    ]);
+    assertEquals(await noteAt(dir, one), receiptOne);
+    assertEquals(await noteAt(dir, two), receiptTwo);
     const receiptThree = syntheticReceipt(three, "agent/three");
     await git(
       dir,

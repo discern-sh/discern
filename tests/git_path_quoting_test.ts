@@ -30,6 +30,7 @@ const PATH_LISTING_FLAGS = [
   '"--name-only"',
   '"--name-status"',
   '"--numstat"',
+  '"--format=%(path)"',
   '"ls-files"',
   '"--porcelain"',
   '"--porcelain=v1"',

@@ -7705,7 +7705,6 @@
                 "hooks_wired",
                 "worktree_app_wired",
                 "project_rules_wired",
-                "receipt_notes_fetch_changed",
                 "adr_index_written",
                 "skills",
                 "errors"

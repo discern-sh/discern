@@ -365,9 +365,8 @@ export async function recordGateOutcome(
     }
     try {
       // Marker format: the sha, then (when the run rendered a receipt) its
-      // one-line structured form, the historical `line: ` component, and the
-      // page markdown. Older markers with only the rendered components still
-      // parse.
+      // compatibility `line: ` component, structured form, and page markdown.
+      // Markers that omit either component also parse.
       const data = receipt === undefined
         ? ""
         : `data: ${JSON.stringify(receipt)}\n`;
@@ -376,7 +375,7 @@ export async function recordGateOutcome(
         : `line: ${receipt.line}\n`;
       const body = receipt?.markdown === undefined || receipt.markdown === ""
         ? `${pin.head}\n`
-        : `${pin.head}\n${data}${line}\n${receipt.markdown.trim()}\n`;
+        : `${pin.head}\n${line}${data}\n${receipt.markdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
@@ -558,39 +557,37 @@ export async function inspectGateReceipt(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. Then, when present: a `data: ` component
-  // (the structured receipt), a `line: ` component, and the receipt page
-  // markdown. Markers from older binaries (sha only, sha + markdown, or
-  // sha + line + markdown) still parse — the absent pieces are simply empty.
+  // First line: the validated HEAD sha. Then, when present: `line: ` and
+  // `data: ` components in either order, followed by the receipt page Markdown.
+  // A marker may omit either component; absent pieces are simply empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
   let rest = newline < 0 ? "" : content.slice(newline + 1);
   let receiptData: Receipt | undefined;
-  if (rest.startsWith("data: ")) {
-    const eol = rest.indexOf("\n");
-    const raw = eol < 0
-      ? rest.slice("data: ".length)
-      : rest.slice("data: ".length, eol);
-    try {
-      const parsed: unknown = JSON.parse(raw);
-      const validated = ReceiptSchema.safeParse(parsed);
-      if (validated.success) {
-        receiptData = validated.data;
-      }
-    } catch {
-      // A malformed structured component does not invalidate the older
-      // validation vouch. Acceptance still honors the commit but reports that
-      // no structured receipt was available to publish.
-    }
-    rest = eol < 0 ? "" : rest.slice(eol + 1);
-  }
   let line = "";
-  if (rest.startsWith("line: ")) {
+  while (rest.startsWith("data: ") || rest.startsWith("line: ")) {
     const eol = rest.indexOf("\n");
-    line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
-      "line: ".length,
-      eol,
-    )).trim();
+    if (rest.startsWith("data: ")) {
+      const raw = eol < 0
+        ? rest.slice("data: ".length)
+        : rest.slice("data: ".length, eol);
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        const validated = ReceiptSchema.safeParse(parsed);
+        if (validated.success) {
+          receiptData = validated.data;
+        }
+      } catch {
+        // A malformed structured component does not invalidate the validation
+        // vouch. Acceptance honors the commit and reports that no structured
+        // receipt was available to publish.
+      }
+    } else {
+      line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
+        "line: ".length,
+        eol,
+      )).trim();
+    }
     rest = eol < 0 ? "" : rest.slice(eol + 1);
   }
   const markdown = rest.trim();

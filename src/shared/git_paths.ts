@@ -11,7 +11,8 @@
 /**
  * Split `-z` (NUL-separated) git output into its records, dropping empties —
  * the decoder for single-field listings (`diff --name-only -z`,
- * `ls-files -z`). Records are verbatim paths: no trimming, no unquoting.
+ * `ls-files -z`, `ls-tree -z --format=%(path)`). Records are verbatim paths:
+ * no trimming, no unquoting.
  */
 export function splitNulRecords(stdout: string): string[] {
   return stdout.split("\0").filter((r) => r !== "");

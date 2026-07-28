@@ -169,6 +169,7 @@ import { finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
 import { renderLandingReceiptLine } from "../gate/receipt_render.ts";
 import {
+  receiptNotesFetchSucceeded,
   reconcileReceiptNotesFetch,
   writeReceiptNote,
 } from "../gate/receipt_notes.ts";
@@ -2068,18 +2069,19 @@ async function executeAcceptPlan(
     mainRepo,
     plan.receiptNotes,
   );
+  const receiptFetchOk = receiptNotesFetchSucceeded(receiptFetch);
   results.push({
     step: {
       kind: "git",
       label: "reconcile-receipt-note-fetch",
       disposition: "run",
-      note: receiptFetch.errors.length === 0
+      note: receiptFetchOk
         ? `receipt-note transport is ${receiptFetch.status}`
         : receiptFetch.errors.join("; "),
     },
-    outcome: receiptFetch.errors.length === 0 ? "ok" : "skipped",
+    outcome: receiptFetchOk ? "ok" : "skipped",
   });
-  if (receiptFetch.errors.length > 0) {
+  if (!receiptFetchOk) {
     ctx.log.warn(
       "Receipt-note fetch transport could not converge — the landing is kept.",
     );
@@ -2121,7 +2123,7 @@ async function executeAcceptPlan(
     ? "origin"
     : receiptFetch.remotes[0];
   if (
-    plan.receiptNotes === "fetch" && receiptFetch.errors.length === 0 &&
+    plan.receiptNotes === "fetch" && receiptFetchOk &&
     receiptWritten && publicationRemote !== undefined
   ) {
     convergenceHints = mergeHintTexts(

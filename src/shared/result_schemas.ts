@@ -412,7 +412,7 @@ export const RefreshDataSchema = z.strictObject({
   hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),
   project_rules_wired: z.array(z.string()),
-  receipt_notes_fetch_changed: z.array(z.string()),
+  receipt_notes_fetch_changed: z.array(z.string()).optional(),
   adr_index_written: z.array(z.string()),
   skills: z.strictObject({
     copied: z.number(),

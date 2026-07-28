@@ -294,7 +294,7 @@ export async function compileGuidelines(
   // --- job 2d: receipt-note fetch transport -----------------------------------
   // Local receipt recording is unconditional at acceptance. Transport remains
   // opt-in: only "fetch" adds an exact additive mapping, and returning to
-  // "local" removes only mappings this integration previously marked.
+  // "local" removes only mappings marked as managed by this integration.
   let receiptNotesFetchChanged: string[] = [];
   try {
     const reconciled = await reconcileReceiptNotesFetch(
