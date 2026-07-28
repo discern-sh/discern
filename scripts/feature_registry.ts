@@ -824,7 +824,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "logbook",
         title: "The logbook",
         what:
-          "One metadata-only line per verb run, appended under `.git` and shared by the repository's worktrees: timings, outcomes, names, and fired hint ids — never code, never command output. It never leaves the machine (a gate test keeps the logbook code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
+          "With recording on and a readable `discern.toml`, each CLI verb run and each MCP invocation resolved to that project adds one metadata-only line under `.git`, shared by the repository's worktrees. Lines carry timings, outcomes, names, and fired hint IDs. They contain no code or command output. The logbook never leaves the machine (a gate test keeps its code free of network paths), rotates by age, and `[project].logbook = false` stops all writes.",
         why:
           "The practice becomes measurable evidence without anything leaving the building.",
         agent:

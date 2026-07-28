@@ -10,9 +10,13 @@ aliases:
 
 # The logbook
 
-_One line of local, metadata-only history per verb run: what's in it, where it lives, and the switch that stops it._
+_With recording on and `discern.toml` readable, each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project adds one line of local, metadata-only history. Here's what's in it, where it lives, and the switch that stops it._
 
-discern keeps a logbook of its own use: every verb run through the command line or Model Context Protocol (MCP), pass or fail, appends one JSON line to a plain-text file under `.git`, shared by every worktree. It exists so later versions can answer what a single run can't: which gate step has been slowing down, how many runs a task needed before green, where a metric stood six months ago.
+With recording on and the project's `discern.toml` readable, discern appends one JSON line for each CLI verb run. It does the same for each MCP invocation resolved to that project, whether the call passes or fails. Every worktree shares the plain-text file under `.git`.
+
+An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. That path has no project logbook to host the event and no readable project setting to consent to it.
+
+The history lets later versions answer what a single run can't: which gate step has been slowing down, how many runs a task needed before green, where a metric stood six months ago.
 
 - **Read it:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)); `cat .git/discern/logbook/*.jsonl` shows the raw lines.
 - **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.

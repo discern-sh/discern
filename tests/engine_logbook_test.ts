@@ -4,9 +4,10 @@
  * repos, plus the MCP chokepoint in-process. The contract under test is the
  * substrate's definition of done:
  *
- *  - any verb run (green or red) appends one valid event under the git common
- *    dir, attributed by BRANCH name — from a linked worktree too, where the
- *    shared common dir converges all fleet activity into one logbook;
+ *  - any project-rooted verb run (green or red) appends one valid event under
+ *    the git common dir, attributed by BRANCH name — from a linked worktree
+ *    too, where the shared common dir converges all fleet activity into one
+ *    logbook;
  *  - `[project].logbook = false` stops all writes;
  *  - an unwritable logbook directory changes no verb's outcome — recording
  *    degrades to silence, never interference;
@@ -88,6 +89,11 @@ function deliveredHintIds(
   return firedHintsFromTexts(hints as string[] | undefined).map((hint) =>
     hint.id
   );
+}
+
+/** Every MCP tool whose declared surface can override the project root. */
+function toolsWithPathArgument(): typeof TOOLS {
+  return TOOLS.filter((tool) => Object.keys(tool.inputSchema).includes("path"));
 }
 
 Deno.test("logbook: a verb run appends one valid, branch-attributed event", async () => {
@@ -662,8 +668,7 @@ Deno.test("logbook: every known-root MCP refusal records its final delivered res
     {
       name: "relative path",
       bootstrapped: true,
-      tools: () =>
-        TOOLS.filter((tool) => Object.keys(tool.inputSchema).includes("path")),
+      tools: toolsWithPathArgument,
       args: { path: "some/relative/dir", dry_run: true },
       error: "invalid_arguments",
     },
@@ -725,4 +730,40 @@ Deno.test("logbook: every known-root MCP refusal records its final delivered res
       }
     });
   }
+});
+
+Deno.test("logbook: an MCP path outside every project has no project logbook to record in", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const tools = toolsWithPathArgument();
+    assert(
+      tools.length > 0,
+      "expected at least one MCP tool with a project-root override",
+    );
+
+    await withTempDir(async (outside) => {
+      for (const tool of tools) {
+        const delivered = await runTool(
+          tool,
+          new WorkingRoot(dir),
+          { path: outside, dry_run: true },
+          undefined,
+          () => Promise.resolve(KIT_VERSION),
+        );
+        if (tool.rootIndependent !== true) {
+          assertEquals(
+            delivered.structuredContent.error,
+            "not_initialized",
+            `${tool.name}: an outside-project path must not fall back to the held root`,
+          );
+        }
+        assertEquals(
+          verbEvents(await readEvents(dir)),
+          [],
+          `${tool.name}: the held project must not record a call resolved outside every project`,
+        );
+      }
+    });
+  });
 });
