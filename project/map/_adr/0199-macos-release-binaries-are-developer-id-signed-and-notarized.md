@@ -1,4 +1,4 @@
-# ADR 0189: macOS release binaries are Developer ID signed and notarized
+# ADR 0199: macOS release binaries are Developer ID signed and notarized
 
 **Status**: accepted
 

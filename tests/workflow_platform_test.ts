@@ -41,17 +41,26 @@ Deno.test("macOS release binaries are signed before smoke and notarized before c
 
   assert(compile >= 0, "the target is compiled");
   assert(install > compile, "credentials are installed after compilation");
-  assert(sign > install, "Developer ID signing follows credential installation");
+  assert(
+    sign > install,
+    "Developer ID signing follows credential installation",
+  );
   assert(smoke > sign, "the signed binary is smoked");
   assert(notarize > smoke, "the working signed binary is notarized");
-  assert(checksum > notarize, "the published bytes are checksummed after notarization");
+  assert(
+    checksum > notarize,
+    "the published bytes are checksummed after notarization",
+  );
   assert(upload > checksum, "the checked artifact is uploaded");
   assert(cleanup > upload, "credentials are removed after artifact handling");
 
   assertStringIncludes(build, "if: ${{ runner.os == 'macOS' }}");
   assertStringIncludes(build, "codesign --force --timestamp --options runtime");
   assertStringIncludes(build, "--identifier sh.discern.cli");
-  assertStringIncludes(build, "--entitlements scripts/macos_release_entitlements.plist");
+  assertStringIncludes(
+    build,
+    "--entitlements scripts/macos_release_entitlements.plist",
+  );
   assertStringIncludes(build, "xcrun notarytool submit");
   assertStringIncludes(build, "--keychain-profile discern-release");
   assertStringIncludes(build, "--wait");
