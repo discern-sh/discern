@@ -14,10 +14,10 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 `discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from one derivation ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
 
-- **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends verified consent.
+- **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `done` prints it; `status --verbose` reprints an honored receipt. Terminals dim it beside the narration. Git owns commit and per-file lists; `Inspect:` names the command.
 
-The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies recorded landing authority. `discern accept --confirmed` verifies conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
+The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
 After a qualifying receipt, `done` can print one `Logbook:` advisory line. It counts the branch findings that cleared the unsolicited-presentation bar, states the strongest observation, and points to `discern patterns` for the evidence and next steps. The detector needs 1 qualifying event beyond its normal threshold before this line appears. A red run, an unfinished setup, a disabled logbook, or a branch with no qualifying finding gets no line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -44,7 +44,7 @@ discern stores the validated commit and both receipt renderings in the worktree'
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `discern done`   | Prints the page on a qualifying green run, returns `data.receipt` (`line` + `markdown`), then prints at most 1 branch finding.                                                                                                                        |
 | `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored page and line when honored (`data.gate_receipt`, and per ready fleet row), and prints the page under `--verbose`.                                               |
-| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the page in `data.receipt` and derives `data.receipt_line` by appending the verified consent source to the stored line. Otherwise it reruns the gate and derives both from that run. |
+| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the page in `data.receipt` and derives `data.receipt_line` by appending the recorded consent source to the stored line. Otherwise it reruns the gate and derives both from that run. |
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 

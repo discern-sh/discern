@@ -301,7 +301,7 @@ const liftedUpdateShape = z.looseObject({
   overlap_total: z.number(),
 });
 
-/** A successful acceptance's verified consent evidence. */
+/** A successful acceptance's recorded consent evidence. */
 const liftedConsentShape = z.looseObject({
   consent: z.looseObject({
     source: z.enum(LANDING_CONSENT_SOURCES),

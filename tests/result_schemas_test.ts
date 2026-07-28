@@ -392,6 +392,26 @@ Deno.test("runtime result schemas accept only the canonical error-slug vocabular
   );
 });
 
+Deno.test("every canonical error slug has a production source anchor", async () => {
+  const sources = await Promise.all(
+    AUTHORED_TS_FILES
+      .filter((rel) => rel.startsWith("src/") && rel !== "src/shared/result.ts")
+      .map((rel) => Deno.readTextFile(join(REPO_ROOT, rel))),
+  );
+  const unanchored = ERROR_SLUGS.filter((slug) =>
+    !sources.some((text) =>
+      text.includes(`"${slug}"`) || text.includes(`'${slug}'`)
+    )
+  );
+  assertEquals(
+    unanchored,
+    [],
+    "ERROR_SLUGS publishes a value with no production source anchor. Remove " +
+      "the retired slug before it becomes public v1 baggage, or add the live " +
+      "emission path that owns it.",
+  );
+});
+
 // ── contract-coverage enrollment (the forcing function for NEW contracts) ────
 // The `skills list` contract drifted for days because nothing tied the registry
 // to this suite: the verb emitted a field its published schema rejected, and no

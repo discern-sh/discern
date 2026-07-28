@@ -37,7 +37,7 @@ Stop after the receipt line and wait. An uncommitted edit dirties the tree. A la
 
 ## Accept after authorization
 
-Every landing needs verified [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from [the desk](the-desk.md). The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Every landing needs [landing authority](landing-authority.md): consent from the current conversation, a standing scope grant recorded on the trunk, or a one-worktree effort grant from [the desk](the-desk.md). The shared resolver checks recorded grants directly. `--confirmed` attests only that the owner accepted this landing in the current conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. An honored receipt lets acceptance reuse the earlier gate result. A missing or stale receipt makes acceptance run the full gate again for the commit it plans to land.
 

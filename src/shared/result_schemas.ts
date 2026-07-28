@@ -495,7 +495,7 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
-/** The verified consent evidence used by one successful landing. */
+/** The recorded consent evidence used by one successful landing. */
 export const LandingConsentDataSchema = z.strictObject({
   source: z.enum(LANDING_CONSENT_SOURCES),
   /** Present only for a standing grant: the scopes that covered changed paths. */

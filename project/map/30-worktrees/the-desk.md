@@ -69,7 +69,7 @@ The selected process inherits the terminal and worktree directory. Exit or inter
 
 ## Know when the desk stays closed
 
-Interactive prompts require terminal stdin and stdout. Bare `discern` prints static help under `--plain`, `--json`, CI, pipes, or closed input. Named `discern desk` returns an `interactive_only` result in those environments and points automation at `discern status --json`.
+Interactive prompts require terminal stdin and stdout. Bare `discern` prints static help under `--plain`, `--json`, CI, pipes, or closed input. Named `discern desk` returns `invalid_arguments` in those environments and points automation at `discern status --json`.
 
 Before setup completes, bare `discern` keeps showing the setup welcome. From inside a linked worktree, the desk directs you to the main checkout because accept and drop operate from the fleet's supervisory view. Desk-launched processes reject nested desk entry; exit to return ([ADR 0157](../_adr/0157-the-desk-owns-launched-child-sessions.md)).
 

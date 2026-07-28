@@ -20,7 +20,6 @@ export type DiscernKnownErrorSlug =
   | "gitignore_template_unavailable"
   | "identity_error"
   | "incomplete"
-  | "interactive_only"
   | "internal_error"
   | "invalid_arguments"
   | "invalid_config"
