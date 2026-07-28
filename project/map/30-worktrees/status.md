@@ -1,7 +1,7 @@
 ---
 title: Status and session hints
 description: Read the current worktree or fleet state, its next actions, and recent session findings without running the gate.
-order: 60
+order: 70
 aliases:
   - discern status
   - worktree status
