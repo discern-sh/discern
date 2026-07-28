@@ -54,7 +54,10 @@ import {
 import { gateRunContext, runJobGroups } from "../gate/execute.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import { parsePorcelainZ } from "../../shared/git_paths.ts";
-import { AWAITING_CONSENT_SLUG } from "../../shared/consent.ts";
+import {
+  AWAITING_CONSENT_SLUG,
+  type LandingConsent,
+} from "../../shared/consent.ts";
 import {
   classifyOrphans,
   createResources,
@@ -161,9 +164,17 @@ import { resolveTemplatesDir } from "../../lib/paths.ts";
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
+import { renderLandingReceiptLine } from "../gate/receipt_render.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
+import {
+  inspectLandingAuthority,
+  landingAuthorityDetail,
+  landingAuthorityExpiry,
+  type LandingAuthorityResolution,
+} from "./landing_authority.ts";
+import { clearEffortGrant } from "./effort_grant.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {
@@ -197,10 +208,9 @@ export interface WorktreeOpOptions {
 }
 
 /** `accept`'s flags: the worktree-verb set plus the landing consent attestation
- * (ADR 0134). `confirmed` asserts the owner has accepted this landing, or gave
- * standing pre-authorization; absent (and not a dry-run), acceptance refuses
- * read-only. It lives on accept alone — the other worktree verbs are not
- * consent-gated. */
+ * (ADR 0134). `confirmed` asserts the owner accepted this landing in the current
+ * conversation. Recorded standing and effort grants are checked directly.
+ * It lives on accept alone — the other worktree verbs are not consent-gated. */
 export interface AcceptOpOptions extends WorktreeOpOptions {
   confirmed?: boolean;
 }
@@ -1356,12 +1366,49 @@ function offTrunkAcceptRefusal(
  * re-serves the review moment (relay the receipt, wait for the owner) and names
  * the recovery (re-run with the attestation). Mutation-free: it fires before any
  * git runs, so the worktree, its branch, and the trunk are genuinely untouched. */
-const ACCEPT_AWAITING_CONSENT_MESSAGE =
+const ACCEPT_AWAITING_CONSENT_BASE =
   "Landing is the owner's decision, so `discern accept` needs their explicit " +
   "acceptance before it lands. Relay the receipt to your owner and wait for " +
-  "their go-ahead, then re-run `discern accept --confirmed` (standing " +
-  "pre-authorization counts as their acceptance). Nothing has been landed — " +
-  "the worktree, its branch, and the trunk are untouched.";
+  "their go-ahead, then re-run `discern accept --confirmed`. The flag attests " +
+  "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
+  "or at the desk are checked automatically.";
+
+function uncoveredAuthorityDetail(
+  uncovered: readonly {
+    path: string;
+    scopes: readonly string[];
+  }[],
+): string | undefined {
+  if (uncovered.length === 0) {
+    return undefined;
+  }
+  const shown = uncovered.slice(0, 8).map((entry) =>
+    `\`${entry.path}\` (${
+      entry.scopes.length === 0
+        ? "no matching scope"
+        : `scopes: ${entry.scopes.join(", ")}`
+    })`
+  );
+  if (uncovered.length > shown.length) {
+    shown.push(`and ${uncovered.length - shown.length} more`);
+  }
+  return `Recorded standing grants do not cover ${shown.join(", ")}.`;
+}
+
+function acceptAwaitingConsentMessage(
+  authority: LandingAuthorityResolution,
+): string {
+  const detail = authority.kind === "conversation-required"
+    ? uncoveredAuthorityDetail(authority.uncovered)
+    : undefined;
+  const evidence = [
+    ...(detail !== undefined ? [detail] : []),
+    ...authority.warnings,
+  ];
+  return `${ACCEPT_AWAITING_CONSENT_BASE}${
+    evidence.length > 0 ? ` ${evidence.join(" ")}` : ""
+  } Nothing has been landed — the worktree, its branch, and the trunk are untouched.`;
+}
 
 /**
  * The read-only refusal `accept` serves when its `--confirmed` attestation is
@@ -1373,17 +1420,39 @@ const ACCEPT_AWAITING_CONSENT_MESSAGE =
  * consent-gated class is one contract. Carries ≥1 actionable hint; the honored
  * receipt and the raw-diff command it points at live once, on `discern status`.
  */
-function acceptAwaitingConsentResult(): DiscernResult<AcceptData> {
+function acceptAwaitingConsentResult(
+  authority: LandingAuthorityResolution,
+): DiscernResult<AcceptData> {
   return {
     ok: false,
     verb: "accept",
     error: AWAITING_CONSENT_SLUG,
-    message: ACCEPT_AWAITING_CONSENT_MESSAGE,
+    message: acceptAwaitingConsentMessage(authority),
     hints: hintTexts([
       fire(HINTS["accept-awaiting-confirmation"]),
       fire(HINTS["accept-review-via-status"]),
     ]),
   };
+}
+
+function landingConsentForApply(
+  authority: LandingAuthorityResolution,
+  confirmed: boolean,
+): LandingConsent {
+  if (authority.kind === "authorized") {
+    return authority.consent;
+  }
+  if (!confirmed) {
+    const result = acceptAwaitingConsentResult(authority);
+    throw new WorktreeResultError(result.message ?? "", result);
+  }
+  if (authority.blockingReason !== undefined) {
+    throw new WorktreeGitError(
+      `The trunk's committed landing policy is invalid: ${authority.blockingReason}. ` +
+        "Fix the trunk config before landing; conversation consent cannot bypass a broken policy record.",
+    );
+  }
+  return { source: "conversation" };
 }
 
 // How many of the gate's diagnostics ride inline in an accept refusal before the agent
@@ -1512,6 +1581,8 @@ async function executeAcceptPlan(
   ctx: LifecycleContext,
   run: GitRunner,
   plan: AcceptPlan,
+  authority: LandingAuthorityResolution,
+  consent: LandingConsent,
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
@@ -1594,6 +1665,22 @@ async function executeAcceptPlan(
   }
 
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
+  const expired = await landingAuthorityExpiry(
+    ctx.cwd,
+    trunk,
+    worktreeBranch,
+    validatedSha,
+    authority,
+  );
+  if (expired !== undefined) {
+    throw new WorktreeGitError(
+      `Landing authority changed while acceptance was validating the branch: ${expired}. ` +
+        "Nothing was landed and the worktree is intact. Re-run `discern accept` so authority is checked against the final tree.",
+    );
+  }
+  if (receiptLine !== undefined) {
+    receiptLine = renderLandingReceiptLine(receiptLine, consent);
+  }
 
   const results: StepResult[] = [];
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
@@ -1620,6 +1707,14 @@ async function executeAcceptPlan(
   ctx.log.detail(
     `Into trunk:         ${mainRepo} (fast-forward ${trunk}, delete ${worktreeBranch})`,
   );
+  ctx.log.detail(
+    `Authority:          ${
+      landingAuthorityDetail(authority, consent.source === "conversation")
+    }`,
+  );
+  for (const warning of authority.warnings) {
+    ctx.log.warn(warning);
+  }
   const ignoredLine = ignoredFileChangeDetail(plan.ignoredFileChanges);
   if (ignoredLine !== undefined) {
     ctx.log.detail(ignoredLine);
@@ -1841,6 +1936,15 @@ async function executeAcceptPlan(
   done("resource-destroy", "teardown resources");
 
   // remove the worktree (from the main repo)
+  try {
+    await clearEffortGrant(ctx.cwd);
+  } catch (error) {
+    ctx.log.warn(
+      `Could not clear the consumed effort grant before worktree removal: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
   ctx.log.info(`Removing worktree: ${worktreePath}`);
   try {
     await removeWorktreeSafely(worktreePath, mainRepo);
@@ -1931,25 +2035,42 @@ export async function acceptResult(
   opts: { dryRun?: boolean; confirmed?: boolean } = {},
 ): Promise<DiscernResult<AcceptData>> {
   const dryRun = opts.dryRun ?? false;
-  // The consent attestation gates the landing act itself (ADR 0134). Without it,
-  // refuse read-only — before any git runs, so nothing mutates — and re-serve the
-  // review moment, so no work lands on a consent that lives only in the agent's
-  // own summary. A dry-run previews and never lands, so it needs no attestation.
-  // The setup-flow landing (`setup accept`) and the desk's interactive "land"
-  // both collect their consent upstream and pass the attestation in, so neither
-  // double-refuses here.
-  if (!dryRun && !(opts.confirmed ?? false)) {
-    throw new WorktreeResultError(
-      ACCEPT_AWAITING_CONSENT_MESSAGE,
-      acceptAwaitingConsentResult(),
-    );
+  const confirmed = opts.confirmed ?? false;
+  // Resolve authority before the ordinary preconditions so an uncovered
+  // flagless call still receives the consent refusal as its outermost contract.
+  // Every read is mutation-free. A dry-run reports authority but needs none.
+  let authority = await inspectLandingAuthority(
+    ctx.cwd,
+    ctx.config.repository.trunk,
+  );
+  if (!dryRun) {
+    landingConsentForApply(authority, confirmed);
   }
   const run = makeGitRunner(ctx);
   const plan = await buildAcceptPlan(ctx, run);
+  // The plan proved the worktree clean. Re-read now so the authority used by
+  // apply is over committed paths only, then bind it through validation to the
+  // fast-forward boundary.
+  authority = await inspectLandingAuthority(
+    ctx.cwd,
+    ctx.config.repository.trunk,
+  );
   if (dryRun) {
-    return previewResult("accept", acceptPlanToEngine(plan));
+    const enginePlan = acceptPlanToEngine(plan);
+    enginePlan.details.push(
+      `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
+      ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
+    );
+    return previewResult("accept", enginePlan);
   }
-  const executed = await executeAcceptPlan(ctx, run, plan);
+  const consent = landingConsentForApply(authority, confirmed);
+  const executed = await executeAcceptPlan(
+    ctx,
+    run,
+    plan,
+    authority,
+    consent,
+  );
   const result: DiscernResult<AcceptData> = appliedResult(
     "accept",
     executed.steps,
@@ -1959,6 +2080,13 @@ export async function acceptResult(
   // resolved `mainRepo` before the removal, so it is valid after.
   result.data = {
     root: plan.mainRepo,
+    consent: {
+      source: consent.source,
+      ...(consent.scopes !== undefined ? { scopes: [...consent.scopes] } : {}),
+    },
+    ...(authority.warnings.length > 0
+      ? { authority_warnings: [...authority.warnings] }
+      : {}),
     gate_validation: executed.gateValidation,
     ...(executed.receiptMarkdown !== undefined
       ? { receipt: executed.receiptMarkdown }

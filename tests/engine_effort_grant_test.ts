@@ -121,24 +121,36 @@ Deno.test("Git worktree removal reaps its effort grant with no orphan state", as
   });
 });
 
-Deno.test("the interactive desk is the only production effort-grant writer", async () => {
-  const allowed = new Set([
+Deno.test("the desk alone grants effort authority; acceptance may only consume it", async () => {
+  const grantAllowed = new Set([
     "src/engine/desk/desk.ts",
     "src/engine/worktree/effort_grant.ts",
   ]);
-  const offenders: string[] = [];
+  const clearAllowed = new Set([
+    ...grantAllowed,
+    "src/engine/worktree/lifecycle.ts",
+  ]);
+  const grantOffenders: string[] = [];
+  const clearOffenders: string[] = [];
   for (
     const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
   ) {
-    if (allowed.has(rel)) continue;
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (/\b(?:grantEffort|clearEffortGrant)\s*\(/.test(source)) {
-      offenders.push(rel);
+    if (!grantAllowed.has(rel) && /\bgrantEffort\s*\(/.test(source)) {
+      grantOffenders.push(rel);
+    }
+    if (!clearAllowed.has(rel) && /\bclearEffortGrant\s*\(/.test(source)) {
+      clearOffenders.push(rel);
     }
   }
   assertEquals(
-    offenders,
+    grantOffenders,
     [],
-    "agent-run CLI and MCP code may read landing authority, never write it",
+    "agent-run CLI and MCP code may read effort authority, never grant it",
+  );
+  assertEquals(
+    clearOffenders,
+    [],
+    "only the human desk and successful acceptance may clear effort authority",
   );
 });

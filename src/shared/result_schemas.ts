@@ -33,6 +33,7 @@ import {
   STEP_OUTCOMES,
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
+import { LANDING_CONSENT_SOURCES } from "./consent.ts";
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -466,6 +467,14 @@ export const StartDataSchema = z.strictObject({
 });
 export type StartData = z.infer<typeof StartDataSchema>;
 
+/** The verified consent evidence used by one successful landing. */
+export const LandingConsentDataSchema = z.strictObject({
+  source: z.enum(LANDING_CONSENT_SOURCES),
+  /** Present only for a standing grant: the scopes that covered changed paths. */
+  scopes: z.array(z.string()).optional(),
+});
+export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
+
 /** `accept` — where the branch landed: `root` is the main checkout the worktree's
  * branch was landed into. The load-bearing field for the MCP working-root re-aim
  * (ADR 0062): accept removes the worktree the server operated on, and the server
@@ -475,6 +484,9 @@ export type StartData = z.infer<typeof StartDataSchema>;
  * when the server was launched from the trunk). */
 export const AcceptDataSchema = z.strictObject({
   root: z.string(),
+  consent: LandingConsentDataSchema,
+  /** Non-blocking authority evidence the caller should surface. */
+  authority_warnings: z.array(z.string()).optional(),
   gate_validation: GateValidationSchema.optional(),
   /** The receipt markdown for the tree that landed — the landing record, pasteable
    * into a PR body (from the honored marker on the fast path, or the fresh gate run

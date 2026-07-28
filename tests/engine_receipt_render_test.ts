@@ -9,6 +9,7 @@
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import {
+  renderLandingReceiptLine,
   renderReceiptLine,
   renderReceiptMarkdown,
 } from "../src/engine/gate/receipt_render.ts";
@@ -259,6 +260,25 @@ Deno.test("receipt line: unverified limits are disclosed loudly", () => {
 Deno.test("receipt line: no standards configured claims nothing", () => {
   const line = renderReceiptLine(FACTS, []);
   assertEquals(line.includes("standards"), false);
+});
+
+Deno.test("landing receipt line records each canonical consent source", () => {
+  const line = renderReceiptLine(FACTS);
+  assertEquals(
+    renderLandingReceiptLine(line, { source: "conversation" }),
+    `${line} · landed with conversation consent`,
+  );
+  assertEquals(
+    renderLandingReceiptLine(line, {
+      source: "standing-grant",
+      scopes: ["docs", "site"],
+    }),
+    `${line} · landed under standing grant: docs, site`,
+  );
+  assertEquals(
+    renderLandingReceiptLine(line, { source: "effort-grant" }),
+    `${line} · landed under effort grant`,
+  );
 });
 
 // ── the page's terminal treatment ───────────────────────────────────────────

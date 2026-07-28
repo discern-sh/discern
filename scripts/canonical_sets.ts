@@ -236,6 +236,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/engine_landing_authority_test.ts",
+      "tests/engine_accept_authority_test.ts",
       "tests/engine_consent_gate_test.ts",
       "tests/engine_logbook_test.ts",
     ],

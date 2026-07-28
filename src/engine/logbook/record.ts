@@ -47,6 +47,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
 import type { DiscernResult } from "../../shared/result.ts";
+import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { resolveCommonGitDir } from "../worktree/git.ts";
 import { changedSections, type ConfigEpoch, configEpoch } from "./epoch.ts";
 import {
@@ -300,6 +301,14 @@ const liftedUpdateShape = z.looseObject({
   overlap_total: z.number(),
 });
 
+/** A successful acceptance's verified consent evidence. */
+const liftedConsentShape = z.looseObject({
+  consent: z.looseObject({
+    source: z.enum(LANDING_CONSENT_SOURCES),
+    scopes: z.array(z.string()).optional(),
+  }),
+});
+
 /** One applied pin, as lifted from the standards verb's payload. */
 interface LiftedPin {
   name: string;
@@ -318,6 +327,7 @@ interface LiftedData {
   target?: string;
   from?: string;
   update?: UpdateShape;
+  consent?: VerbEvent["consent"];
 }
 
 /** Reduce an envelope's `data` to the liftable facts it carries, by shape. */
@@ -378,6 +388,15 @@ function liftData(data: unknown): LiftedData {
       behind: update.data.behind,
       files: update.data.files_total,
       overlap: update.data.overlap_total,
+    };
+  }
+  const consent = liftedConsentShape.safeParse(data);
+  if (consent.success) {
+    lifted.consent = {
+      source: consent.data.consent.source,
+      ...(consent.data.consent.scopes !== undefined
+        ? { scopes: consent.data.consent.scopes }
+        : {}),
     };
   }
   return lifted;
@@ -493,6 +512,7 @@ export function beginRecording(cwd: string): Recording {
             ? { standards: lifted.standards }
             : {}),
           ...(lifted.update !== undefined ? { update: lifted.update } : {}),
+          ...(lifted.consent !== undefined ? { consent: lifted.consent } : {}),
           epoch: ctx.epoch.fingerprint,
         };
         await appendEvent(ctx.commonGitDir, event);

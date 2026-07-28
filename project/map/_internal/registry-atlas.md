@@ -49,7 +49,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 36      | —                | node `canonical-sets`       |
 
-36 sets · 64 guard tests · 14 committed artifacts.
+36 sets · 65 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -69,6 +69,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`             | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/engine_accept_authority_test.ts`   | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                               |
 | `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs), [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                           |
 | `tests/engine_desk_model_test.ts`         | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                |
@@ -200,7 +201,7 @@ The consent evidence recorded for every successful landing: a conversation attes
 
 - Source: `src/shared/consent.ts` — `LANDING_CONSENT_SOURCES`
 - Members: 3
-- Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
+- Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_accept_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
 - Glossary: not enrolled — three evidence forms of the landing-consent concept, documented together on the acceptance page
 - Feature canon: described by the `consent-attestations` node
 

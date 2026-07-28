@@ -2979,6 +2979,11 @@ export type DiscernAcceptResult = {
   verb: "accept";
   data?: {
     root: string;
+    consent: {
+      source: "conversation" | "standing-grant" | "effort-grant";
+      scopes?: Array<string>;
+    };
+    authority_warnings?: Array<string>;
     gate_validation?: {
       mode: "receipt" | "rerun";
       receipt: {

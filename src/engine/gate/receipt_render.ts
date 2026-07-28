@@ -31,6 +31,7 @@ import type {
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import type { StepResult } from "../../shared/result.ts";
+import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./receipt.ts";
 import { fmtRate } from "./standards.ts";
@@ -180,6 +181,27 @@ export function renderReceiptLine(
     "full receipt: discern status --verbose",
   ];
   return `Receipt: ${segments.join(" · ")}`;
+}
+
+/**
+ * Add the consent evidence to a gate receipt once that tree has landed. The
+ * underlying gate receipt stays a claim about validation; this derived line is
+ * the acceptance record agents relay after the worktree is gone.
+ */
+export function renderLandingReceiptLine(
+  receiptLine: string,
+  consent: LandingConsent,
+): string {
+  switch (consent.source) {
+    case "conversation":
+      return `${receiptLine} · landed with conversation consent`;
+    case "effort-grant":
+      return `${receiptLine} · landed under effort grant`;
+    case "standing-grant":
+      return `${receiptLine} · landed under standing grant: ${
+        consent.scopes?.join(", ") ?? "(none)"
+      }`;
+  }
 }
 
 /**
