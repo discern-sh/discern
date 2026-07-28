@@ -1,0 +1,69 @@
+/**
+ * Shared fixtures for the `done --json` suites. The envelope tests split
+ * across sibling files so `deno test --parallel` (which distributes per FILE)
+ * can spread their serial `done` runs over workers; the helpers live here, in
+ * a non-test module, because importing one _test.ts from another would
+ * re-register its tests under the importer's runner.
+ */
+
+import { assert } from "@std/assert";
+
+// deno-lint-ignore no-explicit-any
+export function parseJson(stdout: string): any {
+  return JSON.parse(stdout.trim());
+}
+
+// deno-lint-ignore no-explicit-any
+export const stepFor = (obj: any, label: string) =>
+  obj.steps.find((s: { label: string }) => s.label === label);
+// deno-lint-ignore no-explicit-any
+export const diagFor = (obj: any, tool: string) =>
+  (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+
+export interface JsonStep {
+  kind: string;
+  label: string;
+  outcome: string;
+}
+
+export interface JsonDiagnostic {
+  tool: string;
+}
+
+export function assertFailedStepsHaveDiagnostics(obj: {
+  steps?: JsonStep[];
+  diagnostics?: JsonDiagnostic[];
+}): void {
+  const failed = (obj.steps ?? []).filter((s) =>
+    (s.kind === "job" || s.kind === "scope-gate") && s.outcome === "failed"
+  );
+  assert(failed.length > 0, "expected at least one genuinely failed job step");
+  const tools = new Set((obj.diagnostics ?? []).map((d) => d.tool));
+  for (const step of failed) {
+    assert(
+      tools.has(step.label),
+      `failed step ${step.label} must yield a diagnostic: ${
+        JSON.stringify(obj.diagnostics)
+      }`,
+    );
+  }
+}
+
+export async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+export function hasDroppedC0Control(s: string): boolean {
+  return s.split("").some((ch) => {
+    const code = ch.charCodeAt(0);
+    return code < 0x20 && code !== 0x0a && code !== 0x09;
+  });
+}
