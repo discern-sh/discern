@@ -45,6 +45,10 @@ interface ComparisonContext {
   readonly policy: PublicSchemaCompatibility;
   readonly previousContractRefs: ContractReferenceSets;
   readonly newContractRefs: ContractReferenceSets;
+  readonly contractAggregateRoles: ReadonlyMap<
+    string,
+    ResultContractReferenceRole
+  >;
 }
 
 type PublicSchemaArtifactPath =
@@ -208,18 +212,35 @@ function referenceAlternative(value: JsonValue): string | undefined {
   return value.$ref;
 }
 
-function contractAggregatorRole(
+function matchingContractReferenceRole(
   alternatives: readonly JsonValue[],
-  context: ComparisonContext,
+  references: ContractReferenceSets,
 ): ResultContractReferenceRole | undefined {
   const matchingRoles = RESULT_CONTRACT_REFERENCE_ROLES.filter((role) =>
     alternatives.every((alternative) => {
       const reference = referenceAlternative(alternative);
       return reference !== undefined &&
-        context.previousContractRefs[role].has(reference);
+        references[role].has(reference);
     })
   );
   return matchingRoles.length === 1 ? matchingRoles[0] : undefined;
+}
+
+function contractAggregatorRole(
+  path: string,
+  alternatives: readonly JsonValue[],
+  context: ComparisonContext,
+): ResultContractReferenceRole | undefined {
+  const canonicalRole = context.contractAggregateRoles.get(path);
+  if (canonicalRole === undefined) {
+    return undefined;
+  }
+  return matchingContractReferenceRole(
+      alternatives,
+      context.previousContractRefs,
+    ) === canonicalRole
+    ? canonicalRole
+    : undefined;
 }
 
 function compareAlternatives(
@@ -265,7 +286,7 @@ function compareAlternatives(
     context.policy === RESULT_SCHEMA_COMPATIBILITY_POLICY &&
       keyword === "oneOf" &&
       previous.length > 0
-      ? contractAggregatorRole(previous, context)
+      ? contractAggregatorRole(path, previous, context)
       : undefined;
   current.forEach((alternative, index) => {
     if (matched.has(index)) {
@@ -321,6 +342,51 @@ function definitionName(reference: string): string | undefined {
     return undefined;
   }
   return encoded.replaceAll("~1", "/").replaceAll("~0", "~");
+}
+
+/**
+ * Give widening authority to the sole role aggregate reached from the trunk
+ * schema's top-level entrypoints. A nested union with the same references is
+ * still part of its existing contract and must stay closed.
+ */
+function contractAggregateRoles(
+  previous: JsonObject,
+  previousDefinitions: JsonObject,
+  previousContractRefs: ContractReferenceSets,
+): ReadonlyMap<string, ResultContractReferenceRole> {
+  if (!Array.isArray(previous.oneOf)) {
+    return new Map();
+  }
+  const candidates: [string, ResultContractReferenceRole][] = [];
+  for (const entrypoint of previous.oneOf) {
+    const reference = referenceAlternative(entrypoint);
+    const name = reference === undefined
+      ? undefined
+      : definitionName(reference);
+    const definition = name === undefined
+      ? undefined
+      : previousDefinitions[name];
+    const alternatives = isObject(definition) ? definition.oneOf : undefined;
+    if (!Array.isArray(alternatives) || alternatives.length === 0) {
+      continue;
+    }
+    const role = matchingContractReferenceRole(
+      alternatives,
+      previousContractRefs,
+    );
+    if (role === undefined || name === undefined) {
+      continue;
+    }
+    const definitionPath = pathKey(pathKey("$", "$defs"), name);
+    candidates.push([pathKey(definitionPath, "oneOf"), role]);
+  }
+  const roleCounts = new Map<ResultContractReferenceRole, number>();
+  for (const [, role] of candidates) {
+    roleCounts.set(role, (roleCounts.get(role) ?? 0) + 1);
+  }
+  return new Map(
+    candidates.filter(([, role]) => roleCounts.get(role) === 1),
+  );
 }
 
 function comparisonContext(
@@ -409,6 +475,11 @@ function comparisonContext(
     policy,
     previousContractRefs,
     newContractRefs,
+    contractAggregateRoles: contractAggregateRoles(
+      previous,
+      previousDefinitions,
+      previousContractRefs,
+    ),
   };
 }
 
