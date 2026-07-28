@@ -24,6 +24,7 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [When the gate fails](when-the-gate-fails.md) | Read a red result and take the shortest route to the fix.                   |
 | [Standards](standards.md)                     | Hold a metric floor or ceiling and respond when it fires.                   |
 | [The receipt](the-receipt.md)                 | Understand the proof a clean green run hands to the reviewer.               |
+| [Receipt notes](receipt-notes.md)             | Carry a landed receipt with its trunk commit and opt into fetch transport.  |
 | [Strand detection](strand-detection.md)       | Fix tracked files a gate stage changed after the final commit.              |
 | [Run the gate in CI](ci.md)                   | Require the same gate on pull requests and trunk pushes.                    |
 | [Continuous improvement](improvement.md)      | Find the highest-value practice to improve after the current change passes. |

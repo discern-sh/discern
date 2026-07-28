@@ -1,7 +1,7 @@
 ---
 title: Coupling
 description: Use git history to find files that usually change with the work on your branch and may have been missed.
-order: 70
+order: 80
 aliases:
   - discern coupling
   - cochange

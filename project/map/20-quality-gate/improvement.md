@@ -1,7 +1,7 @@
 ---
 title: Continuous improvement
 description: Use discern improvement to find one objective fix or qualitative review that raises the project's baseline.
-order: 60
+order: 70
 aliases:
   - discern improvement
   - improvement coach

@@ -1,7 +1,7 @@
 ---
 title: Format discern-owned surfaces
 description: Run discern tidy directly or from the format job to keep the map, guidance, TODO, and root config canonical.
-order: 90
+order: 100
 aliases:
   - discern tidy
   - tidy

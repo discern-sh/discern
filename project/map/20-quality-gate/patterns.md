@@ -1,7 +1,7 @@
 ---
 title: Practice patterns
 description: Read what the logbook shows about how agents drive discern here — thrash loops, gate fit, funnel flow, and each standard's trajectory.
-order: 80
+order: 90
 aliases:
   - discern patterns
   - patterns
