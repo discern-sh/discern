@@ -26,7 +26,7 @@ import {
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
-import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
 
 /** The real committed config template text. */
 async function realTemplate(): Promise<string> {
@@ -92,6 +92,21 @@ Deno.test("lists only active template section headers, in file order", async () 
     "scripts",
     "meta",
   ]);
+});
+
+Deno.test("the template documents every top-level config section", async () => {
+  // Agents learn the config surface from the template, not the reference docs,
+  // so every schema section must ship in it — active ([acceptance]) or as a
+  // documented example (# [standards.<name>]). Keys come straight from the
+  // schema: a new section enrols here the moment it exists.
+  const template = await realTemplate();
+  for (const section of Object.keys(configSchema.shape)) {
+    assert(
+      new RegExp(`\\[${section}[\\].]`).test(template),
+      `templates/discern.toml.tmpl never mentions [${section}] — add the ` +
+        `section, or a commented "# [${section}]" block documenting it`,
+    );
+  }
 });
 
 Deno.test("extracts a documented key block and section key order", async () => {

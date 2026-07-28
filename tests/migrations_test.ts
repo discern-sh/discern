@@ -1693,7 +1693,10 @@ Deno.test("migration 23→24 inserts the documented [acceptance] block after the
     await applyMigrations({ destDir: dir, from: 23, to: 24 });
     const migrated = await Deno.readTextFile(configPath);
     assertStringIncludes(migrated, "# [acceptance] — standing grants");
-    assertStringIncludes(migrated, "[acceptance]\npre_authorized = []");
+    assertStringIncludes(
+      migrated,
+      '[acceptance]\npre_authorized = [] # e.g. ["docs"]',
+    );
     assert(
       migrated.indexOf("[scopes.release]") <
           migrated.indexOf("[acceptance]") &&
