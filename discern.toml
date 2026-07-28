@@ -63,6 +63,7 @@ branch_prefix = "agent/"
 # [worktree.setup].ensure instead; those never run in the main checkout.
 ensure = [
   "deno install --frozen",
+  "deno task site:build",
   "vale sync",
 ]
 
