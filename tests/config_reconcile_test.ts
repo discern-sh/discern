@@ -5,6 +5,8 @@ import {
   renderConfigTemplateForConfig,
 } from "../src/lib/config_reconcile.ts";
 import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 async function renderedTemplate(): Promise<string> {
   const template = await Deno.readTextFile(
@@ -25,6 +27,32 @@ function withoutSection(text: string, section: string): string {
   assert(block !== undefined, `expected [${section}] in template`);
   return text.replace(`\n\n${block}`, "").replace(block, "");
 }
+
+Deno.test("config reconciliation replaces the legacy provenance marker and is idempotent", async () => {
+  const template = await renderedTemplate();
+  const marker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.config,
+  );
+  const drifted = template.replace(
+    marker,
+    "# discern | https://discern.sh | project configuration file",
+  );
+
+  const result = reconcileConfigTextWithTemplate(drifted, template);
+
+  assertEquals(result.operations, [{
+    kind: "marker",
+    path: "discern.toml",
+  }]);
+  assertEquals(result.text.split("\n").slice(0, 2), [
+    "#:schema https://discern.sh/schema/v1/discern-config.schema.json",
+    marker,
+  ]);
+
+  const again = reconcileConfigTextWithTemplate(result.text, template);
+  assertEquals(again.operations, []);
+  assertEquals(again.text, result.text);
+});
 
 Deno.test("config reconciliation restores a missing fixed section with comments", async () => {
   const template = await renderedTemplate();

@@ -26,6 +26,7 @@ import {
   mergeJsonSettingsText,
   mergeSettings,
 } from "../src/lib/settings_merge.ts";
+import { COMMENT_INCAPABLE_ARTIFACT } from "../src/shared/file_ownership.ts";
 import { readTarget, testTokens, withTempDir } from "./helpers.ts";
 
 Deno.test("settingsSeeds(): the registry yields Claude's settings file with the default JSON strategy", () => {
@@ -65,6 +66,7 @@ Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts
 const ACME_HOOKS: HooksIntegration = {
   settingsFile: ".acme/settings.json",
   ownership: { shared: true },
+  writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
   worktreeEventKeys: [], // SessionStart-only — no worktree create/remove events
   sessionHookNeedle: "discern worktree ensure",
 };

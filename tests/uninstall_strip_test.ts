@@ -12,6 +12,8 @@ import { removeGitignoreBlock } from "../src/commands/uninstall.ts";
 import { stripDiscernFromJsonSettings } from "../src/lib/settings_strip.ts";
 import { stripDiscernFromCodexEnv } from "../src/lib/providers.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 const UNINSTALL_SRC = join(
   dirname(fromFileUrl(import.meta.url)),
@@ -131,7 +133,11 @@ Deno.test("stripDiscernFromJsonSettings deletes a file that was purely discern's
 });
 
 Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an app-owned file", () => {
+  const marker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+  );
   const discernShell = [
+    marker,
     "version = 1",
     'name = "Discern"',
     "",
@@ -145,6 +151,7 @@ Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an ap
   assertEquals(stripDiscernFromCodexEnv(discernShell), null);
 
   const appOwned = [
+    marker,
     "version = 2",
     'name = "My Env"',
     "",
@@ -163,6 +170,7 @@ Deno.test("stripDiscernFromCodexEnv deletes a discern-created shell, keeps an ap
   );
   assert(out.includes('name = "My Env"'), "the app's config is kept");
   assert(out.includes("npm ci"), "the app's actions are kept");
+  assert(!out.includes(marker), "discern's provenance marker is stripped");
 });
 
 Deno.test("TomlEditor.deleteRootKey removes a pre-section key and leaves the rest", () => {

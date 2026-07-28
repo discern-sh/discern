@@ -42,6 +42,8 @@ import {
   canonicalDiscernGitignoreBlock,
   ignoreCovers,
 } from "../src/lib/agent_gitignore.ts";
+import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -147,9 +149,12 @@ Deno.test("every landing provider mark has a backgroundless silhouette", async (
   }
 });
 
-Deno.test("the shipped .gitignore fragment is the same canonical block upgrade writes", () => {
+Deno.test("the shipped .gitignore fragment becomes the canonical marked block upgrade writes", () => {
   assertEquals(
-    CANONICAL_GITIGNORE_BLOCK,
+    stripGeneratedArtifactMarker(
+      CANONICAL_GITIGNORE_BLOCK,
+      ARTIFACT_PROVENANCE_SOURCES.gitignore,
+    ),
     FRAGMENT.endsWith("\n") ? FRAGMENT : `${FRAGMENT}\n`,
   );
 });

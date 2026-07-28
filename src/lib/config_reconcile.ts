@@ -23,6 +23,8 @@ import {
   sectionNamesFromTemplate,
 } from "./config_template.ts";
 import { substituteTokens, type TokenMap } from "./template.ts";
+import { generatedArtifactMarker } from "../shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import {
   defaultDocumentationScopes,
   defaultGuidanceScopes,
@@ -39,7 +41,8 @@ import {
 export type ConfigReconcileOperation =
   | { kind: "section"; path: string }
   | { kind: "key"; path: string }
-  | { kind: "banner"; path: string };
+  | { kind: "banner"; path: string }
+  | { kind: "marker"; path: string };
 
 export interface ConfigReconcileResult {
   text: string;
@@ -163,9 +166,50 @@ export function renderConfigTemplateForConfig(
     scopes_guidance: defaultGuidanceScopes().join(", "),
     scopes_web: renderTomlStringList([...DEFAULTS.sourceGlobs]),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
+    artifact_provenance_marker: generatedArtifactMarker(
+      ARTIFACT_PROVENANCE_SOURCES.config,
+    ),
     kit_version: KIT_VERSION,
   };
   return substituteTokens(templateText, tokens).text;
+}
+
+const LEGACY_CONFIG_PROVENANCE_MARKER =
+  "# discern | https://discern.sh | project configuration file";
+
+/**
+ * Refresh or add the config provenance marker while preserving the schema-model
+ * directive at byte zero. The current rendered template enrolls this pass: a
+ * custom template without the marker keeps its existing header untouched.
+ */
+function reconcileProvenanceMarker(
+  configText: string,
+  renderedTemplate: string,
+): { text: string; operations: ConfigReconcileOperation[] } {
+  const marker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.config,
+  );
+  if (!renderedTemplate.split(/\r?\n/u).includes(marker)) {
+    return { text: configText, operations: [] };
+  }
+
+  const newline = configText.includes("\r\n") ? "\r\n" : "\n";
+  const lines = configText.split(newline);
+  if (lines.includes(marker)) {
+    return { text: configText, operations: [] };
+  }
+
+  const legacyIndex = lines.indexOf(LEGACY_CONFIG_PROVENANCE_MARKER);
+  if (legacyIndex >= 0) {
+    lines[legacyIndex] = marker;
+  } else {
+    const markerIndex = lines[0]?.startsWith("#:schema ") === true ? 1 : 0;
+    lines.splice(markerIndex, 0, marker);
+  }
+  return {
+    text: lines.join(newline),
+    operations: [{ kind: "marker", path: "discern.toml" }],
+  };
 }
 
 /**
@@ -310,13 +354,18 @@ export function reconcileConfigTextWithTemplate(
   configText: string,
   renderedTemplate: string,
 ): ConfigReconcileResult {
-  // Pass 0: refresh discern-owned managed banners. Raw comment surgery — it
+  // Pass 0: refresh the file-level marker, then discern-owned managed banners.
+  // Raw comment surgery — it
   // changes no parsed value, so the structural passes below read the same config.
+  const provenancePass = reconcileProvenanceMarker(
+    configText,
+    renderedTemplate,
+  );
   const banners = managedBannersFromTemplate(
     renderedTemplate,
     RECORD_CONFIG_PATHS,
   );
-  const bannerPass = reconcileManagedBanners(configText, banners);
+  const bannerPass = reconcileManagedBanners(provenancePass.text, banners);
   const fixedBanners = fixedSectionBannersFromTemplate(renderedTemplate);
   for (const recordPath of RECORD_CONFIG_PATHS) {
     fixedBanners.delete(recordPath);
@@ -348,6 +397,7 @@ export function reconcileConfigTextWithTemplate(
   });
 
   const operations: ConfigReconcileOperation[] = [
+    ...provenancePass.operations,
     ...bannerPass.operations,
     ...fixedBannerPass.operations,
     ...missingSections.map((path) => ({ kind: "section" as const, path })),

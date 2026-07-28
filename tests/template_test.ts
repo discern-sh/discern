@@ -30,6 +30,7 @@ function tokens(): TokenMap {
     scopes_guidance: '"discern/guidance.md", "discern/skills/"',
     scopes_web: '"src/**", "app/**"',
     scopes_previewable: '"public/**"',
+    artifact_provenance_marker: "# discern provenance marker",
     kit_version: "0.1.0",
   };
 }

@@ -21,17 +21,20 @@ import {
 import { agentFileContents } from "../src/engine/guidance_render.ts";
 import { ignoreCovers } from "../src/lib/agent_gitignore.ts";
 import { fromFileUrl, join } from "@std/path";
+import { CONTEXT_LOADED_ARTIFACT } from "../src/shared/file_ownership.ts";
 
 /** The canonical full-body file (codex → AGENTS.md). */
 const CANONICAL: GuidanceFile = {
   path: "AGENTS.md",
   ownership: { generated: true },
+  writtenArtifact: CONTEXT_LOADED_ARTIFACT,
   canonical: true,
 };
 /** A pointer mirror (claude_code → CLAUDE.md → @AGENTS.md). */
 const POINTER: GuidanceFile = {
   path: "CLAUDE.md",
   ownership: { generated: true },
+  writtenArtifact: CONTEXT_LOADED_ARTIFACT,
   canonical: false,
   pointer: atImportPointer,
 };
@@ -39,6 +42,7 @@ const POINTER: GuidanceFile = {
 const REUSE: GuidanceFile = {
   path: "AGENTS.md",
   ownership: { generated: true },
+  writtenArtifact: CONTEXT_LOADED_ARTIFACT,
   canonical: false,
   reuseCanonical: true,
 };

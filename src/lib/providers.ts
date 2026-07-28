@@ -32,7 +32,18 @@ import {
   agentLabelForNative,
   guidancePathForNative,
 } from "../shared/agent_catalogue.ts";
-import type { FileOwnershipDeclaration } from "../shared/file_ownership.ts";
+import {
+  ARTIFACT_PROVENANCE_SOURCES,
+  COMMENT_INCAPABLE_ARTIFACT,
+  commentCapableNonContextArtifact,
+  CONTEXT_LOADED_ARTIFACT,
+  type FileOwnershipDeclaration,
+  type WrittenArtifactClassDeclaration,
+} from "../shared/file_ownership.ts";
+import {
+  generatedArtifactMarker,
+  stripGeneratedArtifactMarker,
+} from "../shared/brand.ts";
 import { fire, HINTS } from "../shared/hints.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
@@ -145,6 +156,8 @@ export interface McpIntegration {
   readonly configFile: string;
   /** The config file's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** How this discern-written artifact carries provenance. */
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /** Register `server` for this provider under `root`, idempotently. */
   register(
     root: string,
@@ -225,6 +238,8 @@ export interface WorktreeAppIntegration {
   readonly configFile: string;
   /** The config file's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** How this discern-written artifact carries provenance. */
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /** Merge discern's worktree setup/teardown into `configFile` under `root`,
    * idempotently, preserving the app's own keys. Returns the project-relative files
    * written (empty when already in place). */
@@ -241,6 +256,8 @@ export interface ProjectRulesIntegration {
   readonly rulesFile: string;
   /** The rules entry's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** How this discern-written artifact carries provenance. */
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /** Write the rules file under `root`, returning it when bytes changed. */
   register(root: string): Promise<string[]>;
 }
@@ -252,6 +269,8 @@ export interface HooksIntegration {
   readonly settingsFile: string;
   /** The settings file's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** How this discern-written artifact carries provenance. */
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /**
    * The create/remove worktree-lifecycle hook-event keys this provider uses. MAY be
    * empty: an agent with no worktree create/remove events (the non-Claude agents)
@@ -288,6 +307,8 @@ export interface GuidanceFile {
   readonly path: string;
   /** The agent file's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** How this discern-written artifact carries provenance. */
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /**
    * Whether this is the CANONICAL agent file: the one holding the full compiled
    * body that every other provider's pointer imports (exactly one — codex /
@@ -359,6 +380,11 @@ export function emittedGuidancePaths(files: readonly GuidanceFile[]): string[] {
 export interface ProviderArtifactPath {
   readonly path: string;
   readonly ownership: FileOwnershipDeclaration;
+}
+
+/** One provider path discern continues to write or maintain. */
+export interface WrittenProviderArtifactPath extends ProviderArtifactPath {
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
 }
 
 /** The public directory holding the landing site's provider-brand SVGs. */
@@ -456,7 +482,7 @@ export interface Provider {
    * this agent (skipped, never guessed). All three known agents use the identical
    * SKILL.md folder format, differing only in the directory.
    */
-  readonly skillsDir?: ProviderArtifactPath;
+  readonly skillsDir?: WrittenProviderArtifactPath;
   /**
    * Machine-local state files this agent keeps in the project tree — personal,
    * per-machine overrides (e.g. a local settings file) that must stay out of
@@ -640,8 +666,19 @@ const CODEX_ENV_CLEANUP_SCRIPT = "discern worktree teardown";
 const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
 const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
 const CODEX_MCP_TOOL_TIMEOUT_SEC = 3600;
-const CODEX_DISCERN_RULES =
-  `# Generated and co-managed by discern. Put user-owned Codex rules in a separate .codex/rules/*.rules file.
+const CODEX_CONFIG_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
+  ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+);
+const CODEX_ENV_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
+  ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+);
+const CODEX_RULES_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
+  ARTIFACT_PROVENANCE_SOURCES.codexRules,
+);
+const CODEX_DISCERN_RULES = `${
+  generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules)
+}
+# Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
     pattern = ["git", "add"],
@@ -777,6 +814,7 @@ async function registerGeminiMcp(
 async function editTomlFile(
   root: string,
   rel: string,
+  provenanceSource: string,
   edit: (editor: TomlEditor, existing: string | undefined) => void,
 ): Promise<string | undefined> {
   const path = join(root, rel);
@@ -789,6 +827,11 @@ async function editTomlFile(
   const editor = new TomlEditor(existing ?? "");
   edit(editor, existing);
   let out = editor.toString();
+  const marker = generatedArtifactMarker(provenanceSource);
+  if (!out.split(/\r?\n/).includes(marker)) {
+    const eol = out.includes("\r\n") ? "\r\n" : "\n";
+    out = `${marker}${eol}${out}`;
+  }
   if (!out.endsWith("\n")) {
     out += "\n";
   }
@@ -862,6 +905,7 @@ async function registerCodexProjectConfig(
   const wrote = await editTomlFile(
     root,
     CODEX_CONFIG_FILE,
+    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
     (editor, existing) => {
       const parsed = parseTomlObject(existing);
       const roots = appendUnique(
@@ -919,25 +963,30 @@ function shouldWriteCodexEnvScript(
  * already set writes nothing. Returns the files written.
  */
 async function registerCodexEnvironment(root: string): Promise<string[]> {
-  const wrote = await editTomlFile(root, CODEX_ENV_FILE, (editor, existing) => {
-    const parsed = parseTomlObject(existing);
-    // Codex rejects the file unless top-level `version`/`name` are present; seed
-    // defaults when absent, but never clobber the app's own values on a merge.
-    if (!editor.hasRootKey("version")) {
-      editor.setRootNumber("version", 1);
-    }
-    if (!editor.hasRootKey("name")) {
-      editor.setRootString("name", "Discern");
-    }
-    const setupScript = stringAt(parsed, ["setup", "script"]);
-    if (shouldWriteCodexEnvScript(setupScript, CODEX_ENV_SETUP_SCRIPT)) {
-      editor.setString("setup.script", CODEX_ENV_SETUP_SCRIPT);
-    }
-    const cleanupScript = stringAt(parsed, ["cleanup", "script"]);
-    if (shouldWriteCodexEnvScript(cleanupScript, CODEX_ENV_CLEANUP_SCRIPT)) {
-      editor.setString("cleanup.script", CODEX_ENV_CLEANUP_SCRIPT);
-    }
-  });
+  const wrote = await editTomlFile(
+    root,
+    CODEX_ENV_FILE,
+    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+    (editor, existing) => {
+      const parsed = parseTomlObject(existing);
+      // Codex rejects the file unless top-level `version`/`name` are present; seed
+      // defaults when absent, but never clobber the app's own values on a merge.
+      if (!editor.hasRootKey("version")) {
+        editor.setRootNumber("version", 1);
+      }
+      if (!editor.hasRootKey("name")) {
+        editor.setRootString("name", "Discern");
+      }
+      const setupScript = stringAt(parsed, ["setup", "script"]);
+      if (shouldWriteCodexEnvScript(setupScript, CODEX_ENV_SETUP_SCRIPT)) {
+        editor.setString("setup.script", CODEX_ENV_SETUP_SCRIPT);
+      }
+      const cleanupScript = stringAt(parsed, ["cleanup", "script"]);
+      if (shouldWriteCodexEnvScript(cleanupScript, CODEX_ENV_CLEANUP_SCRIPT)) {
+        editor.setString("cleanup.script", CODEX_ENV_CLEANUP_SCRIPT);
+      }
+    },
+  );
   return wrote !== undefined ? [wrote] : [];
 }
 
@@ -1007,7 +1056,10 @@ export async function stripDiscernFromCodexConfig(
     editor.deleteRootKey("project_doc_max_bytes");
   }
 
-  const out = editor.toString();
+  const out = stripGeneratedArtifactMarker(
+    editor.toString(),
+    ARTIFACT_PROVENANCE_SOURCES.codexConfig,
+  );
   return Object.keys(parseTomlObject(out)).length === 0 ? null : out;
 }
 
@@ -1038,14 +1090,18 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
   dropScriptSection("setup", CODEX_ENV_SETUP_SCRIPT);
   dropScriptSection("cleanup", CODEX_ENV_CLEANUP_SCRIPT);
 
-  const remaining = parseTomlObject(editor.toString());
+  const withoutMarker = stripGeneratedArtifactMarker(
+    editor.toString(),
+    ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+  );
+  const remaining = parseTomlObject(withoutMarker);
   const keys = Object.keys(remaining);
   const isDiscernShell = keys.every((k) => k === "version" || k === "name") &&
     remaining.version === 1 && remaining.name === "Discern";
   if (keys.length === 0 || isDiscernShell) {
     return null;
   }
-  return editor.toString();
+  return withoutMarker;
 }
 
 // ── Cursor & GitHub Copilot (reuse-canonical guidance + skills) ──────────────
@@ -1129,6 +1185,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: guidancePathForNative("claude_code"),
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
       pointer: atImportPointer,
     },
@@ -1137,12 +1194,14 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       integration: {
         configFile: MCP_JSON_FILE,
         ownership: { shared: true },
+        writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
         register: registerClaudeCodeMcp,
       },
     },
     hooks: {
       settingsFile: CLAUDE_SETTINGS_FILE,
       ownership: { shared: true },
+      writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
     },
@@ -1156,6 +1215,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     skillsDir: {
       path: CLAUDE_SKILLS_DIR,
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // Claude Code's settings.local.json is the vendor's own per-machine override
     // file — never meant to be shared, so discern keeps it ignored.
@@ -1199,11 +1259,13 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: guidancePathForNative("codex"),
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: true,
     },
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern merges `[mcp_servers.discern]` into the project-committable
     // `.codex/config.toml` via the comment-preserving TOML editor (its own format, NOT
@@ -1213,6 +1275,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       integration: {
         configFile: CODEX_CONFIG_FILE,
         ownership: { shared: true },
+        writtenArtifact: CODEX_CONFIG_WRITTEN_ARTIFACT,
         register: registerCodexProjectConfig,
       },
     },
@@ -1223,6 +1286,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     hooks: {
       settingsFile: CODEX_HOOKS_FILE,
       ownership: { shared: true },
+      writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
     },
@@ -1232,6 +1296,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     worktreeApp: {
       configFile: CODEX_ENV_FILE,
       ownership: { shared: true },
+      writtenArtifact: CODEX_ENV_WRITTEN_ARTIFACT,
       register: registerCodexEnvironment,
     },
     // Narrow project-local exec-policy rules for the linked-worktree happy path:
@@ -1240,6 +1305,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     projectRules: {
       rulesFile: CODEX_RULES_FILE,
       ownership: { shared: true },
+      writtenArtifact: CODEX_RULES_WRITTEN_ARTIFACT,
       register: registerCodexRules,
     },
     // Committed .codex/ config is inert until the directory is trusted, and a
@@ -1284,6 +1350,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: guidancePathForNative("gemini"),
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
       pointer: atImportPointer,
     },
@@ -1292,6 +1359,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern deep-merges `mcpServers.discern` into the
     // project-committable `.gemini/settings.json` (Gemini's own format, NOT .mcp.json),
@@ -1302,6 +1370,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       integration: {
         configFile: GEMINI_SETTINGS_FILE,
         ownership: { shared: true },
+        writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
         register: registerGeminiMcp,
       },
     },
@@ -1312,6 +1381,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     hooks: {
       settingsFile: GEMINI_SETTINGS_FILE,
       ownership: { shared: true },
+      writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
     },
@@ -1359,6 +1429,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: guidancePathForNative("cursor"),
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
       reuseCanonical: true,
     },
@@ -1367,6 +1438,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern writes the stdio `discern mcp` server into the
     // project-committable `.cursor/mcp.json` (Cursor's own file, with type: "stdio"),
@@ -1377,6 +1449,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       integration: {
         configFile: CURSOR_MCP_FILE,
         ownership: { shared: true },
+        writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
         register: registerCursorMcp,
       },
     },
@@ -1389,6 +1462,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     hooks: {
       settingsFile: CURSOR_HOOKS_FILE,
       ownership: { shared: true },
+      writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
       mergeSeed: mergeJsonSettingsDedupingGroups,
@@ -1435,6 +1509,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     guidanceFile: {
       path: guidancePathForNative("copilot"),
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
       canonical: false,
       reuseCanonical: true,
     },
@@ -1443,6 +1518,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     skillsDir: {
       path: AGENTS_SKILLS_DIR,
       ownership: { generated: true },
+      writtenArtifact: CONTEXT_LOADED_ARTIFACT,
     },
     // MCP is wired: discern writes the stdio `discern mcp` server into the shared
     // committable `.mcp.json` (co-owned with Claude Code, byte-identical) — NO
@@ -1453,6 +1529,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       integration: {
         configFile: MCP_JSON_FILE,
         ownership: { shared: true },
+        writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
         register: registerCopilotMcp,
       },
     },
@@ -1465,6 +1542,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     hooks: {
       settingsFile: COPILOT_HOOKS_FILE,
       ownership: { shared: true },
+      writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: [],
       sessionHookNeedle: "discern worktree ensure",
       mergeSeed: mergeJsonSettingsDedupingGroups,

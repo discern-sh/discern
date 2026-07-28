@@ -29,6 +29,7 @@ export type ContentTokenName =
   | "scopes_guidance"
   | "scopes_web"
   | "scopes_previewable"
+  | "artifact_provenance_marker"
   | "kit_version";
 
 /** The concrete token values resolved for one `setup` run. */

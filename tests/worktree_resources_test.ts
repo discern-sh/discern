@@ -25,6 +25,8 @@ import {
   type WorktreeIdentity,
 } from "../src/engine/worktree/identity.ts";
 import { upsertEnvLine } from "../src/engine/worktree/env_file.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import {
   createResources,
   destroyResources,
@@ -122,12 +124,24 @@ retries = 3
 // ── .env upsert ───────────────────────────────────────────────────────────────
 
 Deno.test("upsertEnvLine: replace existing / append with + without trailing NL", () => {
+  const marker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  );
   // replace the first matching line, value only
-  assertEquals(upsertEnvLine("A=1\nB=2\n", "A", "9"), "A=9\nB=2\n");
+  assertEquals(
+    upsertEnvLine("A=1\nB=2\n", "A", "9"),
+    `${marker}\nA=9\nB=2\n`,
+  );
   // append before the trailing blank when the file ends with a newline
-  assertEquals(upsertEnvLine("A=1\n", "B", "2"), "A=1\nB=2\n");
+  assertEquals(
+    upsertEnvLine("A=1\n", "B", "2"),
+    `${marker}\nA=1\nB=2\n`,
+  );
   // append onto an unterminated last line
-  assertEquals(upsertEnvLine("A=1", "B", "2"), "A=1\nB=2");
+  assertEquals(
+    upsertEnvLine("A=1", "B", "2"),
+    `${marker}\nA=1\nB=2`,
+  );
 });
 
 // ── the ledger + GC: a real git repo with linked worktrees ────────────────────

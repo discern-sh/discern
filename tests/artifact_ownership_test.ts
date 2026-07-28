@@ -10,10 +10,12 @@ import {
   projectArtifactPaths,
   renderArtifactInventory,
   replaceArtifactInventory,
+  writtenArtifactClass,
 } from "../src/lib/artifact_ownership.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   declaredFileOwnership,
+  declaredWrittenArtifactClass,
   PROVIDER_LOCAL,
 } from "../src/shared/file_ownership.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
@@ -40,6 +42,35 @@ Deno.test("every canonical project artifact declares one File ownership answer",
       assertEquals(isDiscernWriteTarget(entry), true);
     }
   }
+});
+
+Deno.test("every discern-written project artifact declares one provenance class", () => {
+  const entries = projectArtifactPaths(parseConfigOrThrow(""));
+  let classified = 0;
+  for (const entry of entries) {
+    const ownership = declaredFileOwnership(entry);
+    const artifactClass = writtenArtifactClass(entry);
+    if (ownership === "shared" || ownership === "generated") {
+      assert(
+        artifactClass !== undefined,
+        `${entry.path} is ${ownership} but has no written-artifact class`,
+      );
+      classified++;
+      if (artifactClass === "comment-incapable") {
+        assert(
+          entry.path.endsWith(".json"),
+          `${entry.path} is comment-incapable, but JSON is the only permanent exemption`,
+        );
+      }
+      continue;
+    }
+    assertEquals(
+      artifactClass,
+      undefined,
+      `${entry.path} is ${ownership} and is not continuing discern output`,
+    );
+  }
+  assert(classified > 0, "expected at least one discern-written artifact");
 });
 
 // Positive controls: prove the guard rejects both ways an ownership answer can
@@ -74,6 +105,45 @@ Deno.test("ownership guard: provider-local needs a reason", () => {
       }),
     Error,
     "must explain",
+  );
+});
+
+Deno.test("provenance guard: an unclassified synthetic artifact fails", () => {
+  assertThrows(
+    () =>
+      declaredWrittenArtifactClass({
+        id: "synthetic:none",
+        writtenArtifact: {},
+      }),
+    Error,
+    "found 0",
+  );
+});
+
+Deno.test("provenance guard: a double-classified synthetic artifact fails", () => {
+  assertThrows(
+    () =>
+      declaredWrittenArtifactClass({
+        id: "synthetic:two",
+        writtenArtifact: {
+          "context-loaded": true,
+          "comment-incapable": true,
+        },
+      }),
+    Error,
+    "found 2",
+  );
+});
+
+Deno.test("provenance guard: a comment-capable artifact names its source", () => {
+  assertThrows(
+    () =>
+      declaredWrittenArtifactClass({
+        id: "synthetic:source",
+        writtenArtifact: { "comment-capable-non-context": "" },
+      }),
+    Error,
+    "must name the source",
   );
 });
 

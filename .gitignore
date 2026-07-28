@@ -31,6 +31,7 @@
 /site/pages/v2.html
 
 # --- discern ---
+# discern | generated from the bundled .gitignore fragment and provider registry | hand edits to this discern-owned content are overwritten | https://discern.sh
 # discern's managed ignore rules: only the skills directories it
 # materializes and machine-local provider state. discern owns this
 # block alone and never touches your other rules. The compiled agent

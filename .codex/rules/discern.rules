@@ -1,4 +1,5 @@
-# Generated and co-managed by discern. Put user-owned Codex rules in a separate .codex/rules/*.rules file.
+# discern | generated from the bundled Codex project rules | hand edits to this discern-owned content are overwritten | https://discern.sh
+# Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
     pattern = ["git", "add"],

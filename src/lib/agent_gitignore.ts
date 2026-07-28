@@ -22,6 +22,8 @@ import { resolveTemplatesDir } from "./paths.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
+import { generatedArtifactMarker } from "../shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 
 export const DISCERN_GITIGNORE_BEGIN = "# --- discern ---";
 export const DISCERN_GITIGNORE_END = "# --- /discern ---";
@@ -87,6 +89,12 @@ export function canonicalDiscernGitignoreBlock(
   );
   if ((withoutEnd[0] ?? "").trim() !== DISCERN_GITIGNORE_BEGIN) {
     withoutEnd.unshift(DISCERN_GITIGNORE_BEGIN);
+  }
+  const provenanceMarker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.gitignore,
+  );
+  if (!withoutEnd.includes(provenanceMarker)) {
+    withoutEnd.splice(1, 0, provenanceMarker);
   }
 
   const coverageLines = withoutEnd.map((line) => line.trim());

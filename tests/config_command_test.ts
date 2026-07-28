@@ -10,6 +10,8 @@ import { join } from "@std/path";
 import { recordConfigPaths } from "../src/shared/config_codegen.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { RETIRED_CONFIG_KEY_REDIRECTS } from "../src/shared/vocabulary.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { runCli, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
@@ -62,7 +64,7 @@ Deno.test("config set-job fills a known job and preserves comments", async () =>
     // A section comment from the template survives the edit.
     assertStringIncludes(
       toml,
-      "# discern | https://discern.sh | project configuration file",
+      generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.config),
     );
     await assertDiscernTomlTidy(dir, "config set-job");
   });

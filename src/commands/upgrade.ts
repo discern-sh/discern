@@ -697,6 +697,8 @@ function operationLabel(op: ConfigReconcileOperation): string {
       return `add [${op.path}]`;
     case "banner":
       return `refresh [${op.path}] banner`;
+    case "marker":
+      return `refresh ${op.path} provenance marker`;
     case "key":
       return `add ${op.path}`;
   }

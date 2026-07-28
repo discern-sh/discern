@@ -9,11 +9,16 @@
 
 import { AGENT_NAMES, type DiscernConfig } from "../shared/config_schema.ts";
 import {
+  ARTIFACT_PROVENANCE_SOURCES,
+  commentCapableNonContextArtifact,
   declaredFileOwnership,
+  declaredWrittenArtifactClass,
   FILE_OWNERSHIP_BUCKETS,
   type FileOwnershipDeclaration,
   type FileOwnershipKind,
   PROVIDER_LOCAL,
+  type WrittenArtifactClass,
+  type WrittenArtifactClassDeclaration,
 } from "../shared/file_ownership.ts";
 import {
   guidanceSeedRel,
@@ -32,16 +37,26 @@ export interface ArtifactPathEntry {
   readonly path: string;
   readonly pathKind: ArtifactPathKind;
   readonly ownership: FileOwnershipDeclaration;
+  /** Required for Shared and Generated entries; absent on sources and provider state. */
+  readonly writtenArtifact?: WrittenArtifactClassDeclaration;
   readonly description: string;
 }
 
+/** A path discern continues to write or maintain after setup. */
+interface WrittenArtifactPathEntry extends ArtifactPathEntry {
+  readonly writtenArtifact: WrittenArtifactClassDeclaration;
+}
+
 /** Fixed project-tree paths outside the source and provider registries. */
-export const FIXED_PROJECT_ARTIFACTS: readonly ArtifactPathEntry[] = [
+export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
   {
     id: "fixed:config",
     path: "discern.toml",
     pathKind: "file",
     ownership: { shared: true },
+    writtenArtifact: commentCapableNonContextArtifact(
+      ARTIFACT_PROVENANCE_SOURCES.config,
+    ),
     description:
       "Project configuration. discern maintains its fixed scaffold and ruled banners.",
   },
@@ -50,6 +65,9 @@ export const FIXED_PROJECT_ARTIFACTS: readonly ArtifactPathEntry[] = [
     path: ".gitignore",
     pathKind: "file",
     ownership: { shared: true },
+    writtenArtifact: commentCapableNonContextArtifact(
+      ARTIFACT_PROVENANCE_SOURCES.gitignore,
+    ),
     description: "Project ignore rules. discern maintains its marked block.",
   },
   {
@@ -57,6 +75,9 @@ export const FIXED_PROJECT_ARTIFACTS: readonly ArtifactPathEntry[] = [
     path: ".env",
     pathKind: "file",
     ownership: { shared: true },
+    writtenArtifact: commentCapableNonContextArtifact(
+      ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+    ),
     description:
       "An existing worktree environment file. discern maintains declared resource entries and never creates the file.",
   },
@@ -119,6 +140,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
       path: provider.guidanceFile.path,
       pathKind: "file",
       ownership: provider.guidanceFile.ownership,
+      writtenArtifact: provider.guidanceFile.writtenArtifact,
       description: "Agent file compiled from the configured guidance sources.",
     });
     if (provider.skillsDir !== undefined) {
@@ -127,6 +149,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
         path: provider.skillsDir.path,
         pathKind: "directory",
         ownership: provider.skillsDir.ownership,
+        writtenArtifact: provider.skillsDir.writtenArtifact,
         description:
           "Materialized skills directory rebuilt by `discern refresh`.",
       });
@@ -138,6 +161,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
         path: mcp.configFile,
         pathKind: "file",
         ownership: mcp.ownership,
+        writtenArtifact: mcp.writtenArtifact,
         description:
           "Provider configuration. discern maintains its registered entries.",
       });
@@ -148,6 +172,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
         path: provider.hooks.settingsFile,
         pathKind: "file",
         ownership: provider.hooks.ownership,
+        writtenArtifact: provider.hooks.writtenArtifact,
         description:
           "Provider configuration. discern maintains its registered entries.",
       });
@@ -158,6 +183,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
         path: provider.worktreeApp.configFile,
         pathKind: "file",
         ownership: provider.worktreeApp.ownership,
+        writtenArtifact: provider.worktreeApp.writtenArtifact,
         description:
           "Provider app configuration. discern maintains its setup and cleanup entries.",
       });
@@ -168,6 +194,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
         path: provider.projectRules.rulesFile,
         pathKind: "file",
         ownership: provider.projectRules.ownership,
+        writtenArtifact: provider.projectRules.writtenArtifact,
         description:
           "Provider rules entry maintained by discern. Neighboring rules remain the project's.",
       });
@@ -199,6 +226,7 @@ function normalizeArtifacts(
   const byPath = new Map<string, ArtifactPathEntry>();
   for (const declaration of declarations) {
     const kind = declaredFileOwnership(declaration);
+    const writtenClass = writtenArtifactClass(declaration);
     const key = declaration.path;
     const current = byPath.get(key);
     if (current === undefined) {
@@ -206,6 +234,7 @@ function normalizeArtifacts(
       continue;
     }
     const currentKind = declaredFileOwnership(current);
+    const currentWrittenClass = writtenArtifactClass(current);
     if (current.pathKind !== declaration.pathKind) {
       throw new Error(
         `${declaration.path} is declared as both a file and a directory`,
@@ -215,6 +244,12 @@ function normalizeArtifacts(
       throw new Error(
         `${declaration.path} has conflicting ownership declarations: ` +
           `${currentKind} and ${kind}`,
+      );
+    }
+    if (currentWrittenClass !== writtenClass) {
+      throw new Error(
+        `${declaration.path} has conflicting written-artifact classes: ` +
+          `${currentWrittenClass ?? "none"} and ${writtenClass ?? "none"}`,
       );
     }
     byPath.set(key, {
@@ -260,6 +295,36 @@ export function isDiscernWriteTarget(entry: ArtifactPathEntry): boolean {
   return declaredFileOwnership(entry) !== PROVIDER_LOCAL;
 }
 
+/**
+ * The provenance class for an artifact discern continues to write or maintain.
+ * Project-owned seeds and provider-local state return undefined and must not
+ * carry a declaration.
+ */
+export function writtenArtifactClass(
+  entry: ArtifactPathEntry,
+): WrittenArtifactClass | undefined {
+  const ownership = declaredFileOwnership(entry);
+  const isWritten = ownership === "shared" || ownership === "generated";
+  if (!isWritten) {
+    if (entry.writtenArtifact !== undefined) {
+      throw new Error(
+        `${entry.id} is ${ownership} and must not declare a written-artifact class`,
+      );
+    }
+    return undefined;
+  }
+  if (entry.writtenArtifact === undefined) {
+    return declaredWrittenArtifactClass({
+      id: entry.id,
+      writtenArtifact: {},
+    });
+  }
+  return declaredWrittenArtifactClass({
+    id: entry.id,
+    writtenArtifact: entry.writtenArtifact,
+  });
+}
+
 /** Marker delimiting the generated inventory within the development page. */
 export const ARTIFACT_INVENTORY_START =
   "<!-- BEGIN GENERATED: project artifact ownership -->";
@@ -272,6 +337,13 @@ const OWNERSHIP_LABELS: Readonly<Record<FileOwnershipKind, string>> = {
   generated: "Generated",
   "provider-local": "Provider-local",
 };
+
+const WRITTEN_ARTIFACT_LABELS: Readonly<Record<WrittenArtifactClass, string>> =
+  {
+    "context-loaded": "Context-loaded",
+    "comment-incapable": "Comment-incapable",
+    "comment-capable-non-context": "Comment-capable non-context",
+  };
 
 function markdownCell(value: string): string {
   return value.replaceAll("|", "\\|").replaceAll("\n", " ");
@@ -321,17 +393,23 @@ export function renderArtifactInventory(
       order.indexOf(declaredFileOwnership(b));
     return ownershipOrder !== 0 ? ownershipOrder : a.path.localeCompare(b.path);
   });
-  const rows = sorted.map((entry) => [
-    displayedPath(entry),
-    OWNERSHIP_LABELS[declaredFileOwnership(entry)],
-    markdownCell(entry.description),
-  ]);
+  const rows = sorted.map((entry) => {
+    const artifactClass = writtenArtifactClass(entry);
+    return [
+      displayedPath(entry),
+      OWNERSHIP_LABELS[declaredFileOwnership(entry)],
+      artifactClass === undefined
+        ? "—"
+        : WRITTEN_ARTIFACT_LABELS[artifactClass],
+      markdownCell(entry.description),
+    ];
+  });
   return [
     ARTIFACT_INVENTORY_START,
     "<!-- Generated by `deno task codegen` from the source-path and provider registries. -->",
     "",
     ...renderMarkdownTable(
-      ["Path", "Ownership", "What discern maintains"],
+      ["Path", "Ownership", "Provenance class", "What discern maintains"],
       rows,
     ),
     "",

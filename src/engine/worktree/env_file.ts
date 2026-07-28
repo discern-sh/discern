@@ -18,6 +18,8 @@
  */
 
 import { join } from "@std/path";
+import { generatedArtifactMarker } from "../../shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../../shared/file_ownership.ts";
 
 /** The default `[worktree].env_files` when a caller has no config in hand. */
 export const DEFAULT_ENV_FILES: readonly string[] = [".env", ".env.local"];
@@ -35,7 +37,7 @@ export function upsertEnvLine(
   value: string,
 ): string {
   const prefix = `${key}=`;
-  const lines = envText.split("\n");
+  const lines = envText === "" ? [] : envText.split("\n");
   let replaced = false;
   const next = lines.map((line) => {
     if (!replaced && line.startsWith(prefix)) {
@@ -45,15 +47,21 @@ export function upsertEnvLine(
     return line;
   });
   if (!replaced) {
-    if (envText.endsWith("\n") || envText === "") {
+    if (envText.endsWith("\n")) {
       next.splice(
-        next.length - (envText.endsWith("\n") ? 1 : 0),
+        next.length - 1,
         0,
         `${prefix}${value}`,
       );
     } else {
       next.push(`${prefix}${value}`);
     }
+  }
+  const marker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+  );
+  if (!next.includes(marker)) {
+    next.unshift(marker);
   }
   return next.join("\n");
 }

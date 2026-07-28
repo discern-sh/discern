@@ -30,6 +30,8 @@ import {
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -571,18 +573,27 @@ Deno.test("wireProviderWorktreeApp preserves user-customized Codex environment s
       'version = 1\nname = "custom"\n\n[setup]\nscript = "bin/setup-codex-env"\n\n[cleanup]\nscript = "bin/cleanup-codex-env"\n',
     );
 
-    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), []);
+    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), [
+      ".codex/environments/environment.toml",
+    ]);
 
-    const parsed = parseToml(
-      await Deno.readTextFile(
-        join(dir, ".codex/environments/environment.toml"),
-      ),
-    ) as {
+    const text = await Deno.readTextFile(
+      join(dir, ".codex/environments/environment.toml"),
+    );
+    assert(text.startsWith(
+      `${
+        generatedArtifactMarker(
+          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        )
+      }\n`,
+    ));
+    const parsed = parseToml(text) as {
       setup: { script: string };
       cleanup: { script: string };
     };
     assertEquals(parsed.setup.script, "bin/setup-codex-env");
     assertEquals(parsed.cleanup.script, "bin/cleanup-codex-env");
+    assertEquals(await wireProviderWorktreeApp(dir, ["codex"]), []);
   });
 });
 
@@ -1061,7 +1072,8 @@ async function assertAbsent(path: string): Promise<void> {
 }
 
 function expectedCodexDiscernRules(): string {
-  return `# Generated and co-managed by discern. Put user-owned Codex rules in a separate .codex/rules/*.rules file.
+  return `${generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules)}
+# Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
     pattern = ["git", "add"],

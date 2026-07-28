@@ -29,6 +29,8 @@ import {
 } from "../src/lib/config.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
@@ -180,6 +182,9 @@ async function renderedTemplate(): Promise<string> {
     scopes_neutral: defaultDocumentationScopes().join(", "),
     scopes_guidance: defaultGuidanceScopes().join(", "),
     scopes_previewable: '"public/**"',
+    artifact_provenance_marker: generatedArtifactMarker(
+      ARTIFACT_PROVENANCE_SOURCES.config,
+    ),
     kit_version: KIT_VERSION,
     project_name: "Demo",
   };

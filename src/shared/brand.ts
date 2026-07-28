@@ -1,8 +1,38 @@
+/** The product name used in machine-readable and generated-file identity. */
+export const DISCERN_NAME = "discern";
+
+/** The canonical product URL used in generated-file identity. */
+export const DISCERN_URL = "https://discern.sh";
+
 /** The canonical project mark: U+25EE, UP-POINTING TRIANGLE WITH RIGHT HALF BLACK. */
 export const DISCERN_MARK = "◮";
 
 /** The text wordmark used by decorative human-facing headings. */
-export const DISCERN_WORDMARK = `${DISCERN_MARK} discern`;
+export const DISCERN_WORDMARK = `${DISCERN_MARK} ${DISCERN_NAME}`;
+
+/** The shared opening of every hash-comment provenance marker. */
+export const GENERATED_ARTIFACT_MARKER_PREFIX =
+  `# ${DISCERN_NAME} | generated from `;
+
+/**
+ * Identify discern-owned content in a comment-capable artifact outside agent
+ * context. Callers supply the registry-owned source description; the product
+ * name, overwrite warning, and URL remain one shared string.
+ */
+export function generatedArtifactMarker(source: string): string {
+  return `${GENERATED_ARTIFACT_MARKER_PREFIX}${source} | ` +
+    `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
+}
+
+/** Remove one exact provenance marker while preserving the file's line endings. */
+export function stripGeneratedArtifactMarker(
+  text: string,
+  source: string,
+): string {
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const marker = generatedArtifactMarker(source);
+  return text.split(/\r?\n/).filter((line) => line !== marker).join(eol);
+}
 
 function coAuthorIdentity<
   const Name extends string,

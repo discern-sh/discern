@@ -18,6 +18,8 @@ import {
 } from "../src/lib/config_doc.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
 /** Absolute path to the fixture presets dir (passed via DISCERN_PRESETS_DIR). */
 const FIXTURE_PRESETS = join(
@@ -79,7 +81,7 @@ Deno.test("preset overlays the example preset's files and config fills", async (
     assertStringIncludes(toml, "[standards.examplesize]"); // standard
     assertStringIncludes(
       toml,
-      "# discern | https://discern.sh | project configuration file",
+      generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.config),
     ); // comment survived
     await assertDiscernTomlTidy(dir, "preset config fills");
   });
