@@ -8,17 +8,27 @@
 
 import { assert } from "@std/assert";
 
-// deno-lint-ignore no-explicit-any
-export function parseJson(stdout: string): any {
-  return JSON.parse(stdout.trim());
+/** A parsed `--json` envelope, deliberately loose: verb-specific data rides
+ * in fields no shared type pins, and the assertions are the contract. */
+export interface LooseEnvelope {
+  // deno-lint-ignore no-explicit-any
+  [key: string]: any;
 }
 
-// deno-lint-ignore no-explicit-any
-export const stepFor = (obj: any, label: string) =>
-  obj.steps.find((s: { label: string }) => s.label === label);
-// deno-lint-ignore no-explicit-any
-export const diagFor = (obj: any, tool: string) =>
-  (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+export function parseJson(stdout: string): LooseEnvelope {
+  return JSON.parse(stdout.trim()) as LooseEnvelope;
+}
+
+/** The step with this label — typed loose (and trusted present, as each
+ * assertion immediately checks it) like the envelope it came from. */
+export function stepFor(obj: LooseEnvelope, label: string): LooseEnvelope {
+  return obj.steps.find((s: { label: string }) => s.label === label);
+}
+
+/** The diagnostic for this tool, or undefined — call sites assert presence. */
+export function diagFor(obj: LooseEnvelope, tool: string): LooseEnvelope {
+  return (obj.diagnostics ?? []).find((d: { tool: string }) => d.tool === tool);
+}
 
 export interface JsonStep {
   kind: string;
