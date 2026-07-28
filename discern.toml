@@ -213,7 +213,7 @@ previewable = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [acceptance]
-pre_authorized = []
+pre_authorized = ["docs"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;
