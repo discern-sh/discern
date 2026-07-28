@@ -220,7 +220,8 @@ previewable = true
 # changes may land without a per-landing conversation. The owner records this
 # decision on the trunk. Scope definitions become consent-bearing: widening a
 # named scope widens its grant. An empty list changes nothing; landing asks for
-# the owner's acceptance as it does today.
+# the owner's acceptance as it does today. The example grants pure documentation
+# only; agent-instruction surfaces stay owner-reviewed.
 # ─────────────────────────────────────────────────────────────────────────────
 
 [acceptance]
