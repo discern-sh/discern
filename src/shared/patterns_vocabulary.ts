@@ -51,14 +51,26 @@ export const DETECTOR_STATUSES = [
 /** One detector status ({@link DETECTOR_STATUSES}). */
 export type DetectorStatus = (typeof DETECTOR_STATUSES)[number];
 
-/** One `patterns` finding: which detector spoke, what it observed (one
- * plain-count sentence), the named counts behind it, and the recommended next
- * step. `strength` is the report's ranking key — unitless, never evidence. */
+/** Presentation vocabulary derived from a finding's recorded facts. */
+export const PATTERN_FINDING_TONES = [
+  "good",
+  "neutral",
+  "attention",
+] as const;
+/** One finding tone ({@link PATTERN_FINDING_TONES}). */
+export type PatternFindingTone = (typeof PATTERN_FINDING_TONES)[number];
+
+/** One `patterns` finding: which detector spoke, its presentation tone and
+ * one-line brief, what it observed (one plain-count sentence), the named
+ * counts behind it, and the recommended next step. `strength` is the report's
+ * ranking key — unitless, never evidence. */
 export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
   family: z.enum(DETECTOR_FAMILIES),
   scope: z.enum(DETECTOR_SCOPES),
+  tone: z.enum(PATTERN_FINDING_TONES),
   subject: z.string().optional(),
+  brief: z.string(),
   observed: z.string(),
   evidence: z.record(z.string(), z.number()),
   strength: z.number(),

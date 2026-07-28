@@ -13,9 +13,10 @@
  *    exit code or a gate outcome, structurally — the module exports data and
  *    pure functions, and the gate never imports it.
  *  - **Facts, not judgments.** A finding's `observed` sentence and `evidence`
- *    carry plain counts and durations. No severity tiers, no scores. The one
- *    non-fact is `strength` — a unitless RANKING key for ordering the report,
- *    never rendered as evidence.
+ *    carry plain counts and durations. `tone` is deterministic presentation
+ *    metadata derived from those facts, never a severity tier or enforcement
+ *    input. The one score is `strength` — a unitless RANKING key for ordering
+ *    the report, never rendered as evidence.
  *  - **Evidence before speech.** Below its `threshold` of qualifying events a
  *    detector reports insufficient evidence rather than extrapolating. A young
  *    logbook produces a short report, not a confident one.
@@ -42,7 +43,9 @@ import type {
   DetectorScope,
   DetectorStatus,
   DetectorTier,
+  PatternFindingTone,
 } from "../../shared/patterns_vocabulary.ts";
+import { formatHumanNumber } from "../../shared/human_number.ts";
 import { HINTS } from "../../shared/hints.ts";
 import {
   COHORT_MINIMUMS,
@@ -111,6 +114,10 @@ export function buildStreamFacts(
 export interface DetectorFinding {
   /** What the finding is about — a branch, a standard, a tool+rule, a commit. */
   subject?: string;
+  /** One-line row form, read beside {@link subject}. */
+  brief: string;
+  /** Overrides the detector's presentation tone when this finding's facts decide it. */
+  tone?: PatternFindingTone;
   /** The observation as one plain-count sentence. */
   observed: string;
   /** The counts behind the sentence, named. */
@@ -137,6 +144,8 @@ export interface Detector {
   family: DetectorFamily;
   scope: DetectorScope;
   tier: DetectorTier;
+  /** Presentation tone for findings whose own facts do not override it. */
+  tone: PatternFindingTone;
   /** Present on detectors that segment their population by attributed driver
    * cohort through the cohort seam (`cohorts.ts`). The parameterized cohort
    * guards iterate exactly this set; for these detectors `considered` counts
@@ -320,11 +329,15 @@ function attributionFinding(
   boundary: { at: string; detail: string; prior: number },
 ): DetectorFinding {
   return {
+    brief: `${formatHumanNumber(tail)} comparable ${
+      tail === 1 ? "run" : "runs"
+    } since ${boundary.detail}`,
+    tone: "neutral",
     observed:
-      `only ${tail} comparable ${
+      `only ${formatHumanNumber(tail)} comparable ${
         tail === 1 ? "run" : "runs"
       } since ${boundary.detail} — ` +
-      `the ${boundary.prior} earlier ${
+      `the ${formatHumanNumber(boundary.prior)} earlier ${
         boundary.prior === 1 ? "run predates" : "runs predate"
       } it and can't be trended against the current setup.`,
     evidence: { comparable_runs: tail, prior_runs: boundary.prior },
@@ -351,6 +364,7 @@ const doneThrash: Detector = {
   family: "behaviour",
   scope: "branch",
   tier: "inline",
+  tone: "attention",
   // 4 done runs before speaking: a 3-streak needs at least 3, and one spare
   // keeps a brand-new branch's first stumbles out of the report.
   threshold: 4,
@@ -366,8 +380,14 @@ const doneThrash: Detector = {
         if (streak >= 3) {
           findings.push({
             subject: branch,
-            observed:
-              `\`done\` failed ${streak} consecutive runs on \`${branch}\` (${session.length} runs in the conversation).`,
+            brief: `${formatHumanNumber(streak)} red \`done\` runs · ${
+              formatHumanNumber(session.length)
+            } in the conversation`,
+            observed: `\`done\` failed ${
+              formatHumanNumber(streak)
+            } consecutive runs on \`${branch}\` (${
+              formatHumanNumber(session.length)
+            } runs in the conversation).`,
             evidence: { consecutive_failures: streak, runs: session.length },
             strength: streak,
           });
@@ -384,6 +404,7 @@ const refusalLoop: Detector = {
   family: "behaviour",
   scope: "session",
   tier: "inline",
+  tone: "attention",
   // 3 refusals: two can be one honest retry; the third repeat of the same
   // refusal is an agent arguing with a precondition.
   threshold: 3,
@@ -408,7 +429,13 @@ const refusalLoop: Detector = {
         if (count >= 3) {
           findings.push({
             subject: branch,
-            observed: `\`${verb}\` refused ${count} times on \`${branch}\`` +
+            brief: `${formatHumanNumber(count)} refusals · \`${verb}\`${
+              slug !== "" ? ` · \`${slug}\`` : ""
+            }`,
+            observed:
+              `\`${verb}\` refused ${
+                formatHumanNumber(count)
+              } times on \`${branch}\`` +
               (slug !== "" ? ` with the same slug (\`${slug}\`).` : "."),
             evidence: { refusals: count },
             strength: count,
@@ -426,6 +453,7 @@ const hintFollowThrough: Detector = {
   family: "behaviour",
   scope: "session",
   tier: "inline",
+  tone: "attention",
   // 3 repeats: one reminder is ordinary, and a second can follow another state
   // read; the third recurrence in one session is a loop worth reporting.
   threshold: 3,
@@ -450,8 +478,11 @@ const hintFollowThrough: Detector = {
         if (repeats >= 3) {
           findings.push({
             subject: branch,
+            brief: `${formatHumanNumber(repeats)} update hints · no update`,
             observed:
-              `\`${hintId}\` fired ${repeats} times in one session on ` +
+              `\`${hintId}\` fired ${
+                formatHumanNumber(repeats)
+              } times in one session on ` +
               `\`${branch}\` since its latest \`update\` run.`,
             evidence: { hint_fires: repeats, update_runs: 0 },
             strength: repeats,
@@ -469,6 +500,7 @@ const skippedPrepare: Detector = {
   family: "behaviour",
   scope: "branch",
   tier: "inline",
+  tone: "attention",
   // 4 gate-loop runs before judging a branch's iteration style.
   threshold: 4,
   next_step:
@@ -487,8 +519,14 @@ const skippedPrepare: Detector = {
       if (dones.length >= 4 && redDones >= 2 && prepares === 0) {
         findings.push({
           subject: branch,
-          observed:
-            `\`${branch}\` iterated through ${dones.length} \`done\` runs (${redDones} red) with no \`prepare\` between them.`,
+          brief: `${formatHumanNumber(dones.length)} \`done\` runs (${
+            formatHumanNumber(redDones)
+          } red) · no \`prepare\``,
+          observed: `\`${branch}\` iterated through ${
+            formatHumanNumber(dones.length)
+          } \`done\` runs (${
+            formatHumanNumber(redDones)
+          } red) with no \`prepare\` between them.`,
           evidence: {
             done_runs: dones.length,
             red_done_runs: redDones,
@@ -508,6 +546,7 @@ const dirtyDoneChurn: Detector = {
   family: "behaviour",
   scope: "branch",
   tier: "inline",
+  tone: "attention",
   // 5 done runs: dirty done runs are normal mid-task, so the detector waits
   // for enough of them to call the pattern a habit rather than a moment.
   threshold: 5,
@@ -521,8 +560,12 @@ const dirtyDoneChurn: Detector = {
       if (dirty >= 5 && dirty * 2 > events.length) {
         findings.push({
           subject: branch,
-          observed:
-            `${dirty} of ${events.length} \`done\` runs on \`${branch}\` ran on a dirty tree.`,
+          brief: `${formatHumanNumber(dirty)} of ${
+            formatHumanNumber(events.length)
+          } \`done\` runs · dirty tree`,
+          observed: `${formatHumanNumber(dirty)} of ${
+            formatHumanNumber(events.length)
+          } \`done\` runs on \`${branch}\` ran on a dirty tree.`,
           evidence: { dirty_runs: dirty, done_runs: events.length },
           strength: dirty,
         });
@@ -538,6 +581,7 @@ const trunkEdits: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "inline",
+  tone: "attention",
   // 3 dirty-trunk events: one is a stray, three is a working pattern.
   threshold: 3,
   next_step:
@@ -549,7 +593,10 @@ const trunkEdits: Detector = {
     const findings: DetectorFinding[] = dirty.length >= 3
       ? [{
         subject: facts.trunk,
-        observed: `${dirty.length} runs (${
+        brief: `${formatHumanNumber(dirty.length)} dirty runs · ${
+          [...verbs].sort().join(", ")
+        }`,
+        observed: `${formatHumanNumber(dirty.length)} runs (${
           [...verbs].sort().join(", ")
         }) happened on \`${facts.trunk}\` with uncommitted changes in the tree.`,
         evidence: {
@@ -569,6 +616,7 @@ const forceHabit: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 3 analyzed runs before judging flag habits at all; the firing bar is
   // 3 forced runs — each --force bypasses a guard once; three is a habit.
   threshold: 3,
@@ -581,9 +629,12 @@ const forceHabit: Detector = {
     const verbs = new Set(forced.map((e) => e.verb));
     const findings: DetectorFinding[] = forced.length >= 3
       ? [{
-        observed: `\`--force\` was passed ${forced.length} times (${
+        brief: `${formatHumanNumber(forced.length)} forced runs · ${
           [...verbs].sort().join(", ")
-        }).`,
+        }`,
+        observed: `\`--force\` was passed ${
+          formatHumanNumber(forced.length)
+        } times (${[...verbs].sort().join(", ")}).`,
         evidence: { forced_runs: forced.length },
         strength: forced.length,
       }]
@@ -598,6 +649,7 @@ const confirmedRerun: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // Each --confirmed re-runs a tree the gate already judged — one is a
   // deliberate probe; three is a habit worth naming.
   threshold: 3,
@@ -612,9 +664,18 @@ const confirmedRerun: Detector = {
     );
     const findings: DetectorFinding[] = confirmed.length >= 3
       ? [{
+        brief: `${formatHumanNumber(confirmed.length)} confirmed reruns${
+          branches.size > 0
+            ? ` · ${formatHumanNumber(branches.size)} branches`
+            : ""
+        }`,
         observed:
-          `\`done --confirmed\` re-ran the gate on an already-judged tree ${confirmed.length} times` +
-          (branches.size > 0 ? ` across ${branches.size} branches.` : "."),
+          `\`done --confirmed\` re-ran the gate on an already-judged tree ${
+            formatHumanNumber(confirmed.length)
+          } times` +
+          (branches.size > 0
+            ? ` across ${formatHumanNumber(branches.size)} branches.`
+            : "."),
         evidence: {
           confirmed_runs: confirmed.length,
           branches: branches.size,
@@ -632,6 +693,7 @@ const docsGap: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "inline",
+  tone: "neutral",
   // 5 lookups before reading anything into what gets looked up.
   threshold: 5,
   next_step:
@@ -660,8 +722,11 @@ const docsGap: Detector = {
     for (const [key, count] of repeatedMisses) {
       findings.push({
         subject: key,
-        observed:
-          `\`${key}\` was asked for ${count} times and refused every time — the purest guidance-gap signal the logbook holds.`,
+        brief: `${formatHumanNumber(count)} requests · all refused`,
+        tone: "attention",
+        observed: `\`${key}\` was asked for ${
+          formatHumanNumber(count)
+        } times and refused every time — the purest guidance-gap signal the logbook holds.`,
         evidence: { misses: count },
         // Misses outrank read counts in the report: a missing page is
         // actionable, a popular one is context.
@@ -675,8 +740,16 @@ const docsGap: Detector = {
       const first = top[0];
       if (first !== undefined) {
         findings.push({
-          observed: `${lookups.length} documentation lookups; most-read: ${
-            top.map(([key, count]) => `\`${key}\` (${count})`).join(", ")
+          brief: `${formatHumanNumber(lookups.length)} lookups · most read ${
+            top.map(([key, count]) => `\`${key}\` ${formatHumanNumber(count)}`)
+              .join(" · ")
+          }`,
+          observed: `${
+            formatHumanNumber(lookups.length)
+          } documentation lookups; most-read: ${
+            top.map(([key, count]) =>
+              `\`${key}\` (${formatHumanNumber(count)})`
+            ).join(", ")
           }.`,
           evidence: { lookups: lookups.length, top_reads: first[1] },
           strength: first[1],
@@ -693,6 +766,7 @@ const abandonedWorktrees: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 2 tracked branches: with one branch there is no fleet to compare against.
   threshold: 2,
   next_step:
@@ -721,10 +795,16 @@ const abandonedWorktrees: Detector = {
     const named = abandoned.slice(0, 5);
     const findings: DetectorFinding[] = abandoned.length > 0
       ? [{
-        observed:
-          `${abandoned.length} of ${branches.size} branches never went green and have been idle a week or more: ${
-            named.map((a) => `\`${a.branch}\` (${a.idleDays}d)`).join(", ")
-          }${abandoned.length > named.length ? ", …" : ""}.`,
+        brief: `${formatHumanNumber(abandoned.length)} of ${
+          formatHumanNumber(branches.size)
+        } branches · ${formatHumanNumber(named[0]?.idleDays ?? 0)}d idle`,
+        observed: `${formatHumanNumber(abandoned.length)} of ${
+          formatHumanNumber(branches.size)
+        } branches never went green and have been idle a week or more: ${
+          named.map((a) =>
+            `\`${a.branch}\` (${formatHumanNumber(a.idleDays)}d)`
+          ).join(", ")
+        }${abandoned.length > named.length ? ", …" : ""}.`,
         evidence: {
           abandoned: abandoned.length,
           branches: branches.size,
@@ -743,6 +823,7 @@ const sequenceAnomaly: Detector = {
   family: "behaviour",
   scope: "branch",
   tier: "batch",
+  tone: "attention",
   // 2 qualifying events before judging orderings at all.
   threshold: 2,
   next_step:
@@ -761,9 +842,16 @@ const sequenceAnomaly: Detector = {
     ];
     if (premature.length >= 1) {
       findings.push({
-        observed: `\`accept\` was attempted ${premature.length} time${
+        brief: `${formatHumanNumber(premature.length)} premature \`accept\` ${
           premature.length === 1 ? "" : "s"
-        } on ${prematureBranches.length} branch${
+        } · ${formatHumanNumber(prematureBranches.length)} branch${
+          prematureBranches.length === 1 ? "" : "es"
+        }`,
+        observed: `\`accept\` was attempted ${
+          formatHumanNumber(premature.length)
+        } time${premature.length === 1 ? "" : "s"} on ${
+          formatHumanNumber(prematureBranches.length)
+        } branch${
           prematureBranches.length === 1 ? "" : "es"
         } with no green \`done\` on record (${
           prematureBranches.slice(0, 3).map((b) => `\`${b}\``).join(", ")
@@ -794,8 +882,12 @@ const sequenceAnomaly: Detector = {
     }
     if (redundant >= 2) {
       findings.push({
-        observed:
-          `${redundant} green \`done\` runs repeated the full gate on an identical, already-honored tree.`,
+        brief: `${
+          formatHumanNumber(redundant)
+        } green \`done\` reruns · unchanged tree`,
+        observed: `${
+          formatHumanNumber(redundant)
+        } green \`done\` runs repeated the full gate on an identical, already-honored tree.`,
         evidence: { redundant_reruns: redundant },
         strength: redundant,
         next_step:
@@ -812,6 +904,7 @@ const identityGap: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   // 5 identity-bearing runs before reading anything into the gaps.
   threshold: 5,
   next_step:
@@ -852,16 +945,23 @@ const identityGap: Detector = {
     for (const [name, count] of recurring) {
       findings.push({
         subject: name,
-        observed:
-          `\`${name}\` drove ${count} MCP calls but matches nothing in the identity catalogue.`,
+        brief: `${formatHumanNumber(count)} MCP calls · unknown client`,
+        observed: `\`${name}\` drove ${
+          formatHumanNumber(count)
+        } MCP calls but matches nothing in the identity catalogue.`,
         evidence: { runs: count },
         strength: count,
       });
     }
     if (undeclared >= 3) {
       findings.push({
+        brief: `${
+          formatHumanNumber(undeclared)
+        } runs · unrecognized \`AI_AGENT\``,
         observed:
-          `an agent declaring an \`AI_AGENT\` value discern doesn't recognize drove ${undeclared} runs.`,
+          `an agent declaring an \`AI_AGENT\` value discern doesn't recognize drove ${
+            formatHumanNumber(undeclared)
+          } runs.`,
         evidence: { runs: undeclared },
         strength: undeclared,
       });
@@ -876,6 +976,7 @@ const providerFit: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 5 identity-attributed runs before reading the driver mix at all; the
   // firing bar is 3 runs from one identity — an agent that keeps coming back,
   // not a stray visit.
@@ -911,8 +1012,12 @@ const providerFit: Detector = {
       }
       findings.push({
         subject: entry.label,
-        observed:
-          `${entry.label} drove ${runs} of ${attributed} identity-attributed runs, but isn't among the configured agent integrations.`,
+        brief: `${formatHumanNumber(runs)} of ${
+          formatHumanNumber(attributed)
+        } attributed runs · integration absent`,
+        observed: `${entry.label} drove ${formatHumanNumber(runs)} of ${
+          formatHumanNumber(attributed)
+        } identity-attributed runs, but isn't among the configured agent integrations.`,
         evidence: { runs, attributed_runs: attributed },
         strength: runs,
       });
@@ -938,6 +1043,7 @@ const cohortDoneThrash: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   cohorts: true,
   // `considered` counts cohorts clearing the seam's recorded minimums, so the
   // threshold is the two-population bar: a corpus that cannot honestly compare
@@ -975,13 +1081,14 @@ const cohortDoneThrash: Detector = {
       evidence[`${cohort.agent}_thrash_branches`] = thrashed;
     }
     const clauses = perCohort.map(({ cohort, thrashed }) =>
-      `${cohort.label} ${thrashed} of ${cohort.units.length} ${
-        cohort.units.length === 1 ? "branch" : "branches"
-      }`
+      `${cohort.label} ${formatHumanNumber(thrashed)} of ${
+        formatHumanNumber(cohort.units.length)
+      } ${cohort.units.length === 1 ? "branch" : "branches"}`
     );
     return {
       considered,
       findings: [{
+        brief: clauses.join(" · "),
         observed:
           `branches hitting a 3+ consecutive-red \`done\` streak, by attributed driver: ${
             clauses.join(", ")
@@ -999,6 +1106,7 @@ const guidanceParity: Detector = {
   family: "behaviour",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   cohorts: true,
   // Cohort-counted `considered`, as for every cohort detector.
   threshold: COHORT_MINIMUMS.cohorts,
@@ -1084,14 +1192,23 @@ const guidanceParity: Detector = {
           evidence.outside_cohort_hits = counts.outside;
         }
         const stray = counts.outside > 0
-          ? ` a further ${counts.outside} landed outside the compared cohorts;`
+          ? ` a further ${
+            formatHumanNumber(counts.outside)
+          } landed outside the compared cohorts;`
           : "";
         findings.push({
           subject: `${only.label} · ${key}`,
+          brief: shape === "refusal"
+            ? `${formatHumanNumber(hits)} refusals · peers 0`
+            : `${formatHumanNumber(hits)} requests · peers 0 · all missed`,
           observed: `${
             shape === "refusal"
-              ? `\`${key}\` refused ${only.label} ${hits} times and every peer cohort 0 times;`
-              : `\`${key}\` was asked for ${hits} times, all by ${only.label}, and missed every time;`
+              ? `\`${key}\` refused ${only.label} ${
+                formatHumanNumber(hits)
+              } times and every peer cohort 0 times;`
+              : `\`${key}\` was asked for ${
+                formatHumanNumber(hits)
+              } times, all by ${only.label}, and missed every time;`
           }${stray} runs: ${denominatorClause(split)}.`,
           evidence,
           strength: hits * 10,
@@ -1116,6 +1233,7 @@ const dominantStage: Detector = {
   family: "gate-fit",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 5 timed gate runs on the current setup before calling a job dominant.
   threshold: 5,
   next_step:
@@ -1159,9 +1277,16 @@ const dominantStage: Detector = {
       if (share >= 0.5 && meanS >= 10) {
         findings.push({
           subject: label,
-          observed: `\`${label}\` averages ${round1(meanS)}s per \`done\` — ${
-            Math.round(share * 100)
-          }% of all recorded gate time across ${tail.length} runs.`,
+          brief: `${formatHumanNumber(round1(meanS))}s per \`done\` · ${
+            formatHumanNumber(Math.round(share * 100))
+          }% of gate time · ${formatHumanNumber(tail.length)} runs`,
+          observed: `\`${label}\` averages ${
+            formatHumanNumber(round1(meanS))
+          }s per \`done\` — ${
+            formatHumanNumber(Math.round(share * 100))
+          }% of all recorded gate time across ${
+            formatHumanNumber(tail.length)
+          } runs.`,
           evidence: {
             mean_seconds: round1(meanS),
             share_pct: Math.round(share * 100),
@@ -1181,6 +1306,7 @@ const durationCreep: Detector = {
   family: "gate-fit",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 8 runs on one setup: two halves of 4 are the fewest medians worth comparing.
   threshold: 8,
   next_step:
@@ -1213,13 +1339,18 @@ const durationCreep: Detector = {
       sizeLate <= Math.max(sizeEarly, 1) * 1.25
     ) {
       findings.push({
-        observed: `median \`done\` duration rose from ${round1(durEarly)}s to ${
-          round1(durLate)
-        }s across ${tail.length} runs on one setup (${
-          day(earlier[0]?.at ?? "")
-        } → ${
+        brief: `${formatHumanNumber(round1(durEarly))}s → ${
+          formatHumanNumber(round1(durLate))
+        }s median · ${formatHumanNumber(tail.length)} runs`,
+        observed: `median \`done\` duration rose from ${
+          formatHumanNumber(round1(durEarly))
+        }s to ${formatHumanNumber(round1(durLate))}s across ${
+          formatHumanNumber(tail.length)
+        } runs on one setup (${day(earlier[0]?.at ?? "")} → ${
           day(later[later.length - 1]?.at ?? "")
-        }), while the median change stayed ~${Math.round(sizeLate)} files.`,
+        }), while the median change stayed ~${
+          formatHumanNumber(Math.round(sizeLate))
+        } files.`,
         evidence: {
           median_early_s: round1(durEarly),
           median_late_s: round1(durLate),
@@ -1238,6 +1369,7 @@ const fixStageIdle: Detector = {
   family: "gate-fit",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 10 runs: a fixer's value shows rarely by design, so the bar to call it
   // idle is the highest in the registry.
   threshold: 10,
@@ -1278,9 +1410,14 @@ const fixStageIdle: Detector = {
     const findings: DetectorFinding[] = [];
     if (!anyEffect && meanS >= 3) {
       findings.push({
+        brief: `${formatHumanNumber(round1(meanS))}s per run · ${
+          formatHumanNumber(tail.length)
+        } runs · no visible effect`,
         observed: `the fix stage (${[...fixLabels].sort().join(", ")}) cost ~${
-          round1(meanS)
-        }s per run across ${tail.length} runs with no visible effect: no fix failures, no tree drift, no diagnostics.`,
+          formatHumanNumber(round1(meanS))
+        }s per run across ${
+          formatHumanNumber(tail.length)
+        } runs with no visible effect: no fix failures, no tree drift, no diagnostics.`,
         evidence: { mean_seconds: round1(meanS), runs: tail.length },
         strength: Math.round(meanS),
       });
@@ -1295,6 +1432,7 @@ const recurringDiagnostic: Detector = {
   family: "gate-fit",
   scope: "project",
   tier: "inline",
+  tone: "attention",
   // 5 red events carrying diagnostics before reading cross-branch classes.
   threshold: 5,
   next_step:
@@ -1319,8 +1457,14 @@ const recurringDiagnostic: Detector = {
       .slice(0, 3)
       .map(([key, c]) => ({
         subject: key,
-        observed:
-          `\`${key}\` failed on ${c.branches.size} different branches (${c.count} diagnostics in all).`,
+        brief: `${formatHumanNumber(c.branches.size)} branches · ${
+          formatHumanNumber(c.count)
+        } diagnostics`,
+        observed: `\`${key}\` failed on ${
+          formatHumanNumber(c.branches.size)
+        } different branches (${
+          formatHumanNumber(c.count)
+        } diagnostics in all).`,
         evidence: { branches: c.branches.size, diagnostics: c.count },
         strength: c.branches.size * 5,
       }));
@@ -1334,6 +1478,7 @@ const sameTreeFlake: Detector = {
   family: "gate-fit",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 2 repeat runs of some exact tree — the smallest set that can diverge.
   threshold: 2,
   next_step:
@@ -1369,8 +1514,14 @@ const sameTreeFlake: Detector = {
       if (red > 0 && green > 0) {
         findings.push({
           subject: head,
-          observed:
-            `the exact same tree at \`${head}\` ran ${red} test-red and ${green} green across ${group.length} runs with no change in between.`,
+          brief: `${formatHumanNumber(red)} red · ${
+            formatHumanNumber(green)
+          } green on one tree`,
+          observed: `the exact same tree at \`${head}\` ran ${
+            formatHumanNumber(red)
+          } test-red and ${formatHumanNumber(green)} green across ${
+            formatHumanNumber(group.length)
+          } runs with no change in between.`,
           evidence: { runs: group.length, red, green },
           strength: (red + green) * 10,
         });
@@ -1390,6 +1541,7 @@ const loopsToGreen: Detector = {
   family: "funnel",
   scope: "branch",
   tier: "batch",
+  tone: "attention",
   // 2 branches that reached green — one branch has nothing to stand out from.
   threshold: 2,
   next_step:
@@ -1419,8 +1571,14 @@ const loopsToGreen: Detector = {
         const perFile = files > 0 ? round1(reds / files) : reds;
         findings.push({
           subject: branch,
-          observed:
-            `\`${branch}\` took ${reds} red runs to reach its first green \`done\`, on a ${files}-file change (${perFile} per file).`,
+          brief: `${formatHumanNumber(reds)} red runs · ${
+            formatHumanNumber(files)
+          }-file change · ${formatHumanNumber(perFile)} per file`,
+          observed: `\`${branch}\` took ${
+            formatHumanNumber(reds)
+          } red runs to reach its first green \`done\`, on a ${
+            formatHumanNumber(files)
+          }-file change (${formatHumanNumber(perFile)} per file).`,
           evidence: { red_runs: reds, files, per_file: perFile },
           strength: reds,
         });
@@ -1436,6 +1594,7 @@ const cohortLoopsToGreen: Detector = {
   family: "funnel",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   cohorts: true,
   // Cohort-counted `considered`, as for every cohort detector.
   threshold: COHORT_MINIMUMS.cohorts,
@@ -1482,7 +1641,9 @@ const cohortLoopsToGreen: Detector = {
       const med = round1(median(cohort.units.map((u) => u.reds)));
       evidence[`${cohort.agent}_branches`] = cohort.units.length;
       evidence[`${cohort.agent}_median_reds`] = med;
-      return `${cohort.label} ${cohort.units.length} branches, median ${med} red ${
+      return `${cohort.label} ${
+        formatHumanNumber(cohort.units.length)
+      } branches, median ${formatHumanNumber(med)} red ${
         med === 1 ? "run" : "runs"
       } before it`;
     });
@@ -1490,9 +1651,10 @@ const cohortLoopsToGreen: Detector = {
     return {
       considered,
       findings: [{
+        brief: clauses.join(" · "),
         observed: `branches reaching a green \`done\`, by attributed driver: ${
           clauses.join("; ")
-        }; ${split.unattributedUnits} ${
+        }; ${formatHumanNumber(split.unattributedUnits)} ${
           split.unattributedUnits === 1 ? "branch" : "branches"
         } had no single attributed driver (loop runs: ${
           denominatorClause(split)
@@ -1510,6 +1672,7 @@ const cycleTime: Detector = {
   family: "funnel",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   // 3 completed cycles before a median means anything.
   threshold: 3,
   next_step:
@@ -1534,9 +1697,14 @@ const cycleTime: Detector = {
     }
     const findings: DetectorFinding[] = cycles.length >= 3
       ? [{
-        observed: `${cycles.length} completed start-to-accept cycles: median ${
-          round1(median(cycles))
-        }h, longest ${round1(Math.max(...cycles))}h.`,
+        brief: `${formatHumanNumber(cycles.length)} cycles · median ${
+          formatHumanNumber(round1(median(cycles)))
+        }h · longest ${formatHumanNumber(round1(Math.max(...cycles)))}h`,
+        observed: `${
+          formatHumanNumber(cycles.length)
+        } completed start-to-accept cycles: median ${
+          formatHumanNumber(round1(median(cycles)))
+        }h, longest ${formatHumanNumber(round1(Math.max(...cycles)))}h.`,
         evidence: {
           cycles: cycles.length,
           median_hours: round1(median(cycles)),
@@ -1555,6 +1723,7 @@ const giantCommitLanding: Detector = {
   family: "funnel",
   scope: "branch",
   tier: "batch",
+  tone: "attention",
   // 3 landing-shaped runs before judging commit hygiene.
   threshold: 3,
   next_step:
@@ -1579,8 +1748,13 @@ const giantCommitLanding: Detector = {
       if (change.commits === 1 && lines >= 400) {
         findings.push({
           subject: e.branch,
+          brief: `${formatHumanNumber(lines)} changed lines · ${
+            formatHumanNumber(change.files)
+          } files · 1 commit`,
           observed:
-            `\`${e.branch}\` reached green as a single commit carrying ${lines} changed lines across ${change.files} files.`,
+            `\`${e.branch}\` reached green as a single commit carrying ${
+              formatHumanNumber(lines)
+            } changed lines across ${formatHumanNumber(change.files)} files.`,
           evidence: {
             commits: 1,
             changed_lines: lines,
@@ -1600,6 +1774,7 @@ const updateFriction: Detector = {
   family: "funnel",
   scope: "project",
   tier: "batch",
+  tone: "attention",
   // 6 updates on one setup: halves of 3 are the fewest worth comparing.
   threshold: 6,
   next_step:
@@ -1634,8 +1809,18 @@ const updateFriction: Detector = {
       (overlapLate >= Math.max(overlapEarly, 1) * 2 && overlapLate >= 2)
     ) {
       findings.push({
-        observed:
-          `across ${tail.length} updates, the median behind-count moved ${behindEarly} → ${behindLate} and overlapping files ${overlapEarly} → ${overlapLate}.`,
+        brief: `behind ${formatHumanNumber(behindEarly)} → ${
+          formatHumanNumber(behindLate)
+        } · overlap ${formatHumanNumber(overlapEarly)} → ${
+          formatHumanNumber(overlapLate)
+        } · ${formatHumanNumber(tail.length)} updates`,
+        observed: `across ${
+          formatHumanNumber(tail.length)
+        } updates, the median behind-count moved ${
+          formatHumanNumber(behindEarly)
+        } → ${formatHumanNumber(behindLate)} and overlapping files ${
+          formatHumanNumber(overlapEarly)
+        } → ${formatHumanNumber(overlapLate)}.`,
         evidence: {
           updates: tail.length,
           behind_early: behindEarly,
@@ -1656,6 +1841,7 @@ const standardTrajectory: Detector = {
   family: "trajectory",
   scope: "project",
   tier: "inline",
+  tone: "neutral",
   // 5 readings of one standard before drawing its line.
   threshold: 5,
   next_step:
@@ -1714,20 +1900,28 @@ const standardTrajectory: Detector = {
           : count;
       }, 0);
       const pieces = [
-        `\`${name}\` measured ${first.value} → ${last.value} across ${span} days (${readings.length} readings)`,
+        `\`${name}\` measured ${formatHumanNumber(first.value)} → ${
+          formatHumanNumber(last.value)
+        } across ${formatHumanNumber(span)} days (${
+          formatHumanNumber(readings.length)
+        } readings)`,
       ];
       if (firstPin !== undefined && lastPin !== undefined) {
         pieces.push(
-          `the limit moved ${firstPin.from} → ${lastPin.to} across ${ownPins.length} pin${
+          `the limit moved ${formatHumanNumber(firstPin.from)} → ${
+            formatHumanNumber(lastPin.to)
+          } across ${formatHumanNumber(ownPins.length)} pin${
             ownPins.length === 1 ? "" : "s"
           }`,
         );
       } else if (last.limit !== undefined) {
-        pieces.push(`the limit held at ${last.limit}`);
+        pieces.push(`the limit held at ${formatHumanNumber(last.limit)}`);
       }
       if (boundaries > 0) {
         pieces.push(
-          `the series crosses ${boundaries} config/release boundar${
+          `the series crosses ${
+            formatHumanNumber(boundaries)
+          } config/release boundar${
             boundaries === 1 ? "y" : "ies"
           }, so segments are attributed, not blended`,
         );
@@ -1743,8 +1937,47 @@ const standardTrajectory: Detector = {
           ? r.value > r.limit
           : false);
       const slack = tail3.length === 3 && tail3.every(better);
+      const headroom = (r: Reading): number | undefined =>
+        r.limit === undefined
+          ? undefined
+          : r.direction === "down"
+          ? r.limit - r.value
+          : r.direction === "up"
+          ? r.value - r.limit
+          : undefined;
+      const firstHeadroom = headroom(first);
+      const lastHeadroom = headroom(last);
+      const tone: PatternFindingTone = slack ||
+          (firstHeadroom !== undefined && lastHeadroom !== undefined &&
+            lastHeadroom > firstHeadroom)
+        ? "good"
+        : firstHeadroom !== undefined && lastHeadroom !== undefined &&
+            lastHeadroom < firstHeadroom
+        ? "attention"
+        : "neutral";
+      const movement = slack
+        ? "beating its limit"
+        : tone === "good"
+        ? "improving"
+        : tone === "attention"
+        ? "headroom shrinking"
+        : first.value === last.value
+        ? "holding"
+        : "changed";
+      const limitWord = last.direction === "down"
+        ? "ceiling"
+        : last.direction === "up"
+        ? "floor"
+        : "limit";
+      const againstLimit = last.limit === undefined
+        ? ""
+        : ` vs ${limitWord} ${formatHumanNumber(last.limit)}`;
       findings.push({
         subject: name,
+        brief: `${formatHumanNumber(first.value)} → ${
+          formatHumanNumber(last.value)
+        }${againstLimit} — ${movement}`,
+        tone,
         observed: `${pieces.join("; ")}.`,
         evidence: {
           readings: readings.length,
@@ -1752,6 +1985,8 @@ const standardTrajectory: Detector = {
           pins: ownPins.length,
           first_value: first.value,
           last_value: last.value,
+          ...(first.limit !== undefined ? { limit_first: first.limit } : {}),
+          ...(last.limit !== undefined ? { limit_last: last.limit } : {}),
         },
         strength: readings.length,
         ...(slack
@@ -1772,6 +2007,7 @@ const redRateHistory: Detector = {
   family: "trajectory",
   scope: "project",
   tier: "batch",
+  tone: "neutral",
   // 3 months of data — fewer is a datapoint, not a series.
   threshold: 3,
   next_step:
@@ -1818,7 +2054,9 @@ const redRateHistory: Detector = {
     if (series.length >= 3) {
       const rendered = series.map(([month, c]) => {
         const pct = Math.round((c.failed / (c.ok + c.failed)) * 100);
-        return `${month} ${pct}%${c.coarse ? " (coarse)" : ""}`;
+        return `${month} ${formatHumanNumber(pct)}%${
+          c.coarse ? " (coarse)" : ""
+        }`;
       });
       const total = series.reduce((sum, [, c]) => sum + c.ok + c.failed, 0);
       const newest = series[series.length - 1];
@@ -1827,10 +2065,15 @@ const redRateHistory: Detector = {
           (newest[1].failed / (newest[1].ok + newest[1].failed)) * 100,
         )
         : 0;
+      const firstRendered = rendered[0] ?? "";
+      const lastRendered = rendered[rendered.length - 1] ?? "";
       findings.push({
-        observed: `red rate by month: ${
-          rendered.join(", ")
-        } — ${total} runs in all; months marked coarse survive only as rotation digests.`,
+        brief: `${firstRendered} → ${lastRendered} · ${
+          formatHumanNumber(total)
+        } runs`,
+        observed: `red rate by month: ${rendered.join(", ")} — ${
+          formatHumanNumber(total)
+        } runs in all; months marked coarse survive only as rotation digests.`,
         evidence: {
           months: series.length,
           runs: total,

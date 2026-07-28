@@ -27,6 +27,7 @@ import {
 } from "../src/shared/agent_catalogue.ts";
 import {
   COHORT_MINIMUMS,
+  denominatorClause,
   driverAgent,
   driverKind,
 } from "../src/engine/logbook/cohorts.ts";
@@ -48,7 +49,8 @@ import {
 import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
-} from "../src/shared/result_schemas.ts";
+  PATTERN_FINDING_TONES,
+} from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
@@ -275,8 +277,9 @@ function reading(
   name: string,
   value: number,
   limit: number,
+  direction: "up" | "down" = "up",
 ): NonNullable<VerbEvent["standards"]>[number] {
-  return { name, value, limit, direction: "up", verdict: "improved" };
+  return { name, value, limit, direction, verdict: "improved" };
 }
 
 /** A driver bundle carrying one invocation-scoped identity signal. */
@@ -939,6 +942,10 @@ Deno.test("patterns registry: ids are unique, kebab-case, and fully described", 
     assert(d.title.length > 0, `${d.id}: empty title`);
     assert(d.next_step.length > 0, `${d.id}: empty next step`);
     assert(
+      PATTERN_FINDING_TONES.includes(d.tone),
+      `${d.id}: unknown default tone ${d.tone}`,
+    );
+    assert(
       Number.isInteger(d.threshold) && d.threshold >= 1,
       `${d.id}: threshold must be a positive integer`,
     );
@@ -985,6 +992,11 @@ for (const d of DETECTORS) {
     assert(r.findings.length > 0, `${d.id}: firing fixture found nothing`);
     for (const f of r.findings) {
       assert(f.observed.length > 0, `${d.id}: empty observation`);
+      assert(f.brief.length > 0, `${d.id}: empty brief`);
+      assert(
+        PATTERN_FINDING_TONES.includes(f.tone ?? d.tone),
+        `${d.id}: unknown finding tone ${f.tone ?? d.tone}`,
+      );
       const values = Object.values(f.evidence);
       assert(values.length > 0, `${d.id}: a finding carries no evidence`);
       for (const v of values) {
@@ -1079,6 +1091,28 @@ Deno.test("patterns cohorts: the cohort-capable set exists and declares honest r
       `${d.id}: considered counts qualifying cohorts against the seam's bar`,
     );
   }
+});
+
+Deno.test("patterns cohorts: denominator prose uses the shared human-number boundary", () => {
+  assertEquals(
+    denominatorClause({
+      speaking: [{
+        agent: "claude",
+        label: "Claude Code",
+        units: [],
+        runs: 157_053_944,
+      }],
+      belowMinimum: [{
+        agent: "codex",
+        label: "Codex",
+        units: [],
+        runs: 2_400_000_000,
+      }],
+      unattributedUnits: 0,
+      unattributedRuns: 1_234,
+    }),
+    "Claude Code 157.1M · 2.4B below the reporting minimums · 1,234 unattributed",
+  );
 });
 
 for (const d of COHORT_DETECTORS) {
@@ -1599,6 +1633,102 @@ Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
     finding.next_step !== undefined && finding.next_step.includes("--pin"),
     `sustained slack should route to the pin: ${finding.next_step}`,
   );
+  assertEquals(finding.tone, "good");
+  assertEquals(finding.evidence.limit_first, 80);
+  assertEquals(finding.evidence.limit_last, 80);
+});
+
+Deno.test("patterns trajectory: direction-aware facts decide tone without changing rank", () => {
+  const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
+  assert(trajectory !== undefined);
+  const cases = [
+    {
+      label: "up moves away",
+      values: [80, 81, 82, 83, 84],
+      limit: 90,
+      direction: "up" as const,
+      tone: "good",
+      wording: "improving",
+      limitWord: "floor",
+    },
+    {
+      label: "down moves away",
+      values: [105, 104, 103, 102, 101],
+      limit: 100,
+      direction: "down" as const,
+      tone: "good",
+      wording: "improving",
+      limitWord: "ceiling",
+    },
+    {
+      label: "up drifts toward",
+      values: [89, 88, 87, 86, 85],
+      limit: 90,
+      direction: "up" as const,
+      tone: "attention",
+      wording: "headroom shrinking",
+      limitWord: "floor",
+    },
+    {
+      label: "flat",
+      values: [80, 80, 80, 80, 80],
+      limit: 90,
+      direction: "up" as const,
+      tone: "neutral",
+      wording: "holding",
+      limitWord: "floor",
+    },
+    {
+      label: "down has sustained slack",
+      values: [99, 98, 97, 96, 95],
+      limit: 100,
+      direction: "down" as const,
+      tone: "good",
+      wording: "beating its limit",
+      limitWord: "ceiling",
+    },
+  ] as const;
+  for (const item of cases) {
+    const events = run(item.values.map((value) => ({
+      standards: [reading("metric", value, item.limit, item.direction)],
+    })));
+    const outcome = runDetector(
+      trajectory,
+      buildStreamFacts(events, "main"),
+    );
+    const finding = outcome.findings[0];
+    assert(finding !== undefined, item.label);
+    assertEquals(finding.tone, item.tone, item.label);
+    assert(
+      finding.brief.includes(item.wording),
+      `${item.label}: ${finding.brief}`,
+    );
+    assert(
+      finding.brief.includes(item.limitWord),
+      `${item.label}: ${finding.brief}`,
+    );
+    assertEquals(finding.strength, item.values.length);
+  }
+});
+
+Deno.test("patterns trajectory: the brief compares today's value with today's limit", () => {
+  const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
+  assert(trajectory !== undefined);
+  const values = [825, 830, 850, 880, 900];
+  const limits = [900, 900, 900, 837, 837];
+  const events = run(values.map((value, i) => ({
+    standards: [reading("guidance", value, limits[i] ?? 837, "down")],
+  })));
+  const outcome = runDetector(trajectory, buildStreamFacts(events, "main"));
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assertEquals(
+    finding.brief,
+    "825 → 900 vs ceiling 837 — headroom shrinking",
+  );
+  assertEquals(finding.tone, "attention");
+  assertEquals(finding.evidence.limit_first, 900);
+  assertEquals(finding.evidence.limit_last, 837);
 });
 
 Deno.test("patterns trajectory: the limit's own history reads out of pin events", () => {

@@ -30,13 +30,15 @@ One row per set, in registry order; the sections below follow the same order and
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                   | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                         | `src/shared/hints.ts#HINTS`                                                    | 129     | "Advisory"       | node `hints`                |
 | [`logbook-events`](#logbook-events--logbook-events)                              | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
+| [`detector-families`](#detector-families--patterns-detector-families)            | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                          | 4       | —                | node `patterns`             |
+| [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)        | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                      | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                  | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)              | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                              | `scripts/glossary_registry.ts#GLOSSARY`                                        | 36      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                 | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                        | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)               | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
-| [`adrs`](#adrs--architecture-decision-records)                                   | `src/lib/docs.ts#adrRecords`                                                   | 198     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                   | `src/lib/docs.ts#adrRecords`                                                   | 199     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                     | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)   | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                  | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
@@ -45,9 +47,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                              | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)    | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)               | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                              | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 34      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                              | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 36      | —                | node `canonical-sets`       |
 
-34 sets · 59 guard tests · 14 committed artifacts.
+36 sets · 59 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -102,7 +104,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/paths_registry_test.ts`            | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
 | `tests/paths_sentinel_render_test.ts`     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
 | `tests/paths_write_surface_test.ts`       | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                  |
-| `tests/patterns_test.ts`                  | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                         |
+| `tests/patterns_test.ts`                  | [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                       |
 | `tests/public_doc_parity_test.ts`         | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                           |
 | `tests/repo_authored_paths_test.ts`       | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                |
 | `tests/result_codegen_test.ts`            | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts)                                                                                                                                                                                                              |
@@ -319,6 +321,26 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 - Glossary: the "Logbook" entry carries the concept
 - Feature canon: described by the `logbook` node
 
+## `detector-families` — Patterns detector families
+
+The categories that group every patterns detector and finding; schemas, registry entries, and the human report derive from this vocabulary.
+
+- Source: `src/shared/patterns_vocabulary.ts` — `DETECTOR_FAMILIES`
+- Members: 4
+- Guards: `tests/patterns_test.ts`
+- Glossary: not enrolled — internal report grouping; the Patterns entry carries the reader-facing concept
+- Feature canon: described by the `patterns` node
+
+## `pattern-finding-tones` — Patterns finding tones
+
+The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.
+
+- Source: `src/shared/patterns_vocabulary.ts` — `PATTERN_FINDING_TONES`
+- Members: 3
+- Guards: `tests/patterns_test.ts`
+- Glossary: not enrolled — presentation metadata inside the patterns result; it is not a user command or product term
+- Feature canon: described by the `patterns` node
+
 ## `patterns-detectors` — Patterns detectors
 
 Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
@@ -387,7 +409,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 198
+- Members: 199
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
@@ -479,7 +501,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 34
+- Members: 36
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
@@ -515,5 +537,4 @@ Modules whose doc comments claim single-source-of-truth status without anchoring
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
 - `src/lib/version.ts` — the kit version constant: a single value with no members and no satellites of its own to drift
 - `src/shared/git_admin_state.ts` — candidate for enrolment: a true registry of each Git-admin artifact's path and lifetime, whose class test (tests/git_admin_state_test.ts) is named outside the guard convention
-- `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES` — the typed companion of the enrolled patterns-detectors set — declared in that entry's account and held by tests/logbook_routing_test.ts, a guard that entry declares
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

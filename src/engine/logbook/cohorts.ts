@@ -24,6 +24,7 @@ import {
   AGENT_SIGNAL_SOURCE_LIFETIMES,
   agentLabel,
 } from "../../shared/agent_catalogue.ts";
+import { formatHumanNumber } from "../../shared/human_number.ts";
 import type { VerbEvent } from "./schema.ts";
 
 // ── driver scoring ──────────────────────────────────────────────────────────
@@ -231,12 +232,14 @@ export function cohortDenominators(
  * is stated even at zero, so a fully-attributed corpus says so explicitly.
  */
 export function denominatorClause(split: CohortSplit<unknown>): string {
-  const parts = split.speaking.map((c) => `${c.label} ${c.runs}`);
+  const parts = split.speaking.map((c) =>
+    `${c.label} ${formatHumanNumber(c.runs)}`
+  );
   const below = split.belowMinimum.reduce((sum, c) => sum + c.runs, 0);
   if (below > 0) {
-    parts.push(`${below} below the reporting minimums`);
+    parts.push(`${formatHumanNumber(below)} below the reporting minimums`);
   }
-  parts.push(`${split.unattributedRuns} unattributed`);
+  parts.push(`${formatHumanNumber(split.unattributedRuns)} unattributed`);
   return parts.join(" · ");
 }
 
