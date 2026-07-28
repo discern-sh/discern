@@ -6,6 +6,7 @@ aliases:
   - guidance sources
   - guidance.md
   - project instructions
+  - remember this rule
 ---
 
 # Write project guidance

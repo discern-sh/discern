@@ -1,7 +1,7 @@
 ---
 title: Upgrade discern
 description: Update the discern binary, migrate the project to match it, restart agent sessions, and verify the result.
-order: 50
+order: 60
 aliases:
   - upgrade
   - update discern

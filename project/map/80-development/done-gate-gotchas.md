@@ -1,3 +1,11 @@
+---
+aliases:
+  - gate troubleshooting
+  - unexpected gate failure
+  - discern done failed
+  - test passes alone
+---
+
 # Gate gotchas
 
 _Non-obvious ways the `done` gate fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._

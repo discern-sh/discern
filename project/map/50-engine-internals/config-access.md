@@ -1,3 +1,11 @@
+---
+aliases:
+  - config parser
+  - config schema
+  - config editor
+  - paths registry
+---
+
 # Config access
 
 _How `discern.toml` is read, resolved, and edited — one schema, one paths registry, one comment-preserving writer._

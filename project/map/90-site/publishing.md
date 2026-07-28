@@ -1,3 +1,11 @@
+---
+aliases:
+  - deploy discern.sh
+  - site deployment
+  - deno deploy
+  - run site locally
+---
+
 # Publishing the site
 
 The site is one fetch handler plus static files; publishing it is running that handler somewhere public. Local and production both run [`site/serve.ts`](../../../site/serve.ts), so what renders locally is what production serves.

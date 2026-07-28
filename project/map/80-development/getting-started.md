@@ -1,3 +1,11 @@
+---
+aliases:
+  - contributor setup
+  - local development
+  - build discern
+  - development setup
+---
+
 # Getting started
 
 _Cloning, setting up, and running the project locally for the first time._

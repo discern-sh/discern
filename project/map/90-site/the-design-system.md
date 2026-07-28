@@ -1,3 +1,11 @@
+---
+aliases:
+  - "@discern-sh/design-system"
+  - design system dependency
+  - component bundles
+  - runtime emitter
+---
+
 # The published design-system dependency
 
 Discern consumes `@discern-sh/design-system` from JSR as an exact, immutable dependency. The package is authored and released from [discern-sh/design-system](https://github.com/discern-sh/design-system); this repository owns only the discern.sh integration and product compositions.
@@ -18,10 +26,10 @@ If Discern finds a package defect, the fix is released from the package reposito
 
 [`site/design_system.ts`](../../../site/design_system.ts) is the complete thin integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
 
-| Bundle         | Routes                      | Selection                                                            | Optional assets |
-| -------------- | --------------------------- | -------------------------------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants | Docs chrome and shared display parts                                 | fonts           |
-| `compositions` | `/`                         | Marketing, Editorial, Agents session parts, and shared display parts | fonts and grain |
+| Bundle         | Routes                      | Selection                                      | Optional assets |
+| -------------- | --------------------------- | ---------------------------------------------- | --------------- |
+| `docs`         | `/docs` and its descendants | Docs chrome and shared display parts           | fonts           |
+| `compositions` | `/`                         | Marketing, Editorial, and shared display parts | fonts and grain |
 
 The table also owns the Discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and only the requested assets. Discern does not copy the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 

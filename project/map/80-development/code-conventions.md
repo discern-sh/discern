@@ -1,3 +1,11 @@
+---
+aliases:
+  - coding standards
+  - code style
+  - lint and format
+  - contributor rules
+---
+
 # Code conventions
 
 _The rules the tooling enforces, and the conventions to follow when writing code here._

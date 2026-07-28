@@ -13,6 +13,8 @@ _The manual for discern: the same pages on discern.sh, in `discern help`, and in
 
 discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. New here? Start with [orientation](00-orientation/) for the concepts in plain English, then the [quickstart](10-getting-started/quickstart.md) to go from install to your first gated change.
 
+Already know the outcome you need? Use the [task index](10-getting-started/tasks.md) to jump to its procedure.
+
 ## The sections
 
 | Section                                          | What's in it                                                                         |

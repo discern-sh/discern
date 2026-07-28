@@ -1,7 +1,7 @@
 ---
 title: After setup
 description: Read the setup diff file by file, including what you edit, what discern shares, and what it regenerates.
-order: 30
+order: 40
 aliases:
   - after setup
   - what discern writes

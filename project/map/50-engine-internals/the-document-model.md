@@ -1,3 +1,11 @@
+---
+aliases:
+  - documentation model
+  - doc discovery
+  - frontmatter
+  - public docs
+---
+
 # The document model
 
 One validated model in [`src/lib/docs.ts`](../../../src/lib/docs.ts) backs every reader of a documentation tree: `discern map`, `discern help` (terminal and MCP), exports, the docs site, and its search/llms derivations. No renderer rediscovers, filters, orders, or titles documents on its own.

@@ -1,3 +1,11 @@
+---
+aliases:
+  - engine internals
+  - engine architecture
+  - dispatcher
+  - built-in verbs
+---
+
 # Engine internals
 
 _The dispatcher and the TypeScript modules every built-in verb is built on._

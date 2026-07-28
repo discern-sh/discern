@@ -1,7 +1,7 @@
 ---
 title: FAQ and troubleshooting
 description: Diagnose common setup, command, MCP, platform, monorepo, worktree, agent-behavior, and removal problems.
-order: 40
+order: 50
 aliases:
   - faq
   - troubleshooting

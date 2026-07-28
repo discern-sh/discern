@@ -1,7 +1,7 @@
 ---
 title: Quickstart
 description: Install discern, hand setup to your coding agent, and land your first gated change.
-order: 10
+order: 20
 aliases:
   - quickstart
   - getting started

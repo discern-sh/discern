@@ -1,3 +1,11 @@
+---
+aliases:
+  - maintainer guide
+  - human workflow
+  - local maintainer setup
+  - work with agents
+---
+
 # For humans
 
 _Almost everything in this repo is built to be driven by coding agents — the guidance, the Skills, the gate, the worktree workflow. This page is the exception: the short list of what a **human** with the repo checked out does for a reliable experience. (Agents keep this page current too.)_

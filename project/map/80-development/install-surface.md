@@ -1,3 +1,11 @@
+---
+aliases:
+  - installation footprint
+  - write surface
+  - generated files
+  - setup files
+---
+
 # Install surface
 
 _The engineering inventory of every project-tree path discern writes or maintains, derived from the same registries as the write boundary._
