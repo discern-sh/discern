@@ -7,7 +7,9 @@
  * scalar validation constraints. Annotation prose may change.
  */
 
+import { Ajv2020 } from "ajv-2020";
 import {
+  CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   isPublicSchemaCompatibility,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
   type PUBLIC_SCHEMA_PUBLICATIONS,
@@ -184,6 +186,66 @@ function compareMap(
   }
 }
 
+function isUnconstrainedSchema(value: JsonValue | undefined): boolean {
+  return value === true ||
+    (isObject(value) &&
+      Object.keys(value).every((key) => ANNOTATION_KEYS.has(key)));
+}
+
+function compareProperties(
+  previous: JsonValue | undefined,
+  current: JsonValue | undefined,
+  previousAdditionalProperties: JsonValue | undefined,
+  path: string,
+  context: ComparisonContext,
+  issues: string[],
+): void {
+  const previousProperties = previous ?? {};
+  compareMap(previousProperties, current, path, context, issues);
+  if (
+    context.policy !== CONFIG_SCHEMA_COMPATIBILITY_POLICY ||
+    !isObject(previousProperties) ||
+    !isObject(current)
+  ) {
+    return;
+  }
+  const catchall = previousAdditionalProperties ?? true;
+  if (catchall === false) {
+    return;
+  }
+  for (const [key, currentValue] of Object.entries(current)) {
+    if (previousProperties[key] !== undefined) {
+      continue;
+    }
+    const childPath = pathKey(path, key);
+    if (isUnconstrainedSchema(currentValue)) {
+      continue;
+    }
+    if (isObject(catchall)) {
+      const localIssues: string[] = [];
+      compareNode(
+        catchall,
+        currentValue,
+        childPath,
+        context,
+        localIssues,
+      );
+      if (localIssues.length === 0) {
+        continue;
+      }
+      issues.push(
+        `${childPath}: added property narrows values admitted by the trunk ` +
+          `additionalProperties schema (${localIssues[0]})`,
+      );
+      continue;
+    }
+    issues.push(
+      `${childPath}: added property narrows values admitted by trunk ` +
+        `additionalProperties: ${json(catchall)}`,
+    );
+  }
+}
+
 function alternativeIdentity(value: JsonValue): string {
   if (isObject(value)) {
     if (typeof value.$ref === "string") {
@@ -310,6 +372,36 @@ function compareAlternatives(
   });
 }
 
+function comparePrefixItems(
+  previous: JsonValue | undefined,
+  current: JsonValue | undefined,
+  path: string,
+  context: ComparisonContext,
+  issues: string[],
+): void {
+  if (!Array.isArray(previous) || !Array.isArray(current)) {
+    if (!sameJson(previous, current)) {
+      issues.push(
+        `${path}: changed from ${json(previous)} to ${json(current)}`,
+      );
+    }
+    return;
+  }
+  previous.forEach((schema, index) => {
+    const next = current[index];
+    const childPath = `${path}[${index}]`;
+    if (next === undefined) {
+      issues.push(`${childPath}: removed`);
+      return;
+    }
+    compareNode(schema, next, childPath, context, issues);
+  });
+  current.slice(previous.length).forEach((schema, offset) => {
+    const index = previous.length + offset;
+    issues.push(`${path}[${index}]: added ${json(schema)}`);
+  });
+}
+
 function contractId(value: JsonValue): string | undefined {
   return isObject(value) && typeof value.id === "string" ? value.id : undefined;
 }
@@ -359,26 +451,13 @@ function contractAggregateRoles(
   }
   const candidates: [string, ResultContractReferenceRole][] = [];
   for (const entrypoint of previous.oneOf) {
-    const reference = referenceAlternative(entrypoint);
-    const name = reference === undefined
-      ? undefined
-      : definitionName(reference);
-    const definition = name === undefined
-      ? undefined
-      : previousDefinitions[name];
-    const alternatives = isObject(definition) ? definition.oneOf : undefined;
-    if (!Array.isArray(alternatives) || alternatives.length === 0) {
-      continue;
-    }
-    const role = matchingContractReferenceRole(
-      alternatives,
-      previousContractRefs,
+    candidates.push(
+      ...reachableContractAggregates(
+        entrypoint,
+        previousDefinitions,
+        previousContractRefs,
+      ),
     );
-    if (role === undefined || name === undefined) {
-      continue;
-    }
-    const definitionPath = pathKey(pathKey("$", "$defs"), name);
-    candidates.push([pathKey(definitionPath, "oneOf"), role]);
   }
   const roleCounts = new Map<ResultContractReferenceRole, number>();
   for (const [, role] of candidates) {
@@ -387,6 +466,68 @@ function contractAggregateRoles(
   return new Map(
     candidates.filter(([, role]) => roleCounts.get(role) === 1),
   );
+}
+
+const SAME_INSTANCE_SCHEMA_KEYS = [
+  "allOf",
+  "anyOf",
+  "oneOf",
+  "if",
+  "then",
+  "else",
+  "not",
+] as const;
+
+function reachableContractAggregates(
+  entrypoint: JsonValue,
+  definitions: JsonObject,
+  references: ContractReferenceSets,
+): ReadonlyMap<string, ResultContractReferenceRole> {
+  const aggregates = new Map<string, ResultContractReferenceRole>();
+  const visitedDefinitions = new Set<string>();
+
+  const visit = (schema: JsonValue | undefined): void => {
+    if (!isObject(schema)) {
+      return;
+    }
+    const name = typeof schema.$ref === "string"
+      ? definitionName(schema.$ref)
+      : undefined;
+    if (name !== undefined && !visitedDefinitions.has(name)) {
+      visitedDefinitions.add(name);
+      const definition = definitions[name];
+      if (isObject(definition)) {
+        const alternatives = definition.oneOf;
+        const role = Array.isArray(alternatives) && alternatives.length > 0
+          ? matchingContractReferenceRole(
+            alternatives,
+            references,
+          )
+          : undefined;
+        if (role !== undefined) {
+          const definitionPath = pathKey(pathKey("$", "$defs"), name);
+          aggregates.set(pathKey(definitionPath, "oneOf"), role);
+        } else {
+          visit(definition);
+        }
+      }
+    }
+    for (const key of SAME_INSTANCE_SCHEMA_KEYS) {
+      const nested = schema[key];
+      if (Array.isArray(nested)) {
+        nested.forEach(visit);
+      } else {
+        visit(nested);
+      }
+    }
+    const dependentSchemas = schema.dependentSchemas;
+    if (isObject(dependentSchemas)) {
+      Object.values(dependentSchemas).forEach(visit);
+    }
+  };
+
+  visit(entrypoint);
+  return aggregates;
 }
 
 function comparisonContext(
@@ -599,6 +740,15 @@ function compareNode(
     const childPath = pathKey(path, key);
     switch (key) {
       case "properties":
+        compareProperties(
+          before,
+          after,
+          previous.additionalProperties,
+          childPath,
+          context,
+          issues,
+        );
+        break;
       case "$defs":
       case "definitions":
         compareMap(before, after, childPath, context, issues);
@@ -613,7 +763,6 @@ function compareNode(
       case "oneOf":
       case "anyOf":
       case "allOf":
-      case "prefixItems":
         compareAlternatives(
           before,
           after,
@@ -622,6 +771,9 @@ function compareNode(
           context,
           issues,
         );
+        break;
+      case "prefixItems":
+        comparePrefixItems(before, after, childPath, context, issues);
         break;
       case "items":
       case "propertyNames":
@@ -679,7 +831,13 @@ export function publicSchemaCompatibilityIssues(
   current: JsonObject,
   policy: PublicSchemaCompatibility,
 ): string[] {
-  const issues: string[] = [];
+  const issues = [
+    ...publicSchemaValidityIssues(previous, "trunk schema"),
+    ...publicSchemaValidityIssues(current, "current schema"),
+  ];
+  if (issues.length > 0) {
+    return issues;
+  }
   compareNode(
     previous,
     current,
@@ -688,6 +846,25 @@ export function publicSchemaCompatibilityIssues(
     issues,
   );
   return issues;
+}
+
+function publicSchemaValidityIssues(
+  schema: JsonObject,
+  label: string,
+): string[] {
+  try {
+    new Ajv2020({
+      allErrors: true,
+      strict: false,
+      validateSchema: true,
+    }).compile(schema);
+    return [];
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return [
+      `${label}: invalid JSON Schema draft 2020-12: ${message}`,
+    ];
+  }
 }
 
 interface PublicSchemaIdentity {
@@ -749,7 +926,10 @@ export function publicSchemaPublicationIdentityIssues(
   current: JsonObject,
   publication: PublicSchemaPublication,
 ): string[] {
-  const issues: string[] = [];
+  const issues = publicSchemaValidityIssues(current, "current schema");
+  if (issues.length > 0) {
+    return issues;
+  }
   const registered = parsePublicSchemaIdentity(
     publication.id,
     "publication id",
