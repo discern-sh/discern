@@ -88,7 +88,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   // provider-registry paths
   [
     "src/engine/guidelines.ts",
-    "the agent files (provider registry guidance paths)",
+    "the agent files (provider registry guidance paths) and the maintained ADR index inside the configured map",
   ],
   [
     "src/lib/providers.ts",

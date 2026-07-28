@@ -65,6 +65,7 @@ import {
   type ProviderHookDriftEntry,
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
+import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
@@ -298,6 +299,16 @@ export async function statusResult(
     data.stale_integrations = providerHookDrift.map((d) => d.path);
   }
 
+  // The maintained ADR index — the same read-only currency shape, for the
+  // record lists a refresh keeps between markers in the ADR README. Advisory
+  // here, like the other stale_* fields; only `stale` is reported (`absent`
+  // means the project has not adopted the index, and `invalid` is a source
+  // problem the gate diagnoses with the offending record).
+  const adrIndex: AdrIndexState = await adrIndexState(root, cfg.map.dir);
+  if (adrIndex.kind === "stale") {
+    data.stale_adr_index = [adrIndex.path];
+  }
+
   const trackedIgnoredArtifacts = await trackedDiscernIgnoredArtifacts(root);
   if (trackedIgnoredArtifacts.paths.length > 0) {
     data.tracked_ignored_artifacts = trackedIgnoredArtifacts.paths;
@@ -429,6 +440,7 @@ export async function statusResult(
     guidanceDrift,
     skillsDrift,
     providerHookDrift,
+    adrIndex,
     trackedIgnoredArtifacts,
     untrackedGuidance,
     setupPending,
@@ -640,6 +652,8 @@ interface HintContext {
   skillsDrift: SkillsDriftEntry[];
   /** Provider hook files that don't match the configured integration seed. */
   providerHookDrift: ProviderHookDriftEntry[];
+  /** How the maintained ADR index stands against the record files on disk. */
+  adrIndex: AdrIndexState;
   /** Discern-owned ignored artifacts currently tracked by Git. */
   trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
   /** Compiled guidance files untracked and not ignored — commit recommended. */
@@ -726,6 +740,14 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         ? fire(HINTS["provider-integrations-missing"], { paths })
         : fire(HINTS["provider-integrations-stale"], { paths }),
     );
+  }
+
+  // The maintained ADR index drifted from the record files — the same advisory
+  // voice as the other refresh-managed artifacts. Only `stale` speaks here:
+  // `absent` is a project that never adopted the index, and `invalid` is a
+  // source problem whose diagnosis belongs to the gate.
+  if (ctx.adrIndex.kind === "stale") {
+    hints.push(fire(HINTS["adr-index-stale"], { path: ctx.adrIndex.path }));
   }
 
   // In the main checkout with worktrees on, the agent has no isolated workspace

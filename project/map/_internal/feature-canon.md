@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list._
 
-10 pillars · 121 nodes · 11 benefit statements · 35 agent-experience accounts · 66 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 121 nodes · 11 benefit statements · 36 agent-experience accounts · 66 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -26,7 +26,7 @@ _The nodes carrying an agent-experience account — the interaction design an ag
 - **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Normalized diagnostics · The gotchas pointer · The receipt · A rerun on an unchanged tree is attested
 - **Standards** — Input-keyed replay
 - **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Orphan reclamation · The fleet view
-- **The map** — The discovery funnel
+- **The map** — The discovery funnel · The docs integrity preflight
 - **Advisories and the logbook** — the pillar itself · Status · The logbook · Registered hints
 - **Install and lifecycle** — Agent-driven setup · Observable incompleteness · Ready-to-relay messages · Consent is attested per invocation · Doctor · Upgrade and migrations · Config without a parser
 - **Interfaces and contracts** — One result envelope · Idempotent by contract · The MCP server · A forgiving command line
@@ -143,10 +143,10 @@ _Documentation stops being the thing nobody updates: staleness fails the gate, a
 
 - **The map browser** — `discern map` lists, searches, and renders the tree in the terminal — frontmatter search aliases included — and `--export` writes a public, full, or selected projection to one file.
 - **The discovery funnel** — Agent document discovery runs regions, then search, then canonical targets: compiled guidance lists each top-level region by exact target, `search` takes a query in task language, and every result returns a snippet plus a target that feeds back into the same tool. Search returns at most 5 ranked documents, and query values are never written to the logbook. _Documentation growth never churns the tracked agent files and never spends context before a page is needed._ **Agent:** _Discovery starts from names already in the agent's instructions and ends one call later on the full page — no index download, no slug guessing._
-- **The docs integrity gate** — The gate validates the map's substance: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry, frontmatter against a schema, and the published tiers against the audience boundary. _A rename breaks the docs loudly, in the same change, instead of quietly a month later._
+- **The docs integrity preflight** — Every `discern done` validates the map's substance before the jobs run: intra-map links and heading anchors against the shared renderer, fenced `discern` examples against the live verb and flag registry (Project Scripts included), frontmatter blocks against the readers' shape rules, published pages against the `_internal`/`_private` audience boundary, and skill citations against the effective skill set. _A rename breaks the docs loudly, in the same change, instead of quietly a month later — and an excluded skill cannot stay recommended by live prose._ **Agent:** _A red `map_integrity` stage lists every finding as file:line with its rule and remedy — one edit loop clears it._
 - **File-linked freshness** — Map freshness ships as file-linked facts — which source files a page covers and when they moved — rather than verdicts.
 - **Publication control** — `publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship; decision records are the one semi-public exception, served by `discern help --adr` and the site's history pages. _One predicate answers what ships, everywhere it could ship._
-- **Decision records** — Architecture Decision Records live under `_adr/`, numbered continuously, with a canonical template and format guide scaffolded into every install. Citations take one strippable form, removed at render time on human surfaces. _The why behind the code survives the sessions that wrote it, without leaking internal numbering into shipped prose._
+- **Decision records** — Architecture Decision Records live under `_adr/`, numbered continuously, with a canonical template and format guide scaffolded into every install. `discern refresh` maintains the marker-delimited record index in the ADR README, and the gate refuses one that drifts from the files. Citations take one strippable form, removed at render time on human surfaces. _The why behind the code survives the sessions that wrote it — findable from one self-maintaining index, without leaking internal numbering into shipped prose._
 - **discern's own manual** — The binary carries its own public documentation: `discern help` browses it offline in any install, over the same renderer the map uses, and customer binaries carry only the public projection. _Every install can answer how discern works with no network and no wiki._
 - **The vocabulary canon** — The glossary compiles from a term registry: one definition per term, every term a search alias, retired synonyms policed out of live prose, and closed-set members enrolled the moment they exist. _Every page and every agent uses one name per concept._
 

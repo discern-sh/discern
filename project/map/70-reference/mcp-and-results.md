@@ -59,7 +59,7 @@ The human, JSON, and MCP tool forms report the same settled result. `structuredC
 | `discern_impact`      | List the scopes the current change activates.                                | Read-only and idempotent.                                  |
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.    | Read-only, idempotent, and advisory.                       |
 | `discern_patterns`    | Report findings from the local logbook of discern's own verb runs.           | Read-only, idempotent, and advisory.                       |
-| `discern_refresh`     | Rebuild generated guidance, skills, and provider integration artifacts.      | Mutating, closed-world, and idempotent.                    |
+| `discern_refresh`     | Rebuild generated guidance, skills, integrations, and the ADR index.         | Mutating, closed-world, and idempotent.                    |
 | `discern_map`         | Index, search, or read the project's agent-maintained map.                   | Read-only and idempotent.                                  |
 | `discern_help`        | Index, search, or read discern's bundled public manual.                      | Read-only, idempotent, and project-independent.            |
 | `discern_doctor`      | Check config, commands, repository shape, and integration health.            | Read-only and idempotent.                                  |

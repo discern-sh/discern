@@ -48,6 +48,14 @@ import {
   type AdrNumberDuplicate,
   duplicateAdrNumbers,
 } from "../../lib/adr_numbers.ts";
+import {
+  checkDocsIntegrity,
+  DOCS_INTEGRITY_REMEDIES,
+  type DocsIntegrityFinding,
+  type DocsIntegrityRule,
+  liveCliModel,
+} from "../../lib/map_integrity.ts";
+import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
@@ -252,6 +260,99 @@ async function adrNumbersDiagnostic(
     severity: "error",
     message: `ADR number(s) claimed by more than one record: ${numbers}`,
     reproduce_cmd: "discern done",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for MAP & GUIDANCE integrity findings: every finding as
+ * `file:line`, grouped by rule with each rule's remedy stated once — the fix
+ * is at the point of failure, and one loop from the diagnostic clears it.
+ * `discern refresh` cannot help here: the SOURCE files carry the defect, so
+ * the remedy is always an edit (or, for a stale example, a registry fix).
+ */
+async function mapIntegrityDiagnostic(
+  findings: DocsIntegrityFinding[],
+): Promise<Diagnostic> {
+  const byRule = new Map<DocsIntegrityRule, DocsIntegrityFinding[]>();
+  for (const finding of findings) {
+    byRule.set(finding.rule, [...(byRule.get(finding.rule) ?? []), finding]);
+  }
+  const sections = [...byRule.entries()].map(([rule, group]) =>
+    `${rule}:\n` +
+    group.map((f) => `  ${f.file}:${f.line} ${f.detail}`).join("\n") +
+    `\n  fix: ${DOCS_INTEGRITY_REMEDIES[rule]}`
+  );
+  const files = [...new Set(findings.map((f) => f.file))];
+  const outputFields = await diagnosticOutputFields(
+    "The map or guidance references things a reader cannot follow:\n\n" +
+      sections.join("\n\n"),
+  );
+  return {
+    tool: "map-integrity",
+    severity: "error",
+    message: `map or guidance integrity: ${findings.length} finding(s) ` +
+      `across ${files.length} file(s)`,
+    reproduce_cmd: "discern done",
+    ...outputFields,
+  };
+}
+
+/**
+ * A diagnostic for the maintained ADR index. STALE — the record lists between
+ * the markers do not match the record files, and `discern refresh` rewrites
+ * them (the currency remedy, with the capped drift diff). INVALID — the index
+ * cannot be derived; the remedy follows the state's cause, so the reader is
+ * never pointed at the wrong artifact: a record whose heading defeats the
+ * derivation (edit that record), a start marker whose end marker is gone
+ * (repair the README's pair), or an unexpected derivation failure (fix what
+ * the issue reports).
+ */
+function adrIndexInvalidRemedy(
+  state: Extract<AdrIndexState, { kind: "invalid" }>,
+): string {
+  switch (state.cause) {
+    case "record":
+      return "Fix the named record file — its first heading must carry the " +
+        "record's number and a title — then run `discern refresh`.";
+    case "markers":
+      return `Repair the marker pair in ${state.path}: restore the missing ` +
+        "END marker named above after its BEGIN marker (or remove the pair " +
+        "to retire the maintained list). The record files may all be fine. " +
+        "Then run `discern refresh`.";
+    case "error":
+      return "The derivation itself failed. Fix the underlying problem " +
+        "reported above, then run `discern refresh`.";
+  }
+}
+
+async function adrIndexDiagnostic(
+  state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
+): Promise<Diagnostic> {
+  const outputFields = await diagnosticOutputFields(
+    state.kind === "stale"
+      ? `The maintained ADR index is out of date: ${state.path}.\n` +
+        "Run `discern refresh` to regenerate the record lists between its " +
+        "markers, and commit the rewritten file. If you meant to change the " +
+        "framing prose, edit outside the marked blocks — a refresh rewrites " +
+        "only the lists.\n\n" +
+        driftDiff({
+          path: state.path,
+          reason: "stale",
+          expected: state.expected,
+          actual: state.current,
+        })
+      : `The maintained ADR index in ${state.path} cannot be derived:\n\n` +
+        `  ${state.issue}\n\n` +
+        adrIndexInvalidRemedy(state),
+  );
+  return {
+    tool: "adr-index",
+    severity: "error",
+    message: state.kind === "stale"
+      ? `maintained ADR index out of date: ${state.path}`
+      : `maintained ADR index cannot be derived: ${state.path}`,
+    reproduce_cmd: state.kind === "stale" ? "discern refresh" : "discern done",
     ...outputFields,
   };
 }
@@ -462,6 +563,42 @@ async function runGate(
     }
   }
 
+  // 1d-quater. Maintained-ADR-index currency (the ADR 0034 pattern, extended to
+  //     the record lists a refresh keeps between markers in the ADR README).
+  //     Opt-in by construction: a project without the markers is never checked.
+  //     STALE blocks — a record on disk the index doesn't reflect is invisible
+  //     to every reader who opens the index instead of the directory — and so
+  //     does INVALID (a record the derivation cannot title), since a refresh
+  //     cannot heal it and the index would silently rot from there. Runs before
+  //     the heavier map-integrity corpus scan: one file's state, checked cheaply.
+  let adrIndexDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const state = await adrIndexState(root, cfg.map.dir);
+    if (state.kind === "stale" || state.kind === "invalid") {
+      failedStage = "adr_index";
+      adrIndexDiag = await adrIndexDiagnostic(state);
+    }
+  }
+
+  // 1d-quinquies. Map & guidance integrity — the documentation agents and the
+  //     published projections read must not reference things that do not exist:
+  //     dead intra-map links and anchors, metadata blocks the lenient reader
+  //     would swallow, fenced `discern` examples the current CLI rejects,
+  //     published pages linking into the internal trees, and citations of
+  //     skills outside the effective set. Blocking, beside the other artifact
+  //     preflights: each finding is a defect a reader only discovers by
+  //     following the reference and failing, and no later stage can clear it.
+  //     The CLI model comes from the live command registry via the core's lazy
+  //     loader, so the command tree stays off every other verb's load path.
+  let mapIntegrityDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const findings = await checkDocsIntegrity(root, cfg, await liveCliModel());
+    if (findings.length > 0) {
+      failedStage = "map_integrity";
+      mapIntegrityDiag = await mapIntegrityDiagnostic(findings);
+    }
+  }
+
   // 1e. Write authority — a REAL create/write/rename/remove probe, not permission
   //     metadata. The gate may need to stamp or clear its gate/measurement state
   //     after every outcome, so prove that tiny late effect before any project job
@@ -668,6 +805,12 @@ async function runGate(
   }
   if (adrNumbersDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), adrNumbersDiag];
+  }
+  if (adrIndexDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), adrIndexDiag];
+  }
+  if (mapIntegrityDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), mapIntegrityDiag];
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];

@@ -1,205 +1,264 @@
 /**
- * Map integrity guards — the gate holds the documentation to the same change
- * discipline as the code, so doc drift is a build failure, not a review
- * finding:
+ * Map & guidance integrity — the SHIPPED preflight core applied to this
+ * repository, plus proof each rule bites.
  *
- *  1. every fenced `discern …` example validates against the LIVE verb and
- *     flag registry (a renamed verb or removed flag fails the docs, not the
- *     user);
- *  2. every intra-map link resolves to a real file;
- *  3. every heading anchor a link names exists — per the shared renderer's
- *     own slugging, duplicate-suffixing included;
- *  4. no PUBLISHED page links into `_internal/` or `_private/` (the audience
- *     boundary: a public reader must never be handed a dead or leaking path).
+ * The application logic lives in src/lib/map_integrity.ts and runs inside
+ * every project's gate; these tests are a thin layer over that one core:
  *
- * The corpus is the CURRENT map — every doc outside `_`-prefixed subtrees,
- * root docs included — discovered live, so a new page auto-enrols. The
- * `_`-trees are exempt by design: ADRs are dated records (their examples
- * describe the CLI as it stood), and `_internal`/`_private` carry no currency
- * contract. The scanners themselves are proven to bite in
- * tests/docs_integrity_test.ts; project-script names enrol from the live
- * scripts directory, and the CLI model from the live registry — no hand lists.
+ *  1. the LIVE-CORPUS run — this repo's configured map and guidance sources
+ *     must be clean, exactly as `discern done` will demand of any project;
+ *  2. per-rule BITE proofs over scaffolded fixture projects, including the
+ *     deliberate escapes (root-relative links, `publish: false`, non-exact
+ *     citation spans, project-script verbs) that keep the rules honest on
+ *     arbitrary user prose.
+ *
+ * The scanners' extraction semantics are proven separately in
+ * tests/docs_integrity_test.ts; the repo-only strict frontmatter schema in
+ * tests/map_frontmatter_test.ts.
  */
 
-import { dirname, join, relative, resolve } from "@std/path";
+import { dirname, join } from "@std/path";
+import { ensureDir } from "@std/fs";
 import { assert, assertEquals } from "@std/assert";
 import type { Command } from "@cliffy/command";
 import { buildCli } from "../src/main.ts";
 import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import {
-  extractDocLinks,
-  extractFencedCommands,
-  headingAnchors,
-  validateFencedCommand,
-} from "../src/lib/docs_integrity.ts";
-import { discoverDocs, type DocEntry, isPublicDoc } from "../src/lib/docs.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
-import { discoverProjectScripts } from "../src/engine/project_scripts.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+  checkDocsIntegrity,
+  DOCS_INTEGRITY_REMEDIES,
+  DOCS_INTEGRITY_RULES,
+  type DocsIntegrityFinding,
+} from "../src/lib/map_integrity.ts";
+import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { withTempDir } from "./helpers.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
-/** The current-map corpus: every non-`_` doc, discovered live. */
-async function currentDocs(): Promise<DocEntry[]> {
-  const tree = await discoverDocs({
-    cwd: REPO_ROOT,
-    dir: REPO_AUTHORED_PATHS.map,
+const model = cliCommandModel(buildCli(false) as unknown as Command);
+
+Deno.test("the live corpus is clean: this repo's map and guidance pass the shipped preflight", async () => {
+  const findings = await checkDocsIntegrity(
+    REPO_ROOT,
+    await loadConfig(REPO_ROOT),
+    model,
+  );
+  assertEquals(
+    findings.map((f) => `${f.file}:${f.line} [${f.rule}] ${f.detail}`),
+    [],
+    "the map and guidance must satisfy the same integrity preflight every " +
+      "project's gate runs — fix the reference (or the registry it names)",
+  );
+});
+
+Deno.test("every rule has a remedy (the diagnostic can always say the fix)", () => {
+  for (const rule of DOCS_INTEGRITY_RULES) {
+    assert(
+      DOCS_INTEGRITY_REMEDIES[rule].length > 0,
+      `rule ${rule} needs a remedy`,
+    );
+  }
+});
+
+// ── bite proofs over fixture projects ────────────────────────────────────────
+
+/** The default map dir, from the paths registry (mirrors a fresh install). */
+const MAP = SOURCE_PATHS.map.defaultPath.replace(/\/$/, "");
+
+/** Scaffold `files` under a temp project root and run the shipped check.
+ * `toml` seeds the config; `executables` are project scripts to make runnable. */
+async function fixtureFindings(
+  files: Record<string, string>,
+  opts: { toml?: string; executables?: Record<string, string> } = {},
+): Promise<DocsIntegrityFinding[]> {
+  let findings: DocsIntegrityFinding[] = [];
+  await withTempDir(async (dir) => {
+    for (const [rel, content] of Object.entries(files)) {
+      await ensureDir(join(dir, dirname(rel)));
+      await Deno.writeTextFile(join(dir, rel), content);
+    }
+    for (const [rel, content] of Object.entries(opts.executables ?? {})) {
+      await ensureDir(join(dir, dirname(rel)));
+      await Deno.writeTextFile(join(dir, rel), content);
+      await Deno.chmod(join(dir, rel), 0o755);
+    }
+    findings = await checkDocsIntegrity(
+      dir,
+      parseConfigOrThrow(opts.toml ?? ""),
+      model,
+    );
   });
-  assert(tree !== undefined, "the configured map exists");
-  return tree.entries;
+  return findings;
 }
 
-/** Whether an entry renders on published surfaces: a published-tier section
- * (or a root-level doc) that the page-level predicate admits. */
-function isPublishedPage(entry: DocEntry): boolean {
-  const publishedTier = entry.section === "" ||
-    BUNDLED_PUBLIC_DOC_DIRS.includes(entry.section);
-  return publishedTier && isPublicDoc(entry);
+/** The `rule` findings only, as `file:line detail` strings for asserts. */
+function ruleFindings(
+  findings: DocsIntegrityFinding[],
+  rule: DocsIntegrityFinding["rule"],
+): string[] {
+  return findings
+    .filter((f) => f.rule === rule)
+    .map((f) => `${f.file}:${f.line} ${f.detail}`);
 }
 
-/** A link target with an external scheme (`https:`, `mailto:`, …). */
-function isExternal(target: string): boolean {
-  return /^[a-z][a-z0-9+.-]*:/i.test(target) || target.startsWith("//");
-}
+Deno.test("bites: a dead link and a dead anchor fail; sound ones pass", async () => {
+  const findings = await fixtureFindings({
+    [`${MAP}/README.md`]: [
+      "# Map",
+      "",
+      "A [dead link](missing.md) and a [dead anchor](guide.md#nowhere).",
+      "A [sound link](guide.md) and a [sound anchor](guide.md#setup).",
+    ].join("\n"),
+    [`${MAP}/guide.md`]: "# Guide\n\n## Setup\n\nText.\n",
+  });
+  const dead = ruleFindings(findings, "dead-link");
+  assertEquals(dead.length, 1);
+  assert(dead[0]?.includes("missing.md"), dead[0]);
+  assert(dead[0]?.startsWith(`${MAP}/README.md:3`), dead[0]);
+  const anchors = ruleFindings(findings, "dead-anchor");
+  assertEquals(anchors.length, 1);
+  assert(anchors[0]?.includes("nowhere"), anchors[0]);
+  assertEquals(findings.length, 2);
+});
 
-/** Resolve a link's path part against its source file, tolerating URL
- * escapes. Returns undefined for an unresolvable escape sequence. */
-function resolveTarget(from: string, path: string): string | undefined {
-  try {
-    return resolve(dirname(from), decodeURIComponent(path));
-  } catch {
-    return undefined;
-  }
-}
+Deno.test("bites: root-relative and external link targets are out of scope", async () => {
+  const findings = await fixtureFindings({
+    [`${MAP}/README.md`]: [
+      "# Map",
+      "",
+      "A [site-absolute route](/docs/elsewhere), an",
+      "[external page](https://example.com/x), and a",
+      "[protocol-relative one](//example.com/y).",
+    ].join("\n"),
+  });
+  assertEquals(findings, []);
+});
 
-Deno.test("every fenced `discern …` example in the current map validates against the live registry", async () => {
-  const model = cliCommandModel(buildCli(false) as unknown as Command);
-  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
-  const extraVerbs = new Set(scripts.map((s) => s.name));
+Deno.test("bites: a broken or mis-shaped metadata block fails; third-party keys pass", async () => {
+  const bad = await fixtureFindings({
+    [`${MAP}/broken.md`]: "---\ntitle: Never closed\n\n# Broken\n",
+    [`${MAP}/shape.md`]: "---\npublish: 0\n---\n\n# Shape\n",
+  });
+  const frontmatter = ruleFindings(bad, "frontmatter");
+  assertEquals(frontmatter.length, 2);
+  assert(
+    frontmatter.some((f) => f.includes("never closes")),
+    frontmatter.join("; "),
+  );
+  assert(
+    frontmatter.some((f) => f.includes("publish: must be exactly")),
+    frontmatter.join("; "),
+  );
 
-  const failures: string[] = [];
-  for (const entry of await currentDocs()) {
-    const text = await Deno.readTextFile(entry.absPath);
-    for (const { line, command } of extractFencedCommands(text)) {
-      const reason = validateFencedCommand(command, model, extraVerbs);
-      if (reason !== undefined) {
-        failures.push(
-          `${
-            relative(REPO_ROOT, entry.absPath)
-          }:${line} \`${command}\` — ${reason}`,
-        );
-      }
-    }
-  }
-  assertEquals(
-    failures,
-    [],
-    "fenced examples must match the live CLI — update the example (or the " +
-      "command registry) so readers are never handed a command that fails",
+  // Unknown keys are legitimate third-party frontmatter, not a defect.
+  const tolerant = await fixtureFindings({
+    [`${MAP}/page.md`]: "---\nlayout: post\nsidebar_position: 4\n---\n\n# P\n",
+  });
+  assertEquals(tolerant, []);
+});
+
+Deno.test("bites: a stale fenced command fails; a project-script verb passes", async () => {
+  const stale = await fixtureFindings({
+    [`${MAP}/howto.md`]: "# Howto\n\n```sh\ndiscern frobnicate\n```\n",
+  });
+  const commands = ruleFindings(stale, "stale-command");
+  assertEquals(commands.length, 1);
+  assert(commands[0]?.includes("frobnicate"), commands[0]);
+
+  // A Project Script dispatches as a first-class verb, so quoting it is sound.
+  const scripted = await fixtureFindings({
+    [`${MAP}/howto.md`]: "# Howto\n\n```sh\ndiscern deploy\n```\n",
+  }, {
+    executables: {
+      [`${SOURCE_PATHS.scripts.defaultPath}/deploy`]: "#!/bin/sh\n",
+    },
+  });
+  assertEquals(scripted, []);
+});
+
+Deno.test("bites: a published page linking into _internal/ fails; publish: false opts the page out", async () => {
+  const internal = { [`${MAP}/_internal/notes.md`]: "# Notes\n" };
+  const leak = await fixtureFindings({
+    ...internal,
+    [`${MAP}/README.md`]: "# Map\n\nSee [notes](_internal/notes.md).\n",
+  });
+  const boundary = ruleFindings(leak, "audience-boundary");
+  assertEquals(boundary.length, 1);
+  assert(boundary[0]?.includes("_internal/"), boundary[0]);
+
+  // The page-level withhold is the escape: an internal-leaning page says so.
+  const withheld = await fixtureFindings({
+    ...internal,
+    [`${MAP}/README.md`]:
+      "---\npublish: false\n---\n\n# Map\n\nSee [notes](_internal/notes.md).\n",
+  });
+  assertEquals(withheld, []);
+});
+
+Deno.test("bites: a citation of a missing or excluded skill fails; non-citation spellings pass", async () => {
+  const unknown = await fixtureFindings({
+    [`${MAP}/README.md`]:
+      "# Map\n\nUse the `discern-made-up-name` skill for this.\n",
+  });
+  const citations = ruleFindings(unknown, "skill-citation");
+  assertEquals(citations.length, 1);
+  assert(citations[0]?.includes("discern-made-up-name"), citations[0]);
+
+  // The exclusion footgun: `[skills].exclude` removes the skill everywhere,
+  // so prose still recommending it now cites something that does not exist.
+  const excluded = await fixtureFindings({
+    [`${MAP}/README.md`]: "# Map\n\nReach for `discern-cure-a-bug` here.\n",
+  }, { toml: '[skills]\nexclude = ["discern-cure-a-bug"]' });
+  assertEquals(ruleFindings(excluded, "skill-citation").length, 1);
+  // …and without the exclusion the same citation is sound.
+  const included = await fixtureFindings({
+    [`${MAP}/README.md`]: "# Map\n\nReach for `discern-cure-a-bug` here.\n",
+  });
+  assertEquals(included, []);
+
+  // Escapes: fenced tokens, spans carrying more than the token, bare prose,
+  // and single-segment names are spellings, not citations.
+  const spellings = await fixtureFindings({
+    [`${MAP}/README.md`]: [
+      "# Map",
+      "",
+      "```json",
+      '"discern-made-up-name": "jsr:@example/pkg@1.0.0"',
+      "```",
+      "",
+      "Mark it `discern-made-up-name: <reason>` in the comment.",
+      "Plain prose mentioning discern-made-up-name is left alone.",
+      "A single-segment `discern-results` is a filename.",
+    ].join("\n"),
+  });
+  assertEquals(spellings, []);
+});
+
+Deno.test("bites: guidance sources get the command and citation checks, nothing page-shaped", async () => {
+  const guidance = SOURCE_PATHS.guidance.defaultPath;
+  const findings = await fixtureFindings({
+    [guidance]: [
+      "---", // an unterminated fence — guidance is prose, not a map page,
+      "so this must NOT be read as a broken metadata block.",
+      "",
+      "Run:",
+      "",
+      "```sh",
+      "discern frobnicate",
+      "```",
+      "",
+      "Then use the `discern-made-up-name` skill.",
+      "And a [dead link](missing.md) is fine here too.",
+    ].join("\n"),
+  });
+  assertEquals(ruleFindings(findings, "stale-command").length, 1);
+  assertEquals(ruleFindings(findings, "skill-citation").length, 1);
+  assertEquals(findings.length, 2, JSON.stringify(findings));
+  assert(
+    findings.every((f) => f.file === guidance),
+    "guidance findings must name the source file",
   );
 });
 
-Deno.test("every intra-map link in the current map resolves, and every named anchor exists", async () => {
-  const docs = await currentDocs();
-  const anchorCache = new Map<string, Set<string>>();
-  const anchorsOf = async (absPath: string): Promise<Set<string>> => {
-    const cached = anchorCache.get(absPath);
-    if (cached !== undefined) return cached;
-    const anchors = headingAnchors(await Deno.readTextFile(absPath));
-    anchorCache.set(absPath, anchors);
-    return anchors;
-  };
-  /** The Markdown file a target names: itself, or its README when it is a
-   * directory. Undefined when the target is not a Markdown page. */
-  const asMarkdownPage = async (
-    abs: string,
-  ): Promise<string | undefined> => {
-    if (abs.toLowerCase().endsWith(".md")) return abs;
-    try {
-      if ((await Deno.stat(abs)).isDirectory) {
-        const readme = join(abs, "README.md");
-        await Deno.stat(readme);
-        return readme;
-      }
-    } catch {
-      return undefined;
-    }
-    return undefined;
-  };
-
-  const failures: string[] = [];
-  for (const entry of docs) {
-    const text = await Deno.readTextFile(entry.absPath);
-    const rel = relative(REPO_ROOT, entry.absPath);
-    for (const { target, line } of extractDocLinks(text)) {
-      if (isExternal(target)) continue;
-      const hash = target.indexOf("#");
-      const path = hash === -1 ? target : target.slice(0, hash);
-      const fragment = hash === -1 ? "" : target.slice(hash + 1);
-
-      let abs = entry.absPath;
-      if (path !== "") {
-        const resolved = resolveTarget(entry.absPath, path);
-        if (resolved === undefined) {
-          failures.push(`${rel}:${line} unresolvable link "${target}"`);
-          continue;
-        }
-        abs = resolved;
-        try {
-          await Deno.stat(abs);
-        } catch {
-          failures.push(
-            `${rel}:${line} dead link "${target}" — no such file`,
-          );
-          continue;
-        }
-      }
-
-      if (fragment === "") continue;
-      const page = await asMarkdownPage(abs);
-      if (page === undefined) continue; // a non-page anchor (#L10 on source)
-      if (!(await anchorsOf(page)).has(fragment)) {
-        failures.push(
-          `${rel}:${line} dead anchor "${target}" — the renderer emits no ` +
-            `heading id "${fragment}" there`,
-        );
-      }
-    }
-  }
-  assertEquals(
-    failures,
-    [],
-    "intra-map links and anchors must resolve — repoint the link, or restore " +
-      "the heading/file it names",
-  );
-});
-
-Deno.test("no published page links into _internal/ or _private/", async () => {
-  const failures: string[] = [];
-  for (const entry of await currentDocs()) {
-    if (!isPublishedPage(entry)) continue;
-    const text = await Deno.readTextFile(entry.absPath);
-    for (const { target, line } of extractDocLinks(text)) {
-      if (isExternal(target)) continue;
-      const path = target.split("#")[0] ?? "";
-      if (path === "") continue;
-      const abs = resolveTarget(entry.absPath, path);
-      if (abs === undefined) continue;
-      const inMap = relative(REPO_AUTHORED_PATHS.map, abs);
-      if (inMap.startsWith("..")) continue;
-      const crossed = inMap.split("/").find(
-        (seg) => seg === "_internal" || seg === "_private",
-      );
-      if (crossed !== undefined) {
-        failures.push(
-          `${relative(REPO_ROOT, entry.absPath)}:${line} links "${target}" — ` +
-            `a published page must not link into ${crossed}/`,
-        );
-      }
-    }
-  }
-  assertEquals(
-    failures,
-    [],
-    "published pages may cite decisions (_adr) but never the internal or " +
-      "private trees — remove or repoint the link",
-  );
+Deno.test("a project with no map and no guidance has nothing to check", async () => {
+  assertEquals(await fixtureFindings({}), []);
 });

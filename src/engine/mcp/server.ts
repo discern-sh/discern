@@ -360,8 +360,9 @@ export const TOOLS: McpTool[] = orderTools([
       "resources; data.standards lists the configured quality standards — numbers " +
       "that can never get worse. " +
       "data.stale_generated flags agent files, data.stale_materialized " +
-      "the materialized skills, and data.stale_integrations provider integration " +
-      "files, that have drifted from their sources (call " +
+      "the materialized skills, data.stale_integrations provider integration " +
+      "files, and data.stale_adr_index the maintained ADR index, " +
+      "that have drifted from their sources (call " +
       "discern_refresh for any of them); data.setup_unfinished is present while the project's " +
       "one-time setup is still incomplete. From the " +
       "main checkout it leads with data.fleet (a cheap row per worktree: branch, " +
@@ -398,8 +399,10 @@ export const TOOLS: McpTool[] = orderTools([
     title: "Refresh generated artifacts",
     outputSchema: RefreshOutputSchema.shape,
     annotations: REFRESH,
-    description: "Refresh the agent files, materialized skills, and provider " +
-      "integration artifacts. It rewrites discern-generated or co-managed artifacts " +
+    description: "Refresh the agent files, materialized skills, provider " +
+      "integration artifacts, and the maintained ADR index (the record lists " +
+      "between markers in the map's ADR README, regenerated from the record " +
+      "files on disk). It rewrites discern-generated or co-managed artifacts " +
       "only; edit guidance sources, skill sources, or explicit provider config for " +
       "durable changes. Idempotent: a second call with the same inputs writes nothing. " +
       "Use discern_update for this branch; use `discern upgrade` for discern itself.",

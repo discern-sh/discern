@@ -14,6 +14,7 @@ import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import {
   extractDocLinks,
   extractFencedCommands,
+  extractSkillCitations,
   headingAnchors,
   validateFencedCommand,
 } from "../src/lib/docs_integrity.ts";
@@ -173,4 +174,36 @@ Deno.test("project-script names validate only when enrolled as extra verbs", () 
     ),
     undefined,
   );
+});
+
+// ── skill-citation extraction ─────────────────────────────────────────────────
+
+Deno.test("extractSkillCitations finds exact backticked tokens outside fences", () => {
+  const md = [
+    "# Page",
+    "",
+    "Use the `discern-cure-a-bug` skill, or **`discern-write-adr`** bolded.",
+    "",
+    "```json",
+    '"discern-design-system": "jsr:@example/pkg@1.0.0"',
+    "```",
+    "",
+    "A span with more than the token: `discern-allow-retrospective: <reason>`.",
+    "Bare prose discern-cure-a-bug is not a citation, nor is `discern-results`.",
+  ].join("\n");
+  assertEquals(extractSkillCitations(md), [
+    { line: 3, name: "discern-cure-a-bug" },
+    { line: 3, name: "discern-write-adr" },
+  ]);
+});
+
+Deno.test("extractSkillCitations survives an unclosed fence", () => {
+  const md = [
+    "`discern-cure-a-bug` before the fence.",
+    "```",
+    "`discern-write-adr` inside the never-closed fence.",
+  ].join("\n");
+  assertEquals(extractSkillCitations(md), [
+    { line: 1, name: "discern-cure-a-bug" },
+  ]);
 });

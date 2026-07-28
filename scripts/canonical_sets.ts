@@ -717,16 +717,15 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/adr_index_test.ts",
+      "tests/engine_adr_index_test.ts",
       "tests/adr_citation_form_test.ts",
       "tests/adr_citations_test.ts",
       "tests/improve_count_adrs_test.ts",
     ],
-    artifacts: [
-      {
-        path: "project/map/_adr/README.md",
-        kind: "maintained-block",
-      },
-    ],
+    // The maintained ADR index (project/map/_adr/README.md) is not a codegen
+    // artifact: `discern refresh` maintains it in ANY project, and the
+    // gate's adr_index currency precondition holds it to the records on disk.
+    artifacts: [],
     enrolledIn: {
       glossary: {
         absent:
@@ -959,6 +958,32 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () => [
       ...(await import("../tests/repo_authored_paths.ts")).AUTHORED_TS_ROOTS,
     ],
+  },
+  {
+    id: "artifact-validators",
+    title: "Artifact validators",
+    what:
+      "Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.",
+    source: {
+      kind: "module",
+      module: "tests/validator_registry.ts",
+      exportName: "ARTIFACT_VALIDATORS",
+    },
+    guards: ["tests/validator_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "an internal enforcement-parity contract, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "guard infrastructure for this repository's own wiring, not a product feature",
+      },
+    },
+    members: async () =>
+      (await import("../tests/validator_registry.ts")).ARTIFACT_VALIDATORS
+        .map((entry) => `${entry.module}#${entry.exportName}`),
   },
   {
     id: "canonical-sets",

@@ -5097,6 +5097,8 @@
                         "skills",
                         "skill_frontmatter",
                         "adr_numbers",
+                        "adr_index",
+                        "map_integrity",
                         "merge",
                         "standards",
                         "write_access"
@@ -6933,6 +6935,12 @@
                     "type": "string"
                   }
                 },
+                "adr_index_written": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "skills": {
                   "type": "object",
                   "properties": {
@@ -6965,6 +6973,7 @@
                 "hooks_wired",
                 "worktree_app_wired",
                 "project_rules_wired",
+                "adr_index_written",
                 "skills",
                 "errors"
               ]
@@ -9132,6 +9141,12 @@
                   }
                 },
                 "stale_integrations": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "stale_adr_index": {
                   "type": "array",
                   "items": {
                     "type": "string"

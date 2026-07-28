@@ -20,12 +20,17 @@ One validated model in [`src/lib/docs.ts`](../../../src/lib/docs.ts) backs every
 
 Sibling reading order is README-first, then `DocEntry.order`. An explicit frontmatter `order` is authoritative; while a sibling has none, discovery fills it from the section README's authored table/list link order. Only direct sibling Markdown links count, so source links and cross-section "see also" lists cannot reorder a section. This makes the README's existing curation part of the model rather than something each renderer must rediscover.
 
-## Frontmatter: lenient read, strict gate
+## Frontmatter: lenient read, two validation tiers
 
-[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the shared fenced-block scanner (`SKILL.md` identity blocks read it too) and two policies over it ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)):
+[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the shared fenced-block scanner (`SKILL.md` identity blocks read it too) and three policies over one set of per-key shape rules ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md), [ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)):
 
 - `parseFrontmatter` reads leniently — unknown keys and out-of-shape values are ignored, so no reader can lose a document to a metadata mistake;
-- `validateFrontmatter` applies the strict, closed schema (`title` with its short-label ceiling, `description` bounds, integer `order`, boolean `publish`, `redirect_from` as absolute canonical routes, `aliases`), and [`tests/map_frontmatter_test.ts`](../../../tests/map_frontmatter_test.ts) walks the live map so any violation fails the gate.
+- `frontmatterShapeIssues` is the domain-neutral tier every project's gate applies through the map-integrity preflight: a broken block (unterminated fence, invalid YAML, non-mapping) and mis-shaped values on discern's known keys fail; unknown keys stay legal, because projects carry third-party frontmatter;
+- `validateFrontmatter` layers the strict, closed schema on the same shape rules (unknown-key rejection, `title`'s short-label ceiling, `description` bounds, `redirect_from` as absolute canonical routes, list-content rules); [`tests/map_frontmatter_test.ts`](../../../tests/map_frontmatter_test.ts) holds this repo's own map to it — it is house style, not part of the shipped gate.
+
+## The map-integrity preflight
+
+[`src/lib/map_integrity.ts`](../../../src/lib/map_integrity.ts) is the pure `(root, config, cli) → findings` core behind the gate's documentation precondition (`failed_stage: "map_integrity"`), applying the scanners in [`src/lib/docs_integrity.ts`](../../../src/lib/docs_integrity.ts) over the current map corpus (non-`_` subtrees plus root docs) and the `[guidance].sources` files: intra-map links and heading anchors resolve against the shared renderer's output, frontmatter passes the neutral tier, fenced `discern` examples validate against the live command model with Project Scripts as extra verbs, published pages (`isPublicDoc` over the corpus) never link into `_internal/`/`_private/`, and code-span skill citations name a skill in the effective set. [`tests/map_integrity_test.ts`](../../../tests/map_integrity_test.ts) is a thin layer over the same core: the live-corpus run plus per-rule bite proofs.
 
 ## The publication predicate
 

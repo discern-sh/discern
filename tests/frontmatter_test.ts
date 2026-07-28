@@ -12,6 +12,7 @@ import {
   DESCRIPTION_MIN_LENGTH,
   DOC_META_KEYS,
   frontmatterParseIssue,
+  frontmatterShapeIssues,
   parseFrontmatter,
   TITLE_MAX_LENGTH,
   UNTERMINATED_FRONTMATTER_ISSUE,
@@ -206,6 +207,87 @@ Deno.test("an unterminated or unparseable block fails loudly, not silently", () 
   const nested = validateFrontmatter(doc("metadata:", "  author: someone"));
   assertEquals(nested.length, 1);
   assert(nested[0]?.startsWith("metadata: unknown key"), nested[0]);
+});
+
+// ── the domain-neutral tier (the shipped gate's view) ───────────────────────
+
+Deno.test("neutral tier: a broken block fails — the lenient reader would swallow it", () => {
+  // Unterminated fence.
+  const unterminated = frontmatterShapeIssues("---\ntitle: Broken\n\n# Doc\n");
+  assertEquals(unterminated.length, 1);
+  assert(unterminated[0]?.includes("never closes"), unterminated[0]);
+  // Invalid YAML.
+  const invalid = frontmatterShapeIssues(
+    doc("description: broken in scope: everywhere"),
+  );
+  assertEquals(invalid.length, 1);
+  assert(invalid[0]?.includes("not valid YAML"), invalid[0]);
+  // Valid YAML that is not a mapping.
+  const list = frontmatterShapeIssues(doc("- a", "- b"));
+  assertEquals(list.length, 1);
+  assert(list[0]?.includes("must be a YAML mapping"), list[0]);
+});
+
+Deno.test("neutral tier: a mis-shaped recognised key fails — the reader would drop it", () => {
+  assertEquals(frontmatterShapeIssues(doc("order: soon")), [
+    "order: must be a non-negative integer",
+  ]);
+  assertEquals(frontmatterShapeIssues(doc("publish: 0")), [
+    "publish: must be exactly true or false",
+  ]);
+  const numeric = frontmatterShapeIssues(doc("title: 2026"));
+  assertEquals(numeric.length, 1);
+  assert(numeric[0]?.startsWith("title: must be text"), numeric[0]);
+  assertEquals(
+    frontmatterShapeIssues(doc("redirect_from: /docs/scalar-not-list")),
+    ["redirect_from: must be a `- item` list of absolute routes"],
+  );
+});
+
+Deno.test("neutral tier: unknown keys and out-of-bounds values are tolerated", () => {
+  // Third-party frontmatter beside discern's keys is legitimate in any project.
+  assertEquals(
+    frontmatterShapeIssues(doc(
+      "layout: post",
+      "tags:",
+      "  - releases",
+      "sidebar_position: 4",
+    )),
+    [],
+  );
+  // Length bounds are the strict tier's house style, not a readability rule.
+  assertEquals(
+    frontmatterShapeIssues(doc(`title: ${"A".repeat(TITLE_MAX_LENGTH + 20)}`)),
+    [],
+  );
+  assertEquals(frontmatterShapeIssues(doc("description: Short.")), []);
+  // No block at all, and a clean block, are both clean.
+  assertEquals(frontmatterShapeIssues("# No block\n\nBody.\n"), []);
+  assertEquals(frontmatterShapeIssues(doc("publish: false", "order: 2")), []);
+});
+
+Deno.test("neutral tier is a subset of strict: every neutral issue also fails strict", () => {
+  // The two tiers share one definition per key rule (strict = shapes +
+  // extras), so a document the neutral tier rejects can never pass strict.
+  const fixtures = [
+    "---\ntitle: Broken\n\n# Doc\n",
+    doc("description: broken in scope: everywhere"),
+    doc("- a", "- b"),
+    doc("order: soon"),
+    doc("publish: 0"),
+    doc("title: 2026"),
+    doc("redirect_from: /docs/scalar-not-list"),
+    doc("aliases: files"),
+  ];
+  for (const md of fixtures) {
+    const strict = validateFrontmatter(md);
+    for (const problem of frontmatterShapeIssues(md)) {
+      assert(
+        strict.includes(problem),
+        `strict must contain the neutral issue "${problem}" (got: ${strict})`,
+      );
+    }
+  }
 });
 
 Deno.test("frontmatterParseIssue: the writer-side strict parse", () => {

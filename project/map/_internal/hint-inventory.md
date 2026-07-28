@@ -73,6 +73,19 @@ Rendered example:
 Run `discern status` to get the honored receipt for the owner's review (data.gate_receipt.receipt) and the exact `git diff` command for the raw change.
 ```
 
+## `adr-index-stale`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `generated-drift`
+- Emitting context: The maintained ADR index no longer matches the record files on disk.
+
+Rendered example:
+
+```text
+Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (docs/_adr/README.md). Edit record files, not the generated lists. Refresh rewrites the lists between the markers.
+```
+
 ## `config-job-deferred`
 
 - Category: `next-step`
@@ -268,6 +281,19 @@ Rendered example:
 Measure 2 deferred standards with `discern standards` as needed: coverage, binary_size. Their measurements are on demand, but the never-loosen limit check still ran.
 ```
 
+## `gate-failure-adr-index`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The maintained ADR index is out of date, or a record defeats its derivation.
+
+Rendered example:
+
+```text
+Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, fix what it names first — a record's first heading, or a marker pair in the README missing its END marker — and refresh again.
+```
+
 ## `gate-failure-adr-numbers`
 
 - Category: `next-step`
@@ -376,6 +402,19 @@ Rendered example:
 
 ```text
 Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites Agent files.
+```
+
+## `gate-failure-map-integrity`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The gate finds a broken reference or stale example in the map or a guidance source.
+
+Rendered example:
+
+```text
+Fix each documentation finding named by the diagnostics — repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist — then re-run the current discern command.
 ```
 
 ## `gate-failure-merge`

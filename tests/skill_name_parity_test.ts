@@ -19,15 +19,15 @@ import { assert, assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
 import { walk } from "@std/fs";
 import { bundledSkillNames } from "../src/lib/skills.ts";
+import { SKILL_CITATION_BARE } from "../src/lib/docs_integrity.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
-/** Two-plus segments after the prefix — the bundled naming grammar (imperative
- * verb + object). Single-segment tokens (`discern-results`, an artifact
- * filename) never match, and the lookbehind drops tokens reached mid-word:
- * dotfile/path/scoped-package namespaces (`.discern-help-docs`,
- * `/tmp/discern-job-lint.log`) and ADR-slug fragments
- * (`0119-bare-discern-opens-…`) are spellings, not citations. */
-const CITATION = /(?<![\w@/.-])discern-[a-z]+(?:-[a-z]+)+\b/g;
+/** The citation grammar, from its single source (docs_integrity.ts): two-plus
+ * segments after the prefix, reached at a word boundary. This repo-local sweep
+ * is deliberately WIDER than the shipped preflight's backticked-span check —
+ * bare tokens in source strings and templates count here — so it keeps its own
+ * reasoned exception map below. */
+const CITATION = SKILL_CITATION_BARE;
 
 /** Grammar-matching tokens that are NOT skill citations. Each names its
  * reason, and the test asserts every entry stays a non-skill so this set can

@@ -27,7 +27,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                           | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks) | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                 | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 126     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 129     | "Advisory"       | node `hints`                |
 | [`logbook-events`](#logbook-events--logbook-events)                            | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)            | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
@@ -35,7 +35,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`feature-canon`](#feature-canon--feature-canon)                               | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                      | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)             | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
-| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 194     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 197     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                   | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary) | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
@@ -43,9 +43,10 @@ One row per set, in registry order; the sections below follow the same order and
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)       | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 32      | —                | node `canonical-sets`       |
+| [`artifact-validators`](#artifact-validators--artifact-validators)             | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 33      | —                | node `canonical-sets`       |
 
-32 sets · 56 guard tests · 15 committed artifacts.
+33 sets · 58 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -65,6 +66,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`             | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
 | `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/engine_adr_index_test.ts`          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
 | `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
 | `tests/engine_interrupt_surfaces_test.ts` | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
@@ -106,6 +108,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/skill_name_parity_test.ts`         | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                          |
 | `tests/ssot_claim_guard_test.ts`          | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                          |
 | `tests/third_party_notices_test.ts`       | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                     |
+| `tests/validator_enrolment_test.ts`       | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                           |
 | `tests/vocab_drift_test.ts`               | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
 | `tests/voice_vale_parity_test.ts`         | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                              |
 | `tests/worktree_tokens_test.ts`           | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                                                                                                                                                                                                               |
@@ -122,7 +125,6 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                       |
 | `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                         |
 | `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
-| `project/map/_adr/README.md`                     | maintained block | [`adrs`](#adrs--architecture-decision-records)                           |
 | `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                         |
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                 |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                      |
@@ -289,7 +291,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 126
+- Members: 129
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -373,9 +375,8 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 194
-- Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
-- Artifacts: `project/map/_adr/README.md`
+- Members: 197
+- Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
 
@@ -451,12 +452,22 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
 - Glossary: not enrolled — this repository's internal scan universe, not product vocabulary
 - Feature canon: not enrolled — guard infrastructure for this repository's own sweeps, not a product feature
 
+## `artifact-validators` — Artifact validators
+
+Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.
+
+- Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
+- Members: 9
+- Guards: `tests/validator_enrolment_test.ts`
+- Glossary: not enrolled — an internal enforcement-parity contract, not product vocabulary
+- Feature canon: not enrolled — guard infrastructure for this repository's own wiring, not a product feature
+
 ## `canonical-sets` — Canonical sets
 
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 32
+- Members: 33
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
