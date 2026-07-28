@@ -726,7 +726,7 @@ Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limi
 Rendered example:
 
 ```text
-Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs). In flight: done on agent/fix-upload-retry, typically ~3m. This run starts when a slot frees.
+Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs); the tests start the moment a slot frees. In flight: done on agent/fix-upload-retry, typically ~3m.
 ```
 
 ## `gate-test-slots-unavailable`

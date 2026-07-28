@@ -1315,7 +1315,8 @@ export const HINTS = {
     template: ({ cap, inFlight, typical, logbookOff }): string => {
       const queued = `Tests queued: ${cap} of ${cap} concurrent test runs ` +
         `in use across this repository's checkouts ` +
-        `([gate].concurrent_test_runs).`;
+        `([gate].concurrent_test_runs); the tests start the moment a slot ` +
+        `frees.`;
       const flight = inFlight === undefined
         ? ""
         : ` In flight: ${inFlight}${
@@ -1325,7 +1326,7 @@ export const HINTS = {
         ? " The logbook is off ([project].logbook = false), so there is no " +
           "wait estimate."
         : "";
-      return `${queued}${flight}${estimate} This run starts when a slot frees.`;
+      return `${queued}${flight}${estimate}`;
     },
   }),
 
