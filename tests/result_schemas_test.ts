@@ -26,6 +26,7 @@ import {
 } from "./engine_helpers.ts";
 import {
   type DiscernResult,
+  ERROR_SLUGS,
   FAILED_STAGES,
   serializeResult,
   STEP_DISPOSITIONS,
@@ -159,7 +160,7 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
     }],
     data: { anything: 1 },
     hints: ["h"],
-    error: "e",
+    error: "internal_error",
     message: "msg",
   };
   const serialized = serializeResult(maximal);
@@ -168,6 +169,23 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
   // versa) — so neither side can grow a field the other doesn't know about.
   const schemaKeys = Object.keys(EnvelopeSchema.shape).sort();
   assertEquals(Object.keys(serialized).sort(), schemaKeys);
+});
+
+Deno.test("runtime result schemas accept only the canonical error-slug vocabulary", () => {
+  for (const error of ERROR_SLUGS) {
+    assert(
+      EnvelopeSchema.safeParse({ ok: false, verb: "demo", error }).success,
+      `EnvelopeSchema should accept the error slug "${error}"`,
+    );
+  }
+  assert(
+    !EnvelopeSchema.safeParse({
+      ok: false,
+      verb: "demo",
+      error: "future_error_slug",
+    }).success,
+    "runtime result schemas must reject error slugs outside ERROR_SLUGS",
+  );
 });
 
 // ── contract-coverage enrollment (the forcing function for NEW contracts) ────

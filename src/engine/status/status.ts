@@ -163,7 +163,7 @@ export async function statusResult(
     return {
       ok: false,
       verb: "status",
-      error: "conflicting_flags",
+      error: "invalid_arguments",
       message: "--all and --local cannot be combined — pick one.",
     };
   }

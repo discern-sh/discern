@@ -593,7 +593,7 @@ Deno.test("status: --all and --local together is a refusal", async () => {
     const obj = JSON.parse(r.stdout.trim());
     assertEquals(obj.ok, false);
     assertEquals(obj.verb, "status");
-    assertEquals(obj.error, "conflicting_flags");
+    assertEquals(obj.error, "invalid_arguments");
 
     // Human mode refuses with the same non-zero exit.
     const human = await runAgent(dir, ["status", "--all", "--local"]);

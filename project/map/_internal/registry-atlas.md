@@ -42,6 +42,8 @@ One row per set, in registry order; the sections below follow the same order and
 | [`feature-canon`](#feature-canon--feature-canon)                                        | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                               | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications) | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                      | 2       | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                       | `src/shared/result.ts#ERROR_SLUGS`                                             | 62      | —                | node `published-contracts`  |
+| [`step-outcomes`](#step-outcomes--step-outcomes)                                        | `src/shared/result.ts#STEP_OUTCOMES`                                           | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                      | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)       | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                | 5       | —                | node `bundled-help`         |
 | [`adrs`](#adrs--architecture-decision-records)                                          | `src/lib/docs.ts#adrRecords`                                                   | 200     | —                | node `adr-discipline`       |
@@ -53,9 +55,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                     | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)           | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                      | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                     | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 42      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                     | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 44      | —                | node `canonical-sets`       |
 
-42 sets · 70 guard tests · 14 committed artifacts.
+44 sets · 70 guard tests · 18 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -98,7 +100,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/execution_model_test.ts`            | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                         |
 | `tests/feature_canon_codegen_test.ts`      | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                             |
 | `tests/feature_canon_enrolment_test.ts`    | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon) |
-| `tests/gate_plan_test.ts`                  | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/gate_plan_test.ts`                  | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                   |
 | `tests/git_admin_state_test.ts`            | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                       |
 | `tests/glossary_codegen_test.ts`           | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
 | `tests/glossary_enrolment_test.ts`         | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                             |
@@ -113,7 +115,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/improve_count_adrs_test.ts`         | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
 | `tests/logbook_no_network_test.ts`         | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
 | `tests/logbook_routing_test.ts`            | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                         |
-| `tests/logbook_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/logbook_test.ts`                    | [`logbook-events`](#logbook-events--logbook-events), [`error-slugs`](#error-slugs--result-error-slugs)                                                                                                                                                                                                       |
 | `tests/paths_literal_ban_test.ts`          | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
 | `tests/paths_registry_test.ts`             | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
 | `tests/paths_sentinel_render_test.ts`      | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
@@ -121,8 +123,8 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/patterns_test.ts`                   | [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                       |
 | `tests/public_doc_parity_test.ts`          | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                           |
 | `tests/repo_authored_paths_test.ts`        | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                |
-| `tests/result_codegen_test.ts`             | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                     |
-| `tests/result_schemas_test.ts`             | [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                      |
+| `tests/result_codegen_test.ts`             | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                |
+| `tests/result_schemas_test.ts`             | [`step-kinds`](#step-kinds--step-kinds), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                 |
 | `tests/site_serve_test.ts`                 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                      |
 | `tests/site_smoke_test.ts`                 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                      |
 | `tests/site_workflow_test.ts`              | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                            |
@@ -151,9 +153,13 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                      |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                         |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
+| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                        |
+| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                         |
 | `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
 | `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
 | `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
+| `types/discern-json.d.ts`                        | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                        |
+| `types/discern-json.d.ts`                        | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                         |
 
 ## `verbs` — Top-level verbs
 
@@ -461,6 +467,28 @@ The versioned public schema URLs and the root generated artifacts served at them
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
+## `error-slugs` — Result error slugs
+
+The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
+
+- Source: `src/shared/result.ts` — `ERROR_SLUGS`
+- Members: 62
+- Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
+- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
+- Glossary: not enrolled — machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms
+- Feature canon: described by the `published-contracts` node
+
+## `step-outcomes` — Step outcomes
+
+The executed-step outcomes shared by runtime validation, result rendering, and public contract artifacts.
+
+- Source: `src/shared/result.ts` — `STEP_OUTCOMES`
+- Members: 4
+- Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/gate_plan_test.ts`
+- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
+- Glossary: not enrolled — wire-level states whose plain-language meanings are shown directly with each executed step
+- Feature canon: described by the `published-contracts` node
+
 ## `public-doc-surfaces` — Public doc surfaces
 
 The projection matrix deciding which map pages publish to each public surface.
@@ -578,7 +606,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 42
+- Members: 44
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

@@ -12,6 +12,7 @@ import {
   MCP_RESULT_CONTRACTS,
 } from "../src/shared/result_contracts.ts";
 import { RESULT_SCHEMA_ID } from "../src/shared/public_schemas.ts";
+import { ERROR_SLUGS } from "../src/shared/result.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 
@@ -78,6 +79,41 @@ Deno.test("public JSON schema is additive-compatible for output objects", () => 
     offenders,
     [],
     "public output schema should not publish additionalProperties:false; keep strictness in runtime Zod/MCP schemas instead",
+  );
+});
+
+Deno.test("public result contracts publish known error slugs without closing the field", () => {
+  const schema = buildResultJsonSchema();
+  assertEquals(schema["x-discern-error-slugs"], [...ERROR_SLUGS]);
+  assert(isRecord(schema.$defs), "result schema should carry $defs");
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    const typeName = `Discern${pascalCase(contract.id)}Result`;
+    const def = schema.$defs[typeName];
+    assert(isRecord(def), `${typeName} should be present in $defs`);
+    assert(isRecord(def.properties), `${typeName} should declare properties`);
+    const error = def.properties.error;
+    assert(isRecord(error), `${typeName}.error should be a schema`);
+    assertEquals(
+      error,
+      { type: "string" },
+      `${typeName}.error must accept future slugs in the public schema`,
+    );
+  }
+
+  const types = renderResultTypesDts();
+  const alias = types.match(
+    /export type DiscernKnownErrorSlug =\n?([\s\S]*?);\n\n/,
+  );
+  assert(
+    alias !== null,
+    "generated types should publish the known-error union",
+  );
+  const members = [...(alias[0].matchAll(/"([^"]+)"/g))]
+    .map((match) => match[1]);
+  assertEquals(members, [...ERROR_SLUGS]);
+  assert(
+    !types.includes("error?:\n    |"),
+    "generated envelope error fields should remain forward-compatible strings",
   );
 });
 

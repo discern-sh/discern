@@ -321,7 +321,7 @@ lint = "eslint ."
   assertEquals(scope.fix_available, undefined);
 });
 
-Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed, and earns no diagnostic", async () => {
+Deno.test("buildGateResult: a cancelled sibling is distinct from skipped and earns no diagnostic", async () => {
   const plan = buildGatePlan(FULL, []);
   const results = new Map<string, JobResult>([
     // lint genuinely failed (carries output); typecheck was fail-fast-cancelled.
@@ -350,7 +350,7 @@ Deno.test("buildGateResult: a cancelled sibling is reported skipped, not failed,
   const steps = result.steps ?? [];
   const step = (l: string) => steps.find((s) => s.step.label === l);
   assertEquals(step("lint")?.outcome, "failed");
-  assertEquals(step("typecheck")?.outcome, "skipped"); // cancelled → skipped, not failed
+  assertEquals(step("typecheck")?.outcome, "cancelled");
   // Only the genuine failure earns a diagnostic; the cancelled sibling does not.
   const diags = result.diagnostics ?? [];
   assert(diags.some((d) => d.tool === "lint"));
@@ -508,6 +508,14 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
       },
       outcome: "failed",
     },
+    {
+      step: {
+        kind: "job",
+        label: "typecheck",
+        disposition: "run",
+      },
+      outcome: "cancelled",
+    },
   ];
   const { sink, lines } = captureSink();
   renderStepResults(sink, { title: "Apply results", steps });
@@ -524,6 +532,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
   assertStringIncludes(text, "output: /tmp/format.out");
   assert(/skipped\s+scope:docs/.test(text), text);
   assert(/failed\s+coverage/.test(text), text);
+  assert(/cancelled\s+typecheck/.test(text), text);
 });
 
 Deno.test("renderStepResults: an empty apply says nothing ran", () => {

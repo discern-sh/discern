@@ -898,6 +898,80 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id),
   },
   {
+    id: "error-slugs",
+    title: "Result error slugs",
+    what:
+      "The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "ERROR_SLUGS",
+    },
+    guards: [
+      "tests/result_schemas_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/logbook_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "types/discern-json.d.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members:
+      async () => [...(await import("../src/shared/result.ts")).ERROR_SLUGS],
+  },
+  {
+    id: "step-outcomes",
+    title: "Step outcomes",
+    what:
+      "The executed-step outcomes shared by runtime validation, result rendering, and public contract artifacts.",
+    source: {
+      kind: "module",
+      module: "src/shared/result.ts",
+      exportName: "STEP_OUTCOMES",
+    },
+    guards: [
+      "tests/result_schemas_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/gate_plan_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "schema/discern-results.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
+        path: "types/discern-json.d.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "wire-level states whose plain-language meanings are shown directly with each executed step",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members:
+      async () => [...(await import("../src/shared/result.ts")).STEP_OUTCOMES],
+  },
+  {
     id: "public-doc-surfaces",
     title: "Public doc surfaces",
     what:

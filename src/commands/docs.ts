@@ -61,7 +61,7 @@ import {
   isBundledDocEntry,
   resolveBundledDocsDir,
 } from "../lib/paths.ts";
-import type { DiscernResult } from "../shared/result.ts";
+import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
 import type {
   DocRecord,
   DocsData,
@@ -90,7 +90,7 @@ interface DocsVerb {
   /** The label in every {@link DiscernResult} and user-facing message. */
   verb: "map" | "help";
   /** Machine-stable error slug when the tree is absent (`no_map` / `no_help`). */
-  missingError: string;
+  missingError: ErrorSlug;
   /**
    * Resolve the directory to hand {@link discoverDocs}. `map` passes a user
    * `--dir` through (and `undefined` keeps discovery's project-root default);
@@ -493,7 +493,7 @@ function invalidOptions(log: Logger, verb: string, message: string): number {
     log.result({
       ok: false,
       verb,
-      error: "invalid_options",
+      error: "invalid_arguments",
       message,
     });
   } else {

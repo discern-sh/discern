@@ -27,6 +27,7 @@ import { z } from "@zod/zod";
 import {
   ACTORS,
   DIAGNOSTIC_SEVERITIES,
+  ERROR_SLUGS,
   FAILED_STAGES,
   STEP_DISPOSITIONS,
   STEP_KINDS,
@@ -117,7 +118,7 @@ const ENVELOPE_BASE_FIELDS = {
   steps: z.array(StepResultJsonSchema).optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
-  error: z.string().optional(),
+  error: z.enum(ERROR_SLUGS).optional(),
   message: z.string().optional(),
 };
 
@@ -128,7 +129,7 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   steps: z.array(StepResultJsonSchema).optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
-  error: z.string().optional(),
+  error: z.enum(ERROR_SLUGS).optional(),
   message: z.string().optional(),
 };
 

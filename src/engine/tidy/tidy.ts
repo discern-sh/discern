@@ -395,7 +395,7 @@ export async function tidyResult(
       return {
         ok: false,
         verb: "tidy",
-        error: "invalid_tidy_type",
+        error: "invalid_arguments",
         message: error.message,
       };
     }

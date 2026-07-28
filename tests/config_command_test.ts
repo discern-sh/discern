@@ -659,7 +659,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
       assertEquals(r.code, 1, r.stderr);
       const result = JSON.parse(r.stdout);
       assertEquals(result.ok, false);
-      assertEquals(result.error, "invalid_argument");
+      assertEquals(result.error, "invalid_arguments");
       assertStringIncludes(result.message, `${kind} name must be`);
     });
   }
