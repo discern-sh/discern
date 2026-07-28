@@ -25,6 +25,12 @@
 
 import { z } from "@zod/zod";
 import {
+  ACCEPT_LANDING_STATE_FIELDS,
+  ACCEPT_LANDING_STATE_SHAPE,
+  type AcceptLandingState,
+  AcceptLandingStateSchema,
+} from "./accept_landing_state.ts";
+import {
   ACTORS,
   DIAGNOSTIC_SEVERITIES,
   ERROR_SLUGS,
@@ -35,6 +41,13 @@ import {
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
+
+export {
+  ACCEPT_LANDING_STATE_FIELDS,
+  ACCEPT_LANDING_STATE_SHAPE,
+  type AcceptLandingState,
+  AcceptLandingStateSchema,
+};
 
 // ── ring 1+2 mirrors: the plan / step / diagnostic sub-shapes ────────────────
 // Zod mirrors of the `result.ts` interfaces `serializeResult` emits. The closed
@@ -513,6 +526,9 @@ export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
 export const AcceptDataSchema = z.strictObject({
   root: z.string(),
   consent: LandingConsentDataSchema,
+  /** Exact effects already performed. Optional for additive v1 compatibility;
+   * current apply results always emit it. */
+  landing: AcceptLandingStateSchema.optional(),
   /** Non-blocking authority evidence the caller should surface. */
   authority_warnings: z.array(z.string()).optional(),
   gate_validation: GateValidationSchema.optional(),

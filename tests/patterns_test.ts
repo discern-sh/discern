@@ -2077,3 +2077,37 @@ Deno.test("patterns coarse history: prune digests extend the red-rate series, ma
     `live months must appear unmarked: ${finding.observed}`,
   );
 });
+
+Deno.test("patterns red-rate history counts partial effects in live and rotated months", () => {
+  const events: LogbookEvent[] = [
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: "2026-06-01T00:00:00.000Z",
+      kind: "prune",
+      removed: [
+        { file: "2026-04.jsonl", events: 5, ok: 4, partial: 1 },
+        { file: "2026-05.jsonl", events: 4, ok: 3, partial: 1 },
+      ],
+    },
+    verb({ at: "2026-06-02T10:00:00.000Z", outcome: "ok" }),
+    verb({
+      at: "2026-06-03T10:00:00.000Z",
+      verb: "accept",
+      outcome: "partial",
+    }),
+  ];
+  const history = DETECTORS.find((d) => d.id === "red-rate-history");
+  assert(history !== undefined);
+  const outcome = runDetector(history, buildStreamFacts(events, "main"));
+  assertEquals(outcome.considered, 3);
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assert(
+    finding.observed.includes("2026-04 20% (coarse)"),
+    `rotated partial effects must remain red: ${finding.observed}`,
+  );
+  assert(
+    finding.observed.includes("2026-06 50%"),
+    `live partial effects must remain red: ${finding.observed}`,
+  );
+});

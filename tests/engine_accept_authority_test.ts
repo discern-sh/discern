@@ -22,6 +22,7 @@ import {
   type LogbookEvent,
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
+import type { LandingConsent } from "../src/shared/consent.ts";
 import {
   addWorktree,
   git,
@@ -170,6 +171,7 @@ async function injectInterruptedAcceptance(
   expected: string,
   target: string,
   effortClaimPath?: string,
+  consent?: LandingConsent,
 ): Promise<InterruptedAcceptanceFixture> {
   const id = effortClaimPath === undefined
     ? crypto.randomUUID()
@@ -184,7 +186,7 @@ async function injectInterruptedAcceptance(
     journal,
     `${
       JSON.stringify({
-        version: 1,
+        version: consent === undefined ? 1 : 2,
         id,
         worktree_branch: await gitOut(worktree, "branch", "--show-current"),
         trunk: "main",
@@ -192,6 +194,7 @@ async function injectInterruptedAcceptance(
         target,
         main_repo: mainRepo,
         effort_claim: effortClaimPath !== undefined,
+        ...(consent === undefined ? {} : { consent }),
       })
     }\n`,
   );
@@ -396,6 +399,455 @@ Deno.test("accept retry reconciles an interruption after trunk CAS without enter
     );
     assertEquals(await exists(interrupted.journal), false);
     assert(await exists(worktree));
+  });
+});
+
+Deno.test("an unconfirmed retry leaves an unbound post-CAS transaction byte-for-byte untouched and records a refusal", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed before checkout convergence\n" },
+      "unbound-cas-interruption",
+    );
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "-m",
+      `discern accept transaction ${interrupted.id}`,
+      "refs/heads/main",
+      target,
+      expected,
+    );
+    await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+    const journalBefore = await Deno.readTextFile(interrupted.journal);
+    const checkoutBefore = await gitOut(dir, "status", "--porcelain");
+    assert(
+      checkoutBefore !== "",
+      "the fixture stops before checkout convergence",
+    );
+
+    const refused = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const envelope = JSON.parse(refused.stdout);
+    assertEquals(envelope.error, "awaiting_consent");
+    assertEquals(
+      await Deno.readTextFile(interrupted.journal),
+      journalBefore,
+      "authority-free retry must not rewrite or remove the journal",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      checkoutBefore,
+      "authority-free retry must not converge the main checkout",
+    );
+    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assertEquals(
+      await readAcceptanceTransactionMarker(worktree, interrupted.id),
+      { kind: "present", target },
+    );
+
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "refused");
+    assertEquals(event.error, "awaiting_consent");
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      undefined,
+    );
+  });
+});
+
+Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and records the partial landing", async () => {
+  const consentCases: LandingConsent[] = [
+    { source: "conversation" },
+    { source: "standing-grant", scopes: ["docs"] },
+  ];
+  for (
+    const consent of consentCases
+  ) {
+    await withTempDir(async (dir) => {
+      const worktree = await readyWorktree(
+        dir,
+        consent.source === "standing-grant"
+          ? authorityConfig(["docs"])
+          : authorityConfig(),
+        consent.source === "standing-grant"
+          ? { "docs/guide.md": "landed before checkout convergence\n" }
+          : { "feature.txt": "landed before checkout convergence\n" },
+        `bound-${consent.source}`,
+      );
+      const expected = await gitOut(dir, "rev-parse", "main");
+      const target = await gitOut(worktree, "rev-parse", "HEAD");
+      const interrupted = await injectInterruptedAcceptance(
+        worktree,
+        dir,
+        expected,
+        target,
+        undefined,
+        consent,
+      );
+      await git(
+        dir,
+        "update-ref",
+        "-m",
+        `discern accept transaction ${interrupted.id}`,
+        "refs/heads/main",
+        target,
+        expected,
+      );
+      await injectCommittedAcceptanceMarker(worktree, interrupted, target);
+
+      const recovered = await runAgent(worktree, ["accept", "--json"]);
+      assertEquals(recovered.code, 1, recovered.output);
+      const envelope = JSON.parse(recovered.stdout);
+      assertEquals(envelope.error, "partial_acceptance");
+      assertEquals(envelope.data.consent, consent);
+      assertEquals(envelope.data.landing, {
+        recovery_performed: true,
+        trunk_landed: true,
+        worktree_removed: false,
+        branch_deleted: false,
+      });
+      assertEquals(envelope.data.root, dir);
+      assertEquals(await gitOut(dir, "status", "--porcelain"), "");
+      assertEquals(await exists(interrupted.journal), false);
+      assert(await exists(worktree));
+
+      const event = (await acceptEvents(dir)).at(-1);
+      assert(event?.kind === "verb");
+      assertEquals(event.outcome, "partial");
+      assertEquals(event.consent, {
+        source: consent.source,
+        ...(consent.scopes === undefined
+          ? {}
+          : { scopes: [...consent.scopes] }),
+      });
+      assertEquals(
+        (event as unknown as { landing?: unknown }).landing,
+        envelope.data.landing,
+      );
+    });
+  }
+});
+
+Deno.test("journal-only pre-CAS consent may reconcile once but cannot authorize a fresh landing", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "not yet landed\n" },
+      "bound-pre-cas",
+    );
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      undefined,
+      { source: "conversation" },
+    );
+
+    const recovered = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(recovered.code, 1, recovered.output);
+    const envelope = JSON.parse(recovered.stdout);
+    assertEquals(envelope.error, "partial_acceptance");
+    assertEquals(envelope.data.landing, {
+      recovery_performed: true,
+      trunk_landed: false,
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assertEquals(await exists(interrupted.journal), false);
+    assert(await exists(worktree));
+
+    const replay = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(replay.code, 1, replay.output);
+    assertEquals(JSON.parse(replay.stdout).error, "awaiting_consent");
+
+    const events = await acceptEvents(dir);
+    assertEquals(events.at(-2)?.outcome, "partial");
+    assertEquals(events.at(-1)?.outcome, "refused");
+  });
+});
+
+Deno.test("an authorized pre-CAS recovery makes every later plan refusal partial", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "not landed after recovery\n" },
+      "pre-cas-then-plan-refusal",
+    );
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      undefined,
+      { source: "conversation" },
+    );
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      `${await Deno.readTextFile(join(dir, "discern.toml"))}\n# local edit\n`,
+    );
+
+    const partial = await runAgent(
+      worktree,
+      ["accept", "--confirmed", "--json"],
+    );
+    assertEquals(partial.code, 1, partial.output);
+    const envelope = JSON.parse(partial.stdout);
+    assertEquals(envelope.error, "partial_acceptance");
+    assertEquals(envelope.data.root, dir);
+    assertEquals(envelope.data.consent, { source: "conversation" });
+    assertEquals(envelope.data.landing, {
+      recovery_performed: true,
+      trunk_landed: false,
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assertStringIncludes(envelope.message, "uncommitted tracked changes");
+    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+    assert(await exists(worktree));
+
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "partial");
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      envelope.data.landing,
+    );
+  });
+});
+
+Deno.test("post-recovery authority loss remains a partial acceptance", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "not landed after authority loss\n" },
+      "pre-cas-then-authority-loss",
+    );
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const interrupted = await injectInterruptedAcceptance(
+      worktree,
+      dir,
+      expected,
+      target,
+      undefined,
+      { source: "conversation" },
+    );
+    await grantEffort(worktree, branch, "2026-07-28T23:35:00.000Z");
+    const grant = await gitAdminStatePath(worktree, "effortGrant");
+    assert(grant !== undefined);
+
+    const gitWrapper = join(dir, "revoke-authority-during-plan-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'saw_status=""',
+        'saw_porcelain=""',
+        'for arg in "$@"; do',
+        '  if [ "$arg" = "status" ]; then saw_status=1; fi',
+        '  if [ "$arg" = "--porcelain" ]; then saw_porcelain=1; fi',
+        "done",
+        'if [ "$saw_status" = 1 ] && [ "$saw_porcelain" = 1 ] && ' +
+        '[ ! -e "$DISCERN_TEST_ACCEPTANCE_JOURNAL" ]; then',
+        '  rm -f "$DISCERN_TEST_EFFORT_GRANT"',
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(gitWrapper, 0o755);
+
+    const partial = await runAgent(worktree, ["accept", "--json"], {
+      env: {
+        GIT_BIN: gitWrapper,
+        DISCERN_TEST_EFFORT_GRANT: grant,
+        DISCERN_TEST_ACCEPTANCE_JOURNAL: interrupted.journal,
+      },
+    });
+    assertEquals(partial.code, 1, partial.output);
+    const envelope = JSON.parse(partial.stdout);
+    assertEquals(envelope.error, "partial_acceptance");
+    assertEquals(envelope.data.root, dir);
+    assertEquals(envelope.data.consent, { source: "conversation" });
+    assertEquals(envelope.data.landing, {
+      recovery_performed: true,
+      trunk_landed: false,
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assertStringIncludes(envelope.message, "needs their explicit acceptance");
+    assertEquals(await exists(interrupted.journal), false);
+    assertEquals(await exists(grant), false);
+    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+    assert(await exists(worktree));
+
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "partial");
+    assertEquals(event.consent, { source: "conversation" });
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      envelope.data.landing,
+    );
+  });
+});
+
+Deno.test("a trunk CAS whose checkout and rollback both fail reports the irreversible landing as partial", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "ref moved without checkout\n" },
+      "checkout-and-rollback-failure",
+    );
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const mainLock = join(dir, ".git", "refs", "heads", "main.lock");
+    const gitWrapper = join(dir, "fail-checkout-and-rollback-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'saw_read_tree=""',
+        'for arg in "$@"; do',
+        '  if [ "$arg" = "read-tree" ]; then saw_read_tree=1; fi',
+        "done",
+        'if [ "$saw_read_tree" = 1 ]; then',
+        '  : > "$DISCERN_TEST_MAIN_REF_LOCK"',
+        '  echo "forced checkout convergence failure" >&2',
+        "  exit 1",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(gitWrapper, 0o755);
+
+    const partial = await runAgent(
+      worktree,
+      ["accept", "--confirmed", "--json"],
+      {
+        env: {
+          GIT_BIN: gitWrapper,
+          DISCERN_TEST_MAIN_REF_LOCK: mainLock,
+        },
+      },
+    );
+    assertEquals(partial.code, 1, partial.output);
+    const envelope = JSON.parse(partial.stdout);
+    assertEquals(envelope.error, "partial_acceptance");
+    assertEquals(envelope.data.root, await Deno.realPath(dir));
+    assertEquals(envelope.data.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assertEquals(await exists(join(dir, "feature.txt")), false);
+    assert(await exists(worktree));
+
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "partial");
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      envelope.data.landing,
+    );
+
+    await Deno.remove(mainLock);
+  });
+});
+
+Deno.test("a post-landing worktree-removal failure returns partial effect state instead of a refusal", async () => {
+  await withTempDir(async (dir) => {
+    const worktree = await readyWorktree(
+      dir,
+      authorityConfig(),
+      { "feature.txt": "landed before removal failed\n" },
+      "removal-failure",
+    );
+    const target = await gitOut(worktree, "rev-parse", "HEAD");
+    const gitWrapper = join(dir, "lock-at-worktree-remove-git");
+    await Deno.writeTextFile(
+      gitWrapper,
+      [
+        "#!/bin/sh",
+        'saw_worktree=""',
+        'saw_remove=""',
+        'for arg in "$@"; do',
+        '  if [ "$arg" = "worktree" ]; then saw_worktree=1; fi',
+        '  if [ "$arg" = "remove" ]; then saw_remove=1; fi',
+        "done",
+        'if [ "$saw_worktree" = 1 ] && [ "$saw_remove" = 1 ]; then',
+        '  git worktree lock "$DISCERN_TEST_WORKTREE"',
+        '  echo "forced worktree removal failure" >&2',
+        "  exit 1",
+        "fi",
+        'exec git "$@"',
+        "",
+      ].join("\n"),
+    );
+    await Deno.chmod(gitWrapper, 0o755);
+
+    const partial = await runAgent(
+      worktree,
+      ["accept", "--confirmed", "--json"],
+      {
+        env: {
+          GIT_BIN: gitWrapper,
+          DISCERN_TEST_WORKTREE: worktree,
+        },
+      },
+    );
+    assertEquals(partial.code, 1, partial.output);
+    const envelope = JSON.parse(partial.stdout);
+    assertEquals(envelope.error, "partial_acceptance");
+    assertEquals(envelope.data.root, await Deno.realPath(dir));
+    assertEquals(envelope.data.landing, {
+      recovery_performed: false,
+      trunk_landed: true,
+      worktree_removed: false,
+      branch_deleted: false,
+    });
+    assertEquals(await gitOut(dir, "rev-parse", "main"), target);
+    assertEquals(
+      await Deno.readTextFile(join(dir, "feature.txt")),
+      "landed before removal failed\n",
+    );
+    assert(await exists(worktree));
+
+    const event = (await acceptEvents(dir)).at(-1);
+    assert(event?.kind === "verb");
+    assertEquals(event.outcome, "partial");
+    assertEquals(
+      (event as unknown as { landing?: unknown }).landing,
+      envelope.data.landing,
+    );
+
+    await git(dir, "worktree", "unlock", worktree);
   });
 });
 

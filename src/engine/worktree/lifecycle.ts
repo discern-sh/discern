@@ -103,6 +103,7 @@ import {
 import { observeResult } from "../../shared/result_capture.ts";
 import type {
   AcceptData,
+  AcceptLandingState,
   GateData,
   StartData,
   UpdateData,
@@ -178,6 +179,7 @@ import {
 } from "./landing_authority.ts";
 import { clearEffortGrant } from "./effort_grant_cleanup.ts";
 import {
+  inspectInterruptedAcceptance,
   performAcceptanceTransition,
   recoverInterruptedAcceptance,
   withAcceptanceTransactionLock,
@@ -1455,6 +1457,124 @@ function landingConsentForApply(
   return { source: "conversation" };
 }
 
+function availableLandingConsent(
+  authority: LandingAuthorityResolution,
+  confirmed: boolean,
+): LandingConsent | undefined {
+  if (authority.kind === "authorized") {
+    return authority.consent;
+  }
+  return confirmed && authority.blockingReason === undefined
+    ? { source: "conversation" }
+    : undefined;
+}
+
+function freshAcceptLandingState(): AcceptLandingState {
+  return {
+    recovery_performed: false,
+    trunk_landed: false,
+    worktree_removed: false,
+    branch_deleted: false,
+  };
+}
+
+function cloneLandingState(
+  landing: AcceptLandingState,
+): AcceptLandingState {
+  return { ...landing };
+}
+
+function cloneLandingConsent(consent: LandingConsent): AcceptData["consent"] {
+  return {
+    source: consent.source,
+    ...(consent.scopes === undefined ? {} : { scopes: [...consent.scopes] }),
+  };
+}
+
+interface AcceptExecutionProgress {
+  readonly steps: StepResult[];
+  readonly landing: AcceptLandingState;
+  gateValidation?: NonNullable<AcceptData["gate_validation"]>;
+  receiptMarkdown?: string;
+  receiptLine?: string;
+  readonly convergenceHints: string[];
+  readonly diagnostics: Diagnostic[];
+  readonly authorityWarnings: string[];
+}
+
+function freshAcceptExecutionProgress(
+  steps: StepResult[] = [],
+): AcceptExecutionProgress {
+  return {
+    steps,
+    landing: freshAcceptLandingState(),
+    convergenceHints: [],
+    diagnostics: [],
+    authorityWarnings: [],
+  };
+}
+
+function partialAcceptanceResult(
+  root: string,
+  consent: LandingConsent,
+  progress: AcceptExecutionProgress,
+  message: string,
+): DiscernResult<AcceptData> {
+  const result: DiscernResult<AcceptData> = {
+    ok: false,
+    verb: "accept",
+    error: "partial_acceptance",
+    message,
+    ...(progress.steps.length === 0 ? {} : { steps: [...progress.steps] }),
+    data: {
+      root,
+      consent: cloneLandingConsent(consent),
+      landing: cloneLandingState(progress.landing),
+      ...(progress.authorityWarnings.length === 0
+        ? {}
+        : { authority_warnings: [...progress.authorityWarnings] }),
+      ...(progress.gateValidation === undefined
+        ? {}
+        : { gate_validation: progress.gateValidation }),
+      ...(progress.receiptMarkdown === undefined
+        ? {}
+        : { receipt: progress.receiptMarkdown }),
+      ...(progress.receiptLine === undefined
+        ? {}
+        : { receipt_line: progress.receiptLine }),
+    },
+    ...(progress.convergenceHints.length === 0
+      ? {}
+      : { hints: [...progress.convergenceHints] }),
+    ...(progress.diagnostics.length === 0
+      ? {}
+      : { diagnostics: [...progress.diagnostics] }),
+  };
+  return result;
+}
+
+function throwPartialAcceptance(
+  root: string,
+  consent: LandingConsent,
+  progress: AcceptExecutionProgress,
+  message: string,
+): never {
+  const result = partialAcceptanceResult(root, consent, progress, message);
+  throw new WorktreeResultError(message, result);
+}
+
+function recoveryStep(outcome: StepOutcome): StepResult {
+  return {
+    step: {
+      kind: "git",
+      label: "recover-interrupted-acceptance",
+      disposition: "run",
+      note: "reconcile the journal-bound transaction before any new landing",
+    },
+    outcome,
+  };
+}
+
 // How many of the gate's diagnostics ride inline in an accept refusal before the agent
 // is pointed at `discern done` for the rest — a cap so a gate that failed with many
 // findings can't flood accept's refusal message.
@@ -1583,6 +1703,7 @@ async function executeAcceptPlan(
   plan: AcceptPlan,
   authority: LandingAuthorityResolution,
   consent: LandingConsent,
+  progress: AcceptExecutionProgress,
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
@@ -1620,6 +1741,7 @@ async function executeAcceptPlan(
     receipt.status === "honored"
       ? { mode: "receipt", receipt }
       : { mode: "rerun", receipt };
+  progress.gateValidation = gateValidation;
   // The two receipt renderings for the tree that lands: the honored marker
   // stored both on the fast path; the fresh gate run rendered both on the slow
   // path. `validatedSha` is the ONE commit this validation vouches for — the
@@ -1682,9 +1804,15 @@ async function executeAcceptPlan(
   if (receiptLine !== undefined) {
     receiptLine = renderLandingReceiptLine(receiptLine, consent);
   }
+  if (receiptMarkdown !== undefined) {
+    progress.receiptMarkdown = receiptMarkdown;
+  }
+  if (receiptLine !== undefined) {
+    progress.receiptLine = receiptLine;
+  }
 
-  const results: StepResult[] = [];
-  const authorityWarnings: string[] = [];
+  const results = progress.steps;
+  const authorityWarnings = progress.authorityWarnings;
   const done = (kind: StepResult["step"]["kind"], label: string): void => {
     results.push({ step: { kind, label, disposition: "run" }, outcome: "ok" });
   };
@@ -1786,6 +1914,7 @@ async function executeAcceptPlan(
     expectedTrunk,
     target: validatedSha,
     effortClaim: consent.source === "effort-grant",
+    consent,
   });
   if (transition.kind === "authority-changed") {
     const detail = transition.claim.status === "invalid" ||
@@ -1812,6 +1941,7 @@ async function executeAcceptPlan(
   }
   if (ff.kind !== "updated") {
     if (ff.kind === "checkout-failed" && !ff.rolledBack) {
+      progress.landing.trunk_landed = true;
       throw new WorktreeGitError(
         `Discern atomically advanced ${trunk} to ${validatedSha}, but Git could not ` +
           `converge the checked-out files and could not restore the old ref. Stop ` +
@@ -1836,6 +1966,7 @@ async function executeAcceptPlan(
           : ` ${effortSettlementWarning}`),
     );
   }
+  progress.landing.trunk_landed = true;
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
 
@@ -1844,7 +1975,7 @@ async function executeAcceptPlan(
   // recorded: no dependency-install or smoke failure may strand the linked
   // worktree/resources by preventing the cleanup tail from running.
   let convergenceHints: string[] = hintTexts([]);
-  const diagnostics: Diagnostic[] = [];
+  const diagnostics = progress.diagnostics;
   ctx.log.info(
     "Re-materializing agent files + skills in the landing checkout…",
   );
@@ -1986,6 +2117,7 @@ async function executeAcceptPlan(
       "Post-landing convergence changed tracked files in the trunk checkout — review git status after cleanup.",
     );
   }
+  progress.convergenceHints.push(...convergenceHints);
 
   // tear down external resources (non-fatal, while still in the worktree so
   // @dir@-bearing destroys resolve, and before removal so no orphan is left)
@@ -2015,6 +2147,7 @@ async function executeAcceptPlan(
   }
   ctx.log.ok("Worktree directory removed.");
   done("git", "remove-worktree");
+  progress.landing.worktree_removed = true;
 
   // Delete the now-merged branch.
   const del = await run(["branch", "-d", worktreeBranch], mainRepo);
@@ -2027,6 +2160,7 @@ async function executeAcceptPlan(
   }
   ctx.log.ok(`Deleted merged branch ${worktreeBranch}.`);
   done("git", "delete-branch");
+  progress.landing.branch_deleted = true;
 
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
@@ -2117,12 +2251,6 @@ async function executeAcceptResult(
   confirmed: boolean,
 ): Promise<DiscernResult<AcceptData>> {
   await assertProjectRootIsRepoToplevel(ctx, "accept");
-  if (!dryRun) {
-    await recoverInterruptedAcceptance(
-      ctx.cwd,
-      ctx.config.repository.trunk,
-    );
-  }
   // Resolve authority before the ordinary preconditions so an uncovered
   // flagless call still receives the consent refusal as its outermost contract.
   // Every read is mutation-free. A dry-run reports authority but needs none.
@@ -2130,76 +2258,188 @@ async function executeAcceptResult(
     ctx.cwd,
     ctx.config.repository.trunk,
   );
-  if (!dryRun) {
-    landingConsentForApply(authority, confirmed);
-  }
-  const run = makeGitRunner(ctx);
-  const plan = await buildAcceptPlan(ctx, run);
-  // The plan proved the worktree clean. Re-read now so the authority used by
-  // apply is over committed paths only, then bind it through validation to the
-  // fast-forward boundary.
-  authority = await inspectLandingAuthority(
-    ctx.cwd,
-    ctx.config.repository.trunk,
-  );
-  if (dryRun) {
-    const enginePlan = acceptPlanToEngine(plan);
-    enginePlan.details.push(
-      `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
-      ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
-    );
-    return previewResult("accept", enginePlan);
-  }
-  const consent = landingConsentForApply(authority, confirmed);
-  const executed = await executeAcceptPlan(
-    ctx,
-    run,
-    plan,
-    authority,
-    consent,
-  );
-  const result: DiscernResult<AcceptData> = appliedResult(
-    "accept",
-    executed.steps,
-  );
-  // The branch landed in the main checkout; report it so the MCP server can re-aim its
-  // working root there now the worktree it operated on is gone (ADR 0062). The plan
-  // resolved `mainRepo` before the removal, so it is valid after.
-  result.data = {
-    root: plan.mainRepo,
-    consent: {
-      source: consent.source,
-      ...(consent.scopes !== undefined ? { scopes: [...consent.scopes] } : {}),
-    },
-    ...(authority.warnings.length + executed.authorityWarnings.length > 0
-      ? {
-        authority_warnings: [
-          ...authority.warnings,
-          ...executed.authorityWarnings,
-        ],
+  const recoverySteps: StepResult[] = [];
+  let effectRoot: string | undefined;
+  let effectConsent: LandingConsent | undefined;
+  let effectProgress: AcceptExecutionProgress | undefined;
+  try {
+    if (!dryRun) {
+      const interrupted = await inspectInterruptedAcceptance(
+        ctx.cwd,
+        ctx.config.repository.trunk,
+      );
+      if (interrupted.kind === "recorded") {
+        // No recovery effect runs until journal-bound consent, currently
+        // verified standing/effort authority, or this call's explicit
+        // conversation attestation authorizes the recorded transition.
+        const recoveryConsent = interrupted.consent ??
+          availableLandingConsent(authority, confirmed) ??
+          landingConsentForApply(authority, confirmed);
+        const recovered = await recoverInterruptedAcceptance(
+          ctx.cwd,
+          interrupted,
+        );
+        const recoveryProgress = freshAcceptExecutionProgress([
+          recoveryStep(
+            recovered.kind === "ready" || recovered.recoveryPerformed
+              ? "ok"
+              : "failed",
+          ),
+        ]);
+        recoveryProgress.landing.recovery_performed =
+          recovered.recoveryPerformed;
+        if (recovered.kind === "stopped") {
+          recoveryProgress.landing.trunk_landed = recovered.trunkLanded;
+        }
+        if (
+          recovered.recoveryPerformed ||
+          (recovered.kind === "stopped" && recovered.trunkLanded)
+        ) {
+          effectRoot = interrupted.transaction.main_repo;
+          effectConsent = recoveryConsent;
+          effectProgress = recoveryProgress;
+        }
+        if (recovered.kind === "stopped") {
+          if (
+            recovered.recoveryPerformed || recovered.trunkLanded
+          ) {
+            throwPartialAcceptance(
+              interrupted.transaction.main_repo,
+              recoveryConsent,
+              recoveryProgress,
+              recovered.message,
+            );
+          }
+          throw new WorktreeGitError(recovered.message);
+        }
+
+        recoverySteps.push(...recoveryProgress.steps);
+        // A journal-only decision authorizes completion of THAT transaction, not
+        // a fresh transition. Re-read after pre-CAS cleanup: a restored effort
+        // claim or current standing grant can authorize the new attempt; otherwise
+        // stop after the visible recovery effect and ask for current consent.
+        authority = await inspectLandingAuthority(
+          ctx.cwd,
+          ctx.config.repository.trunk,
+        );
+        if (availableLandingConsent(authority, confirmed) === undefined) {
+          const message =
+            "Discern reconciled the interrupted acceptance before its trunk " +
+            "transition. Its journal-bound consent covered only that interrupted " +
+            "transaction and was not replayed into a new landing. Re-run " +
+            "`discern accept --confirmed`, or record a standing or effort grant, " +
+            "to authorize the intact branch's new transition.";
+          throwPartialAcceptance(
+            interrupted.transaction.main_repo,
+            recoveryConsent,
+            recoveryProgress,
+            message,
+          );
+        }
       }
-      : {}),
-    gate_validation: executed.gateValidation,
-    ...(executed.receiptMarkdown !== undefined
-      ? { receipt: executed.receiptMarkdown }
-      : {}),
-    ...(executed.receiptLine !== undefined
-      ? { receipt_line: executed.receiptLine }
-      : {}),
-    ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
-      ? { ignored_file_changes: plan.ignoredFileChanges }
-      : {}),
-  };
-  result.hints = executed.receiptLine !== undefined
-    ? mergeHintTexts(
-      hintTexts([fire(HINTS["accept-relay-landing-receipt"])]),
-      executed.convergenceHints,
-    )
-    : executed.convergenceHints;
-  if (executed.diagnostics.length > 0) {
-    result.diagnostics = executed.diagnostics;
+      landingConsentForApply(authority, confirmed);
+    }
+    const run = makeGitRunner(ctx);
+    const plan = await buildAcceptPlan(ctx, run);
+    // The plan proved the worktree clean. Re-read now so the authority used by
+    // apply is over committed paths only, then bind it through validation to the
+    // fast-forward boundary.
+    authority = await inspectLandingAuthority(
+      ctx.cwd,
+      ctx.config.repository.trunk,
+    );
+    if (dryRun) {
+      const enginePlan = acceptPlanToEngine(plan);
+      enginePlan.details.push(
+        `Authority:     ${landingAuthorityDetail(authority, confirmed)}`,
+        ...authority.warnings.map((warning) => `Authority warning: ${warning}`),
+      );
+      return previewResult("accept", enginePlan);
+    }
+    const consent = landingConsentForApply(authority, confirmed);
+    const progress = freshAcceptExecutionProgress(recoverySteps);
+    if (recoverySteps.length > 0) {
+      progress.landing.recovery_performed = true;
+    }
+    effectRoot = plan.mainRepo;
+    effectConsent = consent;
+    effectProgress = progress;
+    const executed = await executeAcceptPlan(
+      ctx,
+      run,
+      plan,
+      authority,
+      consent,
+      progress,
+    );
+    const result: DiscernResult<AcceptData> = appliedResult(
+      "accept",
+      executed.steps,
+    );
+    // The branch landed in the main checkout; report it so the MCP server can
+    // re-aim its working root there now the worktree it operated on is gone
+    // (ADR 0062). The plan resolved `mainRepo` before the removal.
+    result.data = {
+      root: plan.mainRepo,
+      consent: cloneLandingConsent(consent),
+      landing: cloneLandingState(progress.landing),
+      ...(authority.warnings.length + executed.authorityWarnings.length > 0
+        ? {
+          authority_warnings: [
+            ...authority.warnings,
+            ...executed.authorityWarnings,
+          ],
+        }
+        : {}),
+      gate_validation: executed.gateValidation,
+      ...(executed.receiptMarkdown !== undefined
+        ? { receipt: executed.receiptMarkdown }
+        : {}),
+      ...(executed.receiptLine !== undefined
+        ? { receipt_line: executed.receiptLine }
+        : {}),
+      ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
+        ? { ignored_file_changes: plan.ignoredFileChanges }
+        : {}),
+    };
+    result.hints = executed.receiptLine !== undefined
+      ? mergeHintTexts(
+        hintTexts([fire(HINTS["accept-relay-landing-receipt"])]),
+        executed.convergenceHints,
+      )
+      : executed.convergenceHints;
+    if (executed.diagnostics.length > 0) {
+      result.diagnostics = executed.diagnostics;
+    }
+    return result;
+  } catch (error) {
+    if (
+      error instanceof WorktreeResultError &&
+      error.result.error === "partial_acceptance"
+    ) {
+      throw error;
+    }
+    if (
+      effectRoot !== undefined &&
+      effectConsent !== undefined &&
+      effectProgress !== undefined &&
+      (effectProgress.landing.recovery_performed ||
+        effectProgress.landing.trunk_landed ||
+        effectProgress.landing.worktree_removed ||
+        effectProgress.landing.branch_deleted)
+    ) {
+      throwPartialAcceptance(
+        effectRoot,
+        effectConsent,
+        effectProgress,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    if (error instanceof WorktreeResultError) {
+      throw error;
+    }
+    throw error;
   }
-  return result;
 }
 
 function ignoredFileChangeDetail(

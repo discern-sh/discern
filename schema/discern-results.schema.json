@@ -11114,6 +11114,29 @@
                     "source"
                   ]
                 },
+                "landing": {
+                  "type": "object",
+                  "properties": {
+                    "recovery_performed": {
+                      "type": "boolean"
+                    },
+                    "trunk_landed": {
+                      "type": "boolean"
+                    },
+                    "worktree_removed": {
+                      "type": "boolean"
+                    },
+                    "branch_deleted": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "recovery_performed",
+                    "trunk_landed",
+                    "worktree_removed",
+                    "branch_deleted"
+                  ]
+                },
                 "authority_warnings": {
                   "type": "array",
                   "items": {
@@ -15631,6 +15654,7 @@
     "not_on_integration_branch",
     "not_set_up",
     "not_setup_branch",
+    "partial_acceptance",
     "partial_materialization",
     "partial_refresh",
     "pin_failed",

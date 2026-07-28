@@ -54,9 +54,11 @@ Acceptance requires the latest trunk, a clean and unlocked worktree, and a track
 
 On success, discern records `conversation`, `standing-grant` with scopes, or `effort-grant` in the result, receipt, and logbook. It fast-forwards the trunk, refreshes the main checkout, runs `[repository].ensure` and `smoke`, and reports tracked changes. It then destroys resources, removes the worktree, and deletes the branch ([ADR 0098](../_adr/0098-accept-refreshes-the-landing-checkout.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). If another change lands during validation, acceptance keeps this worktree for `update → done → accept`.
 
-An operating-system lock covers recovery through cleanup; a concurrent `accept` refuses without touching active state. Before authority or refs move, a journal records the transition, and the trunk update creates its marker ref atomically. Rollback reverses both. A retry never replays landed authority or overwrites a checkout changed since the recorded tree: inspect preserved changes and retry, or run `discern worktree prune` after recovery converges ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+An operating-system lock covers recovery through cleanup; a concurrent `accept` refuses without touching active state. Before authority or refs move, a journal records the transition and its verified consent, and the trunk update creates its marker ref atomically. A retry inspects the journal and current grants before recovery changes anything. Journal-bound consent can finish that recorded transition. It cannot authorize a fresh one after pre-transition recovery; discern checks current authority again. Legacy journals without bound consent stay untouched until a current grant or conversation confirmation authorizes recovery. A retry never overwrites a checkout changed since the recorded tree: inspect preserved changes and retry, or run `discern worktree prune` after recovery converges ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 Checkout convergence is non-transactional because the branch has landed. Failures in repository ensure, smoke, tracked cleanliness, or consumed-claim removal are reported without interrupting cleanup. The claim no longer grants authority, and worktree removal reaps it. None can skip resource teardown. Worktree-only `steps` and `ensure` run only in a linked worktree.
+
+Every applied acceptance result carries `data.landing`: whether this call performed recovery, landed the trunk, removed the worktree, and deleted the branch. A fatal error after any of those effects returns `partial_acceptance` with that state and the main-checkout root. MCP re-aims there when the held worktree was removed, so a branch-deletion failure does not strand the next call at a deleted path.
 
 ## Remove abandoned work
 
@@ -80,5 +82,6 @@ After confirmation, `discern worktree prune` removes clean merged worktrees, sta
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
+- A result with `error: "partial_acceptance"` may already have landed the trunk or removed the worktree. Read `data.root` and `data.landing` before choosing the recovery command.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.

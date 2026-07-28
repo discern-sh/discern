@@ -49,7 +49,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `head`         | `"<short commit ID>"`                           |
 | `clean`        | was the working tree clean?                     |
 | `tree`         | a checksum of the uncommitted diff              |
-| `outcome`      | `"ok"`, `"failed"`, or `"refused"`              |
+| `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"` |
 | `failed_stage` | the gate stage that went red                    |
 | `duration_ms`  | wall-clock milliseconds                         |
 | `target`       | `map`/`help` page served, miss, or new branch   |
@@ -59,7 +59,11 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `steps`        | per-step labels, stages, outcomes, timings      |
 | `diagnostics`  | tool, rule id, file path at most                |
 | `standards`    | each standard's limit and measured value        |
+| `consent`      | an acceptance's verified consent source         |
+| `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
+
+`partial` means the command reported an error after an irreversible effect. For acceptance, `landing` says whether this call performed recovery, landed the trunk, removed the worktree, and deleted the branch.
 
 Each line carries a schema version. Readers skip lines they don't recognize, and fields only accrete. Rarer kinds sit beside the verb line: `config-change` when your config genuinely changes (section names, never values), `pin` when `discern standards --pin` tightens a limit (old bound, new bound, measured value — your ratchet's history), and `prune` when rotation removes old months.
 
@@ -81,7 +85,7 @@ The logbook is written under the git admin area, so it lands in no commit and ne
 
 ## Rotation and config epochs
 
-Events land in month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. Pruning is loud: removals land as a `prune` line digesting each removed month (counts by verb and outcome), so coarse trends outlive the raw lines.
+Events land in month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. Pruning is loud: removals land as a `prune` line digesting each removed month (counts by verb and outcome, including a separate partial count), so coarse trends outlive the raw lines.
 
 The `epoch` fingerprint hashes your config's behavior-relevant settings, section by section, with a standard's `limit` masked out — so a pin doesn't move it, while a real edit (a command, a scope, an input list) does and logs a `config-change` line naming the section that moved.
 

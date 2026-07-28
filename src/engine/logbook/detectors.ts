@@ -2268,7 +2268,7 @@ const redRateHistory: Detector = {
         const month = digest.file.replace(/\.jsonl$/, "");
         months.set(month, {
           ok: digest.ok ?? 0,
-          failed: digest.failed ?? 0,
+          failed: (digest.failed ?? 0) + (digest.partial ?? 0),
           coarse: true,
         });
       }
@@ -2281,7 +2281,7 @@ const redRateHistory: Detector = {
       }
       if (e.outcome === "ok") {
         entry.ok += 1;
-      } else if (e.outcome === "failed") {
+      } else if (e.outcome === "failed" || e.outcome === "partial") {
         entry.failed += 1;
       }
       months.set(month, entry);
