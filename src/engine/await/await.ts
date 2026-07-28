@@ -5,7 +5,7 @@
  *
  * Three conditions, one per call:
  *  - `--green <branch>` — the branch's worktree holds an honored gate receipt
- *    (or its work already landed, which implies the receipt held);
+ *    (or this call watched its work land, which implies the receipt held);
  *  - `--landed <branch>` — the branch's work is reachable from the trunk. The
  *    tip sha is pinned at call start, because acceptance deletes the branch as
  *    it lands — the sha outlives the ref;
@@ -417,6 +417,18 @@ export async function awaitResult(
     tip = await resolveCommitRef(root, `refs/heads/${branch}`);
   }
   const trunkStart = await resolveCommitRef(root, `refs/heads/${trunk}`);
+  // `green`'s landed-satisfies-it rule is TRANSITION-based: only a tip this
+  // call observed unreachable and later reachable counts as a landing. A tip
+  // reachable from the very start proves nothing — a freshly forked branch's
+  // tip is trivially an ancestor of the trunk, and answering "green" before
+  // the sibling has committed anything is the exact false positive a
+  // wave-dispatched dependent cannot afford.
+  const greenState = condition === "green" && tip !== undefined
+    ? {
+      tip,
+      everUnreachable: !(await commitIsMerged(root, tip, trunk)),
+    }
+    : undefined;
 
   let last: Evaluation = { met: false, observed: {} };
   const evaluate = async (): Promise<boolean> => {
@@ -425,6 +437,7 @@ export async function awaitResult(
       tip,
       trunk,
       trunkStart,
+      greenState,
     });
     return last.met;
   };
@@ -505,6 +518,15 @@ export async function awaitResult(
   };
 }
 
+/** `green`'s cross-evaluation memory: the freshest tip observed while the ref
+ * lived (mid-wait commits move it, and acceptance then deletes the ref), and
+ * whether any evaluation saw that work unreachable from the trunk — the arming
+ * half of the landing transition. */
+interface GreenState {
+  tip: string;
+  everUnreachable: boolean;
+}
+
 /** One evaluation of the chosen condition against authoritative state. */
 async function evaluateCondition(
   root: string,
@@ -514,9 +536,10 @@ async function evaluateCondition(
     tip: string | undefined;
     trunk: string;
     trunkStart: string;
+    greenState: GreenState | undefined;
   },
 ): Promise<Evaluation> {
-  const { branch, tip, trunk, trunkStart } = pins;
+  const { branch, tip, trunk, trunkStart, greenState } = pins;
   if (condition === "trunk-moved") {
     let head: string | undefined;
     try {
@@ -540,36 +563,56 @@ async function evaluateCondition(
     const landed = await commitIsMerged(root, tip, trunk);
     return { met: landed, observed: { tip, landed }, via: "landed" };
   }
-  // green: the receipt is the truth; a landing implies the receipt held (only
-  // a validated tree crosses to the trunk), so it satisfies the wait too —
-  // otherwise the caller could miss the whole green-to-landed window between
-  // two wakes and hold until timeout with the answer already on the trunk.
+  // green: the receipt is the truth. A landing observed MID-WAIT satisfies it
+  // too — only a validated tree crosses to the trunk, and the whole
+  // green-to-landed window can fit between two wakes — but only as a
+  // transition this call witnessed (unreachable, then reachable). A tip
+  // reachable from the start proves nothing: a freshly forked branch is
+  // trivially an ancestor of the trunk, and a wave-dispatched dependent must
+  // keep waiting for the sibling's actual work.
+  const state = greenState ?? { tip, everUnreachable: false };
+  try {
+    state.tip = await resolveCommitRef(root, `refs/heads/${branch}`);
+  } catch {
+    // The ref is gone (a landing removes it) — the last observed tip answers.
+  }
+  const reachable = await commitIsMerged(root, state.tip, trunk);
   const worktree = await worktreePathForBranch(root, branch);
+  let receiptStatus: NonNullable<AwaitData["observed"]["receipt_status"]> =
+    "no-worktree";
   if (worktree !== undefined) {
     const receipt = await inspectGateReceipt(worktree);
     if (receipt.status === "honored") {
       return {
         met: true,
-        observed: { receipt_status: "honored", worktree, tip },
+        observed: { receipt_status: "honored", worktree, tip: state.tip },
         via: "receipt",
       };
     }
-    if (await commitIsMerged(root, tip, trunk)) {
-      return {
-        met: true,
-        observed: { landed: true, tip, worktree },
-        via: "landed",
-      };
-    }
+    receiptStatus = receipt.status;
+  }
+  if (reachable && state.everUnreachable) {
     return {
-      met: false,
-      observed: { receipt_status: receipt.status, worktree, tip },
+      met: true,
+      observed: {
+        landed: true,
+        tip: state.tip,
+        ...(worktree !== undefined ? { worktree } : {}),
+      },
+      via: "landed",
     };
   }
-  if (await commitIsMerged(root, tip, trunk)) {
-    return { met: true, observed: { landed: true, tip }, via: "landed" };
+  if (!reachable) {
+    state.everUnreachable = true;
   }
-  return { met: false, observed: { receipt_status: "no-worktree", tip } };
+  return {
+    met: false,
+    observed: {
+      receipt_status: receiptStatus,
+      tip: state.tip,
+      ...(worktree !== undefined ? { worktree } : {}),
+    },
+  };
 }
 
 /** Options for the `await` subcommand surface. */
