@@ -20,7 +20,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                      | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                | 3       | —                | node `consent-attestations` |
 | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                      | `src/shared/consent.ts#LANDING_AUTHORITY_KINDS`                                | 2       | —                | node `consent-attestations` |
 | [`desk-actions`](#desk-actions--desk-actions)                                                       | `src/engine/desk/model.ts#DESK_ACTIONS`                                        | 9       | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                              | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                | 9       | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                              | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                | 10      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                          | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                         | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
 | [`step-kinds`](#step-kinds--step-kinds)                                                             | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
@@ -254,7 +254,7 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
 Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 9
+- Members: 10
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
 - Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
 - Feature canon: not enrolled — one internal storage registry supports several independently documented product features

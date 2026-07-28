@@ -73,7 +73,6 @@ import {
 import {
   allGuidanceFilePaths,
   allGuidanceFiles,
-  providerFor,
   reactivationHandoff,
 } from "../lib/providers.ts";
 import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
@@ -134,6 +133,13 @@ import {
 import { KNOWN_ENGINE_VERBS } from "../engine/dispatch.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
+import {
+  clearSetupMachineryCommitEvidence,
+  readSetupMachineryCommitEvidence,
+  recordSetupMachineryCommitEvidence,
+  type SetupMachineryCommitEvidence,
+  setupMachineryCommitEvidenceMatches,
+} from "../shared/setup_machinery_evidence.ts";
 
 /**
  * The AUDIENCE of each setup command path's human render: agent-addressed
@@ -1212,11 +1218,10 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // This run may not have scaffolded: a resume of an abandoned `discern-setup` branch
   // recomputes `freshInstall=false` and skips the scaffold, so `scaffold` is undefined —
   // yet the earlier run may have written the wiring and then failed to commit it (a missing
-  // git identity, a rejecting pre-commit hook, an interrupted process). So the commit must
-  // re-derive its target set from PERSISTED STATE, not only from this run's `ScaffoldOutcome`:
-  // when a scaffold is in hand its written paths are authoritative; on a resume the machinery
-  // paths come from the config's configured agents (via the provider registry). Either way we
-  // commit only the ones git reports as uncommitted, so a fully-committed resume is a no-op.
+  // git identity, a rejecting pre-commit hook, an interrupted process). The first staged
+  // attempt records its exact index blobs in Git-admin state. A resume retries only when
+  // HEAD, the whole index, and every candidate's worktree bytes still match that evidence;
+  // later user edits can never inherit discern's bot attribution.
   let machineryCommit: AutoCommitOutcome | undefined;
   if (setupBranch !== undefined) {
     machineryCommit = scaffold !== undefined
@@ -1643,82 +1648,35 @@ async function commitScaffoldedMachinery(
 }
 
 /**
- * The union of discern's machinery file paths a project's CONFIGURED agents wire —
- * derived from the provider registry ({@link providerFor} over `[guidance].agents`),
- * never a hand-copied list, so a new provider or wiring category auto-enrols (the same
- * single-source derivation `tests/engine_setup_test.ts`'s B10 guard asserts against). The
- * always-present discern files (`discern.toml`, the `.gitignore` fragment) are included
- * unconditionally. This is the machinery set a RESUMED `begin` re-derives when this run
- * produced no {@link ScaffoldOutcome} to read the written paths from.
- */
-function machineryPathsFromConfig(cfg: DiscernConfig): string[] {
-  const paths = new Set<string>([CONFIG_REL, ".gitignore"]);
-  for (const agent of resolveConfiguredAgents(cfg)) {
-    const provider = providerFor(agent);
-    if (provider === undefined) {
-      continue;
-    }
-    if (provider.mcp.kind === "wired") {
-      paths.add(provider.mcp.integration.configFile);
-    }
-    if (provider.hooks !== undefined) {
-      paths.add(provider.hooks.settingsFile);
-    }
-    if (provider.worktreeApp !== undefined) {
-      paths.add(provider.worktreeApp.configFile);
-    }
-    if (provider.projectRules !== undefined) {
-      paths.add(provider.projectRules.rulesFile);
-    }
-  }
-  return [...paths].sort();
-}
-
-/**
  * Commit discern's wiring on a RESUME of `begin` — the path that reaches the
  * `discern-setup` branch without re-scaffolding (an abandoned earlier run recomputes
  * `freshInstall=false`). The earlier run wrote the machinery but may have failed to commit
  * it (a missing git identity, a rejecting pre-commit hook, an interrupted process), leaving
- * discern's essential wiring permanently uncommitted with nothing downstream to catch it —
- * the exact gap this closes. Re-derives the machinery set from the persisted config's
- * configured agents ({@link machineryPathsFromConfig}), keeps only the paths git reports as
- * currently uncommitted (so a resume whose wiring is already committed is a clean no-op, not
- * an empty-commit error), and commits them like the fresh path. Best-effort and fail-open —
- * a broken config or a git failure never fails `begin`; the agent can still commit by hand.
+ * discern's essential wiring uncommitted. The retry authority is the exact stage-0 blob
+ * evidence captured before that first attempt — never a path set re-derived from files the
+ * user may since have changed. Missing, malformed, stale, or mismatched evidence skips
+ * safely. Best-effort and fail-open: the agent can still commit by hand.
  */
 async function commitPendingMachinery(
   root: string,
 ): Promise<AutoCommitOutcome> {
-  let cfg: DiscernConfig;
   try {
-    cfg = await loadConfig(root);
+    const read = await readSetupMachineryCommitEvidence(root);
+    if (read.status !== "found") {
+      return { state: "skipped" };
+    }
+    return await commitProvenMachinery(root, read.evidence);
   } catch {
-    // No readable config to derive the machinery set from — nothing to retry here;
-    // doctor / the agent surface the broken config.
     return { state: "skipped" };
   }
-  const machinery = new Set(machineryPathsFromConfig(cfg));
-  const status = await runGit(["status", "--porcelain", "-z"], { cwd: root });
-  if (!status.success) {
-    return { state: "skipped" };
-  }
-  const pending = parsePorcelainZ(status.stdout)
-    .map((entry) => entry.path)
-    .filter((p) => machinery.has(p))
-    .sort();
-  if (pending.length === 0) {
-    // The wiring is already committed (or was never written) — nothing to retry.
-    return { state: "skipped" };
-  }
-  return await commitMachineryPaths(root, pending);
 }
 
 /**
- * Stage exactly `paths` and commit them as the single `discern: scaffold wiring` commit —
- * the shared executor behind both the fresh-scaffold and the resume machinery commits.
- * Scoped to the given pathspecs on both `add` and `commit` (never `git add -A`, never a
- * bare `git commit`), so nothing the agent authored can be swept in. Best-effort and
- * fail-open: a git failure returns its cause for the caller to relay, never throws.
+ * Stage the machinery generated by THIS run and persist the exact resulting blob
+ * evidence before attempting its commit. If Git rejects the commit, that record is
+ * the only authority a later resume may use. Evidence capture also refuses any
+ * unrelated staged path. Best-effort and fail-open: an unprovable diff is left for
+ * the agent to commit by hand.
  */
 async function commitMachineryPaths(
   root: string,
@@ -1732,15 +1690,53 @@ async function commitMachineryPaths(
   if (!add.success) {
     return { state: "failed", detail: gitFailureLine(add.stderr) };
   }
+  let evidence: SetupMachineryCommitEvidence | undefined;
+  try {
+    evidence = await recordSetupMachineryCommitEvidence(root, paths);
+  } catch {
+    return { state: "skipped" };
+  }
+  if (evidence === undefined) {
+    return { state: "skipped" };
+  }
+  return await commitProvenMachinery(root, evidence);
+}
+
+/**
+ * Commit only an index still proven byte-identical to the first generated stage.
+ * The bare commit intentionally consumes staged bytes; a pathspec commit would
+ * re-read current worktree bytes and recreate the attribution bug this proof cures.
+ */
+async function commitProvenMachinery(
+  root: string,
+  evidence: SetupMachineryCommitEvidence,
+): Promise<AutoCommitOutcome> {
+  if (!(await setupMachineryCommitEvidenceMatches(root, evidence))) {
+    return { state: "skipped" };
+  }
+  const paths = evidence.entries.map((entry) => entry.path);
   const commit = await commitDiscernChanges({
     site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
     cwd: root,
     subject: "discern: scaffold wiring",
     pathspecs: paths,
+    source: "staged-index",
+    stagedProof: {
+      branch: evidence.branch,
+      head: evidence.head,
+      tree: evidence.indexTree,
+    },
   });
-  return commit.success
-    ? { state: "committed" }
-    : { state: "failed", detail: gitFailureLine(commit.stderr) };
+  if (!commit.success) {
+    return { state: "failed", detail: gitFailureLine(commit.stderr) };
+  }
+  try {
+    await clearSetupMachineryCommitEvidence(root);
+  } catch {
+    // The commit is durable. Its recorded HEAD and index tree cannot authorize
+    // a second commit.
+  }
+  return { state: "committed" };
 }
 
 /**

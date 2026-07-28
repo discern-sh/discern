@@ -21,6 +21,7 @@ import {
   git,
   gitInit,
   gitOut,
+  parsedCommitTrailers,
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
@@ -31,6 +32,9 @@ import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { readSetupMachineryCommitEvidence } from "../src/shared/setup_machinery_evidence.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
 /** A fresh git work tree with one commit — on the given branch, not `main`. */
 async function repoOnBranch(dir: string, branch: string): Promise<void> {
@@ -700,6 +704,13 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
       false,
       "precondition: the wiring is uncommitted after the failed first run",
     );
+    const retryEvidence = await readSetupMachineryCommitEvidence(dir);
+    assertEquals(
+      retryEvidence.status,
+      "found",
+      "the failed first attempt must retain its exact staged evidence",
+    );
+    assert(retryEvidence.status === "found");
 
     // The user fixes the environment (removes the failing hook) and simply RE-RUNS begin.
     await Deno.remove(hook);
@@ -738,6 +749,274 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
       ".mcp.json",
       "discern.toml",
     ]);
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD^{tree}"),
+      retryEvidence.evidence.indexTree,
+      "the successful commit object must carry the recorded tree",
+    );
+    assertEquals(
+      (await readSetupMachineryCommitEvidence(dir)).status,
+      "missing",
+      "a successful retry must clear its spent evidence",
+    );
+  });
+});
+
+async function beginWithRejectedMachineryCommit(
+  dir: string,
+): Promise<{ hook: string; machinery: string[] }> {
+  await Deno.writeTextFile(join(dir, "main.ts"), "console.log('hi');\n");
+  await gitInit(dir);
+  const hook = join(dir, ".git", "hooks", "pre-commit");
+  await Deno.writeTextFile(hook, "#!/bin/sh\nexit 1\n");
+  await Deno.chmod(hook, 0o755);
+  const first = await runAgent(dir, [
+    "setup",
+    "begin",
+    "--confirmed",
+    "--json",
+    "--agents",
+    AGENT_NAMES.join(","),
+  ]);
+  assertEquals(first.code, 0, first.output);
+  assertEquals(
+    JSON.parse(first.stdout).data.machinery_committed,
+    false,
+    "precondition: the first machinery commit must fail",
+  );
+  const machinery = (await gitOut(dir, "diff", "--cached", "--name-only", "--"))
+    .split("\n").filter(Boolean).sort();
+  assert(
+    machinery.length > 0,
+    "the rejected commit must leave staged machinery",
+  );
+  const read = await readSetupMachineryCommitEvidence(dir);
+  assertEquals(read.status, "found");
+  assert(read.status === "found");
+  assertEquals(
+    read.evidence.entries.map((entry) => entry.path),
+    machinery,
+    "evidence must enumerate the exact staged machinery set",
+  );
+  assertEquals(read.evidence.branch, "discern-setup");
+  assertEquals(
+    read.evidence.head,
+    await gitOut(dir, "rev-parse", "HEAD"),
+  );
+  assertEquals(
+    read.evidence.indexTree,
+    await gitOut(dir, "write-tree"),
+    "evidence must bind the whole index, including the absence of other staged paths",
+  );
+  for (const entry of read.evidence.entries) {
+    assertEquals(
+      await gitOut(dir, "ls-files", "--stage", "--", entry.path),
+      `${entry.mode} ${entry.oid} 0\t${entry.path}`,
+      `evidence must retain the exact staged blob for ${entry.path}`,
+    );
+    assertEquals(
+      await gitOut(
+        dir,
+        "hash-object",
+        "--no-filters",
+        "--",
+        entry.path,
+      ),
+      entry.worktreeOid,
+      `evidence must retain the raw worktree bytes for ${entry.path}`,
+    );
+  }
+  return { hook, machinery };
+}
+
+async function retrySetup(dir: string): Promise<Record<string, unknown>> {
+  const retried = await runAgent(dir, [
+    "setup",
+    "begin",
+    "--confirmed",
+    "--json",
+    "--agents",
+    AGENT_NAMES.join(","),
+  ]);
+  assertEquals(retried.code, 0, retried.output);
+  return JSON.parse(retried.stdout).data;
+}
+
+async function assertRetryWasNotAttributed(
+  dir: string,
+  data: Record<string, unknown>,
+  context: string,
+  evidenceStatus: "found" | "invalid" | "missing" = "found",
+): Promise<void> {
+  assertEquals(
+    data.machinery_committed,
+    false,
+    `${context}: a changed retry must skip the machinery commit`,
+  );
+  assertEquals(
+    await gitOut(dir, "rev-list", "--count", "HEAD"),
+    "1",
+    `${context}: a changed retry must not author any commit`,
+  );
+  assertEquals(
+    await parsedCommitTrailers(dir),
+    "",
+    `${context}: a changed retry must not receive ${DISCERN_BOT.trailer}`,
+  );
+  assertEquals(
+    (await readSetupMachineryCommitEvidence(dir)).status,
+    evidenceStatus,
+    `${context}: a skipped retry must retain, not broaden, its original proof`,
+  );
+}
+
+Deno.test("re-entry attribution guard: every resumed machinery candidate must still match the failed staged attempt", async () => {
+  let machinery: string[] = [];
+  await withTempDir(async (dir) => {
+    machinery = (await beginWithRejectedMachineryCommit(dir)).machinery;
+  });
+
+  // The case table comes from the actual staged setup output for every registered
+  // provider. A future provider or machinery category is therefore enrolled without
+  // adding its path here.
+  for (const path of machinery) {
+    await withTempDir(async (dir) => {
+      const failed = await beginWithRejectedMachineryCommit(dir);
+      assert(
+        failed.machinery.includes(path),
+        `fresh setup no longer stages enrolled machinery candidate ${path}`,
+      );
+      const target = join(dir, path);
+      await Deno.writeTextFile(
+        target,
+        `${await Deno.readTextFile(target)}\n`,
+      );
+      await Deno.remove(failed.hook);
+      await assertRetryWasNotAttributed(
+        dir,
+        await retrySetup(dir),
+        `unstaged byte mutation of ${path}`,
+      );
+    });
+  }
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const target = failed.machinery[0];
+    assert(target !== undefined);
+    await Deno.writeTextFile(
+      join(dir, target),
+      `${await Deno.readTextFile(join(dir, target))}\n`,
+    );
+    await git(dir, "add", "--", target);
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      `staged byte mutation of ${target}`,
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, ".gitattributes"), "* text eol=lf\n");
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const target = failed.machinery[0];
+    assert(target !== undefined);
+    const original = await Deno.readTextFile(join(dir, target));
+    await Deno.writeTextFile(
+      join(dir, target),
+      original.replaceAll("\n", "\r\n"),
+    );
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      `raw worktree byte mutation normalized by Git filters in ${target}`,
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const target = failed.machinery.find((path) => path !== "discern.toml");
+    assert(target !== undefined);
+    await Deno.remove(join(dir, target));
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      `worktree deletion of ${target}`,
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    await Deno.writeTextFile(join(dir, "user-staged.txt"), "user bytes\n");
+    await git(dir, "add", "--", "user-staged.txt");
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      "unrelated staged content",
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const userPath = "hook-staged-user.txt";
+    await Deno.writeTextFile(
+      failed.hook,
+      `#!/bin/sh\nprintf 'hook staged user bytes\\n' > ${userPath}\ngit add -- ${userPath}\n`,
+    );
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      "a successful pre-commit hook staging unrelated bytes",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain", "--", userPath),
+      `A  ${userPath}`,
+      "rollback must preserve the hook's staged user bytes",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, userPath)),
+      "hook staged user bytes\n",
+      "rollback must preserve the hook's worktree bytes",
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const evidence = await gitAdminStatePath(
+      dir,
+      "setupMachineryCommitEvidence",
+    );
+    assert(evidence !== undefined);
+    await Deno.writeTextFile(evidence, "{not valid evidence}\n");
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      "malformed retry evidence",
+      "invalid",
+    );
+  });
+
+  await withTempDir(async (dir) => {
+    const failed = await beginWithRejectedMachineryCommit(dir);
+    const evidence = await gitAdminStatePath(
+      dir,
+      "setupMachineryCommitEvidence",
+    );
+    assert(evidence !== undefined);
+    await Deno.remove(evidence);
+    await Deno.remove(failed.hook);
+    await assertRetryWasNotAttributed(
+      dir,
+      await retrySetup(dir),
+      "missing retry evidence",
+      "missing",
+    );
   });
 });
 

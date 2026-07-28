@@ -1,6 +1,8 @@
 # ADR 0076: The engine commits discern machinery it scaffolds
 
-> **Commit-attribution amendment (2026-07-28; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The setup-wiring and setup-completion commits now pass through the shared, pathspec-limited discern commit boundary. They keep the invoking user's author and committer identity and add the `discern-bot` co-author trailer by default. Agent-authored commits remain outside that boundary. The ownership and fail-open decisions below stand.
+> **Commit-attribution amendment (2026-07-28; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The setup-wiring and setup-completion commits now pass through the shared discern commit boundary. They keep the invoking user's author and committer identity and add the `discern-bot` co-author trailer by default. Agent-authored commits remain outside that boundary. The ownership and fail-open decisions below stand.
+
+> **Retry-evidence amendment (2026-07-28):** Before the first setup-wiring commit attempt, discern records the setup branch, HEAD, whole index tree, and every machinery candidate's stage-0 mode and blob ID in worktree Git-admin state. A resumed `begin` never re-derives or re-stages that set. It retries only when the branch, HEAD, staged set, index tree, and every candidate's worktree and index bytes still match the record. The commit consumes those staged bytes. After hooks and signing run, discern compares the actual commit tree with the recorded tree. If a hook staged extra bytes, a compare-and-swap ref update removes the commit while leaving the index and worktree intact. A matching commit clears the record. Any drift skips safely and leaves the files for the agent to commit.
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged. **Glossary vocabulary amendment ([ADR 0169](0169-the-launch-glossary-canon.md)):** Current pointers use `Co-managed seed` / co-managed file → `Shared file`; the decision and reasoning are unchanged.
 
@@ -24,13 +26,15 @@ The explicit **no**s:
 - It runs **only** when `begin` created the isolated `discern-setup` branch — a fresh install in a clean git repo. When setup proceeds in place (no branch: `--allow-dirty`, a `--force` re-run, or outside a git repo), the engine commits nothing and the agent commits as before.
 - It is **best-effort and fail-open**: a commit failure (e.g. commit signing) never fails `begin`; the agent can still commit by hand. The outcome surfaces as `machinery_committed` in the JSON envelope and a line in the human handoff, mirroring how `done` reports `marker_committed`.
 
+If the first machinery commit fails, its staged evidence is the only authority for an automatic retry. A later `begin` does not infer ownership from a file's path: user edits, staged changes, deletion, an unrelated staged path, a different HEAD, or malformed/missing evidence all make the retry a no-op. An unchanged retry commits the recorded staged blobs and removes the evidence.
+
 This is a deliberate carve-out from "the agent makes the commits" ([ADR 0044](0044-setup-involve-not-gate.md)): discern commits its **own** wiring, which the agent's classifier won't; the agent commits the content it authors.
 
 ## Consequences
 
 - A coding agent driving a cold setup — especially a cautious auto-mode one — never has to commit a permission-widening config file, because discern's own wiring is already committed when the brief is handed over. Setup no longer ends on a dirty tree of discern's essentials.
 - The machinery lands in one reviewable, revertible commit, isolated on the throwaway `discern-setup` branch and separate from the agent's authored-content commits — clean history, easy rollback.
-- One consistent rule now spans the setup lifecycle: the engine commits its own output (`begin`'s machinery, `done`'s marker); the agent commits what it authors. The two helpers share a shape (best-effort, fail-open, pathspec-limited to only-its-own files).
+- One consistent rule now spans the setup lifecycle: the engine commits its own output (`begin`'s machinery, `done`'s marker); the agent commits what it authors. Both paths are best-effort and fail-open. The marker is pathspec-limited; a resumed machinery commit is staged-index-limited by persisted blob evidence.
 - discern now writes to the user's git history during `begin`. The cost is bounded: it is one commit, on a branch built for exactly this, gated on the clean-tree precondition that branch already requires, and trivially reverted.
 - "Machinery" versus "authored content" is now a contract. A new scaffolded machinery file is committed automatically once it flows through the scaffold outcome; a new **authored** seed must be added to the exclusion set or it would be swept into the commit. A guard test pins the committed set to exactly the machinery and asserts the authored seeds stay uncommitted, so the contract can't drift silently.
 

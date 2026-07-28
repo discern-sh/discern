@@ -7,7 +7,8 @@
  * and the worktree `.env` upsert. Everything else it records lives inside
  * `.git` (the gate receipt, the ready sentinel, the resource ledger, the
  * ignored-file baseline, the logbook), at a user-typed output path, or in a
- * temp file — outside the project tree and outside this contract.
+ * temp file — outside the project tree and outside this contract. Setup retry
+ * evidence is another registry-resolved Git-admin record.
  *
  * Two legs, so a stray write fails no matter where it hides:
  *
@@ -136,6 +137,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   [
     "src/engine/logbook/store.ts",
     "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
+  ],
+  [
+    "src/shared/setup_machinery_evidence.ts",
+    "setup machinery retry evidence — registry-resolved .git-internal state outside the project tree",
   ],
   // paths the user typed (explicit consent) or temp files (outside the tree)
   ["src/commands/docs.ts", "the user-typed docs-export --output path"],

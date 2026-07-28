@@ -17,12 +17,14 @@ import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { DISCERN_BOT } from "../src/shared/brand.ts";
 import {
+  commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
   discernCommitMessage,
 } from "../src/shared/discern_commit.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
-import { fakeEnv } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { git, gitInit, gitOut } from "./engine_helpers.ts";
 
 interface AuthoredSource {
   readonly rel: string;
@@ -186,4 +188,89 @@ Deno.test("discern commit messages use an injectable non-empty opt-out", () => {
     ),
     `Subject\n\n${DISCERN_BOT.trailer}`,
   );
+});
+
+Deno.test("the staged-index commit source consumes staged proof bytes, not later worktree bytes", async () => {
+  await withTempDir(async (dir) => {
+    const path = "proof.txt";
+    await Deno.writeTextFile(join(dir, path), "base\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, path), "proven staged bytes\n");
+    await git(dir, "add", "--", path);
+    const stagedProof = {
+      branch: await gitOut(dir, "branch", "--show-current"),
+      head: await gitOut(dir, "rev-parse", "HEAD"),
+      tree: await gitOut(dir, "write-tree"),
+    };
+    await Deno.writeTextFile(join(dir, path), "later worktree bytes\n");
+
+    const commit = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      cwd: dir,
+      subject: "Record proven bytes",
+      pathspecs: [path],
+      source: "staged-index",
+      stagedProof,
+      env: fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+    });
+
+    assertEquals(commit.success, true, commit.stderr);
+    assertEquals(
+      await gitOut(dir, "show", `HEAD:${path}`),
+      "proven staged bytes",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, path)),
+      "later worktree bytes\n",
+      "the staged commit must not restage current worktree bytes",
+    );
+  });
+});
+
+Deno.test("the staged-index commit source rolls back a hook-expanded tree without losing the hook's staged bytes", async () => {
+  await withTempDir(async (dir) => {
+    const proofPath = "proof.txt";
+    const hookPath = "hook-staged-user.txt";
+    await Deno.writeTextFile(join(dir, proofPath), "base\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, proofPath), "proven staged bytes\n");
+    await git(dir, "add", "--", proofPath);
+    const stagedProof = {
+      branch: await gitOut(dir, "branch", "--show-current"),
+      head: await gitOut(dir, "rev-parse", "HEAD"),
+      tree: await gitOut(dir, "write-tree"),
+    };
+    const hook = join(dir, ".git", "hooks", "pre-commit");
+    await Deno.writeTextFile(
+      hook,
+      `#!/bin/sh\nprintf 'hook staged user bytes\\n' > ${hookPath}\ngit add -- ${hookPath}\n`,
+    );
+    await Deno.chmod(hook, 0o755);
+
+    const commit = await commitDiscernChanges({
+      site: DISCERN_AUTHORED_COMMIT_SITES.scaffoldWiring,
+      cwd: dir,
+      subject: "Record proven bytes",
+      pathspecs: [proofPath],
+      source: "staged-index",
+      stagedProof,
+    });
+
+    assertEquals(commit.success, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "HEAD"),
+      stagedProof.head,
+      "the out-of-scope commit must be removed from the branch",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain", "--", hookPath),
+      `A  ${hookPath}`,
+      "rollback must preserve the hook's staged index entry",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, hookPath)),
+      "hook staged user bytes\n",
+      "rollback must preserve the hook's worktree bytes",
+    );
+  });
 });

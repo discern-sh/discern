@@ -69,6 +69,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  setupMachineryCommitEvidence: {
+    path: "discern/setup-machinery-commit-evidence.json",
+    scope: "worktree",
+    kind: "file",
+    validation: false,
+  },
   worktreeReady: {
     path: "discern/worktree-ready",
     scope: "worktree",
