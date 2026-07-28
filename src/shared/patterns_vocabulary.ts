@@ -19,10 +19,10 @@ import { z } from "@zod/zod";
  * move over time. SSOT for the family vocabulary — the schema enums below and
  * the engine's detector registry both derive from it. */
 export const DETECTOR_FAMILIES = [
-  "behaviour",
-  "gate-fit",
-  "funnel",
   "trajectory",
+  "gate-fit",
+  "behaviour",
+  "funnel",
 ] as const;
 /** One detector family ({@link DETECTOR_FAMILIES}). */
 export type DetectorFamily = (typeof DETECTOR_FAMILIES)[number];
