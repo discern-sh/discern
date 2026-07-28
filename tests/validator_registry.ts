@@ -161,6 +161,8 @@ export const NON_VALIDATOR_IMPORTS: Readonly<Record<string, string>> = {
     "renders the artifact-inventory map section for codegen; a generator, not a validator",
   "src/lib/artifact_ownership.ts#replaceArtifactInventory":
     "splices the artifact-inventory section for codegen; a generator, not a validator",
+  "src/lib/artifact_ownership.ts#writtenArtifactClass":
+    "classifies discern-owned output for inventories and provenance guards; its subject is discern's output, not an authored artifact",
   "src/lib/docs.ts#buildRedirectRegistry":
     "compiles the site's redirect table from map frontmatter for the site build (site/seo.ts); a generator, not a validator",
 };

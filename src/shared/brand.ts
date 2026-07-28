@@ -14,14 +14,19 @@ export const DISCERN_WORDMARK = `${DISCERN_MARK} ${DISCERN_NAME}`;
 export const GENERATED_ARTIFACT_MARKER_PREFIX =
   `# ${DISCERN_NAME} | generated from `;
 
+/** A provenance marker's text without the format-specific hash-comment prefix. */
+export function generatedArtifactMarkerBody(source: string): string {
+  return `${DISCERN_NAME} | generated from ${source} | ` +
+    `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
+}
+
 /**
  * Identify discern-owned content in a comment-capable artifact outside agent
  * context. Callers supply the registry-owned source description; the product
  * name, overwrite warning, and URL remain one shared string.
  */
 export function generatedArtifactMarker(source: string): string {
-  return `${GENERATED_ARTIFACT_MARKER_PREFIX}${source} | ` +
-    `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
+  return `# ${generatedArtifactMarkerBody(source)}`;
 }
 
 /** Remove one exact provenance marker while preserving the file's line endings. */

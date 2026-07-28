@@ -23,7 +23,10 @@ import {
   sectionNamesFromTemplate,
 } from "./config_template.ts";
 import { substituteTokens, type TokenMap } from "./template.ts";
-import { generatedArtifactMarker } from "../shared/brand.ts";
+import {
+  generatedArtifactMarker,
+  generatedArtifactMarkerBody,
+} from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import {
   defaultDocumentationScopes,
@@ -166,7 +169,7 @@ export function renderConfigTemplateForConfig(
     scopes_guidance: defaultGuidanceScopes().join(", "),
     scopes_web: renderTomlStringList([...DEFAULTS.sourceGlobs]),
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
-    artifact_provenance_marker: generatedArtifactMarker(
+    artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
     ),
     kit_version: KIT_VERSION,
