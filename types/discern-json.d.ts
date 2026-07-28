@@ -1904,7 +1904,9 @@ export type DiscernImprovementResult = {
         detector: string;
         family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
         scope: "branch" | "session" | "project";
+        tone: "good" | "neutral" | "attention";
         subject?: string;
+        brief: string;
         observed: string;
         evidence: {
           [key: string]: number;
@@ -2520,7 +2522,9 @@ export type DiscernPatternsResult = {
       detector: string;
       family: "behaviour" | "gate-fit" | "funnel" | "trajectory";
       scope: "branch" | "session" | "project";
+      tone: "good" | "neutral" | "attention";
       subject?: string;
+      brief: string;
       observed: string;
       evidence: {
         [key: string]: number;

@@ -6308,7 +6308,18 @@
                               "project"
                             ]
                           },
+                          "tone": {
+                            "type": "string",
+                            "enum": [
+                              "good",
+                              "neutral",
+                              "attention"
+                            ]
+                          },
                           "subject": {
+                            "type": "string"
+                          },
+                          "brief": {
                             "type": "string"
                           },
                           "observed": {
@@ -6334,6 +6345,8 @@
                           "detector",
                           "family",
                           "scope",
+                          "tone",
+                          "brief",
                           "observed",
                           "evidence",
                           "strength",
@@ -8330,7 +8343,18 @@
                           "project"
                         ]
                       },
+                      "tone": {
+                        "type": "string",
+                        "enum": [
+                          "good",
+                          "neutral",
+                          "attention"
+                        ]
+                      },
                       "subject": {
+                        "type": "string"
+                      },
+                      "brief": {
                         "type": "string"
                       },
                       "observed": {
@@ -8356,6 +8380,8 @@
                       "detector",
                       "family",
                       "scope",
+                      "tone",
+                      "brief",
                       "observed",
                       "evidence",
                       "strength",

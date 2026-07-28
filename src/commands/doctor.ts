@@ -923,7 +923,7 @@ function midSetup(cfg: DiscernConfig | undefined): boolean {
  * output is piped/redirected (not a TTY). Capped so lines stay readable on a very wide
  * terminal, and floored so the hanging indents still leave room for text. */
 function modelWidth(): number {
-  return Math.max(56, Math.min(terminalWidth() ?? 100, 110));
+  return Math.max(56, Math.min(terminalWidth({ fallback: 100 }), 110));
 }
 
 /** The opt-in pointer shown at the top and foot of the human execution-model section

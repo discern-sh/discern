@@ -60,6 +60,7 @@ Deno.test("logbook routing: every registry finding lands on patterns and exactly
     status: "fired",
     considered: detector.threshold,
     findings: [{
+      brief: `${detector.id} brief`,
       observed: `${detector.id} fired.`,
       evidence: { events: detector.threshold },
       strength: detector.threshold,

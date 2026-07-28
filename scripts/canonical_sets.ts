@@ -676,6 +676,54 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .logbookEventSchema.options.map((option) => option.shape.kind.value),
   },
   {
+    id: "detector-families",
+    title: "Patterns detector families",
+    what:
+      "The categories that group every patterns detector and finding; schemas, registry entries, and the human report derive from this vocabulary.",
+    source: {
+      kind: "module",
+      module: "src/shared/patterns_vocabulary.ts",
+      exportName: "DETECTOR_FAMILIES",
+    },
+    guards: ["tests/patterns_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal report grouping; the Patterns entry carries the reader-facing concept",
+      },
+      featureCanon: { nodeId: "patterns" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/patterns_vocabulary.ts"))
+        .DETECTOR_FAMILIES,
+    ],
+  },
+  {
+    id: "pattern-finding-tones",
+    title: "Patterns finding tones",
+    what:
+      "The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.",
+    source: {
+      kind: "module",
+      module: "src/shared/patterns_vocabulary.ts",
+      exportName: "PATTERN_FINDING_TONES",
+    },
+    guards: ["tests/patterns_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "presentation metadata inside the patterns result; it is not a user command or product term",
+      },
+      featureCanon: { nodeId: "patterns" },
+    },
+    members: async () => [
+      ...(await import("../src/shared/patterns_vocabulary.ts"))
+        .PATTERN_FINDING_TONES,
+    ],
+  },
+  {
     id: "patterns-detectors",
     title: "Patterns detectors",
     what:
@@ -1228,8 +1276,6 @@ export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
     "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
   "src/lib/version.ts":
     "the kit version constant: a single value with no members and no satellites of its own to drift",
-  "src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES":
-    "the typed companion of the enrolled patterns-detectors set — declared in that entry's account and held by tests/logbook_routing_test.ts, a guard that entry declares",
   "src/shared/result_schemas.ts":
     "wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts",
 };

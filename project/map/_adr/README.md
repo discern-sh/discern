@@ -198,6 +198,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0201 — Artifact validators ship or record their exemption](0201-artifact-validators-ship-or-record-their-exemption.md)
 - [0202 — The gate ships the map-integrity preflight, scoped to domain-neutral rules](0202-the-gate-ships-the-map-integrity-preflight.md)
 - [0203 — Discern co-authors only commits it composes](0203-discern-co-authors-only-commits-it-composes.md)
+- [0206 — Patterns finding tone is presentation only](0206-patterns-finding-tone-is-presentation-only.md)
 - [0205 — Browser Workflow semantics are explicit Markdown projections](0205-browser-workflow-semantics-are-explicit-markdown-projections.md)
 
 <!-- END GENERATED: current ADR records -->

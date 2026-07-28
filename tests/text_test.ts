@@ -1,0 +1,90 @@
+import { assertEquals } from "@std/assert";
+import {
+  displayWidth,
+  renderAlignedTable,
+  terminalWidth,
+  wrapText,
+} from "../src/lib/text.ts";
+
+const ESC = String.fromCharCode(27);
+
+Deno.test("displayWidth ignores ANSI while retaining Unicode glyph width", () => {
+  assertEquals(displayWidth("plain"), 5);
+  assertEquals(displayWidth(`${ESC}[31mred${ESC}[0m`), 3);
+  assertEquals(displayWidth("→ good"), 6);
+});
+
+Deno.test("wrapText handles narrow, exact, long-token, empty, and hanging-indent cases", () => {
+  assertEquals(
+    wrapText("alpha beta gamma", 10, "  "),
+    ["alpha beta", "  gamma"],
+  );
+  assertEquals(wrapText("one two", 7), ["one two"]);
+  assertEquals(
+    wrapText("go agent/a-very-long-branch now", 8, "  "),
+    ["go", "  agent/a-very-long-branch", "  now"],
+  );
+  assertEquals(wrapText("", 8), [""]);
+  assertEquals(
+    wrapText("one two three", 3, "    "),
+    ["one", "    two", "    three"],
+  );
+});
+
+Deno.test("wrapText measures styled words by display width", () => {
+  const styled = `${ESC}[32mgood${ESC}[0m`;
+  assertEquals(
+    wrapText(`${styled} news today`, 9, "  "),
+    [`${styled} news`, "  today"],
+  );
+});
+
+Deno.test("terminalWidth resolves console, environment, and conventional fallback", () => {
+  const throws = (): { columns: number } => {
+    throw new Error("not a terminal");
+  };
+  const noEnv = { get: (): undefined => undefined };
+  assertEquals(
+    terminalWidth({ env: noEnv, consoleSize: throws }),
+    80,
+  );
+  assertEquals(
+    terminalWidth({
+      env: { get: (key) => key === "COLUMNS" ? "91" : undefined },
+      consoleSize: throws,
+    }),
+    91,
+  );
+  assertEquals(
+    terminalWidth({
+      env: noEnv,
+      fallback: 120,
+      consoleSize: () => ({ columns: 101 }),
+    }),
+    101,
+  );
+});
+
+Deno.test("renderAlignedTable sizes styled cells by display width and leaves the last column unpadded", () => {
+  interface FindingRow {
+    tone: string;
+    subject: string;
+  }
+  const green = `${ESC}[32mgood${ESC}[0m`;
+  const lines = renderAlignedTable<FindingRow>(
+    [
+      { header: "TONE", value: (row) => row.tone },
+      { header: "FINDING", value: (row) => row.subject },
+    ],
+    [
+      { tone: green, subject: "coverage" },
+      { tone: "attention", subject: "gate" },
+    ],
+  );
+  assertEquals(lines, [
+    "TONE       FINDING",
+    `${green}       coverage`,
+    "attention  gate",
+  ]);
+  assertEquals(renderAlignedTable([], []), []);
+});
