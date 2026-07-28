@@ -490,6 +490,85 @@ export const CouplingDataSchema = z.strictObject({
 });
 export type CouplingData = z.infer<typeof CouplingDataSchema>;
 
+/** The fleet conditions `await` can hold for — one per call, mutually exclusive.
+ * Defined here (not the engine) because the CLI flag surface, the MCP tool, and
+ * the data schema all name the same closed set. */
+export const AWAIT_CONDITIONS = ["green", "landed", "trunk-moved"] as const;
+/** One `await` condition ({@link AWAIT_CONDITIONS}). */
+export type AwaitConditionKind = (typeof AWAIT_CONDITIONS)[number];
+
+/** Why a not-met `await` suggested the retry delay it did: `running` — the
+ * awaited work is in flight and a duration prior bounds the remainder;
+ * `no-prior` — work is in flight but no completed sample prices its verb;
+ * `idle` — nothing is in flight, so a longer backoff; `logbook-off` — the
+ * logbook is disabled, so no timing evidence exists and the delay is a flat
+ * default. */
+export const AWAIT_RETRY_BASES = [
+  "running",
+  "no-prior",
+  "idle",
+  "logbook-off",
+] as const;
+
+/** What one `await` evaluation observed — always authoritative state (a git
+ * ancestry read, a receipt inspection), never logbook history. Per-condition:
+ * `green` carries the sibling receipt's status ({@link GateReceiptCheckSchema}
+ * statuses, plus `no-worktree` when no checkout holds the branch) and the
+ * sibling `worktree` path; `landed`/`green` carry the pinned `tip` sha and
+ * whether it `landed`; `trunk-moved` carries the trunk sha at call start and
+ * now. When a met condition means `discern update` has work to bring in,
+ * `behind`/`incoming_overlap`/`overlap_total` preview it (the same hot-zone
+ * read `status` reports). */
+const awaitObservedSchema = z.strictObject({
+  receipt_status: z.enum([
+    "honored",
+    "missing",
+    "stale",
+    "dirty",
+    "unavailable",
+    "read_failed",
+    "no-worktree",
+  ]).optional(),
+  worktree: z.string().optional(),
+  tip: z.string().optional(),
+  landed: z.boolean().optional(),
+  trunk_start: z.string().optional(),
+  trunk_head: z.string().optional(),
+  behind: z.number().int().optional(),
+  incoming_overlap: z.array(z.string()).optional(),
+  overlap_total: z.number().int().optional(),
+});
+
+/** The awaited branch's in-flight work at timeout — advisory logbook evidence
+ * behind the retry delay, never part of the condition itself. The shape of a
+ * fleet row's `running` block, so the two surfaces read alike. */
+const awaitRunningSchema = z.strictObject({
+  verb: z.string(),
+  started: z.string(),
+  elapsed_ms: z.number().int(),
+  typical_duration_ms: z.number().int().optional(),
+});
+
+/** `await` — one blocking wait on a fleet condition. `met` is the verdict this
+ * call ends on (a timeout is `met: false` with `ok: true` — "not yet" is an
+ * answer, not a failure); `observed` is the authoritative state behind it;
+ * `retry_after_seconds` + `retry_basis` say when to call again and why that
+ * number, with `running` carrying the in-flight evidence when that is the
+ * basis. */
+export const AwaitDataSchema = z.strictObject({
+  condition: z.enum(AWAIT_CONDITIONS),
+  branch: z.string().optional(),
+  trunk: z.string(),
+  met: z.boolean(),
+  waited_ms: z.number().int(),
+  timeout_seconds: z.number(),
+  observed: awaitObservedSchema,
+  retry_after_seconds: z.number().int().optional(),
+  retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),
+  running: awaitRunningSchema.optional(),
+});
+export type AwaitData = z.infer<typeof AwaitDataSchema>;
+
 /** `start` — the worktree it just created (or, in a dry-run, would create). `path`
  * is the load-bearing field: the new worktree's absolute location, which the caller
  * must re-root into (the MCP server cannot relocate the session for the agent).
@@ -1482,6 +1561,9 @@ export const PrepareOutputSchema = datalessResultOutputSchema("prepare");
 
 /** `test` output: envelope only (except top-level config parse errors). */
 export const TestOutputSchema = datalessResultOutputSchema("test");
+
+/** `await` output: envelope + the observed-condition `data`. */
+export const AwaitOutputSchema = resultOutputSchema("await", AwaitDataSchema);
 
 /** `standards` output: envelope + the per-standard readings, and — on a `--pin`
  * that tightened limits — the applied pins. */
