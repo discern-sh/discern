@@ -56,11 +56,19 @@ async function runPrepareGate(
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const { runOpts, out } = gateRunContext(root, cfg, json, signal);
+  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts();
-  const { results, failedStage } = await runJobGroups(groups, runOpts, out);
+  // The fleet test-run cap can never bite here — prepare's groups are fix and
+  // check, and only a test-stage or standard-measurement group draws a slot —
+  // but the context threads through the one seam like every other gate verb.
+  const { results, failedStage } = await runJobGroups(
+    groups,
+    runOpts,
+    out,
+    slots,
+  );
   const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
     groups,
     results,
