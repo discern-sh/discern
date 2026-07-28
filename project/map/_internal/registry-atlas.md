@@ -57,7 +57,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                      | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                              | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                     | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 44      | —                | node `canonical-sets`       |
 
-44 sets · 71 guard tests · 18 committed artifacts.
+44 sets · 72 guard tests · 19 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -123,6 +123,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/paths_write_surface_test.ts`        | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                    |
 | `tests/patterns_test.ts`                   | [`hints`](#hints--hints), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                               |
 | `tests/public_doc_parity_test.ts`          | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                                             |
+| `tests/reference_docs_test.ts`             | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                        |
 | `tests/repo_authored_paths_test.ts`        | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                  |
 | `tests/result_codegen_test.ts`             | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                                  |
 | `tests/result_schemas_test.ts`             | [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                         |
@@ -141,26 +142,27 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 
 Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.
 
-| Artifact                                         | Kind             | Compiled from                                                            |
-| ------------------------------------------------ | ---------------- | ------------------------------------------------------------------------ |
-| `THIRD_PARTY_NOTICES`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
-| `project/map/00-orientation/glossary.md`         | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                      |
-| `project/map/70-reference/artifact-ownership.md` | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
-| `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                       |
-| `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                         |
-| `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
-| `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                         |
-| `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                 |
-| `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                      |
-| `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                         |
-| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
-| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                        |
-| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                         |
-| `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
-| `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
-| `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
-| `types/discern-json.d.ts`                        | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                        |
-| `types/discern-json.d.ts`                        | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                         |
+| Artifact                                         | Kind             | Compiled from                                                                           |
+| ------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------- |
+| `THIRD_PARTY_NOTICES`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                |
+| `project/map/00-orientation/glossary.md`         | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                     |
+| `project/map/70-reference/artifact-ownership.md` | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                            |
+| `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                                      |
+| `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                                        |
+| `project/map/70-reference/mcp-and-results.md`    | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications) |
+| `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                            |
+| `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                        |
+| `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                |
+| `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                     |
+| `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                        |
+| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                               |
+| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                       |
+| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                        |
+| `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                |
+| `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                |
+| `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                               |
+| `types/discern-json.d.ts`                        | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                       |
+| `types/discern-json.d.ts`                        | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                        |
 
 ## `verbs` — Top-level verbs
 
@@ -464,7 +466,8 @@ The versioned public schema URLs and the root generated artifacts served at them
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
 - Members: 2
-- Guards: `tests/config_codegen_test.ts`, `tests/result_codegen_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
+- Guards: `tests/config_codegen_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
+- Artifacts: `project/map/70-reference/mcp-and-results.md`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
