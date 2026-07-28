@@ -68,6 +68,14 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     await scaffoldEngine(dir);
     await gitInit(dir);
 
+    const humanResolution = await runAgent(dir, ["identity"]);
+    assert(humanResolution.code !== 0, humanResolution.output);
+    assertEquals(humanResolution.stdout, "");
+    assert(
+      humanResolution.stderr.startsWith("discern: "),
+      humanResolution.output,
+    );
+
     const resolution = await runAgent(dir, ["identity", "--json"]);
     assert(resolution.code !== 0, resolution.output);
     assertEquals(resolution.stderr, "");
@@ -78,6 +86,18 @@ Deno.test("identity JSON failures distinguish resolution from malformed argument
     assert(
       Array.isArray(resolutionEnvelope.hints) &&
         resolutionEnvelope.hints.length > 0,
+    );
+
+    const humanMalformed = await runAgent(dir, [
+      "identity",
+      "--id",
+      "--site",
+    ]);
+    assertEquals(humanMalformed.code, 1, humanMalformed.output);
+    assertEquals(humanMalformed.stdout, "");
+    assert(
+      humanMalformed.stderr.startsWith("discern: "),
+      humanMalformed.output,
     );
 
     const malformed = await runAgent(dir, [

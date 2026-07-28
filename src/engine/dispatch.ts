@@ -798,7 +798,7 @@ export function attachEngineCommands(
             message,
           });
         } else {
-          console.error(message);
+          console.error(`discern: ${message}`);
         }
         return 1;
       }
@@ -846,7 +846,7 @@ export function attachEngineCommands(
               message: e.message,
             });
           } else {
-            console.error(e.message);
+            console.error(`discern: ${e.message}`);
           }
           return e.code;
         }
