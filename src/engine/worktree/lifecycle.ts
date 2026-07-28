@@ -527,6 +527,68 @@ async function runWorktreeEnsureSteps(
 }
 
 /**
+ * Whether `root` is a checkout of discern's source engine. The local-development
+ * wrapper uses the same identity check (`deno.json` name + source entrypoint):
+ * an unrelated Deno project with a coincidental `src/main.ts` must never be
+ * executed as discern.
+ */
+async function isDiscernSourceCheckout(root: string): Promise<boolean> {
+  if (Deno.build.standalone) {
+    return false;
+  }
+  try {
+    const manifest: unknown = JSON.parse(
+      await Deno.readTextFile(join(root, "deno.json")),
+    );
+    return typeof manifest === "object" &&
+      manifest !== null &&
+      "name" in manifest &&
+      manifest.name === "discern" &&
+      await pathPresent(join(root, "src/main.ts"));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Refresh a freshly checked-out worktree with the engine that checkout owns.
+ *
+ * Installed projects have no versioned engine source, so the running binary is
+ * their one compiler and compiles in process. discern itself is different: its
+ * branches carry `src/**` and `templates/**`. A `start --from <ref>` launched
+ * from another checkout must therefore re-enter the new worktree's source
+ * engine for this final composition step; otherwise the launcher can overwrite
+ * committed agent files with its own older compiler or bundled guidance.
+ */
+async function refreshWorktreeAgentFiles(
+  ctx: LifecycleContext,
+): Promise<boolean> {
+  if (!(await isDiscernSourceCheckout(ctx.root))) {
+    const refreshed = await compileGuidelines(ctx.root, ctx.log);
+    return guidanceRefreshSucceeded(refreshed);
+  }
+
+  const code = await runShellRouted(
+    'exec "$DISCERN_SETUP_DENO" run --no-check --config ' +
+      '"$DISCERN_SETUP_CONFIG" -A "$DISCERN_SETUP_MAIN" refresh',
+    {
+      cwd: ctx.root,
+      log: ctx.log,
+      env: {
+        DISCERN_SETUP_DENO: Deno.execPath(),
+        DISCERN_SETUP_CONFIG: join(ctx.root, "deno.json"),
+        DISCERN_SETUP_MAIN: join(ctx.root, "src/main.ts"),
+        // A launcher-side override would recreate the same version skew. An
+        // empty value makes the target engine resolve its templates module-
+        // relatively, exactly as the local-development wrapper does.
+        DISCERN_TEMPLATES_DIR: "",
+      },
+    },
+  );
+  return code === 0;
+}
+
+/**
  * Set up a linked worktree — the `worktree setup` command. Asserts the worktree
  * precondition, ensures a named branch, provisions the per-worktree resources (a
  * `required` create is fatal), inherits env vars, records the port + resource
@@ -674,8 +736,7 @@ export async function worktreeSetup(
   ctx.log.info("Refreshing agent files…");
   let refreshOk = true;
   try {
-    const refreshed = await compileGuidelines(ctx.root, ctx.log);
-    refreshOk = guidanceRefreshSucceeded(refreshed);
+    refreshOk = await refreshWorktreeAgentFiles(ctx);
   } catch {
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");

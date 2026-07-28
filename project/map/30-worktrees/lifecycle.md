@@ -34,7 +34,7 @@ Setup runs in this order:
 | One-time setup       | Runs `[worktree.setup].steps` only for a fresh worktree.                            |
 | Shared convergence   | Runs `[repository].ensure` for checkout-generic dependencies and generated state.   |
 | Worktree convergence | Runs `[worktree.setup].ensure` for commands that depend on worktree identity.       |
-| Agent files          | Rebuilds guidance and materializes skills in the new checkout.                      |
+| Agent files          | Uses the new checkout's engine to rebuild guidance and materialize skills.          |
 
 `start` refuses an unborn repository, a missing trunk, a nested `discern.toml`, an unknown or ambiguous `--from` ref, an occupied branch or directory, or a call from another worktree. `accept` applies the repository-root boundary too, so a nested project cannot land sibling changes. Main-checkout edits stay there. A failed creation removes only its branch and checkout.
 

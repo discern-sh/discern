@@ -15,8 +15,8 @@ import {
   assertMatch,
   assertStringIncludes,
 } from "@std/assert";
-import { basename, join } from "@std/path";
-import { exists } from "@std/fs";
+import { basename, dirname, fromFileUrl, join } from "@std/path";
+import { copy, exists } from "@std/fs";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
 import {
   formatMarkdownText,
@@ -45,6 +45,10 @@ import {
   worktreePath,
   writeConfig,
 } from "./engine_helpers.ts";
+
+const SOURCE_ROOT = dirname(fromFileUrl(import.meta.url));
+const REPO_ROOT = dirname(SOURCE_ROOT);
+const DECODER = new TextDecoder();
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -76,6 +80,56 @@ async function commitCurrentWorktree(
     message,
     "--no-gpg-sign",
   );
+}
+
+/**
+ * Overlay the source engine + bundled templates onto an engine fixture. This
+ * makes the fixture a self-hosting discern checkout: a branch can carry a
+ * different compiler or bundled guidance, and a worktree created from that ref
+ * can run the exact engine it checked out.
+ */
+async function addSourceEngine(dir: string): Promise<void> {
+  await copy(join(REPO_ROOT, "src"), join(dir, "src"));
+  await copy(join(REPO_ROOT, "templates"), join(dir, "templates"));
+  await Deno.copyFile(join(REPO_ROOT, "deno.json"), join(dir, "deno.json"));
+  await Deno.copyFile(join(REPO_ROOT, "deno.lock"), join(dir, "deno.lock"));
+  await Deno.symlink(
+    join(REPO_ROOT, "node_modules"),
+    join(dir, "node_modules"),
+    { type: "dir" },
+  );
+}
+
+/** Run the source engine belonging to `dir`, independent of the test runner's checkout. */
+async function runCheckoutEngine(
+  dir: string,
+  args: string[],
+): Promise<{ code: number; stdout: string; stderr: string; output: string }> {
+  const command = new Deno.Command(Deno.execPath(), {
+    args: [
+      "run",
+      "--no-check",
+      "--config",
+      join(dir, "deno.json"),
+      "-A",
+      join(dir, "src/main.ts"),
+      ...args,
+    ],
+    cwd: dir,
+    env: {
+      DISCERN_TEMPLATES_DIR: join(dir, "templates"),
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      GIT_CONFIG_SYSTEM: "/dev/null",
+      GIT_TERMINAL_PROMPT: "0",
+      NO_COLOR: "1",
+    },
+    stdout: "piped",
+    stderr: "piped",
+  });
+  const { code, stdout, stderr } = await command.output();
+  const out = DECODER.decode(stdout);
+  const err = DECODER.decode(stderr);
+  return { code, stdout: out, stderr: err, output: out + err };
 }
 
 async function commitGuidanceMarker(
@@ -1256,6 +1310,64 @@ Deno.test("start: from the main checkout creates a set-up sibling worktree and r
     assertEquals(await gitOut(path, "branch", "--show-current"), `agent/${id}`);
     // The result carries the re-root instruction (the agent must move into the path).
     assertHasHint(result, HINTS["start-re-root"], { dir: path });
+  });
+});
+
+Deno.test("start --from: branch-owned guidance is refreshed by the new worktree's engine", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "codex"] });
+    await addSourceEngine(dir);
+    await gitInit(dir);
+
+    const fromRef = "unlanded-guidance";
+    const marker = "Branch-owned built-in guidance";
+    await git(dir, "switch", "-q", "-c", fromRef);
+    const builtIn = join(dir, "templates/guidance/worktrees.md");
+    await Deno.writeTextFile(
+      builtIn,
+      `${await Deno.readTextFile(
+        builtIn,
+      )}\n\n## ${marker}\n\nKeep this branch-owned marker.\n`,
+    );
+    const refresh = await runCheckoutEngine(dir, ["refresh", "--json"]);
+    assertEquals(refresh.code, 0, refresh.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, "AGENTS.md")),
+      marker,
+      "the from-ref should commit agent files composed by its own engine",
+    );
+    await git(dir, "add", "-A");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "change bundled guidance",
+      "--no-gpg-sign",
+    );
+    await git(dir, "switch", "-q", "main");
+
+    const started = await runAgent(dir, [
+      "start",
+      "--from",
+      fromRef,
+      "--name",
+      "branch guidance",
+      "--json",
+    ]);
+    assertEquals(started.code, 0, started.output);
+    const result = JSON.parse(started.stdout) as StartResult;
+
+    assertStringIncludes(
+      await Deno.readTextFile(join(result.data.path, "AGENTS.md")),
+      marker,
+      "start must not rewrite the from-ref with the launching engine's bundled guidance",
+    );
+    assertEquals(
+      await gitOut(result.data.path, "status", "--porcelain"),
+      "",
+      "start --from must leave branch-committed generated files clean",
+    );
   });
 });
 
