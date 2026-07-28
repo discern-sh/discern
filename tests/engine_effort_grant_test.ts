@@ -3,7 +3,7 @@
  * forge-resistant placement, idempotence, and the sole production writer.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, isAbsolute, join } from "@std/path";
 import {
   clearEffortGrant,
@@ -90,10 +90,23 @@ Deno.test("effort grant reads fail closed for malformed or unavailable state", a
     const marker = await gitAdminStatePath(worktree, "effortGrant");
     assert(marker !== undefined);
     await Deno.mkdir(dirname(marker), { recursive: true });
-    await Deno.writeTextFile(marker, '{"branch": 42}\n');
-
-    const read = await readEffortGrant(worktree);
-    assertEquals(read.status, "invalid");
+    for (
+      const raw of [
+        "not json\n",
+        "[]\n",
+        '{"branch": 42}\n',
+      ]
+    ) {
+      await Deno.writeTextFile(marker, raw);
+      const read = await readEffortGrant(worktree);
+      assert(read.status === "invalid");
+      assertStringIncludes(
+        read.reason,
+        "effort-grant record",
+        "a malformed grant reason can reach authority warnings, so it must name " +
+          "the record instead of relying on storage shorthand",
+      );
+    }
   });
 });
 
