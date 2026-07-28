@@ -134,6 +134,7 @@ Deno.test("extracts a documented key block and section key order", async () => {
     "stream",
     "fail_fast",
     "timeout",
+    "concurrent_test_runs",
   ]);
   const block = keyBlockFromTemplate(template, "gate.fail_fast");
   assertExists(block);
