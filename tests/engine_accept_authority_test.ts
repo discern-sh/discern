@@ -218,6 +218,36 @@ Deno.test("landing compare-and-swap converges the unchanged trunk checkout", asy
   });
 });
 
+Deno.test("landing compare-and-swap preserves a colliding untracked file", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, authorityConfig(["docs"]));
+    await gitInit(dir);
+    const expected = await gitOut(dir, "rev-parse", "main");
+    const worktree = await addWorktree(dir, "cas-untracked");
+    await commitPaths(worktree, { "docs/guide.md": "validated\n" });
+    const validated = await gitOut(worktree, "rev-parse", "HEAD");
+
+    const collision = join(dir, "docs", "guide.md");
+    await Deno.mkdir(dirname(collision), { recursive: true });
+    await Deno.writeTextFile(collision, "local scratch\n");
+
+    const refused = await fastForwardCheckedOutBranch(
+      dir,
+      "main",
+      expected,
+      validated,
+    );
+    assertEquals(refused.kind, "checkout-failed");
+    if (refused.kind === "checkout-failed") {
+      assertEquals(refused.rolledBack, true);
+    }
+    assertEquals(await gitOut(dir, "rev-parse", "main"), expected);
+    assertEquals(await Deno.readTextFile(collision), "local scratch\n");
+    assert(await exists(worktree));
+  });
+});
+
 Deno.test("accept records confirmed conversation consent in its receipt and logbook", async () => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
