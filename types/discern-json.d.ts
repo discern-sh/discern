@@ -2374,6 +2374,7 @@ export type DiscernRefreshResult = {
     hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;
     project_rules_wired: Array<string>;
+    receipt_notes_fetch_changed: Array<string>;
     adr_index_written: Array<string>;
     skills: {
       copied: number;
@@ -3120,6 +3121,30 @@ export type DiscernStatusResult = {
       reason?: string;
       receipt?: string;
       receipt_line?: string;
+      receipt_data?: {
+        branch: string;
+        trunk: string;
+        head: string;
+        files_total: number;
+        insertions: number;
+        deletions: number;
+        line: string;
+        markdown: string;
+      };
+    };
+    landed_receipt?: {
+      commit: string;
+      ref: string;
+      receipt: {
+        branch: string;
+        trunk: string;
+        head: string;
+        files_total: number;
+        insertions: number;
+        deletions: number;
+        line: string;
+        markdown: string;
+      };
     };
     landing_authority?: {
       kind: "authorized" | "conversation-required";
@@ -3418,10 +3443,41 @@ export type DiscernAcceptResult = {
         reason?: string;
         receipt?: string;
         receipt_line?: string;
+        receipt_data?: {
+          branch: string;
+          trunk: string;
+          head: string;
+          files_total: number;
+          insertions: number;
+          deletions: number;
+          line: string;
+          markdown: string;
+        };
       };
     };
     receipt?: string;
     receipt_line?: string;
+    receipt_note?: {
+      fetch: {
+        mode: "local" | "fetch";
+        status: "local" | "wired" | "unchanged" | "no_remote" | "failed";
+        remotes: Array<string>;
+        added: Array<string>;
+        removed: Array<string>;
+        errors: Array<string>;
+      };
+      write: {
+        status:
+          | "recorded"
+          | "already_present"
+          | "record_failed"
+          | "missing_receipt";
+        ref: string;
+        commit: string;
+        merged_refs: Array<string>;
+        reason?: string;
+      };
+    };
     ignored_file_changes?: {
       status:
         | "disabled"

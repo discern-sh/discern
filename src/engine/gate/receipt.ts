@@ -53,9 +53,11 @@ import {
   preflightPlannedWrites,
   type WritePreflightFailure,
 } from "../../shared/write_preflight.ts";
-import type {
-  GateData,
-  GateReceiptCheckData,
+import {
+  type GateData,
+  type GateReceiptCheckData,
+  type Receipt,
+  ReceiptSchema,
 } from "../../shared/result_schemas.ts";
 
 type AdminStatePaths = Readonly<
@@ -291,9 +293,9 @@ function receiptRecord(
  * receipt must vouch only for the exact tree the gate actually read:
  *
  * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
- *   vouch accept honors), plus `receiptMarkdown` and `receiptLine` when the run
- *   rendered a receipt, so `status` and `accept` can surface the review summary
- *   without re-running the gate.
+ *   vouch accept honors), plus the structured receipt and its two renderings
+ *   when the run rendered one, so `status` and `accept` can surface and publish
+ *   the review summary without re-running the gate.
  * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
  *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
  *   is left untouched (still truthful at its own sha).
@@ -314,8 +316,7 @@ export async function recordGateOutcome(
   authority: AdminStateWriteAuthority,
   passed: boolean,
   pin: ValidatedTreePin,
-  receiptMarkdown?: string,
-  receiptLine?: string,
+  receipt?: Receipt,
 ): Promise<GateReceiptRecordData> {
   const path = authorityPath(cwd, authority, "gateReceipt");
   if (path === undefined) {
@@ -363,15 +364,19 @@ export async function recordGateOutcome(
       });
     }
     try {
-      // Marker format: the sha, then (when the run rendered a receipt) an
-      // optional `line: ` component and the page markdown. A marker written
-      // without the line component (an older binary's) still parses.
-      const line = receiptLine === undefined || receiptLine === ""
+      // Marker format: the sha, then (when the run rendered a receipt) its
+      // one-line structured form, the historical `line: ` component, and the
+      // page markdown. Older markers with only the rendered components still
+      // parse.
+      const data = receipt === undefined
         ? ""
-        : `line: ${receiptLine}\n`;
-      const body = receiptMarkdown === undefined || receiptMarkdown === ""
+        : `data: ${JSON.stringify(receipt)}\n`;
+      const line = receipt?.line === undefined || receipt.line === ""
+        ? ""
+        : `line: ${receipt.line}\n`;
+      const body = receipt?.markdown === undefined || receipt.markdown === ""
         ? `${pin.head}\n`
-        : `${pin.head}\n${line}\n${receiptMarkdown.trim()}\n`;
+        : `${pin.head}\n${data}${line}\n${receipt.markdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
       return receiptRecord("recorded", { path });
     } catch (error) {
@@ -553,13 +558,32 @@ export async function inspectGateReceipt(
     }
     return { status: "read_failed", path, reason: failureReason(error) };
   }
-  // First line: the validated HEAD sha. Then, when present: a `line: ` component
-  // (the receipt line) and the receipt page markdown finish stored alongside it.
-  // Markers from older binaries (sha only, or sha + markdown with no line
-  // component) still parse — the absent pieces are simply empty.
+  // First line: the validated HEAD sha. Then, when present: a `data: ` component
+  // (the structured receipt), a `line: ` component, and the receipt page
+  // markdown. Markers from older binaries (sha only, sha + markdown, or
+  // sha + line + markdown) still parse — the absent pieces are simply empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
   let rest = newline < 0 ? "" : content.slice(newline + 1);
+  let receiptData: Receipt | undefined;
+  if (rest.startsWith("data: ")) {
+    const eol = rest.indexOf("\n");
+    const raw = eol < 0
+      ? rest.slice("data: ".length)
+      : rest.slice("data: ".length, eol);
+    try {
+      const parsed: unknown = JSON.parse(raw);
+      const validated = ReceiptSchema.safeParse(parsed);
+      if (validated.success) {
+        receiptData = validated.data;
+      }
+    } catch {
+      // A malformed structured component does not invalidate the older
+      // validation vouch. Acceptance still honors the commit but reports that
+      // no structured receipt was available to publish.
+    }
+    rest = eol < 0 ? "" : rest.slice(eol + 1);
+  }
   let line = "";
   if (rest.startsWith("line: ")) {
     const eol = rest.indexOf("\n");
@@ -595,6 +619,7 @@ export async function inspectGateReceipt(
     head,
     ...(markdown === "" ? {} : { receipt: markdown }),
     ...(line === "" ? {} : { receipt_line: line }),
+    ...(receiptData === undefined ? {} : { receipt_data: receiptData }),
   };
 }
 

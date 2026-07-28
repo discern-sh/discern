@@ -57,6 +57,7 @@ import {
 } from "../../shared/setup_state.ts";
 import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
+import { readLandedReceiptNote } from "../gate/receipt_notes.ts";
 import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
@@ -261,6 +262,10 @@ export async function statusResult(
     git,
     standards: Object.keys(cfg.standards),
   };
+  const landedReceipt = await readLandedReceiptNote(root, mainBranch);
+  if (landedReceipt !== undefined) {
+    data.landed_receipt = landedReceipt;
+  }
   const gateReceipt = location === "worktree"
     ? await inspectGateReceipt(root)
     : undefined;
@@ -1411,6 +1416,23 @@ function renderStatusHuman(
   }
 
   const verbose = render.verbose ?? false;
+  if (data.landed_receipt !== undefined) {
+    out.raw(
+      `  ${label("receipt")}${
+        data.landed_receipt.commit.slice(0, 12)
+      }${dot}${data.landed_receipt.ref}\n`,
+    );
+    if (verbose) {
+      out.raw(
+        `\n${
+          dimBlock(
+            data.landed_receipt.receipt.markdown,
+            outSink(out).dim,
+          )
+        }\n\n`,
+      );
+    }
+  }
   if (data.gate_receipt !== undefined) {
     out.raw(
       `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}\n`,

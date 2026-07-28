@@ -308,6 +308,9 @@ const repositorySection = z.strictObject({
   branch_prefix: z.string().default("agent/").describe(
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
+  receipt_notes: z.enum(["local", "fetch"]).default("local").describe(
+    'How landed receipt notes travel: "local" records them only in this clone; "fetch" also adds an additive fetch mapping for each remote. Discern never configures push behavior or starts a network request.',
+  ),
   ensure: z.array(z.string()).default([]).describe(
     "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
   ),

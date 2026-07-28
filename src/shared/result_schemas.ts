@@ -390,6 +390,9 @@ export const GateReceiptCheckSchema = z.strictObject({
   reason: z.string().optional(),
   receipt: z.string().optional(),
   receipt_line: z.string().optional(),
+  /** The structured receipt cached by current writers. Older markers carry only
+   * the rendered forms and therefore omit this field. */
+  receipt_data: ReceiptSchema.optional(),
 });
 export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
 
@@ -409,6 +412,7 @@ export const RefreshDataSchema = z.strictObject({
   hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),
   project_rules_wired: z.array(z.string()),
+  receipt_notes_fetch_changed: z.array(z.string()),
   adr_index_written: z.array(z.string()),
   skills: z.strictObject({
     copied: z.number(),
@@ -516,6 +520,36 @@ export const LandingConsentDataSchema = z.strictObject({
 });
 export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
 
+export const ReceiptNotesFetchSchema = z.strictObject({
+  mode: z.enum(["local", "fetch"]),
+  status: z.enum(["local", "wired", "unchanged", "no_remote", "failed"]),
+  remotes: z.array(z.string()),
+  added: z.array(z.string()),
+  removed: z.array(z.string()),
+  errors: z.array(z.string()),
+});
+export type ReceiptNotesFetchData = z.infer<typeof ReceiptNotesFetchSchema>;
+
+export const ReceiptNoteWriteSchema = z.strictObject({
+  status: z.enum([
+    "recorded",
+    "already_present",
+    "record_failed",
+    "missing_receipt",
+  ]),
+  ref: z.string(),
+  commit: z.string(),
+  merged_refs: z.array(z.string()),
+  reason: z.string().optional(),
+});
+export type ReceiptNoteWriteData = z.infer<typeof ReceiptNoteWriteSchema>;
+
+export const AcceptReceiptNoteSchema = z.strictObject({
+  fetch: ReceiptNotesFetchSchema,
+  write: ReceiptNoteWriteSchema,
+});
+export type AcceptReceiptNoteData = z.infer<typeof AcceptReceiptNoteSchema>;
+
 /** `accept` — where the branch landed: `root` is the main checkout the worktree's
  * branch was landed into. The load-bearing field for the MCP working-root re-aim
  * (ADR 0062): accept removes the worktree the server operated on, and the server
@@ -539,6 +573,9 @@ export const AcceptDataSchema = z.strictObject({
   /** The system-rendered one-line receipt for the tree that landed. Agents relay
    * this field verbatim at the end of their landing report. */
   receipt_line: z.string().optional(),
+  /** Repository-resident receipt recording and its optional fetch transport.
+   * Both run after the trunk moves and therefore fail open. */
+  receipt_note: AcceptReceiptNoteSchema.optional(),
   ignored_file_changes: z.strictObject({
     status: z.enum([
       "disabled",
@@ -739,6 +776,11 @@ export const StatusDataSchema = z.strictObject({
   gate: statusGateSchema.optional(),
   standards: z.array(z.string()),
   gate_receipt: GateReceiptCheckSchema.optional(),
+  landed_receipt: z.strictObject({
+    commit: z.string(),
+    ref: z.string(),
+    receipt: ReceiptSchema,
+  }).optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
   stale_generated: z.array(z.string()).optional(),
   stale_materialized: z.array(z.string()).optional(),

@@ -2092,6 +2092,20 @@ export const HINTS = {
       "Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.",
   }),
 
+  /** Fetch transport is enabled, but publication stays an explicit owner-side
+   * Git operation so discern never makes a network request. */
+  "accept-publish-receipt-note": defineHint<{ remote: string }>({
+    id: "accept-publish-receipt-note",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A receipt note is recorded after landing with fetch transport enabled.",
+    example: { remote: "origin" },
+    template: ({ remote }): string =>
+      `Publish the receipt note with \`git push ${remote} refs/notes/discern\`. ` +
+      "Discern fetches and pushes nothing itself.",
+  }),
+
   /** Integration-summary fallback when its read-only git census cannot complete. */
   "update-summary-fallback": defineHint<{
     source: string;

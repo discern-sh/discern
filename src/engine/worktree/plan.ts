@@ -52,6 +52,8 @@ export interface AcceptPlan {
   mainRepo: string;
   /** The trunk the acceptance fast-forwards (`[repository].trunk`). */
   trunk: string;
+  /** Whether refresh maintains receipt-note fetch mappings. */
+  receiptNotes: "local" | "fetch";
   /** Shared checkout-convergence commands run in the trunk after landing. */
   repositoryEnsureSteps: string[];
   /** Configured smoke jobs run in the trunk after convergence. */
@@ -83,6 +85,20 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     label: "fast-forward-trunk",
     disposition: "run",
     note: `${plan.trunk} → ${plan.worktreeBranch} in ${plan.mainRepo}`,
+  });
+  steps.push({
+    kind: "git",
+    label: "reconcile-receipt-note-fetch",
+    disposition: "run",
+    note: plan.receiptNotes === "fetch"
+      ? "add the receipt-note fetch mapping for each remote"
+      : "remove only receipt-note fetch mappings discern previously managed",
+  });
+  steps.push({
+    kind: "git",
+    label: "write-receipt-note",
+    disposition: "run",
+    note: `attach the landed receipt under refs/notes/discern`,
   });
   steps.push({
     kind: "refresh",

@@ -7661,6 +7661,12 @@
                     "type": "string"
                   }
                 },
+                "receipt_notes_fetch_changed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "adr_index_written": {
                   "type": "array",
                   "items": {
@@ -7699,6 +7705,7 @@
                 "hooks_wired",
                 "worktree_app_wired",
                 "project_rules_wired",
+                "receipt_notes_fetch_changed",
                 "adr_index_written",
                 "skills",
                 "errors"
@@ -10141,10 +10148,104 @@
                     },
                     "receipt_line": {
                       "type": "string"
+                    },
+                    "receipt_data": {
+                      "type": "object",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "trunk": {
+                          "type": "string"
+                        },
+                        "head": {
+                          "type": "string"
+                        },
+                        "files_total": {
+                          "type": "number"
+                        },
+                        "insertions": {
+                          "type": "number"
+                        },
+                        "deletions": {
+                          "type": "number"
+                        },
+                        "line": {
+                          "type": "string"
+                        },
+                        "markdown": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "branch",
+                        "trunk",
+                        "head",
+                        "files_total",
+                        "insertions",
+                        "deletions",
+                        "line",
+                        "markdown"
+                      ]
                     }
                   },
                   "required": [
                     "status"
+                  ]
+                },
+                "landed_receipt": {
+                  "type": "object",
+                  "properties": {
+                    "commit": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "type": "string"
+                    },
+                    "receipt": {
+                      "type": "object",
+                      "properties": {
+                        "branch": {
+                          "type": "string"
+                        },
+                        "trunk": {
+                          "type": "string"
+                        },
+                        "head": {
+                          "type": "string"
+                        },
+                        "files_total": {
+                          "type": "number"
+                        },
+                        "insertions": {
+                          "type": "number"
+                        },
+                        "deletions": {
+                          "type": "number"
+                        },
+                        "line": {
+                          "type": "string"
+                        },
+                        "markdown": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "branch",
+                        "trunk",
+                        "head",
+                        "files_total",
+                        "insertions",
+                        "deletions",
+                        "line",
+                        "markdown"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "commit",
+                    "ref",
+                    "receipt"
                   ]
                 },
                 "landing_authority": {
@@ -11236,6 +11337,45 @@
                         },
                         "receipt_line": {
                           "type": "string"
+                        },
+                        "receipt_data": {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "trunk": {
+                              "type": "string"
+                            },
+                            "head": {
+                              "type": "string"
+                            },
+                            "files_total": {
+                              "type": "number"
+                            },
+                            "insertions": {
+                              "type": "number"
+                            },
+                            "deletions": {
+                              "type": "number"
+                            },
+                            "line": {
+                              "type": "string"
+                            },
+                            "markdown": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "branch",
+                            "trunk",
+                            "head",
+                            "files_total",
+                            "insertions",
+                            "deletions",
+                            "line",
+                            "markdown"
+                          ]
                         }
                       },
                       "required": [
@@ -11253,6 +11393,104 @@
                 },
                 "receipt_line": {
                   "type": "string"
+                },
+                "receipt_note": {
+                  "type": "object",
+                  "properties": {
+                    "fetch": {
+                      "type": "object",
+                      "properties": {
+                        "mode": {
+                          "type": "string",
+                          "enum": [
+                            "local",
+                            "fetch"
+                          ]
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "local",
+                            "wired",
+                            "unchanged",
+                            "no_remote",
+                            "failed"
+                          ]
+                        },
+                        "remotes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "added": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "removed": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "errors": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "status",
+                        "remotes",
+                        "added",
+                        "removed",
+                        "errors"
+                      ]
+                    },
+                    "write": {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "recorded",
+                            "already_present",
+                            "record_failed",
+                            "missing_receipt"
+                          ]
+                        },
+                        "ref": {
+                          "type": "string"
+                        },
+                        "commit": {
+                          "type": "string"
+                        },
+                        "merged_refs": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "reason": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "ref",
+                        "commit",
+                        "merged_refs"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "fetch",
+                    "write"
+                  ]
                 },
                 "ignored_file_changes": {
                   "type": "object",

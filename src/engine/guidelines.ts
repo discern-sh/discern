@@ -46,6 +46,7 @@ import {
 } from "../shared/hints.ts";
 import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
+import { reconcileReceiptNotesFetch } from "./gate/receipt_notes.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
@@ -65,6 +66,8 @@ export interface GuidelinesResult {
   worktreeAppWired: string[];
   /** Project-local provider policy/rules files written, such as Codex exec rules. */
   projectRulesWired: string[];
+  /** Local Git config keys whose managed receipt-note fetch mappings changed. */
+  receiptNotesFetchChanged: string[];
   /** The ADR README whose maintained record lists this run regenerated — at
    * most one path; empty when the index is current or the project carries no
    * index markers (the index is opt-in by construction). */
@@ -109,6 +112,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
     hooks_wired: result.hooksWired,
     worktree_app_wired: result.worktreeAppWired,
     project_rules_wired: result.projectRulesWired,
+    receipt_notes_fetch_changed: result.receiptNotesFetchChanged,
     adr_index_written: result.adrIndexWritten,
     skills: {
       copied: result.skillsCopied,
@@ -287,7 +291,37 @@ export async function compileGuidelines(
     errors.push(msg);
   }
 
-  // --- job 2d: the maintained ADR index ---------------------------------------
+  // --- job 2d: receipt-note fetch transport -----------------------------------
+  // Local receipt recording is unconditional at acceptance. Transport remains
+  // opt-in: only "fetch" adds an exact additive mapping, and returning to
+  // "local" removes only mappings this integration previously marked.
+  let receiptNotesFetchChanged: string[] = [];
+  try {
+    const reconciled = await reconcileReceiptNotesFetch(
+      root,
+      config.repository.receipt_notes,
+    );
+    receiptNotesFetchChanged = [
+      ...reconciled.added,
+      ...reconciled.removed,
+    ];
+    errors.push(...reconciled.errors);
+    if (receiptNotesFetchChanged.length > 0) {
+      log.info(
+        `updated receipt-note fetch transport in: ${
+          receiptNotesFetchChanged.join(", ")
+        }`,
+      );
+    }
+  } catch (error) {
+    const msg = `could not update receipt-note fetch transport: ${
+      errText(error)
+    }`;
+    log.warn(msg);
+    errors.push(msg);
+  }
+
+  // --- job 2e: the maintained ADR index ---------------------------------------
   // The record lists in the ADR README (`<map dir>/_adr/README.md`) are
   // regenerated from the record files on disk whenever the README carries the
   // index markers; a README without them is never touched, so the index is
@@ -336,6 +370,7 @@ export async function compileGuidelines(
       hooksWired,
       worktreeAppWired,
       projectRulesWired,
+      receiptNotesFetchChanged,
       adrIndexWritten,
       hints,
       skills,
@@ -407,6 +442,7 @@ export async function compileGuidelines(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
+    receiptNotesFetchChanged,
     adrIndexWritten,
     hints,
     skills,
@@ -423,6 +459,7 @@ function summarize(
   hooksWired: string[],
   worktreeAppWired: string[],
   projectRulesWired: string[],
+  receiptNotesFetchChanged: string[],
   adrIndexWritten: string[],
   hints: FiredHint[],
   skills: { copied: number; linked: number; pruned: number },
@@ -444,6 +481,7 @@ function summarize(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
+    receiptNotesFetchChanged,
     adrIndexWritten,
     hints: hintTexts(hints),
     skillsCopied: skills.copied,

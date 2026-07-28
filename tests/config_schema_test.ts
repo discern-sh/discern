@@ -91,6 +91,7 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
   assertEquals(config.repository, {
     trunk: "stable",
     branch_prefix: "change/",
+    receipt_notes: "local",
     ensure: ["npm install", "make generated"],
   });
 });

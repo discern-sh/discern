@@ -36,7 +36,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 139     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 140     | "Advisory"       | node `hints`                |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
@@ -44,7 +44,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 27      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 37      | —                | node `glossary-canon`       |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 38      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 121     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 40      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
@@ -56,7 +56,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-help`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 205     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 206     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 26      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -425,7 +425,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 139
+- Members: 140
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`, `tests/result_schemas_test.ts`, `tests/engine_json_purity_test.ts`, `tests/engine_logbook_test.ts`, `tests/patterns_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -506,7 +506,7 @@ The improvement catalog's categories, in display order; the runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 37
+- Members: 38
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface
@@ -633,7 +633,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 205
+- Members: 206
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node

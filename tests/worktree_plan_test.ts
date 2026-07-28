@@ -124,6 +124,7 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",
     trunk: "main",
+    receiptNotes: "local" as const,
     repositoryEnsureSteps: ["install-deps"],
     smokeSteps: [{ label: "smoke", command: "app --version" }],
     ignoredFileChanges: {
@@ -139,6 +140,8 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
   });
   assertEquals(withResources.steps.map((s) => s.label), [
     "fast-forward-trunk",
+    "reconcile-receipt-note-fetch",
+    "write-receipt-note",
     "refresh agent files",
     "install-deps",
     "smoke",
@@ -159,6 +162,8 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
   });
   assertEquals(clean.steps.map((s) => s.label), [
     "fast-forward-trunk",
+    "reconcile-receipt-note-fetch",
+    "write-receipt-note",
     "refresh agent files",
     "install-deps",
     "smoke",

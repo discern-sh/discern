@@ -22,6 +22,7 @@ aliases:
   - repository
   - repository.trunk
   - repository.branch_prefix
+  - repository.receipt_notes
   - repository.ensure
   - guidance
   - guidance.sources
@@ -131,11 +132,12 @@ Project identity and authored project paths.
 
 Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.
 
-| Key             | Type     | Default    | Description                                                                                                                                                                                                                                                                                                  |
-| --------------- | -------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `trunk`         | string   | `"main"`   | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.                                                                                                                                                                            |
-| `branch_prefix` | string   | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                     |
-| `ensure`        | string[] | `[]`       | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
+| Key             | Type               | Default    | Description                                                                                                                                                                                                                                                                                                  |
+| --------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `trunk`         | string             | `"main"`   | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.                                                                                                                                                                            |
+| `branch_prefix` | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                     |
+| `receipt_notes` | `local` \| `fetch` | `"local"`  | How landed receipt notes travel: "local" records them only in this clone; "fetch" also adds an additive fetch mapping for each remote. Discern never configures push behavior or starts a network request.                                                                                                   |
+| `ensure`        | string[]           | `[]`       | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
 
 ## `[guidance]`
 

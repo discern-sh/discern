@@ -104,7 +104,9 @@ import { observeResult } from "../../shared/result_capture.ts";
 import type {
   AcceptData,
   AcceptLandingState,
+  AcceptReceiptNoteData,
   GateData,
+  Receipt,
   StartData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
@@ -166,6 +168,10 @@ import { resolveTemplatesDir } from "../../lib/paths.ts";
 import { finishResult } from "../gate/finish.ts";
 import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
 import { renderLandingReceiptLine } from "../gate/receipt_render.ts";
+import {
+  reconcileReceiptNotesFetch,
+  writeReceiptNote,
+} from "../gate/receipt_notes.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
@@ -1427,6 +1433,7 @@ async function buildAcceptPlan(
     worktreePath,
     mainRepo,
     trunk: ctx.config.repository.trunk,
+    receiptNotes: ctx.config.repository.receipt_notes,
     repositoryEnsureSteps: ctx.config.repository.ensure,
     smokeSteps: planStageJobs(ctx.config, "test")
       .filter((job) =>
@@ -1572,6 +1579,7 @@ interface AcceptExecutionProgress {
   gateValidation?: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown?: string;
   receiptLine?: string;
+  receiptNote?: AcceptReceiptNoteData;
   readonly convergenceHints: string[];
   readonly diagnostics: Diagnostic[];
   readonly authorityWarnings: string[];
@@ -1617,6 +1625,9 @@ function partialAcceptanceResult(
       ...(progress.receiptLine === undefined
         ? {}
         : { receipt_line: progress.receiptLine }),
+      ...(progress.receiptNote === undefined
+        ? {}
+        : { receipt_note: progress.receiptNote }),
     },
     ...(progress.convergenceHints.length === 0
       ? {}
@@ -1784,6 +1795,7 @@ async function executeAcceptPlan(
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown: string | undefined;
   receiptLine: string | undefined;
+  receiptNote: AcceptReceiptNoteData;
   convergenceHints: string[];
   diagnostics: Diagnostic[];
   authorityWarnings: string[];
@@ -1825,6 +1837,7 @@ async function executeAcceptPlan(
   // the (minutes-long) re-run must never ride along unvalidated.
   let receiptMarkdown: string | undefined;
   let receiptLine: string | undefined;
+  let receiptData: Receipt | undefined;
   let validatedSha: string | undefined;
   if (gateValidation.mode === "receipt") {
     ctx.log.ok(
@@ -1832,6 +1845,7 @@ async function executeAcceptPlan(
     );
     receiptMarkdown = receipt.receipt;
     receiptLine = receipt.receipt_line;
+    receiptData = receipt.receipt_data;
     validatedSha = receipt.head;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
@@ -1852,6 +1866,7 @@ async function executeAcceptPlan(
     ctx.log.ok("Gate passed against the tree to be landed.");
     receiptMarkdown = gate.data?.receipt?.markdown;
     receiptLine = gate.data?.receipt?.line;
+    receiptData = gate.data?.receipt;
     validatedSha = pin.head;
   }
   if (validatedSha === undefined) {
@@ -2045,11 +2060,84 @@ async function executeAcceptPlan(
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
 
+  // The trunk now names the validated commit. Receipt-note recording and its
+  // opt-in fetch transport are deliberately fail-open from this boundary:
+  // neither may roll back a successful landing or turn acceptance red.
+  let convergenceHints: string[] = hintTexts([]);
+  const receiptFetch = await reconcileReceiptNotesFetch(
+    mainRepo,
+    plan.receiptNotes,
+  );
+  results.push({
+    step: {
+      kind: "git",
+      label: "reconcile-receipt-note-fetch",
+      disposition: "run",
+      note: receiptFetch.errors.length === 0
+        ? `receipt-note transport is ${receiptFetch.status}`
+        : receiptFetch.errors.join("; "),
+    },
+    outcome: receiptFetch.errors.length === 0 ? "ok" : "skipped",
+  });
+  if (receiptFetch.errors.length > 0) {
+    ctx.log.warn(
+      "Receipt-note fetch transport could not converge — the landing is kept.",
+    );
+  }
+
+  const receiptWrite = await writeReceiptNote(
+    mainRepo,
+    validatedSha,
+    receiptData,
+  );
+  const receiptNote: AcceptReceiptNoteData = {
+    fetch: receiptFetch,
+    write: receiptWrite,
+  };
+  progress.receiptNote = receiptNote;
+  const receiptWritten = receiptWrite.status === "recorded" ||
+    receiptWrite.status === "already_present";
+  results.push({
+    step: {
+      kind: "git",
+      label: "write-receipt-note",
+      disposition: "run",
+      note: receiptWrite.reason ??
+        `${receiptWrite.ref} at ${receiptWrite.commit}`,
+    },
+    outcome: receiptWritten ? "ok" : "skipped",
+  });
+  if (receiptWritten) {
+    ctx.log.ok(`Recorded the landing receipt under ${receiptWrite.ref}.`);
+  } else {
+    ctx.log.warn(
+      `The landing receipt note was not recorded — the landing is kept. ${
+        receiptWrite.reason ?? receiptWrite.status
+      }`,
+    );
+  }
+
+  const publicationRemote = receiptFetch.remotes.includes("origin")
+    ? "origin"
+    : receiptFetch.remotes[0];
+  if (
+    plan.receiptNotes === "fetch" && receiptFetch.errors.length === 0 &&
+    receiptWritten && publicationRemote !== undefined
+  ) {
+    convergenceHints = mergeHintTexts(
+      convergenceHints,
+      hintTexts([
+        fire(HINTS["accept-publish-receipt-note"], {
+          remote: publicationRemote,
+        }),
+      ]),
+    );
+  }
+
   // Converge and prove the checkout accept leaves behind BEFORE cleanup. The
   // trunk has already moved, so every operation in this block is non-fatal and
   // recorded: no dependency-install or smoke failure may strand the linked
   // worktree/resources by preventing the cleanup tail from running.
-  let convergenceHints: string[] = hintTexts([]);
   const diagnostics = progress.diagnostics;
   ctx.log.info(
     "Re-materializing agent files + skills in the landing checkout…",
@@ -2257,6 +2345,7 @@ async function executeAcceptPlan(
     gateValidation,
     receiptMarkdown,
     receiptLine,
+    receiptNote,
     convergenceHints,
     diagnostics,
     authorityWarnings,
@@ -2473,6 +2562,7 @@ async function executeAcceptResult(
       ...(executed.receiptLine !== undefined
         ? { receipt_line: executed.receiptLine }
         : {}),
+      receipt_note: executed.receiptNote,
       ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
         ? { ignored_file_changes: plan.ignoredFileChanges }
         : {}),

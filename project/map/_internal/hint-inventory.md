@@ -34,6 +34,19 @@ Rendered example:
 Review `git status` in /workspace/project. Acceptance landed on main, but post-landing convergence changed tracked files there.
 ```
 
+## `accept-publish-receipt-note`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: A receipt note is recorded after landing with fetch transport enabled.
+
+Rendered example:
+
+```text
+Publish the receipt note with `git push origin refs/notes/discern`. Discern fetches and pushes nothing itself.
+```
+
 ## `accept-refresh-failed`
 
 - Category: `next-step`

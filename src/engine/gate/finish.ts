@@ -920,8 +920,7 @@ async function runGate(
         writeAuthority,
         failedStage === null,
         treePin,
-        receipt?.markdown,
-        receipt?.line,
+        receipt,
       );
   // The last-run marker remembers what this run judged — every verdict, red
   // included, unlike the receipt above — so the next `done` can refuse an
