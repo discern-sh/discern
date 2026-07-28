@@ -20,10 +20,21 @@ Runtime result schemas remain strict, and `ERROR_SLUGS` is the closed vocabulary
 
 No top-level `schema_version` field is added. The schema `$id` is the contract identity callers pin; a breaking release publishes a new major path. A payload field would repeat that identity on every result and would not replace schema selection or protocol negotiation.
 
+## Enforcement update — July 28, 2026
+
+`PUBLIC_SCHEMA_PUBLICATIONS` now records each schema's major and compatibility policy beside its public `$id` and generated artifact. The gate generates the branch schemas and compares them with the configured trunk's committed artifacts whenever the `$id` is unchanged. A new major starts a new comparison baseline.
+
+The structural comparison rejects field, result-contract, definition, and known-error-slug removals, plus type and validation changes. It permits optional properties. Result output also permits new command or tool contracts and additions to the open known-error-slug metadata. Existing union alternatives and contract records are matched by `$ref` and contract id, so order has no compatibility meaning.
+
+For result output, an existing contract retains its required fields. A new field must be optional. A new command or tool contract widens the current global union without changing any existing command's output; a consumer pinned to an older schema needs the current schema before validating that new contract.
+
+For configuration, the comparison proves that documents accepted by the trunk remain accepted. An optional key or section may join the current closed schema, and a required key may become optional. An optional key cannot become required. The check does not claim that an older cached schema accepts a document using an added key.
+
 ## Consequences
 
 - Version-1 result consumers must retain unknown fields and slugs as unknown, not treat them as impossible.
 - Generators and tests must preserve the deliberate difference between strict runtime schemas and additive public validation.
+- A same-major schema change must pass the configured-trunk compatibility comparison. Breaking changes move to a new public major.
 - Configuration tools may cache the version-1 schema, but must refresh it before validating configuration that uses keys introduced by a newer discern release.
 - Breaking changes require a new served schema path and an explicit consumer migration.
 - The known-slug extension is discovery metadata, not a public enum that closes validation.
