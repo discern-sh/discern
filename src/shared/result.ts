@@ -154,7 +154,7 @@ export interface StepResult {
  *    number. The files differ, so a merge lands the duplicate cleanly; the
  *    gate is the surface that refuses it;
  *  - `adr_index` — the maintained ADR index (the marker-delimited record
- *    lists in the map's ADR README) no longer matches the record files on
+ *    lists in the map's ADR README) does not match the record files on
  *    disk, or cannot be derived from them. Only a README carrying the
  *    markers is checked — the index is opt-in by construction;
  *  - `merge` — the branch is behind the integration branch (the fail-fast

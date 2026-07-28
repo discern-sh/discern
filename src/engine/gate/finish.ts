@@ -259,7 +259,7 @@ async function adrNumbersDiagnostic(
 
 /**
  * A diagnostic for the maintained ADR index. Two shapes behind one stage:
- * STALE — the record lists between the markers no longer match the record
+ * STALE — the record lists between the markers do not match the record
  * files, and `discern refresh` rewrites them (the currency remedy, with the
  * capped drift diff); INVALID — a record file defeats the derivation (its
  * first heading carries no record number), so the remedy is editing that

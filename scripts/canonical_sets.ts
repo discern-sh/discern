@@ -722,8 +722,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/adr_citations_test.ts",
       "tests/improve_count_adrs_test.ts",
     ],
-    // The maintained ADR index (project/map/_adr/README.md) is no longer a
-    // codegen artifact: `discern refresh` maintains it in ANY project, and the
+    // The maintained ADR index (project/map/_adr/README.md) is not a codegen
+    // artifact: `discern refresh` maintains it in ANY project, and the
     // gate's adr_index currency precondition holds it to the records on disk.
     artifacts: [],
     enrolledIn: {
