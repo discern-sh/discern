@@ -283,13 +283,19 @@ export async function listLogbookFiles(
 
 /** Delete the whole logbook directory — the reset action's executor, kept in
  * the store because this module is the subsystem's only sanctioned write site.
- * Removing an already-absent logbook is a no-op, not an error. */
+ * Detach the live path atomically before recursive cleanup: a recorder already
+ * in flight may recreate the canonical directory, but it cannot repopulate the
+ * snapshot being removed. Removing an already-absent logbook is a no-op. */
 export async function removeLogbook(commonGitDir: string): Promise<void> {
+  const source = logbookDir(commonGitDir);
+  const detached = `${source}.reset-${crypto.randomUUID()}`;
   try {
-    await Deno.remove(logbookDir(commonGitDir), { recursive: true });
+    await Deno.rename(source, detached);
   } catch (e) {
-    if (!(e instanceof Deno.errors.NotFound)) {
-      throw e;
+    if (e instanceof Deno.errors.NotFound) {
+      return;
     }
+    throw e;
   }
+  await Deno.remove(detached, { recursive: true });
 }

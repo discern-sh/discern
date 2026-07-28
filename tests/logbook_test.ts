@@ -39,6 +39,7 @@ import {
   MAX_MONTH_FILES,
   monthFileName,
   readEpochState,
+  removeLogbook,
   writeEpochState,
 } from "../src/engine/logbook/store.ts";
 import {
@@ -389,6 +390,67 @@ Deno.test("store: appends land one parseable line per event in the month file", 
     assertEquals(lines.length, 2);
     for (const line of lines) {
       assertEquals(parseLogbookLine(line).kind, "event");
+    }
+  });
+});
+
+Deno.test("store: reset detaches the logbook from concurrent writers before cleanup", async () => {
+  await withTempDir(async (dir) => {
+    const logDir = logbookDir(dir);
+    await Deno.mkdir(logDir, { recursive: true });
+    for (let i = 0; i < 256; i++) {
+      await Deno.writeTextFile(join(logDir, `seed-${i}.state`), "old");
+    }
+
+    let stop = false;
+    let writes = 0;
+    const writer = (async (): Promise<void> => {
+      while (!stop) {
+        try {
+          await Deno.mkdir(logDir, { recursive: true });
+          await Deno.writeTextFile(
+            join(logDir, "future-writer.state"),
+            "live",
+          );
+          writes += 1;
+        } catch (error) {
+          if (!(error instanceof Deno.errors.NotFound)) {
+            throw error;
+          }
+        }
+      }
+    })();
+
+    while (writes === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    try {
+      await removeLogbook(dir);
+    } finally {
+      stop = true;
+      await writer;
+    }
+
+    assert(writes > 0);
+    assertEquals(
+      await Deno.readTextFile(join(logDir, "future-writer.state")),
+      "live",
+      "a writer arriving during reset must restart on the canonical path",
+    );
+    for await (const entry of Deno.readDir(join(dir, "discern"))) {
+      assert(
+        !entry.name.startsWith("logbook.reset-"),
+        `reset left its detached snapshot behind: ${entry.name}`,
+      );
+    }
+    for (let i = 0; i < 256; i++) {
+      let seededGone = false;
+      try {
+        await Deno.stat(join(logDir, `seed-${i}.state`));
+      } catch {
+        seededGone = true;
+      }
+      assert(seededGone, `seed-${i}.state survived the reset`);
     }
   });
 });
