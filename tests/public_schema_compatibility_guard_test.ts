@@ -221,6 +221,88 @@ Deno.test("result compatibility permits optional fields, new CLI and MCP contrac
   );
 });
 
+Deno.test("new contract references widen only their canonical role aggregates", () => {
+  const cases = [
+    {
+      role: "cli",
+      previousReference: "#/$defs/VoyageLaunchResult",
+      addedReference: "#/$defs/VoyageLandResult",
+    },
+    {
+      role: "mcp",
+      previousReference: "#/$defs/VoyageLaunchMcpToolResult",
+      addedReference: "#/$defs/VoyageLandMcpToolResult",
+    },
+  ] as const;
+  const results = Object.fromEntries(cases.map((control) => {
+    const previous = clone(RESULT_OUTPUT_FIXTURE);
+    const previousDefs = previous.$defs as JsonObject;
+    const previousLaunch = previousDefs.VoyageLaunchResult as JsonObject;
+    const previousProperties = previousLaunch.properties as JsonObject;
+    previousProperties.lookalike = {
+      oneOf: [{ $ref: control.previousReference }],
+    };
+
+    const current = clone(previous);
+    const currentDefs = current.$defs as JsonObject;
+    currentDefs.VoyageLandResult = {
+      type: "object",
+      properties: {
+        verb: { const: "land" },
+        ok: { type: "boolean" },
+      },
+      required: ["verb", "ok"],
+    };
+    currentDefs.VoyageLandMcpToolResult = {
+      type: "object",
+      properties: {
+        structuredContent: { $ref: "#/$defs/VoyageLandResult" },
+      },
+      required: ["structuredContent"],
+    };
+    const currentCli = currentDefs.VoyageCliResult as JsonObject;
+    (currentCli.oneOf as JsonValue[]).push({
+      $ref: "#/$defs/VoyageLandResult",
+    });
+    const currentMcp = currentDefs.VoyageMcpResult as JsonObject;
+    (currentMcp.oneOf as JsonValue[]).push({
+      $ref: "#/$defs/VoyageLandMcpToolResult",
+    });
+    const currentLaunch = currentDefs.VoyageLaunchResult as JsonObject;
+    const currentProperties = currentLaunch.properties as JsonObject;
+    const lookalike = currentProperties.lookalike as JsonObject;
+    (lookalike.oneOf as JsonValue[]).push({
+      $ref: control.addedReference,
+    });
+    (current["x-discern-contracts"] as JsonValue[]).push({
+      id: "voyageLand",
+      verb: "land",
+      commands: ["land"],
+      mcpTool: "voyage_land",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.cli]: "#/$defs/VoyageLandResult",
+      [RESULT_CONTRACT_REFERENCE_FIELDS.mcp]: "#/$defs/VoyageLandMcpToolResult",
+    });
+
+    return [
+      control.role,
+      publicSchemaCompatibilityIssues(
+        previous,
+        current,
+        RESULT_SCHEMA_COMPATIBILITY_POLICY,
+      ),
+    ];
+  }));
+
+  assertEquals(results, {
+    cli: [
+      '$.$defs.VoyageLaunchResult.properties.lookalike.oneOf: added alternative {"$ref":"#/$defs/VoyageLandResult"}',
+    ],
+    mcp: [
+      '$.$defs.VoyageLaunchResult.properties.lookalike.oneOf: added alternative {"$ref":"#/$defs/VoyageLandMcpToolResult"}',
+    ],
+  });
+});
+
 Deno.test("result compatibility permits adding MCP exposure to an existing CLI contract", () => {
   const previous = clone(RESULT_OUTPUT_FIXTURE);
   const previousDefs = previous.$defs as JsonObject;
