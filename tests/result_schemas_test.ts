@@ -17,6 +17,12 @@ import { join } from "@std/path";
 import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
 import {
+  AUTHORED_TS_FILES,
+  isRepoMapPath,
+  REPO_ROOT,
+  TRACKED_MD_FILES,
+} from "./repo_authored_paths.ts";
+import {
   addWorktree,
   defaultMapPath,
   git,
@@ -528,6 +534,33 @@ Deno.test("the step vocabularies (kind/disposition/outcome) are closed enums der
   assert(
     !StepResultJsonSchema.safeParse(step({ outcome: "nope" })).success,
     "outcome must be the closed STEP_OUTCOMES enum",
+  );
+});
+
+Deno.test("current-facing prose keeps fail-fast cancellation distinct from skipped work", async () => {
+  assert(
+    STEP_OUTCOMES.includes("cancelled") && STEP_OUTCOMES.includes("skipped"),
+    "this guard follows the canonical STEP_OUTCOMES distinction",
+  );
+  const currentFacingFiles = [
+    ...AUTHORED_TS_FILES.filter((rel) => !rel.startsWith("tests/")),
+    ...TRACKED_MD_FILES.filter((rel) =>
+      !isRepoMapPath(rel, "_adr") && !isRepoMapPath(rel, "_private")
+    ),
+  ].sort();
+  const conflatesOutcomes =
+    /\b(?:fail-fast(?:-cancelled)?\s+(?:collateral|siblings?)|cancelled\s+siblings?)\b[\s\S]{0,240}?\b(?:report(?:ed|s)?(?:\s+as)?|ended)\s+[`"']?skipped\b/i;
+  const offenders: string[] = [];
+  for (const rel of currentFacingFiles) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    if (conflatesOutcomes.test(text)) {
+      offenders.push(rel);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "fail-fast-cancelled work must be reported as `cancelled`; reserve `skipped` for work that never ran",
   );
 });
 

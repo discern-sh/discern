@@ -29,6 +29,8 @@ _Every verb builds one result object; types, runtime validation, generated contr
 | `hints`            | Advisory next actions that never decide success; failures carry at least one ([ADR 0172](../_adr/0172-hints-compile-from-a-registry.md)). |
 | `error`, `message` | A stable refusal slug and human explanation.                                                                                              |
 
+Before serialization, the CLI and MCP keep any registered `next-step` hint already present and add the registry's `failure-recovery` floor when none exists. `serializeResult` rejects a failed envelope that still lacks a registered actionable hint.
+
 ## Runtime schemas and enrollment
 
 [`result_schemas.ts`](../../../src/shared/result_schemas.ts) owns the strict envelope and each verb's data and output schemas. Verb cores infer payload types from it; MCP validates `structuredContent` against it ([ADR 0041](../_adr/0041-self-describing-mcp-surface.md)).
@@ -53,6 +55,7 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 | Concern                           | Source                                                                                                                               |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                         |
+| Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                             |
 | Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                         |
 | Command and MCP contract registry | [`result_contracts.ts`](../../../src/shared/result_contracts.ts)                                                                     |
 | Generated contract builder        | [`result_codegen.ts`](../../../src/shared/result_codegen.ts)                                                                         |

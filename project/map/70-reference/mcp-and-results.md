@@ -163,6 +163,6 @@ For a published JSON result, exit `0` means `ok: true`; a controlled non-zero re
 
 ### Version 1 compatibility
 
-The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) has a major for breaking changes, not releases. In version 1, fields keep their type and meaning; optional fields may be added. Consumers ignore unknown object fields and handle unknown `error` slugs. Removing or renaming fields or slugs, or changing a field's type or meaning, needs a new major.
+The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) advances its major when the contract breaks. Discern package releases do not advance it. In version 1, fields keep their type and meaning; optional fields may be added. Consumers ignore unknown object fields and handle unknown `error` slugs. Removing or renaming fields or slugs, or changing a field's type or meaning, needs a new major.
 
 Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, treats `error` as a string, and lists known slugs in `x-discern-error-slugs`, so pinned version-1 schemas accept additions. There is no top-level `schema_version`: the URL owns identity, and a payload field would duplicate it ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).

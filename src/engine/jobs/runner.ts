@@ -157,9 +157,9 @@ function chainExternal(
 
 /**
  * Run labelled jobs concurrently. With fail-fast, the moment one job fails the
- * rest are cancelled (tree-killed) and reported as failures (a killed sibling
- * defaults to exit 1). Banners and
- * buffered output print in declaration order once every job has settled.
+ * rest are cancelled (tree-killed). Their non-zero exit keeps the stage red,
+ * while banners and envelope steps label them `cancelled` rather than genuine
+ * failures. Buffered output prints in declaration order once every job settles.
  */
 export async function runParallel(
   jobs: Job[],

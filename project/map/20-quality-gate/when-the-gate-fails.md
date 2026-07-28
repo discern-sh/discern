@@ -63,7 +63,7 @@ discern done --json
 
 <!-- /discern-workflow -->
 
-Each failed stage carries its remedy in `hints[]`. Fail-fast siblings stop early and report `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
+Each failed stage carries its remedy in `hints[]`. A sibling terminated by fail-fast reports `cancelled`; a configured step that was never reached reports `skipped`. The public field contract is in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 ## Where it lives in code
 
