@@ -45,7 +45,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 32      | —                | node `canonical-sets`       |
 
-32 sets · 56 guard tests · 15 committed artifacts.
+32 sets · 56 guard tests · 14 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -122,7 +122,6 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                       |
 | `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                         |
 | `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
-| `project/map/_adr/README.md`                     | maintained block | [`adrs`](#adrs--architecture-decision-records)                           |
 | `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                         |
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                 |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                      |
@@ -375,7 +374,6 @@ The numbered decision records in the map, including records later superseded.
 - Source: `src/lib/docs.ts` — `adrRecords`
 - Members: 193
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
-- Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
 
