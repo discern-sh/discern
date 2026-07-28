@@ -152,6 +152,12 @@ export function guidanceContext(config: DiscernConfig): GuidanceContext {
     preds: {
       has_standards: Object.keys(config.standards).length > 0,
       has_worktree_resources: Object.keys(config.worktree.resources).length > 0,
+      // The teach skill is bundled, and an authored skill of the same name only
+      // overrides it, so exclusion is the sole operation that removes this name
+      // from the effective skill set.
+      has_teach_skill: !config.skills.exclude.includes(
+        "discern-teach-the-project",
+      ),
     },
   };
 }

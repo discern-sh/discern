@@ -330,26 +330,50 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       "custom trunk replaces the default",
     );
 
-    // {{#if has_standards}} drops the whole section unless a standard is declared.
+    // {{#if has_standards}} selects configured guidance or the adoption seed.
     assert(
-      !bareBody.includes("## Quality standards"),
-      "no inert standard prose",
+      bareBody.includes(
+        "No quality standards yet. When a number the user cares about comes up — coverage, bundle size, TODO count — offer `discern-set-the-standard`.",
+      ),
+      "an unconfigured project gets the standards adoption seed",
     );
     assert(
-      richBody.includes("## Quality standards"),
-      "standard section present",
+      bareBody.includes("## Quality standards"),
+      "the standards adoption seed keeps its section heading",
+    );
+    assert(
+      !bareBody.includes("Standards are **numbers that can never get worse**"),
+      "an unconfigured project omits the configured standards guidance",
+    );
+    assert(
+      richBody.includes("Standards are **numbers that can never get worse**"),
+      "a configured project gets the standards guidance",
+    );
+    assert(
+      !richBody.includes("No quality standards yet."),
+      "a configured project omits the standards adoption seed",
     );
 
-    // {{#if has_worktree_resources}} gates the resource-lifecycle detail.
+    // {{#if has_worktree_resources}} selects the lifecycle detail or its seed.
     assert(
       !bareBody.includes("per-worktree external"),
       "no inert resource prose",
+    );
+    assert(
+      bareBody.includes(
+        "No per-worktree resources are configured. If parallel worktrees collide over shared state (a database, a port), the `[worktree.resources]` table isolates it per worktree.",
+      ),
+      "an unconfigured project gets the resources adoption seed",
     );
     assert(
       richBody.includes("per-worktree external"),
       "resource detail present",
     );
     assert(richBody.includes("--resource <name>"), "resource flag documented");
+    assert(
+      !richBody.includes("No per-worktree resources are configured."),
+      "a configured project omits the resources adoption seed",
+    );
 
     assert(
       bareBody.includes(
@@ -370,6 +394,43 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
   } finally {
     await Deno.remove(bare, { recursive: true });
     await Deno.remove(rich, { recursive: true });
+  }
+});
+
+Deno.test("renderAgentFiles: excluding the teach skill removes its guidance reference", async () => {
+  const included = await Deno.makeTempDir({
+    prefix: "discern-teach-included-",
+  });
+  const excluded = await Deno.makeTempDir({
+    prefix: "discern-teach-excluded-",
+  });
+  try {
+    await Deno.writeTextFile(
+      join(included, "discern.toml"),
+      '[guidance]\nagents = ["codex"]\n',
+    );
+    await Deno.writeTextFile(
+      join(excluded, "discern.toml"),
+      [
+        "[guidance]",
+        'agents = ["codex"]',
+        "[skills]",
+        'exclude = ["discern-teach-the-project"]',
+        "",
+      ].join("\n"),
+    );
+
+    const includedBody = (await renderAgentFiles(included)).get("AGENTS.md");
+    const excludedBody = (await renderAgentFiles(excluded)).get("AGENTS.md");
+    assert(includedBody !== undefined && excludedBody !== undefined);
+    assertStringIncludes(includedBody, "discern-teach-the-project");
+    assert(
+      !excludedBody.includes("discern-teach-the-project"),
+      "compiled guidance must not name an excluded skill",
+    );
+  } finally {
+    await Deno.remove(included, { recursive: true });
+    await Deno.remove(excluded, { recursive: true });
   }
 });
 
@@ -475,7 +536,7 @@ Deno.test("renderAgentFiles: base guidance is MCP-first with a CLI fallback (no 
   }
 });
 
-Deno.test("renderAgentFiles: every guidance variable is config-driven — no hardcoded value can creep in", async () => {
+Deno.test("renderAgentFiles: every guidance template input is config-driven — no hardcoded value can creep in", async () => {
   // Class guard for "built-in guidance states a discern.toml-configurable value but
   // hardcodes one literal instead of interpolating it" — the bug behind the
   // guidance.sources filename. Driven off the SSOT,
@@ -539,6 +600,34 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
       expect: ".claude/skills",
     },
   };
+  const predicateCases: Record<
+    string,
+    { toml: string; expect: boolean }
+  > = {
+    has_standards: {
+      toml: [
+        "[standards.coverage]",
+        'direction = "up"',
+        "limit = 80",
+        'run = "echo DISCERN_METRIC coverage 80"',
+        "",
+      ].join("\n"),
+      expect: true,
+    },
+    has_worktree_resources: {
+      toml: [
+        "[worktree.resources.db]",
+        'create = "createdb x"',
+        'destroy = "dropdb x"',
+        "",
+      ].join("\n"),
+      expect: true,
+    },
+    has_teach_skill: {
+      toml: '[skills]\nexclude = ["discern-teach-the-project"]\n',
+      expect: false,
+    },
+  };
 
   const renderBody = async (toml: string): Promise<string> => {
     const dir = await Deno.makeTempDir({ prefix: "discern-var-case-" });
@@ -566,6 +655,11 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
       Object.keys(cases).sort(),
       Object.keys(ctx.vars).sort(),
       "every guidance {{var}} needs a config-driven case here (and vice versa)",
+    );
+    assertEquals(
+      Object.keys(predicateCases).sort(),
+      Object.keys(ctx.preds).sort(),
+      "every guidance {{#if}} needs a config-driven case here (and vice versa)",
     );
   } finally {
     await Deno.remove(probe, { recursive: true });
@@ -600,6 +694,20 @@ Deno.test("renderAgentFiles: every guidance variable is config-driven — no har
         body.includes(c.expect),
         `${name}: the configured value "${c.expect}" must appear in the guidance`,
       );
+    }
+  }
+  for (const [name, c] of Object.entries(predicateCases)) {
+    const dir = await Deno.makeTempDir({ prefix: "discern-pred-case-" });
+    try {
+      await Deno.writeTextFile(join(dir, "discern.toml"), c.toml);
+      const ctx = guidanceContext(await loadConfig(dir));
+      assertEquals(
+        ctx.preds[name],
+        c.expect,
+        `${name}: the configured value must flow into the guidance context`,
+      );
+    } finally {
+      await Deno.remove(dir, { recursive: true });
     }
   }
 });
