@@ -183,7 +183,7 @@ import {
   consumeEffortGrantClaim,
   type EffortGrantClaim,
   restoreEffortGrantClaim,
-} from "./effort_grant.ts";
+} from "./effort_grant_cleanup.ts";
 
 /** Context shared by every lifecycle operation. */
 export interface LifecycleContext {

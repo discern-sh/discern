@@ -4,6 +4,8 @@
 
 > **Resumed-setup amendment (2026-07-28):** A failed setup-wiring commit records its exact staged blobs and index tree in worktree Git-admin state. A later `setup begin` may reuse discern's attribution only while HEAD, branch, the whole index, and every candidate's worktree and index bytes still match that evidence. It commits the proven staged index without pathspecs. After normal hooks and signing run, the boundary verifies the resulting commit tree against the recorded tree. A mismatch moves the setup branch back with a compare-and-swap ref update, preserving the hook's index and worktree changes; the evidence remains. A matching commit clears the evidence. Missing or mismatched evidence skips the commit. This closes both places later user bytes could enter: re-staging current pathspecs before Git runs and a hook staging extra paths while Git runs.
 
+> **Enforcement amendment (2026-07-28):** The commit boundary is now a runtime capability as well as a shared helper. The generic Git runner resolves and refuses the actual `commit` subcommand, rejects inline alias configuration, and neutralizes configured aliases; only `discern_commit.ts` owns the commit spawn. Each canonical site records its caller module, and a Deno-resolved production import-graph guard permits only those callers to reach the capability. Import aliases, re-exports, and helper indirection retain the same graph edge and fail the guard.
+
 **Status**: accepted
 
 ## Context
@@ -24,15 +26,17 @@ The invoking user's configured Git identity remains both author and committer. D
 
 One shared helper owns production `git commit` invocations for discern-composed diffs. It accepts the canonical commit site, subject, optional body, a declared path set, the commit source, and an injectable environment reader. Most sites remain pathspec-scoped. A resumed setup-wiring commit uses its previously proven staged index. The helper verifies the staged path set before the commit and the committed tree afterward, rolling back an out-of-scope tree without resetting the index or worktree. Setup remains fail-open, standards pinning still rolls back after a failed commit, Git hooks and signing still run, and each commit remains limited to its declared paths.
 
-Attribution is on by default. Setting `DISCERN_NO_ATTRIBUTION` to a non-empty value omits the trailer. This is a per-process operational escape hatch, with no `discern.toml` key. The canonical commit-site set and a repository-wide structural guard enroll future production callers; tests and the one release-smoke repository fixture stay outside the production boundary for stated reasons.
+Attribution is on by default. Setting `DISCERN_NO_ATTRIBUTION` to a non-empty value omits the trailer. This is a per-process operational escape hatch, with no `discern.toml` key.
+
+The canonical commit-site set records both each workflow and its caller module. The generic Git runner parses global options before deciding whether the actual subcommand is `commit`; a later ref or path with that name remains ordinary data. It rejects inline `alias.*` configuration and overrides the resolved command's configured alias, so another command name cannot expand to `commit`. The shared helper owns the only production commit spawn, and the subprocess registry enrolls that exception. A guard derives the production module graph with Deno's parser and resolver, then permits only the registered caller modules to import or re-export the commit capability. Tests and the release-smoke repository fixture stay outside that production graph. The registered callers and the helper form the trusted authority container: changes inside them remain review-sensitive, while a new module edge fails the gate.
 
 ## Consequences
 
 - Git history records the machine as a co-author on the 3 diffs it composes while preserving the user's author and committer identity.
 - GitHub can associate the existing trailer email after the `discern-bot` account verifies it; commits made beforehand need no rewrite.
 - Automated environments can suppress attribution without changing project configuration or committed files.
-- Adding another discern-authored commit requires a canonical-set member, a call through the shared helper, and behavior coverage. A raw production commit fails the gate.
-- The helper is an extra boundary around a small operation. Its narrow API and declared-scope requirement are the cost of keeping provenance and scope consistent.
+- Adding another discern-authored commit requires a canonical-set member with its caller module, a call through the shared helper, and behavior coverage. Generic commit requests fail at runtime; a new capability edge or subprocess home fails the gate.
+- The helper is an extra boundary around a small operation. Its narrow API and declared-scope proof are the cost of keeping provenance and scope consistent.
 
 ## Alternatives considered
 

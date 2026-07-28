@@ -127,8 +127,12 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the resource ledger — .git-internal, outside the project tree",
   ],
   [
-    "src/engine/worktree/effort_grant.ts",
-    "one-worktree landing grants — .git-internal, outside the project tree",
+    "src/engine/worktree/effort_grant_writer.ts",
+    "desk-created one-worktree landing grants — .git-internal, outside the project tree",
+  ],
+  [
+    "src/engine/worktree/effort_grant_cleanup.ts",
+    "effort-grant revocation after desk choice or successful acceptance — .git-internal, outside the project tree",
   ],
   [
     "src/engine/gate/receipt.ts",

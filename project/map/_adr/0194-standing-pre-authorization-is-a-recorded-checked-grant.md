@@ -4,6 +4,8 @@
 
 > **Atomic-boundary clarification (2026-07-28):** A checked grant authorizes one exact transition, not merely a tree that was covered earlier. Standing authority is pinned to the trunk commit that supplied it and lands through an expected-old compare-and-swap. An effort grant is atomically claimed before that transition. Concurrent trunk movement, revocation, or competing acceptance therefore refuses closed instead of reusing stale authority.
 
+> **Writer-boundary amendment (2026-07-28):** Effort-grant reads, creation, and cleanup now live in separate capability modules. Only the desk may import creation; the desk and successful acceptance may import cleanup. A Deno-resolved production import-graph guard enforces those relationships, including imports spelled through aliases, re-exports, or helper modules. The desk's production runtime stays private so it cannot re-export the grant functions as a runtime object.
+
 **Status**: accepted — extends [ADR 0134](0134-accept-attests-consent.md) (the consent gate stays; one of its consent sources gains a verifiable referent) the way ADR 0134 extended [ADR 0086](0086-setup-serves-relay-messages-and-a-consent-attestation.md). Builds on [ADR 0110](0110-the-landing-model.md) (the landing model), [ADR 0067](0067-accept-validates-the-landed-tree.md)/[ADR 0116](0116-receipts-vouch-only-for-the-pinned-tree.md) (receipts and the validated tree), [ADR 0119](0119-bare-discern-opens-the-operators-desk.md)/[ADR 0151](0151-the-desk-starts-tasks-and-opens-agents.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0160](0160-local-logbook-advisory-readers.md)/[ADR 0162](0162-logbook-day-one-vocabulary.md) (the logbook). Leans on [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md) for one explicit _no_.
 
 ## Context
@@ -35,7 +37,7 @@ The explicit *no*s:
 - **No gate toggle.** ADR 0134 stands: the consent gate itself remains unconditional. This record gives one consent source a referent; it adds no switch.
 - **No size bounds** (`max_files`, diff-line caps). Counts give the _appearance_ of policy — a three-file change can rewrite the release pipeline. Grants bind to meaning (scopes), never magnitude.
 - **No wildcard in v1.** Entries are scope names, not patterns — `"*"` would falsely imply globbing. Repo-wide standing autonomy erases the review moment entirely and waits for a real request; `"all"` is the reserved spelling if it ever lands. The desk's effort grant covers "just land this one" in the meantime.
-- **No agent-run verb ever writes a grant.** Grants enter through surfaces a human drives: the trunk's committed config (owner-instructed, in daylight, in trunk history — the standards-limit pattern) or the desk's TTY. Agent-run verbs only ever read authority.
+- **No agent-run verb ever creates a grant.** Grants enter through surfaces a human drives: the trunk's committed config (owner-instructed, in daylight, in trunk history — the standards-limit pattern) or the desk's TTY. Effort-grant creation is a capability module only the desk may import. Revocation and successful-acceptance consumption use a separate cleanup capability; reads remain separate from both. The production import graph enforces those relationships without depending on function spelling.
 - **No enforcement at the vendor boundary** (ADR 0193), and **still not cryptographic** — ADR 0134's accepted limitation stands. A determined agent can lie with `--confirmed`; the value of this design is that the honest paths are now checkable, distinguishable, and on the record.
 
 ## Consequences
@@ -48,6 +50,7 @@ The explicit *no*s:
 - The acceptance-instruction test loses its absolute form; its amendment must stay narrow enough that static prose can never present `accept` as autonomous.
 - `accept` gains a second success path that must stay coherent with ADR 0067/0116: the covered path still lands only the validated sha of a green, receipted tree.
 - Authority checks no longer have a time-of-check/time-of-use gap at the Git transition. Competing landings and desk actions have one observable winner, while the losing acceptance leaves its worktree and resources intact.
+- A new runtime surface cannot acquire effort-grant mutation through an alias, re-export, or helper module without changing the enrolled import graph. The desk and acceptance modules remain the trusted authority containers.
 
 ## Alternatives considered
 

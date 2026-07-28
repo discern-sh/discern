@@ -59,7 +59,7 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 | Acceptance validation and cleanup | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                               |
 | Landing-authority resolution      | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
 | Consent-source vocabulary         | [`src/shared/consent.ts`](../../../src/shared/consent.ts)                                                     |
-| Per-effort grant store            | [`src/engine/worktree/effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
+| Per-effort grant reader           | [`src/engine/worktree/effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
 | Delegation procedure              | [`templates/skills/discern-delegate-work/SKILL.md`](../../../templates/skills/discern-delegate-work/SKILL.md) |
 
 ## Current state & gotchas

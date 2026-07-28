@@ -22,9 +22,10 @@ import type {
 import { Logger } from "../src/lib/log.ts";
 import type { Out, Palette } from "../src/engine/output.ts";
 import {
-  DEFAULT_DESK_RUNTIME,
   type DeskRuntime,
   runDesk,
+  runDeskInteractiveChild,
+  runDeskProjectScript,
 } from "../src/engine/desk/desk.ts";
 import {
   DESK_SESSION_ENV,
@@ -182,7 +183,7 @@ function joined(output: Transcript): string {
 
 Deno.test("desk-owned terminal children receive the desk-session marker", async () => {
   assertEquals(
-    await DEFAULT_DESK_RUNTIME.interactive(
+    await runDeskInteractiveChild(
       "sh",
       ["-c", 'test "$DISCERN_DESK_SESSION" = "1"'],
       Deno.cwd(),
@@ -205,7 +206,7 @@ Deno.test("desk-owned Project Scripts receive the desk-session marker", async ()
     );
 
     assertEquals(
-      await DEFAULT_DESK_RUNTIME.runScript(
+      await runDeskProjectScript(
         dir,
         "record-desk-session",
         deskSessionEnv(),

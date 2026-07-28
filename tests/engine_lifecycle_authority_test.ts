@@ -14,7 +14,7 @@ import type {
   StatusData,
 } from "../src/shared/result_schemas.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { grantEffort } from "../src/engine/worktree/effort_grant.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -389,6 +389,7 @@ Deno.test("landing authority has one runtime derivation boundary", async () => {
   }
   assertEquals(readers.sort(), [
     "src/engine/worktree/effort_grant.ts",
+    "src/engine/worktree/effort_grant_writer.ts",
     "src/engine/worktree/landing_authority.ts",
   ]);
   assertEquals(directPolicyReaders, []);

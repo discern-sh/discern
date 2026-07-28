@@ -12,14 +12,37 @@
 import { DISCERN_BOT } from "./brand.ts";
 import { discernCommitAttributionEnabled, type EnvReader } from "./env.ts";
 import { splitNulRecords } from "./git_paths.ts";
-import { type GitResult, runGit } from "./subprocess.ts";
+import {
+  describeSpawnError,
+  gitBin,
+  type GitResult,
+  runGit,
+  SPAWN_FAILED,
+} from "./subprocess.ts";
+
+export interface DiscernAuthoredCommitSiteDefinition {
+  readonly id: string;
+  /** Shipped module allowed to import the commit capability for this site. */
+  readonly callerModule: `src/${string}.ts`;
+}
 
 /** Every workflow whose diff discern itself composes and commits. */
 export const DISCERN_AUTHORED_COMMIT_SITES = {
-  scaffoldWiring: "scaffold-wiring",
-  setupCompletion: "setup-completion",
-  standardsPin: "standards-pin",
-} as const;
+  scaffoldWiring: {
+    id: "scaffold-wiring",
+    callerModule: "src/commands/setup.ts",
+  },
+  setupCompletion: {
+    id: "setup-completion",
+    callerModule: "src/commands/setup.ts",
+  },
+  standardsPin: {
+    id: "standards-pin",
+    callerModule: "src/engine/gate/standards.ts",
+  },
+} as const satisfies Readonly<
+  Record<string, DiscernAuthoredCommitSiteDefinition>
+>;
 
 export type DiscernAuthoredCommitSite = typeof DISCERN_AUTHORED_COMMIT_SITES[
   keyof typeof DISCERN_AUTHORED_COMMIT_SITES
@@ -35,7 +58,7 @@ export interface DiscernStagedCommitProof {
 }
 
 interface DiscernCommitBaseOptions {
-  /** Canonical workflow identity; the enrolment guard holds one call per site. */
+  /** Canonical workflow identity; its registry entry also enrolls the caller. */
   readonly site: DiscernAuthoredCommitSite;
   readonly cwd: string;
   readonly subject: string;
@@ -49,6 +72,10 @@ interface DiscernCommitBaseOptions {
   /** Injectable environment read for parallel-safe attribution tests. */
   readonly env?: EnvReader;
 }
+
+const authoredCommitSites = new Set<DiscernAuthoredCommitSite>(
+  Object.values(DISCERN_AUTHORED_COMMIT_SITES),
+);
 
 export type DiscernCommitOptions =
   | DiscernCommitBaseOptions & {
@@ -73,7 +100,7 @@ function refusedCommit(
     success: false,
     code: 2,
     stdout: "",
-    stderr: `discern-authored commit site '${site}' ${reason}`,
+    stderr: `discern-authored commit site '${site.id}' ${reason}`,
   };
 }
 
@@ -128,6 +155,15 @@ export function discernCommitMessage(
 export async function commitDiscernChanges(
   options: DiscernCommitOptions,
 ): Promise<GitResult> {
+  if (!authoredCommitSites.has(options.site)) {
+    return {
+      success: false,
+      code: 2,
+      stdout: "",
+      stderr: "The discern-authored commit site is not registered in " +
+        "DISCERN_AUTHORED_COMMIT_SITES.",
+    };
+  }
   if (options.pathspecs.length === 0) {
     return refusedCommit(
       options.site,
@@ -179,7 +215,30 @@ export async function commitDiscernChanges(
   if (options.source !== "staged-index") {
     args.push("--", ...options.pathspecs);
   }
-  const commit = await runGit(args, { cwd: options.cwd });
+  const bin = gitBin();
+  let output: Deno.CommandOutput;
+  try {
+    output = await new Deno.Command(bin, {
+      args,
+      cwd: options.cwd,
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+  } catch (error) {
+    return {
+      success: false,
+      code: SPAWN_FAILED,
+      stdout: "",
+      stderr: describeSpawnError(error, bin),
+    };
+  }
+  const decoder = new TextDecoder();
+  const commit: GitResult = {
+    success: output.success,
+    code: output.code,
+    stdout: decoder.decode(output.stdout),
+    stderr: decoder.decode(output.stderr),
+  };
   if (!commit.success || options.source !== "staged-index") {
     return commit;
   }
@@ -220,7 +279,7 @@ export async function commitDiscernChanges(
       code: rollback.code,
       stdout: commit.stdout,
       stderr:
-        `discern-authored commit site '${options.site}' produced a tree outside its proven scope, and Git could not roll it back: ${rollback.stderr.trim()}`,
+        `discern-authored commit site '${options.site.id}' produced a tree outside its proven scope, and Git could not roll it back: ${rollback.stderr.trim()}`,
     };
   }
   return {
@@ -228,6 +287,6 @@ export async function commitDiscernChanges(
     code: 2,
     stdout: commit.stdout,
     stderr:
-      `discern-authored commit site '${options.site}' produced a tree outside its proven scope; the commit was rolled back with its index and worktree changes preserved`,
+      `discern-authored commit site '${options.site.id}' produced a tree outside its proven scope; the commit was rolled back with its index and worktree changes preserved`,
   };
 }

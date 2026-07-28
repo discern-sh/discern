@@ -152,7 +152,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | Project Script's own code    | `discern script <name>` passes through the script's exit code because the script owns its result contract. |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.         |
 
-For published JSON results, exit `0` means `ok: true`; controlled nonzero means `ok: false`. JSON predicates are successful observations in either state: they exit `0` and carry the boolean in `data`. Bare `config has` and `impact --has` print nothing, exiting `0` when true and `1` when false. `identity` and config read helpers stay bare without `--json` and emit published envelopes with it.
+Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`. JSON predicates always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` requests envelopes.
 
 ## Published schemas and types
 
@@ -170,8 +170,8 @@ For published JSON results, exit `0` means `ok: true`; controlled nonzero means 
 
 ### Version 1 compatibility
 
-The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) changes major only when the contract breaks, not with discern releases. Version-1 fields keep their type and meaning; releases may add optional fields. Consumers ignore unknown fields and handle unknown `error` slugs. Removing, renaming, or changing existing fields or slugs needs a new major.
+The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) changes major for breaks, not releases. Version-1 fields keep their type and meaning; optional fields may be added. Consumers ignore unknown fields and handle unknown `error` slugs. Removing, renaming, or changing existing fields or slugs needs a new major.
 
-Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, leaves `error` open, and lists current slugs in `x-discern-error-slugs`, so older version-1 schemas accept additions. The URL owns identity; there is no duplicate top-level `schema_version` ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
+Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, leaves `error` open, and lists current slugs in `x-discern-error-slugs`, so older version-1 schemas accept additions. The URL owns identity; no top-level `schema_version` duplicates it ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
 The configuration schema validates the current closed version-1 input. A newer release may add optional keys that an older cached schema rejects; refresh it before validating newer configuration.

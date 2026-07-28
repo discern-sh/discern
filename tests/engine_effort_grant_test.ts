@@ -5,18 +5,17 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, isAbsolute, join } from "@std/path";
+import { readEffortGrant } from "../src/engine/worktree/effort_grant.ts";
 import {
   claimEffortGrant,
   clearEffortGrant,
   consumeEffortGrantClaim,
-  grantEffort,
-  readEffortGrant,
   restoreEffortGrantClaim,
-} from "../src/engine/worktree/effort_grant.ts";
+} from "../src/engine/worktree/effort_grant_cleanup.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, git, gitInit, gitOut } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const FIRST_GRANT = "2026-07-28T21:00:00.000Z";
 const SECOND_GRANT = "2026-07-28T22:00:00.000Z";
@@ -180,38 +179,4 @@ Deno.test("Git worktree removal reaps its effort grant with no orphan state", as
       );
     }
   });
-});
-
-Deno.test("the desk alone grants effort authority; acceptance may only consume it", async () => {
-  const grantAllowed = new Set([
-    "src/engine/desk/desk.ts",
-    "src/engine/worktree/effort_grant.ts",
-  ]);
-  const clearAllowed = new Set([
-    ...grantAllowed,
-    "src/engine/worktree/lifecycle.ts",
-  ]);
-  const grantOffenders: string[] = [];
-  const clearOffenders: string[] = [];
-  for (
-    const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("src/"))
-  ) {
-    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    if (!grantAllowed.has(rel) && /\bgrantEffort\s*\(/.test(source)) {
-      grantOffenders.push(rel);
-    }
-    if (!clearAllowed.has(rel) && /\bclearEffortGrant\s*\(/.test(source)) {
-      clearOffenders.push(rel);
-    }
-  }
-  assertEquals(
-    grantOffenders,
-    [],
-    "agent-run CLI and MCP code may read effort authority, never grant it",
-  );
-  assertEquals(
-    clearOffenders,
-    [],
-    "only the human desk and successful acceptance may clear effort authority",
-  );
 });

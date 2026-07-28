@@ -1,5 +1,5 @@
 /**
- * Drive the desk's REAL launch wiring — `DEFAULT_DESK_RUNTIME.interactive` —
+ * Drive the desk's real interactive-child boundary
  * through an interrupt delivered to this process's PID.
  *
  * The desk launches agents and scripts with `resumeAfterInterrupt`, so its
@@ -12,7 +12,7 @@
  * argv: `<signal> <child-pid-file>`.
  */
 
-import { DEFAULT_DESK_RUNTIME } from "../../src/engine/desk/desk.ts";
+import { runDeskInteractiveChild } from "../../src/engine/desk/desk.ts";
 
 function signalArg(value: string | undefined): Deno.Signal {
   switch (value) {
@@ -37,7 +37,7 @@ const childSource = [
   "await new Promise((resolve) => setTimeout(resolve, 30_000));",
 ].join("\n");
 
-const code = await DEFAULT_DESK_RUNTIME.interactive(
+const code = await runDeskInteractiveChild(
   Deno.execPath(),
   ["eval", childSource],
   Deno.cwd(),

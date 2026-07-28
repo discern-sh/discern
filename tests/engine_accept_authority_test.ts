@@ -6,7 +6,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { exists } from "@std/fs";
 import { dirname, join } from "@std/path";
-import { grantEffort } from "../src/engine/worktree/effort_grant.ts";
+import { grantEffort } from "../src/engine/worktree/effort_grant_writer.ts";
 import { fastForwardCheckedOutBranch } from "../src/engine/worktree/git.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
