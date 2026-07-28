@@ -6,7 +6,6 @@ aliases:
   - team workflow
   - parallel agents
   - worktree fleet
-  - multi-repo work
 ---
 
 # Parallel and team work
@@ -46,7 +45,7 @@ This pull-side composition keeps half-finished phases away from the shared landi
 
 The MCP `discern_start` tool accepts an absolute `path` inside any discern project on disk. It creates the worktree from that project's trunk and re-aims later discern tools at the new root. Pass `path` to later tools when the client cannot change its own working directory ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)).
 
-Each repository keeps its own config, worktree root, resource ledger, and trunk. Cross-project starts share an agent session while retaining separate project state.
+Each repository keeps its own config, worktree root, resource ledger, and trunk. Cross-project starts share an agent session while retaining separate project state. [Multi-repo workspaces](multi-repo-workspaces.md) covers the workspace layouts themselves: local package links, registries, umbrella repos, and submodules.
 
 ## Bring a teammate into the workflow
 
