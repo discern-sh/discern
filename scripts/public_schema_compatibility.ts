@@ -1245,7 +1245,7 @@ export function publicSchemaArtifactEnrollmentIssues(
  *
  * An artifact path and its public identity are append-only. Same-major changes
  * use the policy recorded by the trunk artifact; a new major starts at a new
- * artifact path while the old publication and route remain enrolled.
+ * artifact path while its predecessor publication and route stay enrolled.
  */
 export function publicSchemaPublicationCompatibilityIssues(
   previous: JsonObject,

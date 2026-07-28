@@ -20,7 +20,8 @@ This subtree documents the public worktree workflow: isolation, identity, resour
 | `status.md`                | Local and fleet status, receipts, collisions, and session hints; `order: 70`.      |
 | `the-desk.md`              | The human fleet supervisor and its legal actions; `order: 80`.                     |
 | `landing-authority.md`     | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
-| `hand-work-back.md`        | Finish, report, review, revise, accept, and delegate follow-on work; `order: 100`. |
+| `acceptance-recovery.md`   | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
+| `hand-work-back.md`        | Finish, report, review, revise, accept, and delegate follow-on work; `order: 110`. |
 
 ## Source files to read
 

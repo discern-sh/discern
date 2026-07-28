@@ -42,21 +42,19 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, [handoff](hand-work-back.md) remains ordinary. `accept` records the source and any scopes in its result and receipt ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
+An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
+
 ## Where it lives in code
 
-| Concern                   | Source                                                                                                                                                                   |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Resolution and vocabulary | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts), [`consent.ts`](../../../src/shared/consent.ts)                                              |
-| Standing grants           | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                                               |
-| Effort grants             | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts)                       |
-| Transaction and cleanup   | [`acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts), [`effort_grant_cleanup.ts`](../../../src/engine/worktree/effort_grant_cleanup.ts) |
-| Trunk transition          | [`git.ts`](../../../src/engine/worktree/git.ts)                                                                                                                          |
-| Results and surface guard | [`result_schemas.ts`](../../../src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts)                  |
+| Concern                   | Source                                                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Resolution and vocabulary | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts), [`consent.ts`](../../../src/shared/consent.ts)                             |
+| Standing grants           | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                                              |
+| Effort grants             | [`effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts), [`effort_grant_writer.ts`](../../../src/engine/worktree/effort_grant_writer.ts)      |
+| Results and surface guard | [`result_schemas.ts`](../../../src/shared/result_schemas.ts), [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
 
 ## Current state & gotchas
 
 - Standing authority is pinned to its trunk commit; concurrent advances refuse.
-- Acceptance journals an effort claim before moving refs. The trunk and marker move together; rollback reverses both.
-- A retained marker keeps authority spent after a trunk reset or reflog expiry. Recovery never replays it.
 - Landing consumes the claim. Drop, prune, and orphan cleanup reap abandoned state.
 - Uncertainty returns to conversation review; it never widens authority.

@@ -1150,7 +1150,7 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     let claimPath = "";
     let claimBefore = "";
     try {
-      await waitForPath(paused);
+      await waitForPath(paused, 30_000);
       journalBefore = await Deno.readTextFile(journal);
       const transaction = JSON.parse(journalBefore);
       assertEquals(transaction.worktree_branch, branch);

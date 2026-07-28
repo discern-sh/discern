@@ -1,7 +1,7 @@
 ---
 title: Hand work back
 description: Finish a branch, report its receipt for review, wait for approval, and accept the work without losing its proof.
-order: 100
+order: 110
 aliases:
   - handoff
   - hand work back
@@ -41,7 +41,7 @@ Every landing needs [landing authority](landing-authority.md): consent from the 
 
 Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. An honored receipt lets acceptance reuse the earlier gate result. A missing or stale receipt makes acceptance run the full gate again for the commit it plans to land.
 
-On success, the acceptance result, one-line receipt, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit. It refreshes and converges the main checkout, runs the configured smoke job, destroys the worktree's resources, removes the worktree directory, and deletes the merged branch. If another line of work moves the trunk during acceptance, discern refuses before cleanup and keeps the worktree intact. Follow the reported `update → done → accept` recovery. A `partial_acceptance` result means recovery or landing changed state before a later error. Read `data.landing` and continue from `data.root`; the worktree may already be gone. [Start, update, and accept](lifecycle.md) carries every landing precondition and cleanup detail.
+On success, the acceptance result, one-line receipt, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit, converges the main checkout, and tears down the worktree. If another line of work moves the trunk first, acceptance keeps this worktree for `update → done → accept`. [Start, update, and accept](lifecycle.md) carries every landing precondition. [Interrupted landing recovery](acceptance-recovery.md) explains journals and `partial_acceptance` results.
 
 You can also supervise a ready branch from [the desk](the-desk.md). Its Accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
@@ -64,6 +64,5 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 
 ## Current state & gotchas
 
-- `discern accept` without `--confirmed` changes no interrupted state unless a current verified grant or consent bound to that recorded transition authorizes recovery. Journal consent never authorizes a new transition.
 - Any tracked, staged, or untracked change in the worktree blocks acceptance. The main checkout blocks on tracked changes.
-- Post-landing checkout convergence is non-transactional because the trunk has already moved. Acceptance reports a failed refresh, ensure step, smoke job, or tracked-clean check, then still tears down the accepted worktree.
+- The handoff receipt stays valid only for its clean, committed `HEAD`.
