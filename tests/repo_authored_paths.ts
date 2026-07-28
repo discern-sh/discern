@@ -5,10 +5,10 @@
  * they must follow discern.toml rather than repeat the shipped defaults. Tests
  * of fresh-project defaults belong to the paths-registry and installer suites.
  *
- * This module is also the single source for the authored-TypeScript universe
- * (`AUTHORED_TS_FILES`): a repo-wide structural sweep takes its scan set from
- * here so every guard shares one definition of "authored code" and a new
- * authored tree widens them all at once.
+ * This module also owns the Git-derived source universes used by repo-wide
+ * structural sweeps: `AUTHORED_TS_FILES` for TypeScript-only checks and
+ * `AUTHORED_DENO_FILES` for checks spanning every JavaScript/TypeScript source
+ * extension Deno lints. A new authored tree widens matching guards at once.
  */
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
@@ -110,8 +110,27 @@ export async function authoredTsFiles(
   return await gitListedAuthoredFiles(root, ["*.ts", "*.tsx"]);
 }
 
+/** Every authored source extension accepted by `deno lint`. */
+export async function authoredDenoFiles(
+  root: string = REPO_ROOT,
+): Promise<string[]> {
+  return await gitListedAuthoredFiles(root, [
+    "*.ts",
+    "*.tsx",
+    "*.mts",
+    "*.cts",
+    "*.js",
+    "*.jsx",
+    "*.mjs",
+    "*.cjs",
+  ]);
+}
+
 /** The authored-TypeScript universe of this checkout, enumerated once. */
 export const AUTHORED_TS_FILES: string[] = await authoredTsFiles();
+
+/** The authored JavaScript/TypeScript universe Deno lints, enumerated once. */
+export const AUTHORED_DENO_FILES: string[] = await authoredDenoFiles();
 
 /** The top-level trees holding authored TypeScript, derived from the universe. */
 export const AUTHORED_TS_ROOTS: string[] = [

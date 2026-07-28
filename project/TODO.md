@@ -24,7 +24,7 @@ _Verified defects and correctness risks. Nothing outstanding._
 
 ## 🟠 Cleanup — known dead or slow code
 
-_Nothing outstanding._
+- [ ] **Eliminate Deno lint suppression directives.** Replace each remaining `deno-lint-ignore` or `deno-lint-ignore-file` with code that satisfies the named rule. `[standards.lint_suppressions]` prevents the census from rising; pin every reduction. At zero, move the detector into an always-on test and retire the standard. Evidence: `scripts/lint_suppressions.ts`; `project/map/80-development/code-conventions.md`.
 
 ## 🟡 Smaller fixes & polish
 

@@ -23,8 +23,10 @@ import {
   SOURCE_PATHS,
 } from "../src/shared/paths_registry.ts";
 import {
+  AUTHORED_DENO_FILES,
   AUTHORED_TS_FILES,
   AUTHORED_TS_ROOTS,
+  authoredDenoFiles,
   authoredTsFiles,
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
@@ -86,22 +88,44 @@ Deno.test("ignored and data trees stay out of the universe", () => {
     AUTHORED_TS_FILES.filter((rel) => banned.some((p) => rel.startsWith(p))),
     [],
   );
+  assertEquals(
+    AUTHORED_DENO_FILES.filter((rel) => banned.some((p) => rel.startsWith(p))),
+    [],
+  );
 });
 
-Deno.test("a fresh authored container enrols; ignored trees never do", async () => {
+Deno.test("the Deno source universe includes authored JavaScript", () => {
+  assert(
+    AUTHORED_DENO_FILES.includes("src/lib/docs_search.js"),
+    "authored JavaScript must enroll in Deno-wide structural checks",
+  );
+  assert(
+    !AUTHORED_TS_FILES.includes("src/lib/docs_search.js"),
+    "the TypeScript-only universe must keep its narrower contract",
+  );
+});
+
+Deno.test("fresh authored TypeScript and JavaScript enrol; ignored trees never do", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, ".gitignore"), "generated/\n");
     await gitInit(dir);
     for (
       const rel of [
         "unrelated_tools/relay.ts", // a container no guard has ever named
+        "unrelated_tools/browser.js", // Deno lints authored JavaScript too
         "generated/out.ts", // ignored: a build product
+        "generated/out.js",
         "tests/fixtures/sample.ts", // inert test data
+        "tests/fixtures/sample.js",
       ]
     ) {
       await Deno.mkdir(join(dir, rel, ".."), { recursive: true });
       await Deno.writeTextFile(join(dir, rel), "export const x = 1;\n");
     }
     assertEquals(await authoredTsFiles(dir), ["unrelated_tools/relay.ts"]);
+    assertEquals(await authoredDenoFiles(dir), [
+      "unrelated_tools/browser.js",
+      "unrelated_tools/relay.ts",
+    ]);
   });
 });

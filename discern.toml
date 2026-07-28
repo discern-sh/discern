@@ -443,6 +443,30 @@ inputs = [
   "src/lib/frontmatter.ts",
 ]
 
+# Deno-lint suppression standard — hold the raw count of both recognized
+# comment directives (`deno-lint-ignore` and `deno-lint-ignore-file`) at or
+# below a falling ceiling. The structural detector scans every authored
+# JavaScript/TypeScript source from the Git-derived universe, so examples in
+# strings and block comments do not count and new source trees auto-enroll.
+# Fix a named lint finding, then run
+# `discern standards --pin lint_suppressions` to capture the lower census.
+# At zero, move the detector into an always-on test and retire this table.
+[standards.lint_suppressions]
+direction = "down"
+limit = 31
+run = "deno task lint-suppressions"
+inputs = [
+  "*.ts",
+  "*.tsx",
+  "*.mts",
+  "*.cts",
+  "*.js",
+  "*.jsx",
+  "*.mjs",
+  "*.cjs",
+  "deno.json",
+]
+
 # Guidance-footprint standard — the bundled built-in guidance (templates/guidance/
 # *.md) compiles into every end-user agent's context in every session, so its total
 # word count is a context-window budget we spend on their behalf.

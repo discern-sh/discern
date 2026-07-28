@@ -43,6 +43,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
+import { extractSourceComments } from "../scripts/source_comments.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 /** TypeScript scanned for backward-looking `//` and block comments: the
@@ -113,209 +114,10 @@ const MARKERS: ReadonlyArray<RegExp> = [
   ...RETIRED_ARCHITECTURE,
 ];
 
-/** One comment unit: a `//` run or a block comment, with its start line. */
+/** Comment prose consumed by the currency detector. */
 interface CommentUnit {
   startLine: number;
   lines: string[];
-}
-
-const REGEX_PREFIX_KEYWORDS = new Set([
-  "await",
-  "case",
-  "delete",
-  "do",
-  "else",
-  "in",
-  "instanceof",
-  "new",
-  "of",
-  "return",
-  "throw",
-  "typeof",
-  "void",
-  "yield",
-]);
-
-/**
- * Whether a slash sits where JavaScript permits a regular-expression literal.
- * This small lexical distinction keeps comment-looking text and backticks inside
- * a regex from changing the surrounding comment scan.
- */
-function startsRegexLiteral(src: string, slash: number): boolean {
-  let i = slash - 1;
-  while (i >= 0 && /\s/.test(src[i] ?? "")) i--;
-  if (i < 0) return true;
-  const previous = src[i] ?? "";
-  if ("([{:;,=!?&|+-*%^~".includes(previous)) return true;
-  if (previous === ">" && src[i - 1] === "=") return true;
-  if (!/[A-Za-z0-9_$]/.test(previous)) return false;
-  let start = i;
-  while (start > 0 && /[A-Za-z0-9_$]/.test(src[start - 1] ?? "")) start--;
-  return REGEX_PREFIX_KEYWORDS.has(src.slice(start, i + 1));
-}
-
-/**
- * Pull the comment units out of TypeScript source, skipping string, template,
- * and regular-expression bodies so a `//` inside `"https://…"` (or `/*` inside
- * a regex) is never read as a comment. A block comment yields one unit carrying
- * its physical lines, so a single suppression annotation covers the whole block.
- */
-export function extractComments(src: string): CommentUnit[] {
-  const out: CommentUnit[] = [];
-  let i = 0;
-  let line = 1;
-  let startLine = 1;
-  let lines: string[] = [];
-  let buf = "";
-  const n = src.length;
-  type State =
-    | "code"
-    | "line"
-    | "block"
-    | "single"
-    | "double"
-    | "template"
-    | "regex"
-    | "regex-class";
-  let state: State = "code";
-  const pushLine = () => {
-    lines.push(buf);
-    buf = "";
-  };
-  const emit = () => {
-    if (lines.some((l) => l.trim().length > 0)) out.push({ startLine, lines });
-    lines = [];
-  };
-  while (i < n) {
-    const c = src[i];
-    const d = src[i + 1];
-    if (state === "code") {
-      if (c === "/" && d === "/") {
-        state = "line";
-        startLine = line;
-        buf = "";
-        lines = [];
-        i += 2;
-        continue;
-      }
-      if (c === "/" && d === "*") {
-        state = "block";
-        startLine = line;
-        buf = "";
-        lines = [];
-        i += 2;
-        continue;
-      }
-      if (c === "/" && startsRegexLiteral(src, i)) {
-        state = "regex";
-        i++;
-        continue;
-      }
-      if (c === '"') {
-        state = "double";
-        i++;
-        continue;
-      }
-      if (c === "'") {
-        state = "single";
-        i++;
-        continue;
-      }
-      if (c === "`") {
-        state = "template";
-        i++;
-        continue;
-      }
-      if (c === "\n") line++;
-      i++;
-      continue;
-    }
-    if (state === "line") {
-      if (c === "\n") {
-        pushLine();
-        line++;
-        // Coalesce a run of consecutive `//` lines into one unit so a marker
-        // that wraps across the break still reads as running prose.
-        let j = i + 1;
-        while (j < n && (src[j] === " " || src[j] === "\t")) j++;
-        if (src[j] === "/" && src[j + 1] === "/") {
-          i = j + 2;
-          continue;
-        }
-        emit();
-        state = "code";
-        i++;
-        continue;
-      }
-      buf += c;
-      i++;
-      continue;
-    }
-    if (state === "block") {
-      if (c === "*" && d === "/") {
-        pushLine();
-        emit();
-        state = "code";
-        i += 2;
-        continue;
-      }
-      if (c === "\n") {
-        pushLine();
-        line++;
-        i++;
-        continue;
-      }
-      buf += c;
-      i++;
-      continue;
-    }
-    // Literal states: consume until the matching delimiter, honoring escapes.
-    if (c === "\\") {
-      i += 2;
-      continue;
-    }
-    if (state === "regex") {
-      if (c === "[") state = "regex-class";
-      if (c === "/") state = "code";
-      if (c === "\n") {
-        state = "code";
-        line++;
-      }
-      i++;
-      continue;
-    }
-    if (state === "regex-class") {
-      if (c === "]") state = "regex";
-      if (c === "\n") {
-        state = "code";
-        line++;
-      }
-      i++;
-      continue;
-    }
-    if (state === "double" && c === '"') {
-      state = "code";
-      i++;
-      continue;
-    }
-    if (state === "single" && c === "'") {
-      state = "code";
-      i++;
-      continue;
-    }
-    if (state === "template" && c === "`") {
-      state = "code";
-      i++;
-      continue;
-    }
-    if (c === "\n") line++;
-    i++;
-  }
-  if (state === "line" || state === "block") {
-    pushLine();
-    emit();
-  }
-  return out;
 }
 
 interface SuppressionAnnotation {
@@ -505,7 +307,7 @@ export function scanUnits(units: CommentUnit[]): CommentViolation[] {
 
 /** Backward-looking comments in TypeScript source (`//` and block comments). */
 export function scanSource(src: string): CommentViolation[] {
-  return scanUnits(extractComments(src));
+  return scanUnits(extractSourceComments(src));
 }
 
 /** Backward-looking comments in a `#`-commented config file. */
