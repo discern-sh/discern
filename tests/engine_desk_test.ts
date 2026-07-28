@@ -23,7 +23,11 @@ Deno.test("desk --json: refuses — the desk has no JSON form", async () => {
     const envelope = JSON.parse(r.stdout);
     assertEquals(envelope.ok, false);
     assertEquals(envelope.verb, "desk");
-    assertEquals(envelope.error, "interactive_only");
+    assertEquals(envelope.error, "invalid_arguments");
+    assert(
+      Array.isArray(envelope.hints) && envelope.hints.length > 0,
+      "the machine refusal should carry a registered next action",
+    );
     assertStringIncludes(envelope.message, "status --json");
   });
 });

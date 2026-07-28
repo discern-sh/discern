@@ -40,7 +40,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`improve-categories`](#improve-categories--improvement-categories)                     | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                     | `scripts/glossary_registry.ts#GLOSSARY`                                        | 37      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                        | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                               | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                               | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 40      | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications) | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                      | 2       | —                | node `published-contracts`  |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                       | `src/shared/result.ts#ERROR_SLUGS`                                             | 62      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                        | `src/shared/result.ts#STEP_OUTCOMES`                                           | 4       | —                | node `published-contracts`  |
@@ -86,7 +86,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_effort_grant_test.ts`        | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                         |
 | `tests/engine_help_groups_test.ts`         | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                                            |
 | `tests/engine_interrupt_surfaces_test.ts`  | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                            |
-| `tests/engine_json_purity_test.ts`         | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                                       |
+| `tests/engine_json_purity_test.ts`         | [`hints`](#hints--hints), [`result-contracts`](#result-contracts--result-contracts)                                                                                                                                                                                                                                            |
 | `tests/engine_landing_authority_test.ts`   | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                 |
 | `tests/engine_lifecycle_authority_test.ts` | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                 |
 | `tests/engine_logbook_test.ts`             | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                            |
@@ -452,8 +452,8 @@ The feature registry behind the canon page: pillars, nodes, and surface claims.
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 33
-- Guards: `tests/result_codegen_test.ts`
+- Members: 40
+- Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
 - Feature canon: described by the `published-contracts` node

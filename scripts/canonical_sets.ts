@@ -857,7 +857,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/result_contracts.ts",
       exportName: "CLI_JSON_RESULT_CONTRACTS",
     },
-    guards: ["tests/result_codegen_test.ts"],
+    guards: [
+      "tests/result_codegen_test.ts",
+      "tests/engine_json_purity_test.ts",
+    ],
     artifacts: [
       {
         path: "schema/discern-results.schema.json",

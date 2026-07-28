@@ -27,6 +27,7 @@ import {
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
+import type { ConfigData } from "../shared/result_schemas.ts";
 import {
   tomlBool,
   TomlEditor,
@@ -134,12 +135,12 @@ async function applyEdits(
   }
 
   if (opts.dryRun) {
-    const envelope: DiscernResult = {
+    const envelope: DiscernResult<ConfigData> = {
       ok: true,
       verb: "config",
       dry_run: true,
       ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
-      data: { file: fileRel, edits },
+      data: { operation: "edit", file: fileRel, edits },
     };
     observeResult(envelope);
     if (opts.json) {
@@ -157,11 +158,11 @@ async function applyEdits(
   }
 
   await writeDiscernToml(path, result);
-  const envelope: DiscernResult = {
+  const envelope: DiscernResult<ConfigData> = {
     ok: true,
     verb: "config",
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
-    data: { file: fileRel, edits },
+    data: { operation: "edit", file: fileRel, edits },
   };
   observeResult(envelope);
   if (opts.json) {

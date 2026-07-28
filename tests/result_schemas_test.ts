@@ -21,6 +21,7 @@ import {
   defaultMapPath,
   git,
   gitInit,
+  runAgent,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
@@ -109,13 +110,32 @@ function expectFaithful(
   result: DiscernResult,
   label: string,
 ): void {
+  expectSerializedFaithful(
+    contractId,
+    serializeResult(result),
+    label,
+  );
+}
+
+/** Validate an already serialized real CLI envelope against its contract. */
+function expectSerializedFaithful(
+  contractId: string,
+  serialized: unknown,
+  label: string,
+): void {
   const contract = CLI_JSON_RESULT_CONTRACTS.find((c) => c.id === contractId);
   assert(
     contract !== undefined,
     `expectFaithful("${contractId}") names no published contract`,
   );
   FAITHFULNESS_EXERCISED.add(contractId);
-  expectValid(contract.schema, result, label);
+  const parsed = contract.schema.safeParse(serialized);
+  assert(
+    parsed.success,
+    `${label} drifted from its schema:\n${
+      JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
+    }\n--- serialized result ---\n${JSON.stringify(serialized, null, 2)}`,
+  );
 }
 
 Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
@@ -280,7 +300,10 @@ Deno.test("runtime result schemas accept only the canonical error-slug vocabular
  * `expectFaithful`. Enrolment is evidence-checked: the final test asserts this
  * set EQUALS the ids exercised, so the only way in is writing the test. */
 const FAITHFULNESS_COVERED = new Set<string>([
+  "config",
   "coupling",
+  "desk",
+  "discern",
   "map",
   "doctor",
   "done",
@@ -295,10 +318,15 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "refresh",
   "tidy",
   "impact",
+  "identity",
+  "licenses",
+  "script",
+  "skills",
   "skillsList",
   "start",
   "status",
   "test",
+  "worktree",
 ]);
 
 /** Published contracts still awaiting a faithfulness test — explicit debt, not
@@ -306,7 +334,6 @@ const FAITHFULNESS_COVERED = new Set<string>([
  * validates structuredContent against the advertised outputSchema on every
  * call, so an unproven schema there turns valid calls into errors). */
 const FAITHFULNESS_DEBT = new Set<string>([
-  "config",
   "preset",
   "setup",
   "setupDone",
@@ -368,6 +395,69 @@ Deno.test("DatalessEnvelopeSchema forbids a data payload (the data-less SSOT gua
     !DatalessEnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success,
   );
   assert(EnvelopeSchema.safeParse({ ...base, data: { x: 1 } }).success);
+});
+
+Deno.test("root, utility, read, and command-group CLI results are faithful", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    const cases = [
+      { id: "discern", args: ["--json"] },
+      { id: "licenses", args: ["licenses", "--json"] },
+      { id: "script", args: ["script", "--json"] },
+      { id: "desk", args: ["desk", "--json"] },
+      { id: "worktree", args: ["worktree", "--json"] },
+      { id: "skills", args: ["skills", "--json"] },
+      {
+        id: "config",
+        args: ["config", "get", "project.slug", "--json"],
+      },
+      {
+        id: "config",
+        args: [
+          "config",
+          "set",
+          "project.name",
+          "Faithful",
+          "--dry-run",
+          "--json",
+        ],
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const result = await runAgent(dir, [...testCase.args]);
+      let envelope: unknown;
+      try {
+        envelope = JSON.parse(result.stdout);
+      } catch {
+        throw new Error(
+          `${
+            testCase.args.join(" ")
+          } emitted no JSON envelope:\n${result.output}`,
+        );
+      }
+      expectSerializedFaithful(
+        testCase.id,
+        envelope,
+        testCase.args.join(" "),
+      );
+    }
+
+    const worktree = await addWorktree(dir, "identity-faithful");
+    const identity = await runAgent(worktree, [
+      "identity",
+      "--port",
+      "--json",
+    ]);
+    assertEquals(identity.code, 0, identity.output);
+    expectSerializedFaithful(
+      "identity",
+      JSON.parse(identity.stdout),
+      "identity --port --json",
+    );
+  });
 });
 
 Deno.test("GateDataSchema.failed_stage is the closed FAILED_STAGES vocabulary, not a free string", () => {

@@ -13,6 +13,7 @@
 import { gunzipSync } from "zlib";
 import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
+import type { LicensesData } from "../shared/result_schemas.ts";
 import type { ThirdPartyComponent } from "../lib/third_party_types.ts";
 import { THIRD_PARTY_BUNDLE_B64 } from "../lib/third_party_bundle.ts";
 
@@ -20,11 +21,6 @@ import { THIRD_PARTY_BUNDLE_B64 } from "../lib/third_party_bundle.ts";
 export interface LicensesOptions {
   readonly json: boolean;
   readonly noColor: boolean;
-}
-
-/** The `--json` payload: the structured list of embedded components. */
-export interface LicensesData {
-  readonly components: readonly ThirdPartyComponent[];
 }
 
 interface Bundle {
@@ -51,7 +47,7 @@ export function licensesResult(): DiscernResult<LicensesData> {
   return {
     ok: true,
     verb: "licenses",
-    data: { components: bundle().components },
+    data: { components: [...bundle().components] },
   };
 }
 

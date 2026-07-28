@@ -64,6 +64,94 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "write_access";
 
+export type DiscernDiscernResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "discern";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernSetupResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -1014,6 +1102,101 @@ export type DiscernDoctorResult = {
   };
 };
 
+export type DiscernLicensesResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "licenses";
+  data?: {
+    components: Array<{
+      name: string;
+      version: string;
+      registry: string;
+      license: string;
+    }>;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernPresetResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -1495,11 +1678,24 @@ export type DiscernConfigResult = {
   message?: string;
   verb: "config";
   data?: {
+    operation: "edit";
     file: string;
     edits: Array<{
       key: string;
       literal: string;
     }>;
+  } | {
+    operation: "get";
+    key: string;
+    value: string;
+  } | {
+    operation: "array" | "subsections" | "keys";
+    key: string;
+    values: Array<string>;
+  } | {
+    operation: "has";
+    key: string;
+    present: boolean;
   } | {
     issues: Array<{
       path: string;
@@ -2710,6 +2906,94 @@ export type DiscernPatternsResetResult = {
   };
 };
 
+export type DiscernDeskResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "desk";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernStatusResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -3249,6 +3533,289 @@ export type DiscernUpdateResult = {
   };
 };
 
+export type DiscernIdentityResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "identity";
+  data?: {
+    kind: "field";
+    field: string;
+    value: string;
+  } | {
+    kind: "resource";
+    name: string;
+    value: string;
+  } | {
+    kind: "resources";
+    resources: {
+      [key: string]: string;
+    };
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernScriptResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "script";
+  data?: {
+    scripts: Array<{
+      name: string;
+      description?: string;
+    }>;
+    directory: string;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
+export type DiscernWorktreeResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "worktree";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernWorktreeSetupResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -3601,6 +4168,94 @@ export type DiscernWorktreePruneResult = {
   };
 };
 
+export type DiscernSkillsResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "skills";
+  data?: {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernSkillsListResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -3797,6 +4452,7 @@ export type DiscernSkillsEjectResult = {
 };
 
 export type DiscernCliJsonResult =
+  | DiscernDiscernResult
   | DiscernSetupResult
   | DiscernSetupVerifyResult
   | DiscernSetupStepResult
@@ -3805,6 +4461,7 @@ export type DiscernCliJsonResult =
   | DiscernUpgradeResult
   | DiscernUninstallResult
   | DiscernDoctorResult
+  | DiscernLicensesResult
   | DiscernPresetResult
   | DiscernMapResult
   | DiscernHelpResult
@@ -3820,18 +4477,24 @@ export type DiscernCliJsonResult =
   | DiscernCouplingResult
   | DiscernPatternsResult
   | DiscernPatternsResetResult
+  | DiscernDeskResult
   | DiscernStatusResult
   | DiscernStartResult
   | DiscernAcceptResult
   | DiscernUpdateResult
+  | DiscernIdentityResult
+  | DiscernScriptResult
+  | DiscernWorktreeResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
   | DiscernWorktreeDropResult
   | DiscernWorktreePruneResult
+  | DiscernSkillsResult
   | DiscernSkillsListResult
   | DiscernSkillsEjectResult;
 
 export interface DiscernResultByVerb {
+  discern: DiscernDiscernResult;
   setup: DiscernSetupResult;
   "setup verify": DiscernSetupVerifyResult;
   "setup step": DiscernSetupStepResult;
@@ -3840,6 +4503,7 @@ export interface DiscernResultByVerb {
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
+  licenses: DiscernLicensesResult;
   preset: DiscernPresetResult;
   map: DiscernMapResult;
   help: DiscernHelpResult;
@@ -3855,19 +4519,25 @@ export interface DiscernResultByVerb {
   coupling: DiscernCouplingResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
+  desk: DiscernDeskResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
+  identity: DiscernIdentityResult;
+  script: DiscernScriptResult;
+  worktree: DiscernWorktreeResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
   "worktree prune": DiscernWorktreePruneResult;
+  skills: DiscernSkillsResult;
   "skills list": DiscernSkillsListResult;
   "skills eject": DiscernSkillsEjectResult;
 }
 
 export interface DiscernResultByCommand {
+  discern: DiscernDiscernResult;
   setup: DiscernSetupResult;
   "setup begin": DiscernSetupResult;
   "setup verify": DiscernSetupVerifyResult;
@@ -3877,13 +4547,20 @@ export interface DiscernResultByCommand {
   upgrade: DiscernUpgradeResult;
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
+  licenses: DiscernLicensesResult;
   preset: DiscernPresetResult;
   map: DiscernMapResult;
   help: DiscernHelpResult;
+  config: DiscernConfigResult;
   "config set-job": DiscernConfigResult;
   "config set-scope": DiscernConfigResult;
   "config set-standard": DiscernConfigResult;
   "config set": DiscernConfigResult;
+  "config get": DiscernConfigResult;
+  "config array": DiscernConfigResult;
+  "config has": DiscernConfigResult;
+  "config subsections": DiscernConfigResult;
+  "config keys": DiscernConfigResult;
   done: DiscernDoneResult;
   prepare: DiscernPrepareResult;
   test: DiscernTestResult;
@@ -3895,14 +4572,19 @@ export interface DiscernResultByCommand {
   coupling: DiscernCouplingResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
+  desk: DiscernDeskResult;
   status: DiscernStatusResult;
   start: DiscernStartResult;
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
+  identity: DiscernIdentityResult;
+  script: DiscernScriptResult;
+  worktree: DiscernWorktreeResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
   "worktree drop": DiscernWorktreeDropResult;
   "worktree prune": DiscernWorktreePruneResult;
+  skills: DiscernSkillsResult;
   "skills list": DiscernSkillsListResult;
   "skills eject": DiscernSkillsEjectResult;
 }

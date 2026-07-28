@@ -1211,12 +1211,92 @@ const configEditSchema = z.strictObject({
   literal: z.string(),
 });
 
-/** `config` — every config subcommand reports the file and applied/planned edits. */
-export const ConfigDataSchema = z.strictObject({
+const configEditDataSchema = z.strictObject({
+  operation: z.literal("edit"),
   file: z.string(),
   edits: z.array(configEditSchema),
 });
+
+const configScalarDataSchema = z.strictObject({
+  operation: z.literal("get"),
+  key: z.string(),
+  value: z.string(),
+});
+
+const configArrayDataSchema = z.strictObject({
+  operation: z.enum(["array", "subsections", "keys"]),
+  key: z.string(),
+  values: z.array(z.string()),
+});
+
+const configHasDataSchema = z.strictObject({
+  operation: z.literal("has"),
+  key: z.string(),
+  present: z.boolean(),
+});
+
+/**
+ * `config` — a discriminated union over edits and all shell-friendly reads.
+ * Human reads keep their bare output; `--json` projects the same fact into one
+ * typed envelope.
+ */
+export const ConfigDataSchema = z.discriminatedUnion("operation", [
+  configEditDataSchema,
+  configScalarDataSchema,
+  configArrayDataSchema,
+  configHasDataSchema,
+]);
 export type ConfigData = z.infer<typeof ConfigDataSchema>;
+
+const thirdPartyComponentSchema = z.strictObject({
+  name: z.string(),
+  version: z.string(),
+  registry: z.string(),
+  license: z.string(),
+});
+
+/** `licenses` — the components embedded in this binary. */
+export const LicensesDataSchema = z.strictObject({
+  components: z.array(thirdPartyComponentSchema),
+});
+export type LicensesData = z.infer<typeof LicensesDataSchema>;
+
+const projectScriptSchema = z.strictObject({
+  name: z.string(),
+  description: z.string().optional(),
+});
+
+/** Bare `script` — the discoverable project-script listing. */
+export const ScriptDataSchema = z.strictObject({
+  scripts: z.array(projectScriptSchema),
+  directory: z.string(),
+});
+export type ScriptData = z.infer<typeof ScriptDataSchema>;
+
+const identityFieldDataSchema = z.strictObject({
+  kind: z.literal("field"),
+  field: z.string(),
+  value: z.string(),
+});
+
+const identityResourceDataSchema = z.strictObject({
+  kind: z.literal("resource"),
+  name: z.string(),
+  value: z.string(),
+});
+
+const identityResourcesDataSchema = z.strictObject({
+  kind: z.literal("resources"),
+  resources: z.record(z.string(), z.string()),
+});
+
+/** `identity` — one selected identity value or the declared resource map. */
+export const IdentityDataSchema = z.discriminatedUnion("kind", [
+  identityFieldDataSchema,
+  identityResourceDataSchema,
+  identityResourcesDataSchema,
+]);
+export type IdentityData = z.infer<typeof IdentityDataSchema>;
 
 /** `preset` — preset application, preview, and unknown-preset discovery payloads. */
 export const PresetDataSchema = z.strictObject({
@@ -1478,6 +1558,36 @@ export const ConfigOutputSchema = resultOutputSchema(
   "config",
   ConfigDataSchema,
 );
+
+/** `licenses` output: envelope + embedded component inventory. */
+export const LicensesOutputSchema = resultOutputSchema(
+  "licenses",
+  LicensesDataSchema,
+);
+
+/** Bare `script` output: envelope + executable Project Script listing. */
+export const ScriptOutputSchema = resultOutputSchema(
+  "script",
+  ScriptDataSchema,
+);
+
+/** `identity` output: envelope + a structured field/resource projection. */
+export const IdentityOutputSchema = resultOutputSchema(
+  "identity",
+  IdentityDataSchema,
+);
+
+/** `desk --json` is a controlled refusal and carries no data. */
+export const DeskOutputSchema = datalessResultOutputSchema("desk");
+
+/** Bare `discern --json` is a controlled command-required refusal. */
+export const DiscernOutputSchema = datalessResultOutputSchema("discern");
+
+/** A bare `worktree --json` is a controlled subcommand-required refusal. */
+export const WorktreeOutputSchema = datalessResultOutputSchema("worktree");
+
+/** A bare `skills --json` is a controlled subcommand-required refusal. */
+export const SkillsOutputSchema = datalessResultOutputSchema("skills");
 
 /** `preset` output: envelope + preset preview/application/discovery data. */
 export const PresetOutputSchema = resultOutputSchema(

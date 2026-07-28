@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "@std/assert";
-import type { Command } from "@cliffy/command";
+import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
   buildResultJsonSchema,
@@ -9,7 +9,9 @@ import {
 import {
   CLI_JSON_CONTRACT_EXCLUSIONS,
   CLI_JSON_RESULT_CONTRACTS,
+  cliJsonContractCoverage,
   MCP_RESULT_CONTRACTS,
+  normalizeCliCommandPath,
 } from "../src/shared/result_contracts.ts";
 import { RESULT_SCHEMA_ID } from "../src/shared/public_schemas.ts";
 import { ERROR_SLUGS } from "../src/shared/result.ts";
@@ -164,19 +166,62 @@ Deno.test("public JSON schema exposes reachable CLI and MCP union entrypoints", 
 
 Deno.test("every registered CLI command is classified as JSON-contracted or intentionally excluded", () => {
   const root = buildCli(false) as unknown as Command;
-  const all = collectCommandPaths(root);
-  const contracted = CLI_JSON_RESULT_CONTRACTS.flatMap((
-    contract,
-  ) => [...contract.commands]);
-  const classified = new Set([
-    ...contracted,
-    ...CLI_JSON_CONTRACT_EXCLUSIONS,
-  ]);
   assertEquals(
-    sorted(all),
-    sorted(classified),
-    "each CLI command path should either have a public --json result contract or be explicitly excluded",
+    cliJsonContractCoverage(root),
+    {
+      uncontracted: [],
+      staleContracts: [],
+      staleExclusions: [],
+      overlaps: [],
+      duplicateContracts: [],
+      duplicateExclusions: [],
+      nonCanonicalDeclarations: [],
+      reasonlessExclusions: [],
+    },
+    "each canonical CLI command path should have exactly one public --json result contract or one explicit protocol exclusion",
   );
+});
+
+Deno.test("CLI JSON exclusions are only the non-result protocols, each with a reason", () => {
+  assertEquals(
+    CLI_JSON_CONTRACT_EXCLUSIONS.map((entry) => entry.command),
+    [
+      "mcp",
+      "worktree create",
+      "worktree remove",
+      "worktree ensure",
+    ],
+  );
+  for (const entry of CLI_JSON_CONTRACT_EXCLUSIONS) {
+    assert(
+      entry.reason.trim().length > 0,
+      `${entry.command} needs an exclusion reason`,
+    );
+  }
+});
+
+Deno.test("a future nested command under an enrolled parent is uncontracted automatically", () => {
+  const root = buildCli(false) as unknown as Command;
+  const config = root.getCommands(true).find((command) =>
+    command.getName() === "config"
+  );
+  assert(config !== undefined, "config command group should exist");
+  config.command("zz-future", new Command());
+  assertEquals(
+    cliJsonContractCoverage(root).uncontracted,
+    ["config zz-future"],
+  );
+});
+
+Deno.test("command aliases normalize to their canonical JSON contract path", () => {
+  const root = new Command().name("fixture");
+  const parent = new Command().alias("cfg");
+  parent.command("read", new Command().alias("r"));
+  root.command("config", parent);
+
+  assertEquals(normalizeCliCommandPath(root, "config read"), "config read");
+  assertEquals(normalizeCliCommandPath(root, "cfg r"), "config read");
+  assertEquals(normalizeCliCommandPath(root, "cfg missing"), undefined);
 });
 
 Deno.test("MCP tools use the same schemas as the public result registry", () => {
@@ -203,21 +248,6 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
     );
   }
 });
-
-function collectCommandPaths(root: Command): string[] {
-  const out: string[] = [];
-  // Hidden commands included: a command hidden from help (preset, the worktree
-  // hook entry points) still dispatches, so it still needs a JSON classification.
-  const visit = (command: Command, prefix: string[]): void => {
-    for (const child of command.getCommands(true)) {
-      const path = [...prefix, child.getName()];
-      out.push(path.join(" "));
-      visit(child as unknown as Command, path);
-    }
-  };
-  visit(root, []);
-  return out;
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

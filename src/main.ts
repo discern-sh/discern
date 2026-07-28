@@ -7,7 +7,7 @@
  * `src/commands/*`; this file is routing only.
  */
 
-import { Command } from "@cliffy/command";
+import { Command, ValidationError } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
@@ -65,6 +65,8 @@ import {
   runProjectScript,
 } from "./engine/dispatch.ts";
 import { recordedExit, recordedRun } from "./engine/logbook/cli.ts";
+import { runCommandGroup } from "./shared/command_group.ts";
+import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 
 // The full built-in verb vocabulary (installer + engine) is defined once in the
 // dispatcher and re-exported here as the CLI's
@@ -134,6 +136,17 @@ function globalFlags(options: unknown): { json: boolean; noColor: boolean } {
   return { json: o.json ?? false, noColor: noColorFrom(o.color) };
 }
 
+/** Emit the machine-mode refusal for a bare root invocation. */
+function emitRootJsonRefusal(): void {
+  emitResult({
+    ok: false,
+    verb: "discern",
+    error: "invalid_arguments",
+    message:
+      "discern --json needs a command. Run `discern --help` to list the available commands.",
+  });
+}
+
 /**
  * The type of `buildCli`'s root command. Cliffy threads the two `globalOption`
  * declarations into the command's generics, so the concrete type is impractical
@@ -189,7 +202,32 @@ export function buildCli(
       "--plain",
       "Disable prompts and paging; use static output. CI and non-terminal input imply this behavior.",
     )
-    .action(function (): void {
+    .error((error, command) => {
+      if (
+        !(error instanceof ValidationError) ||
+        !Deno.args.includes("--json")
+      ) {
+        return;
+      }
+      const fullPath = command.getPath();
+      const commandPath = fullPath === "discern"
+        ? ""
+        : fullPath.replace(/^discern\s+/, "");
+      const resultVerb = cliJsonResultVerb(commandPath) ??
+        (commandPath === "" ? "discern" : commandPath);
+      emitResult({
+        ok: false,
+        verb: resultVerb,
+        error: "invalid_arguments",
+        message: error.message,
+      });
+      Deno.exit(error.exitCode);
+    })
+    .action(function (options): void {
+      if ((options as { json?: boolean } | undefined)?.json ?? false) {
+        emitRootJsonRefusal();
+        return;
+      }
       // No subcommand: show the grouped, operator-oriented help.
       console.log(operatorHelp(this as unknown as Command));
     });
@@ -721,7 +759,7 @@ export function buildCli(
   // Read-side config surface — what a project script uses to read scalar,
   // array, and membership values out of discern.toml.
   const readJsonHelp =
-    "Emit refusals as a JSON DiscernResult on stdout; values print raw.";
+    "Emit the read result as a JSON DiscernResult envelope on stdout.";
   const configGet = new Command()
     .description("Print a scalar config value.")
     .arguments("<key:string>")
@@ -782,8 +820,11 @@ export function buildCli(
     .description(
       "Edit (set-*) or read (get/array/has/subsections/keys) discern.toml.",
     )
-    .action(recordedExit("config", function (this: Command): void {
-      this.showHelp();
+    .action(recordedExit("config", function (
+      this: Command,
+      options,
+    ): number {
+      return runCommandGroup(this, "config", globalFlags(options).json);
     }))
     .command("set-job", setJob)
     .command("set-scope", setScope)
@@ -1033,6 +1074,11 @@ export async function main(args: string[]): Promise<void> {
     // (ADR 0119); the shared `canPrompt` policy additionally honors --plain and
     // CI, so pipes, harnesses, and machine modes fall through to static help.
     if (verb === undefined) {
+      if (argv.includes("--json")) {
+        emitRootJsonRefusal();
+        Deno.exit(1);
+        return;
+      }
       if (shouldWelcomeBare(inProject, bootstrapped)) {
         Deno.exit(
           await runSetupWelcome({

@@ -20,12 +20,11 @@ import {
 import { resolveScriptsDir } from "../lib/paths.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
+import type { DiscernResult } from "../shared/result.ts";
+import type { ScriptData } from "../shared/result_schemas.ts";
 
 /** One executable Project Script surfaced by discovery. */
-export interface ProjectScript {
-  readonly name: string;
-  readonly description?: string;
-}
+export type ProjectScript = ScriptData["scripts"][number];
 
 /** Read a Project Script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
@@ -99,6 +98,22 @@ export async function listProjectScripts(
   return await discoverProjectScripts(directory.abs);
 }
 
+/** Build the bare `script --json` listing from one resolved checkout. */
+export async function projectScriptsResult(
+  root: string,
+): Promise<DiscernResult<ScriptData>> {
+  const config = await loadConfig(root);
+  const directory = resolveScriptsDir(root, config);
+  return {
+    ok: true,
+    verb: "script",
+    data: {
+      scripts: await discoverProjectScripts(directory.abs),
+      directory: directory.rel,
+    },
+  };
+}
+
 export interface RunProjectScriptOptions {
   readonly json?: boolean;
   /** Child working directory. The CLI inherits its caller; the desk passes the
@@ -126,7 +141,10 @@ export async function runProjectScriptAt(
       emitResult({
         ok: true,
         verb: "script",
-        data: { scripts: entries, directory: directory.rel },
+        data: {
+          scripts: entries,
+          directory: directory.rel,
+        } satisfies ScriptData,
       });
       return 0;
     }
