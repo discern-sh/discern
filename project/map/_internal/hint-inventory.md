@@ -83,7 +83,7 @@ Run `discern status` to get the honored receipt for the owner's review (data.gat
 Rendered example:
 
 ```text
-Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (discern/map/_adr/README.md). Edit record files, not the generated lists. Refresh rewrites the lists between the markers.
+Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (docs/_adr/README.md). Edit record files, not the generated lists. Refresh rewrites the lists between the markers.
 ```
 
 ## `config-job-deferred`

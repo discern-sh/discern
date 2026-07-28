@@ -403,7 +403,7 @@ export const HINTS = {
     when:
       "The maintained ADR index no longer matches the record files on disk.",
     family: "generated-drift",
-    example: { path: "discern/map/_adr/README.md" },
+    example: { path: "docs/_adr/README.md" },
     template: ({ path }): string =>
       generatedDriftHint(
         `The ADR index is out of date (${path}).`,
