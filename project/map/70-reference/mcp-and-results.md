@@ -55,7 +55,7 @@ The human, JSON, and MCP tool forms report the same settled result. `structuredC
 | `discern_test`        | Run the configured test job on its own.                                      | Runs a project command.                                    |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files. | Mutating and idempotent for the same inputs.               |
 | `discern_standards`   | Measure standards, compare limits, and optionally pin improvements.          | Runs project commands; pinning changes and commits config. |
-| `discern_accept`      | Land an authorized worktree and tear down its resources and branch.          | Destructive; requires owner confirmation.                  |
+| `discern_accept`      | Land an authorized worktree and tear down its resources and branch.          | Destructive; requires conversation consent or a verified grant. |
 | `discern_impact`      | List the scopes the current change activates.                                | Read-only and idempotent.                                  |
 | `discern_coupling`    | Report historical co-change partners for the current diff or named files.    | Read-only, idempotent, and advisory.                       |
 | `discern_patterns`    | Report findings from the local logbook of discern's own verb runs.           | Read-only, idempotent, and advisory.                       |

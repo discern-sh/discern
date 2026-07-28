@@ -37,7 +37,7 @@ The trunk is the single landing target. Build dependent phases by pulling branch
 
 - `discern start --from <ref>` creates a new worktree from any branch, tag, or commit.
 - `discern update --from <ref>` merges any ref into an existing worktree.
-- `discern accept --confirmed` lands only the finished whole on the trunk ([ADR 0110](../_adr/0110-the-landing-model.md)).
+- `discern accept` lands only the finished whole on the trunk once conversation consent or a recorded grant authorizes it ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
 This pull-side composition keeps half-finished phases away from the shared landing branch. Concurrent accepts are safe: if another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.
 

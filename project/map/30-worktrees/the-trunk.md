@@ -16,7 +16,7 @@ The trunk is the shared branch accepted work lands on: `[repository].trunk` in `
 
 ## What moves it
 
-`discern accept --confirmed` advances the trunk by fast-forwarding it to a reviewed worktree's validated commit, then converges the main checkout and removes the landed worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Fast-forward-only landing keeps trunk history the plain sequence of accepted branches. Owner decisions that belong to the shared state (moving a standard's limit, changing `discern.toml` policy) are made trunk-side by the owner. Agent work lands only through acceptance.
+`discern accept` advances the trunk only after conversation consent or a machine-verified standing or effort grant. It fast-forwards to the worktree's validated commit, then converges the main checkout and removes the landed worktree ([ADR 0110](../_adr/0110-the-landing-model.md), [ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)). Fast-forward-only landing keeps trunk history the plain sequence of accepted branches. Owner decisions that belong to the shared state (moving a standard's limit, changing `discern.toml` policy) are made trunk-side by the owner. Agent work lands only through acceptance.
 
 ## Why work stays off it
 

@@ -37,11 +37,17 @@ Stop after the receipt line and wait. An uncommitted edit dirties the tree. A la
 
 ## Accept after authorization
 
-Run `discern accept --confirmed` only after the owner accepts the landing. The flag attests to that authorization. A team can give standing pre-authorization for a defined class of work. Record its scope in project guidance so future sessions know which landings the policy covers. Standing authorization still uses the `--confirmed` flag.
+Every landing uses one of three consent sources:
+
+- **Conversation:** after the owner accepts this landing in the current conversation, run `discern accept --confirmed`. The flag attests only to that conversation.
+- **Standing grant:** the owner records scope names in the trunk's committed `[acceptance].pre_authorized`. `discern accept` checks every changed path against those scopes and can land without the flag only when all paths are covered.
+- **Effort grant:** the owner selects **Pre-authorize landing once green** at [the desk](the-desk.md). The grant belongs to that worktree, authorizes one landing, and is consumed when it lands.
+
+Do not translate either recorded grant into `--confirmed`; discern reads them directly. A path outside every granted scope, including a path no scope classifies, returns the landing to conversation review. Unknown scope names grant nothing. This machine-checked boundary keeps standing pre-authorization separate from remembered permission ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 Acceptance requires a clean branch containing the latest trunk and a tracked-clean main checkout sitting on the trunk. An honored receipt lets acceptance reuse the earlier gate result. A missing or stale receipt makes acceptance run the full gate again for the commit it plans to land.
 
-On success, discern fast-forwards the trunk to the validated commit. It refreshes and converges the main checkout, runs the configured smoke job, destroys the worktree's resources, removes the worktree directory, and deletes the merged branch. If another line of work moves the trunk during acceptance, discern refuses before cleanup and keeps the worktree intact. Follow the reported `update → done → accept` recovery. [Start, update, and accept](lifecycle.md) carries every landing precondition and cleanup detail.
+On success, the acceptance result, one-line receipt, and logbook event name the consent source. discern then fast-forwards the trunk to the validated commit. It refreshes and converges the main checkout, runs the configured smoke job, destroys the worktree's resources, removes the worktree directory, and deletes the merged branch. If another line of work moves the trunk during acceptance, discern refuses before cleanup and keeps the worktree intact. Follow the reported `update → done → accept` recovery. [Start, update, and accept](lifecycle.md) carries every landing precondition and cleanup detail.
 
 You can also supervise a ready branch from [the desk](the-desk.md). Its Accept action shows the plan, asks for confirmation, and calls the same acceptance core.
 
@@ -53,15 +59,17 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 
 ## Where it lives in code
 
-| Concern                            | Source                                                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Receipt creation and relay hints   | [`src/engine/gate/receipt_render.ts`](../../../src/engine/gate/receipt_render.ts)                             |
-| Acceptance validation and cleanup  | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                               |
-| Standing-authorization attestation | [`src/shared/consent.ts`](../../../src/shared/consent.ts)                                                     |
-| Delegation procedure               | [`templates/skills/discern-delegate-work/SKILL.md`](../../../templates/skills/discern-delegate-work/SKILL.md) |
+| Concern                           | Source                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Receipt creation and relay hints  | [`src/engine/gate/receipt_render.ts`](../../../src/engine/gate/receipt_render.ts)                             |
+| Acceptance validation and cleanup | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                               |
+| Landing-authority resolution      | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
+| Consent-source vocabulary         | [`src/shared/consent.ts`](../../../src/shared/consent.ts)                                                     |
+| Per-effort grant store            | [`src/engine/worktree/effort_grant.ts`](../../../src/engine/worktree/effort_grant.ts)                         |
+| Delegation procedure              | [`templates/skills/discern-delegate-work/SKILL.md`](../../../templates/skills/discern-delegate-work/SKILL.md) |
 
 ## Current state & gotchas
 
-- `discern accept` without `--confirmed` refuses before reading or changing Git state and points back to the review receipt.
+- `discern accept` without `--confirmed` reads authority evidence but changes nothing unless a verified grant covers the landing.
 - Any tracked, staged, or untracked change in the worktree blocks acceptance. The main checkout blocks on tracked changes.
 - Post-landing checkout convergence is non-transactional because the trunk has already moved. Acceptance reports a failed refresh, ensure step, smoke job, or tracked-clean check, then still tears down the accepted worktree.

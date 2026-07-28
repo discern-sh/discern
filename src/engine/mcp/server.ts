@@ -760,9 +760,11 @@ export const TOOLS: McpTool[] = orderTools([
       "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +
-      "step (e.g. call discern_update first). Also requires `confirmed`: absent, it " +
-      "refuses read-only and re-serves the review moment (relay the receipt, wait " +
-      "for the owner) instead of landing. Set dry_run to preview " +
+      "step (e.g. call discern_update first). Landing authority comes from either " +
+      "a `confirmed` conversation or a machine-verified grant recorded on the " +
+      "trunk or at the desk. Without either, it refuses read-only and re-serves " +
+      "the review moment (relay the receipt, wait for the owner) instead of " +
+      "landing. Set dry_run to preview " +
       "the plan without touching anything. " +
       "Operates on the worktree this call selects: the server's current target by " +
       "default, or the discern worktree containing an explicit absolute `path`.",
@@ -771,9 +773,9 @@ export const TOOLS: McpTool[] = orderTools([
         "Preview the acceptance plan and touch nothing (default false).",
       ),
       confirmed: z.boolean().optional().describe(
-        "Attestation that the owner has accepted this landing in this " +
-          "conversation, or gave standing pre-authorization. Set it only then; a " +
-          "pre-authorized landing still takes one call.",
+        "Attestation that the owner has accepted this landing in the current " +
+          "conversation. Set it only then. Recorded standing and effort grants " +
+          "are checked directly; do not assert them through this flag.",
       ),
       ...PATH_PARAM,
     },
@@ -1666,10 +1668,11 @@ export function buildInstructions(): string {
     "merge conflict). Reproducing its steps by hand is slower and usually " +
     "unnecessary.",
     "- Only when the user explicitly asks to hand off or land a finished branch " +
-    '("accept this", "I\'ll take it from here", "move this back to {{main_branch}}") ' +
-    "should you use discern_accept. Do not treat a green gate run or status hint as " +
-    "permission to accept; if no handoff was requested, stop and report the " +
-    "branch ready for review. Commit the work with a real message, run the final " +
+    '("accept this", "I\'ll take it from here", "move this back to {{main_branch}}"), ' +
+    "or a discern result reports machine-verified landing authority, should you " +
+    "use discern_accept. Do not treat a green gate run alone as permission to " +
+    "accept; without either authority, stop and report the branch ready for " +
+    "review. Commit the work with a real message, run the final " +
     "clean discern_done for that commit, then just call the tool (the single deterministic implementation — " +
     "don't reproduce its git steps, and don't pre-flight preconditions with git: " +
     "it refuses cleanly with the exact next step, e.g. run discern_update " +

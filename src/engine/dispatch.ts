@@ -695,9 +695,9 @@ export function attachEngineCommands(
     .option("--dry-run", "Show the acceptance plan; touch nothing.")
     .option(
       "--confirmed",
-      "Attest that your owner has accepted this landing (or gave standing " +
-        "pre-authorization). Without it, acceptance refuses read-only and re-serves " +
-        "the review moment; a dry-run does not need it.",
+      "Attest that your owner accepted this landing in the current conversation. " +
+        "Recorded standing and effort grants are checked directly. Without either " +
+        "source, acceptance refuses read-only; a dry-run needs none.",
     )
     .action(recordedExit("accept", async (o) => {
       const json = o.json ?? false;

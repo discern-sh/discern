@@ -1848,8 +1848,8 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Re-run `discern accept --confirmed` once the owner has accepted this " +
-      "landing. The flag attests that acceptance, so a pre-authorized landing " +
-      "still takes one call.",
+      "landing in the current conversation. The flag attests only to that " +
+      "conversation; recorded standing and effort grants are checked directly.",
   }),
 
   /** The status route to the receipt and raw diff needed for owner review. */

@@ -15,7 +15,7 @@ _Every change gets its own checkout, branch, identity, and local dependencies._
 
 Each worktree gets a stable identity, deterministic development port, and any declared external resources. Setup commands prepare the checkout and converge it again after the trunk changes.
 
-The lifecycle has one recommended path. Start from the main checkout, make and commit the change inside the new worktree, run `discern update` when the trunk advances, and finish with `discern done`. After review, `discern accept --confirmed` fast-forwards the validated commit onto the trunk, tears down its resources, removes the checkout, and deletes the merged branch.
+The lifecycle has one recommended path. Start from the main checkout, make and commit the change inside the new worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` fast-forwards the validated commit onto the trunk, tears down its resources, removes the checkout, and deletes the merged branch. `--confirmed` attests only to consent in the current conversation.
 
 Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to start tasks or make fleet decisions: open a coding agent, inspect, update, land, enter, or discard.
 

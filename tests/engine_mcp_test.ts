@@ -2854,7 +2854,7 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
       instructions,
     );
     assert(
-      instructions.includes("Do not treat a green gate run or status hint"),
+      instructions.includes("Do not treat a green gate run alone"),
       instructions,
     );
     // Diagnostics and standards are always present (every subsystem is core).
