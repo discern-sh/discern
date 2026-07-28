@@ -24,9 +24,11 @@ import {
   type Migration,
   MIGRATIONS,
   pendingMigrations,
+  PRE_SCHEMA_23_NEUTRAL_SCOPE_DEFAULTS,
 } from "../src/lib/migrations.ts";
 import { parseConfig } from "../src/shared/config_schema.ts";
 import { bundledSkillNames } from "../src/lib/skills.ts";
+import { defaultNeutralScopePaths } from "../src/lib/config.ts";
 import {
   fakeEnv,
   REAL_TEMPLATES,
@@ -194,7 +196,8 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
   // ([ratchets] → [standards]), 18→19 ([docs] → [map], with the installed
   // directory pinned), 19→20 (Project Recipes → Project Scripts), and 20→21
   // ([project] repository policy → [repository]), and 21→22 merges the declared
-  // gate work into [jobs].
+  // gate work into [jobs], and 22→23 enables gate-tail coupling advice while
+  // narrowing the generated neutral scope.
   assertEquals(MIGRATIONS.map((m) => m.from), [
     1,
     2,
@@ -217,6 +220,7 @@ Deno.test("the production chain is contiguous up to the current schema", () => {
     19,
     20,
     21,
+    22,
   ]);
   assert(isChainContiguous(MIGRATIONS, SCHEMA_VERSION));
 });
@@ -1524,6 +1528,136 @@ Deno.test("migration 21→22 refuses a mixed retired/current job namespace", asy
       "Keep every intended entry under [jobs]",
     );
     assertEquals(await Deno.readTextFile(configPath), text);
+  });
+});
+
+Deno.test("migration 22→23 enables coupling and narrows only the generated neutral scope", async () => {
+  await withTempDir(async (dir) => {
+    const text = [
+      "[meta]",
+      "schema_version = 22",
+      "",
+      "[map]",
+      'dir = "map/"',
+      "",
+      "[scopes.docs]",
+      'paths = ["${map.dir}", "discern/", ".claude/", ".agents/"]',
+      "neutral = true",
+      "",
+      "[worktree]",
+      "port = true",
+      "",
+      "[standards.coverage]",
+      'direction = "up"',
+      "limit = 80",
+      'run = "measure"',
+      "",
+      "[coupling]",
+      "in_gate = false",
+      "",
+    ].join("\n");
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(configPath, text);
+    const notes: string[] = [];
+
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 22,
+      to: 23,
+      onNote: (note) => notes.push(note),
+    });
+
+    const migrated = await Deno.readTextFile(configPath);
+    const raw = parseDiscernToml(migrated).raw;
+    const coupling = raw.coupling as Record<string, unknown>;
+    const scopes = raw.scopes as Record<string, unknown>;
+    const docs = scopes.docs as Record<string, unknown>;
+    const map = raw.map as Record<string, unknown>;
+    const worktree = raw.worktree as Record<string, unknown>;
+    assertEquals(coupling.in_gate, true);
+    assertEquals(docs.paths, defaultNeutralScopePaths());
+    assertEquals(map.dir, "map/", "the prerelease map stays where it is");
+    assertEquals(
+      worktree.port,
+      true,
+      "the prerelease port choice stays intact",
+    );
+    assertEquals(notes, [
+      "enabled [coupling].in_gate",
+      "narrowed [scopes.docs].paths to discern's non-executable authored and materialized paths",
+    ]);
+
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 22,
+      to: 23,
+      onNote: () => {},
+    });
+    assertEquals(await Deno.readTextFile(configPath), migrated);
+  });
+});
+
+Deno.test("migration 22→23 recognizes every prerelease neutral-scope default", async () => {
+  for (const paths of PRE_SCHEMA_23_NEUTRAL_SCOPE_DEFAULTS) {
+    await withTempDir(async (dir) => {
+      const configPath = join(dir, "discern.toml");
+      await Deno.writeTextFile(
+        configPath,
+        [
+          "[scopes.docs]",
+          `paths = ${JSON.stringify(paths)}`,
+          "neutral = true",
+          "",
+          "[coupling]",
+          "in_gate = true",
+          "",
+        ].join("\n"),
+      );
+      await applyMigrationsUnchecked({
+        destDir: dir,
+        from: 22,
+        to: 23,
+        onNote: () => {},
+      });
+      const raw = parseDiscernToml(
+        await Deno.readTextFile(configPath),
+      ).raw;
+      const scopes = raw.scopes as Record<string, unknown>;
+      const docs = scopes.docs as Record<string, unknown>;
+      assertEquals(
+        docs.paths,
+        defaultNeutralScopePaths(),
+        `prerelease default ${JSON.stringify(paths)} should narrow`,
+      );
+    });
+  }
+});
+
+Deno.test("migration 22→23 preserves a custom neutral scope while enabling coupling", async () => {
+  await withTempDir(async (dir) => {
+    const configPath = join(dir, "discern.toml");
+    const custom = ["handbook/", ".claude/commands/"];
+    await Deno.writeTextFile(
+      configPath,
+      [
+        "[scopes.docs]",
+        `paths = ${JSON.stringify(custom)}`,
+        "neutral = true",
+        "",
+      ].join("\n"),
+    );
+    await applyMigrationsUnchecked({
+      destDir: dir,
+      from: 22,
+      to: 23,
+      onNote: () => {},
+    });
+    const raw = parseDiscernToml(await Deno.readTextFile(configPath)).raw;
+    const scopes = raw.scopes as Record<string, unknown>;
+    const docs = scopes.docs as Record<string, unknown>;
+    const coupling = raw.coupling as Record<string, unknown>;
+    assertEquals(docs.paths, custom);
+    assertEquals(coupling.in_gate, true);
   });
 });
 

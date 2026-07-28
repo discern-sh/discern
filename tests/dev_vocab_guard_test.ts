@@ -247,15 +247,14 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
  * the old concept phrase outright: "docs tree" on an authored surface either
  * misnames the map or conflates it with a project's own documentation (a
  * literal `docs/` directory stays describable — the slash keeps it out of this
- * pattern). Frozen records — historical ADRs, archived planning briefs,
- * recorded eval transcripts, historical install fixtures — keep their wording.
+ * pattern). Frozen records — historical ADRs, archived planning briefs, and
+ * historical install fixtures — keep their wording.
  */
 Deno.test("the retired 'docs tree' concept phrase does not reappear", async () => {
   const pattern = /\bdocs[ -]tree/i;
   const frozen = (rel: string): boolean =>
     isRepoMapPath(rel, "_adr") ||
     rel.startsWith("tests/fixtures/historical-installs/") ||
-    rel.startsWith("scripts/setup-eval/results/") ||
     rel.includes("/_done/");
   const offenders: string[] = [];
   for (const [rel, text] of await commandSurfaceFiles()) {

@@ -289,9 +289,12 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "gotchas-pointer",
         title: "The gotchas pointer",
         what:
-          "When a stage fails in a non-obvious way, the gate prints a pasteable `discern map <target> --json` fetch when `[project].gotchas_doc` lives in the map, and the file path otherwise.",
+          "When a stage fails, the gate prints a pasteable `discern map <target> --json` fetch when `[project].gotchas_doc` lives in the map, and the file path otherwise. A trap entry annotated with a fenced `gotcha-match` block (a stage and/or an evidence pattern) goes further: a failure matching it carries the entry's own prose inline in the failure output, on the terminal and in the result envelope alike, and the pointer prints only when nothing matches.",
         why:
-          "Hard-won failure lore reaches the agent at the moment it applies.",
+          "Hard-won failure lore reaches the agent at the moment it applies — a matched trap without even a fetch.",
+        agent:
+          "Matching reads the failure's `failed_stage` and diagnostic evidence against the doc's entries in document order; the first match wins and the inlined entry keeps the map fetch as the route to the full page. A malformed matcher warns by entry name whenever the doc is consulted, and a project that never adds matchers keeps the pointer unchanged.",
+        hints: ["gate-failure-gotcha-matched", "gotchas-matcher-invalid"],
       },
       {
         id: "receipt",
@@ -675,6 +678,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             what:
               "Guide recording a significant decision — context, decision, consequences, alternatives — from the canonical template and format guide every install carries.",
             surfaces: ["skill:discern-write-adr"],
+          },
+          {
+            id: "skill-write-it-once",
+            title: "Write it once",
+            what:
+              "The practices discern builds itself with, as a stack-neutral survey plus two deep procedures: one authority per shared fact with bound consumers, guards that enroll future members, declared universes for broad rules, planned effects with convergent reruns, comment discipline — and the ties recorded in a canonical-sets page in the project's map.",
+            surfaces: ["skill:discern-write-it-once"],
           },
         ],
       },

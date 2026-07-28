@@ -61,6 +61,11 @@ const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 export const MAIN_TS = join(REPO_ROOT, "src", "main.ts");
 export const DENO_JSON = join(REPO_ROOT, "deno.json");
 
+/** One path inside the fresh map default, derived from the path registry. */
+export function defaultMapPath(root: string, ...parts: string[]): string {
+  return join(root, SOURCE_PATHS.map.defaultPath, ...parts);
+}
+
 /** Shell-quote a path for a command string handed to a PTY shell. */
 function shq(s: string): string {
   return `'${s.replaceAll("'", "'\\''")}'`;

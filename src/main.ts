@@ -673,7 +673,9 @@ export function buildCli(
       "--metric <name:string>",
       "Metric name the run emits (default: <name>).",
     )
-    .option("--direction <dir:string>", 'Either "up" or "down" (default: up).')
+    .option("--direction <dir:string>", 'Either "up" or "down".', {
+      required: true,
+    })
     .option(
       "--run <cmd:string>",
       "The command that emits the metric line.",

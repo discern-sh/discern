@@ -14,10 +14,10 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 `discern done` emits a receipt when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from one derivation ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
 
-- **The line** (`data.receipt.line`) — one sentence naming the branch, the validated commit, the diffstat vs trunk, the standards state, and the command that prints the page. This is the only receipt content an agent puts in a message: its report ends with the line, and the body of the report stays the agent's own account of the change.
+- **The line** (`data.receipt.line`) — one sentence naming the branch, the validated commit, the diffstat vs trunk, the standards state, and the command that prints the page. This is the only receipt content an agent puts in a message: it copies the line verbatim after its own account of the change. `status` returns the stored form as `data.gate_receipt.receipt_line`; a successful `accept` returns it as `data.receipt_line`.
 - **The page** (`data.receipt.markdown`) — the full summary: standard outcomes first, then each declared job and scope gate that ran, then the command that opens the diff. You pull it from discern directly — `discern done` prints it at the terminal, and `discern status --verbose` reprints it any time the receipt is honored. Terminals dim the page, so the quoted Markdown reads as secondary beside the narration. Commit and per-file lists are git's to show; `Inspect:` names the command.
 
-The receipt gives the reviewer a stable gate result for that `HEAD`. The trunk may advance. The agent reports, ends with the line, and waits. The commit in the line matches the recorded marker, so the claim is checkable with `discern status` rather than taken on trust. On approval, `discern accept --confirmed` checks the live refs and lands the branch.
+The receipt gives the reviewer a stable gate result for that `HEAD`. The trunk may advance. The agent reports, ends with the line, and waits. The commit in the line matches the recorded marker, so the claim is checkable with `discern status` rather than taken on trust. On approval, `discern accept --confirmed` checks the live refs and lands the branch. The agent reports the landing and again ends with the returned line verbatim.
 
 After a qualifying receipt, `done` can print one `Logbook:` advisory line. It counts the branch findings that cleared the unsolicited-presentation bar, states the strongest observation, and points to `discern patterns` for the evidence and next steps. The detector needs 1 qualifying event beyond its normal threshold before this line appears. A red run, an unfinished setup, a disabled logbook, or a branch with no qualifying finding gets no line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -38,19 +38,19 @@ Write authority is different. Before any declared job or standard measurement st
 
 ## How later commands use it
 
-discern stores the validated commit and receipt markdown in the worktree's git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
+discern stores the validated commit and both receipt renderings in the worktree's git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
 | Surface          | What it does with the receipt                                                                                                                                                                           |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `discern done`   | Prints the page on a qualifying green run, returns `data.receipt` (`line` + `markdown`), then prints at most 1 branch finding.                                                                          |
 | `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored page and line when honored (`data.gate_receipt`, and per ready fleet row), and prints the page under `--verbose`. |
-| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the landing receipt. Otherwise it reruns the gate.                                                                                     |
+| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the page in `data.receipt` and the line in `data.receipt_line`. Otherwise it reruns the gate and derives both from that run.           |
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 
 ## Re-running an unchanged tree
 
-Beside the receipt, every completed run — red included — records the exact tree it judged and the verdict in a last-run marker. Ask `discern done` to run again on that identical tree and it refuses read-only before any job or fixer runs: an unchanged tree expects an unchanged verdict, so a green rerun repays full gate time for the answer `discern status` already shows, and a red one retried until it passes hides a flake. `discern done --confirmed` re-runs it as an attested, recorded probe; any edit, commit, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)).
+Beside the receipt, every completed run records the exact tree it judged and the verdict in a last-run marker, including red runs. Ask `discern done` to run again on that identical tree and it refuses read-only before any job or fixer runs. An unchanged tree expects an unchanged verdict. A green rerun repays full gate time for the answer `discern status` already shows; retrying a red run until it passes hides a flake. `discern done --confirmed` re-runs it as an attested, recorded probe. Any edit, commit, or `--dry-run` runs as normal ([ADR 0185](../_adr/0185-done-refuses-an-unchanged-tree-rerun-without-confirmed.md)).
 
 The public result fields are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

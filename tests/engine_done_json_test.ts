@@ -19,6 +19,7 @@ import { gateReceiptHonored } from "../src/engine/gate/receipt.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
+  defaultMapPath,
   git,
   gitInit,
   gitOut,
@@ -910,7 +911,7 @@ Deno.test("done --json: two ADR records claiming one number fail the adr_numbers
 
     // The state two in-flight efforts land in when both pick the next free
     // number: different filenames, clean merge, one number claimed twice.
-    const adrDir = join(dir, "map", "_adr");
+    const adrDir = defaultMapPath(dir, "_adr");
     await Deno.mkdir(adrDir, { recursive: true });
     await Deno.writeTextFile(join(adrDir, "0007-first.md"), "# first\n");
     await Deno.writeTextFile(join(adrDir, "0007-second.md"), "# second\n");

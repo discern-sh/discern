@@ -9,6 +9,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { fromFileUrl, join, relative } from "@std/path";
 import {
+  defaultMapPath,
   git,
   gitInit,
   runAgent,
@@ -78,9 +79,9 @@ Deno.test({
   fn: async () => {
     await withTempDir(async (dir) => {
       await scaffoldEngine(dir);
-      await Deno.mkdir(join(dir, "map", "00-guide"), { recursive: true });
+      await Deno.mkdir(defaultMapPath(dir, "00-guide"), { recursive: true });
       await Deno.writeTextFile(
-        join(dir, "map", "00-guide", "README.md"),
+        defaultMapPath(dir, "00-guide", "README.md"),
         "# Guide\n\nThe project guide.\n",
       );
       await gitInit(dir);

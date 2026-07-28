@@ -259,10 +259,16 @@ export function applyConfigDoc(
     });
   }
 
-  // Standards: a required run (emits the metric) + limit; direction/metric default.
+  // Standards: direction, run (emits the metric), and limit are required; metric
+  // defaults to the standard name.
   for (const [name, spec] of Object.entries(doc.standards ?? {})) {
     assertName("standard", name);
-    const direction = (spec.direction ?? "up") as string;
+    const direction = spec.direction as string | undefined;
+    if (direction === undefined) {
+      throw new Error(
+        `standard "${name}": direction is required ("up" or "down")`,
+      );
+    }
     if (direction !== "up" && direction !== "down") {
       throw new Error(`standard "${name}": direction must be "up" or "down"`);
     }

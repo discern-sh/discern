@@ -20,7 +20,13 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { guidanceSeedRel } from "../src/shared/paths_registry.ts";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { git, gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  defaultMapPath,
+  git,
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+} from "./engine_helpers.ts";
 import { parseSetupBrief } from "../src/shared/setup_pages.ts";
 import { SETUP_COMPLETION_CHECKS } from "../src/shared/setup_checks.ts";
 import { SetupStepOutputSchema } from "../src/shared/result_schemas.ts";
@@ -191,12 +197,12 @@ async function layMarkerFreeProject(
 ): Promise<void> {
   await scaffoldEngine(dir, { bootstrapped: false });
   await gitInit(dir);
-  await Deno.mkdir(join(dir, "map/00-orientation"), {
+  await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
     recursive: true,
   });
   await Deno.mkdir(join(dir, "discern"), { recursive: true });
   await Deno.writeTextFile(
-    join(dir, "map/00-orientation/design-principles.md"),
+    defaultMapPath(dir, "00-orientation", "design-principles.md"),
     principles,
   );
   await Deno.writeTextFile(

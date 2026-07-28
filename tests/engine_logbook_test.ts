@@ -21,6 +21,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  defaultMapPath,
   gitInit,
   runAgent,
   scaffoldEngine,
@@ -187,11 +188,11 @@ Deno.test("logbook: a successful map fetch records the canonical page on CLI and
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const body = "# Concepts\n\nMap-content-sentinel-7f3c1.\n";
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       body,
     );
     await gitInit(dir);
@@ -266,11 +267,11 @@ Deno.test("logbook: map-fetch payloads lift by shape under an unrelated verb", a
 Deno.test("logbook: documentation search records the flag but never the query", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await Deno.mkdir(join(dir, "map", "00-orientation"), {
+    await Deno.mkdir(defaultMapPath(dir, "00-orientation"), {
       recursive: true,
     });
     await Deno.writeTextFile(
-      join(dir, "map", "00-orientation", "concepts.md"),
+      defaultMapPath(dir, "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas.\n",
     );
     await gitInit(dir);
@@ -388,7 +389,7 @@ Deno.test("logbook: a standards pin lands pin events and holds the epoch", async
     await scaffoldEngine(dir);
     await writeConfig(
       dir,
-      `[standards.cov]\nlimit = 10\nrun = "echo DISCERN_METRIC cov 50"\n`,
+      `[standards.cov]\ndirection = "up"\nlimit = 10\nrun = "echo DISCERN_METRIC cov 50"\n`,
     );
     await gitInit(dir);
     const check = await runAgent(dir, ["standards", "--json"]);
@@ -470,6 +471,7 @@ Deno.test("logbook: an unwritable logbook directory changes no verb's outcome", 
 
 const STANDARDS_CONFIG = (limit: number, jobs: string): string =>
   `${jobs}[standards.cov]
+direction = "up"
 limit = ${limit}
 run = "echo DISCERN_METRIC cov 50"
 `;

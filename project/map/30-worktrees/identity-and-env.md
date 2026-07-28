@@ -1,7 +1,7 @@
 ---
 title: Identity and environment
 description: How a worktree gets stable names, a deterministic port, inherited env values, and discoverable resource handles.
-order: 30
+order: 40
 aliases:
   - worktree identity
   - discern identity
@@ -40,7 +40,7 @@ The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the
 
 `[worktree].inherit_env` names values copied from the main checkout into a new worktree. Inheritance creates the first env file when it is missing, so every declared value arrives. It copies only the named keys. The rest of the main checkout's local env stays there.
 
-The configured env files can carry these values. The lifecycle records the port and resource handles when a file exists. The id remains an optional override supplied by the project or user.
+The configured env files can carry these values. `[worktree].port` defaults to `false`; set it to `true` when project tooling reads `DISCERN_WORKTREE_PORT`. The lifecycle records that variable only when the setting is on and an env file exists. `discern identity --port` and the `@port@` setup token remain available either way. Resource handles are recorded when an env file exists. The id remains an optional override supplied by the project or user.
 
 | Variable                  | Contents                        |
 | ------------------------- | ------------------------------- |

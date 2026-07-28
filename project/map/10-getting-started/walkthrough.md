@@ -1,7 +1,7 @@
 ---
 title: Setup walkthrough
 description: Follow the setup conversation, proof run, first worktree, gate receipt, and reviewed landing in detail.
-order: 20
+order: 30
 aliases:
   - walkthrough
   - setup walkthrough

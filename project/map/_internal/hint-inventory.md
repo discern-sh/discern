@@ -50,14 +50,14 @@ Run `discern refresh` in /workspace/project. Acceptance landed on main, but the 
 ## `accept-relay-landing-receipt`
 
 - Category: `next-step`
-- Audience: `all`
+- Audience: `agent`
 - Family: —
-- Emitting context: `accept` lands successfully and returns a landing receipt.
+- Emitting context: `accept` lands successfully and returns a one-line landing receipt.
 
 Rendered example:
 
 ```text
-data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.
+Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.
 ```
 
 ## `accept-review-via-status`
@@ -226,7 +226,20 @@ Run `discern status` — this exact tree already passed `discern done`, and stat
 Rendered example:
 
 ```text
-Fix the failure the last run reported, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Probing for a flaky verdict is the one reason to re-run unchanged: `discern done --confirmed` does that, and records the rerun as a probe.
+Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Probing for a flaky verdict is the one reason to re-run unchanged: `discern done --confirmed` does that, and records the rerun as a probe.
+```
+
+## `ensure-main-worktree-first`
+
+- Category: `guardrail`
+- Audience: `agent`
+- Family: —
+- Emitting context: `worktree ensure` runs on the main-checkout side at session start.
+
+Rendered example:
+
+```text
+Session opened in the main checkout — the trunk every effort lands on. Before editing, run `discern start` and work in the worktree it returns. A worktree is for changes; questions and investigation read from anywhere.
 ```
 
 ## `fleet-ownership`
@@ -278,7 +291,7 @@ Renumber the newer of the duplicated ADR records named by the diagnostics to the
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
 ```
 
 ## `gate-failure-check`
@@ -291,7 +304,7 @@ Run the reproduce command from each diagnostic, fix the reported problems, then 
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
 ```
 
 ## `gate-failure-check-test`
@@ -304,7 +317,7 @@ Run the reproduce command from each diagnostic, fix the reported problems, then 
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
 ```
 
 ## `gate-failure-fix`
@@ -317,15 +330,34 @@ Run the reproduce command from each diagnostic, fix the reported problems, then 
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+```
+
+## `gate-failure-gotcha-matched`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gotchas-doc`
+- Emitting context: A gate failure matches a trap matcher in the configured gotchas document.
+
+Rendered example:
+
+```text
+This failure matches "A command hangs, then fails with a timeout", a documented trap in this project's gate gotchas:
+
+**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.
+
+**Fix.** Wire the command in its single-run form.
+
+Read the full page with `discern map 80-development/done-gate-gotchas --json`.
 ```
 
 ## `gate-failure-gotchas`
 
 - Category: `next-step`
 - Audience: `all`
-- Family: —
-- Emitting context: A gate failure occurs and the project configures a gotchas document.
+- Family: `gotchas-doc`
+- Emitting context: A gate failure occurs, the project configures a gotchas document, and no trap matcher matches the failure.
 
 Rendered example:
 
@@ -369,7 +401,7 @@ Run `discern update` to bring the trunk into this branch and re-materialize, the
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command. One or more scope gates failed.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`. One or more scope gates failed.
 ```
 
 ## `gate-failure-skill-frontmatter`
@@ -421,7 +453,7 @@ Follow the standards diagnostics, then re-run the current discern command. Do no
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic, fix the reported problems, then re-run the current discern command.
+Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
 ```
 
 ## `gate-failure-tracked-artifacts`
@@ -577,7 +609,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 Rendered example:
 
 ```text
-If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -643,6 +675,19 @@ Rendered example:
 
 ```text
 Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended guidance changes in [guidance].sources. Refresh overwrites Agent files.
+```
+
+## `gotchas-matcher-invalid`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gotchas-doc`
+- Emitting context: A gate failure consults a gotchas document carrying a malformed trap matcher.
+
+Rendered example:
+
+```text
+Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
 ```
 
 ## `logbook-receipt-finding`
@@ -1422,7 +1467,7 @@ Run `discern start` to begin work. There are no active worktrees.
 Rendered example:
 
 ```text
-Report this branch to your owner in your own words and end with the one-line receipt in data.gate_receipt.receipt_line, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the receipt in `data.gate_receipt.receipt_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-start-off-trunk`

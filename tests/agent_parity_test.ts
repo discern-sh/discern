@@ -24,6 +24,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { fromFileUrl, join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
+import { guidancePathForNative } from "../src/shared/agent_catalogue.ts";
 import {
   agentArtifactPosture,
   allGuidanceFilePaths,
@@ -317,6 +318,21 @@ Deno.test("registry aggregators stay total: one guidance file + a skills dir per
   );
 });
 
+Deno.test("every provider's guidance path derives from the catalogue's declaration", () => {
+  // The catalogue owns the compiled-guidance path beside the native name and
+  // label; a provider entry that reverts to a literal path could drift from
+  // the vocabulary the logbook's guidance-parity findings name.
+  for (const name of AGENT_NAMES) {
+    const p = providerFor(name);
+    assert(p !== undefined, `no provider for ${name}`);
+    assertEquals(
+      p.guidanceFile.path,
+      guidancePathForNative(name),
+      `${name}: guidanceFile.path must come from guidancePathForNative`,
+    );
+  }
+});
+
 Deno.test("guidance modelling stays sound: exactly one canonical, reuse-canonical reads it without duplicates", () => {
   // The invariant the reuse-canonical model rests on (deliverable 2): one provider
   // holds the canonical full body; a reuse-canonical provider reads THAT file and
@@ -468,23 +484,23 @@ Deno.test("every rule in the canonical block maps to a registry-declared materia
   }
 });
 
-Deno.test("the seed neutral scopes neutralize EVERY known agent's generated dir", () => {
-  const neutral = defaultNeutralScopes(); // already TOML-quoted, e.g. '".claude/"'
-  for (const top of neutralAgentScopePaths()) {
+Deno.test("the seed neutral scopes neutralize EVERY known agent's materialized skills dir", () => {
+  const neutral = defaultNeutralScopes(); // TOML-quoted, e.g. '".claude/skills/"'
+  for (const dir of neutralAgentScopePaths()) {
     assert(
-      neutral.includes(`"${top}"`),
-      `defaultNeutralScopes() does not neutralize ${top} — a change under an agent's ` +
-        `generated dir would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
+      neutral.includes(`"${dir}"`),
+      `defaultNeutralScopes() does not neutralize ${dir} — a materialized skill ` +
+        `would wrongly fire the gate. It must derive from neutralAgentScopePaths().`,
     );
   }
   // Every known agent contributes a neutral region (none silently absent).
   for (const name of AGENT_NAMES) {
     const dir = providerFor(name)?.skillsDir?.path;
     if (dir === undefined) continue;
-    const top = `${dir.split("/")[0]}/`;
+    const scopePath = `${dir.replace(/\/+$/, "")}/`;
     assert(
-      neutralAgentScopePaths().includes(top),
-      `${name}'s generated region ${top} is missing from neutralAgentScopePaths()`,
+      neutralAgentScopePaths().includes(scopePath),
+      `${name}'s materialized skills dir ${scopePath} is missing from neutralAgentScopePaths()`,
     );
   }
 });
@@ -511,10 +527,10 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
         fragmentIgnoresDir(p.skillsDir.path),
         `${name}: skills dir ${p.skillsDir.path} not gitignored by the seed fragment`,
       );
-      const top = `${p.skillsDir.path.split("/")[0]}/`;
+      const scopePath = `${p.skillsDir.path.replace(/\/+$/, "")}/`;
       assert(
-        defaultNeutralScopes().includes(`"${top}"`),
-        `${name}: generated region ${top} not in the seed neutral scopes`,
+        defaultNeutralScopes().includes(`"${scopePath}"`),
+        `${name}: materialized skills dir ${scopePath} not in the seed neutral scopes`,
       );
     }
 

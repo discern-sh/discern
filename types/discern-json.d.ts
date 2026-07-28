@@ -2994,6 +2994,7 @@ export type DiscernAcceptResult = {
       };
     };
     receipt?: string;
+    receipt_line?: string;
     ignored_file_changes?: {
       status:
         | "disabled"

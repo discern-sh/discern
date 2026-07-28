@@ -190,8 +190,9 @@ function restartSessionHint(leadIn: string): string {
 
 /** Shared diagnostic loop for gate stages whose machine facts carry the detail. */
 const GATE_DIAGNOSTIC_REMEDY_CORE =
-  "Run the reproduce command from each diagnostic, fix the reported problems, " +
-  "then re-run the current discern command.";
+  "Run the reproduce command from each diagnostic and fix the reported " +
+  "problems. Iterate with `discern prepare` (the fast fix-then-check loop) " +
+  "or `discern test`; when the tree is ready, re-run `discern done`.";
 
 /** Maximum names rendered in one hint summary. */
 const HINT_NAME_CAP = 3;
@@ -539,7 +540,7 @@ export const HINTS = {
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words and end with the ` +
-      `one-line receipt in data.gate_receipt.receipt_line, then wait. This ` +
+      `receipt in \`data.gate_receipt.receipt_line\` verbatim, then wait. This ` +
       `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
       `full receipt: your owner pulls it with \`discern status --verbose\`, ` +
       `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
@@ -1236,11 +1237,12 @@ export const HINTS = {
     family: "done-rerun",
     example: undefined,
     template: (): string =>
-      "Fix the failure the last run reported, then re-run `discern done` — " +
-      "nothing changed since it judged this exact tree red, so an identical " +
-      "rerun expects the identical verdict. Probing for a flaky verdict is the " +
-      "one reason to re-run unchanged: `discern done --confirmed` does that, " +
-      "and records the rerun as a probe.",
+      "Fix the failure the last run reported, iterating with `discern " +
+      "prepare` or `discern test`, then re-run `discern done` — nothing " +
+      "changed since it judged this exact tree red, so an identical rerun " +
+      "expects the identical verdict. Probing for a flaky verdict is the one " +
+      "reason to re-run unchanged: `discern done --confirmed` does that, and " +
+      "records the rerun as a probe.",
   }),
 
   "done-unchanged-tree-green": defineHint({
@@ -1264,7 +1266,8 @@ export const HINTS = {
     category: "next-step",
     audience: "all",
     when:
-      "A gate failure occurs and the project configures a gotchas document.",
+      "A gate failure occurs, the project configures a gotchas document, and no trap matcher matches the failure.",
+    family: "gotchas-doc",
     example: {
       command: "discern map 80-development/done-gate-gotchas --json",
     },
@@ -1272,6 +1275,54 @@ export const HINTS = {
       reference.command !== undefined
         ? `If the failure above isn't self-explanatory, run \`${reference.command}\` to read this project's known gate failures and their fixes.`
         : `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in \`${reference.path}\`.`,
+  }),
+
+  /**
+   * The inlined trap (ADR 0189): a matcher in the gotchas doc recognized this
+   * failure, so the entry's own prose replaces the generic pointer — the fix
+   * arrives inside the failure instead of one fetch away. The body is bounded
+   * by the gotchas surface before firing.
+   */
+  "gate-failure-gotcha-matched": defineHint<
+    & { title: string; body: string }
+    & ({ command: string; path?: never } | { path: string; command?: never })
+  >({
+    id: "gate-failure-gotcha-matched",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A gate failure matches a trap matcher in the configured gotchas document.",
+    family: "gotchas-doc",
+    example: {
+      title: "A command hangs, then fails with a timeout",
+      body:
+        "**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.\n\n**Fix.** Wire the command in its single-run form.",
+      command: "discern map 80-development/done-gate-gotchas --json",
+    },
+    template: ({ title, body, ...reference }): string =>
+      `This failure matches "${title}", a documented trap in this project's gate gotchas:\n\n${body}\n\n` +
+      (reference.command !== undefined
+        ? `Read the full page with \`${reference.command}\`.`
+        : `The full page is \`${reference.path}\`.`),
+  }),
+
+  /**
+   * A malformed trap matcher, surfaced whenever the doc is consulted: a bad
+   * block must warn by entry name, never skip without a trace (ADR 0189).
+   */
+  "gotchas-matcher-invalid": defineHint<{ entry: string; problem: string }>({
+    id: "gotchas-matcher-invalid",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A gate failure consults a gotchas document carrying a malformed trap matcher.",
+    family: "gotchas-doc",
+    example: {
+      entry: "A command hangs, then fails with a timeout",
+      problem: '`stage` is "timeout", which is not a gate stage',
+    },
+    template: ({ entry, problem }): string =>
+      `Fix the \`gotcha-match\` block in the gotchas entry "${entry}": ${problem}. Until it parses, the entry cannot match failures.`,
   }),
 
   /** The diagnostic-driven remedy for a failed fix stage. */
@@ -1475,7 +1526,7 @@ export const HINTS = {
     when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — end with the one-line receipt in data.receipt.line, and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
+      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.",
   }),
 
   "gate-update-docs": defineHint({
@@ -1803,15 +1854,16 @@ export const HINTS = {
       `post-landing convergence changed tracked files there.`,
   }),
 
-  /** A successful acceptance exposes its receipt as the durable landing record. */
+  /** A successful acceptance exposes the system-rendered line for the agent's
+   * report and the full page as the durable landing record. */
   "accept-relay-landing-receipt": defineHint({
     id: "accept-relay-landing-receipt",
     category: "next-step",
-    audience: "all",
-    when: "`accept` lands successfully and returns a landing receipt.",
+    audience: "agent",
+    when: "`accept` lands successfully and returns a one-line landing receipt.",
     example: undefined,
     template: (): string =>
-      "data.receipt is the record of what landed. Paste it into a PR body when one exists; in a message, report the landing in a sentence instead of pasting the record.",
+      "Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
@@ -1968,6 +2020,22 @@ export const HINTS = {
       `${changes} uncommitted change${
         changes === 1 ? "" : "s"
       } stay in the main checkout. The new worktree branches from '${startPoint}'.`,
+  }),
+
+  /** Session start on the main-checkout side. The SessionStart hook injects
+   * this stdout as agent context — the one channel that can pre-empt trunk
+   * edits, which call no verb before the damage. */
+  "ensure-main-worktree-first": defineHint({
+    id: "ensure-main-worktree-first",
+    category: "guardrail",
+    audience: "agent",
+    when: "`worktree ensure` runs on the main-checkout side at session start.",
+    example: undefined,
+    template: (): string =>
+      "Session opened in the main checkout — the trunk every effort lands " +
+      "on. Before editing, run `discern start` and work in the worktree it " +
+      "returns. A worktree is for changes; questions and investigation read " +
+      "from anywhere.",
   }),
 
   /** Setup's refresh core reports each failed artifact with its next action. */

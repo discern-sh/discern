@@ -42,7 +42,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `surface`      | `"cli"` or `"mcp"`                              |
 | `driver`       | session, mode, CI, and possible agent signals   |
 | `branch`       | `"agent/fix-upload-retry"`                      |
-| `head`         | `"8131f41"` (short commit)                      |
+| `head`         | `"<short commit ID>"`                           |
 | `clean`        | was the working tree clean?                     |
 | `tree`         | a checksum of the uncommitted diff              |
 | `outcome`      | `"ok"`, `"failed"`, or `"refused"`              |

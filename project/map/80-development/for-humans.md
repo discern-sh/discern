@@ -1,3 +1,11 @@
+---
+aliases:
+  - maintainer guide
+  - human workflow
+  - local maintainer setup
+  - work with agents
+---
+
 # For humans
 
 _Almost everything in this repo is built to be driven by coding agents — the guidance, the Skills, the gate, the worktree workflow. This page is the exception: the short list of what a **human** with the repo checked out does for a reliable experience. (Agents keep this page current too.)_
@@ -6,7 +14,7 @@ _Almost everything in this repo is built to be driven by coding agents — the g
 
 discern is **one self-contained Deno binary** with the engine (the gate, the worktree workflow, standards, the guidance compiler) compiled in as TypeScript under [`src/engine/`](../../../src/engine/). An installed project receives that engine through the binary ([ADR 0019](../_adr/0019-single-binary-ts-engine.md)). This repo self-hosts by running the same engine from source (`discern done`), leaving a single implementation with no copy drift.
 
-An install puts `discern.toml` and `map/` at the root by default, plus the `discern/` namespace for guidance, skills, project scripts, the ledger, and the setup brief ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [File ownership](../00-orientation/glossary.md#file-ownership) splits those paths into _project-owned_ files (the map and authored files under `discern/`), _shared_ files (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ files (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place; rebuild generated files with `discern refresh` or `discern upgrade`.
+An install puts `discern.toml` at the root and keeps the map, guidance, skills, project scripts, ledger, and setup brief under `discern/` by default ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). [File ownership](../00-orientation/glossary.md#file-ownership) splits those paths into _project-owned_ files (the map and authored files under `discern/`), _shared_ files (`discern.toml`, provider settings, and discern's delimited `.gitignore` block), and _generated_ files (the tracked agent files `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` and the gitignored materialized-skills directories). The full file-by-file inventory is in [install-surface.md](install-surface.md). Edit project-owned files in place; rebuild generated files with `discern refresh` or `discern upgrade`.
 
 ## Prerequisites
 

@@ -24,7 +24,7 @@ import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import { gateFailureGotchasHint } from "./gotchas.ts";
+import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
@@ -47,6 +47,7 @@ async function runPrepareGate(
     failedStage: FailedStage | null;
     out: Out;
     cfg: DiscernConfig;
+    gotchasTail: GotchasFailureTail | undefined;
   }
 > {
   const cfg = await loadConfig(root);
@@ -70,14 +71,19 @@ async function runPrepareGate(
     failedStage === null && cfg.meta.bootstrapped && cfg.coupling.in_gate
       ? await couplingGateHints(root)
       : [];
-  const gotchas = failedStage === null
+  const gotchasTail = failedStage === null
     ? undefined
-    : gateFailureGotchasHint(cfg, root);
+    : await gateFailureGotchasTail(cfg, root, {
+      failedStage,
+      diagnostics,
+    });
   const hints = [
     // Pre-setup, this output is indicative — prepare is un-gated during setup (ADR 0065).
     ...(inProgress !== undefined ? [inProgress] : []),
     ...jobOutputHints,
-    ...(gotchas !== undefined ? [gotchas] : []),
+    ...(gotchasTail !== undefined
+      ? [gotchasTail.hint, ...gotchasTail.warnings]
+      : []),
     ...couplingHints,
   ];
   const result: DiscernResult = {
@@ -87,7 +93,7 @@ async function runPrepareGate(
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
-  return { result, failedStage, out, cfg };
+  return { result, failedStage, out, cfg, gotchasTail };
 }
 
 /**
@@ -115,15 +121,17 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
-  const { result, failedStage, out, cfg } = await runPrepareGate(root, false);
+  const { result, failedStage, out, gotchasTail } = await runPrepareGate(
+    root,
+    false,
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (failedStage !== null) {
     renderFailureTail(out, {
-      cfg,
-      root,
       verb: "prepare",
       headline: failedStage === "fix" ? "A fixer failed." : "A check failed.",
       diagnostics: result.diagnostics ?? [],
+      gotchas: gotchasTail,
     });
     return 1;
   }

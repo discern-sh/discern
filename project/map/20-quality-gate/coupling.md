@@ -43,22 +43,22 @@ Each partner carries plain counts:
 
 The model reads a bounded window of recent non-merge commits. It removes neutral paths, drops sweeping outlier commits, requires repeated co-change and statistical significance, ranks the survivors, and caps the result. These choices keep generated documentation and repository-wide formatting commits from manufacturing a recommendation.
 
-## Add it to the gate
+## Keep it in the gate
 
-The standalone command needs no configuration. To append the diff-aware advisory to green `discern prepare` and `discern done` results:
+Fresh configs append the diff-aware advisory to green `discern prepare` and `discern done` results:
 
 ```toml
 [coupling]
 in_gate = true
 ```
 
-The default is `false`. Automatic gate hints use a stricter evidence threshold and show fewer partners than a direct query. They appear at the end of a successful, fully set-up run and only add `hints[]`.
+Automatic gate hints use a stricter evidence threshold and show fewer partners than a direct query. They appear at the end of a successful, fully set-up run and only add `hints[]`. Set `in_gate = false` to keep the standalone command available without running the advisory in the gate ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
 
 ## Decide what to enforce
 
 A repeated relationship asks you to inspect the pair. When the files express one essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
-The subsystem is core and costs nothing until invoked. It is read-only and self-calibrating; `in_gate` is its cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
+The subsystem is core. It is read-only and self-calibrating; `in_gate` is its cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
 
 The result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md).
 

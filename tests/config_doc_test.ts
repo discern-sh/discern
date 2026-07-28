@@ -237,14 +237,30 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
   assertEquals(config.standards.coverage?.run, "deno coverage --filter=\\d+");
 });
 
-Deno.test("applyConfigDoc defaults a standard's direction and metric", () => {
+Deno.test("applyConfigDoc requires a standard's direction and defaults its metric", () => {
+  assertThrows(
+    () =>
+      applyConfigDoc(editor(), {
+        standards: {
+          size: { limit: 500000, run: "measure-size" },
+        },
+      } as unknown as DiscernConfigDoc),
+    Error,
+    'standard "size": direction is required ("up" or "down")',
+  );
+
   const ed = editor();
-  // No direction → "up"; no metric → the standard name.
   applyConfigDoc(ed, {
-    standards: { size: { limit: 500000, run: "measure-size" } },
+    standards: {
+      size: {
+        direction: "down",
+        limit: 500000,
+        run: "measure-size",
+      },
+    },
   });
   const out = ed.toString();
-  assert(out.includes('direction = "up"'));
+  assert(out.includes('direction = "down"'));
   assert(out.includes('metric = "size"'));
   assert(out.includes("limit = 500000"));
   assert(out.includes('run = "measure-size"'));
@@ -268,7 +284,9 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
     c1: { stage: "check", run: "run-c1" },
   },
   scopes: { s1: { paths: ["s1/**"] } },
-  standards: { r1: { limit: 1, run: "measure-r1" } },
+  standards: {
+    r1: { direction: "up", limit: 1, run: "measure-r1" },
+  },
 };
 
 /** The config-doc keys that are NOT discern.toml fills: install inputs and
@@ -429,7 +447,8 @@ Deno.test("applyConfigDoc rejects a standard with no run, and a bad direction", 
     () =>
       applyConfigDoc(editor(), {
         standards: {
-          coverage: { limit: 1 } as unknown as {
+          coverage: { direction: "up", limit: 1 } as unknown as {
+            direction: "up";
             limit: number;
             run: string;
           },
@@ -457,7 +476,9 @@ Deno.test("applyConfigDoc rejects a standard with no limit using the standard er
   assertThrows(
     () =>
       applyConfigDoc(editor(), {
-        standards: { coverage: { run: "measure" } },
+        standards: {
+          coverage: { direction: "up", run: "measure" },
+        },
       } as unknown as DiscernConfigDoc),
     Error,
     'standard "coverage": a limit is required',

@@ -1,7 +1,7 @@
 ---
 title: Quickstart
 description: Install discern, hand setup to your coding agent, and land your first gated change.
-order: 10
+order: 20
 aliases:
   - quickstart
   - getting started
@@ -13,6 +13,8 @@ aliases:
 _Install the binary, let your agent set the project up, and ship one change through the gate. Installation and setup only takes a few minutes._
 
 You need a git repository and a coding agent. Claude Code, Codex, Gemini, Cursor, and GitHub Copilot are all supported. You don't need Deno, Node, or any other runtime: discern is one self-contained binary, and it makes zero network calls once installed.
+
+discern sets no minimum model, and every refusal and failure report names the next step, so smaller models can follow along. For day-to-day work, use a current frontier model: the workflow rewards strong instruction-following.
 
 ## 1. Install the binary
 

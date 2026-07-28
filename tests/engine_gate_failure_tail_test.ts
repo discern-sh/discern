@@ -10,15 +10,27 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 import {
   engineEnv,
   gitInit,
   runAgent,
   runAgentMerged,
+  type RunResult,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+
+const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
+const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
+const TEMPLATE_GOTCHAS = join(
+  REAL_TEMPLATES,
+  "setup",
+  "skeleton",
+  "docs",
+  "80-development",
+  "done-gate-gotchas.md",
+);
 
 /** The reproduce commands the --json envelope reports — the machine SSOT a human tail
  * must mirror. */
@@ -28,25 +40,37 @@ function reprosOf(stdout: string): string[] {
   return (obj.diagnostics ?? []).map((d: any) => d.reproduce_cmd as string);
 }
 
-/** The registered gotchas hint, as carried by a failed result envelope. */
-function gotchasHintOf(stdout: string): string {
+/** The matched gotchas hint, as carried by a failed result envelope. */
+function matchedGotchasHintOf(stdout: string): string {
   const obj = JSON.parse(stdout.trim()) as { hints?: string[] };
   const hint = obj.hints?.find((text) =>
-    text.includes("known gate failures and their fixes")
+    text.includes(`This failure matches "${EXIT_127_TITLE}"`)
   );
-  assert(hint !== undefined, `expected a gotchas hint in ${stdout}`);
+  assert(hint !== undefined, `expected the matched gotchas hint in ${stdout}`);
   return hint;
 }
 
-/** The pasteable map command from the shared human failure pointer. */
+/** A malformed-matcher warning carried beside the matched hint. */
+function matcherWarningOf(stdout: string): string {
+  const obj = JSON.parse(stdout.trim()) as { hints?: string[] };
+  const warning = obj.hints?.find((text) =>
+    text.includes(
+      'Fix the `gotcha-match` block in the gotchas entry "Broken matcher"',
+    )
+  );
+  assert(warning !== undefined, `expected a matcher warning in ${stdout}`);
+  return warning;
+}
+
+/** The pasteable map command from the shared human failure tail. */
 function gotchasMapCommand(output: string): {
   line: string;
   command: string;
 } {
   const line = output.split("\n").find((candidate) =>
-    candidate.includes("known gate failures and their fixes")
+    candidate.includes("Read the full page with")
   );
-  assert(line !== undefined, `expected a gotchas pointer in ${output}`);
+  assert(line !== undefined, `expected a gotchas map reference in ${output}`);
   const command = /`(discern map [^`]+)`/.exec(line)?.[1];
   assert(command !== undefined, `expected a quoted map fetch in ${line}`);
   return { line, command };
@@ -186,13 +210,24 @@ Deno.test("test: a failing test capability ends on the actionable recap, like fi
   });
 });
 
-Deno.test("gate failure: an in-map gotchas pointer prints the canonical fetch and every result surface agrees", async () => {
+Deno.test("gate failure: a seeded matched trap reaches every result surface from one black-box fixture", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const mapDir = "knowledge";
     const target = "91-unrelated/operator notes";
     const doc = `${mapDir}/${target}.md`;
-    const body = "# Operator notes\n\nFresh-name gotchas body.\n";
+    const body = [
+      (await Deno.readTextFile(TEMPLATE_GOTCHAS)).trimEnd(),
+      "",
+      "### Broken matcher",
+      "",
+      "Prose.",
+      "",
+      "```gotcha-match",
+      'stage = "timeout"',
+      "```",
+      "",
+    ].join("\n");
     await Deno.mkdir(join(dir, mapDir, "91-unrelated"), {
       recursive: true,
     });
@@ -211,37 +246,57 @@ Deno.test("gate failure: an in-map gotchas pointer prints the canonical fetch an
         'trunk = "main"',
         "",
         "[jobs]",
-        'lint = "exit 7"',
-        'test = "exit 9"',
+        'lint = "definitely-missing-command-x"',
+        'test = "definitely-missing-command-y"',
         "",
       ].join("\n"),
     );
     await gitInit(dir);
 
+    let gateLaunches = 0;
+    const runGate = async (args: string[]): Promise<RunResult> => {
+      gateLaunches++;
+      return await runAgent(dir, args);
+    };
+
     // JSON is the same result core MCP returns. Every gate verb that prints the
-    // shared human pointer must carry the same hint on its structured surface.
-    const doneJson = await runAgent(dir, ["done", "--json"]);
+    // shared human tail must carry the same matched hint and warning.
+    const doneJson = await runGate(["done", "--json"]);
     assertEquals(doneJson.code, 1, doneJson.output);
     const expectedCommand = `discern map '${target}' --json`;
-    const envelopeHint = gotchasHintOf(doneJson.stdout);
+    const envelopeHint = matchedGotchasHintOf(doneJson.stdout);
+    const envelopeWarning = matcherWarningOf(doneJson.stdout);
+    assertStringIncludes(envelopeHint, "[repository].ensure");
     assertStringIncludes(envelopeHint, `\`${expectedCommand}\``);
     for (const verb of ["prepare", "test"]) {
-      const result = await runAgent(dir, [verb, "--json"]);
+      const result = await runGate([verb, "--json"]);
       assertEquals(result.code, 1, result.output);
       assertEquals(
-        gotchasHintOf(result.stdout),
+        matchedGotchasHintOf(result.stdout),
         envelopeHint,
-        `${verb}'s structured failure pointer must match done's`,
+        `${verb}'s matched trap must match done's`,
+      );
+      assertEquals(
+        matcherWarningOf(result.stdout),
+        envelopeWarning,
+        `${verb}'s matcher warning must match done's`,
       );
     }
 
     // `done` now needs an attestation because the JSON run judged this exact
-    // tree red. Its human failure tail must print the envelope hint verbatim.
-    const human = await runAgent(dir, ["done", "--confirmed"]);
+    // tree red. Its human failure tail prints the same fired texts verbatim.
+    const human = await runGate(["done", "--confirmed"]);
     assertEquals(human.code, 1, human.output);
+    assertStringIncludes(human.stderr, envelopeHint);
+    assertStringIncludes(human.stderr, envelopeWarning);
     const printed = gotchasMapCommand(human.stderr);
     assertEquals(printed.command, expectedCommand);
-    assertStringIncludes(printed.line, envelopeHint);
+    assertEquals(
+      gateLaunches,
+      MATCHED_TRAP_GATE_LAUNCH_BUDGET,
+      "the matched-trap surface proof must reuse these gate runs instead of " +
+        "adding per-variant CLI launches",
+    );
 
     // The adversarial future sibling: an unrelated map root and a nested page
     // containing a space. The command must survive shell parsing unchanged and

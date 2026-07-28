@@ -40,10 +40,10 @@ Directory paths ending in `/**` cover every maintained file below that directory
 | -------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | `discern/brief.md`                     | Project-owned  | The project brief captured at setup — authored intent, read by the setup instructions.                         |
 | `discern/guidance.md`                  | Project-owned  | The project's guidance source discern compiles into the agent files.                                           |
+| `discern/map/**`                       | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `discern/scripts/**`                   | Project-owned  | Where the project's own executable scripts live.                                                               |
 | `discern/skills/**`                    | Project-owned  | Where the project's authored skills live.                                                                      |
 | `discern/TODO.md`                      | Project-owned  | The deferred-work ledger — the running TODO list agents read and maintain.                                     |
-| `map/**`                               | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `.claude/settings.json`                | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/config.toml`                   | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/environments/environment.toml` | Shared         | Provider app configuration. discern maintains its setup and cleanup entries.                                   |

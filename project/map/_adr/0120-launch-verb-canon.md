@@ -1,6 +1,6 @@
 # ADR 0120: The launch verb canon — questions are nouns, actions are imperatives
 
-> **Self-hosting amendment (2026-07-13):** The product decision that fresh projects default to `map/` stands. This repository no longer adopts that default: its map resolves to `project/map/` alongside every other ongoing configurable authored source, exercising the existing path override.
+> **Placement amendment ([ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)):** Fresh projects now place the map at `discern/map/`. The `map` vocabulary decision stands. This repository continues to resolve its map to `project/map/`, exercising the existing path override.
 
 **Status**: accepted
 

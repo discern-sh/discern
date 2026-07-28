@@ -9,7 +9,7 @@
  * these and land with the migration.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   appendHintTexts,
   defineHint,
@@ -122,6 +122,20 @@ Deno.test("every registry entry renders non-empty text from its example params",
     };
     const rendered = entry.template(entry.example);
     assert(rendered.trim().length > 0, `${key} rendered an empty example`);
+  }
+});
+
+Deno.test("receipt relay hints require the system-rendered line verbatim", () => {
+  const relayFields = [
+    ["gate-relay-receipt", "data.receipt.line"],
+    ["status-ready-for-review", "data.gate_receipt.receipt_line"],
+    ["accept-relay-landing-receipt", "data.receipt_line"],
+  ] as const;
+  for (const [id, field] of relayFields) {
+    const def = HINTS[id];
+    const rendered = def.template(def.example as never);
+    assertStringIncludes(rendered, `\`${field}\``);
+    assertStringIncludes(rendered, "verbatim");
   }
 });
 

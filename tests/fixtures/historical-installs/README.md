@@ -1,17 +1,12 @@
 # Historical install fixtures
 
 Each `schema-XX/` directory contains the user-owned bytes from a real
-`discern setup --yes --slug demo --name Demo` run at an older schema bump commit,
-or from applying the real migration step to the prior captured fixture when a
-setup-era capture was not available:
+`discern setup --yes --slug demo --name Demo` run at the named schema, or from
+applying the real migration step to the prior captured fixture when a setup-era
+capture was not available:
 
-- `schema-06`: `142a898`
-- `schema-07`: `5443267`
-- `schema-08`: `48481a2`
-- `schema-09`: `60c2ba2`
-- `schema-10`: `d271356`
-- `schema-11`: `33d3c85`
-- `schema-12`: `458ddcf`
+- `schema-06` through `schema-12`: captured from setup output at their
+  respective schema versions
 - `schema-13`: derived from `schema-12` by applying 12→13 and stamping schema 13
 - `schema-14`: the schema-14 template rendered with the demo tokens, plus the
   default-layout authored surface (`guidance.md`, `docs/`, `TODO.md`,
@@ -24,6 +19,9 @@ setup-era capture was not available:
 - `schema-16`: derived from `schema-15` by applying the real 15→16 step — the
   config still carries `[worktree].graduate_to` (with its doc comment), so the
   16→17 drop of the graduate destination (ADR 0110) is exercised on real bytes
+- `schema-20` through `schema-22`: focused captures of each schema's changed
+  contract, including repository policy, the unified jobs table, and the
+  prerelease coupling and neutral-scope defaults
 
 The fixtures keep only `discern.toml`, `.gitignore`, and
 `.claude/settings.json` (plus, from `schema-14`, the movable authored surface):

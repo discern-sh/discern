@@ -21,12 +21,10 @@ export interface SourcePathEntry {
    * input, not an ongoing convention, so it gains a key only when a real need
    * appears). */
   readonly key: string | null;
-  /** The prescriptive default. Most authored sources live under `discern/`; the
-   * project map has its own root `map/` home so it cannot collide with a host
-   * project's human documentation. Directories carry their canonical shape
-   * (`[map].dir` keeps its trailing
-   * slash; the skills/scripts dirs do not), matching what the schema defaults
-   * and the shipped template write. */
+  /** The prescriptive default. Authored sources live under `discern/`, away
+   * from host-project paths. Directories carry their canonical shape
+   * (`[map].dir` keeps its trailing slash; the skills/scripts dirs do not),
+   * matching what the schema defaults and the shipped template write. */
   readonly defaultPath: string;
   /** The previous default a migration carries forward. It never seeds anything new. */
   readonly legacyPath: string;
@@ -36,12 +34,14 @@ export interface SourcePathEntry {
   readonly resolution: "configured" | "guidance-seed" | "default";
   /** This authored path's required File ownership declaration. */
   readonly ownership: FileOwnershipDeclaration;
+  /** Whether changes at this authored path skip the project gate by default. */
+  readonly gateNeutral: boolean;
   /** One-line description of what lives at the path. */
   readonly description: string;
 }
 
 /** The visible namespace directory most authored sources default into (ADR 0099).
- * `discern.toml` and the project map stay at the root. */
+ * `discern.toml` stays at the root as the discovery marker. */
 export const NAMESPACE_DIR = "discern/";
 
 /** The source-path names, in display order. The single source of truth for the
@@ -71,16 +71,18 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     pathKind: "file",
     resolution: "guidance-seed",
     ownership: { "project-owned": true },
+    gateNeutral: true,
     description:
       "The project's guidance source discern compiles into the agent files.",
   },
   map: {
     key: "map.dir",
-    defaultPath: "map/",
+    defaultPath: "discern/map/",
     legacyPath: "discern/docs/",
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
+    gateNeutral: true,
     description:
       "The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.",
   },
@@ -91,6 +93,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
+    gateNeutral: true,
     description: "Where the project's authored skills live.",
   },
   scripts: {
@@ -100,6 +103,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
+    gateNeutral: false,
     description: "Where the project's own executable scripts live.",
   },
   todo: {
@@ -109,6 +113,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     pathKind: "file",
     resolution: "configured",
     ownership: { "project-owned": true },
+    gateNeutral: true,
     description:
       "The deferred-work ledger — the running TODO list agents read and maintain.",
   },
@@ -119,6 +124,7 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
     pathKind: "file",
     resolution: "default",
     ownership: { "project-owned": true },
+    gateNeutral: true,
     description:
       "The project brief captured at setup — authored intent, read by the setup instructions.",
   },

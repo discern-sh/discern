@@ -1,3 +1,11 @@
+---
+aliases:
+  - design system integration
+  - static rendering
+  - site components
+  - component consumption
+---
+
 # Design-system consumption
 
 ## Static production, typed authoring

@@ -74,7 +74,7 @@ import {
   worktreeDirtyPaths,
 } from "./tree_drift.ts";
 import { renderFailureTail } from "./failure_tail.ts";
-import { gateFailureGotchasHint } from "./gotchas.ts";
+import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
@@ -286,6 +286,7 @@ async function runGate(
     cfg: DiscernConfig;
     out: Out;
     changed: string[];
+    gotchasTail: GotchasFailureTail | undefined;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -674,6 +675,15 @@ async function runGate(
   if (treeDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];
   }
+  // The gotchas tail (ADR 0189) — resolved AFTER every diagnostic is attached,
+  // because trap matchers read the failure's full evidence. One resolution
+  // serves the envelope's hints and the human failure tail alike.
+  const gotchasTail = failedStage !== null
+    ? await gateFailureGotchasTail(cfg, root, {
+      failedStage,
+      diagnostics: result.diagnostics ?? [],
+    })
+    : undefined;
   // The receipt (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
   // renders the compact review summary from this very envelope — the artifact the
   // agent relays to its owner at the review moment. Built before the marker write so
@@ -785,7 +795,7 @@ async function runGate(
   // Pre-setup, lead with the "setup unfinished" advisory (ADR 0065): finish runs
   // during setup, so a green gate here must not read as "done".
   const inProgress = setupInProgressHint(cfg.meta.bootstrapped);
-  // The coupling (ADR 0084), behind [coupling].in_gate (default off) — at the
+  // The coupling advisory (ADR 0084), behind [coupling].in_gate — at the
   // TAIL, with strand detection, because it READS THE DIFF (dependency-bearing), never a
   // fail-fast precondition. Only on a GREEN, bootstrapped run: a half-set-up install
   // behaves as if coupling were off (its in-session setup must stay uncluttered), and a
@@ -823,10 +833,10 @@ async function runGate(
     ...(limitsWarning !== undefined ? [limitsWarning] : []),
     ...(receiptHint !== undefined ? [receiptHint] : []),
     ...buildGateHints(
-      root,
       cfg,
       changed,
       failedStage,
+      gotchasTail,
       emittedReceipt !== undefined,
       deferredStandards,
     ),
@@ -839,7 +849,7 @@ async function runGate(
   } else {
     delete result.hints;
   }
-  return { result, failedStage, cfg, out, changed };
+  return { result, failedStage, cfg, out, changed, gotchasTail };
 }
 
 function gateReceiptHint(
@@ -882,21 +892,23 @@ function gateReceiptHint(
 /**
  * The agent-facing "what next" hints for a finished gate — the SINGLE source of
  * the advice that rides in the `--json` envelope (`hints`) and is printed by the
- * human success tail. On a failure: where the project documents its known gate
- * failures (when a `gotchas_doc` is set). On success: update the docs, run any
- * deferred standards, view a previewable change.
+ * human success tail. On a failure: the resolved gotchas tail — the matched trap
+ * entry or the doc pointer, plus any malformed-matcher warnings (when a
+ * `gotchas_doc` is set). On success: update the docs, run any deferred
+ * standards, view a previewable change.
  */
 function buildGateHints(
-  root: string,
   cfg: DiscernConfig,
   changed: string[],
   failedStage: FailedStage | null,
+  gotchasTail: GotchasFailureTail | undefined,
   receiptEmitted: boolean,
   deferredStandards: string[],
 ): FiredHint[] {
   if (failedStage !== null) {
-    const gotchas = gateFailureGotchasHint(cfg, root);
-    return gotchas === undefined ? [] : [gotchas];
+    return gotchasTail === undefined
+      ? []
+      : [gotchasTail.hint, ...gotchasTail.warnings];
   }
   const hints = receiptEmitted
     ? [
@@ -1095,7 +1107,10 @@ export async function runFinish(
     }
     return 1;
   }
-  const { result, failedStage, cfg, out } = await runGate(root, opts.json);
+  const { result, failedStage, cfg, out, gotchasTail } = await runGate(
+    root,
+    opts.json,
+  );
   observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
@@ -1105,11 +1120,10 @@ export async function runFinish(
     const headline = interactiveHintTexts(result.hints)[0] ??
       "The gate failed.";
     renderFailureTail(out, {
-      cfg,
-      root,
       verb: "done",
       headline,
       diagnostics: result.diagnostics ?? [],
+      gotchas: gotchasTail,
     });
     return 1;
   }

@@ -1,3 +1,11 @@
+---
+aliases:
+  - discern.sh
+  - website internals
+  - public site
+  - site architecture
+---
+
 # The public site — discern.sh
 
 The public-facing pages for discern, served from this repository so the same gate that checks the engine checks the site ([ADR 0129](../_adr/0129-site-lives-in-repo-behind-one-fetch-handler.md)). Contributor-facing: this subtree is not bundled into `discern help`.

@@ -2,7 +2,7 @@
 
 _Non-obvious ways `discern done` fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._
 
-The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). So the explanation is one step away even for an agent that has never hit the failure.
+The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the gate prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). So the explanation is one step away even for an agent that has never hit the failure. An entry can go one step further: a fenced `gotcha-match` block (TOML: `stage` matching the failure's `failed_stage`, and/or `evidence`, a regular expression over the failure's diagnostic messages and output) lets the gate recognize the failure and inline the entry directly into the failure output — the first matching entry in document order wins. The seeded entries below show the form.
 
 These are real failure modes, each with its fix. **If you hit a new one, add it here** — that is what keeps this page worth pointing at.
 
@@ -28,6 +28,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 
+```gotcha-match
+stage = "tracked_artifacts"
+```
+
 ### A gate stage dirtied a file you already committed
 
 **Symptom.** `done` reaches the end with every stage green, then reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
@@ -35,6 +39,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 **Cause.** The fix stage mutates by design — formatters rewrite files — and a build stage can mutate through its wiring, regenerating tracked artifacts from their sources. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following acceptance onto the trunk.
 
 **Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and re-run `done`. You can avoid that extra pass by running `done` or `prepare` before your final commit. Tree drift applies only when a stage changes an already-committed file.
+
+```gotcha-match
+stage = "tree_drift"
+```
 
 ### A check passes alone but fails in the full run
 
@@ -68,6 +76,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Fix.** Wire the command in its **single-run form** — the flag or script that runs once and exits, not a `--watch`/interactive mode and not a long-lived server. If the command is _legitimately_ longer than the budget (a large suite), raise `[gate].timeout`; setting it to `0` disables the bound and permits another indefinite hang.
 
+```gotcha-match
+evidence = 'timed out after \d+s and was killed'
+```
+
 ### A gate command fails with exit 127 (command not found)
 
 **Symptom.** A job fails immediately with `exit 127` and a `sh: <cmd>: not found` line — a command that runs fine in the main checkout.
@@ -77,6 +89,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 **Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure` — discern runs them in every managed worktree and, after acceptance, in the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources, and `[worktree.setup].steps` for one-shot scaffolding that only runs at creation. Then the command is on `PATH` wherever the gate runs.
 
 One command can never be the missing one: `discern` itself. The gate prepends a self-shim to every job command's `PATH`, so the seeded `format = "discern tidy"` resolves to the discern running the gate even where the surrounding environment has no discern on `PATH`.
+
+```gotcha-match
+evidence = 'failed \(exit 127\)'
+```
 
 ### A failure shows up as exit 0
 

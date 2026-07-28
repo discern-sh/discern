@@ -54,6 +54,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { dryRunCapablePaths, dryRunCapableVerbs } from "../src/main.ts";
+import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 
 // deno-lint-ignore no-explicit-any
 type Json = any;
@@ -309,9 +310,10 @@ const PROBES: Record<string, DryRunProbe> = {
     envelope: "engine-plan",
     arrange: async (dir) => {
       await scaffoldEngine(dir);
-      await Deno.mkdir(join(dir, "map"), { recursive: true });
+      const mapDir = join(dir, SOURCE_PATHS.map.defaultPath);
+      await Deno.mkdir(mapDir, { recursive: true });
       await Deno.writeTextFile(
-        join(dir, "map", "README.md"),
+        join(mapDir, "README.md"),
         "# Map\n\n-   item\n",
       );
       return {
@@ -524,6 +526,8 @@ const PROBES: Record<string, DryRunProbe> = {
           "cov",
           "--limit",
           "1",
+          "--direction",
+          "up",
           "--run",
           "echo DISCERN_METRIC cov 1",
           "--dry-run",

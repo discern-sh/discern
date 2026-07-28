@@ -1,8 +1,16 @@
+---
+aliases:
+  - gate troubleshooting
+  - unexpected gate failure
+  - discern done failed
+  - test passes alone
+---
+
 # Gate gotchas
 
 _Non-obvious ways the `done` gate fails — each with its fix. The everyday gate procedure lives in [getting-started.md](getting-started.md) and [code-conventions.md](code-conventions.md); this page is the "why did it fail in a way the message didn't explain" reference._
 
-The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the engine's gotchas wiring ([`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts)) prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). The explanation is one step away on a first encounter.
+The gate **points an agent here when a stage fails** in a non-obvious way: when a fix/build/check/test stage exits non-zero, the engine's gotchas wiring ([`src/engine/gate/gotchas.ts`](../../../src/engine/gate/gotchas.ts)) prints a pointer to this doc (the path is `[project].gotchas_doc` in `discern.toml`). The explanation is one step away on a first encounter. An entry can go one step further: a fenced `gotcha-match` block (TOML: `stage` matching the failure's `failed_stage`, and/or `evidence`, a regular expression over the failure's diagnostic messages and output — parsed and matched by [`gotcha_match.ts`](../../../src/engine/gate/gotcha_match.ts)) lets the gate recognize the failure and inline the entry directly into the failure output. The first matching entry in document order wins, and a malformed block warns by entry name at failure time ([ADR 0189](../_adr/0189-a-matched-gotchas-trap-inlines-into-the-gate-failure.md)).
 
 These are real failure modes, each with its fix. **If you hit a new one, add it here** — that is what keeps this page worth pointing at.
 
@@ -28,6 +36,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Fix.** Remove it from the index without deleting the working-tree copy: `git rm -r --cached -- <path...>`. Then run `discern refresh` to rebuild any generated artifacts that are missing, commit the index change, and re-run `discern done`.
 
+```gotcha-match
+stage = "tracked_artifacts"
+```
+
 ### A gate stage dirtied a file you already committed
 
 **Symptom.** `done` reaches the end with every stage green, then reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
@@ -35,6 +47,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 **Cause.** The fix stage (here `deno fmt`) mutates by design, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
 
 **Fix.** The diff is the gate's output from the named stage. Review it (`git diff`), commit it (`git add -A && git commit`), and re-run `done`. You can avoid that extra pass by running `done` or `prepare` before your final commit. Tree drift applies only when a stage changes an already-committed file.
+
+```gotcha-match
+stage = "tree_drift"
+```
 
 ### A check passes alone but fails in the full run
 
@@ -68,6 +84,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 
 **Fix.** Wire the command in its **single-run form**, using the flag or script that runs once and exits. Exclude `--watch`, interactive modes, and long-lived servers. If the command legitimately needs more time than the budget, raise `[gate].timeout`. Setting it to `0` disables the bound and permits another indefinite hang.
 
+```gotcha-match
+evidence = 'timed out after \d+s and was killed'
+```
+
 ### A gate command fails with exit 127 (command not found)
 
 **Symptom.** A job fails immediately with `exit 127` and a `sh: <cmd>: not found` line — a command that runs fine in the main checkout.
@@ -77,6 +97,10 @@ These arise from how discern works (git worktrees, parallel stages, build artifa
 **Fix.** Put checkout-generic install, restore, or sync commands under `[repository].ensure`. Discern runs them in every managed worktree and after acceptance updates the main checkout. Use `[worktree.setup].ensure` for commands that need a worktree's identity, port, or resources. Put one-shot scaffolding under `[worktree.setup].steps` ([ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
 One command can never be the missing one: `discern` itself. The engine prepends a self-shim to every operator command's `PATH` ([`self_shim.ts`](../../../src/shared/self_shim.ts), [ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)), so a job like the seeded `format = "discern tidy"` resolves to the engine running the gate even in an environment with no discern on `PATH` — CI driving the engine from source, or an MCP server spawned with a stripped environment.
+
+```gotcha-match
+evidence = 'failed \(exit 127\)'
+```
 
 ### A failure shows up as exit 0
 

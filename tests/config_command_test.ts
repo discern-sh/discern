@@ -386,6 +386,8 @@ Deno.test("config set-standard treats 'coverage' as an ordinary standard name", 
         "coverage",
         "--limit",
         "80",
+        "--direction",
+        "up",
         "--run",
         "measure-cov",
         "--json",
@@ -404,10 +406,39 @@ Deno.test("config set-standard requires a --run", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
-      ["config", "set-standard", "bundle", "--limit", "100"],
+      [
+        "config",
+        "set-standard",
+        "bundle",
+        "--direction",
+        "down",
+        "--limit",
+        "100",
+      ],
       dir,
     );
     assert(r.code !== 0); // Cliffy rejects the missing required option
+  });
+});
+
+Deno.test("config set-standard requires a --direction", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const r = await runCli(
+      [
+        "config",
+        "set-standard",
+        "bundle",
+        "--limit",
+        "100",
+        "--run",
+        "measure-bundle",
+      ],
+      dir,
+    );
+    assertEquals(r.code, 2);
+    assertStringIncludes(r.stderr, "Missing required option");
+    assertStringIncludes(r.stderr, "--direction");
   });
 });
 
@@ -528,15 +559,15 @@ Deno.test("config set preserves the edited line's inline comment", async () => {
     await Deno.writeTextFile(
       path,
       (await Deno.readTextFile(path)).replace(
-        "port = true",
-        "port = true   # deterministic dev-server port",
+        "port = false",
+        "port = false   # deterministic dev-server port",
       ),
     );
-    const r = await runCli(["config", "set", "worktree.port", "false"], dir);
+    const r = await runCli(["config", "set", "worktree.port", "true"], dir);
     assertEquals(r.code, 0, r.stderr);
     assertStringIncludes(
       await readToml(dir),
-      "port = false # deterministic dev-server port",
+      "port = true # deterministic dev-server port",
     );
   });
 });
@@ -602,7 +633,7 @@ Deno.test("config set-<record> rejects a malformed name in every record section"
   const SET_RECORD_ARGS: Record<string, string[]> = {
     job: ["--stage", "check", "--run", "x"],
     scope: ["src/**"],
-    standard: ["--limit", "80", "--run", "m"],
+    standard: ["--direction", "up", "--limit", "80", "--run", "m"],
   };
   const EXEMPT = new Set(["worktree.resources"]);
   const all = recordConfigPaths();
@@ -680,6 +711,8 @@ Deno.test("config set-standard rejects a non-numeric --limit", async () => {
         "bundle",
         "--limit",
         "lots",
+        "--direction",
+        "down",
         "--run",
         "m",
         "--json",
@@ -723,7 +756,7 @@ Deno.test("config set-standard with a JS-only numeric --limit still writes parse
   });
 });
 
-Deno.test("config set-standard defaults metric to the name and direction to up", async () => {
+Deno.test("config set-standard defaults metric to the name with explicit direction", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
     const r = await runCli(
@@ -733,6 +766,8 @@ Deno.test("config set-standard defaults metric to the name and direction to up",
         "cov",
         "--limit",
         "80",
+        "--direction",
+        "up",
         "--run",
         "measure-cov",
       ],
@@ -740,8 +775,7 @@ Deno.test("config set-standard defaults metric to the name and direction to up",
     );
     assertEquals(r.code, 0, r.stderr);
     const toml = await readToml(dir);
-    // No --metric / --direction given: metric falls back to the standard name,
-    // direction to "up".
+    // No --metric given: it falls back to the standard name.
     assertStringIncludes(toml, 'metric = "cov"');
     assertStringIncludes(toml, 'direction = "up"');
   });

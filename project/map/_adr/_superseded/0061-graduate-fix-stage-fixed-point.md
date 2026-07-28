@@ -8,7 +8,7 @@ Originally accepted as: extends the fix-stage strand check ([ADR 0047](../0047-f
 
 ## Context
 
-Unformatted Markdown kept landing on `main`, and the friction kept surfacing **downstream**: an agent in another worktree would `integrate` main, its fix stage would reflow a doc the merge brought in, and it had to commit a pure `deno fmt` reformat it never authored (e.g. commit `0ae3e2e`). The committed ADR that triggered one such round was itself **not** `deno fmt`-clean on `main` — so the leak was upstream, at the moment the doc was graduated.
+Unformatted Markdown kept landing on `main`, and the friction kept surfacing **downstream**: an agent in another worktree would `integrate` main, its fix stage would reflow a doc the merge brought in, and it had to commit a pure `deno fmt` reformat it never authored. The committed ADR that triggered one such round was itself **not** `deno fmt`-clean on `main` — so the leak was upstream, at the moment the doc was graduated.
 
 [ADR 0047](../0047-fix-stage-strand-detection.md) made `finish` block when the fix stage strands a reformat on a committed-clean file. It works — but it lives **inside `finish`**, and its reasoning leaned on one external guard: _"CI already guards this, with a `git diff --exit-code` after finish."_ That assumption does not hold for this repo's local workflow:
 

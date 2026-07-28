@@ -1,6 +1,6 @@
 # Documenter agent brief
 
-This file is read by every documenter agent that produces or refreshes a subtree under `map/`. Each agent also receives a per-subtree **scope manifest** at `map/_internal/scopes/{subtree}.md` (copy [`scopes/_template.md`](scopes/_template.md) to start one) that complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
+This file is read by every documenter agent that produces or refreshes a subtree under the configured map directory. Each agent also receives a per-subtree **scope manifest** at `_internal/scopes/{subtree}.md` inside that directory (copy [`scopes/_template.md`](scopes/_template.md) to start one) that complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
 
 This brief is the constant; the scope manifest is the variable.
 
@@ -131,7 +131,7 @@ Cite decision records as freely as the reasoning requires; rendering handles the
 1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
 2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
 3. **No modal verbs about the system.** Banned: `should`, `would`, `could`, `will eventually`, `is intended to`. Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Omit a leading `map/` because you are already inside `map/`.
+4. **Cross-link with relative paths.** Omit the configured map-directory prefix because you are already inside it.
 5. **Cross-link within your subtree liberally; do not link across subtrees.** Inter-subtree links are added in a later polish pass by the orchestrator.
 6. **Put glossary additions in your summary.** If you find a term that ought to be glossary-defined, list it in your summary and leave the leaf's section set unchanged.
 7. **Report scope overlap before expanding.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.

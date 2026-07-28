@@ -1,3 +1,11 @@
+---
+aliases:
+  - installation footprint
+  - write surface
+  - generated files
+  - setup files
+---
+
 # Install surface
 
 _The engineering inventory of every project-tree path discern writes or maintains, derived from the same registries as the write boundary._
@@ -25,10 +33,10 @@ Directory paths ending in `/**` cover every maintained file below that directory
 | -------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------- |
 | `discern/brief.md`                     | Project-owned  | The project brief captured at setup — authored intent, read by the setup instructions.                         |
 | `discern/guidance.md`                  | Project-owned  | The project's guidance source discern compiles into the agent files.                                           |
+| `discern/map/**`                       | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `discern/scripts/**`                   | Project-owned  | Where the project's own executable scripts live.                                                               |
 | `discern/skills/**`                    | Project-owned  | Where the project's authored skills live.                                                                      |
 | `discern/TODO.md`                      | Project-owned  | The deferred-work ledger — the running TODO list agents read and maintain.                                     |
-| `map/**`                               | Project-owned  | The project map — the agent-maintained documentation tree discern scaffolds, validates, and browses.           |
 | `.claude/settings.json`                | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/config.toml`                   | Shared         | Provider configuration. discern maintains its registered entries.                                              |
 | `.codex/environments/environment.toml` | Shared         | Provider app configuration. discern maintains its setup and cleanup entries.                                   |
@@ -71,7 +79,7 @@ Every source path has a prescriptive default and a config key that points it any
 | Source               | Default               | Config key           |
 | -------------------- | --------------------- | -------------------- |
 | guidance source      | `discern/guidance.md` | `[guidance].sources` |
-| the map              | `map/`                | `[map].dir`          |
+| the map              | `discern/map/`        | `[map].dir`          |
 | authored skills      | `discern/skills`      | `[skills].dir`       |
 | project scripts      | `discern/scripts`     | `[scripts].dir`      |
 | deferred-work ledger | `discern/TODO.md`     | `[project].todo`     |
@@ -137,21 +145,22 @@ The bundled skills a coding agent can invoke ship **in the binary**. Their sourc
 
 `discern refresh`, `setup`, and `upgrade` materialize the effective set into each configured agent's generated, gitignored skills directory. The strict template engine renders built-ins, replacing path tokens such as `{{map_dir}}` with configured paths ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). Authored skills are symlinked so edits are live (see [`src/lib/skills.ts`](../../../src/lib/skills.ts)). `discern skills list` shows the effective set and its overrides. `discern skills eject <name>` copies a built-in into your skills directory for customization. `[skills].exclude` drops named skills from materialization. Each skill is a `SKILL.md` under its directory:
 
-| Skill                                                                                         | What it does                                                                                                         |
-| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Sweep out agent-session clutter — proven-safe cuts, behavior-preserving commits, a standard capping the entropy.     |
-| [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | Cure a whole class of defect — prove the cause, fix every instance, audit the guards — behind a permanent detector.  |
-| [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands.                  |
-| [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree of the map per the documenter brief.                                                      |
-| [`discern-set-the-standard`](../../../templates/skills/discern-set-the-standard/SKILL.md)     | Put a defendable quality metric behind a monotonic standard — or outlaw a pattern down to a permanent ban.           |
-| [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)   | Route a session's lesson into guidance, a skill, a project script, a doc, or an ADR — so future sessions inherit it. |
-| [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.                                                    |
+| Skill                                                                                         | What it does                                                                                                                            |
+| --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Sweep out agent-session clutter — proven-safe cuts, behavior-preserving commits, a standard capping the entropy.                        |
+| [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | Cure a whole class of defect — prove the cause, fix every instance, audit the guards — behind a permanent detector.                     |
+| [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands.                                     |
+| [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) | Write or refresh a subtree of the map per the documenter brief.                                                                         |
+| [`discern-set-the-standard`](../../../templates/skills/discern-set-the-standard/SKILL.md)     | Put a defendable quality metric behind a monotonic standard — or outlaw a pattern down to a permanent ban.                              |
+| [`discern-teach-the-project`](../../../templates/skills/discern-teach-the-project/SKILL.md)   | Route a session's lesson into guidance, a skill, a project script, a doc, or an ADR — so future sessions inherit it.                    |
+| [`discern-write-adr`](../../../templates/skills/discern-write-adr/SKILL.md)                   | Record a significant decision as an Architecture Decision Record.                                                                       |
+| [`discern-write-it-once`](../../../templates/skills/discern-write-it-once/SKILL.md)           | Adopt the practices discern builds itself with — one authority per fact, guards that enroll the future, planned effects, recorded ties. |
 
 Fresh-install seeding belongs to the `discern setup` command rather than a skill; see [ADR 0024](../_adr/_superseded/0024-setup-command-not-skill.md), amended by [ADR 0036](../_adr/0036-unify-setup.md).
 
 ## The map & the ledger
 
-`discern setup begin` lays the map's skeleton at `[map].dir` (default `map/`, including the ADR pack and the `_internal/` documenter brief with its scope-manifest template) and the deferred-work ledger at `[project].todo` (default `discern/TODO.md`). The setup brief's authoring pass fills them, and the map has its skeleton from the start ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md)). The skeleton sources ship with their producer: [`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup and a `skeleton/` directory inside each carrying skill. They are copied to the **configured** destinations with path tokens rendered ([ADR 0080](../_adr/0080-configured-agent-map-root.md), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
+`discern setup begin` lays the map's skeleton at `[map].dir` (default `discern/map/`, including the ADR pack and the `_internal/` documenter brief with its scope-manifest template) and the deferred-work ledger at `[project].todo` (default `discern/TODO.md`). The setup brief's authoring pass fills them, and the map has its skeleton from the start ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). The skeleton sources ship with their producer: [`templates/setup/skeleton/`](../../../templates/setup/skeleton/) for setup and a `skeleton/` directory inside each carrying skill. They are copied to the **configured** destinations with path tokens rendered ([ADR 0080](../_adr/0080-configured-agent-map-root.md), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
 ## Bookkeeping & integration
 

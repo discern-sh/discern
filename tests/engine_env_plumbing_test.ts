@@ -246,6 +246,10 @@ Deno.test("mint re-rolls an id whose derived port collides with a live worktree'
 Deno.test("livePortsInUse enumerates real sibling ports — one per worktree's own identity", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      '[project]\nslug = "engine-test"\n\n[worktree]\nport = true\n',
+    );
     await gitInit(dir);
     const sibling = await addWorktree(dir, "brisk-otter-a3f9c1");
     const ctx = await lifecycleContext(

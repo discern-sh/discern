@@ -5,6 +5,7 @@ order: 10
 aliases:
   - gate failure
   - red gate
+  - check failed
   - diagnostics
 ---
 

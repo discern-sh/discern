@@ -186,9 +186,10 @@ format = "discern tidy"
 #                        scope's gate job only (0 disables its bound)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Paths that need no gate at all: docs and agent-guidance sources. (Generated
-# guidance outputs are refreshed by the gate itself; editing the source changes
-# no behaviour.) Root-level *.md is always treated as neutral.
+# Paths that need no gate at all: the map, authored agent instructions, the
+# deferred-work ledger, and exact materialized-skills directories. Executable
+# Project Scripts and provider-owned sibling files still run the gate.
+# Root-level *.md is always treated as neutral.
 [scopes.docs]
 paths   = [{{scopes_neutral}}]
 neutral = true
@@ -234,10 +235,11 @@ inherit_env = []   # e.g. ["APP_KEY", "OPENAI_API_KEY"]
 # deterministic port and resource handles are recorded into them too.
 env_files = [".env", ".env.local"]
 
-# Give each worktree a deterministic dev-server port (hashed from its id) so
-# concurrent worktrees never collide. Read it with `discern identity --port`.
-# This is derived IDENTITY, not a resource — it provisions nothing.
-port = true
+# Record a deterministic dev-server port (hashed from the worktree id) in the
+# worktree's env file. Enable this when the project's dev tooling reads
+# DISCERN_WORKTREE_PORT. The port remains available through
+# `discern identity --port` while this is false.
+port = false
 
 # Track ignored files at worktree setup and report top-level ignored paths that
 # changed before the worktree is removed. Turn this off for projects whose
@@ -326,7 +328,8 @@ ensure = []  # linked-worktree-only, e.g. ["<ready worktree resource>"]
 #
 # Each [standards.<name>] table declares one:
 #   metric     the metric name the run emits        (default: the standard name)
-#   direction  "up"   value should rise; limit is a FLOOR   (e.g. coverage)
+#   direction  required:
+#              "up"   value should rise; limit is a FLOOR   (e.g. coverage)
 #              "down" value should fall; limit is a CEILING (e.g. a size budget)
 #   limit      the floor/ceiling — compared vs main, so a floor may only rise and
 #              a ceiling may only fall (you can't loosen the gate on a branch)
@@ -433,9 +436,9 @@ timeout = 600
 [coupling]
 # Surface the advisory during the gate too — `discern done` AND the fast inner
 # loop `discern prepare` (as hints at the tail), so
-# the nudge meets a change while it is hot. Off by default; opt in to get the
-# nudge in the gate as well as on demand.
-in_gate = false
+# the nudge meets a change while it is hot. On by default; set false to keep
+# coupling available only through `discern coupling`.
+in_gate = true
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -465,4 +468,4 @@ dir = "discern/scripts"
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 22
+schema_version = 23

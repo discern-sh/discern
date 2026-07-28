@@ -4,7 +4,133 @@
 
 _Every canonical set — source, guards, artifacts, and enrolments — generated from the meta-registry._
 
-Sections follow registry order. Member counts resolve from each set's single source at generation time. To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.
+To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.
+
+## The sets at a glance
+
+One row per set, in registry order; the sections below follow the same order and carry the full account. Member counts resolve from each set's single source at generation time; an authored table shows a dash. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.
+
+| Set                                                                            | Source                                                                         | Members | Glossary         | Feature canon               |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ | ------- | ---------------- | --------------------------- |
+| [`verbs`](#verbs--top-level-verbs)                                             | `src/engine/dispatch.ts#KNOWN_VERBS`                                           | 29      | per member       | surface `verb`              |
+| [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                       | `src/main.ts#dryRunCapableVerbs`                                               | 21      | —                | node `plan-apply`           |
+| [`mcp-tools`](#mcp-tools--mcp-tools)                                           | `src/engine/mcp/server.ts#TOOLS`                                               | 16      | —                | node `mcp-surface`          |
+| [`command-groups`](#command-groups--command-groups)                            | `src/cli_help.ts#COMMAND_GROUPS`                                               | 6       | —                | node `bundled-help`         |
+| [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)             | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                    | 2       | —                | node `consent-attestations` |
+| [`jobs`](#jobs--gate-jobs)                                                     | `src/shared/capabilities.ts#KNOWN_JOBS`                                        | 6       | "Gate job"       | surface `job`               |
+| [`stages`](#stages--stages)                                                    | `src/shared/capabilities.ts#STAGES`                                            | 4       | "Stage"          | surface `stage`             |
+| [`step-kinds`](#step-kinds--step-kinds)                                        | `src/shared/result.ts#STEP_KINDS`                                              | 18      | —                | node `doctor`               |
+| [`config-tables`](#config-tables--config-tables)                               | `src/shared/config_schema.ts#configSchema`                                     | 13      | —                | surface `config`            |
+| [`source-paths`](#source-paths--source-paths)                                  | `src/shared/paths_registry.ts#SOURCE_PATHS`                                    | 6       | —                | node `one-file-footprint`   |
+| [`bundled-skills`](#bundled-skills--bundled-skills)                            | `src/lib/skills.ts#bundledSkillNames`                                          | 8       | "Skill"          | surface `skill`             |
+| [`agent-providers`](#agent-providers--agent-providers)                         | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                    | 5       | —                | surface `agent`             |
+| [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                           | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                     | 5       | —                | node `setup`                |
+| [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks) | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                           | 3       | —                | node `setup-observability`  |
+| [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                 | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                | 7       | —                | node `worktree-resources`   |
+| [`hints`](#hints--hints)                                                       | `src/shared/hints.ts#HINTS`                                                    | 125     | "Advisory"       | node `hints`                |
+| [`logbook-events`](#logbook-events--logbook-events)                            | `src/engine/logbook/schema.ts#logbookEventSchema`                              | 4       | "Logbook"        | node `logbook`              |
+| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                | `src/engine/logbook/detectors.ts#DETECTORS`                                    | 27      | "Patterns"       | node `patterns`             |
+| [`improve-categories`](#improve-categories--improvement-categories)            | `src/engine/improve/rules.ts#CATEGORIES`                                       | 7       | —                | node `improvement`          |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                            | `scripts/glossary_registry.ts#GLOSSARY`                                        | 36      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                               | `scripts/feature_registry.ts#FEATURE_CANON`                                    | 121     | —                | —                           |
+| [`result-contracts`](#result-contracts--result-contracts)                      | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                     | 33      | —                | node `published-contracts`  |
+| [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)             | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                          | 4       | —                | node `publish-predicate`    |
+| [`adrs`](#adrs--architecture-decision-records)                                 | `src/lib/docs.ts#adrRecords`                                                   | 193     | —                | node `adr-discipline`       |
+| [`project-artifacts`](#project-artifacts--project-artifacts)                   | `src/lib/artifact_ownership.ts#projectArtifactPaths`                           | 25      | "File ownership" | node `ownership-buckets`    |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary) | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                           | 26      | —                | node `forgiving-cli`        |
+| [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                    | —       | —                | —                           |
+| [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)             | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored) | —       | —                | node `gotchas-pointer`      |
+| [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)       | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                 | 3       | —                | node `licenses`             |
+| [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                            | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                          | 7       | —                | node `interruption-safety`  |
+| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)  | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                               | 5       | —                | —                           |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                            | `scripts/canonical_sets.ts#CANONICAL_SETS`                                     | 32      | —                | node `canonical-sets`       |
+
+32 sets · 56 guard tests · 15 committed artifacts.
+
+## Guard tests and the sets they hold
+
+Alphabetical by test file; a test holding several sets fails when any one of them drifts. The [unaffiliated records](#unaffiliated-with-reasons) account for conventionally named tests holding none.
+
+| Guard test                                | Holds                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tests/adr_citation_form_test.ts`         | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
+| `tests/adr_citations_test.ts`             | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
+| `tests/adr_index_test.ts`                 | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
+| `tests/agent_parity_test.ts`              | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                       |
+| `tests/artifact_ownership_test.ts`        | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                 |
+| `tests/canonical_sets_enrolment_test.ts`  | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                          |
+| `tests/cli_reference_codegen_test.ts`     | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                           |
+| `tests/config_banner_parity_test.ts`      | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
+| `tests/config_codegen_test.ts`            | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                 |
+| `tests/config_schema_test.ts`             | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/config_set_schema_guard_test.ts`   | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                             |
+| `tests/dev_vocab_guard_test.ts`           | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                               |
+| `tests/engine_consent_gate_test.ts`       | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                                                                                                                                                                                                           |
+| `tests/engine_help_groups_test.ts`        | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                          |
+| `tests/engine_interrupt_surfaces_test.ts` | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
+| `tests/engine_logbook_test.ts`            | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/engine_nondefault_paths_test.ts`   | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
+| `tests/engine_patterns_test.ts`           | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/engine_plan_parity_test.ts`        | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                     |
+| `tests/engine_setup_pages_test.ts`        | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                               |
+| `tests/engine_setup_phase_parity_test.ts` | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                         |
+| `tests/engine_subprocess_ssot_test.ts`    | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                          |
+| `tests/engine_verb_parity_test.ts`        | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                     |
+| `tests/execution_model_test.ts`           | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                         |
+| `tests/feature_canon_codegen_test.ts`     | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                             |
+| `tests/feature_canon_enrolment_test.ts`   | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon) |
+| `tests/gate_plan_test.ts`                 | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/glossary_codegen_test.ts`          | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
+| `tests/glossary_enrolment_test.ts`        | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                             |
+| `tests/gotcha_matchers_drift_test.ts`     | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                           |
+| `tests/gotchas_parity_test.ts`            | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                                                                                                                                                                                                           |
+| `tests/guidance_corpus_guard_test.ts`     | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools), [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                |
+| `tests/hint_audience_guard_test.ts`       | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/hint_closed_set_guard_test.ts`     | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/hint_command_guard_test.ts`        | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/hint_inventory_codegen_test.ts`    | [`hints`](#hints--hints)                                                                                                                                                                                                                                                                                     |
+| `tests/improve_catalog_test.ts`           | [`improve-categories`](#improve-categories--improvement-categories)                                                                                                                                                                                                                                          |
+| `tests/improve_count_adrs_test.ts`        | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                               |
+| `tests/logbook_no_network_test.ts`        | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/logbook_routing_test.ts`           | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                         |
+| `tests/logbook_test.ts`                   | [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                          |
+| `tests/paths_literal_ban_test.ts`         | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
+| `tests/paths_registry_test.ts`            | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
+| `tests/paths_sentinel_render_test.ts`     | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                |
+| `tests/paths_write_surface_test.ts`       | [`source-paths`](#source-paths--source-paths), [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                  |
+| `tests/patterns_test.ts`                  | [`logbook-events`](#logbook-events--logbook-events), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                                                         |
+| `tests/public_doc_parity_test.ts`         | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                                                                                                                                                                                                           |
+| `tests/repo_authored_paths_test.ts`       | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                |
+| `tests/result_codegen_test.ts`            | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts)                                                                                                                                                                                                              |
+| `tests/result_schemas_test.ts`            | [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                      |
+| `tests/skill_name_parity_test.ts`         | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                          |
+| `tests/ssot_claim_guard_test.ts`          | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                          |
+| `tests/third_party_notices_test.ts`       | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                     |
+| `tests/vocab_drift_test.ts`               | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                          |
+| `tests/voice_vale_parity_test.ts`         | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                              |
+| `tests/worktree_tokens_test.ts`           | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                                                                                                                                                                                                               |
+
+## Generated artifacts
+
+Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.
+
+| Artifact                                         | Kind             | Compiled from                                                            |
+| ------------------------------------------------ | ---------------- | ------------------------------------------------------------------------ |
+| `THIRD_PARTY_NOTICES`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
+| `project/map/00-orientation/glossary.md`         | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                      |
+| `project/map/70-reference/artifact-ownership.md` | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
+| `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                       |
+| `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                         |
+| `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)             |
+| `project/map/_adr/README.md`                     | maintained block | [`adrs`](#adrs--architecture-decision-records)                           |
+| `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                         |
+| `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                 |
+| `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                      |
+| `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                         |
+| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
+| `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
+| `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts) |
+| `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                |
 
 ## `verbs` — Top-level verbs
 
@@ -12,7 +138,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
 - Members: 29
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
@@ -33,7 +159,7 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
 - Members: 16
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
 - Feature canon: described by the `mcp-surface` node
 
@@ -113,8 +239,8 @@ The configurable authored-source locations — guidance, map, skills, scripts, t
 The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
-- Members: 7
-- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
+- Members: 8
+- Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
 
@@ -163,7 +289,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 122
+- Members: 125
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -184,7 +310,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 Every detector the patterns verb runs over the logbook, in family order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
-- Members: 24
+- Members: 27
 - Guards: `tests/patterns_test.ts`, `tests/logbook_routing_test.ts`
 - Glossary: the "Patterns" entry carries the concept
 - Feature canon: described by the `patterns` node
@@ -215,7 +341,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon page: pillars, nodes, and surface claims.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 120
+- Members: 121
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -247,7 +373,7 @@ The projection matrix deciding which map pages publish to each public surface.
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 183
+- Members: 193
 - Guards: `tests/adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Artifacts: `project/map/_adr/README.md`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
@@ -286,11 +412,11 @@ The voice skill's banned-moves table; the Vale style must match it pattern for p
 
 ## `seeded-gotchas-traps` — Seeded gate traps
 
-The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory.
+The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
 
 - Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
 - Members: —
-- Guards: `tests/gotchas_parity_test.ts`
+- Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — seeded documentation content, not product vocabulary
 - Feature canon: described by the `gotchas-pointer` node
 
@@ -338,12 +464,27 @@ This meta-registry: the closed set of closed sets.
 
 ## Unaffiliated, with reasons
 
-Recorded strays the convention sweeps accept: conventionally named guard tests that hold no member set, codegen targets that compile from no registry, and modules whose doc comments claim single-source-of-truth status yet anchor no declared set.
+Recorded strays the convention sweeps accept. Each subsection names the record that accepts its kind; a new stray belongs there, with its reason.
 
+### Guard tests holding no member set
+
+Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_GUARDS`.
+
+- `tests/agent_policy_parity_test.ts` — asserts the two authored operating-model surfaces carry the same policies; a prose-parity contract, not a member-set satellite
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
+
+### Codegen targets compiling from no registry
+
+Write targets recorded in `UNAFFILIATED_CODEGEN_TARGETS`; the write chokepoint in `scripts/codegen.ts` refuses any target outside the declared artifacts and that record.
+
 - `site/pages/assets/search.js` — a browser copy of src/lib/docs_search.js — module duplication, not registry data
+
+### Single-source claims anchoring no set
+
+Modules whose doc comments claim single-source-of-truth status without anchoring a declared entry, recorded in `UNAFFILIATED_SETS`.
+
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project
 - `src/engine/gate/receipt_render.ts` — the claim announces a derive-once rule — the receipt reads the result envelope, never recomputes — not a member set
 - `src/engine/worktree/side_restrictions.ts` — candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention
