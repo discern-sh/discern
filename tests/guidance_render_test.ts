@@ -352,16 +352,20 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     assert(richBody.includes("--resource <name>"), "resource flag documented");
 
     assert(
-      bareBody.includes("explicit user handoff/land request"),
-      "acceptance requires an explicit user ask",
+      bareBody.includes(
+        "explicit consent from this conversation or machine-verified authority",
+      ),
+      "acceptance requires conversation consent or checked recorded authority",
     );
     assert(
-      bareBody.includes("your words, then the one-line receipt"),
-      "a green finish routes through the review moment, not straight to landing",
+      bareBody.includes("follow its authority-aware hint"),
+      "the runtime result, not static prose, chooses the landing route",
     );
     assert(
-      bareBody.includes("land only once they accept"),
-      "green finish is not treated as permission to accept",
+      bareBody.includes(
+        "either report the one-line receipt and stop, or land under the verified grant",
+      ),
+      "a green finish still needs one verified source of landing authority",
     );
   } finally {
     await Deno.remove(bare, { recursive: true });

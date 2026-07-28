@@ -41,8 +41,13 @@ const POLICIES: readonly Policy[] = [
   },
   {
     id: "accept-on-handoff",
-    gist: "discern_accept only on an explicit user handoff, never self-served",
-    probes: [/explicit\w*[^.\n]{0,60}hand\s?-?off/i, /discern_accept/],
+    gist:
+      "discern_accept requires explicit conversation consent or machine-verified recorded authority",
+    probes: [
+      /explicit\w*[^.\n]{0,80}(consent|hand\s?-?off)/i,
+      /machine-verified[^.\n]{0,40}authority/i,
+      /discern_accept/,
+    ],
   },
   {
     id: "done-is-the-bar",
