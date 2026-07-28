@@ -2810,6 +2810,14 @@ export async function startResult(
   await createAndSetupWorktree(ctx.root, dir, branch, ctx.log, startPoint);
   ctx.log.ok(`Worktree '${id}' is ready at ${dir} (from ${startPoint}).`);
 
+  // `git worktree add` checks out `.gitmodules` but leaves every submodule
+  // directory empty; when no configured command populates them, the gate is
+  // about to run against missing trees — disclose at the moment they appear.
+  const submoduleNote =
+    (await hasGitmodules(dir)) && !submoduleCommandWired(ctx.config)
+      ? fire(HINTS["start-submodules-empty"])
+      : undefined;
+
   const data: StartData = {
     id,
     branch,
@@ -2845,9 +2853,38 @@ export async function startResult(
   result.hints = hintTexts([
     ...(nameHint !== undefined ? [nameHint] : []),
     reRoot,
+    ...(submoduleNote !== undefined ? [submoduleNote] : []),
     ...(dirtyNote !== undefined ? [dirtyNote] : []),
   ]);
   return result;
+}
+
+/** True when the checkout at `dir` carries a tracked `.gitmodules`. */
+async function hasGitmodules(dir: string): Promise<boolean> {
+  try {
+    return (await Deno.stat(join(dir, ".gitmodules"))).isFile;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when any configured lifecycle command mentions submodules — the signal
+ * that the project already populates them ([repository].ensure is the
+ * recommended home). Scans every command surface the worktree lifecycle runs:
+ * repository convergence, one-shot setup steps, worktree-only convergence, and
+ * each declared resource's create/ensure/destroy.
+ */
+export function submoduleCommandWired(config: DiscernConfig): boolean {
+  const commands = [
+    ...config.repository.ensure,
+    ...config.worktree.setup.steps,
+    ...config.worktree.setup.ensure,
+    ...Object.values(config.worktree.resources).flatMap((
+      resource,
+    ) => [resource.create, resource.ensure, resource.destroy]),
+  ];
+  return commands.some((command) => command.includes("submodule"));
 }
 
 /**

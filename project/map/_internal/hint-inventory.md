@@ -1275,6 +1275,19 @@ Rendered example:
 Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
 ```
 
+## `start-submodules-empty`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `start-result`
+- Emitting context: `start` finds `.gitmodules` in the new worktree while no configured command mentions submodules.
+
+Rendered example:
+
+```text
+This repository pins submodules, and git leaves them empty in a fresh worktree. Add `ensure = ["git submodule update --init --recursive"]` under `[repository]` in discern.toml so every checkout populates them.
+```
+
 ## `status-adr-number-collisions`
 
 - Category: `notice`
