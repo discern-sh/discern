@@ -527,26 +527,39 @@ async function runWorktreeEnsureSteps(
 }
 
 /**
- * Whether `root` is a checkout of discern's source engine. The local-development
- * wrapper uses the same identity check (`deno.json` name + source entrypoint):
- * an unrelated Deno project with a coincidental `src/main.ts` must never be
- * executed as discern.
+ * Resolve the source entrypoint exported by a discern checkout. The
+ * local-development wrapper uses the same `deno.json` project identity; an
+ * unrelated Deno project with a source entrypoint must never be executed as
+ * discern.
  */
-async function isDiscernSourceCheckout(root: string): Promise<boolean> {
+async function discernSourceEntrypoint(
+  root: string,
+): Promise<string | undefined> {
   if (Deno.build.standalone) {
-    return false;
+    return undefined;
   }
   try {
     const manifest: unknown = JSON.parse(
       await Deno.readTextFile(join(root, "deno.json")),
     );
-    return typeof manifest === "object" &&
-      manifest !== null &&
-      "name" in manifest &&
-      manifest.name === "discern" &&
-      await pathPresent(join(root, "src/main.ts"));
+    if (
+      typeof manifest !== "object" ||
+      manifest === null ||
+      !("name" in manifest) ||
+      manifest.name !== "discern" ||
+      !("exports" in manifest) ||
+      typeof manifest.exports !== "string" ||
+      !manifest.exports.startsWith("./")
+    ) {
+      return undefined;
+    }
+    const entrypoint = resolve(root, manifest.exports);
+    return relative(root, entrypoint).startsWith("..") ||
+        !(await pathPresent(entrypoint))
+      ? undefined
+      : entrypoint;
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -563,7 +576,8 @@ async function isDiscernSourceCheckout(root: string): Promise<boolean> {
 async function refreshWorktreeAgentFiles(
   ctx: LifecycleContext,
 ): Promise<boolean> {
-  if (!(await isDiscernSourceCheckout(ctx.root))) {
+  const sourceEntrypoint = await discernSourceEntrypoint(ctx.root);
+  if (sourceEntrypoint === undefined) {
     const refreshed = await compileGuidelines(ctx.root, ctx.log);
     return guidanceRefreshSucceeded(refreshed);
   }
@@ -577,7 +591,7 @@ async function refreshWorktreeAgentFiles(
       env: {
         DISCERN_SETUP_DENO: Deno.execPath(),
         DISCERN_SETUP_CONFIG: join(ctx.root, "deno.json"),
-        DISCERN_SETUP_MAIN: join(ctx.root, "src/main.ts"),
+        DISCERN_SETUP_MAIN: sourceEntrypoint,
         // A launcher-side override would recreate the same version skew. An
         // empty value makes the target engine resolve its templates module-
         // relatively, exactly as the local-development wrapper does.
