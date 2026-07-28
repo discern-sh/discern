@@ -48,7 +48,7 @@ import {
   type AdrNumberDuplicate,
   duplicateAdrNumbers,
 } from "../../lib/adr_numbers.ts";
-import { adrIndexState, type AdrIndexState } from "../../lib/adr_index.ts";
+import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";

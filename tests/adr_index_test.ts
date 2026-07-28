@@ -97,7 +97,9 @@ Deno.test("control: a record the index omits reports stale, and the expected tex
     assertEquals(state.kind, "stale");
     assert(
       state.kind === "stale" &&
-        state.expected.includes("[0001 — A first choice](0001-first-choice.md)"),
+        state.expected.includes(
+          "[0001 — A first choice](0001-first-choice.md)",
+        ),
       "the expected index must name the unlisted record",
     );
   } finally {

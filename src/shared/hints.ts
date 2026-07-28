@@ -400,7 +400,8 @@ export const HINTS = {
     id: "adr-index-stale",
     category: "next-step",
     audience: "all",
-    when: "The maintained ADR index no longer matches the record files on disk.",
+    when:
+      "The maintained ADR index no longer matches the record files on disk.",
     family: "generated-drift",
     example: { path: "discern/map/_adr/README.md" },
     template: ({ path }): string =>

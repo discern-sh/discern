@@ -134,7 +134,10 @@ Deno.test("engine adr-index: a stale index surfaces in status and refuses the ga
     const diag = (redObj.diagnostics ?? []).find(
       (d: { tool: string }) => d.tool === "adr-index",
     );
-    assert(diag !== undefined, `expected an adr-index diagnostic: ${red.stdout}`);
+    assert(
+      diag !== undefined,
+      `expected an adr-index diagnostic: ${red.stdout}`,
+    );
     assertEquals(diag.reproduce_cmd, "discern refresh");
     assertStringIncludes(diag.message, ADR_README_REL);
     assertHasHint(redObj, HINTS["gate-failure-adr-index"]);

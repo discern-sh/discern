@@ -65,7 +65,7 @@ import {
   type ProviderHookDriftEntry,
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
-import { adrIndexState, type AdrIndexState } from "../../lib/adr_index.ts";
+import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,

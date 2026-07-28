@@ -56,12 +56,12 @@ Do not edit a compiled file to fix its prose. The next refresh replaces it, and 
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                  |
-| ------------------------------- | ----------------------------------------------------------------------- |
-| Compilation and file writes     | [`guidelines.ts`](../../../src/engine/guidelines.ts)                    |
-| Canonical and pointer rendering | [`guidance_render.ts`](../../../src/engine/guidance_render.ts)          |
-| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                   |
-| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                         |
-| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                         |
-| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)       |
-| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts)   |
+| Concern                         | Source                                                                |
+| ------------------------------- | --------------------------------------------------------------------- |
+| Compilation and file writes     | [`guidelines.ts`](../../../src/engine/guidelines.ts)                  |
+| Canonical and pointer rendering | [`guidance_render.ts`](../../../src/engine/guidance_render.ts)        |
+| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                 |
+| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                       |
+| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                       |
+| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)     |
+| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts) |

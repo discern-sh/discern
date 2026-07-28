@@ -29,6 +29,6 @@ Both were dogfood-only. The rendering machinery shipped in the binary, but no sh
 ## Alternatives considered
 
 - **A `discern.toml` toggle.** Rejected: the markers already carry the intent unambiguously, per-file, with zero schema surface — and schema changes were owned by a concurrent launch branch.
-- **Injecting the index into any ADR README automatically.** Rejected: rewriting authored prose uninvited breaks the ownership contract; opt-in by markers keeps refresh's writes inside declared regions.
+- **Injecting the index into any ADR README automatically.** Rejected: rewriting authored prose uninvited breaks the ownership contract; opt-in by markers keeps every write a refresh performs inside declared regions.
 - **Advisory-only (status), no gate refusal.** Rejected: invisible rot is the recorded incident class; an advisory nobody reads is how four records went unlisted.
-- **Keeping the repo's codegen step alongside the shipped path.** Rejected: two implementations of one artifact drift apart, and the dogfooded copy would stop proving the shipped one.
+- **Keeping the repo's codegen step alongside the shipped path.** Rejected: two implementations of one artifact drift apart, and the repo-local copy would stop proving the shipped one.
