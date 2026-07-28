@@ -63,7 +63,7 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
     subjects: ["map", "guidance"],
     enforcement: {
       kind: "shipped",
-      via: "the gate's map & guidance integrity preflight (ADR 0199)",
+      via: "the gate's map & guidance integrity preflight (ADR 0202)",
     },
   },
   {
@@ -129,7 +129,7 @@ export const ARTIFACT_VALIDATORS: readonly EnrolledValidator[] = [
     enforcement: {
       kind: "repo-local",
       reason:
-        "the STRICT frontmatter tier — unknown-key rejection, length bounds, list-content rules — is deliberate house style for this repository's map; the shipped tier is frontmatterShapeIssues, scoped to the mistakes the lenient reader would swallow (ADR 0199)",
+        "the STRICT frontmatter tier — unknown-key rejection, length bounds, list-content rules — is deliberate house style for this repository's map; the shipped tier is frontmatterShapeIssues, scoped to the mistakes the lenient reader would swallow (ADR 0202)",
     },
   },
   {

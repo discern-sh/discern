@@ -22,7 +22,7 @@ Sibling reading order is README-first, then `DocEntry.order`. An explicit frontm
 
 ## Frontmatter: lenient read, two validation tiers
 
-[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the shared fenced-block scanner (`SKILL.md` identity blocks read it too) and three policies over one set of per-key shape rules ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md), [ADR 0199](../_adr/0199-the-gate-ships-the-map-integrity-preflight.md)):
+[`src/lib/frontmatter.ts`](../../../src/lib/frontmatter.ts) holds the shared fenced-block scanner (`SKILL.md` identity blocks read it too) and three policies over one set of per-key shape rules ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md), [ADR 0202](../_adr/0202-the-gate-ships-the-map-integrity-preflight.md)):
 
 - `parseFrontmatter` reads leniently — unknown keys and out-of-shape values are ignored, so no reader can lose a document to a metadata mistake;
 - `frontmatterShapeIssues` is the domain-neutral tier every project's gate applies through the map-integrity preflight: a broken block (unterminated fence, invalid YAML, non-mapping) and mis-shaped values on discern's known keys fail; unknown keys stay legal, because projects carry third-party frontmatter;

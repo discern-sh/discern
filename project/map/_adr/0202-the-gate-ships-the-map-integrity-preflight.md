@@ -1,4 +1,4 @@
-# ADR 0199: The gate ships the map-integrity preflight, scoped to domain-neutral rules
+# ADR 0202: The gate ships the map-integrity preflight, scoped to domain-neutral rules
 
 **Status**: accepted
 

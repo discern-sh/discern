@@ -194,9 +194,9 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0197 — Every standard declares its direction](0197-standard-direction-is-required.md)
 - [0198 — Worktree port export is opt-in](0198-worktree-port-export-is-opt-in.md)
 - [0199 — macOS release binaries are Developer ID signed and notarized](0199-macos-release-binaries-are-developer-id-signed-and-notarized.md)
-- [0199 — The gate ships the map-integrity preflight, scoped to domain-neutral rules](0199-the-gate-ships-the-map-integrity-preflight.md)
 - [0200 — The ADR index is a refresh-maintained artifact, opted into by markers](0200-refresh-maintained-adr-index.md)
 - [0201 — Artifact validators ship or record their exemption](0201-artifact-validators-ship-or-record-their-exemption.md)
+- [0202 — The gate ships the map-integrity preflight, scoped to domain-neutral rules](0202-the-gate-ships-the-map-integrity-preflight.md)
 
 <!-- END GENERATED: current ADR records -->
 
