@@ -2500,10 +2500,8 @@ export const HINTS = {
       "A failed result has no more specific registered recovery instruction.",
     family: "failure-recovery",
     example: { verb: "doctor" },
-    template: ({ verb }): string =>
-      `Use this result's message, diagnostics, or failing data to correct the ` +
-      `reported problem. Then re-run \`discern ${verb}\` with the required ` +
-      `arguments or project state.`,
+    template: (): string =>
+      "Use this result's message or first diagnostic to correct the reported problem before retrying.",
   }),
 
   /** The optional canonical suggestion in an unknown-command refusal. */

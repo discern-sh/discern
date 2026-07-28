@@ -265,7 +265,7 @@ Session opened in the main checkout — the trunk every effort lands on. Before 
 Rendered example:
 
 ```text
-Use this result's message, diagnostics, or failing data to correct the reported problem. Then re-run `discern doctor` with the required arguments or project state.
+Use this result's message or first diagnostic to correct the reported problem before retrying.
 ```
 
 ## `fleet-ownership`
