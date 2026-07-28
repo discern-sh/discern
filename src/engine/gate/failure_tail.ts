@@ -12,6 +12,9 @@ import type { Diagnostic } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
 import { type GotchasFailureTail, renderGotchasTail } from "./gotchas.ts";
 
+const GATE_FAILURE_HELP_COMMAND =
+  "discern help 20-quality-gate/when-the-gate-fails";
+
 /**
  * The scannable per-tool failures block: each failed tool, its Tier-1 location when
  * parsed, and the exact command to reproduce it in isolation. The full tool output
@@ -53,7 +56,9 @@ function renderFailBluf(
 ): void {
   const c = out.c;
   if (diagnostics.length === 0) {
-    out.raw(`${c.red}✗${c.reset} ${verb} failed: ${headline}\n`);
+    out.raw(
+      `${c.red}✗${c.reset} discern ${verb} failed: ${headline}\n`,
+    );
     return;
   }
   const cmds = [...new Set(diagnostics.map((d) => d.reproduce_cmd))];
@@ -61,7 +66,7 @@ function renderFailBluf(
   const more = cmds.length > 3 ? ` ; +${cmds.length - 3} more` : "";
   const n = diagnostics.length;
   out.raw(
-    `${c.red}✗${c.reset} ${verb} failed — ${n} problem${
+    `${c.red}✗${c.reset} discern ${verb} failed — ${n} problem${
       n === 1 ? "" : "s"
     }; reproduce: ${shown}${more}\n`,
   );
@@ -82,7 +87,8 @@ export function renderFailureTail(out: Out, opts: {
   gotchas: GotchasFailureTail | undefined;
 }): void {
   const { verb, headline, diagnostics, gotchas } = opts;
-  out.error(headline);
+  out.error(`discern ${verb} failed: ${headline}`);
+  out.info(`Failure guide: \`${GATE_FAILURE_HELP_COMMAND}\`.`);
   renderGotchasTail(gotchas, out.color);
   renderFailures(out, diagnostics);
   renderFailBluf(out, verb, headline, diagnostics);

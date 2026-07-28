@@ -162,7 +162,7 @@ Map pages carry the docs mix above, plus these rules. The documenter brief assig
 
 ### Errors, CLI, and UI text
 
-An error message is the project at its most read and its reader at their most annoyed. Every error answers three questions, in order: what happened (with the actual values — the filename, the line, the input it got), why, and what to do next. One recommended fix, not five maybes. Failures name the command that failed.
+Treat every failure as a stranger's first contact with discern. In interleaved logs, name discern as the speaker. State what happened and the broken rule in plain, domain-neutral words with actual values, give one concrete next step, and remove internal shorthand. Failures name the command that failed.
 
 - Own faults in active voice: "couldn't parse line 12," not "an error occurred during parsing."
 - No humor in errors, ever. The delight budget here is zero.

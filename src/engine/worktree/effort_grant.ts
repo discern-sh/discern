@@ -33,10 +33,16 @@ function parseGrant(raw: string): EffortGrantRead {
   try {
     value = JSON.parse(raw);
   } catch {
-    return { status: "invalid", reason: "the marker is not valid JSON" };
+    return {
+      status: "invalid",
+      reason: "the effort-grant record is not valid JSON",
+    };
   }
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
-    return { status: "invalid", reason: "the marker is not an object" };
+    return {
+      status: "invalid",
+      reason: "the effort-grant record is not a JSON object",
+    };
   }
   const record = value as Record<string, unknown>;
   if (
@@ -46,7 +52,8 @@ function parseGrant(raw: string): EffortGrantRead {
   ) {
     return {
       status: "invalid",
-      reason: "the marker needs a branch and ISO-8601 grant time",
+      reason:
+        "the effort-grant record needs a branch and an ISO-8601 grant time",
     };
   }
   return {
