@@ -19,12 +19,21 @@
  * The block is YAML, parsed by the standard parser (`@std/yaml`) — the same
  * format every external consumer of a shipped Markdown file applies (agent
  * runtimes, site generators, editors), so there is exactly ONE definition of
- * what a block means. Two readers share it with different policies: map docs
- * ({@link parseFrontmatter}) read leniently — a block that does not parse as a
- * YAML mapping is treated as content, so reading never fails and never loses
- * document text — while {@link validateFrontmatter} applies the strict schema
- * the gate enforces, so a typo'd key, an out-of-shape value, or a block YAML
- * cannot parse fails loudly at the gate instead of vanishing silently.
+ * what a block means. Three policies share one parse and one set of per-key
+ * shape rules:
+ *
+ *  - {@link parseFrontmatter} reads LENIENTLY — a block that does not parse as
+ *    a YAML mapping is treated as content, so reading never fails and never
+ *    loses document text, and a value the shape rules reject is skipped.
+ *  - {@link frontmatterShapeIssues} is the DOMAIN-NEUTRAL validation every
+ *    project's gate applies: exactly the mistakes the lenient reader would
+ *    otherwise swallow silently — a block that opens with `---` but is broken
+ *    (unterminated, invalid YAML, not a mapping), and a recognised key whose
+ *    value the reader would drop. Unknown keys are tolerated: projects
+ *    legitimately carry third-party frontmatter beside discern's keys.
+ *  - {@link validateFrontmatter} is the STRICT schema — the shapes plus
+ *    unknown-key rejection, length bounds, and list-content rules. This
+ *    repository holds its own map to it; it is not part of the shipped gate.
  * `SKILL.md` identity blocks share {@link readFrontmatterBlock} and
  * {@link parseFrontmatterMapping} through `skillFrontmatterIssues`
  * (src/lib/skills.ts). Markdown WRITERS share {@link frontmatterParseIssue}:
@@ -221,133 +230,192 @@ export function describeYamlValue(value: unknown): string {
  * so text that looks like another type must be quoted. */
 const QUOTE_REMEDY = "write the value as a quoted string";
 
-/**
- * Validate a document's frontmatter against the strict schema. Returns one
- * message per problem; an empty array means the document is clean (including
- * the common case of no frontmatter at all). This is the gate's view of the
- * same block {@link parseFrontmatter} reads leniently: a block YAML cannot
- * parse, unknown keys, and out-of-shape or out-of-bounds values all fail here
- * so a metadata mistake surfaces at the gate, never as a silently-ignored
- * override.
- */
-export function validateFrontmatter(md: string): string[] {
-  if (md.split(/\r?\n/, 1)[0]?.trimEnd() !== "---") return [];
+/** The outcome of reading a leading block for validation: no block at all,
+ * a broken one (with the issues to report), or its parsed mapping. */
+type BlockRead =
+  | undefined
+  | { issues: string[] }
+  | { attrs: Record<string, unknown> };
+
+/** Read a document's leading block for a validator: `undefined` when the
+ * document opens with no `---` fence, the issue list when the block is broken
+ * (unterminated, invalid YAML, not a mapping), else its parsed mapping. The
+ * one preamble both validation tiers share. */
+function readBlockForValidation(md: string): BlockRead {
+  if (md.split(/\r?\n/, 1)[0]?.trimEnd() !== "---") return undefined;
   const block = readFrontmatterBlock(md);
   if (block === undefined) {
-    return [
-      "opens with a `---` fence that never closes — a broken frontmatter block" +
-      " (or a thematic break, which no doc should open with)",
-    ];
+    return {
+      issues: [
+        "opens with a `---` fence that never closes — a broken frontmatter block" +
+        " (or a thematic break, which no doc should open with)",
+      ],
+    };
   }
   const parsed = parseFrontmatterMapping(block.raw);
-  if ("issue" in parsed) return [parsed.issue];
+  if ("issue" in parsed) return { issues: [parsed.issue] };
+  return { attrs: parsed.attrs };
+}
 
+/**
+ * The DOMAIN-NEUTRAL shape rule for one recognised key — exactly the shape
+ * {@link parseFrontmatter} requires before it reads the value at all, so a
+ * violation here is a value the lenient reader silently drops. Returns the
+ * problem, or undefined when the value is readable (or the key unrecognised —
+ * unknown keys are a strict-tier concern only). One definition per key rule:
+ * the strict tier layers its extras on top, never re-deciding the shape.
+ */
+function shapeIssue(key: string, value: unknown): string | undefined {
+  switch (key) {
+    case "title":
+    case "description":
+      return typeof value === "string"
+        ? undefined
+        : `must be text, not ${describeYamlValue(value)} — ${QUOTE_REMEDY}`;
+    case "order":
+      return typeof value === "number" && Number.isInteger(value) && value >= 0
+        ? undefined
+        : "must be a non-negative integer";
+    case "publish":
+      return typeof value === "boolean"
+        ? undefined
+        : "must be exactly true or false";
+    case "redirect_from":
+      return isStringArray(value)
+        ? undefined
+        : "must be a `- item` list of absolute routes";
+    case "aliases":
+      return isStringArray(value)
+        ? undefined
+        : "must be a `- item` list of search synonyms";
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Validate a document's frontmatter to the DOMAIN-NEUTRAL bar every project's
+ * gate applies: a block that opens with `---` must parse (unterminated fence,
+ * invalid YAML, and a non-mapping all fail — the lenient reader would treat
+ * the whole block as content), and a recognised key's value must have the
+ * shape the readers require (the lenient reader would drop it). Unknown keys
+ * and out-of-BOUNDS values are deliberately tolerated — third-party keys
+ * beside discern's are legitimate, and length bounds are a house style, not a
+ * readability contract; the strict tier ({@link validateFrontmatter}) owns
+ * both. Returns one message per problem; empty means readable everywhere.
+ */
+export function frontmatterShapeIssues(md: string): string[] {
+  const read = readBlockForValidation(md);
+  if (read === undefined) return [];
+  if ("issues" in read) return read.issues;
   const issues: string[] = [];
-  for (const [key, value] of Object.entries(parsed.attrs)) {
-    switch (key) {
-      case "title": {
-        if (typeof value !== "string") {
-          issue(
-            issues,
-            key,
-            `must be text, not ${describeYamlValue(value)} — ${QUOTE_REMEDY}`,
-          );
-        } else if (value.length > TITLE_MAX_LENGTH) {
-          issue(
-            issues,
-            key,
-            `is the short label (nav, breadcrumb, <title>) — keep it to ` +
-              `${TITLE_MAX_LENGTH} characters (got ${value.length})`,
-          );
-        }
-        break;
-      }
-      case "description": {
-        if (typeof value !== "string") {
-          issue(
-            issues,
-            key,
-            `must be text, not ${describeYamlValue(value)} — ${QUOTE_REMEDY}`,
-          );
-        } else if (
-          value.length < DESCRIPTION_MIN_LENGTH ||
-          value.length > DESCRIPTION_MAX_LENGTH
-        ) {
-          issue(
-            issues,
-            key,
-            `must be ${DESCRIPTION_MIN_LENGTH}–${DESCRIPTION_MAX_LENGTH} ` +
-              `characters (got ${value.length})`,
-          );
-        }
-        break;
-      }
-      case "order": {
-        if (
-          typeof value !== "number" || !Number.isInteger(value) || value < 0
-        ) {
-          issue(issues, key, "must be a non-negative integer");
-        }
-        break;
-      }
-      case "publish": {
-        if (typeof value !== "boolean") {
-          issue(issues, key, "must be exactly true or false");
-        }
-        break;
-      }
-      case "redirect_from": {
-        if (!isStringArray(value)) {
-          issue(issues, key, "must be a `- item` list of absolute routes");
-          break;
-        }
-        if (value.length === 0) issue(issues, key, "must not be an empty list");
-        for (const route of value) {
-          if (!route.startsWith("/")) {
-            issue(issues, key, `route "${route}" must be absolute (start /)`);
-          } else if (route.length > 1 && route.endsWith("/")) {
-            issue(
-              issues,
-              key,
-              `route "${route}" must not end with a slash (canonical style)`,
-            );
-          } else if (/[#?]/.test(route)) {
-            issue(
-              issues,
-              key,
-              `route "${route}" must not carry a fragment or query`,
-            );
-          }
-        }
-        if (new Set(value).size !== value.length) {
-          issue(issues, key, "lists a route twice");
-        }
-        break;
-      }
-      case "aliases": {
-        if (!isStringArray(value)) {
-          issue(issues, key, "must be a `- item` list of search synonyms");
-          break;
-        }
-        if (value.length === 0) issue(issues, key, "must not be an empty list");
-        if (value.some((alias) => alias.trim() === "")) {
-          issue(issues, key, "must not contain an empty alias");
-        }
-        if (new Set(value).size !== value.length) {
-          issue(issues, key, "lists an alias twice");
-        }
-        break;
-      }
-      default:
+  for (const [key, value] of Object.entries(read.attrs)) {
+    const problem = shapeIssue(key, value);
+    if (problem !== undefined) issue(issues, key, problem);
+  }
+  return issues;
+}
+
+/** The STRICT extras for one recognised, shape-valid value: length bounds and
+ * list-content rules. Layered over {@link shapeIssue}, never replacing it. */
+function strictIssues(key: string, value: unknown, issues: string[]): void {
+  switch (key) {
+    case "title": {
+      if (typeof value === "string" && value.length > TITLE_MAX_LENGTH) {
         issue(
           issues,
           key,
-          `unknown key — the schema allows exactly: ${
-            DOC_META_KEYS.join(", ")
-          }`,
+          `is the short label (nav, breadcrumb, <title>) — keep it to ` +
+            `${TITLE_MAX_LENGTH} characters (got ${value.length})`,
         );
-        break;
+      }
+      break;
     }
+    case "description": {
+      if (
+        typeof value === "string" &&
+        (value.length < DESCRIPTION_MIN_LENGTH ||
+          value.length > DESCRIPTION_MAX_LENGTH)
+      ) {
+        issue(
+          issues,
+          key,
+          `must be ${DESCRIPTION_MIN_LENGTH}–${DESCRIPTION_MAX_LENGTH} ` +
+            `characters (got ${value.length})`,
+        );
+      }
+      break;
+    }
+    case "redirect_from": {
+      if (!isStringArray(value)) break;
+      if (value.length === 0) issue(issues, key, "must not be an empty list");
+      for (const route of value) {
+        if (!route.startsWith("/")) {
+          issue(issues, key, `route "${route}" must be absolute (start /)`);
+        } else if (route.length > 1 && route.endsWith("/")) {
+          issue(
+            issues,
+            key,
+            `route "${route}" must not end with a slash (canonical style)`,
+          );
+        } else if (/[#?]/.test(route)) {
+          issue(
+            issues,
+            key,
+            `route "${route}" must not carry a fragment or query`,
+          );
+        }
+      }
+      if (new Set(value).size !== value.length) {
+        issue(issues, key, "lists a route twice");
+      }
+      break;
+    }
+    case "aliases": {
+      if (!isStringArray(value)) break;
+      if (value.length === 0) issue(issues, key, "must not be an empty list");
+      if (value.some((alias) => alias.trim() === "")) {
+        issue(issues, key, "must not contain an empty alias");
+      }
+      if (new Set(value).size !== value.length) {
+        issue(issues, key, "lists an alias twice");
+      }
+      break;
+    }
+  }
+}
+
+/** The recognised-key set, derived from the schema registry. */
+const KNOWN_KEYS: ReadonlySet<string> = new Set<string>(DOC_META_KEYS);
+
+/**
+ * Validate a document's frontmatter against the STRICT schema — the
+ * domain-neutral shapes ({@link frontmatterShapeIssues}) plus unknown-key
+ * rejection, length bounds, and list-content rules. Returns one message per
+ * problem; an empty array means the document is clean (including the common
+ * case of no frontmatter at all). This repository's own map is held to it;
+ * the shipped gate applies only the neutral tier.
+ */
+export function validateFrontmatter(md: string): string[] {
+  const read = readBlockForValidation(md);
+  if (read === undefined) return [];
+  if ("issues" in read) return read.issues;
+  const issues: string[] = [];
+  for (const [key, value] of Object.entries(read.attrs)) {
+    if (!KNOWN_KEYS.has(key)) {
+      issue(
+        issues,
+        key,
+        `unknown key — the schema allows exactly: ${DOC_META_KEYS.join(", ")}`,
+      );
+      continue;
+    }
+    const problem = shapeIssue(key, value);
+    if (problem !== undefined) {
+      issue(issues, key, problem);
+      continue;
+    }
+    strictIssues(key, value, issues);
   }
   return issues;
 }
