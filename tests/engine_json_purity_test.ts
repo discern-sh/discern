@@ -442,7 +442,7 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
   // into a JSON-RPC tool result, not onto stdout. Any other file calling
   // serializeResult is a verb hand-rolling an emit that escapes the silence rule.
   const allowed = new Set([
-    join("src", "shared", "result.ts"), // the definition
+    join("src", "shared", "result_serialization.ts"), // the definition
     join("src", "shared", "emit.ts"), // the single print site
     join("src", "engine", "mcp", "server.ts"), // builds the MCP tool result
   ]);
@@ -463,4 +463,20 @@ Deno.test("serializeResult reaches stdout ONLY through the emitResult chokepoint
     `serializeResult must only be emitted via emitResult (src/shared/emit.ts) or the MCP renderer.\n` +
       `Hand-rolled envelope emission found in:\n  ${offenders.join("\n  ")}`,
   );
+});
+
+Deno.test("CLI and MCP share the registered failure-recovery preparation", async () => {
+  for (
+    const rel of [
+      join("src", "shared", "emit.ts"),
+      join("src", "engine", "mcp", "server.ts"),
+    ]
+  ) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    assertStringIncludes(
+      text,
+      "withFailureRecoveryHint(",
+      `${rel} must prepare failures through the shared registered recovery floor`,
+    );
+  }
 });

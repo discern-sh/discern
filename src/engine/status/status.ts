@@ -28,6 +28,7 @@ import {
 import { dimBlock, type DiscernResult } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
+  failureRecoveryHintTexts,
   fire,
   type FiredHint,
   HINTS,
@@ -165,6 +166,7 @@ export async function statusResult(
       verb: "status",
       error: "invalid_arguments",
       message: "--all and --local cannot be combined — pick one.",
+      hints: failureRecoveryHintTexts("status"),
     };
   }
 

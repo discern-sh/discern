@@ -12,7 +12,7 @@
  * `serializeResult` fails here until the schema models it.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import type { z } from "@zod/zod";
 import { withTempDir } from "./helpers.ts";
@@ -28,11 +28,18 @@ import {
   type DiscernResult,
   ERROR_SLUGS,
   FAILED_STAGES,
-  serializeResult,
   STEP_DISPOSITIONS,
   STEP_KINDS,
   STEP_OUTCOMES,
 } from "../src/shared/result.ts";
+import { serializeResult } from "../src/shared/result_serialization.ts";
+import {
+  fire,
+  hasRegisteredActionableHint,
+  HINTS,
+  hintTexts,
+  withFailureRecoveryHint,
+} from "../src/shared/hints.ts";
 import {
   type CouplingData,
   DatalessEnvelopeSchema,
@@ -159,7 +166,7 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
       fix_available: true,
     }],
     data: { anything: 1 },
-    hints: ["h"],
+    hints: hintTexts([fire(HINTS["failure-recovery"], { verb: "demo" })]),
     error: "internal_error",
     message: "msg",
   };
@@ -169,6 +176,75 @@ Deno.test("envelope schema is locked to serializeResult's wire shape", () => {
   // versa) — so neither side can grow a field the other doesn't know about.
   const schemaKeys = Object.keys(EnvelopeSchema.shape).sort();
   assertEquals(Object.keys(serialized).sort(), schemaKeys);
+});
+
+Deno.test("failed-result serialization requires a registered next-step hint", () => {
+  const failure = (hints?: string[]): DiscernResult => ({
+    ok: false,
+    verb: "demo",
+    error: "internal_error",
+    ...(hints === undefined ? {} : { hints }),
+  });
+  for (
+    const hints of [
+      undefined,
+      ["an inline instruction"],
+      hintTexts([fire(HINTS["patterns-logbook-empty"])]),
+      hintTexts([fire(HINTS["status-start-on-trunk"])]),
+    ]
+  ) {
+    assertThrows(
+      () => serializeResult(failure(hints)),
+      Error,
+      "failed `discern demo` result has no registered next-step hint",
+    );
+  }
+
+  const actionable = hintTexts([
+    fire(HINTS["failure-recovery"], { verb: "demo" }),
+  ]);
+  assertEquals(
+    serializeResult(failure(actionable)).hints,
+    actionable,
+  );
+  assertEquals(
+    serializeResult({ ok: true, verb: "demo" }),
+    { ok: true, verb: "demo" },
+    "successful results need no recovery hint",
+  );
+});
+
+Deno.test("wire preparation adds one registered recovery floor without clobbering stronger hints", () => {
+  const notice = hintTexts([fire(HINTS["patterns-logbook-empty"])]);
+  const recovered = withFailureRecoveryHint({
+    ok: false,
+    verb: "demo",
+    error: "internal_error",
+    hints: notice,
+  });
+  assertEquals(recovered.hints?.[0], notice[0]);
+  assert(hasRegisteredActionableHint(recovered.hints));
+  assertEquals(
+    withFailureRecoveryHint(recovered),
+    recovered,
+    "preparation should be idempotent once recovery is actionable",
+  );
+  assertEquals(
+    serializeResult(recovered).hints,
+    recovered.hints,
+  );
+
+  const tailored = {
+    ok: false,
+    verb: "demo",
+    error: "internal_error",
+    hints: hintTexts([fire(HINTS["unknown-command-help"])]),
+  } satisfies DiscernResult;
+  assertEquals(
+    withFailureRecoveryHint(tailored),
+    tailored,
+    "a registered tailored next step should pass through unchanged",
+  );
 });
 
 Deno.test("runtime result schemas accept only the canonical error-slug vocabulary", () => {

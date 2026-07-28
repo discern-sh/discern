@@ -62,6 +62,7 @@ import {
   resolveBundledDocsDir,
 } from "../lib/paths.ts";
 import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
+import { failureRecoveryHintTexts } from "../shared/hints.ts";
 import type {
   DocRecord,
   DocsData,
@@ -488,13 +489,18 @@ function exportScope(
 }
 
 /** Report a command-usage failure in the active human/JSON presentation mode. */
-function invalidOptions(log: Logger, verb: string, message: string): number {
+function invalidOptions(
+  log: Logger,
+  verb: DocsVerb["verb"],
+  message: string,
+): number {
   if (log.json) {
     log.result({
       ok: false,
       verb,
       error: "invalid_arguments",
       message,
+      hints: failureRecoveryHintTexts(verb),
     });
   } else {
     log.error(message);
@@ -908,6 +914,7 @@ async function treeResult(
       verb: desc.verb,
       error: desc.missingError,
       message: desc.missingTree(opts),
+      hints: failureRecoveryHintTexts(desc.verb),
     };
   }
   if (opts.search !== undefined && opts.search.trim() === "") {
@@ -916,6 +923,7 @@ async function treeResult(
       verb: desc.verb,
       error: "invalid_arguments",
       message: "`search` must contain at least one non-space character.",
+      hints: failureRecoveryHintTexts(desc.verb),
     };
   }
   if (tree.entries.length === 0) {
@@ -926,6 +934,7 @@ async function treeResult(
           verb: desc.verb,
           error: "not_found",
           message: notFoundMessage(opts.target, []),
+          hints: failureRecoveryHintTexts(desc.verb),
         };
       }
       return {
@@ -955,6 +964,7 @@ async function treeResult(
           verb: desc.verb,
           error: "not_found",
           message: notFoundMessage(opts.target, suggestions),
+          hints: failureRecoveryHintTexts(desc.verb),
           ...(suggestions.length > 0
             ? {
               data: {
@@ -971,6 +981,7 @@ async function treeResult(
           error: "ambiguous",
           message:
             `"${opts.target}" matches ${resolvedScope.entries.length} docs.`,
+          hints: failureRecoveryHintTexts(desc.verb),
           data: {
             candidates: resolvedScope.entries.map((entry) => entry.path),
           } satisfies DocsData,
@@ -1013,6 +1024,7 @@ async function treeResult(
         verb: desc.verb,
         error: "not_found",
         message: notFoundMessage(opts.target, suggestions),
+        hints: failureRecoveryHintTexts(desc.verb),
         ...(suggestions.length > 0
           ? {
             data: { suggestions: suggestions.map(toRecord) } satisfies DocsData,
@@ -1026,6 +1038,7 @@ async function treeResult(
         verb: desc.verb,
         error: "ambiguous",
         message: `"${opts.target}" matches ${res.entries.length} docs.`,
+        hints: failureRecoveryHintTexts(desc.verb),
         data: {
           candidates: res.entries.map((e) => e.path),
         } satisfies DocsData,

@@ -255,6 +255,19 @@ Rendered example:
 Session opened in the main checkout — the trunk every effort lands on. Before editing, run `discern start` and work in the worktree it returns. A worktree is for changes; questions and investigation read from anywhere.
 ```
 
+## `failure-recovery`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `failure-recovery`
+- Emitting context: A failed result has no more specific registered recovery instruction.
+
+Rendered example:
+
+```text
+Use this result's message, diagnostics, or failing data to correct the reported problem. Then re-run `discern doctor` with the required arguments or project state.
+```
+
 ## `fleet-ownership`
 
 - Category: `guardrail`

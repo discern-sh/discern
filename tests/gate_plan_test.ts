@@ -28,9 +28,9 @@ import {
   renderPlan,
   type RenderSink,
   renderStepResults,
-  serializeResult,
   type StepResult,
 } from "../src/shared/result.ts";
+import { serializeResult } from "../src/shared/result_serialization.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 const FULL = parseConfigOrThrow(`
