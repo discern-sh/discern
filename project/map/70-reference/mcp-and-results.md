@@ -172,6 +172,6 @@ Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`
 
 Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
 
-While `$id` is unchanged, the gate compares current generators with configured-trunk artifacts. It permits the table's additions, optional config keys, and reordered contract unions. It rejects removals and changes to existing types, required result fields, or validation ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
+For an artifact already registered on the configured trunk, the gate keeps its repository path enrolled, validates its canonical identity, and compares structure while the major stays the same. A larger major at the same schema name starts a new baseline. Path, host, or name changes, malformed identities, and major regressions fail. The comparison permits the table's additions, optional config keys, and reordered contract unions. It rejects removals and changes to existing types, required result fields, or validation ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
 The config schema is a closed snapshot. Refresh a cached copy before validating newer optional keys.
