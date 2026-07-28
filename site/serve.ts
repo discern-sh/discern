@@ -21,6 +21,7 @@ import {
   loadDocsSite,
   serveDocs,
 } from "./docs.ts";
+import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
   applySecurityHeaders,
   buildSiteRedirectTable,
@@ -36,6 +37,12 @@ import {
 } from "./seo.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
+const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
+  PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => [
+    new URL(publication.id).pathname,
+    publication.artifactPath,
+  ]),
+);
 
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
@@ -239,6 +246,11 @@ async function routeResponse(
   path: string,
   routing: SiteRouting,
 ): Promise<Response> {
+  const publicSchema = PUBLIC_SCHEMA_ROUTES.get(path);
+  if (publicSchema !== undefined) {
+    return await serveFile(`../${publicSchema}`);
+  }
+
   // The one-line install moment: `curl -fsSL https://discern.sh/install | sh`
   // serves the repository's own installer, so the command on the landing
   // page is true from the first deploy.

@@ -870,6 +870,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .CLI_JSON_RESULT_CONTRACTS.map((contract) => contract.id),
   },
   {
+    id: "public-schema-publications",
+    title: "Public schema publications",
+    what:
+      "The versioned public schema URLs and the root generated artifacts served at them.",
+    source: {
+      kind: "module",
+      module: "src/shared/public_schemas.ts",
+      exportName: "PUBLIC_SCHEMA_PUBLICATIONS",
+    },
+    guards: [
+      "tests/config_codegen_test.ts",
+      "tests/result_codegen_test.ts",
+      "tests/site_serve_test.ts",
+      "tests/site_smoke_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "machine contract locations; the config and result references carry the reader-facing terms",
+      },
+      featureCanon: { nodeId: "published-contracts" },
+    },
+    members: async () =>
+      (await import("../src/shared/public_schemas.ts"))
+        .PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id),
+  },
+  {
     id: "public-doc-surfaces",
     title: "Public doc surfaces",
     what:

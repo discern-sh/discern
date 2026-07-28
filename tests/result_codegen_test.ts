@@ -11,6 +11,7 @@ import {
   CLI_JSON_RESULT_CONTRACTS,
   MCP_RESULT_CONTRACTS,
 } from "../src/shared/result_contracts.ts";
+import { RESULT_SCHEMA_ID } from "../src/shared/public_schemas.ts";
 import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 
@@ -25,6 +26,10 @@ Deno.test("schema/discern-results.schema.json matches the generator (run `deno t
     renderResultJsonSchema(),
     "schema/discern-results.schema.json is stale — run `deno task codegen`",
   );
+});
+
+Deno.test("the generated result schema uses the versioned public id", () => {
+  assertEquals(buildResultJsonSchema().$id, RESULT_SCHEMA_ID);
 });
 
 Deno.test("types/discern-json.d.ts matches the generator (run `deno task codegen`)", async () => {

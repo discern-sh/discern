@@ -14,9 +14,7 @@ import {
   MCP_RESULT_CONTRACTS,
   type ResultContract,
 } from "./result_contracts.ts";
-
-export const RESULT_SCHEMA_ID =
-  "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-results.schema.json";
+import { RESULT_SCHEMA_ID } from "./public_schemas.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
 

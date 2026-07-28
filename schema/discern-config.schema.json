@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-config.schema.json",
+  "$id": "https://discern.sh/schema/v1/discern-config.schema.json",
   "title": "discern config document",
   "type": "object",
   "properties": {

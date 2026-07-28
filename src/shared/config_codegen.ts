@@ -13,10 +13,7 @@
 
 import { z } from "@zod/zod";
 import { configDocSchema, configSchema } from "./config_schema.ts";
-
-/** Published `$id` for the editor JSON Schema (matches the repo's raw URL). */
-const SCHEMA_ID =
-  "https://raw.githubusercontent.com/jackwh/discern/main/schema/discern-config.schema.json";
+import { CONFIG_SCHEMA_ID } from "./public_schemas.ts";
 
 /** Human title for the editor JSON Schema. */
 const SCHEMA_TITLE = "discern config document";
@@ -62,7 +59,7 @@ export function buildConfigDocJsonSchema(): Record<string, unknown> {
   const { $schema, ...body } = generated;
   return {
     $schema: $schema ?? "https://json-schema.org/draft/2020-12/schema",
-    $id: SCHEMA_ID,
+    $id: CONFIG_SCHEMA_ID,
     title: SCHEMA_TITLE,
     ...body,
   };
