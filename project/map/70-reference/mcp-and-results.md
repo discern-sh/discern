@@ -170,8 +170,8 @@ For a published JSON result, exit `0` means `ok: true`; a controlled non-zero re
 
 ### Version 1 compatibility
 
-The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) advances its major when the contract breaks. Discern package releases do not advance it. In version 1, fields keep their type and meaning; optional fields may be added. Consumers ignore unknown object fields and handle unknown `error` slugs. Removing or renaming fields or slugs, or changing a field's type or meaning, needs a new major.
+The result schema [`$id`](https://discern.sh/schema/v1/discern-results.schema.json) changes major only when the contract breaks, not with discern releases. Version-1 fields keep their type and meaning; releases may add optional fields. Consumers ignore unknown fields and handle unknown `error` slugs. Removing, renaming, or changing existing fields or slugs needs a new major.
 
-Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, treats `error` as a string, and lists known slugs in `x-discern-error-slugs`, so pinned version-1 schemas accept additions. There is no top-level `schema_version`: the URL owns identity, and a payload field would duplicate it ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
+Runtime schemas and `ERROR_SLUGS` stay strict. The public schema accepts unknown fields, leaves `error` open, and lists current slugs in `x-discern-error-slugs`, so older version-1 schemas accept additions. The URL owns identity; there is no duplicate top-level `schema_version` ([ADR 0208](../_adr/0208-public-contracts-version-by-schema-major.md)).
 
-The configuration schema shares the version-1 identity but validates the current closed input surface. A newer release may add optional keys without changing existing configuration; an older cached schema can reject those new keys, so refresh it when validating configuration written for a newer discern release.
+The configuration schema validates the current closed version-1 input. A newer release may add optional keys that an older cached schema rejects; refresh it before validating newer configuration.

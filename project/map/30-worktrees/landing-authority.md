@@ -11,11 +11,11 @@ aliases:
 
 # Landing authority
 
-_discern verifies who authorized a landing before it moves the trunk._
+_discern verifies landing authority before it moves the trunk._
 
-Landing authority records the owner's permission for one worktree. A green [receipt](../00-orientation/glossary.md#receipt) proves only the gate. Landing still needs authority. Without it, the agent reports and stops. A recorded grant covering the exact tree lets landing continue without another conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+Landing authority records the owner's permission for one worktree. A green [receipt](../00-orientation/glossary.md#receipt) proves only the gate; without authority, the agent reports and stops. A grant covering the exact tree lets landing continue without another conversation ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-One resolver serves `start`, `status`, green `done`, and `accept`. The first three only expose its answer. Acceptance binds that answer to the exact branch and [trunk](../00-orientation/glossary.md#trunk) commits it checked. An atomic compare-and-swap moves the trunk only if the recorded commit is still current, so any concurrent movement invalidates stale authority.
+One resolver serves `start`, `status`, green `done`, and `accept`; only `accept` changes state.
 
 ## The three sources
 
@@ -25,13 +25,13 @@ One resolver serves `start`, `status`, green `done`, and `accept`. The first thr
 | Standing grant | The trunk's committed `[acceptance].pre_authorized` lists granted [scopes](../00-orientation/glossary.md#scope). | Every fully covered landing.     |
 | Effort grant   | **Pre-authorize landing once green** at [the desk](the-desk.md) records authority for one worktree.              | Until that effort lands or ends. |
 
-`--confirmed` means conversation consent only. It never substitutes for a recorded grant. The resolver reads `[acceptance]` from the trunk's committed config. Changes on the worktree branch never enter that authority decision.
+`--confirmed` means conversation consent only. Standing authority comes from `[acceptance]` in the trunk's committed config, never the worktree branch.
 
 ## How discern resolves coverage
 
-At `start`, no final change exists. The result can name standing scopes prospectively, and discern checks the final paths later.
+At `start`, no final change exists, so discern reports standing scopes prospectively and checks the final paths later.
 
-For `status` and a receipt-bearing `done`, discern classifies every changed path with the configured scopes. A standing grant authorizes the tree only when every path matches at least one known granted scope. A path outside every scope stays uncovered. An unknown scope name covers nothing. An effort grant applies to its recorded branch without path classification.
+For `status` and a receipt-bearing `done`, every changed path must match a known granted scope. Unmatched paths and unknown scope names stay uncovered. An effort grant covers its recorded branch without path classification.
 
 When a grant exists, `data.landing_authority` carries the result:
 
@@ -44,9 +44,9 @@ When a grant exists, `data.landing_authority` carries the result:
 | `uncovered`       | Changed paths that keep the landing on the conversation-review route. |
 | `warnings`        | Evidence discern cannot trust, such as an invalid recorded grant.     |
 
-No grant and no authority warning leave the field absent. That default preserves the ordinary [hand-work-back](hand-work-back.md) route.
+With no grant or warning, the field is absent and the ordinary [hand-work-back](hand-work-back.md) route remains.
 
-`accept` returns verified `data.consent`: `source` identifies conversation, standing, or effort authority, while `scopes` carries standing-grant coverage. It appends the same evidence to the derived receipt line ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+`accept` returns verified `data.consent`: `source` identifies conversation, standing, or effort authority, and `scopes` carries standing coverage. The receipt line carries the same evidence ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
 ## Where it lives in code
 
@@ -62,8 +62,7 @@ No grant and no authority warning leave the field absent. That default preserves
 
 ## Current state & gotchas
 
-- An authorized `done` or `status` result changes no state. Only `accept` moves the trunk.
-- Standing authority is pinned to the trunk commit that supplied the grant. The landing's expected-old compare-and-swap refuses even when a concurrent trunk advance would still be a Git ancestor.
-- Acceptance atomically claims an effort grant before moving the trunk. A desk revoke that wins the race removes authority; an acceptance that wins owns that recorded grant through the trunk transition. A refused transition restores the grant unless the desk recorded a newer one.
+- Standing authority is pinned to the trunk commit that supplied it. The expected-old compare-and-swap refuses any concurrent advance.
+- Acceptance atomically claims an effort grant. Desk revocation and acceptance have one winner; a refused transition restores the grant unless a newer one exists.
 - A successful effort-granted landing consumes its claim. Drop, prune, and orphan cleanup remove abandoned grant state.
 - Any uncertainty returns to conversation review; it never widens authority.
