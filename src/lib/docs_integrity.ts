@@ -1,10 +1,11 @@
 /**
  * Scanners behind the map's integrity guards: the links a rendered page
  * carries, the heading anchors it exposes, the fenced `discern …` examples it
- * quotes, and the validation of one such example against the live command
- * model. The gate tests (tests/docs_integrity_*.ts, tests/map_integrity_test.ts)
- * consume these, the same shape as `findMalformedAdrReferences` in
- * adr_citations.ts.
+ * quotes, the skill citations it recommends, and the validation of one such
+ * example against the live command model. The shipped gate preflight
+ * (map_integrity.ts) applies them to every project's map and guidance; the
+ * gate tests (tests/docs_integrity_test.ts, tests/map_integrity_test.ts)
+ * prove they bite and hold this repo's own corpus to them.
  *
  * Links and anchors are read off {@link renderMarkdownHtml} — the SAME renderer
  * every published surface uses — so the guard checks exactly what a reader
@@ -158,6 +159,62 @@ export function extractFencedCommands(md: string): FencedCommand[] {
       out.push({ line: startLine, command: joined.trim() });
     }
   }
+  return out;
+}
+
+/** The citation grammar core: `discern-` then two or more lowercase segments
+ * (the bundled naming convention — imperative verb + object). A single-segment
+ * token (`discern-results`, an artifact filename) is a spelling, never a
+ * citation. The ONE definition every citation scan derives its regex from. */
+const SKILL_CITATION_CORE = "discern-[a-z]+(?:-[a-z]+)+";
+
+/** A whole token matching the citation grammar — the span form. */
+export const SKILL_CITATION_TOKEN: RegExp = new RegExp(
+  `^${SKILL_CITATION_CORE}$`,
+);
+
+/** The citation grammar loose in running text, for bare-token sweeps. The
+ * lookbehind drops tokens reached mid-word: dotfile/path/scoped-package
+ * namespaces (`.discern-help-docs`, `/tmp/discern-job-lint.log`) and
+ * slug fragments (`0119-bare-discern-opens-…`) are spellings, not citations. */
+export const SKILL_CITATION_BARE: RegExp = new RegExp(
+  `(?<![\\w@/.-])${SKILL_CITATION_CORE}\\b`,
+  "g",
+);
+
+/** One skill citation a doc carries, with its 1-based source line. */
+export interface SkillCitationRef {
+  line: number;
+  name: string;
+}
+
+/**
+ * Every skill CITATION in a doc: an inline code span consisting solely of one
+ * citation-shaped token (`` `discern-<verb>-<object>` `` — the convention
+ * every bundled surface uses to recommend a skill by name), outside fenced
+ * blocks. Deliberately precision-first for arbitrary prose: a span carrying
+ * more than the bare token (`` `discern-marker: <reason>` ``), a token inside
+ * a fenced example, and an unbackticked mention are all left alone — a false
+ * "unknown skill" on a project's own vocabulary would be worse than a missed
+ * citation.
+ */
+export function extractSkillCitations(md: string): SkillCitationRef[] {
+  const fencedLines = new Set<number>();
+  for (const block of fencedBlocks(md)) {
+    for (let i = 0; i < block.lines.length; i += 1) {
+      fencedLines.add(block.startLine + i);
+    }
+  }
+  const out: SkillCitationRef[] = [];
+  md.split("\n").forEach((text, idx) => {
+    if (fencedLines.has(idx + 1)) return;
+    for (const m of text.matchAll(/`([^`\r\n]+)`/g)) {
+      const span = (m[1] ?? "").trim();
+      if (SKILL_CITATION_TOKEN.test(span)) {
+        out.push({ line: idx + 1, name: span });
+      }
+    }
+  });
   return out;
 }
 
