@@ -17,6 +17,11 @@ import { type RunOptions, runParallel, runSerial } from "../jobs/runner.ts";
 import { byteWriter, colorEnabled, makeOut, type Out } from "../output.ts";
 import type { FailedStage } from "../../shared/result.ts";
 import type { JobGroup } from "./plan.ts";
+import {
+  buildTestRunSlots,
+  groupNeedsTestSlot,
+  type TestRunSlots,
+} from "./test_slots.ts";
 
 /** A post-settle verdict for one gate job, keyed by label — how a standard's
  * measurement rewrites its job result from the captured output (see
@@ -33,12 +38,20 @@ export type JobEvaluators = Map<
  * (e.g. a scope-gates group whose scopes are all unchanged) is a clean pass with no
  * heading. `evaluators` attaches a post-settle verdict to the jobs it names (their
  * output is retained so the verdict can read it).
+ *
+ * `slots` is the run's fleet test-run cap ([gate].concurrent_test_runs), built
+ * by {@link gateRunContext}: a group carrying a firing test-stage job or a
+ * standard's measurement ({@link groupNeedsTestSlot} — derived from the group's
+ * jobs, never from the calling verb) first acquires one slot and releases it
+ * when the group settles. The parameter is required so a new call site has to
+ * say `undefined` out loud to opt a run out of the cap.
  */
 export async function runGroup(
   group: JobGroup,
   results: Map<string, JobResult>,
   runOpts: RunOptions,
   out: Out,
+  slots: TestRunSlots | undefined,
   evaluators?: JobEvaluators,
 ): Promise<boolean> {
   const jobs: Job[] = group.jobs
@@ -71,14 +84,24 @@ export async function runGroup(
     }
     seen.add(job.label);
   }
-  out.heading(group.heading);
-  const r = group.mode === "serial"
-    ? await runSerial(jobs, runOpts)
-    : await runParallel(jobs, runOpts);
-  for (const res of r.results) {
-    results.set(res.label, res);
+  // The fleet test-run cap: a capped group waits for a slot BEFORE its heading
+  // prints (the wait line explains the pause), and releases when it settles —
+  // pass or fail — so a red suite frees the machine for the next run.
+  const hold = slots !== undefined && groupNeedsTestSlot(group)
+    ? await slots.acquire(out, runOpts.signal)
+    : undefined;
+  try {
+    out.heading(group.heading);
+    const r = group.mode === "serial"
+      ? await runSerial(jobs, runOpts)
+      : await runParallel(jobs, runOpts);
+    for (const res of r.results) {
+      results.set(res.label, res);
+    }
+    return r.ok;
+  } finally {
+    hold?.release();
   }
-  return r.ok;
 }
 
 /** The outcome of running an ordered group list: the per-job results and which
@@ -99,11 +122,12 @@ export async function runJobGroups(
   groups: JobGroup[],
   runOpts: RunOptions,
   out: Out,
+  slots: TestRunSlots | undefined,
 ): Promise<StagesRun> {
   const results = new Map<string, JobResult>();
   let failedStage: FailedStage | null = null;
   for (const group of groups) {
-    if (!(await runGroup(group, results, runOpts, out))) {
+    if (!(await runGroup(group, results, runOpts, out, slots))) {
       failedStage = group.stage;
       break;
     }
@@ -122,13 +146,18 @@ export async function runJobGroups(
  * is still captured for its diagnostic. An optional `signal` rides into the
  * RunOptions so an external caller (an MCP client cancelling its request, the
  * server shutting down) can tree-kill the in-flight jobs.
+ *
+ * `slots` is the run's fleet test-run cap ([gate].concurrent_test_runs) —
+ * undefined when uncapped (the default). Building it here is what enrols every
+ * gate verb: any run whose context comes from this one place carries the cap,
+ * and {@link runGroup} decides per group whether to draw on it.
  */
 export function gateRunContext(
   root: string,
   cfg: DiscernConfig,
   json: boolean,
   signal?: AbortSignal,
-): { runOpts: RunOptions; out: Out } {
+): { runOpts: RunOptions; out: Out; slots: TestRunSlots | undefined } {
   const color = colorEnabled();
   return {
     runOpts: {
@@ -142,5 +171,6 @@ export function gateRunContext(
       quiet: json,
     },
     out: makeOut(color, { quiet: json }),
+    slots: buildTestRunSlots(root, cfg),
   };
 }

@@ -90,6 +90,7 @@ const INSTALLER_ABSENCE =
 const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   Record<string, string>
 > = {
+  await: READ_ONLY_ABSENCE,
   config: "a direct config editor, not a configurable workflow sequence",
   coupling: READ_ONLY_ABSENCE,
   desk: READ_ONLY_ABSENCE,

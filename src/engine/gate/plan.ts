@@ -227,12 +227,52 @@ export function checkTestGroup(
 }
 
 /**
+ * The check/test portion of the `done` plan, shaped by the fleet test-run cap.
+ * Uncapped (`[gate].concurrent_test_runs = 0`, the default): the one combined
+ * check∥test group ({@link checkTestGroup}) — byte-identical to the plan before
+ * the cap existed. Capped: the check stage runs first as its own group, then
+ * the tests and standard measurements follow as one group, which is the unit
+ * that holds a fleet slot. The split trades the check∥test overlap (seconds —
+ * the check stage is lint and typecheck) for the fail-fast guarantee the cap
+ * requires: a broken check must fail before the run queues for a slot.
+ */
+export function checkTestGroups(
+  cfg: DiscernConfig,
+  standardJobs: PlannedJob[] = [],
+): JobGroup[] {
+  if (cfg.gate.concurrent_test_runs <= 0) {
+    const combined = checkTestGroup(cfg, standardJobs);
+    return combined === undefined ? [] : [combined];
+  }
+  const groups: JobGroup[] = [];
+  const check = stageGroup(cfg, "check");
+  if (check !== undefined) {
+    groups.push(check);
+  }
+  const testJobs = [...planStageJobs(cfg, "test"), ...standardJobs];
+  if (testJobs.length > 0) {
+    groups.push({
+      stage: "test",
+      mode: "parallel",
+      heading: standardJobs.length > 0
+        ? "Running tests and measuring standards..."
+        : STAGE_GROUP_META.test.heading,
+      display: standardJobs.length > 0 ? "Test & standards" : "Test",
+      jobs: testJobs,
+    });
+  }
+  return groups;
+}
+
+/**
  * The declared-job groups — fix (serial) → build → check∥test — derived
  * from the typed config alone. These are independent of the changed scopes, so the
  * executor can run them BEFORE classifying scopes (preserving the gate's original
  * timing, where a fix-stage edit is reflected in the scope classification).
  * `standardJobs` (when `[standards]` is configured) join the check∥test group;
  * with none, the plan is byte-identical to a standards-free gate — zero cost.
+ * The check/test portion comes from {@link checkTestGroups}, so the dry-run
+ * plan and the executed gate agree on whether the fleet test-run cap splits it.
  */
 export function buildStageGroups(
   cfg: DiscernConfig,
@@ -247,10 +287,7 @@ export function buildStageGroups(
   if (build !== undefined) {
     groups.push(build);
   }
-  const checkTest = checkTestGroup(cfg, standardJobs);
-  if (checkTest !== undefined) {
-    groups.push(checkTest);
-  }
+  groups.push(...checkTestGroups(cfg, standardJobs));
   return groups;
 }
 

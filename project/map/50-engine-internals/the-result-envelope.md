@@ -50,7 +50,7 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 
 [`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
-The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0212](../_adr/0212-mcp-instructions-render-operating-policies.md)).
+The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
 
 ## Where it lives in code
 

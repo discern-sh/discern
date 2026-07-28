@@ -2465,6 +2465,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
       "discern_doctor",
       "discern_impact",
       "discern_coupling",
+      "discern_await",
       "discern_patterns",
       "discern_status",
       "discern_improvement",
@@ -2590,6 +2591,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
         "discern_prepare",
         "discern_test",
         "discern_update",
+        "discern_await",
         "discern_standards",
         "discern_accept",
         "discern_impact",
@@ -2957,6 +2959,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     assert(instructions.includes("discern_start"), instructions);
     assert(instructions.includes("discern_update"), instructions);
     assert(instructions.includes("discern_accept"), instructions);
+    // Clients may load schemas only on demand, so the instructions must also
+    // advertise fleet waiting; the discern_await schema carries its mechanics.
+    assert(instructions.includes("discern_await"), instructions);
     assert(
       instructions.includes("user explicitly asks"),
       instructions,

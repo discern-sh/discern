@@ -156,6 +156,13 @@ const PROJECT_CASES: readonly PurityCase[] = [
   { commandPath: "impact", envelopeVerb: "impact", args: ["impact"] },
   { commandPath: "status", envelopeVerb: "status", args: ["status"] },
   {
+    commandPath: "await",
+    // --timeout 0 evaluates once and answers immediately, so the sweep never
+    // waits out the verb's real default.
+    envelopeVerb: "await",
+    args: ["await", "--trunk-moved", "--timeout", "0"],
+  },
+  {
     commandPath: "coupling",
     envelopeVerb: "coupling",
     args: ["coupling"],

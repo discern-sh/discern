@@ -27,10 +27,13 @@ import {
   defaultMapPath,
   git,
   gitInit,
+  gitOut,
   runAgent,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { awaitResult } from "../src/engine/await/await.ts";
+import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
   type DiscernResult,
   ERROR_SLUGS,
@@ -463,6 +466,7 @@ Deno.test("every canonical error slug has a production source anchor", async () 
  * `expectFaithful`. Enrolment is evidence-checked: the final test asserts this
  * set EQUALS the ids exercised, so the only way in is writing the test. */
 const FAITHFULNESS_COVERED = new Set<string>([
+  "await",
   "config",
   "coupling",
   "desk",
@@ -967,6 +971,55 @@ Deno.test("coupling result is faithful (diff-aware, query, and a real partner ed
         (ev.commits ?? []).length >= 1,
       "evidence mode reports the commits a.ts and b.ts shared",
     );
+  });
+});
+
+Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+
+    // Refusals: no condition, and a branch that cannot be pinned.
+    expectFaithful("await", await awaitResult(dir, {}), "await no condition");
+    expectFaithful(
+      "await",
+      await awaitResult(dir, { landed: "agent/zz-absent", timeoutSeconds: 0 }),
+      "await missing branch",
+    );
+
+    // Not-yet: the timeout envelope with retry advice (ok stays true).
+    const notYet = await awaitResult(dir, {
+      trunkMoved: true,
+      timeoutSeconds: 0,
+    });
+    expectFaithful("await", notYet, "await not-yet");
+    assert(notYet.ok && notYet.data?.met === false);
+
+    // Met via receipt: a sibling worktree with an honored-shaped marker.
+    const dep = await addWorktree(dir, "await-dep");
+    await Deno.writeTextFile(join(dep, "dep.txt"), "work");
+    await git(dep, "add", "-A");
+    await git(dep, "commit", "-q", "-m", "dep work", "--no-gpg-sign");
+    const receiptPath = await gitAdminStatePath(dep, "gateReceipt");
+    assert(receiptPath !== undefined);
+    await Deno.mkdir(join(receiptPath, ".."), { recursive: true });
+    const depHead = await gitOut(dep, "rev-parse", "HEAD");
+    await Deno.writeTextFile(receiptPath, `${depHead}\nline: gate green\n`);
+    const green = await awaitResult(dir, {
+      green: "agent/await-dep",
+      timeoutSeconds: 0,
+    });
+    expectFaithful("await", green, "await green met");
+    assert(green.ok && green.data?.met === true);
+
+    // Met via landing: the overlap-preview fields validate too.
+    await git(dir, "merge", "-q", "agent/await-dep");
+    const landed = await awaitResult(dir, {
+      landed: "agent/await-dep",
+      timeoutSeconds: 0,
+    });
+    expectFaithful("await", landed, "await landed met");
+    assert(landed.ok && landed.data?.met === true);
   });
 });
 

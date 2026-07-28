@@ -2681,6 +2681,127 @@ export type DiscernCouplingResult = {
   };
 };
 
+export type DiscernAwaitResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "await";
+  data?: {
+    condition: "green" | "landed" | "trunk-moved";
+    branch?: string;
+    trunk: string;
+    met: boolean;
+    waited_ms: number;
+    timeout_seconds: number;
+    observed: {
+      receipt_status?:
+        | "honored"
+        | "missing"
+        | "stale"
+        | "dirty"
+        | "unavailable"
+        | "read_failed"
+        | "no-worktree";
+      worktree?: string;
+      tip?: string;
+      landed?: boolean;
+      trunk_start?: string;
+      trunk_head?: string;
+      behind?: number;
+      incoming_overlap?: Array<string>;
+      overlap_total?: number;
+    };
+    retry_after_seconds?: number;
+    retry_basis?: "running" | "no-prior" | "idle" | "logbook-off";
+    running?: {
+      verb: string;
+      started: string;
+      elapsed_ms: number;
+      typical_duration_ms?: number;
+    };
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernPatternsResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -4497,6 +4618,7 @@ export type DiscernCliJsonResult =
   | DiscernTidyResult
   | DiscernImpactResult
   | DiscernCouplingResult
+  | DiscernAwaitResult
   | DiscernPatternsResult
   | DiscernPatternsResetResult
   | DiscernDeskResult
@@ -4539,6 +4661,7 @@ export interface DiscernResultByVerb {
   tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
+  await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
   desk: DiscernDeskResult;
@@ -4592,6 +4715,7 @@ export interface DiscernResultByCommand {
   tidy: DiscernTidyResult;
   impact: DiscernImpactResult;
   coupling: DiscernCouplingResult;
+  await: DiscernAwaitResult;
   patterns: DiscernPatternsResult;
   "patterns reset": DiscernPatternsResetResult;
   desk: DiscernDeskResult;
@@ -4634,6 +4758,7 @@ export interface DiscernMcpStructuredContentByTool {
   discern_refresh: DiscernRefreshResult;
   discern_impact: DiscernImpactResult;
   discern_coupling: DiscernCouplingResult;
+  discern_await: DiscernAwaitResult;
   discern_patterns: DiscernPatternsResult;
   discern_status: DiscernStatusResult;
   discern_start: DiscernStartResult;
@@ -4653,6 +4778,7 @@ export interface DiscernMcpToolResultByTool {
   discern_refresh: DiscernMcpToolResult<DiscernRefreshResult>;
   discern_impact: DiscernMcpToolResult<DiscernImpactResult>;
   discern_coupling: DiscernMcpToolResult<DiscernCouplingResult>;
+  discern_await: DiscernMcpToolResult<DiscernAwaitResult>;
   discern_patterns: DiscernMcpToolResult<DiscernPatternsResult>;
   discern_status: DiscernMcpToolResult<DiscernStatusResult>;
   discern_start: DiscernMcpToolResult<DiscernStartResult>;
@@ -4672,6 +4798,7 @@ export type DiscernMcpStructuredContent =
   | DiscernRefreshResult
   | DiscernImpactResult
   | DiscernCouplingResult
+  | DiscernAwaitResult
   | DiscernPatternsResult
   | DiscernStatusResult
   | DiscernStartResult
@@ -4690,6 +4817,7 @@ export type DiscernMcpJsonResult =
   | DiscernRefreshMcpToolResult
   | DiscernImpactMcpToolResult
   | DiscernCouplingMcpToolResult
+  | DiscernAwaitMcpToolResult
   | DiscernPatternsMcpToolResult
   | DiscernStatusMcpToolResult
   | DiscernStartMcpToolResult
@@ -4730,6 +4858,10 @@ export type DiscernImpactMcpToolResult = DiscernMcpToolResult<
 
 export type DiscernCouplingMcpToolResult = DiscernMcpToolResult<
   DiscernCouplingResult
+>;
+
+export type DiscernAwaitMcpToolResult = DiscernMcpToolResult<
+  DiscernAwaitResult
 >;
 
 export type DiscernPatternsMcpToolResult = DiscernMcpToolResult<

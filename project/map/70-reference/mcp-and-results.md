@@ -17,6 +17,7 @@ aliases:
   - discern_prepare
   - discern_test
   - discern_update
+  - discern_await
   - discern_standards
   - discern_accept
   - discern_impact
@@ -54,6 +55,7 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 | `discern_prepare`     | Run the fix and check stages for the fast inner loop.                                                    | Runs project commands; fix-stage commands may rewrite.          |
 | `discern_test`        | Run the configured test job on its own.                                                                  | Runs a project command.                                         |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                             | Mutating and idempotent for the same inputs.                    |
+| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.    | Read-only and idempotent; a timeout is an answer, not an error. |
 | `discern_standards`   | Measure standards, compare limits, and optionally pin improvements.                                      | Runs project commands; pinning changes and commits config.      |
 | `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                      | Destructive; requires conversation consent or a verified grant. |
 | `discern_impact`      | List the scopes the current change activates.                                                            | Read-only and idempotent.                                       |

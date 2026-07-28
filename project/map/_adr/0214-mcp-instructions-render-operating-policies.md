@@ -1,4 +1,4 @@
-# ADR 0212: MCP instructions render operating policies; guidance remains authored
+# ADR 0214: MCP instructions render operating policies; guidance remains authored
 
 **Status**: accepted; applies the canonical-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md) and [ADR 0181](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md) to the routing model in [ADR 0192](0192-static-guidance-earns-delivery-by-the-routing-test.md).
 

@@ -73,6 +73,7 @@ import type {
 import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
 import { type JobEvaluators, runGroup } from "./execute.ts";
+import { buildTestRunSlots, type TestRunSlots } from "./test_slots.ts";
 import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
 import {
   type TrunkLimitsVerification,
@@ -646,12 +647,18 @@ function standaloneMeasurementNote(
  * Tier 1 is the caller's one upfront snapshot. Structurally blocked standards
  * skip their own command; every other command runs with fail-fast disabled,
  * per-job timeout overrides, tree-kill cancellation, and captured durations.
+ * `opts.slots` is the fleet test-run cap: the measurement group draws one slot
+ * through the shared {@link runGroup} seam, like the gate's own test group.
  */
 async function executeStandardPlan(
   plan: StandardPlan,
   root: string,
   verification: TrunkLimitsVerification,
-  opts: { timeoutS: number; signal?: AbortSignal },
+  opts: {
+    timeoutS: number;
+    slots: TestRunSlots | undefined;
+    signal?: AbortSignal;
+  },
 ): Promise<StandardExecution> {
   const steps = standardPlanToEngine(plan).steps;
   const integrityDiagnostic = (failure: StepResult): Diagnostic => ({
@@ -710,6 +717,7 @@ async function executeStandardPlan(
     jobResults,
     runOpts,
     makeOut(runOpts.color, { quiet: true }),
+    opts.slots,
     jobs.evaluators,
   );
   const serialized = await serializeJobSteps([group], jobResults);
@@ -1311,12 +1319,15 @@ async function pinStandardsResult(
   // A green check on this exact clean HEAD already paid for every measurement and
   // recorded a measurement receipt; replay its values rather than measuring again.
   const reused = await reusableMeasurements(root, plan);
+  const slots = buildTestRunSlots(root, cfg);
   const execution = reused !== undefined
     ? replayExecutionFromReceipt(plan, reused, verification)
     : await executeStandardPlan(plan, root, verification, {
       timeoutS: cfg.gate.timeout,
+      slots,
       ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
     });
+  const slotWaits = slots?.waits ?? [];
   const { ok, outcomes } = execution;
   const reuseHint = reused !== undefined
     ? fire(HINTS["standards-pin-reused-measurements"])
@@ -1326,6 +1337,7 @@ async function pinStandardsResult(
   if (!ok) {
     const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
     return standardsBuild(standardExecutionResult(execution), [
+      ...slotWaits,
       fire(HINTS["standards-pin-blocked"], { failingNames: failing }),
     ]);
   }
@@ -1369,6 +1381,7 @@ async function pinStandardsResult(
         ? { data: { standards: execution.readings } satisfies StandardsData }
         : {}),
     }, [
+      ...slotWaits,
       ...(reuseHint !== undefined ? [reuseHint] : []),
       fire(HINTS["standards-pin-no-slack"]),
     ]);
@@ -1415,6 +1428,7 @@ async function pinStandardsResult(
       })),
     } satisfies StandardsData,
   }, [
+    ...slotWaits,
     ...(reuseHint !== undefined ? [reuseHint] : []),
     carried
       ? fire(HINTS["standards-pin-carried-receipt"])
@@ -1542,15 +1556,18 @@ export async function standardsResult(
           // Pin the tree before the measurements: the receipt may only vouch for
           // the exact tree the parallel jobs read.
           const treePin = await pinValidatedTree(root);
+          const slots = buildTestRunSlots(root, cfg);
           const execution = await executeStandardPlan(
             plan,
             root,
             verification,
             {
               timeoutS: cfg.gate.timeout,
+              slots,
               ...(opts.signal !== undefined ? { signal: opts.signal } : {}),
             },
           );
+          firedHints.push(...(slots?.waits ?? []));
           const { outcomes } = execution;
           result = standardExecutionResult(execution);
           const receipted = await recordCheckMeasurements(

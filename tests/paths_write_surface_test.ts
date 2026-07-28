@@ -143,6 +143,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the gate receipt — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/gate/test_slots.ts",
+    "the fleet test-run slot files — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/engine/logbook/store.ts",
     "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
   ],
