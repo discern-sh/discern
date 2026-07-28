@@ -2022,6 +2022,23 @@ export const HINTS = {
       } stay in the main checkout. The new worktree branches from '${startPoint}'.`,
   }),
 
+  /** A fresh worktree checkout carries a `.gitmodules` that `git worktree add`
+   * leaves unpopulated, and no configured lifecycle command mentions
+   * submodules — so the gate is about to run against empty directories. */
+  "start-submodules-empty": defineHint({
+    id: "start-submodules-empty",
+    category: "notice",
+    audience: "all",
+    when:
+      "`start` finds `.gitmodules` in the new worktree while no configured command mentions submodules.",
+    family: "start-result",
+    example: undefined,
+    template: (): string =>
+      "This repository pins submodules, and git leaves them empty in a fresh " +
+      'worktree. Add `ensure = ["git submodule update --init --recursive"]` ' +
+      "under `[repository]` in discern.toml so every checkout populates them.",
+  }),
+
   /** Session start on the main-checkout side. The SessionStart hook injects
    * this stdout as agent context — the one channel that can pre-empt trunk
    * edits, which call no verb before the damage. */

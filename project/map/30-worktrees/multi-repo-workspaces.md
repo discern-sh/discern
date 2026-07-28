@@ -22,7 +22,7 @@ The common layout keeps repos side by side under one parent, with consumers wiri
 
 Point those links at the library's main checkout, with an absolute path. The main checkout sits on the trunk, work happens in worktrees, and the trunk moves when `discern accept` lands a validated commit ([ADR 0110](../_adr/0110-the-landing-model.md)). A consumer linking the main checkout builds against landed, validated states of the library and never sees an unlanded branch.
 
-Absolute paths hold on one machine only. For a team, publish to a registry instead, or use relative links plus the placement below.
+Absolute paths hold on one machine only. A team keeps the committed manifest shared with one level of indirection: agree on a stable path such as `/opt/acme/shared-lib`, point the manifest there, and each developer symlinks that path to their own checkout. The symlink lives outside the repository, so every worktree resolves it with nothing to recreate. Otherwise, publish to a registry, or use relative links plus the placement below.
 
 A relative link such as `file:../shared-lib` assumes the consumer's checkout sits beside the library. By default a worktree does not: `discern start` places it at `<parent>/<repo>.worktrees/<id>`, so `../shared-lib` resolves to nothing, the main checkout's gate passes, and every worktree's gate fails on dependency resolution. Place worktrees in the workspace parent instead:
 
@@ -65,6 +65,6 @@ ensure = ["git submodule update --init --recursive"]
 
 ## Current state and gotchas
 
-- Root discovery walks up from the working directory to the nearest `discern.toml` and does not stop at a repository boundary ([`src/shared/env.ts`](../../../src/shared/env.ts)). A repo without its own config, nested under a directory that has one, resolves to the outer project.
+- Root discovery walks up from the working directory to the nearest `discern.toml` and does not stop at a repository boundary ([`src/shared/env.ts`](../../../src/shared/env.ts)). A repo without its own config, nested under a directory that has one, resolves to the outer project; `discern doctor`, run from the nested repo, discloses the crossing.
 - A consumer's gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed and validated, and the consumer's receipt still describes its own repository only.
-- Currently `discern start` runs no submodule population of its own; the `[repository].ensure` command above is the supported path.
+- `discern start` runs no submodule population of its own: the `[repository].ensure` command above is the supported path, and `start` hints at it when the fresh worktree carries a `.gitmodules` no configured command mentions.
