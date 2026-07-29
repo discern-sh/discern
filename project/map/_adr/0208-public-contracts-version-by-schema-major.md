@@ -2,7 +2,7 @@
 
 > **First breaking-major application ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** Renaming the manual result from `help` to `docs` starts result schema v2 while retaining the frozen v1 publication. Configuration remains at schema v1. The compatibility domains version independently.
 
-> **Pre-tag reset amendment (2026-07-29; [ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md) amendment):** The note above records a superseded pre-release state. Before the first release tag, the result publication was squashed back to one live v1 and the retired v2 path was deleted. The enforcement below now arms at the first release tag: until a tag exists, publications may be corrected in place, because no released consumer has pinned them; from the first tag onward, every enrolled path and identity is append-only against the configured trunk, exactly as the enforcement update describes.
+> **Pre-tag reset amendment (2026-07-29; recorded in [ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** The note above records a superseded pre-release state. Before the first release tag, the result publication was squashed back to one live v1 and the retired v2 path was deleted. The enforcement below now arms at the first release tag: until a tag exists, publications may be corrected in place, because no released consumer has pinned them; from the first tag onward, every enrolled path and identity is append-only against the configured trunk, exactly as the enforcement update describes.
 
 **Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0097](0097-publish-json-result-contracts.md), and applies the closed-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md)
 
