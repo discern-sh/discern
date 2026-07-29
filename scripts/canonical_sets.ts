@@ -1070,7 +1070,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/v2/discern-results.schema.json",
+        path: "schema/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1107,7 +1107,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/v2/discern-results.schema.json",
+        path: "schema/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1249,7 +1249,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/v2/discern-results.schema.json",
+        path: "schema/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1286,7 +1286,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/v2/discern-results.schema.json",
+        path: "schema/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },

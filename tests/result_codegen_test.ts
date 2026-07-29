@@ -28,14 +28,14 @@ import { TOOLS } from "../src/engine/mcp/server.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-Deno.test("schema/v2/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
+Deno.test("schema/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    new URL("../schema/v2/discern-results.schema.json", import.meta.url),
+    new URL("../schema/discern-results.schema.json", import.meta.url),
   );
   assertEquals(
     committed,
     renderResultJsonSchema(),
-    "schema/v2/discern-results.schema.json is stale — run `deno task codegen`",
+    "schema/discern-results.schema.json is stale — run `deno task codegen`",
   );
 });
 

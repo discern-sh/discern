@@ -53,7 +53,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
-| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
+| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 3       | —                | node `published-contracts`  |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 62      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
@@ -172,11 +172,11 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
+| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 | `schema/discern-setup-config.schema.json`        | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/v2/discern-results.schema.json`          | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `schema/v2/discern-results.schema.json`          | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
-| `schema/v2/discern-results.schema.json`          | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `schema/v2/discern-results.schema.json`          | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 | `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
@@ -555,7 +555,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
 - Members: 41
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
-- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
 - Feature canon: described by the `published-contracts` node
 
@@ -566,7 +566,7 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 - Source: `src/shared/result_contracts.ts` — `RESULT_CONTRACT_REFERENCE_FIELDS`
 - Members: 2
 - Guards: `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`
-- Artifacts: `schema/v2/discern-results.schema.json`
+- Artifacts: `schema/discern-results.schema.json`
 - Glossary: not enrolled — machine schema metadata fields, documented through the result contract reference
 - Feature canon: described by the `published-contracts` node
 
@@ -605,7 +605,7 @@ The true and false states every registered CLI predicate must preserve in bare a
 The versioned public schema URLs and the root generated artifacts served at them.
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
-- Members: 4
+- Members: 3
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
 - Artifacts: `project/map/70-reference/mcp-and-results.md`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
@@ -618,7 +618,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
 - Members: 62
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
-- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
@@ -629,7 +629,7 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
 - Source: `src/shared/result.ts` — `STEP_OUTCOMES`
 - Members: 4
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/gate_plan_test.ts`
-- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — wire-level states whose plain-language meanings are shown directly with each executed step
 - Feature canon: described by the `published-contracts` node
 

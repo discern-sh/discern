@@ -20,15 +20,8 @@ export const SETUP_CONFIG_SCHEMA_ID = publicSchemaId(
   "discern-setup-config.schema.json",
 );
 
-/** Frozen pre-launch result contract retained for published compatibility. */
-export const RESULT_SCHEMA_V1_MAJOR = 1;
-export const RESULT_SCHEMA_V1_ID = publicSchemaId(
-  RESULT_SCHEMA_V1_MAJOR,
-  "discern-results.schema.json",
-);
-
 /** The live result contract. Command identity changes require a new major. */
-export const RESULT_SCHEMA_MAJOR = 2;
+export const RESULT_SCHEMA_MAJOR = 1;
 export const RESULT_SCHEMA_ID = publicSchemaId(
   RESULT_SCHEMA_MAJOR,
   "discern-results.schema.json",
@@ -81,20 +74,12 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
       "The declarative install document consumed by `setup --config` and presets.",
   },
   {
-    id: RESULT_SCHEMA_V1_ID,
-    artifactPath: "schema/discern-results.schema.json",
-    major: RESULT_SCHEMA_V1_MAJOR,
-    compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    label: "Result contracts (v1)",
-    contract: "Frozen pre-rename result contracts.",
-  },
-  {
     id: RESULT_SCHEMA_ID,
-    artifactPath: "schema/v2/discern-results.schema.json",
+    artifactPath: "schema/discern-results.schema.json",
     major: RESULT_SCHEMA_MAJOR,
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    label: "Result contracts (v2)",
-    contract: "Current result contracts.",
+    label: "Result contracts",
+    contract: "Every `discern <command> --json` and MCP tool result envelope.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 

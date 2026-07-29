@@ -4605,8 +4605,8 @@
         "verb"
       ]
     },
-    "DiscernHelpResult": {
-      "title": "DiscernHelpResult",
+    "DiscernDocsResult": {
+      "title": "DiscernDocsResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -4830,7 +4830,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "help"
+          "const": "docs"
         },
         "data": {
           "anyOf": [
@@ -15231,8 +15231,8 @@
         "isError"
       ]
     },
-    "DiscernHelpMcpToolResult": {
-      "title": "DiscernHelpMcpToolResult",
+    "DiscernDocsMcpToolResult": {
+      "title": "DiscernDocsMcpToolResult",
       "type": "object",
       "properties": {
         "content": {
@@ -15254,7 +15254,7 @@
           }
         },
         "structuredContent": {
-          "$ref": "#/$defs/DiscernHelpResult"
+          "$ref": "#/$defs/DiscernDocsResult"
         },
         "isError": {
           "type": "boolean"
@@ -15797,7 +15797,7 @@
           "$ref": "#/$defs/DiscernMapResult"
         },
         {
-          "$ref": "#/$defs/DiscernHelpResult"
+          "$ref": "#/$defs/DiscernDocsResult"
         },
         {
           "$ref": "#/$defs/DiscernConfigResult"
@@ -15899,7 +15899,7 @@
           "licenses": "#/$defs/DiscernLicensesResult",
           "preset": "#/$defs/DiscernPresetResult",
           "map": "#/$defs/DiscernMapResult",
-          "help": "#/$defs/DiscernHelpResult",
+          "docs": "#/$defs/DiscernDocsResult",
           "config": "#/$defs/DiscernConfigResult",
           "done": "#/$defs/DiscernDoneResult",
           "prepare": "#/$defs/DiscernPrepareResult",
@@ -15942,7 +15942,7 @@
           "$ref": "#/$defs/DiscernMapMcpToolResult"
         },
         {
-          "$ref": "#/$defs/DiscernHelpMcpToolResult"
+          "$ref": "#/$defs/DiscernDocsMcpToolResult"
         },
         {
           "$ref": "#/$defs/DiscernDoneMcpToolResult"
@@ -16092,14 +16092,14 @@
       "mcpToolResultSchema": "#/$defs/DiscernMapMcpToolResult"
     },
     {
-      "id": "help",
-      "verb": "help",
+      "id": "docs",
+      "verb": "docs",
       "commands": [
-        "help"
+        "docs"
       ],
-      "mcpTool": "discern_help",
-      "schema": "#/$defs/DiscernHelpResult",
-      "mcpToolResultSchema": "#/$defs/DiscernHelpMcpToolResult"
+      "mcpTool": "discern_docs",
+      "schema": "#/$defs/DiscernDocsResult",
+      "mcpToolResultSchema": "#/$defs/DiscernDocsMcpToolResult"
     },
     {
       "id": "config",
@@ -16392,7 +16392,7 @@
     "invalid_settings_file",
     "invalid_toml",
     "invalid_value",
-    "no_help",
+    "no_docs",
     "no_map",
     "no_project",
     "no_repository",
