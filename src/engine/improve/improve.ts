@@ -20,7 +20,8 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type { ImprovementData } from "../../shared/result_schemas.ts";
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { failureRecoveryHintTexts } from "../../shared/hints.ts";
+import { failureRecoveryHintTexts, fire, HINTS } from "../../shared/hints.ts";
+import { addAdvisoryHints } from "../logbook/routing.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
 import type {
@@ -297,7 +298,7 @@ export async function improvementResult(
   }
   const { report, historicalFindings } = built;
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;
-  return {
+  const result: DiscernResult<ImprovementData> = {
     ok: !belowMin,
     verb: "improvement",
     data: reportData(report, historicalFindings),
@@ -310,6 +311,11 @@ export async function improvementResult(
       }
       : {}),
   };
+  const config = await loadConfig(root);
+  if (!config.project.logbook) {
+    addAdvisoryHints(result, [fire(HINTS["improvement-logbook-off"])]);
+  }
+  return result;
 }
 
 // ── human rendering ─────────────────────────────────────────────────────────
@@ -607,6 +613,12 @@ export async function runImprovement(
     }
   }
   renderHistory(out, historicalFindings);
+  if (!config.project.logbook) {
+    const c = out.c;
+    out.raw(
+      `  ${c.dim}${fire(HINTS["improvement-logbook-off"]).text}${c.reset}\n`,
+    );
+  }
   renderFooter(out, report, filtered);
 
   const belowMin = opts.minScore !== undefined && report.score < opts.minScore;

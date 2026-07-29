@@ -6,7 +6,7 @@
  * cap, the logbook toggle, and setup suppression.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -393,5 +393,28 @@ Deno.test("status does not correct an owner for interactive refusal history", as
       observed: MAIN_SESSION_OBSERVED,
       next: SESSION_NEXT,
     });
+  });
+});
+
+Deno.test("improvement names its missing history while recording is off, and only then", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, gateConfig("true", false));
+    await gitInit(dir);
+
+    const offRun = await runAgent(dir, ["improvement", "--json"]);
+    assertEquals(offRun.code, 0, offRun.output);
+    const expected = assertHasHint(
+      parse(offRun.stdout),
+      HINTS["improvement-logbook-off"],
+    );
+    const human = await runAgent(dir, ["improvement"]);
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, expected);
+
+    await writeConfig(dir, gateConfig("true", true));
+    const onRun = await runAgent(dir, ["improvement", "--json"]);
+    assertEquals(onRun.code, 0, onRun.output);
+    assertLacksHint(parse(onRun.stdout), HINTS["improvement-logbook-off"]);
   });
 });
