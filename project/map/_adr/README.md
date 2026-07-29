@@ -216,6 +216,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0220 — Self-supplied commands count for nothing in setup assurance](0220-self-supplied-commands-count-for-nothing-in-assurance.md)
 - [0221 — Depth-indent discern.toml as the canonical tidy convention](0221-depth-indent-discern-toml.md)
 - [0222 — The frozen contract surface completes the vocabulary canon before the first tag](0222-frozen-contracts-complete-the-canon.md)
+- [0223 — Conversation consent survives an unreadable committed landing policy](0223-conversation-consent-survives-an-unreadable-landing-policy.md)
 
 <!-- END GENERATED: current ADR records -->
 
