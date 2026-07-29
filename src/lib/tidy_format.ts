@@ -17,7 +17,11 @@ export const MARKDOWN_CONFIG = {
   textWrap: "never",
 } as const;
 
-export const TOML_CONFIG = {} as const;
+/** `#:schema <url>` at byte zero is a schema directive TOML editors read
+ * verbatim; forcing a space after `#` (the plugin default) corrupts it into an
+ * ordinary comment. The option stops forcing the space without stripping it
+ * from comments that already carry one, so existing files stay stable. */
+export const TOML_CONFIG = { "comment.forceLeadingSpace": false } as const;
 
 /** A Markdown formatter refusal: the file's frontmatter does not parse, or
  * formatting would have altered the block. */

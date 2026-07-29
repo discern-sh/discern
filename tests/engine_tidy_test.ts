@@ -121,6 +121,26 @@ Deno.test("embedded formatters are deterministic and preserve fenced code and TO
   assertEquals(await formatTomlText("discern.toml", tomlOnce), tomlOnce);
 });
 
+Deno.test("TOML formatting preserves a #:schema directive at byte zero", async () => {
+  // `#:schema <url>` is a schema directive TOML editors read verbatim; a
+  // formatter that spaces it into `# :schema` turns real editor validation off
+  // for every file it writes. Ordinary comments keep their conventional form.
+  const withDirective = [
+    "#:schema https://example.invalid/config.schema.json",
+    "# an ordinary comment",
+    "[project]",
+    'slug = "example"',
+    "",
+  ].join("\n");
+  const formatted = await formatTomlText("discern.toml", withDirective);
+  assertEquals(
+    formatted.split("\n", 1)[0],
+    "#:schema https://example.invalid/config.schema.json",
+  );
+  assertStringIncludes(formatted, "\n# an ordinary comment\n");
+  assertEquals(await formatTomlText("discern.toml", formatted), formatted);
+});
+
 Deno.test("fresh setup writes tidy TOML without breaking ruled-banner regions", async () => {
   await withTempDir(async (root) => {
     await scaffoldEngine(root, { bootstrapped: false });
