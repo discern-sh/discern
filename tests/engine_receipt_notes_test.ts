@@ -39,13 +39,13 @@ function receiptConfig(mode: "local" | "fetch"): string {
   return [
     "[project]",
     'slug = "engine-test"',
+    "agents = []",
     "",
     "[repository]",
     'trunk = "main"',
     `receipt_notes = "${mode}"`,
     "",
     "[guidance]",
-    "agents = []",
     "sources = []",
     "",
   ].join("\n");

@@ -15,8 +15,6 @@ async function renderedTemplate(): Promise<string> {
   const config = parseConfigOrThrow([
     "[project]",
     'slug = "demo"',
-    "",
-    "[guidance]",
     'agents = ["claude_code", "codex"]',
   ].join("\n"));
   return renderConfigTemplateForConfig(template, config);

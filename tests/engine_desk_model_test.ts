@@ -314,9 +314,8 @@ Deno.test("buildDeskRows: a path absent from the receipt map is never treated as
 
 Deno.test("buildAgentLaunches: configured order wins and detected-only agents stay hidden", () => {
   const config = configSchema.parse({
-    project: { slug: "demo" },
+    project: { slug: "demo", agents: ["gemini", "claude_code", "codex"] },
     repository: { trunk: "main" },
-    guidance: { agents: ["gemini", "claude_code", "codex"] },
   });
   const detected = [
     { name: "claude_code", binary: "claude" },
@@ -343,9 +342,8 @@ Deno.test("buildAgentLaunches: configured order wins and detected-only agents st
 
 Deno.test("buildAgentLaunches: an explicitly empty agent set stays empty", () => {
   const config = configSchema.parse({
-    project: { slug: "demo" },
+    project: { slug: "demo", agents: [] },
     repository: { trunk: "main" },
-    guidance: { agents: [] },
   });
   assertEquals(
     buildAgentLaunches(config, [{ name: "codex", binary: "codex" }]),

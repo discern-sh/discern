@@ -35,7 +35,7 @@ import { withTempDir } from "./helpers.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 const ALL_AGENT_CONFIG: DiscernConfig = parseConfigOrThrow(`
-[guidance]
+[project]
 agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 `);
 

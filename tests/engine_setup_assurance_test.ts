@@ -213,8 +213,6 @@ Deno.test("assessSetupAssurance attaches a deferred capability's reason from the
 const MIXED_CONFIG = [
   "[project]",
   'slug = "assurance-test"',
-  "",
-  "[guidance]",
   'agents = ["claude_code"]',
   "",
   "[jobs]",

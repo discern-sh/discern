@@ -107,6 +107,7 @@ function rule(category: CategoryJson, id: string): RuleJson {
 const STRONG_CONFIG = `
 [project]
 slug = "strong-demo"
+agents = ["claude_code"]
 gotchas_doc = "docs/80-development/done-gate-gotchas.md"
 
 [meta]
@@ -126,7 +127,6 @@ limit = 1
 run = "echo DISCERN_METRIC coverage 1"
 
 [guidance]
-agents = ["claude_code"]
 sources = ["guidance.md"]
 
 [map]

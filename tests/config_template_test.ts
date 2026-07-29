@@ -76,12 +76,18 @@ Deno.test("extracts a ruled-doc section (skills) with its doc block, header, and
   assertStringIncludes(block, "─\n\n[skills]");
 });
 
-Deno.test("extracts [guidance] including its {{agents_array}} token (for the caller to fill)", async () => {
+Deno.test("extracts [project] including its {{agents_array}} token (for the caller to fill)", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "project");
+  assertExists(block);
+  assertStringIncludes(block, "[project]");
+  assertStringIncludes(block, "agents = [{{agents_array}}]");
+});
+
+Deno.test("extracts [guidance] with its seeded sources", async () => {
   const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
   assertExists(block);
   assertStringIncludes(block, "[guidance]");
   assertStringIncludes(block, 'sources = ["discern/guidance.md"]');
-  assertStringIncludes(block, "agents = [{{agents_array}}]");
 });
 
 Deno.test("the seed scope comments keep guidance outside the docs grant example", async () => {
@@ -153,8 +159,8 @@ Deno.test("extracts a documented key block and section key order", async () => {
   assertStringIncludes(block, "fail_fast = true");
 });
 
-Deno.test("[guidance] template comment names every known agent and guidance target", async () => {
-  const block = sectionBlockFromTemplate(await realTemplate(), "guidance");
+Deno.test("the agents template comment names every known agent and guidance target", async () => {
+  const block = sectionBlockFromTemplate(await realTemplate(), "project");
   assertExists(block);
   const comment = block.split("\n")
     .filter((line) => line.trimStart().startsWith("#"))

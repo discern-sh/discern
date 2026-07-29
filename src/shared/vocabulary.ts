@@ -59,10 +59,9 @@ export interface DeadConfigPosition {
  *
  * The table starts EMPTY, like the migration registry: dead-position guidance
  * exists to steer installs off keys they actually hold, and the first public
- * release ships no layout any install could hold a dead key from. The
- * prerelease rows pointed at migrations that no longer exist; a key nobody
- * could have written needs no epitaph — strict unknown-key rejection is the
- * whole contract. The mechanism stays armed for the first post-release
+ * release ships no layout any install could hold a dead key from. A key
+ * nobody can have written needs no epitaph — strict unknown-key rejection is
+ * the whole contract. The mechanism stays armed for the first post-release
  * retirement.
  */
 export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [];

@@ -610,9 +610,8 @@ Deno.test("desk offers only configured agents detected on PATH and launches argv
     effort,
   ]);
   const worktreeConfig = configSchema.parse({
-    project: { slug: "demo" },
+    project: { slug: "demo", agents: ["claude_code", "codex"] },
     repository: { trunk: "main" },
-    guidance: { agents: ["claude_code", "codex"] },
   });
   const choices = [
     effort.path,
