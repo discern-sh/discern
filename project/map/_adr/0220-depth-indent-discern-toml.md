@@ -4,9 +4,9 @@
 
 ## Context
 
-`discern.toml` is a project's entire discern footprint: one long, comment-dense file, dozens of sections, several dotted levels deep. The embedded TOML formatter stored every line flush-left, which is the TOML ecosystem's norm — and unreadable at this length. With every header and entry at column 0, the eye cannot tell which entries belong to which table or where one family ends and the next begins; the hierarchy exists only in the dotted names.
+`discern.toml` is a project's entire discern footprint: one long, comment-dense file, dozens of sections, several dotted levels deep. The embedded TOML formatter stored every line flush-left — the TOML ecosystem's norm, and unreadable at this length: nothing shows which entries belong to which table, so the hierarchy exists only in the dotted names.
 
-TOML itself permits leading whitespace before headers and key-value pairs and gives it no meaning, so indentation is available as a purely visual channel. The embedded dprint TOML plugin has no table-indentation option, and the file is rewritten programmatically (`standards --pin`, `config`, migrations, skill ejection), so a hand-maintained layout would not survive.
+TOML permits leading whitespace and gives it no meaning, so indentation is a free visual channel. The embedded plugin has no table-indentation option, and the file is rewritten programmatically (`standards --pin`, `config`, migrations), so a hand-maintained layout would not survive.
 
 ## Decision
 
@@ -25,4 +25,3 @@ Explicitly not done: no indentation of any other TOML file. Foreign co-managed f
 - Every existing install's `discern.toml` reformats once — a whitespace-only diff — on its next tidy or gate run.
 - The indentation is visual only. TOML nesting still comes from dotted names, and an indent can in principle disagree with the name it decorates; the formatter recomputes every indent from the names on each write, so a misleading layout cannot persist.
 - Comments attach to the _next_ structural line. A commented-out example section trailing a family therefore sits at the following section's level, not the family's — accepted as the cost of a rule with no semantic guesses.
-- Any future line-anchored scanner over config text must tolerate leading whitespace; the engine suite's indented scaffolds make a violation fail loudly rather than silently misread.
