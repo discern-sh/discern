@@ -5,8 +5,10 @@
  * and the comment-preserving editor can use the same ownership boundaries.
  */
 
-/** Matches the opening/closing line of a `# ───` ruled documentation block. */
-const RULE_RE = /^#\s*─/;
+/** Matches the opening/closing line of a `# ───` ruled documentation block.
+ * Indentation-tolerant: the depth-indented config places a banner level with
+ * the section it documents. */
+const RULE_RE = /^\s*#\s*─/;
 
 /** Matches a comment whose first content is a bracketed config path. */
 const BANNER_IDENTITY_RE = /^\s*#\s*\[([^\]]+)\]/;
