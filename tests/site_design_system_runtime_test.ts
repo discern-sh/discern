@@ -370,6 +370,11 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   // The masthead, calls to action, logo cloud, and footer use their
   // design-system contracts rather than page-owned approximations.
   assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
+  assert(
+    body.querySelector(
+      ".landing-masthead .discern-theme-toggle--quiet",
+    ) !== null,
+  );
   assertEquals(body.querySelectorAll(".landing-brand-name").length, 2);
   const actionCluster = body.querySelector(
     ".discern-article-header__actions > .discern-cluster",
@@ -505,6 +510,12 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     landingCss,
     "grid-template-columns: repeat(3, minmax(0, 1fr))",
   );
+  const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
+  assertStringIncludes(
+    mastheadRule,
+    "width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));",
+  );
+  assertEquals(mastheadRule.includes("max-inline-size"), false);
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");

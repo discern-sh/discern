@@ -7,9 +7,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--discern-space-4);
-  max-inline-size: var(--discern-page-max);
+  width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));
   margin-inline: auto;
-  padding: var(--discern-space-4) var(--discern-space-6);
+  padding-block: var(--discern-space-4);
 }
 
 .landing-masthead__brand {
