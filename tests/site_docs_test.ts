@@ -334,49 +334,68 @@ Deno.test("the manual cover and colophon expose current, agent-friendly metadata
   }
 });
 
-Deno.test("nested contents headings are unnumbered and do not advance sections", async () => {
+Deno.test("every nested contents heading is unnumbered and does not advance sections", async () => {
   const site = await loadDocsSite();
-  const page = site.pages.find((candidate) =>
-    candidate.entry.slug === "mcp-and-results"
-  );
-  if (page === undefined) throw new Error("MCP docs fixture is missing");
-  const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
-  const document = dom.window.document;
-  const items = [...document.querySelectorAll<HTMLLIElement>(".docs-toc li")];
-  const topLevel = items.filter((item) =>
-    !item.classList.contains("discern-table-of-contents__item--nested")
-  );
-  const nested = items.filter((item) =>
-    item.classList.contains("discern-table-of-contents__item--nested")
-  );
+  let pagesWithNestedHeadings = 0;
 
-  assertEquals(
-    topLevel.map((item) =>
-      item.querySelector(":scope > a")?.getAttribute("href")
-    ),
-    [...document.querySelectorAll(".docs-article h2[id]")].map((heading) =>
-      `#${heading.id}`
-    ),
+  for (const page of site.pages) {
+    const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
+    const document = dom.window.document;
+    const article = document.querySelector<HTMLElement>("article.doc-body");
+    assert(article !== null, `${page.route}: missing docs article`);
+    const items = [
+      ...document.querySelectorAll<HTMLLIElement>(".docs-toc li"),
+    ];
+    const topLevel = items.filter((item) =>
+      !item.classList.contains("discern-table-of-contents__item--nested")
+    );
+    const nested = items.filter((item) =>
+      item.classList.contains("discern-table-of-contents__item--nested")
+    );
+    const authoredHeadings = [
+      ...article.querySelectorAll<HTMLElement>("h2[id], h3[id]"),
+    ].filter((heading) => heading.closest(".docs-section-index") === null);
+    const topLevelHeadings = authoredHeadings.filter((heading) =>
+      heading.tagName === "H2"
+    );
+    const nestedHeadings = authoredHeadings.filter((heading) =>
+      heading.tagName === "H3"
+    );
+    if (nestedHeadings.length > 0) pagesWithNestedHeadings++;
+
+    assertEquals(
+      topLevel.map((item) =>
+        item.querySelector(":scope > a")?.getAttribute("href")
+      ),
+      topLevelHeadings.map((heading) => `#${heading.id}`),
+      page.route,
+    );
+    assertEquals(
+      topLevel.map((item) =>
+        item.querySelector(":scope > a > span")?.textContent
+      ),
+      topLevel.map((_, index) => String(index + 1).padStart(2, "0")),
+      page.route,
+    );
+    assertEquals(
+      nested.map((item) =>
+        item.querySelector(":scope > a")?.getAttribute("href")
+      ),
+      nestedHeadings.map((heading) => `#${heading.id}`),
+      page.route,
+    );
+    assertEquals(
+      nested.every((item) => item.querySelector(":scope > a > span") === null),
+      true,
+      page.route,
+    );
+    dom.window.close();
+  }
+
+  assert(
+    pagesWithNestedHeadings > 0,
+    "the nested-heading guard needs at least one published example",
   );
-  assertEquals(
-    topLevel.map((item) =>
-      item.querySelector(":scope > a > span")?.textContent
-    ),
-    topLevel.map((_, index) => String(index + 1).padStart(2, "0")),
-  );
-  assertEquals(
-    nested.map((item) =>
-      item.querySelector(":scope > a")?.getAttribute("href")
-    ),
-    [...document.querySelectorAll(".docs-article h3[id]")].map((heading) =>
-      `#${heading.id}`
-    ),
-  );
-  assertEquals(
-    nested.every((item) => item.querySelector(":scope > a > span") === null),
-    true,
-  );
-  dom.window.close();
 });
 
 Deno.test("the shared CLI/MCP help core and site model have exact guidance parity", async () => {
