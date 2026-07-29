@@ -562,26 +562,29 @@ Deno.test("the redirect fires on still-gated work verbs but not on plumbing or p
   });
 });
 
-Deno.test("docs is gated pre-setup but help is not", async () => {
+Deno.test("map is gated pre-setup but docs and help are not", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
 
-    // `docs` now redirects: there is no project doc tree to browse until setup
-    // seeds and fills it.
-    const docs = await runAgent(dir, ["map", "--json"]);
-    assertEquals(docs.code, 1, docs.output);
-    assertEquals(JSON.parse(docs.stdout).error, "not_set_up");
+    // There is no project map to browse until setup seeds and fills it.
+    const map = await runAgent(dir, ["map", "--json"]);
+    assertEquals(map.code, 1, map.output);
+    assertEquals(JSON.parse(map.stdout).error, "not_set_up");
 
-    // `help` (discern's own documentation) stays open — it is exactly what you
-    // consult at this point. It serves discern's bundled docs, not the project's.
-    const help = await runAgent(dir, ["help", "--list"]);
+    // `docs` stays open because it serves discern's bundled manual, not the
+    // project's map.
+    const docs = await runAgent(dir, ["docs", "--list"]);
+    assertEquals(docs.code, 0, docs.output);
+    assert(!docs.stderr.includes("isn't set up yet"));
+    assertStringIncludes(docs.stdout, "discern docs");
+
+    const help = await runAgent(dir, ["help"]);
     assertEquals(help.code, 0, help.output);
-    assert(!help.stderr.includes("isn't set up yet"));
-    assertStringIncludes(help.stdout, "discern help");
+    assertStringIncludes(help.stdout, "Commands:");
   });
 });
 
-Deno.test("the docs redirect is a structured not_set_up result under --json", async () => {
+Deno.test("the map gate is a structured not_set_up result under --json", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false });
     const r = await runAgent(dir, ["map", "--json"]);

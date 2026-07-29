@@ -9,7 +9,7 @@ aliases:
 
 # The discern documentation
 
-_The manual for discern: the same pages on discern.sh, in `discern help`, and in your coding agent's MCP tools._
+_discern's manual, shared by discern.sh, `discern docs`, and agent tools._
 
 discern gives a repository one quality gate, an isolated worktree per change, and one set of instructions every coding agent reads. New here? Start with [orientation](00-orientation/) for the concepts in plain English, then the [quickstart](10-getting-started/quickstart.md) to go from install to your first gated change.
 
@@ -32,7 +32,7 @@ Contributors can go deeper in [engine internals](50-engine-internals/), [develop
 
 ## Browsing from the terminal
 
-`discern help` serves these pages: bare for the index, with a page name for one page, and with `--list`, `--json`, or `--raw` for scripts. `discern map` browses the agent-maintained documentation for your project. This manual stays under `discern help` ([ADR 0120](_adr/0120-launch-verb-canon.md)).
+`discern docs [target]` browses this manual. `--list`, `--json`, and `--raw` support scripts. `discern map` browses your project's map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
 
 ## How agents maintain the manual
 

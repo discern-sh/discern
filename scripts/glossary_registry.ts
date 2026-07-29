@@ -404,7 +404,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
 
 /**
  * Closed-set members deliberately NOT in the glossary, each with the reason.
- * Keys are namespaced `<set>:<member>` — `verb:help`, `job:lint` — so
+ * Keys are namespaced `<set>:<member>` — `verb:docs`, `job:lint` — so
  * same-named members of different sets stay distinct.
  *
  * The enrolment guard (tests/glossary_enrolment_test.ts) holds every
@@ -418,8 +418,10 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
     "blocks until a sibling branch is green, its work has landed, or the trunk has moved; a read-only coordination verb the CLI reference and the worktree docs document, not a term of art",
   "verb:doctor":
     "checks an installation without changing it; the Installer entry carries the subsystem and the CLI reference documents the verb",
+  "verb:docs":
+    "browses discern's bundled manual; a utility verb with no concept behind it — the CLI reference documents it",
   "verb:help":
-    "prints the manual; a utility verb with no concept behind it — the CLI reference documents it",
+    "prints CLI reference information; a utility verb with no concept behind it — the CLI reference documents it",
   "verb:identity":
     "reads a worktree's provisioned values from inside it; a verb the CLI reference and built-in guidance document, not a term of art",
   "verb:impact":

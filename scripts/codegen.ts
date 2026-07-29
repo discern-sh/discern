@@ -176,7 +176,7 @@ await write(
 console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );
-await write("schema/discern-results.schema.json", renderResultJsonSchema());
+await write("schema/v2/discern-results.schema.json", renderResultJsonSchema());
 await write("types/discern-json.d.ts", renderResultTypesDts());
 console.log(
   "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",

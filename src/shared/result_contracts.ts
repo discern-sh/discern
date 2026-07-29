@@ -17,9 +17,9 @@ import {
   CouplingOutputSchema,
   DeskOutputSchema,
   DiscernOutputSchema,
+  DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
-  HelpOutputSchema,
   IdentityOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
@@ -185,11 +185,11 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     mcpTool: "discern_map",
   },
   {
-    id: "help",
-    commands: ["help"],
-    verb: "help",
-    schema: HelpOutputSchema,
-    mcpTool: "discern_help",
+    id: "docs",
+    commands: ["docs"],
+    verb: "docs",
+    schema: DocsOutputSchema,
+    mcpTool: "discern_docs",
   },
   {
     id: "config",
@@ -432,6 +432,11 @@ export interface CliJsonContractExclusion {
  * than the one-result CLI boundary.
  */
 export const CLI_JSON_CONTRACT_EXCLUSIONS = [
+  {
+    command: "help",
+    reason:
+      "human-readable CLI reference; it mirrors the framework's --help output",
+  },
   {
     command: "mcp",
     reason:

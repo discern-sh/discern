@@ -1,8 +1,8 @@
 /**
- * Tests for `discern help` — the surface that ships discern's OWN documentation
+ * Tests for `discern docs` — the surface that ships discern's OWN documentation
  * to every install. It shares the docs core (`src/commands/docs.ts`), so these
  * focus on what is genuinely different: it serves the BUNDLED tree (never the
- * project's `docs/`), it is always available (even with the `docs` feature off),
+ * project's `docs/`), it is available before project setup,
  * and it surfaces only the public subtrees. The command is driven end-to-end via
  * the CLI subprocess (piped stdio — the non-interactive agent/script path), with
  * `DISCERN_DOCS_DIR` pointing the bundled-docs resolver at a controlled fixture.
@@ -22,18 +22,18 @@ import { stageBundledDocs } from "../scripts/build.ts";
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
 
 /**
- * Lay a project that has BOTH its own `docs/` (a decoy `help` must never show)
+ * Lay a project that has BOTH its own `docs/` (a decoy `docs` must never show)
  * and a separate "bundled" docs fixture, including internal `_`-prefixed subtrees
- * that `help` must exclude. Returns the fixture path to pass as `DISCERN_DOCS_DIR`.
+ * that `docs` must exclude. Returns the fixture path to pass as `DISCERN_DOCS_DIR`.
  */
-async function makeHelpFixture(
+async function makeDocsFixture(
   dir: string,
   config =
     '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n',
 ): Promise<string> {
   await seedConfig(dir, config);
 
-  // The project's OWN docs/ — present so a passing test proves `help` ignores it.
+  // The project's OWN docs/ — present so a passing test proves `docs` ignores it.
   await Deno.mkdir(join(dir, "docs"), { recursive: true });
   await Deno.writeTextFile(
     join(dir, "docs/decoy.md"),
@@ -42,7 +42,7 @@ async function makeHelpFixture(
 
   // discern's bundled docs fixture (a differently-named tree the resolver points
   // at via DISCERN_DOCS_DIR), carrying internal subtrees curation must drop.
-  const help = join(dir, "helpdocs");
+  const docs = join(dir, "manual-fixture");
   const files: Record<string, string> = {
     "README.md": "# discern documentation\n\nWelcome.\n",
     "00-orientation/README.md": "# Intro\n",
@@ -60,63 +60,63 @@ async function makeHelpFixture(
     "_private/positioning.md": "# Positioning\n",
   };
   for (const [rel, content] of Object.entries(files)) {
-    await Deno.mkdir(join(help, rel, ".."), { recursive: true });
-    await Deno.writeTextFile(join(help, rel), content);
+    await Deno.mkdir(join(docs, rel, ".."), { recursive: true });
+    await Deno.writeTextFile(join(docs, rel), content);
   }
-  return help;
+  return docs;
 }
 
-Deno.test("help serves the bundled tree, never the project's own docs/", async () => {
+Deno.test("docs serves the bundled tree, never the project's own docs/", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const manualDir = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "--json"],
+      ["docs", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: manualDir },
     );
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.verb, "help");
+    assertEquals(res.verb, "docs");
     assertEquals(res.data.map_dir, undefined);
     // Exactly the 4 PUBLISHED docs of the fixture — not the project's decoy,
-    // and not the publish: false draft (help honours isPublicDoc).
+    // and not the publish: false draft (docs honours isPublicDoc).
     assertEquals(res.data.count, 4);
     assert(res.data.docs.some((d: { slug: string }) => d.slug === "concepts"));
     assert(
       !res.data.docs.some((d: { slug: string }) => d.slug === "hidden"),
-      "help must withhold publish: false docs",
+      "docs must withhold publish: false docs",
     );
     assert(
       !res.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
-      "help must not surface the project's own docs/",
+      "docs must not surface the project's own docs/",
     );
     assert(
       !res.data.docs.some((d: { path: string }) =>
         d.path.includes("50-engine-internals") ||
         d.path.includes("55-observability")
       ),
-      "help must not surface numbered contributor sections",
+      "docs must not surface numbered contributor sections",
     );
 
-    // Contrast: `docs` (same cwd) DOES serve the project tree — they diverge.
-    const docs = await runCli(["map", "--json"], dir);
-    const dres = JSON.parse(docs.stdout);
+    // Contrast: `map` (same cwd) DOES serve the project tree — they diverge.
+    const map = await runCli(["map", "--json"], dir);
+    const dres = JSON.parse(map.stdout);
     assert(
       dres.data.docs.some((d: { slug: string }) => d.slug === "decoy"),
-      "docs must serve the project's own docs/",
+      "map must serve the project's own docs/",
     );
     assertEquals(dres.verb, "map");
   });
 });
 
-Deno.test("help search returns public manual targets and supports region scope", async () => {
+Deno.test("docs search returns public manual targets and supports region scope", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
-    const env = { DISCERN_DOCS_DIR: help };
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
     const found = await runCli(
       [
-        "help",
+        "docs",
         "--search",
         "concepts body",
         "--json",
@@ -131,7 +131,7 @@ Deno.test("help search returns public manual targets and supports region scope",
 
     const scoped = await runCli(
       [
-        "help",
+        "docs",
         "00-orientation",
         "--search",
         "concepts body",
@@ -145,7 +145,7 @@ Deno.test("help search returns public manual targets and supports region scope",
 
     const withheld = await runCli(
       [
-        "help",
+        "docs",
         "--search",
         "withheld",
         "--json",
@@ -158,18 +158,18 @@ Deno.test("help search returns public manual targets and supports region scope",
   });
 });
 
-Deno.test("help <slug> --json strips inline citations, keeps them as fields", async () => {
+Deno.test("docs <slug> --json strips inline citations, keeps them as fields", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "concepts", "--json"],
+      ["docs", "concepts", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, true);
-    assertEquals(res.verb, "help");
+    assertEquals(res.verb, "docs");
     assertEquals(res.data.doc.slug, "concepts");
     assertEquals(res.data.doc.target, "00-orientation/concepts");
     // Human-facing product docs: the inline citation group is stripped from
@@ -185,13 +185,13 @@ Deno.test("help <slug> --json strips inline citations, keeps them as fields", as
   });
 });
 
-Deno.test("help terminal render strips inline citations into a related-decisions footer", async () => {
+Deno.test("docs terminal render strips inline citations into a related-decisions footer", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const rendered = await runCli(
-      ["help", "concepts", "--plain", "--no-pager", "--no-color"],
+      ["docs", "concepts", "--plain", "--no-pager", "--no-color"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(rendered.code, 0);
     assert(!rendered.stdout.includes("[ADR 0001]"));
@@ -207,13 +207,13 @@ Deno.test("help terminal render strips inline citations into a related-decisions
   });
 });
 
-Deno.test("help <slug> --raw prints the pristine source, citations included", async () => {
+Deno.test("docs <slug> --raw prints the pristine source, citations included", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "concepts", "--raw"],
+      ["docs", "concepts", "--raw"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
     assertEquals(
@@ -224,32 +224,32 @@ Deno.test("help <slug> --raw prints the pristine source, citations included", as
   });
 });
 
-Deno.test("a publish: false doc is unreachable through every help surface", async () => {
+Deno.test("a publish: false doc is unreachable through every docs surface", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
 
     // Not resolvable as a target...
     const target = await runCli(
-      ["help", "hidden", "--json"],
+      ["docs", "hidden", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(target.code, 1);
     assertEquals(JSON.parse(target.stdout).error, "not_found");
 
     // ...absent from the TOC...
     const list = await runCli(
-      ["help", "--list"],
+      ["docs", "--list"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assert(!list.stdout.includes("Hidden draft"));
 
     // ...and absent from an export.
     const exported = await runCli(
-      ["help", "--export", "public"],
+      ["docs", "--export", "public"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(exported.code, 0);
     assert(!exported.stdout.includes("hidden.md"));
@@ -257,9 +257,9 @@ Deno.test("a publish: false doc is unreachable through every help surface", asyn
   });
 });
 
-Deno.test("numbered contributor sections are unreachable through every help surface", async () => {
+Deno.test("numbered contributor sections are unreachable through every docs surface", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
 
     for (
       const target of [
@@ -268,26 +268,26 @@ Deno.test("numbered contributor sections are unreachable through every help surf
       ]
     ) {
       const result = await runCli(
-        ["help", target, "--json"],
+        ["docs", target, "--json"],
         dir,
-        { DISCERN_DOCS_DIR: help },
+        { DISCERN_DOCS_DIR: docs },
       );
       assertEquals(result.code, 1, target);
       assertEquals(JSON.parse(result.stdout).error, "not_found", target);
     }
 
     const list = await runCli(
-      ["help", "--list"],
+      ["docs", "--list"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assert(!list.stdout.includes("Engine internals"));
     assert(!list.stdout.includes("Instrumentation laboratory"));
 
     const exported = await runCli(
-      ["help", "--export", "public"],
+      ["docs", "--export", "public"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(exported.code, 0);
     assert(!exported.stdout.includes("Contributor-only."));
@@ -295,68 +295,68 @@ Deno.test("numbered contributor sections are unreachable through every help surf
   });
 });
 
-Deno.test("help --list prints a grouped TOC titled `discern help`", async () => {
+Deno.test("docs --list prints a grouped TOC titled `discern docs`", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "--list"],
+      ["docs", "--list"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
-    assertStringIncludes(stdout, "discern help");
+    assertStringIncludes(stdout, "discern docs");
     assertStringIncludes(stdout, "00-orientation/");
     assertStringIncludes(stdout, "Concepts at a glance");
   });
 });
 
-Deno.test("help <unknown> --json reports not_found, exit 1", async () => {
+Deno.test("docs <unknown> --json reports not_found, exit 1", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "nonesuch", "--json"],
+      ["docs", "nonesuch", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "help");
+    assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_found");
     assertStringIncludes(res.message, "nonesuch");
   });
 });
 
-Deno.test("help <near miss> --json suggests valid doc targets", async () => {
+Deno.test("docs <near miss> --json suggests valid doc targets", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout } = await runCli(
-      ["help", "concept", "--json"],
+      ["docs", "concept", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "help");
+    assertEquals(res.verb, "docs");
     assertEquals(res.error, "not_found");
     assertStringIncludes(res.message, "Closest match");
     assertEquals(res.data.suggestions[0].slug, "concepts");
     assertEquals(
       res.data.suggestions[0].path,
-      "helpdocs/00-orientation/concepts.md",
+      "manual-fixture/00-orientation/concepts.md",
     );
   });
 });
 
-Deno.test("help <ambiguous> --json reports ambiguous with candidates", async () => {
+Deno.test("docs <ambiguous> --json reports ambiguous with candidates", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     // README exists at the root and under 00-orientation/ → a bare "README" is ambiguous.
     const { code, stdout } = await runCli(
-      ["help", "README", "--json"],
+      ["docs", "README", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
@@ -365,54 +365,54 @@ Deno.test("help <ambiguous> --json reports ambiguous with candidates", async () 
   });
 });
 
-Deno.test("help excludes internal _adr/_internal/_private from every view", async () => {
+Deno.test("docs excludes internal _adr/_internal/_private from every view", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
 
     const index = await runCli(
-      ["help", "--json"],
+      ["docs", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     const res = JSON.parse(index.stdout);
     for (const buried of ["_adr", "_internal", "_private"]) {
       assert(
         res.data.docs.every((d: { path: string }) => !d.path.includes(buried)),
-        `the help index must not contain ${buried}`,
+        `the docs index must not contain ${buried}`,
       );
     }
     // The marketing/internal bodies must not be reachable as targets either.
     const positioning = await runCli(
-      ["help", "positioning", "--json"],
+      ["docs", "positioning", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(positioning.code, 1);
     assertEquals(JSON.parse(positioning.stdout).error, "not_found");
 
     const list = await runCli(
-      ["help", "--list"],
+      ["docs", "--list"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     for (const buried of ["_adr", "_internal", "_private", "Positioning"]) {
       assert(
         !list.stdout.includes(buried),
-        `the help TOC must not list ${buried}`,
+        `the docs TOC must not list ${buried}`,
       );
     }
   });
 });
 
-Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_private", async () => {
+Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
 
     // --adr widens the index to include the ADR subtree...
     const { code, stdout } = await runCli(
-      ["help", "--adr", "--json"],
+      ["docs", "--adr", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
     const res = JSON.parse(stdout);
@@ -430,44 +430,44 @@ Deno.test("help --adr surfaces ONLY the ADR tree, never _internal/_private", asy
 
     // An ADR resolves as a target only with --adr; it is hidden by default.
     const withAdr = await runCli(
-      ["help", "--adr", "0001-first", "--json"],
+      ["docs", "--adr", "0001-first", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withAdr.code, 0);
     assertEquals(JSON.parse(withAdr.stdout).data.doc.slug, "0001-first");
 
     const withoutAdr = await runCli(
-      ["help", "0001-first", "--json"],
+      ["docs", "0001-first", "--json"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(withoutAdr.code, 1);
     assertEquals(JSON.parse(withoutAdr.stdout).error, "not_found");
   });
 });
 
-Deno.test("installed help --adr points to the public decision archive", async () => {
+Deno.test("installed docs --adr points to the public decision archive", async () => {
   await withTempDir(async (dir) => {
-    const source = await makeHelpFixture(dir);
-    const staged = join(dir, "staged-help");
+    const source = await makeDocsFixture(dir);
+    const staged = join(dir, "staged-docs");
     await stageBundledDocs(source, staged);
 
     const json = await runCli(
-      ["help", "--adr", "--json"],
+      ["docs", "--adr", "--json"],
       dir,
       { DISCERN_DOCS_DIR: staged },
     );
     assertEquals(json.code, 0);
     const result = JSON.parse(json.stdout);
     assertEquals(result.ok, true);
-    assertEquals(result.verb, "help");
+    assertEquals(result.verb, "docs");
     assertStringIncludes(result.message, "not bundled with installed binaries");
     assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
     assert(!result.message.includes("0001-first"));
 
     const human = await runCli(
-      ["help", "--adr"],
+      ["docs", "--adr"],
       dir,
       { DISCERN_DOCS_DIR: staged },
     );
@@ -476,30 +476,32 @@ Deno.test("installed help --adr points to the public decision archive", async ()
   });
 });
 
-Deno.test("help --adr cannot be combined with --export", async () => {
+Deno.test("docs --adr cannot be combined with --export", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stderr } = await runCli(
-      ["help", "--export", "public", "--adr"],
+      ["docs", "--export", "public", "--adr"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 1);
     assertStringIncludes(stderr, "--export cannot be combined with --adr");
   });
 });
 
-Deno.test("help --export public concatenates only the public docs", async () => {
+Deno.test("docs --export public concatenates only the public docs", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout, stderr } = await runCli(
-      ["help", "--export", "public"],
+      ["docs", "--export", "public"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
     assertEquals(stderr, "");
-    assert(stdout.startsWith("<!-- BEGIN SOURCE: helpdocs/README.md -->\n\n"));
+    assert(
+      stdout.startsWith("<!-- BEGIN SOURCE: manual-fixture/README.md -->\n\n"),
+    );
     assertStringIncludes(stdout, "Concepts at a glance");
     assert(!stdout.includes("Positioning"), "must not export _private");
     assert(!stdout.includes("Documenter brief"), "must not export _internal");
@@ -507,14 +509,14 @@ Deno.test("help --export public concatenates only the public docs", async () => 
   });
 });
 
-Deno.test("help rejects export scopes other than public", async () => {
+Deno.test("docs rejects export scopes other than public", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     for (const scope of ["all", "select", "private"]) {
       const { code, stderr } = await runCli(
-        ["help", "--export", scope],
+        ["docs", "--export", scope],
         dir,
-        { DISCERN_DOCS_DIR: help },
+        { DISCERN_DOCS_DIR: docs },
       );
       assertEquals(code, 1, scope);
       assertStringIncludes(stderr, "unknown export scope");
@@ -523,57 +525,57 @@ Deno.test("help rejects export scopes other than public", async () => {
   });
 });
 
-Deno.test("help --export public --output writes a bundle file", async () => {
+Deno.test("docs --export public --output writes a bundle file", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
+    const docs = await makeDocsFixture(dir);
     const { code, stdout, stderr } = await runCli(
-      ["help", "--export", "public", "--output", "help-bundle.md"],
+      ["docs", "--export", "public", "--output", "docs-bundle.md"],
       dir,
-      { DISCERN_DOCS_DIR: help },
+      { DISCERN_DOCS_DIR: docs },
     );
     assertEquals(code, 0);
     assertEquals(stdout, "");
-    assertStringIncludes(stderr, "Exported 4 documents to help-bundle.md");
-    const bundle = await readTarget(dir, "help-bundle.md");
+    assertStringIncludes(stderr, "Exported 4 documents to docs-bundle.md");
+    const bundle = await readTarget(dir, "docs-bundle.md");
     assertStringIncludes(bundle, "discern documentation");
     assert(!bundle.includes("Positioning"));
   });
 });
 
-Deno.test("help reports a build defect (no bundled tree) cleanly", async () => {
+Deno.test("docs reports a build defect (no bundled tree) cleanly", async () => {
   await withTempDir(async (dir) => {
     await seedConfig(dir, 'slug = "demo"\n');
     // Point the resolver at a path that does not exist: the override misses, the
-    // resolver returns undefined, and help must NOT fall back to the project's docs.
+    // resolver returns undefined, and docs must NOT fall back to the project's docs.
     const { code, stdout } = await runCli(
-      ["help", "--json"],
+      ["docs", "--json"],
       dir,
       { DISCERN_DOCS_DIR: join(dir, "does-not-exist") },
     );
     assertEquals(code, 1);
     const res = JSON.parse(stdout);
     assertEquals(res.ok, false);
-    assertEquals(res.verb, "help");
-    assertEquals(res.error, "no_help");
+    assertEquals(res.verb, "docs");
+    assertEquals(res.error, "no_docs");
   });
 });
 
-Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async () => {
+Deno.test("dogfood: docs serves THIS repo's own docs (config reference)", async () => {
   // No DISCERN_DOCS_DIR override: the resolver walks up from the module to this
   // repo's configured map, exactly as a checkout run does. Proves the real wiring, and
   // that the cwd's project resolution is bypassed.
   const single = await runCli(
-    ["help", "config-reference", "--json"],
+    ["docs", "config-reference", "--json"],
     REPO_ROOT,
   );
   assertEquals(single.code, 0);
   const sres = JSON.parse(single.stdout);
   assertEquals(sres.ok, true);
-  assertEquals(sres.verb, "help");
+  assertEquals(sres.verb, "docs");
   assertEquals(sres.data.doc.slug, "config-reference");
   assertStringIncludes(sres.data.doc.content, "config reference");
 
-  const index = await runCli(["help", "--json"], REPO_ROOT);
+  const index = await runCli(["docs", "--json"], REPO_ROOT);
   const ires = JSON.parse(index.stdout);
   assertEquals(ires.data.map_dir, undefined);
   assert(ires.data.count > 0);
@@ -586,7 +588,7 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
   );
 
   const decision = await runCli(
-    ["help", "--adr", "0141-adr-citations-strip-at-render", "--json"],
+    ["docs", "--adr", "0141-adr-citations-strip-at-render", "--json"],
     REPO_ROOT,
   );
   assertEquals(decision.code, 0);
@@ -595,7 +597,22 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
   assertEquals(dres.data.doc.slug, "0141-adr-citations-strip-at-render");
 });
 
-// ── `help <verb>` fallthrough ────────────────────────────────────────────────
+Deno.test("docs treats a command name as a manual target", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const result = await runCli(
+      ["docs", "done", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: docs },
+    );
+    assertEquals(result.code, 1);
+    const envelope = JSON.parse(result.stdout);
+    assertEquals(envelope.verb, "docs");
+    assertEquals(envelope.error, "not_found");
+  });
+});
+
+// ── CLI-reference parity ─────────────────────────────────────────────────────
 //
 // Git users type `git help push` and `git push --help` interchangeably, and git
 // forwards one to the other. `discern help <verb>` does the same: for every
@@ -603,10 +620,21 @@ Deno.test("dogfood: help serves THIS repo's own docs (config reference)", async 
 // `<verb> --help`. Driven off the verb registry, never a hand list, so a new
 // verb auto-enrols.
 
+Deno.test("bare help matches root --help", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+    const rootHelp = await runCli(["--help"], dir, env);
+    const commandHelp = await runCli(["help"], dir, env);
+    assertEquals(commandHelp.code, 0, commandHelp.stderr);
+    assertEquals(commandHelp.stdout, rootHelp.stdout);
+  });
+});
+
 Deno.test("help <verb> matches <verb> --help for every registered verb", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
-    const env = { DISCERN_DOCS_DIR: help };
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
     await Promise.all([...KNOWN_VERBS].map(async (verb) => {
       const direct = await runCli([verb, "--help"], dir, env);
       const fallthrough = await runCli(["help", verb], dir, env);
@@ -627,8 +655,8 @@ Deno.test("help <verb> matches <verb> --help for every registered verb", async (
 
 Deno.test("help <target> teaches for retired spellings and synonyms", async () => {
   await withTempDir(async (dir) => {
-    const help = await makeHelpFixture(dir);
-    const env = { DISCERN_DOCS_DIR: help };
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
     for (
       const [retired, successor] of Object.entries(RETIRED_COMMAND_REDIRECTS)
         .filter(([spelling]) => !spelling.includes(" "))

@@ -85,7 +85,7 @@ Deno.test("the compiled release smoke gates artifact upload", () => {
 });
 
 interface FakeOptions {
-  helpRoot?: boolean;
+  docsRoot?: boolean;
   scaffoldMap?: boolean;
   version?: string;
 }
@@ -96,7 +96,7 @@ async function writeFakeDiscern(
 ): Promise<string> {
   const binary = join(dir, "fake-discern");
   const version = options.version ?? "1.2.3";
-  const docs = options.helpRoot === false ? [] : [{ path: "docs/README.md" }];
+  const docs = options.docsRoot === false ? [] : [{ path: "docs/README.md" }];
   const scaffoldMap = options.scaffoldMap === false
     ? ""
     : `mkdir -p ${SOURCE_PATHS.map.defaultPath}; printf '# Map\\n' > ${SOURCE_PATHS.map.defaultPath}README.md`;
@@ -108,9 +108,9 @@ case "$1" in
   --version)
     printf '%s\\n' 'discern ${version}'
     ;;
-  help)
+  docs)
     printf '%s\\n' '${
-      JSON.stringify({ ok: true, verb: "help", data: { docs } })
+      JSON.stringify({ ok: true, verb: "docs", data: { docs } })
     }'
     ;;
   setup)
@@ -130,7 +130,7 @@ esac
   return binary;
 }
 
-Deno.test("release smoke proves version, bundled help, and bundled setup assets", async () => {
+Deno.test("release smoke proves version, bundled docs, and bundled setup assets", async () => {
   const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
   try {
     await smokeReleaseBinary(await writeFakeDiscern(dir), "1.2.3");
@@ -156,7 +156,7 @@ Deno.test("release smoke rejects an unrelated future binary with the wrong versi
 Deno.test("release smoke rejects a binary missing embedded docs or templates", async () => {
   const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
   try {
-    const noDocs = await writeFakeDiscern(dir, { helpRoot: false });
+    const noDocs = await writeFakeDiscern(dir, { docsRoot: false });
     await assertRejects(
       () => smokeReleaseBinary(noDocs, "1.2.3"),
       Error,

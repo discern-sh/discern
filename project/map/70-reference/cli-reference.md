@@ -15,6 +15,7 @@ aliases:
   - discern doctor
   - discern licenses
   - discern map
+  - discern docs
   - discern help
   - discern config
   - discern config set-job
@@ -634,11 +635,11 @@ Usage: `discern map [target] [options]`
 | `--export <scope>` | Concatenate Markdown: public, all, or select.                               |
 | `--output <path>`  | Write an export to a file instead of stdout.                                |
 
-### `discern help`
+### `discern docs`
 
 Browse and read discern's own documentation.
 
-Usage: `discern help [target] [options]`
+Usage: `discern docs [target] [options]`
 
 | Option             | Description                                                                        |
 | ------------------ | ---------------------------------------------------------------------------------- |
@@ -650,6 +651,12 @@ Usage: `discern help [target] [options]`
 | `--width <cols>`   | Wrap width for rendered output.                                                    |
 | `--export <scope>` | Concatenate Markdown to stdout: public.                                            |
 | `--output <path>`  | Write an export to a file instead of stdout.                                       |
+
+### `discern help`
+
+Show command-line help.
+
+Usage: `discern help [command] [options]`
 
 ### `discern licenses`
 

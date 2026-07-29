@@ -12,11 +12,11 @@ One row per set, in registry order; the sections below follow the same order and
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 30      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 31      | per member       | surface `verb`              |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 6       | —                | —                           |
-| [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `bundled-help`         |
+| [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
 | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                        | `src/shared/consent.ts#LANDING_AUTHORITY_KINDS`                                   | 2       | —                | node `consent-attestations` |
@@ -47,20 +47,20 @@ One row per set, in registry order; the sections below follow the same order and
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 29      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 38      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 122     | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 123     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 41      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
-| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 2       | —                | node `published-contracts`  |
+| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 3       | —                | node `published-contracts`  |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 62      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
-| [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-help`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 211     | —                | node `adr-discipline`       |
+| [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 212     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
-| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 26      | —                | node `forgiving-cli`        |
+| [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 25      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
@@ -172,10 +172,10 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
-| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| `schema/v2/discern-results.schema.json`          | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `schema/v2/discern-results.schema.json`          | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
+| `schema/v2/discern-results.schema.json`          | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `schema/v2/discern-results.schema.json`          | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 | `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
@@ -187,7 +187,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 30
+- Members: 31
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
@@ -231,7 +231,7 @@ The named, ordered buckets the top-level verbs render under — the grouping tab
 - Members: 6
 - Guards: `tests/engine_help_groups_test.ts`
 - Glossary: not enrolled — display grouping over the verb vocabulary; the glossary defines the verbs themselves
-- Feature canon: described by the `bundled-help` node
+- Feature canon: described by the `cli-help` node
 
 ## `consent-gated-verbs` — Consent-gated verbs
 
@@ -541,7 +541,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon page: pillars, nodes, and surface claims.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 122
+- Members: 123
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -554,7 +554,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
 - Members: 41
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
-- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
 - Feature canon: described by the `published-contracts` node
 
@@ -565,7 +565,7 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 - Source: `src/shared/result_contracts.ts` — `RESULT_CONTRACT_REFERENCE_FIELDS`
 - Members: 2
 - Guards: `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`
-- Artifacts: `schema/discern-results.schema.json`
+- Artifacts: `schema/v2/discern-results.schema.json`
 - Glossary: not enrolled — machine schema metadata fields, documented through the result contract reference
 - Feature canon: described by the `published-contracts` node
 
@@ -604,7 +604,7 @@ The true and false states every registered CLI predicate must preserve in bare a
 The versioned public schema URLs and the root generated artifacts served at them.
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
-- Members: 2
+- Members: 3
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
 - Artifacts: `project/map/70-reference/mcp-and-results.md`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
@@ -617,7 +617,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
 - Members: 62
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
-- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
@@ -628,7 +628,7 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
 - Source: `src/shared/result.ts` — `STEP_OUTCOMES`
 - Members: 4
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/gate_plan_test.ts`
-- Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
+- Artifacts: `schema/v2/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — wire-level states whose plain-language meanings are shown directly with each executed step
 - Feature canon: described by the `published-contracts` node
 
@@ -650,14 +650,14 @@ The source Markdown markers the browser manual projects through the design syste
 - Members: 5
 - Guards: `tests/site_workflow_test.ts`
 - Glossary: not enrolled — internal Markdown projection labels, not reader-facing product vocabulary
-- Feature canon: described by the `bundled-help` node
+- Feature canon: described by the `bundled-docs` node
 
 ## `adrs` — Architecture Decision Records
 
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 211
+- Members: 212
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
@@ -678,7 +678,7 @@ Every project-tree path discern writes or maintains, with its ownership answer.
 Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
-- Members: 26
+- Members: 25
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
 - Glossary: not enrolled — redirect data for retired words; live vocabulary lives in the glossary proper
 - Feature canon: described by the `forgiving-cli` node

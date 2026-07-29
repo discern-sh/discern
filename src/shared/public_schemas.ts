@@ -13,7 +13,15 @@ export const CONFIG_SCHEMA_ID = publicSchemaId(
   "discern-config.schema.json",
 );
 
-export const RESULT_SCHEMA_MAJOR = 1;
+/** Frozen pre-launch result contract retained for published compatibility. */
+export const RESULT_SCHEMA_V1_MAJOR = 1;
+export const RESULT_SCHEMA_V1_ID = publicSchemaId(
+  RESULT_SCHEMA_V1_MAJOR,
+  "discern-results.schema.json",
+);
+
+/** The live result contract. Command identity changes require a new major. */
+export const RESULT_SCHEMA_MAJOR = 2;
 export const RESULT_SCHEMA_ID = publicSchemaId(
   RESULT_SCHEMA_MAJOR,
   "discern-results.schema.json",
@@ -56,12 +64,20 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     contract: "Configuration file structure, keys, and value types.",
   },
   {
-    id: RESULT_SCHEMA_ID,
+    id: RESULT_SCHEMA_V1_ID,
     artifactPath: "schema/discern-results.schema.json",
+    major: RESULT_SCHEMA_V1_MAJOR,
+    compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    label: "Result contracts (v1)",
+    contract: "Frozen pre-rename result contracts.",
+  },
+  {
+    id: RESULT_SCHEMA_ID,
+    artifactPath: "schema/v2/discern-results.schema.json",
     major: RESULT_SCHEMA_MAJOR,
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    label: "CLI and MCP results",
-    contract: "CLI result envelopes and MCP tool-result wrappers.",
+    label: "Result contracts (v2)",
+    contract: "Current result contracts.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 
@@ -74,8 +90,8 @@ function compatibilityContract(
   policy: PublicSchemaCompatibility,
 ): string {
   return policy === RESULT_SCHEMA_COMPATIBILITY_POLICY
-    ? "Existing contracts keep their fields, types, and required guarantees. Optional fields, contracts, and known error slugs may be added."
-    : "Existing types and accepted values stay valid. Optional keys and sections may be added.";
+    ? "Same-major releases may add only optional fields, new contracts, and error slugs."
+    : "Same-major releases may add only optional keys and sections.";
 }
 
 /** Render the public schema registry as a reference-table block. */

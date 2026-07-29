@@ -5,8 +5,8 @@
  *  - `templates/` (`--include templates`), so the installed `discern` needs no
  *    Deno and no network to scaffold; and
  *  - discern's OWN documentation, staged into {@link BUNDLED_DOCS_STAGE_DIR}
- *    first (see {@link stageBundledDocs}) and `--include`d, so `discern help`
- *    serves it from any install. Only published pages in the public help
+ *    first (see {@link stageBundledDocs}) and `--include`d, so `discern docs`
+ *    serves it from any install. Only published pages in the public manual
  *    subtrees are staged; internal decision and maintainer trees are never
  *    embedded in a customer binary.
  *
@@ -173,7 +173,7 @@ async function main(): Promise<void> {
     }
   } finally {
     // The staged docs are a transient embed input — never leave them behind to
-    // dirty the tree or shadow the live map in a later `deno task dev help`.
+    // dirty the tree or shadow the live map in a later `deno task dev docs`.
     await Deno.remove(docsStageDir, { recursive: true }).catch(() => {});
   }
   console.log(`✓ built ${targets.length} binary/binaries into ${distDir}/`);

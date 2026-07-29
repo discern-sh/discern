@@ -57,20 +57,20 @@ function resultEnvelope(
   return value;
 }
 
-function assertBundledHelp(envelope: Record<string, unknown>): void {
+function assertBundledDocs(envelope: Record<string, unknown>): void {
   const data = envelope.data;
   if (!isRecord(data) || !Array.isArray(data.docs)) {
-    throw new Error("compiled help result has no bundled docs list");
+    throw new Error("compiled docs result has no bundled docs list");
   }
   const hasRoot = data.docs.some((doc) =>
     isRecord(doc) && doc.path === "docs/README.md"
   );
   if (!hasRoot) {
-    throw new Error("compiled help result is missing docs/README.md");
+    throw new Error("compiled docs result is missing docs/README.md");
   }
 }
 
-/** Run version, embedded-help, and embedded-template probes against one binary. */
+/** Run version, embedded-docs, and embedded-template probes against one binary. */
 export async function smokeReleaseBinary(
   binaryPath: string,
   expectedVersion: string,
@@ -97,11 +97,11 @@ export async function smokeReleaseBinary(
       );
     }
 
-    const help = resultEnvelope(
-      (await run(binary, ["help", "--json"], temp)).stdout,
-      "compiled help",
+    const docs = resultEnvelope(
+      (await run(binary, ["docs", "--json"], temp)).stdout,
+      "compiled docs",
     );
-    assertBundledHelp(help);
+    assertBundledDocs(docs);
 
     const project = join(temp, "project");
     await ensureDir(project);

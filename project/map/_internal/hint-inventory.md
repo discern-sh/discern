@@ -1844,7 +1844,7 @@ Run `git rm -r --cached .claude/skills` to remove the discern-managed ignored ar
 Rendered example:
 
 ```text
-Run `discern help` for the documentation, or `discern --help` to list the commands.
+Run `discern docs` for the documentation, or `discern --help` to list the commands.
 ```
 
 ## `unknown-command-suggestion`

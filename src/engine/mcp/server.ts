@@ -55,9 +55,9 @@ import {
   AwaitOutputSchema,
   CouplingOutputSchema,
   type DocsData,
+  DocsOutputSchema,
   DoctorOutputSchema,
   FinishOutputSchema,
-  HelpOutputSchema,
   ImpactOutputSchema,
   ImprovementOutputSchema,
   MapOutputSchema,
@@ -99,7 +99,7 @@ import { patternsResult } from "../logbook/patterns.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
 import { doctorResult } from "../../commands/doctor.ts";
-import { helpResult, mapResult } from "../../commands/docs.ts";
+import { docsResult, mapResult } from "../../commands/docs.ts";
 import {
   acceptResult,
   lifecycleContext,
@@ -229,7 +229,7 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
    * outside any discern project. {@link runTool}'s `not_initialized` guard reads this
    * declared property (the single source of truth the surface guards walk) instead of
    * special-casing a tool name: a root-independent tool with no resolvable root runs
-   * against the process cwd rather than being refused. `discern_help` is the sole
+   * against the process cwd rather than being refused. `discern_docs` is the sole
    * member — it serves discern's OWN bundled docs, which every install carries; every
    * other tool operates on the project and genuinely needs a root. Omitted (falsey)
    * for all the rest. */
@@ -300,7 +300,7 @@ const TOOL_PRIORITY = [
   "discern_patterns",
   "discern_refresh",
   "discern_map",
-  "discern_help",
+  "discern_docs",
   "discern_doctor",
   "discern_improvement",
 ] as const;
@@ -323,7 +323,7 @@ function orderTools(tools: McpTool[]): McpTool[] {
  * `path` wins over the working root for that one call. The resolution is not fenced
  * to the spawn project: the target may be ANY discern project on disk, which is what
  * makes the surface work across a multi-repo setup (ADR 0111). Spread into each
- * root-operating tool's `inputSchema`; NOT on `discern_help` (discern's own bundled
+ * root-operating tool's `inputSchema`; NOT on `discern_docs` (discern's own bundled
  * docs are root-independent). `discern_start` declares its own `path` instead — same
  * resolution, but there it names the project to CREATE the worktree for, and this
  * generic text ("rarely needed — discern_start re-aims automatically") would read
@@ -773,13 +773,13 @@ export const TOOLS: McpTool[] = orderTools([
       }),
   }),
   defineTool({
-    name: "discern_help",
+    name: "discern_docs",
     title: "Read discern's docs",
-    outputSchema: HelpOutputSchema.shape,
+    outputSchema: DocsOutputSchema.shape,
     annotations: READ_ONLY,
     // discern's own bundled documentation is the same in every install and needs no
-    // project — so help stays reachable from a server spawned outside any discern
-    // project, matching the CLI, which serves `discern help` from anywhere (B38).
+    // project — so docs stays reachable from a server spawned outside any discern
+    // project, matching the CLI, which serves `discern docs` from anywhere (B38).
     rootIndependent: true,
     description:
       "Read or search discern's own bundled documentation: concepts, configuration, " +
@@ -805,7 +805,7 @@ export const TOOLS: McpTool[] = orderTools([
       ),
     },
     run: (root, args) =>
-      helpResult(root, {
+      docsResult(root, {
         target: args.target,
         search: args.search,
       }),
@@ -1030,12 +1030,16 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
     "desk",
     "the interactive human surface; it wields supervisory actions over other efforts",
   ],
-  // Installer verbs (doctor/map/help are the tool-backed exceptions).
+  // Installer verbs (doctor/map/docs are the tool-backed exceptions).
   ["setup", "the one-time interactive setup flow, driven at a terminal"],
   ["upgrade", "operates on the discern install itself, not a project state"],
   ["uninstall", "operates on the discern install itself, not a project state"],
   ["preset", "install-time configuration authoring"],
   ["config", "config plumbing; agents read and edit discern.toml directly"],
+  [
+    "help",
+    "human-readable CLI reference; MCP tool schemas carry their own help",
+  ],
   ["licenses", "license-text dump for humans"],
 ]);
 
@@ -1470,7 +1474,7 @@ async function dispatchToolCall(
   }
   const root = pathArg ? await findRoot(pathArg) : working.get();
   if (root === undefined) {
-    // A root-independent tool (discern_help) serves the same answer from anywhere —
+    // A root-independent tool (discern_docs) serves the same answer from anywhere —
     // discern's OWN bundled docs, present in every install — so it must not be refused
     // just because the server spawned outside a project. Run it against the process cwd
     // (which its verb core doesn't consult for the bundled tree). Every other tool
@@ -1496,7 +1500,7 @@ async function dispatchToolCall(
   // Pre-setup gate — the MCP mirror of the CLI redirect: a setup-gated verb
   // (the setup-gated verbs, including `discern_map`) refuses until the project records
   // `[meta].bootstrapped`, so an agent never reads a false all-green or an empty
-  // doc tree. `discern_help`/`discern_status`/`discern_doctor`/`discern_improvement` are
+  // doc tree. `discern_docs`/`discern_status`/`discern_doctor`/`discern_improvement` are
   // not gated — they are exactly what you reach for before setup is done.
   if (
     verbNeedsSetup(verbOf(tool.name)) && !(await setupGatePasses(root))
@@ -1680,7 +1684,7 @@ async function assertResourceSetUp(root: string): Promise<void> {
 
 /**
  * Register the doc-tree resources for one scheme (`map` = the project's tree,
- * `help` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
+ * `docs` = discern's own): a fixed index (`discern://<scheme>` → the JSON index)
  * and a `{+target}` template (`discern://<scheme>/{+target}` → that one doc's
  * Markdown; the `+` is RFC 6570 reserved-expansion so the target may contain `/`
  * and resolve a slug, `section/slug`, OR a path — see the template below).
@@ -1689,7 +1693,7 @@ async function assertResourceSetUp(root: string): Promise<void> {
  */
 function registerDocTree(
   server: McpServer,
-  scheme: "map" | "help",
+  scheme: "map" | "docs",
   label: string,
   index: () => Promise<DiscernResult<DocsData>>,
   single: (target: string) => Promise<DiscernResult<DocsData>>,
@@ -1716,7 +1720,7 @@ function registerDocTree(
     // compiles stops its capture at a `/` (and a `,`), so only a slug-shaped target
     // ever matched — `section/slug` and a path (both containing `/`) fell through to
     // a not-found. The `+` operator captures the reserved set, `/` included, so all
-    // three forms the description advertises (and the discern_map/discern_help tools
+    // three forms the description advertises (and the discern_map/discern_docs tools
     // accept) resolve as resources too. The variable is still named `target`, so the
     // read handler's `variables.target` is unchanged.
     new ResourceTemplate(`discern://${scheme}/{+target}`, { list: undefined }),
@@ -1741,7 +1745,7 @@ function registerDocTree(
 /**
  * Register the readable resources, mirroring the tools' pre-setup gating:
  * `discern://status`, `discern://impact`, `discern://config`, and
- * `discern://help` (+ a `{+target}` template) are always available;
+ * `discern://docs` (+ a `{+target}` template) are always available;
  * `discern://map` (+ template)
  * refuses per read until the project is bootstrapped — exactly as the matching tools
  * do. Every read recomputes from the verb core against the server's CURRENT working
@@ -1808,13 +1812,13 @@ function registerResources(
       resourceText(uri, JSON_MIME, asJson(await loadConfig(currentRoot()))),
   );
 
-  // help — discern's OWN documentation, always available (the pre-setup surface).
+  // docs — discern's OWN documentation, always available (the pre-setup surface).
   registerDocTree(
     server,
-    "help",
+    "docs",
     "discern's own documentation",
-    () => helpResult(currentRoot()),
-    (target) => helpResult(currentRoot(), { target }),
+    () => docsResult(currentRoot()),
+    (target) => docsResult(currentRoot(), { target }),
   );
 
   // map — the project's agent-maintained documentation, gated (per read) on setup completion,
@@ -1860,7 +1864,7 @@ export function buildInstructions(): string {
     "- If agent files or materialized skills are missing/stale, call " +
     "discern_refresh.",
     "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
-    "discern_help.",
+    "discern_docs.",
     "- Verify the install with discern_doctor when something looks misconfigured " +
     "(bad config, a command not on PATH, a stale schema).",
     "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",

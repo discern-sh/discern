@@ -13,7 +13,7 @@ import type { Out } from "../output.ts";
 import { type GotchasFailureTail, renderGotchasTail } from "./gotchas.ts";
 
 const GATE_FAILURE_HELP_COMMAND =
-  "discern help 20-quality-gate/when-the-gate-fails";
+  "discern docs 20-quality-gate/when-the-gate-fails";
 
 /**
  * The scannable per-tool failures block: each failed tool, its Tier-1 location when

@@ -95,6 +95,7 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   coupling: READ_ONLY_ABSENCE,
   desk: READ_ONLY_ABSENCE,
   doctor: "the host of the execution model, not a workflow it describes",
+  docs: READ_ONLY_ABSENCE,
   help: READ_ONLY_ABSENCE,
   identity: "a command group whose subcommands inspect one worktree identity",
   impact: READ_ONLY_ABSENCE,

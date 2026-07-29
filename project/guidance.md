@@ -89,4 +89,4 @@ A bug is rarely alone. Before fixing one, name the _class_ of defect as a checka
 
 ## Decisions
 
-Architecture decisions live in `project/map/_adr/` (0001+, several dozen and counting) — browse them with `discern help --adr --json`. Add one for any notable or hard-to-reverse change. ADRs move fast, so skim the most recent few before a significant change — a current ADR usually explains why something is the way it is.
+Architecture decisions live in `project/map/_adr/` (0001+, several dozen and counting) — browse them with `discern docs --adr --json`. Add one for any notable or hard-to-reverse change. ADRs move fast, so skim the most recent few before a significant change — a current ADR usually explains why something is the way it is.

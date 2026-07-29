@@ -1,5 +1,7 @@
 # ADR 0120: The launch verb canon — questions are nouns, actions are imperatives
 
+> **Manual-command amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** `docs` now names discern's bundled manual, while `help` names CLI reference. `map` remains the project-maintained tree, and the single-spelling policy stands.
+>
 > **Placement amendment ([ADR 0195](0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)):** Fresh projects now place the map at `discern/map/`. The `map` vocabulary decision stands. This repository continues to resolve its map to `project/map/`, exercising the existing path override.
 
 **Status**: accepted

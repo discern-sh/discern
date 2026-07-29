@@ -348,7 +348,11 @@ function informationalPaths(): InformationalPath[] {
       args: ["licenses"],
       markers: ["Third-Party Software Notices"],
     },
-    { label: "help", args: ["help"], markers: ["discern help"] },
+    {
+      label: "help",
+      args: ["help"],
+      markers: ["Commands:", "discern <command> --help"],
+    },
     ...[...KNOWN_VERBS].sort().map((verb) => ({
       label: `${verb} --help`,
       args: [verb, "--help"],

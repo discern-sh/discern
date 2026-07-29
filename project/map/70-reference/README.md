@@ -24,11 +24,11 @@ The authored pages cover the contracts that need explanation. MCP tools share th
 
 For setup and first-use steps, start in [Getting started](../10-getting-started/). For behavior and failure recovery, use [The quality gate](../20-quality-gate/) or [Worktrees](../30-worktrees/); this tier stays organized for lookup.
 
-| Reference                                                         | Use it to                                                                          |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [CLI reference](cli-reference.md)                                 | Find every visible command, subcommand, positional argument, and flag.             |
-| [`discern.toml` reference](config-reference.md)                   | Find every section, key, type, default, and repeatable named table.                |
-| [MCP tools & results](mcp-and-results.md#version-1-compatibility) | Integrate with tools, resources, result envelopes, schemas, and exit codes.        |
-| [Files & ownership](artifact-ownership.md)                        | See what discern writes, who owns it, how git treats it, and removal rules.        |
-| [The logbook](the-logbook.md)                                     | See what discern records about its own runs, and read, delete, or disable it.      |
-| [Platforms & prerequisites](platforms-and-prereqs.md)             | Check release targets, required tools, env values, identity selectors, and tokens. |
+| Reference                                                                 | Use it to                                                                          |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [CLI reference](cli-reference.md)                                         | Find every visible command, subcommand, positional argument, and flag.             |
+| [`discern.toml` reference](config-reference.md)                           | Find every section, key, type, default, and repeatable named table.                |
+| [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.        |
+| [Files & ownership](artifact-ownership.md)                                | See what discern writes, who owns it, how git treats it, and removal rules.        |
+| [The logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.      |
+| [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, env values, identity selectors, and tokens. |

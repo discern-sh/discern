@@ -218,18 +218,18 @@ export async function resolveBundledSkillsDir(): Promise<string> {
 }
 
 /**
- * The repo-root staging directory `scripts/build.ts` lays the bundled help tree into
+ * The repo-root staging directory `scripts/build.ts` lays the bundled manual into
  * before `--include`-ing it (so customer binaries embed only the public
  * projection, never internal decision or maintainer trees). The single source
  * of truth for the name is shared by the build (which writes it) and
  * {@link resolveBundledDocsDir} (which reads it). It nests an inner `docs/` so
- * bundled-help document paths keep the stable `docs/…` shape used by the public
+ * bundled documentation paths keep the stable `docs/…` shape used by the public
  * interface.
  */
-export const BUNDLED_DOCS_STAGE_DIR = ".discern-help-docs";
+export const BUNDLED_DOCS_STAGE_DIR = ".discern-bundled-docs";
 
-/** The source-checkout decision-record directory that `help --adr` can browse. */
-export const HELP_ADR_DOC_DIR = "_adr";
+/** The source-checkout decision-record directory that `docs --adr` can browse. */
+export const DOCS_ADR_DOC_DIR = "_adr";
 
 /** The audience assigned to one numbered section of discern's own manual. */
 export type ManualSectionAudience = "public" | "contributor";
@@ -245,7 +245,7 @@ export interface ManualSectionRegistration {
  * TOTAL registry: a new numbered directory must join it as public or
  * contributor-facing, so default-deny publication cannot silently hide a new
  * public section. The curation guard ties the registry to the directory tree,
- * manual index, bundled help, and site navigation.
+ * manual index, bundled documentation, and site navigation.
  */
 export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
   { dir: "00-orientation", audience: "public" },
@@ -261,14 +261,14 @@ export const MANUAL_SECTION_REGISTRY: readonly ManualSectionRegistration[] = [
   { dir: "90-site", audience: "contributor" },
 ];
 
-/** The public subset a customer binary ships for `discern help`. */
+/** The public subset a customer binary ships for `discern docs`. */
 export const BUNDLED_PUBLIC_DOC_DIRS: readonly string[] =
   MANUAL_SECTION_REGISTRY
     .filter((section) => section.audience === "public")
     .map((section) => section.dir);
 
 /**
- * Whether a top-level project-map entry belongs to the binary's public help
+ * Whether a top-level project-map entry belongs to the binary's public docs
  * projection. Allowlisted and default-deny: no `_`-prefixed tree ships, a
  * numbered subtree ships only when it is user-relevant, and a root-level
  * Markdown file (the docs front door) ships. The build combines this tier-level
@@ -338,7 +338,7 @@ export async function resolveTemplatesDir(
 
 /**
  * Resolve the absolute path to discern's OWN bundled documentation — the tree
- * `discern help` serves, distinct from a project's map (which `discern map`
+ * `discern docs` serves, distinct from a project's map (which `discern map`
  * resolves via the project root). Like {@link resolveTemplatesDir} it is
  * discovered module-relative, so it works both under `deno run` from this
  * checkout and inside a `deno compile` binary built with the staged docs
@@ -348,8 +348,8 @@ export async function resolveTemplatesDir(
  *   1. `DISCERN_DOCS_DIR` env override (tests point this at a fixture).
  *   2. the build-staged public projection embedded in a compiled binary, found by
  *      walking up to a `<dir>/<BUNDLED_DOCS_STAGE_DIR>/docs` (the inner `docs`
- *      keeps bundled-help document paths stable).
- *   3. this repo's own configured map when running from a checkout. The help
+ *      keeps bundled-document paths stable).
+ *   3. this repo's own configured map when running from a checkout. The docs
  *      view applies both page publication and the manual section registry, so
  *      this uncurated fallback behaves like the pre-curated staged tree.
  *

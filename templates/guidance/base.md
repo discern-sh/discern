@@ -9,7 +9,7 @@ This project uses **discern**, a stack-neutral agent-development system. Everyth
 - **Orient first.** Call **`discern_status`** at session start for a cheap, read-only account of what's true and next.
 - **Starting a task? Get your own worktree — a separate checkout and branch for one change — first.** From the main checkout, run **`discern_start`**; it creates one and returns its path. Move into it and work only there, never on the trunk — the shared landing branch — or in another effort's worktree. A worktree is for changes; questions and investigation read from anywhere.
 - **`discern_done` is the bar for "done".** It runs the gate — the project's full quality check; call a change finished only when the final tree passes. Iterate with **`discern_prepare`** (the fast fix-then-check loop) or **`discern_test`** (just the tests). On failure, read `diagnostics[]` for the command and output, then fix it.
-- **`discern_help`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
+- **`discern_docs`** explains how discern works; **`discern_doctor`** diagnoses a misconfigured install.
 
 **Troubleshooting**: MCP tools unreachable? Tell the user, use the **`discern` CLI** with `--json` meanwhile. Read each result whole — never `tail` it, `grep` it, or filter it through a script; a subset drops the hints and remedies. Offer `discern doctor` afterwards. CLI not on PATH? Stop and tell the user: they choose between installing it (`curl discern.sh` explains how) and continuing without discern's protections.
 

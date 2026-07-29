@@ -26,7 +26,7 @@ Treat documentation as part of the change. Every page describes what exists in c
 
 This brief owns **structure**: which pages exist, each page's job, its section shapes, its facts, and its length budgets. The [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns **register**: how the prose sounds inside those structures, including the docs register mix, banned tics, and delight ceiling. Write to both; this brief answers questions about shape or size, and the skill answers questions about word choice, stance, or temperature.
 
-The map is public documentation: the published tiers render on the docs site, in `discern help`, and over MCP. The reference corpus for a finished page comprises the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against this corpus.
+The map is public documentation: the published tiers render on the docs site, in `discern docs`, and over MCP. The reference corpus for a finished page comprises the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against this corpus.
 
 ---
 

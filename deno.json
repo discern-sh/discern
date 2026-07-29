@@ -88,7 +88,7 @@
     "proseWrap": "never",
     "exclude": [
       ".claude/",
-      ".discern-help-docs/",
+      ".discern-bundled-docs/",
       ".idea/",
       "AGENTS.md",
       "brief.md",
@@ -131,7 +131,7 @@
     },
     "exclude": [
       ".claude/",
-      ".discern-help-docs/",
+      ".discern-bundled-docs/",
       "dist/",
       "site/build.ts",
       "site/page-src/",
@@ -142,7 +142,7 @@
   "test": {
     "exclude": [
       ".claude/",
-      ".discern-help-docs/",
+      ".discern-bundled-docs/",
       "dist/",
       "templates/",
       "tests/fixtures/"

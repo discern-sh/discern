@@ -1,17 +1,17 @@
 /**
- * The /docs section: the same documentation tree `discern help` serves,
+ * The /docs section: the same documentation tree `discern docs` serves,
  * rendered for a browser.
  *
  * There is no second content tree and no site-side curation list. Discovery is
  * the engine's own `discoverDocs`, and the guidance boundary is the engine's
  * own `BUNDLED_PUBLIC_DOC_DIRS` — the allowlist that decides which `map/`
- * subtrees ship inside every customer binary. What `discern help` shows in a
+ * subtrees ship inside every customer binary. What `discern docs` shows in a
  * terminal, this module shows at discern.sh/docs; numbered ADRs use the same
  * model in a separately labelled project-history route family.
  *
  * Reader parity carries through: every page negotiates. A browser gets the
  * rendered shell; a text client (or a `.md` suffix) gets the pristine Markdown
- * bytes — the same bytes `discern help <leaf> --raw` prints.
+ * bytes — the same bytes `discern docs <leaf> --raw` prints.
  */
 
 import { fromFileUrl, join, relative } from "@std/path";
@@ -655,7 +655,7 @@ export function createGlossaryProseRenderer(
  * Render one page (cached): frontmatter stripped, inline ADR citations
  * stripped (human-rendered prose; the raw `.md` edition keeps both), links
  * rewritten, then the engine's own HTML emitter — the same parse
- * `discern help` renders from, so the site and the terminal can never
+ * `discern docs` renders from, so the site and the terminal can never
  * disagree about a doc's content. No rendering dependency exists to bloat
  * the compiled binary.
  */
@@ -945,7 +945,7 @@ function colophonHtml(
 ): string {
   const route = page?.route ??
     (index === "decisions" ? DECISIONS_ROUTE : "/docs");
-  const helpPage = page?.kind === "guide"
+  const docsPage = page?.kind === "guide"
     ? esc(page.entry.slug)
     : "&lt;page&gt;";
   const source = page === null
@@ -956,7 +956,7 @@ function colophonHtml(
   return `<footer class="docs-colophon">
       <span>Plain text for agents:
         <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>
-        or <code>discern help ${helpPage} --raw</code></span>
+        or <code>discern docs ${docsPage} --raw</code></span>
       <span class="docs-colophon-links">
         <a href="/llms.txt">llms.txt</a>
         <a href="${DECISIONS_ROUTE}">Project decisions</a>
@@ -1067,7 +1067,7 @@ export function docsIndexShell(site: DocsSite): string {
     esc(KIT_VERSION)
   }</span>The Discern Manual</span>
     <h1>Read what your <em class="discern-heading__accent">agents</em> read.</h1>
-    <p class="docs-cover-lead">The same documentation <code>discern help</code>
+    <p class="docs-cover-lead">The same documentation <code>discern docs</code>
     serves in a terminal, kept current by the agents that work on discern.
     Text readers are first-class: <code>curl</code> any page — or append
     <code>.md</code> — for the pristine Markdown.</p>
@@ -1082,7 +1082,7 @@ export function docsIndexShell(site: DocsSite): string {
   return shellFrame(site, {
     htmlTitle: "Documentation · discern.sh docs",
     description:
-      "The discern manual — the same documentation `discern help` serves.",
+      "The discern manual — the same documentation `discern docs` serves.",
     current: null,
     breadcrumb: null,
     mainHtml: cover,

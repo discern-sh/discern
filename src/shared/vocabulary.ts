@@ -13,7 +13,6 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   integrate: "update",
   scopes: "impact",
   ratchets: "standards",
-  docs: "map",
   "config set-ratchet": "config set-standard",
   "config set-capability": "config set-job",
   "config set-check": "config set-job",

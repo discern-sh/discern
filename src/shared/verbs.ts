@@ -40,6 +40,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "doctor",
   "preset",
   "map",
+  "docs",
   "help",
   "config",
   "licenses",
@@ -126,7 +127,7 @@ export function logbookVerbIsEffectful(
   ) {
     return false;
   }
-  if (verb === "help" || verb === "map") {
+  if (verb === "docs" || verb === "map") {
     return flags.includes("output");
   }
   if (verb === "setup") {

@@ -2894,7 +2894,7 @@ export const HINTS = {
     family: "unknown-command",
     example: undefined,
     template: (): string =>
-      `Run ${discernCommand("help")} for the documentation, or ${
+      `Run ${discernCommand("docs")} for the documentation, or ${
         discernCommand("", flag("help"))
       } to list the commands.`,
   }),

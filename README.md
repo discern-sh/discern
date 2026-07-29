@@ -84,7 +84,7 @@ What `discern` itself owns in your repo is **one root file, `discern.toml`, plus
 
 The engine is **deliberately ignorant of your stack.** It never learns what "a test" is — it runs _the test capability_, a command you name once in `discern.toml`. That one idea is what lets a single quality harness drop into any repo and any language — and answer to whichever agent is driving it.
 
-Read the [concepts and system map](project/map/00-orientation/) for the full model, or browse the docs right in your terminal with `discern help`.
+Read the [concepts and system map](project/map/00-orientation/) for the full model, or browse the docs right in your terminal with `discern docs`.
 
 ---
 

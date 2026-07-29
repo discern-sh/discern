@@ -1,5 +1,7 @@
 # ADR 0208: Public contracts version by schema major
 
+> **First breaking-major application ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** Renaming the manual result from `help` to `docs` starts result schema v2 while retaining the frozen v1 publication. Configuration remains at schema v1. The compatibility domains version independently.
+
 **Status**: accepted; extends [ADR 0028](0028-result-envelope-and-diagnostics.md) and [ADR 0097](0097-publish-json-result-contracts.md), and applies the closed-set discipline of [ADR 0176](0176-the-closed-sets-are-a-closed-set.md)
 
 ## Context

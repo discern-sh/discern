@@ -25,7 +25,7 @@ aliases:
   - discern_patterns
   - discern_refresh
   - discern_map
-  - discern_help
+  - discern_docs
   - discern_doctor
   - discern_improvement
 ---
@@ -63,17 +63,17 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 | `discern_patterns`    | Report findings from the local logbook of discern's own verb runs.                                       | Read-only, idempotent, and advisory.                            |
 | `discern_refresh`     | Rebuild generated guidance, skills, integrations, and the ADR index.                                     | Mutating, closed-world, and idempotent.                         |
 | `discern_map`         | Index, search, or read the project's agent-maintained map.                                               | Read-only and idempotent.                                       |
-| `discern_help`        | Index, search, or read discern's bundled public manual.                                                  | Read-only, idempotent, and project-independent.                 |
+| `discern_docs`        | Index, search, or read discern's bundled public manual.                                                  | Read-only, idempotent, and project-independent.                 |
 | `discern_doctor`      | Check config, commands, repository shape, and integration health.                                        | Read-only and idempotent.                                       |
 | `discern_improvement` | Rank the next improvement and return the supporting health audit.                                        | Read-only and idempotent.                                       |
 
-Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace; discern resolves the project root. Omit it to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_help` needs no project. After a successful `discern_start`, later calls use the new worktree by default; after `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
+Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace; discern resolves the project root. Omit it to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default; after `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
 
-### Find a map or help page
+### Find a map or manual page
 
-`discern_map` and `discern_help` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):
+`discern_map` and `discern_docs` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):
 
 | Inputs                 | Result                                                                                                |
 | ---------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -86,7 +86,7 @@ A search result carries `target`, `path`, `section`, `title`, `description`, `ma
 
 Complete lexical matches lead. When fewer than 5 qualify, strong partial matches can fill the unused slots. Each must clear a query-length-scaled term-coverage floor. The ranker favors partials that add terms earlier results missed. Exact technical text and exact phrases in titles, aliases, headings, or code fields return phrase matches only. A longer lexical miss can fall back to a close title or alias. Queries shorter than 4 characters do not use edit-distance suggestions ([ADR 0183](../_adr/0183-agent-task-search-uses-an-audience-specific-ranker.md)).
 
-Map search covers every page visible to the agent-facing map, including a page marked `publish: false`. Help search covers the bundled public manual. Both run locally, and query values are not recorded in the logbook. The CLI equivalents are `discern map --search <query>` and `discern help --search <query>`; put a region or page target after the verb to narrow either search.
+Map search includes `publish: false`. Docs search covers the public manual. Both are local and omit queries from the logbook. Use `discern map --search <query>` or `discern docs --search <query>`, optionally after a target.
 
 `path` and `target` answer different location questions. `path` chooses which project or worktree a project-operating MCP call uses. `target` chooses a region or document inside that project's map.
 
@@ -140,7 +140,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | `discern://status`                              | Live status data.                              |
 | `discern://impact`                              | Current scope-impact data.                     |
 | `discern://config`                              | Resolved `discern.toml` data.                  |
-| `discern://help` and `discern://help/{+target}` | The manual index or one manual page.           |
+| `discern://docs` and `discern://docs/{+target}` | The manual index or one manual page.           |
 | `discern://map` and `discern://map/{+target}`   | The project-map index or one project-map page. |
 
 `{+target}` accepts a slug, `section/slug`, or a path. Resource reads are computed when requested; clients that do not auto-attach resources can call the corresponding tool.
@@ -161,16 +161,17 @@ Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`
 <!-- BEGIN GENERATED: public schema publications -->
 <!-- Generated by `deno task codegen` from `PUBLIC_SCHEMA_PUBLICATIONS`. -->
 
-| Schema                       | Public `$id`                                               | Repository artifact                                                                 | Contract                                             | Same-major changes                                                                                                                    |
-| ---------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern.toml` configuration | <https://discern.sh/schema/v1/discern-config.schema.json>  | [`schema/discern-config.schema.json`](../../../schema/discern-config.schema.json)   | Configuration file structure, keys, and value types. | Existing types and accepted values stay valid. Optional keys and sections may be added.                                               |
-| CLI and MCP results          | <https://discern.sh/schema/v1/discern-results.schema.json> | [`schema/discern-results.schema.json`](../../../schema/discern-results.schema.json) | CLI result envelopes and MCP tool-result wrappers.   | Existing contracts keep their fields, types, and required guarantees. Optional fields, contracts, and known error slugs may be added. |
+| Schema                       | Public `$id`                                               | Repository artifact                                                                       | Contract                                             | Same-major changes                                                                |
+| ---------------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `discern.toml` configuration | <https://discern.sh/schema/v1/discern-config.schema.json>  | [`schema/discern-config.schema.json`](../../../schema/discern-config.schema.json)         | Configuration file structure, keys, and value types. | Same-major releases may add only optional keys and sections.                      |
+| Result contracts (v1)        | <https://discern.sh/schema/v1/discern-results.schema.json> | [`schema/discern-results.schema.json`](../../../schema/discern-results.schema.json)       | Frozen pre-rename result contracts.                  | Same-major releases may add only optional fields, new contracts, and error slugs. |
+| Result contracts (v2)        | <https://discern.sh/schema/v2/discern-results.schema.json> | [`schema/v2/discern-results.schema.json`](../../../schema/v2/discern-results.schema.json) | Current result contracts.                            | Same-major releases may add only optional fields, new contracts, and error slugs. |
 
 <!-- END GENERATED: public schema publications -->
 
 [`types/discern-json.d.ts`](../../../types/discern-json.d.ts) provides standalone TypeScript types indexed by verb, command path, and MCP tool name.
 
-### Version 1 compatibility
+### Compatibility by schema version
 
 Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
 

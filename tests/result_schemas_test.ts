@@ -81,7 +81,7 @@ import {
   patternsResult,
 } from "../src/engine/logbook/patterns.ts";
 import { improvementResult } from "../src/engine/improve/improve.ts";
-import { helpResult, mapResult } from "../src/commands/docs.ts";
+import { docsResult, mapResult } from "../src/commands/docs.ts";
 import { refreshResult } from "../src/engine/guidelines.ts";
 import { tidyResult } from "../src/engine/tidy/tidy.ts";
 import {
@@ -475,7 +475,7 @@ const FAITHFULNESS_COVERED = new Set<string>([
   "doctor",
   "done",
   "accept",
-  "help",
+  "docs",
   "improvement",
   "update",
   "patterns",
@@ -1162,7 +1162,7 @@ Deno.test("improvement result is faithful (full, category, below-min, unknown)",
   });
 });
 
-Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)", async () => {
+Deno.test("map/docs results are faithful (index, single doc, not-found, no-tree)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -1199,22 +1199,22 @@ Deno.test("map/help results are faithful (index, single doc, not-found, no-tree)
       "map region",
     );
 
-    // help reads discern's OWN bundled docs (always present in this repo's build).
-    expectFaithful("help", await helpResult(dir), "help index");
+    // docs reads discern's OWN bundled docs (always present in this repo's build).
+    expectFaithful("docs", await docsResult(dir), "docs index");
     expectFaithful(
-      "help",
-      await helpResult(dir, { target: "config-reference" }),
-      "help single",
+      "docs",
+      await docsResult(dir, { target: "config-reference" }),
+      "docs single",
     );
     expectFaithful(
-      "help",
-      await helpResult(dir, { target: "no-such-doc" }),
-      "help not-found",
+      "docs",
+      await docsResult(dir, { target: "no-such-doc" }),
+      "docs not-found",
     );
     expectFaithful(
-      "help",
-      await helpResult(dir, { search: "worktree resources" }),
-      "help search",
+      "docs",
+      await docsResult(dir, { search: "worktree resources" }),
+      "docs search",
     );
   });
 });

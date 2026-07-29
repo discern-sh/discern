@@ -376,7 +376,7 @@ export async function runConfigSet(
     }
     return fail(
       opts,
-      `unknown config key "${key}" — it is not part of the discern.toml schema (see \`discern help config-reference\`). For custom gate work use \`config set-job\` with --stage and --run.`,
+      `unknown config key "${key}" — it is not part of the discern.toml schema (see \`discern docs config-reference\`). For custom gate work use \`config set-job\` with --stage and --run.`,
       "unknown_key",
     );
   }
@@ -386,7 +386,7 @@ export async function runConfigSet(
   if (expected.kind === "table") {
     return fail(
       opts,
-      `"${key}" is a section, not a single key — set one of its keys instead (see \`discern help config-reference\`).`,
+      `"${key}" is a section, not a single key — set one of its keys instead (see \`discern docs config-reference\`).`,
     );
   }
 

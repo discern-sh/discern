@@ -10,8 +10,9 @@
  *     The cases are reconciled both against the top-level verb registry and
  *     against every exact path in `CLI_JSON_RESULT_CONTRACTS`. Every result path
  *     is swept here — in the noisy project or through the worktree lifecycle.
- *     Only the long-lived MCP top-level verb is consciously excepted. A new
- *     nested path cannot hide behind an already-enrolled parent.
+ *     Top-level non-result protocols are consciously excepted by the shared
+ *     contract registry. A new nested path cannot hide behind an
+ *     already-enrolled parent.
  *  2. **Structural** — a source-level guard that `serializeResult` is called only
  *     through the one emission chokepoint, so a new verb cannot hand-roll an emit
  *     that bypasses the silence rule.
@@ -35,6 +36,7 @@ import {
 } from "./engine_helpers.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import {
+  CLI_JSON_CONTRACT_EXCLUSIONS,
   CLI_JSON_PREDICATE_CONTRACTS,
   CLI_JSON_RESULT_CONTRACTS,
   CLI_PREDICATE_INVOCATION_MODES,
@@ -202,7 +204,7 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["setup", "accept", "--dry-run"],
   },
   { commandPath: "map", envelopeVerb: "map", args: ["map", "--list"] },
-  { commandPath: "help", envelopeVerb: "help", args: ["help", "--list"] },
+  { commandPath: "docs", envelopeVerb: "docs", args: ["docs", "--list"] },
   {
     commandPath: "licenses",
     envelopeVerb: "licenses",
@@ -455,9 +457,11 @@ const LIFECYCLE_CASES: readonly LifecycleCase[] = [
  * Reconciled against `KNOWN_VERBS` below so a stale entry fails, and a new verb
  * that joins neither the cases nor this set fails the reconciliation.
  */
-const NOT_SWEPT: ReadonlyMap<string, string> = new Map([
-  ["mcp", "starts a long-lived stdio server — would hang the sweep"],
-]);
+const NOT_SWEPT: ReadonlyMap<string, string> = new Map(
+  CLI_JSON_CONTRACT_EXCLUSIONS
+    .filter((entry) => !entry.command.includes(" "))
+    .map((entry) => [entry.command, entry.reason]),
+);
 
 /** Every registry verb the sweeps enrol (project + start + lifecycle). */
 const ENROLLED_VERBS: readonly string[] = [

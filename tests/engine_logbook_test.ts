@@ -242,13 +242,13 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const r = await runAgent(dir, ["help", "no-such-topic", "--json"]);
+    const r = await runAgent(dir, ["docs", "no-such-topic", "--json"]);
     assert(r.code !== 0, "a doc miss refuses");
     const events = verbEvents(await readEvents(dir));
     assertEquals(events.length, 1);
     const event = events[0];
     assert(event !== undefined);
-    assertEquals(event.verb, "help");
+    assertEquals(event.verb, "docs");
     assertEquals(
       event.outcome,
       "refused",

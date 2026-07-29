@@ -40,7 +40,7 @@ const ADR_CITATION = /\bADR[\s-]?\d+/gi;
 const ADR_PATH = /_adr\/(?!0000-template)\d/gi;
 /** Callable/config/artifact pointers that are legal only in reviewed history. */
 const RETIRED_ADR_POINTER =
-  /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|docs|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
+  /\b(?:discern|agent)[\s_](?:finish|graduate|integrate|scopes|improve|ratchets)\b|\[(?:ratchets|docs)(?:\.|\])|\$\{docs\.|\bsetup\s+land\b|discern-gate-pass|(?<!DISCERN_)\bMAIN_BRANCH\b|# --- \/?discern harness ---|\b[Qq]uality\s+[Rr]atchet\b|\b[Rr]atchet\s+feature\b|\b[Tt]he\s+harness\b|\b[Hh]arness's\b/g;
 const RETIRED_ACTIVE_ADR_PATH =
   /(?:-ratchets?|-graduate|-integrate|-improve-|docs-browser|setup-land|doctree)/i;
 const ADR_0120_AMENDMENT =

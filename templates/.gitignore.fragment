@@ -4,7 +4,7 @@
 # block alone and never touches your other rules. The compiled agent
 # files (AGENTS.md and its mirrors) are tracked, so every agent —
 # cloud included — reads them from a fresh clone. For the full list
-# of discern-managed files, run `discern help` or see https://discern.sh
+# of discern-managed files, run `discern docs` or see https://discern.sh
 /.claude/skills/
 /.claude/settings.local.json
 /.agents/skills/

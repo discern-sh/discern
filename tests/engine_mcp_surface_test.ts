@@ -254,8 +254,8 @@ Deno.test("mcp surface: every project-selecting path explains cross-project reso
   }
 });
 
-Deno.test("mcp surface: map and help expose the same search funnel", () => {
-  for (const name of ["discern_map", "discern_help"]) {
+Deno.test("mcp surface: map and docs expose the same search funnel", () => {
+  for (const name of ["discern_map", "discern_docs"]) {
     const tool = TOOLS.find((candidate) => candidate.name === name);
     assert(tool !== undefined, `${name} is not registered`);
     assertEquals(inputKeys(tool).includes("search"), true, name);

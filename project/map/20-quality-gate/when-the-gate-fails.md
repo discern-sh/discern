@@ -15,7 +15,7 @@ _Read the first real failure, use its reproduce command, and rerun the gate afte
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
-The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. It points back here with `discern help 20-quality-gate/when-the-gate-fails`. When diagnostics exist, its final line keeps a reproduce command visible even in a shortened log.
+The terminal tail names the failed command: `discern done`, `discern prepare`, or `discern test`. It points back here with `discern docs 20-quality-gate/when-the-gate-fails`. When diagnostics exist, its final line keeps a reproduce command visible even in a shortened log.
 
 <!-- discern-workflow:result-summary -->
 

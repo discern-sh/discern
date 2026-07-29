@@ -95,7 +95,7 @@ const SPEC: Record<string, OutsideSpec> = {
   desk: { run: ["desk"], verb: "desk", expect: "envelope", ok: false },
   map: { run: ["map"], verb: "map", expect: "envelope", ok: false },
   doctor: { run: ["doctor"], verb: "doctor", expect: "envelope", ok: false },
-  help: { run: ["help", "--list"], verb: "help", expect: "envelope", ok: true },
+  docs: { run: ["docs", "--list"], verb: "docs", expect: "envelope", ok: true },
   licenses: {
     run: ["licenses"],
     verb: "licenses",
@@ -111,6 +111,10 @@ const SPEC: Record<string, OutsideSpec> = {
   mcp: {
     skip: "long-running stdio server; runTool's per-tool not_initialized " +
       "guard is covered by tests/engine_mcp_test.ts over the whole TOOLS table",
+  },
+  help: {
+    skip:
+      "human-readable CLI reference; result_codegen_test holds its explicit JSON-contract exclusion",
   },
 };
 

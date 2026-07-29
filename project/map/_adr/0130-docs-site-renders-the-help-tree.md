@@ -1,5 +1,7 @@
 # ADR 0130: The docs site renders the help tree through the shared discovery module
 
+> **Command-name amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** The shared manual tree now renders through `discern docs`; the `/docs` route and one-document-model decision stand.
+
 **Status**: accepted
 
 ## Context

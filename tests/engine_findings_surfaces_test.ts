@@ -105,20 +105,20 @@ async function seedMixedLogbook(main: string): Promise<void> {
 
   // Project: 5 documentation lookups (including a repeated miss).
   events.push(event(20, {
-    verb: "help",
+    verb: "docs",
     target: "missing-guide",
     outcome: "refused",
     error: "not_found",
   }));
   events.push(event(21, {
-    verb: "help",
+    verb: "docs",
     target: "missing-guide",
     outcome: "refused",
     error: "not_found",
   }));
-  events.push(event(22, { verb: "help", target: "quickstart" }));
+  events.push(event(22, { verb: "docs", target: "quickstart" }));
   events.push(event(23, { verb: "map", target: "the-logbook" }));
-  events.push(event(24, { verb: "help", target: "standards" }));
+  events.push(event(24, { verb: "docs", target: "standards" }));
 
   // Project: one diagnostic class on 3 branches, with 5 readings of one
   // standard. These same events feed recurring-diagnostic and trajectory.

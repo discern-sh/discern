@@ -749,7 +749,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "publish-predicate",
         title: "Publication control",
         what:
-          "`publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship; decision records are the one semi-public exception, served by `discern help --adr` and the site's history pages.",
+          "`publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship; decision records are the one semi-public exception, served by `discern docs --adr` and the site's history pages.",
         why: "One predicate answers what ships, everywhere it could ship.",
       },
       {
@@ -761,12 +761,21 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "The why behind the code survives the sessions that wrote it — findable from one self-maintaining index, without leaking internal numbering into shipped prose.",
       },
       {
-        id: "bundled-help",
+        id: "bundled-docs",
         title: "discern's own manual",
         what:
-          "The binary carries its own public documentation: `discern help` browses it offline in any install, over the same renderer the map uses, and customer binaries carry only the public projection.",
+          "The binary carries its own public documentation: `discern docs` browses it offline in any install, over the same renderer the map uses, and customer binaries carry only the public projection.",
         why:
           "Every install can answer how discern works with no network and no wiki.",
+        surfaces: ["verb:docs"],
+      },
+      {
+        id: "cli-help",
+        title: "CLI help",
+        what:
+          "`discern help` prints the root command reference, while `discern help <command>` prints that command's reference — the same information as `discern --help` and `discern <command> --help`.",
+        why:
+          "Help always means command syntax; the product manual has its own `docs` name.",
         surfaces: ["verb:help"],
       },
       {
@@ -1024,7 +1033,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "mcp-surface",
         title: "The MCP server",
         what:
-          "`discern mcp` serves the verbs as tools over stdio on the official SDK — self-describing schemas derived from the typed result contracts, strict argument validation, a tracked working root that `discern_start` re-aims at the new worktree, and read-only resources for status, impact, config, help, and the map.",
+          "`discern mcp` serves the verbs as tools over stdio on the official SDK — self-describing schemas derived from the typed result contracts, strict argument validation, a tracked working root that `discern_start` re-aims at the new worktree, and read-only resources for status, impact, config, docs, and the map.",
         why:
           "MCP-native agents call structured tools; the CLI and the tools can never disagree because they share one core per verb.",
         agent:

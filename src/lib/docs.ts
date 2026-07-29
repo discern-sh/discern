@@ -18,8 +18,8 @@
  *
  *  - {@link isPublicDoc} is the one page-level publication predicate.
  *    `publish: false` in a doc's frontmatter is the SOLE page-level withhold,
- *    honoured identically by every published surface (site, terminal help,
- *    MCP help, exports, staging). Which SUBTREES a surface ships is a separate,
+ *    honoured identically by every published surface (site, terminal docs,
+ *    MCP docs, exports, staging). Which SUBTREES a surface ships is a separate,
  *    tier-level axis (`BUNDLED_PUBLIC_DOC_DIRS` in paths.ts).
  *  - Frontmatter is metadata, not content: rendered surfaces strip it (its
  *    values travel as structured fields on {@link DocEntry}). RAW editions
@@ -79,7 +79,7 @@ export interface DocEntry {
 }
 
 /** An indexed tree of Markdown documents — the project map, or discern's own
- * bundled manual (`help` browses with the same machinery). */
+ * bundled manual (`docs` browses with the same machinery). */
 export interface DocsTree {
   /** The docs dir's parent (paths in `entries` are relative to this). */
   root: string;
@@ -175,8 +175,8 @@ export async function findProjectRoot(
  * doc's frontmatter is the SOLE page-level withhold (there is no second flag,
  * list, or naming convention), and this predicate is the one place it is read:
  * every surface that projects the tree to an audience — the site, terminal and
- * MCP `help`, `--export public`, llms/search/sitemap derivations, binary
- * help-staging — filters through here, so no surface can drift. Agent surfaces
+ * MCP `docs`, `--export public`, llms/search/sitemap derivations, binary
+ * docs staging — filters through here, so no surface can drift. Agent surfaces
  * of the PROJECT map (`discern map`, the tree on disk) deliberately do not
  * filter: agents keep everything.
  */
@@ -423,7 +423,7 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
       "guidance, while the sitemap and raw .md editions derive from both families",
   },
   {
-    name: "help",
+    name: "docs",
     source: "src/commands/docs.ts",
     via: "publicVerbTree applies publicDocs and the manual section registry " +
       "to terminal browse, TOC, JSON/MCP results, targets, and public export",
@@ -434,7 +434,7 @@ export const PUBLIC_DOC_SURFACES: readonly PublicDocSurface[] = [
     via: "exportDocs filters the public scope through publicDocs",
   },
   {
-    name: "help-staging",
+    name: "docs-staging",
     source: "scripts/build.ts",
     via: "stageBundledDocs copies only entries admitted by isPublicDoc",
   },
@@ -707,7 +707,7 @@ function internalAdmits(
  * are excluded by default — the browser shows only the user-facing tree.
  * `includeInternal` widens that: `true` indexes every internal subtree (full-tree
  * export), and a string[] allowlist indexes ONLY the named ones (e.g. `["_adr"]`
- * for `help --adr`, which reveals the ADRs without ever exposing `_internal` /
+ * for `docs --adr`, which reveals the ADRs without ever exposing `_internal` /
  * `_private`). Point `--dir` at one (`--dir docs/_adr`) to browse it directly,
  * where it is no longer nested under an underscore.
  * discern-allow-retrospective: describes the live layout under `--dir`.

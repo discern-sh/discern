@@ -219,7 +219,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         absent:
           "display grouping over the verb vocabulary; the glossary defines the verbs themselves",
       },
-      featureCanon: { nodeId: "bundled-help" },
+      featureCanon: { nodeId: "cli-help" },
     },
     members: async () =>
       (await import("../src/cli_help.ts")).COMMAND_GROUPS.map(
@@ -1065,7 +1065,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/discern-results.schema.json",
+        path: "schema/v2/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1102,7 +1102,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/discern-results.schema.json",
+        path: "schema/v2/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1244,7 +1244,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/discern-results.schema.json",
+        path: "schema/v2/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1281,7 +1281,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     artifacts: [
       {
-        path: "schema/discern-results.schema.json",
+        path: "schema/v2/discern-results.schema.json",
         kind: "generated-file",
         banner: false,
       },
@@ -1342,7 +1342,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         absent:
           "internal Markdown projection labels, not reader-facing product vocabulary",
       },
-      featureCanon: { nodeId: "bundled-help" },
+      featureCanon: { nodeId: "bundled-docs" },
     },
     members: async () =>
       (await import("../site/workflow_registry.ts")).WORKFLOW_DIRECTIVES.map(

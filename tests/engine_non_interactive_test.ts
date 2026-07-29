@@ -32,7 +32,7 @@ const INTERACTIVE_CASES: readonly {
 }[] = [
   { name: "bare desk", args: [], code: 0, output: "Your desk" },
   { name: "map browser", args: ["map"], code: 0, output: "discern map" },
-  { name: "help browser", args: ["help"], code: 0, output: "discern help" },
+  { name: "docs browser", args: ["docs"], code: 0, output: "discern docs" },
   {
     name: "map selective export",
     args: ["map", "--export", "select", "--output", "selected.md"],

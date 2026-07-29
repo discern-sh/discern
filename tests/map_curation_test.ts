@@ -1,5 +1,5 @@
 /**
- * Architectural guard for what `discern help` ships. Every numbered manual
+ * Architectural guard for what `discern docs` ships. Every numbered manual
  * section must be classified in the total registry, and every public projection
  * must agree with its public subset. These tests also pin the actual build seam
  * to the document model's page-level predicate, so a new section or page cannot
@@ -11,7 +11,7 @@ import { exists } from "@std/fs";
 import { dirname, join, SEPARATOR } from "@std/path";
 import {
   BUNDLED_PUBLIC_DOC_DIRS,
-  HELP_ADR_DOC_DIR,
+  DOCS_ADR_DOC_DIR,
   isBundledDocEntry,
   MANUAL_SECTION_REGISTRY,
   type ManualSectionRegistration,
@@ -71,7 +71,7 @@ interface SectionProjectionSnapshot {
   numberedDirs: readonly string[];
   manualDirs: readonly string[];
   bundledDirs: readonly string[];
-  helpDirs: readonly string[];
+  docsDirs: readonly string[];
   siteDirs: readonly string[];
 }
 
@@ -89,7 +89,7 @@ function sectionProjectionIssues(
     ["numbered map sections", snapshot.numberedDirs, registered],
     ["bundled public sections", snapshot.bundledDirs, publicDirs],
     ["manual index sections", snapshot.manualDirs, publicDirs],
-    ["help projection sections", snapshot.helpDirs, publicDirs],
+    ["docs projection sections", snapshot.docsDirs, publicDirs],
     ["site model sections", snapshot.siteDirs, publicDirs],
   ];
   return comparisons.flatMap(([label, actual, expected]) =>
@@ -134,7 +134,7 @@ async function curatedSiblingPaths(
 
 Deno.test("isBundledDocEntry follows the total section registry", () => {
   assert(isBundledDocEntry("README.md"));
-  assertEquals(isBundledDocEntry(HELP_ADR_DOC_DIR), false);
+  assertEquals(isBundledDocEntry(DOCS_ADR_DOC_DIR), false);
   assertEquals(isBundledDocEntry("_internal"), false);
   assertEquals(isBundledDocEntry("_private"), false);
   assertEquals(isBundledDocEntry("_anything-new"), false);
@@ -152,12 +152,12 @@ Deno.test("every numbered section and public projection agrees", async () => {
   const embedded = names.filter(isBundledDocEntry);
   const internalEmbedded = embedded.filter((n) => n.startsWith("_"));
   const numbered = await numberedSectionDirs();
-  const helpDirs = numbered.filter(isBundledDocEntry);
+  const docsDirs = numbered.filter(isBundledDocEntry);
   const site = await loadDocsSite();
 
   assertEquals(internalEmbedded, []);
   assert(
-    !embedded.includes(HELP_ADR_DOC_DIR),
+    !embedded.includes(DOCS_ADR_DOC_DIR),
     "decision records must not ship",
   );
   assert(!embedded.includes("_private"), "_private must never be embedded");
@@ -168,7 +168,7 @@ Deno.test("every numbered section and public projection agrees", async () => {
       numberedDirs: numbered,
       manualDirs: await manualIndexSectionDirs(),
       bundledDirs: BUNDLED_PUBLIC_DOC_DIRS,
-      helpDirs,
+      docsDirs,
       siteDirs: site.sections.map((section) => section.dir),
     }),
     [],
@@ -196,7 +196,7 @@ Deno.test("the section projection guard catches fresh-named omissions", () => {
     numberedDirs: ["11-foundations", "55-observability", "90-maintainers"],
     manualDirs: ["11-foundations"],
     bundledDirs: ["11-foundations"],
-    helpDirs: ["11-foundations"],
+    docsDirs: ["11-foundations"],
     siteDirs: ["11-foundations"],
   });
   assert(
@@ -214,7 +214,7 @@ Deno.test("the section projection guard catches fresh-named omissions", () => {
     numberedDirs: ["11-foundations", "55-observability", "90-maintainers"],
     manualDirs: ["11-foundations"],
     bundledDirs: ["11-foundations", "55-observability"],
-    helpDirs: ["11-foundations", "55-observability"],
+    docsDirs: ["11-foundations", "55-observability"],
     siteDirs: ["11-foundations", "55-observability"],
   });
   assertEquals(missingIndex.length, 1);
@@ -327,12 +327,12 @@ Deno.test("the staged file set equals the public projection", async () => {
     assertEquals(copied, expected);
     assertEquals(actual, expected);
     assert(!actual.includes("00-orientation/withheld.md"));
-    assertEquals(await exists(join(stagedDir, HELP_ADR_DOC_DIR)), false);
+    assertEquals(await exists(join(stagedDir, DOCS_ADR_DOC_DIR)), false);
     assertEquals(await exists(join(stagedDir, "_private")), false);
   });
 });
 
-Deno.test("the default help view excludes every internal subtree; --adr reveals only the ADRs", async () => {
+Deno.test("the default docs view excludes every internal subtree; --adr reveals only the ADRs", async () => {
   // Default view: not one indexed doc sits under a `_`-prefixed segment.
   const publicTree = await discoverDocs({
     cwd: REPO_ROOT,
@@ -344,14 +344,14 @@ Deno.test("the default help view excludes every internal subtree; --adr reveals 
     const buried = e.relToDocs.split("/").slice(0, -1).some((s) =>
       s.startsWith("_")
     );
-    assert(!buried, `the default help view leaked an internal doc: ${e.path}`);
+    assert(!buried, `the default docs view leaked an internal doc: ${e.path}`);
   }
 
   // The --adr view reveals exactly the allowlist — the ADRs, never _internal/_private.
   const adrTree = await discoverDocs({
     cwd: REPO_ROOT,
     dir: MAP_DIR,
-    includeInternal: [HELP_ADR_DOC_DIR],
+    includeInternal: [DOCS_ADR_DOC_DIR],
   });
   assert(adrTree);
   assert(

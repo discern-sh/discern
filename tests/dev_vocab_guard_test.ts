@@ -93,7 +93,7 @@ const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
  * defines the sentence every surface cites). Naming any other channel — a
  * package manager, a self-update — promises distribution the product doesn't
  * have. The scan covers everything a user or their agent reads: the binary's
- * source, the shipped templates, and the public map (`discern help` serves it).
+ * source, the shipped templates, and the public map (`discern docs` serves it).
  * Excluded: `_`-prefixed internal map trees and the configured map's
  * `80-development` subtree (contributor
  * docs, where the repo's own dev Brewfile is legitimately named), and the

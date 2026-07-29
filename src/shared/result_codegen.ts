@@ -4,7 +4,7 @@
  * The runtime source is the Zod result schema registry (`result_contracts.ts`).
  * Codegen publishes two deterministic artifacts from it:
  *
- * - `schema/discern-results.schema.json` for language-neutral validation.
+ * - `schema/v2/discern-results.schema.json` for language-neutral validation.
  * - `types/discern-json.d.ts` for TypeScript consumers.
  */
 

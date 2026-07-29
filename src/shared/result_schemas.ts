@@ -1689,8 +1689,8 @@ export const ImprovementOutputSchema = resultOutputSchema(
 /** `map` output: envelope + the project-map `data`. */
 export const MapOutputSchema = resultOutputSchema("map", DocsDataSchema);
 
-/** `help` output: envelope + the bundled documentation `data`. */
-export const HelpOutputSchema = resultOutputSchema("help", DocsDataSchema);
+/** `docs` output: envelope + the bundled documentation `data`. */
+export const DocsOutputSchema = resultOutputSchema("docs", DocsDataSchema);
 
 /** `setup step` output: envelope + the structured page `data`. CLI-only (setup is
  * not an MCP tool), but modeled here so the page parser validates against one

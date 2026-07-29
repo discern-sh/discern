@@ -287,7 +287,7 @@ export const ERROR_SLUGS = [
   "invalid_settings_file",
   "invalid_toml",
   "invalid_value",
-  "no_help",
+  "no_docs",
   "no_map",
   "no_project",
   "no_repository",

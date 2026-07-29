@@ -57,7 +57,7 @@ When a behavior matters, discern encodes it as a check, a standard, a parity tes
 
 ### 11. The map serves two readers
 
-The documentation tree discern maintains is the agents' map of the codebase: inferred by agents, written by agents, kept current under the same gate as the code. Humans get two things from that one tree. It's real documentation: plain Markdown, browsable with `discern map`, and publishable — the manual you're reading is discern's own map, rendered on discern.sh, in `discern help`, and over MCP ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). And it's an audit: a wrong page is a finding about what your agents understand, which is what makes it worth your read. Documentation you didn't point discern at is never touched (principle 8).
+The documentation tree discern maintains is the agents' map of the codebase: inferred by agents, written by agents, kept current under the same gate as the code. Humans get two things from that one tree. It's real documentation: plain Markdown, browsable with `discern map`, and publishable — the manual you're reading is discern's own map, rendered on discern.sh, in `discern docs`, and over MCP ([ADR 0130](../_adr/0130-docs-site-renders-the-help-tree.md)). And it's an audit: a wrong page is a finding about what your agents understand, which is what makes it worth your read. Documentation you didn't point discern at is never touched (principle 8).
 
 ### 12. Uninstall leaves a healthy repository
 

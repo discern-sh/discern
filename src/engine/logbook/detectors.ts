@@ -1174,7 +1174,7 @@ const docsGap: Detector = {
     // Humans reading docs are signal too, so this detector keeps every
     // non-CI lookup rather than the agent-scored subset.
     const lookups = facts.verbs.filter((e) =>
-      (e.verb === "help" || e.verb === "map") && e.target !== undefined
+      (e.verb === "docs" || e.verb === "map") && e.target !== undefined
     );
     const findings: DetectorFinding[] = [];
     const misses = new Map<string, number>();
@@ -1627,7 +1627,7 @@ const guidanceParity: Detector = {
         `${e.verb}${e.error !== undefined ? ` ${e.error}` : ""}`,
         e,
       );
-      if ((e.verb === "help" || e.verb === "map") && e.target !== undefined) {
+      if ((e.verb === "docs" || e.verb === "map") && e.target !== undefined) {
         tally(misses, `${e.verb} ${e.target}`, e);
       }
     }

@@ -5,7 +5,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.agents/skills" />
       <excludeFolder url="file://$MODULE_DIR$/.claude/skills" />
       <excludeFolder url="file://$MODULE_DIR$/.claude/worktrees" />
-      <excludeFolder url="file://$MODULE_DIR$/.discern-help-docs" />
+      <excludeFolder url="file://$MODULE_DIR$/.discern-bundled-docs" />
       <excludeFolder url="file://$MODULE_DIR$/.scratch" />
       <excludeFolder url="file://$MODULE_DIR$/.vale/Microsoft" />
       <excludeFolder url="file://$MODULE_DIR$/.vale/proselint" />

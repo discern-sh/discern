@@ -136,7 +136,7 @@ SEE ALSO
        https://discern.sh/docs         the full manual, one URL per page;
                                        raw Markdown for text clients
        https://discern.sh/llms.txt     this document, at a stable path
-       discern help                    the full documentation, served
+       discern docs                    the full documentation, served
                                        offline from the binary
        https://github.com/jackwh/discern
                                        the repository, its gate, and its

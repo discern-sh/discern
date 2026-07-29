@@ -24,7 +24,7 @@ import {
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
 const GATE_FAILURE_HELP_COMMAND =
-  "discern help 20-quality-gate/when-the-gate-fails";
+  "discern docs 20-quality-gate/when-the-gate-fails";
 const TEMPLATE_GOTCHAS = join(
   REAL_TEMPLATES,
   "setup",
@@ -84,7 +84,7 @@ function failureGuideCommand(output: string): string {
     candidate.includes("Failure guide:")
   );
   assert(line !== undefined, `expected a failure-guide reference in ${output}`);
-  const command = /`(discern help [^`]+)`/.exec(line)?.[1];
+  const command = /`(discern docs [^`]+)`/.exec(line)?.[1];
   assert(command !== undefined, `expected a quoted help command in ${line}`);
   return command;
 }

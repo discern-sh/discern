@@ -35,7 +35,7 @@ import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
-import { helpResult } from "../src/commands/docs.ts";
+import { docsResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 
@@ -398,11 +398,11 @@ Deno.test("every nested contents heading is unnumbered and does not advance sect
   );
 });
 
-Deno.test("the shared CLI/MCP help core and site model have exact guidance parity", async () => {
+Deno.test("the shared CLI/MCP docs core and site model have exact guidance parity", async () => {
   const site = await loadDocsSite();
-  const help = await helpResult(REPO_ROOT);
-  assert(help.ok && help.data?.docs !== undefined);
-  const helpItems = help.data.docs.map((doc) => ({
+  const docs = await docsResult(REPO_ROOT);
+  assert(docs.ok && docs.data?.docs !== undefined);
+  const docsItems = docs.data.docs.map((doc) => ({
     route: helpRecordRoute(doc.path),
     title: doc.title,
   }));
@@ -413,7 +413,7 @@ Deno.test("the shared CLI/MCP help core and site model have exact guidance parit
       title: page.entry.title,
     })),
   ];
-  assertEquals(helpItems, siteItems);
+  assertEquals(docsItems, siteItems);
 });
 
 Deno.test("the docs projection refuses orphan shapes", () => {

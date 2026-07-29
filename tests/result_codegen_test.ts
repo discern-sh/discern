@@ -28,14 +28,14 @@ import { TOOLS } from "../src/engine/mcp/server.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
-Deno.test("schema/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
+Deno.test("schema/v2/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
-    new URL("../schema/discern-results.schema.json", import.meta.url),
+    new URL("../schema/v2/discern-results.schema.json", import.meta.url),
   );
   assertEquals(
     committed,
     renderResultJsonSchema(),
-    "schema/discern-results.schema.json is stale — run `deno task codegen`",
+    "schema/v2/discern-results.schema.json is stale — run `deno task codegen`",
   );
 });
 
@@ -263,10 +263,11 @@ Deno.test("predicate invocation contracts publish their subject and boolean payl
   assertEquals(CLI_PREDICATE_STATES, ["true", "false"]);
 });
 
-Deno.test("CLI JSON exclusions are only the non-result protocols, each with a reason", () => {
+Deno.test("CLI JSON exclusions are intentional non-result surfaces with reasons", () => {
   assertEquals(
     CLI_JSON_CONTRACT_EXCLUSIONS.map((entry) => entry.command),
     [
+      "help",
       "mcp",
       "worktree create",
       "worktree remove",

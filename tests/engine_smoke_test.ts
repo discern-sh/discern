@@ -57,7 +57,7 @@ Deno.test("engine smoke: an unknown word exits 1 and teaches the next step", asy
     const r = await runAgent(dir, ["definitely-not-a-script"]);
     assertEquals(r.code, 1);
     assertStringIncludes(r.stderr, 'unknown command "definitely-not-a-script"');
-    assertStringIncludes(r.stderr, "discern help");
+    assertStringIncludes(r.stderr, "discern docs");
   });
 });
 

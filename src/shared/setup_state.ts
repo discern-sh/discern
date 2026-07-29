@@ -45,8 +45,9 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  * the CLI router (`main.ts`) and the MCP server (`engine/mcp/server.ts`) gate on
  * this ONE set so the two surfaces can never disagree on what is reachable pre-setup.
  *
- * Deliberately EXCLUDES, besides the knowledge/orientation verbs (`help` —
+ * Deliberately EXCLUDES, besides the knowledge/orientation verbs (`docs` —
  * discern's own documentation, the thing you consult at exactly this moment;
+ * `help` — the CLI reference;
  * `status`/`doctor` — orient and debug a broken install) and the plumbing the
  * hooks and `setup` itself drive (`refresh`, `worktree`, `scopes`,
  * `config`, …):
@@ -60,7 +61,7 @@ export async function setupBranchExists(dir: string): Promise<boolean> {
  *     itself as the structural completion proof.
  *
  * `map` IS gated: it browses the project's own tree, which has nothing in it
- * until setup seeds and fills it (`help` is the pre-setup documentation surface).
+ * until setup seeds and fills it (`docs` is the pre-setup documentation surface).
  */
 export const SETUP_GATED_VERBS: ReadonlySet<string> = new Set<string>([
   "accept",

@@ -556,14 +556,14 @@ export function buildCli(
       }),
     );
 
-  // `help` — browse discern's OWN bundled documentation (the config reference,
+  // `docs` — browse discern's OWN bundled documentation (the config reference,
   // concepts, the gate/worktree/standard docs). Distinct from `map`, which serves
   // the project's tree. The doc set is fixed and bundled, so there is no
   // `--dir`; `--help`/`-h` (Cliffy usage) is a separate surface and coexists with
   // it. Mirrors `map`'s read flags (target, --list/--raw/--json/--no-pager/--width)
   // plus a public-only `--export`.
   root
-    .command("help [target:string]")
+    .command("docs [target:string]")
     .description("Browse and read discern's own documentation.")
     .option(
       "--raw",
@@ -591,51 +591,13 @@ export function buildCli(
       "--output <path:string>",
       "Write an export to a file instead of stdout.",
     )
-    .action(recordedExit("help", async (options, target?: string) => {
-      const json = options.json ?? false;
+    .action(recordedExit("docs", async (options, target?: string) => {
       if (target !== undefined && target !== "") {
         observeVerbTarget(target); // which topic was looked up — a slug, never text
       }
-      // `help <command>` mirrors `<command> --help` — git users type the two
-      // interchangeably, and git itself forwards one to the other. Driven off
-      // the verb registry (hidden commands included: they still dispatch), so
-      // every registered verb resolves; a retired spelling or a familiar
-      // synonym gets its usual one-line lesson instead of a doc miss.
-      if (
-        options.search === undefined && target !== undefined &&
-        KNOWN_VERBS.has(target)
-      ) {
-        const sub = root.getCommand(target, true);
-        if (sub !== undefined) {
-          sub.showHelp();
-          return 0;
-        }
-      }
-      if (options.search === undefined && target !== undefined) {
-        const successor = retiredCommandSuccessor(target);
-        if (successor !== undefined) {
-          const message = retiredCommandMessage(target, successor);
-          if (json) {
-            emitResult({
-              ok: false,
-              verb: target,
-              error: "renamed_command",
-              message,
-            });
-          } else {
-            console.error(`discern: ${message}`);
-          }
-          return 1;
-        }
-        const synonym = commandSynonymSuggestion(target);
-        if (synonym !== undefined) {
-          reportUnknownCommand(target, synonym, { json });
-          return 1;
-        }
-      }
-      const { runHelp } = await import("./commands/docs.ts");
-      return await runHelp({
-        json,
+      const { runDocs } = await import("./commands/docs.ts");
+      return await runDocs({
+        json: options.json ?? false,
         noColor: noColorFrom(options.color),
         raw: options.raw ?? false,
         list: options.list ?? false,
@@ -647,6 +609,40 @@ export function buildCli(
         export: options.export,
         output: options.output,
       });
+    }));
+
+  // `help` is CLI reference, matching the conventional two spellings:
+  // bare `discern help` mirrors `discern --help`, and `discern help <command>`
+  // mirrors `discern <command> --help`. The bundled manual lives at `docs`.
+  root
+    .command("help [command:string]")
+    .description("Show command-line help.")
+    .action(recordedExit("help", function (
+      _options,
+      command?: string,
+    ): number {
+      if (command === undefined || command === "") {
+        console.log(operatorHelp(root as unknown as Command));
+        return 0;
+      }
+      const sub = root.getCommand(command, true);
+      if (sub !== undefined && KNOWN_VERBS.has(command)) {
+        sub.showHelp();
+        return 0;
+      }
+      const successor = retiredCommandSuccessor(command);
+      if (successor !== undefined) {
+        console.error(
+          `discern: ${retiredCommandMessage(command, successor)}`,
+        );
+        return 1;
+      }
+      reportUnknownCommand(
+        command,
+        commandSynonymSuggestion(command),
+        { json: false },
+      );
+      return 1;
     }));
 
   // `config` — programmatic, comment-preserving edits to an existing

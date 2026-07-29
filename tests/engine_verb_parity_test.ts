@@ -98,7 +98,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   // verbs that have no tool. The tool-less half is DECLARED in the source
   // beside TOOLS (MCP_SHELL_ONLY_VERBS) — with a reason per member, read by
   // the command-reference rendering contract — and reconciled here.
-  const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "map", "help"]);
+  const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "map", "docs"]);
 
   // The exception sets must themselves stay honest (no stale member).
   for (const v of NON_ENGINE_TOOL_VERBS) {

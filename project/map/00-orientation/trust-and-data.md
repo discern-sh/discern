@@ -39,7 +39,7 @@ There is no push mapping. Configuring one would change plain `git push`, so publ
 
 discern's trust model is the same class as a `Makefile` or an npm `scripts` block: it runs the commands **you** wrote in your own `discern.toml`. The gate runs your `format` / `lint` / `test` commands; a scope gate or a standard runs the command you gave it. discern adds none of its own beyond built-in git and file operations.
 
-The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs and help browsers) run none of your commands and change none of your files; each run appends its line to the local logbook above unless switched off. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
+The read-only verbs (`discern status`, `discern doctor`, `discern improvement`, and the docs browser and CLI help) run none of your commands and change none of your files; each run appends its line to the local logbook above unless switched off. The commands in your config run when you invoke a gate verb: `discern done`, `prepare`, `test`, or `standards`. A glance at your project executes nothing, and everything the gate will run is in one file you can read.
 
 ## A small, checkable footprint
 
