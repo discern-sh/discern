@@ -503,6 +503,30 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     body.querySelectorAll(".discern-site-footer__nav > div").length,
     2,
   );
+  assertEquals(
+    footer.querySelector(".discern-site-footer__description")?.textContent
+      ?.trim(),
+    "Discern makes AI coding agents work like a disciplined engineering team. It coordinates their changes, separates parallel tasks, and proves their work is correct before it ships.",
+  );
+  assertEquals(
+    [...footer.querySelectorAll(".discern-site-footer__base a")].map(
+      (link) => [
+        link.textContent?.trim(),
+        link.getAttribute("href"),
+      ],
+    ),
+    [
+      ["GitHub ↗", "https://github.com/jackwh/discern"],
+      ["llms.txt", "/llms.txt"],
+    ],
+  );
+  assertEquals(
+    footer.querySelector(".discern-site-footer__base > span:last-child")
+      ?.textContent?.trim(),
+    "© 2026 Jack Webb-Heller.",
+  );
+  assertEquals(text.includes("macOS · Linux · WSL2"), false);
+  assertEquals(text.includes("Open source under Apache-2.0."), false);
   const landingCss = await Deno.readTextFile(
     join(ROOT, "site/page-src/landing.css"),
   );

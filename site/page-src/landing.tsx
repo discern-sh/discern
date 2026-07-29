@@ -180,7 +180,7 @@ function LandingPage() {
         brandMark={DISCERN_MARK}
         brandTypeface="mono"
         brandMarkTreatment="plain"
-        description="One binary that gives every coding agent the same project instructions, separates parallel tasks, and proves the project’s checks passed."
+        description="Discern makes AI coding agents work like a disciplined engineering team. It coordinates their changes, separates parallel tasks, and proves their work is correct before it ships."
         groups={[
           {
             title: "Documentation",
@@ -207,8 +207,14 @@ function LandingPage() {
             ],
           },
         ]}
-        legal="Open source under Apache-2.0."
-        meta="macOS · Linux · WSL2"
+        legal={
+          <>
+            <a href={GITHUB}>GitHub ↗</a>
+            {" · "}
+            <a href="/llms.txt">llms.txt</a>
+          </>
+        }
+        meta="© 2026 Jack Webb-Heller."
       />
     </>
   );
