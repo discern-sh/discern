@@ -22,6 +22,18 @@ The history lets later versions answer what a single run can't: which gate step 
 - **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
 - **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops; existing files stay until you reset them.
 
+## What it powers
+
+Each of these reads the logbook and switches off with `[project].logbook = false`; `discern patterns` alone keeps reading whatever history already exists.
+
+- the practice report (`discern patterns`) — behavior, gate-fit, funnel, and trajectory findings over accumulated runs
+- each worktree's last action and work in flight — the `last_action` and `running` columns on [fleet rows](../30-worktrees/status.md)
+- fleet activity times that include verb runs — `last_activity` is the later of the git timestamp and the branch's newest event, so a long test run doesn't read as dormancy
+- retry timing in `discern await` from typical run durations — a not-yet answer prices its check-back from the awaited branch's in-flight work
+- config-change attribution and each standard's limit history — `config-change` and `pin` events keep trends comparable across real reconfiguration
+- advisory findings on `status`, the `done` receipt, and `improvement` — the inline detectors that meet you on working commands
+- wait estimates when concurrent test runs queue — the queued-tests notice names the run holding a slot and its typical duration
+
 ## Where findings appear
 
 Each detector declares a scope and a tier. Scope selects the reader. Tier controls whether a working command may run it ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
