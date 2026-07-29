@@ -1,5 +1,6 @@
 import { createFromBuffer, type Formatter } from "@dprint/formatter";
 import { frontmatterParseIssue, readFrontmatterBlock } from "./frontmatter.ts";
+import { indentToml } from "./toml_indent.ts";
 
 /** Pinned embedded plugin versions. An upgrade changes discern's convention. */
 export const MARKDOWN_PLUGIN_VERSION = "0.22.1";
@@ -209,12 +210,22 @@ function protectFencedCode(fileText: string): ProtectedFencedCode {
   return { text: output.join("\n"), blocks };
 }
 
+/**
+ * The canonical `discern.toml` convention: the embedded formatter normalizes
+ * structure, then the depth indenter re-indents by table depth so the config
+ * reads as the hierarchy it is. Applied by `discern tidy toml` and by every
+ * production config write (via {@link writeDiscernToml}), so no write path
+ * can leave the file off-convention for the next gate run to fix.
+ */
 export async function formatTomlText(
   filePath: string,
   fileText: string,
 ): Promise<string> {
   try {
-    return (await toml()).formatText({ filePath, fileText });
+    return indentToml(
+      (await toml()).formatText({ filePath, fileText }),
+      GLOBAL_CONFIG.indentWidth,
+    );
   } catch (error) {
     if (error instanceof TomlFormatError) {
       throw error;

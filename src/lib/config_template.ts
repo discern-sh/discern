@@ -28,11 +28,14 @@ export {
 /** The template file name inside the resolved `templates/` tree. */
 const CONFIG_TEMPLATE_NAME = "discern.toml.tmpl";
 
-/** Matches a section header line, capturing the section path inside the brackets. */
-const HEADER_RE = /^\[([^\]]+)\]/;
+/** Matches a section header line, capturing the section path inside the brackets.
+ * Indentation-tolerant, like every scanner over the depth-indented config. */
+const HEADER_RE = /^\s*\[([^\]]+)\]/;
 
-/** Matches the opening/closing line of a `# ───` ruled documentation block. */
-const RULE_RE = /^#\s*─/;
+/** Matches the opening/closing line of a `# ───` ruled documentation block.
+ * Indentation-tolerant: the depth-indented config places a banner level with
+ * the section it documents. */
+const RULE_RE = /^\s*#\s*─/;
 
 /** Matches a simple single-line TOML assignment and captures its bare key. */
 const ASSIGNMENT_RE = /^\s*([A-Za-z0-9_-]+)\s*=/;

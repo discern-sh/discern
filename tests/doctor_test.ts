@@ -191,7 +191,7 @@ async function removeTidyFormatJob(
 ): Promise<void> {
   const p = join(dir, "discern.toml");
   let text = await Deno.readTextFile(p);
-  text = text.replace(/^format\s*=\s*"discern tidy"\s*\n/m, "");
+  text = text.replace(/^\s*format\s*=\s*"discern tidy"\s*\n/m, "");
   if (bootstrapped) {
     text = text.replace("[meta]\n", "[meta]\nbootstrapped = true\n");
   }
@@ -233,7 +233,10 @@ Deno.test("doctor --json: a fresh install includes the seeded tidy format job", 
       );
     }
     const capabilities = check(payload, "known jobs");
-    assertEquals(capabilities.status, "ok");
+    // The seeded tidy job runs, but protects nothing of the project's own —
+    // a fresh install warns instead of reading as covered.
+    assertEquals(capabilities.status, "warn");
+    assertStringIncludes(capabilities.detail, "only discern's own upkeep");
     assertStringIncludes(capabilities.detail, "format");
     const tidy = check(payload, "tidy format job");
     assertEquals(tidy.status, "ok");
@@ -333,7 +336,10 @@ Deno.test("doctor: human output reports advisories separately from failures", as
     assertStringIncludes(stderr, `discern ${KIT_VERSION} ·`);
     assertStringIncludes(stderr, "discern.toml: present and valid TOML");
     assertStringIncludes(stderr, `schema ${SCHEMA_VERSION} (current)`);
-    assertStringIncludes(stderr, "known jobs: wired: format");
+    assertStringIncludes(
+      stderr,
+      "known jobs: only discern's own upkeep is wired (format)",
+    );
     assertStringIncludes(stderr, "tidy format job: the format job includes");
     assertStringIncludes(stderr, "git: ");
     assertStringIncludes(stderr, "All checks passed (see the advisory above).");
@@ -820,7 +826,10 @@ Deno.test("doctor reports custom jobs separately from known-job readiness", asyn
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0);
     const jobs = check(payload, "known jobs");
-    assertStringIncludes(jobs.detail, "wired: format");
+    // The seeded format job is still named, but a custom job never rescues the
+    // known-name readiness line from its honest "nothing of the project's own"
+    // reading.
+    assertStringIncludes(jobs.detail, "only discern's own upkeep is wired");
     assertStringIncludes(jobs.detail, "custom jobs: licenses");
   });
 });

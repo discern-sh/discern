@@ -33,7 +33,7 @@ function readToml(dir: string): Promise<string> {
 /** Active assignment keys inside one section, in written order. */
 function sectionKeys(text: string, section: string): string[] {
   const lines = text.split("\n");
-  const header = lines.indexOf(`[${section}]`);
+  const header = lines.findIndex((l) => l.trim() === `[${section}]`);
   assert(header !== -1, `missing [${section}]`);
   const keys: string[] = [];
   for (const line of lines.slice(header + 1)) {
@@ -42,6 +42,14 @@ function sectionKeys(text: string, section: string): string[] {
     if (key !== undefined) keys.push(key);
   }
   return keys;
+}
+
+/** Byte offset of a section's header line, wherever the depth indent put it. */
+function headerOffset(text: string, section: string): number {
+  const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const match = new RegExp(`\\n\\s*\\[${escaped}\\]\\n`).exec(text);
+  assert(match !== null, `missing [${section}]`);
+  return match.index;
 }
 
 Deno.test("config set-job fills a known job and preserves comments", async () => {
@@ -229,9 +237,8 @@ Deno.test("config set-job writes a custom job table", async () => {
     assertStringIncludes(toml, 'run = "license-scan"');
     assertStringIncludes(toml, 'provides = "license-audit"');
     assert(
-      toml.indexOf("# [jobs]") <
-          toml.indexOf("\n[jobs.licenses]\n") &&
-        toml.indexOf("\n[jobs.licenses]\n") <
+      toml.indexOf("# [jobs]") < headerOffset(toml, "jobs.licenses") &&
+        headerOffset(toml, "jobs.licenses") <
           toml.indexOf("# [scopes.<name>]"),
       "the first custom job should land inside the jobs region",
     );
@@ -363,10 +370,8 @@ Deno.test("config set-standard writes a named standard table", async () => {
     assertStringIncludes(toml, 'direction = "down"');
     assertStringIncludes(toml, 'run = "measure-bundle"');
     assert(
-      toml.indexOf("# [standards]") <
-          toml.indexOf("\n[standards.bundle]\n") &&
-        toml.indexOf("\n[standards.bundle]\n") <
-          toml.indexOf("\n[gate]\n"),
+      toml.indexOf("# [standards]") < headerOffset(toml, "standards.bundle") &&
+        headerOffset(toml, "standards.bundle") < headerOffset(toml, "gate"),
       "the first standard should land inside the standards region",
     );
     assertEquals(sectionKeys(toml, "standards.bundle"), [

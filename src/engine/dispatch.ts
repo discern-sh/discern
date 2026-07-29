@@ -413,7 +413,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.",
+      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\\|`), is refused and left unchanged.",
     )
     .option(
       "--json",
@@ -978,7 +978,7 @@ export function attachEngineCommands(
   // operator. Namespacing keeps the payload plumbing callable for the generated
   // integration files while keeping protocol verbs out of the human `worktree`
   // vocabulary, where `remove` sat one typo from the destructive
-  // `drop`/`teardown`/`prune` and read as the way to remove a worktree (ADR 0220).
+  // `drop`/`teardown`/`prune` and read as the way to remove a worktree (ADR 0222).
   const worktreeHook = new Command()
     .description(
       "Provider hook entry points (machine-invoked; stdin carries the hook payload).",

@@ -1,4 +1,4 @@
-# ADR 0220: The frozen contract surface completes the vocabulary canon before the first tag
+# ADR 0222: The frozen contract surface completes the vocabulary canon before the first tag
 
 **Status**: accepted
 

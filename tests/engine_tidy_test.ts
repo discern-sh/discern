@@ -349,6 +349,82 @@ Deno.test("a freeform-tagged fence and the toml selector skip the diagram check"
   });
 });
 
+Deno.test("tidy refuses to format a table row that would lose cells, writing nothing", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    const before = [
+      "# T",
+      "",
+      "| flag | meaning |",
+      "| --- | --- |",
+      "| `a || b` | run b when a fails |",
+      "",
+    ].join("\n");
+    await write(join(root, "docs", "table.md"), before);
+    const result = await tidyResult(root);
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "tables_malformed");
+    const messages = (result.diagnostics ?? []).map((d) => d.message);
+    assert(
+      messages.some((m) => m.startsWith("docs/table.md:5")),
+      messages.join("\n"),
+    );
+    // Unlike a diagram finding, the whole invocation is refused: the lossy
+    // row survives untruncated and the sibling file stays unformatted too.
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "table.md")),
+      before,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n-   item\n",
+    );
+  });
+});
+
+Deno.test("tidy --dry-run reports lossy table rows and writes nothing", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    await write(
+      join(root, "docs", "table.md"),
+      ["| a | b |", "| --- | --- |", "| `x || y` | z |", ""].join("\n"),
+    );
+    const result = await tidyResult(root, { dryRun: true });
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "tables_malformed");
+    assert((result.diagnostics ?? []).length > 0);
+  });
+});
+
+Deno.test("escaped in-span pipes and inherited torn-span wreckage both format fine", async () => {
+  await withTempDir(async (root) => {
+    await seedTidyProject(root);
+    // The cure: the same alternation with its pipes escaped.
+    await write(
+      join(root, "docs", "table.md"),
+      [
+        "| flag | meaning |",
+        "| --- | --- |",
+        "| `a \\|\\| b` | run b when a fails |",
+        "",
+      ].join("\n"),
+    );
+    // Wreckage a past lossy format left behind: the cell count already
+    // matches the header again, so formatting is lossless — tidy must not
+    // brick a project on it (the strict sweep is this repo's own bar).
+    await write(
+      join(root, "docs", "torn.md"),
+      ["| a | b |", "| --- | --- |", "| `x | y` |", ""].join("\n"),
+    );
+    const result = await tidyResult(root);
+    assertEquals(result.ok, true);
+    assertEquals(
+      await Deno.readTextFile(join(root, "docs", "README.md")),
+      "# Map\n\n- item\n",
+    );
+  });
+});
+
 Deno.test("tidy --dry-run reports diagram findings and writes nothing", async () => {
   await withTempDir(async (root) => {
     await seedTidyProject(root);
