@@ -138,6 +138,7 @@ export async function patternsResult(
     logbook: {
       events: stream.events.length,
       unparsed: stream.unparsed,
+      setup_era: facts.setupEra,
       months: stream.months.length,
       ...(first !== undefined ? { first_at: first.at } : {}),
       ...(last !== undefined ? { last_at: last.at } : {}),
@@ -217,9 +218,9 @@ export const PATTERNS_TONE_GLYPHS = {
   attention: { glyph: "!", color: "yellow" },
 } satisfies Record<PatternFindingTone, TonePresentation>;
 
-/** The one human caveat for trajectory series that cross a boundary. */
+/** The one human caveat for trajectory series spanning several setups. */
 export const PATTERNS_TRAJECTORY_CAVEAT =
-  "Series crossing configuration or release boundaries keep each segment attributed to its setup.";
+  "Series spanning more than one configuration or release keep each segment attributed to its setup.";
 
 /** Heading for the bounded pointer list above the full report sections. */
 export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
@@ -280,6 +281,11 @@ function summaryLine(data: PatternsData): string {
   );
   if (log.unparsed > 0) {
     parts.push(`${plural(log.unparsed, "unparsable line")} skipped`);
+  }
+  if (log.setup_era > 0) {
+    parts.push(
+      `${plural(log.setup_era, "event")} from one-time setup set aside`,
+    );
   }
   return parts.join(" · ");
 }

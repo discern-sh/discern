@@ -102,12 +102,14 @@ const patternsDetectorSchema = z.strictObject({
 export type PatternsDetector = z.infer<typeof patternsDetectorSchema>;
 
 /** The logbook the report was read from, in counts: parsed events, skipped
- * torn/foreign lines, month files, the span, distinct branches seen, and
- * whether recording is currently on (`[project].logbook`) — the report reads
- * existing history either way. */
+ * torn/foreign lines, events set aside as one-time-setup work (recorded, kept,
+ * but excluded from analysis), month files, the span, distinct branches seen,
+ * and whether recording is currently on (`[project].logbook`) — the report
+ * reads existing history either way. */
 const patternsLogbookSchema = z.strictObject({
   events: z.number().int(),
   unparsed: z.number().int(),
+  setup_era: z.number().int(),
   months: z.number().int(),
   first_at: z.string().optional(),
   last_at: z.string().optional(),
