@@ -56,36 +56,16 @@ export interface DeadConfigPosition {
  * translator and its class test both read this table — retiring a config
  * position means adding a row here, nowhere else. Order matters: the first
  * matching row wins, so keyed rows precede a same-path wildcard.
+ *
+ * The table starts EMPTY, like the migration registry: dead-position guidance
+ * exists to steer installs off keys they actually hold, and the first public
+ * release ships no layout any install could hold a dead key from. The
+ * prerelease rows pointed at migrations that no longer exist; a key nobody
+ * could have written needs no epitaph — strict unknown-key rejection is the
+ * whole contract. The mechanism stays armed for the first post-release
+ * retirement.
  */
-export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [
-  {
-    path: "worktree",
-    key: "enabled",
-    message: (keys) =>
-      `dead config ${keys} — the worktree workflow is core now, not a toggle; run \`discern upgrade\` to drop it.`,
-    example: "[worktree]\nenabled = true\n",
-  },
-  {
-    path: "worktree",
-    key: "graduate_to",
-    message: (keys) =>
-      `dead config ${keys} — \`discern accept\` always lands on the trunk now (there is one landing target); run \`discern upgrade\` to drop the key.`,
-    example: '[worktree]\ngraduate_to = "main"\n',
-  },
-  {
-    path: "worktree",
-    message: (keys) =>
-      `dead config ${keys} — the engine reads [worktree.resources.<name>] now; run \`discern upgrade\` to migrate it.`,
-    example: '[worktree.db]\ncreate = "make-db"\n',
-  },
-  {
-    path: "",
-    key: "features",
-    message: () =>
-      "dead config [features] — the subsystem toggles were retired (every subsystem is core now); run `discern upgrade` to drop the section.",
-    example: "[features]\ndocs = false\n",
-  },
-];
+export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [];
 
 /** The first dead-position row matching an unrecognized-keys issue, if any.
  * `positions` is injectable so tests can prove the matching semantics

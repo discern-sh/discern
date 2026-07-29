@@ -424,21 +424,24 @@ Deno.test("strict: an unknown top-level section is rejected", () => {
   assert(issues.some((i) => /unknown section|bogus/.test(i.message)));
 });
 
-Deno.test("strict: a dead [worktree.db] adapter is rejected with an upgrade hint", () => {
+Deno.test("strict: a prerelease [worktree.db] adapter table is rejected", () => {
+  // No epitaph: the dead-position table starts empty (no public install ever
+  // held the prerelease layouts), so plain strict unknown-key rejection is the
+  // whole contract for these positions.
   const { issues } = parseConfig(`[worktree.db]\nclone = "x"\n`);
   assert(
     issues.some((i) =>
-      i.path === "worktree" && /dead config|upgrade/.test(i.message)
+      i.path === "worktree.db" && /unknown key/.test(i.message)
     ),
   );
 });
 
-Deno.test("strict: a leftover [features].mcp is rejected with the section-level upgrade hint", () => {
-  // The whole [features] section is dead config now (ADR 0101). A config
-  // carrying any of it, mcp included, gets the focused upgrade hint.
+Deno.test("strict: a prerelease [features] section is rejected", () => {
+  // The subsystem toggles were retired (every subsystem is core, ADR 0101);
+  // the section rejects as an unknown section, with no epitaph row.
   const { issues } = parseConfig(`[features]\nmcp = true\n`);
   assert(
-    issues.some((i) => /dead config \[features\]|upgrade/.test(i.message)),
+    issues.some((i) => i.path === "features" && /unknown/.test(i.message)),
     JSON.stringify(issues),
   );
 });
