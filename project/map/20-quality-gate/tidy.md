@@ -16,6 +16,8 @@ _One offline formatter for the files whose conventions discern defines._
 
 Fresh installations put bare `discern tidy` in the [format job](../00-orientation/glossary.md#gate-job). The project declares that formatter in its jobs table, so the gate runs it as an ordinary fix-stage command. A project can remove the command to opt out. The gate resolves `discern` in a job command to the engine running that gate, so this self-invocation works even where the surrounding environment has no discern on `PATH`.
 
+The seeded command never counts as quality coverage: a job whose only commands invoke discern's own verbs reads as housekeeping in `setup done`'s coverage report and in `discern doctor`'s known-jobs check, so a fresh install reports `minimal` coverage until the project wires a check of its own ([ADR 0220](../_adr/0220-self-supplied-commands-count-for-nothing-in-assurance.md)).
+
 ## What it formats
 
 | Type     | Included                                                                                                  | Left alone                                                                                                |
