@@ -16,8 +16,6 @@ _One offline formatter for the files whose conventions discern defines._
 
 Fresh installations put bare `discern tidy` in the [format job](../00-orientation/glossary.md#gate-job). The project declares that formatter in its jobs table, so the gate runs it as an ordinary fix-stage command. A project can remove the command to opt out. The gate resolves `discern` in a job command to the engine running that gate, so this self-invocation works even where the surrounding environment has no discern on `PATH`.
 
-The seeded command never counts as quality coverage: a job whose only commands invoke discern's own verbs reads as housekeeping in `setup done`'s coverage report and in `discern doctor`'s known-jobs check, so a fresh install reports `minimal` coverage until the project wires a check of its own ([ADR 0220](../_adr/0220-self-supplied-commands-count-for-nothing-in-assurance.md)).
-
 ## What it formats
 
 | Type     | Included                                                                                                  | Left alone                                                                                                |
@@ -36,7 +34,7 @@ Markdown prose is stored unwrapped, with two-space indentation, spaces rather th
 | `discern tidy toml`      | Format only the root config.                         |
 | `discern tidy --dry-run` | List every file that would change and write nothing. |
 
-The planner reads and formats every selected target before the first write. If a selected file cannot be parsed, the run fails and leaves all files unchanged. A configured path that does not exist is a successful no-op. A normal run writes only files whose content changes; a second run is a no-op.
+The planner reads and formats every selected target before the first write; a file that cannot be parsed fails the run, leaving every file unchanged. A missing configured path is a successful no-op, and a run writes only files whose content changes — a second run is a no-op.
 
 ## Keep a project formatter first
 
@@ -47,8 +45,8 @@ The planner reads and formats every selected target before the first write. If a
 format = ["<the project's formatter>", "discern tidy"]
 ```
 
-This order lets the project tool own its files and gives `discern tidy` the final word only on discern-owned surfaces. `discern prepare` and `discern done` then run both commands as the ordinary serial fix stage.
+This order lets the project tool own its files, with `discern tidy` taking the final word on discern-owned surfaces; `discern prepare` and `discern done` run both as the ordinary serial fix stage.
 
-During setup, `discern doctor` fails if the setup agent dropped every form of `discern tidy` from the format job. After setup is recorded, the same absence is an informational opt-out and never a warning.
+Seeded alone, the format job never counts as quality coverage: it reads as housekeeping, and `setup done` and `discern doctor` report `minimal` until a project check joins it ([ADR 0220](../_adr/0220-self-supplied-commands-count-for-nothing-in-assurance.md)). During setup, doctor fails when every form of `discern tidy` is dropped from the format job; after setup, that absence is an informational opt-out.
 
 An existing installation can opt in by adding the command to its format job. `discern upgrade`, `discern config`, setup, presets, skill ejection, and `standards --pin` already write `discern.toml` in the same canonical form, whether or not the gate invokes `discern tidy`.
