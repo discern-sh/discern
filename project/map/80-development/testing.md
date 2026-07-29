@@ -24,6 +24,8 @@ deno test --filter "convergence"        # a filtered subset by test name
 
 `deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. The suite invokes the engine through `deno run src/main.ts` and shells out to `git`. Deno runs test modules in parallel; tests inside one module remain serial.
 
+This repository sets `[gate].concurrent_test_runs = 2`. Across the main checkout and every linked worktree, at most two `done`, `test`, or measuring `standards` test-stage groups run at once. The cap schedules whole runs; Deno's worker parallelism inside either run is unchanged.
+
 The site tests read the built site, which the gate's build stage produces through `deno task site:build`. On a fresh checkout that has never run the gate, run `deno task site:build` before the full suite. The `test.exclude` list in `deno.json` keeps generated output, distribution files, templates, and fixtures out of discovery.
 
 Tests work at these layers:

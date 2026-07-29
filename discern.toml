@@ -619,7 +619,7 @@ timeout = 600
 # continues the moment a slot frees. 0 means no cap; 1 runs every suite at full
 # speed, one after another — the strongest choice once parallel agents share
 # this machine.
-concurrent_test_runs = 0
+concurrent_test_runs = 2
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [coupling] — co-change detection: a read-only advisory that mines git history
