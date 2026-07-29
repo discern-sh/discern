@@ -14,7 +14,6 @@ import {
   CONFIG_REL,
   type EnvReader,
   installedConfigRel,
-  LEGACY_CONFIG_REL,
 } from "../shared/env.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
@@ -25,7 +24,7 @@ import { allGuidanceFilePaths } from "./providers.ts";
 
 // Re-export the install markers so installer-side callers can import them from
 // the lib layer (the canonical definitions live in the shared env module).
-export { CONFIG_REL, LEGACY_CONFIG_REL };
+export { CONFIG_REL };
 
 /** True when `path` is an existing directory. */
 async function isDir(path: string): Promise<boolean> {
@@ -38,11 +37,8 @@ async function isDir(path: string): Promise<boolean> {
 }
 
 /**
- * Resolve the config file inside an install directory: the root `discern.toml`
- * if present, else a legacy `.discern/config.toml`, else `undefined` when
- * `destDir` is not a discern install. The new path is preferred so a migrated
- * install is unambiguous; the legacy fallback is what lets `upgrade`
- * recognise a pre-6 install and carry it forward.
+ * Resolve the root `discern.toml` inside an install directory, or `undefined`
+ * when `destDir` is not a discern install.
  */
 export async function resolveConfigPath(
   destDir: string,

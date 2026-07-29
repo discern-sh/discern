@@ -7,9 +7,9 @@
  *   - the pre-flight refusals: no discern.toml, unparseable toml; and the
  *     fatal path when the templates dir is missing (the config scaffold cannot
  *     be reconciled, so the schema is not stamped);
- *   - the human-mode (non-JSON) renderings of --check ok, --dry-run, the dirty
- *     guard, and the migrations-applied summary;
- *   - --dry-run's --json payload and its pending-migration preview;
+ *   - the human-mode (non-JSON) renderings of --check ok, the dirty guard, and
+ *     the migrations-applied summary;
+ *   - --dry-run's --json payload;
  *   - the agents-default fallback when discern.toml carries no agents key.
  *
  * Human output goes to stderr; machine assertions read --json from stdout.
@@ -18,9 +18,11 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { runUpgrade } from "../src/commands/upgrade.ts";
-import { type Migration, MIGRATIONS } from "../src/lib/migrations.ts";
+import type { Migration } from "../src/lib/migrations.ts";
 import { SCHEMA_VERSION } from "../src/lib/version.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
+
+const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
 /** Fresh install in `dir` (the standard scaffold the other suites use). */
 async function setup(dir: string): Promise<void> {
@@ -250,38 +252,6 @@ Deno.test("upgrade --dry-run --json previews pending migrations and writes nothi
   });
 });
 
-Deno.test("upgrade --dry-run --json previews pending migrations without running them", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    // Regress the recorded schema so the production 1→2 step is pending.
-    await setSchema(dir, 1);
-    const r = await runCli(["upgrade", "--dry-run", "--json"], dir);
-    assertEquals(r.code, 0, r.stderr);
-    const res = JSON.parse(r.stdout);
-    assertEquals(res.dry_run, true);
-    assertEquals(
-      res.data.pending_migrations.map((m: { from: number }) => m.from),
-      MIGRATIONS.map((migration) => migration.from),
-    );
-    // Still a dry run: the schema is untouched on disk.
-    assertEquals(await recordedSchema(dir), 1);
-  });
-});
-
-Deno.test("upgrade --dry-run (human) names pending migrations and writes nothing", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    await setSchema(dir, 1);
-    const r = await runCli(["upgrade", "--dry-run"], dir);
-    assertEquals(r.code, 0, r.stderr);
-    // The human preview announces the migration step it would run first…
-    assertStringIncludes(r.stderr, "1→2"); // "1→2"
-    // …and the closing reassurance that nothing was written.
-    assertStringIncludes(r.stderr, "No files were written");
-    assertEquals(await recordedSchema(dir), 1); // untouched
-  });
-});
-
 // ---- dirty-tree guard, human + many-changes -------------------------------
 
 Deno.test("upgrade (human) refuses a dirty tree and lists the changed paths", async () => {
@@ -351,6 +321,9 @@ async function upgradeHumanIn(
       check: false,
       allowDirty: true,
       registry,
+      currentSchema: registry === undefined
+        ? undefined
+        : SYNTHETIC_CURRENT_SCHEMA,
       cwd: dir,
     });
     return { code, err };
@@ -362,9 +335,9 @@ async function upgradeHumanIn(
 Deno.test("upgrade (human) reports the migrations it applied", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await setSchema(dir, SCHEMA_VERSION - 1); // one behind → the synthetic step is pending
+    await setSchema(dir, SCHEMA_VERSION);
     const chain: Migration[] = [{
-      from: SCHEMA_VERSION - 1,
+      from: SCHEMA_VERSION,
       describe: "a synthetic smoke step",
       apply: async (ctx) => {
         await ctx.writeText("MIGRATED", "yes\n");

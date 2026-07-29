@@ -84,7 +84,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/lib/migrations.ts",
-    "MigrationContext: registry legacy-to-default moves + config edits",
+    "MigrationContext: file transforms and config edits",
   ],
   // provider-registry paths
   [

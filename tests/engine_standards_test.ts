@@ -334,8 +334,8 @@ Deno.test("standards: a limit may not be lowered vs main", async () => {
     await git(dir, "commit", "-q", "-m", "lower the floor", "--no-gpg-sign");
 
     const r = await runAgent(dir, ["standards"]);
-    // A floor may only rise vs main: the never-loosen baseline is read from main's
-    // root discern.toml (with the legacy .discern/config.toml as a fallback).
+    // A floor may only rise vs main: the never-loosen baseline is read from
+    // main's root discern.toml.
     assertEquals(r.code, 1, r.output);
     assertStringIncludes(r.stderr, "only rises");
 

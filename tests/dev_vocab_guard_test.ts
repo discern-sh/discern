@@ -95,9 +95,8 @@ const PROJECT_SCRIPTS = REPO_AUTHORED_PATHS.scripts;
  * have. The scan covers everything a user or their agent reads: the binary's
  * source, the shipped templates, and the public map (`discern help` serves it).
  * Excluded: `_`-prefixed internal map trees and the configured map's
- * `80-development` subtree (contributor
- * docs, where the repo's own dev Brewfile is legitimately named), and the
- * frozen historical fixtures.
+ * `80-development` subtree (contributor docs, where the repo's own dev Brewfile
+ * is legitimately named).
  */
 Deno.test("no shipped surface invents an update channel", async () => {
   const banned = [/\bbrew\b/i, /\bself-update\b/i];
@@ -247,14 +246,12 @@ Deno.test("retired prelaunch command vocabulary does not reappear", async () => 
  * the old concept phrase outright: "docs tree" on an authored surface either
  * misnames the map or conflates it with a project's own documentation (a
  * literal `docs/` directory stays describable — the slash keeps it out of this
- * pattern). Frozen records — historical ADRs, archived planning briefs, and
- * historical install fixtures — keep their wording.
+ * pattern). Frozen ADRs and archived planning briefs keep their wording.
  */
 Deno.test("the retired 'docs tree' concept phrase does not reappear", async () => {
   const pattern = /\bdocs[ -]tree/i;
   const frozen = (rel: string): boolean =>
     isRepoMapPath(rel, "_adr") ||
-    rel.startsWith("tests/fixtures/historical-installs/") ||
     rel.includes("/_done/");
   const offenders: string[] = [];
   for (const [rel, text] of await commandSurfaceFiles()) {
@@ -279,24 +276,16 @@ function escapeRegExp(value: string): string {
 }
 
 /**
- * Compatibility records are the only non-ADR files allowed to spell a retired
- * launch name in a callable/config position. Historical fixtures preserve what
- * an old install really contained; private planning keeps approved migrations
- * searchable.
+ * Private planning is the only non-ADR surface allowed to spell a retired
+ * launch name in a callable or config position.
  */
 function isLaunchVocabularyRecord(rel: string): boolean {
   return isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private") ||
-    rel.startsWith("tests/fixtures/historical-installs/") ||
     rel.endsWith("/3a-vocabulary-and-rename-sweep.md") ||
-    new Set([
-      "src/shared/vocabulary.ts",
-      "src/lib/migrations.ts",
-      "src/lib/version.ts",
-      "tests/migrations_test.ts",
-      "tests/upgrade_migrations_test.ts",
-      "tests/dev_vocab_guard_test.ts",
-    ]).has(rel);
+    new Set(["src/shared/vocabulary.ts", "tests/dev_vocab_guard_test.ts"]).has(
+      rel,
+    );
 }
 
 /** Compatibility records allowed to retain the retired Project Recipe contract. */
@@ -325,7 +314,7 @@ const RETIRED_PROJECT_SCRIPT_SURFACE = [
   /\bdiscern\/recipes\b/u,
 ];
 
-Deno.test("the retired Project Recipe surface survives only in migration records", async () => {
+Deno.test("the retired Project Recipe surface stays out of live surfaces", async () => {
   const offenders: string[] = [];
   for (const [rel, source] of await commandSurfaceFiles()) {
     if (isProjectScriptMigrationRecord(rel)) continue;
@@ -339,7 +328,7 @@ Deno.test("the retired Project Recipe surface survives only in migration records
   assertEquals(
     offenders,
     [],
-    `retired Project Recipe contract returned outside migration history:\n  ${
+    `retired Project Recipe contract returned outside frozen records:\n  ${
       offenders.join("\n  ")
     }`,
   );

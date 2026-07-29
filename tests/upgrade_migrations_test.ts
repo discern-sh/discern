@@ -16,6 +16,8 @@ import { HINTS } from "../src/shared/hints.ts";
 import { readTarget, runCli, targetExists, withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
+const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
+
 async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
@@ -76,6 +78,9 @@ async function upgradeJsonIn(
       check: false,
       allowDirty: true,
       registry,
+      currentSchema: registry === undefined
+        ? undefined
+        : SYNTHETIC_CURRENT_SCHEMA,
       cwd: dir,
     });
     return { code, stdout };
@@ -84,7 +89,10 @@ async function upgradeJsonIn(
   }
 }
 
-async function upgradeCheckJsonIn(dir: string): Promise<{
+async function upgradeCheckJsonIn(
+  dir: string,
+  registry?: Migration[],
+): Promise<{
   code: number;
   stdout: string;
 }> {
@@ -100,6 +108,10 @@ async function upgradeCheckJsonIn(dir: string): Promise<{
       dryRun: false,
       check: true,
       allowDirty: true,
+      registry,
+      currentSchema: registry === undefined
+        ? undefined
+        : SYNTHETIC_CURRENT_SCHEMA,
       cwd: dir,
     });
     return { code, stdout };
@@ -108,65 +120,31 @@ async function upgradeCheckJsonIn(dir: string): Promise<{
   }
 }
 
-Deno.test("upgrade converges discern-owned banners through every top-level section rename", async () => {
-  const cases = [
-    {
-      name: "schema 17 ratchets to standards",
-      schema: 17,
-      oldBanner: "# [ratchets] —",
-      currentBanner: "# [standards] —",
-      makeOld: (current: string): string =>
-        current.replace("# [standards] —", "# [ratchets] —") +
-        '\n[ratchets.sample]\ndirection = "up"\nlimit = 1\nrun = "measure"\n',
-    },
-    {
-      name: "schema 18 docs to map",
-      schema: 18,
-      oldBanner: "# [docs] —",
-      currentBanner: "# [map] —",
-      makeOld: (current: string): string =>
-        current
-          .replace("# [map] —", "# [docs] —")
-          .replace("\n[map]\n", "\n[docs]\n"),
-    },
-    {
-      name: "schema 19 recipes to scripts",
-      schema: 19,
-      oldBanner: "# [recipes] —",
-      currentBanner: "# [scripts] —",
-      makeOld: (current: string): string =>
-        current
-          .replace("# [scripts] —", "# [recipes] —")
-          .replace("\n[scripts]\n", "\n[recipes]\n")
-          .replace('dir = "discern/scripts"', 'dir = "discern/recipes"'),
-    },
-  ];
-
-  for (const testCase of cases) {
-    await withTempDir(async (dir) => {
-      await setup(dir);
-      await setSchema(dir, testCase.schema);
-      const configPath = join(dir, "discern.toml");
-      const current = await Deno.readTextFile(configPath);
-      await Deno.writeTextFile(configPath, testCase.makeOld(current));
-
-      assertEquals(await upgradeIn(dir), 0, testCase.name);
-      const upgraded = await Deno.readTextFile(configPath);
-      assert(
-        !upgraded.includes(testCase.oldBanner),
-        `${testCase.name}: stale banner remains`,
-      );
-      assertStringIncludes(upgraded, testCase.currentBanner, testCase.name);
-
-      assertEquals(await upgradeIn(dir), 0, `${testCase.name}: second upgrade`);
-      assertEquals(
-        await Deno.readTextFile(configPath),
-        upgraded,
-        `${testCase.name}: second upgrade must be byte-stable`,
-      );
+async function upgradeDryRunJsonIn(
+  dir: string,
+  registry: Migration[],
+): Promise<{ code: number; stdout: string }> {
+  const originalLog = console.log;
+  let stdout = "";
+  console.log = (...args: unknown[]) => {
+    stdout += args.map((arg) => String(arg)).join(" ") + "\n";
+  };
+  try {
+    const code = await runUpgrade({
+      json: true,
+      noColor: true,
+      dryRun: true,
+      check: false,
+      allowDirty: true,
+      registry,
+      currentSchema: SYNTHETIC_CURRENT_SCHEMA,
+      cwd: dir,
     });
+    return { code, stdout };
+  } finally {
+    console.log = originalLog;
   }
-});
+}
 
 Deno.test("upgrade check detects and upgrade restores a missing fixed banner without touching key comments", async () => {
   await withTempDir(async (dir) => {
@@ -203,6 +181,33 @@ Deno.test("upgrade check detects and upgrade restores a missing fixed banner wit
   });
 });
 
+Deno.test("upgrade check reports an injected next-schema migration without writing", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const before = await readTarget(dir, "discern.toml");
+    const chain: Migration[] = [{
+      from: SCHEMA_VERSION,
+      describe: "synthetic next-schema step",
+      apply: () => Promise.resolve(),
+    }];
+
+    const check = await upgradeCheckJsonIn(dir, chain);
+    assertEquals(check.code, 1);
+    const result = JSON.parse(check.stdout);
+    assertEquals(result.data.schema, {
+      recorded: SCHEMA_VERSION,
+      current: SYNTHETIC_CURRENT_SCHEMA,
+    });
+    assertEquals(result.data.pending_migrations, [{
+      from: SCHEMA_VERSION,
+      to: SYNTHETIC_CURRENT_SCHEMA,
+      describe: "synthetic next-schema step",
+    }]);
+    assertHasHint(result, HINTS["upgrade-check-pending"]);
+    assertEquals(await readTarget(dir, "discern.toml"), before);
+  });
+});
+
 Deno.test("upgrade refuses a config from a newer schema and does not stamp down", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
@@ -226,9 +231,9 @@ Deno.test("upgrade refuses a config from a newer schema and does not stamp down"
 Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await setSchema(dir, SCHEMA_VERSION - 1);
+    await setSchema(dir, SCHEMA_VERSION);
     const chain: Migration[] = [{
-      from: SCHEMA_VERSION - 1,
+      from: SCHEMA_VERSION,
       describe: "write invalid TOML",
       apply: (ctx) =>
         ctx.rewrite("discern.toml", (text) => `${text}\nbad = "\\q"\n`),
@@ -241,7 +246,7 @@ Deno.test("upgrade refuses to stamp when a migration leaves invalid TOML", async
     assertEquals(res.error, "invalid_migrated_config");
     assertStringIncludes(res.message, "schema was not stamped");
     assertEquals(await readTarget(dir, "discern.toml"), before);
-    assertEquals(await recordedSchema(dir), SCHEMA_VERSION - 1);
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
   });
 });
 
@@ -253,6 +258,29 @@ Deno.test("a current install has nothing pending and applies no migrations", asy
     assertEquals(JSON.parse(r.stdout).data.migrations_applied, []);
     const c = await runCli(["upgrade", "--check", "--json"], dir);
     assertEquals(JSON.parse(c.stdout).data.pending_migrations, []);
+  });
+});
+
+Deno.test("upgrade dry-run previews an injected migration without applying it", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const chain: Migration[] = [{
+      from: SCHEMA_VERSION,
+      describe: "write a marker",
+      apply: (ctx) => ctx.writeText("MIGRATED", "yes\n"),
+    }];
+
+    const run = await upgradeDryRunJsonIn(dir, chain);
+    assertEquals(run.code, 0);
+    const result = JSON.parse(run.stdout);
+    assertEquals(result.dry_run, true);
+    assertEquals(result.data.pending_migrations, [{
+      from: SCHEMA_VERSION,
+      to: SYNTHETIC_CURRENT_SCHEMA,
+      describe: "write a marker",
+    }]);
+    assertEquals(await targetExists(dir, "MIGRATED"), false);
+    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
   });
 });
 
@@ -268,12 +296,12 @@ Deno.test("upgrade (json) carries the restart-your-agents hint on the applied re
 Deno.test("upgrade runs a pending migration before the sync, then stamps the schema", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await setSchema(dir, SCHEMA_VERSION - 1); // model an install one schema behind
+    await setSchema(dir, SCHEMA_VERSION);
 
     const ran: string[] = [];
-    // A synthetic 1→2 step (overrides the production chain via the registry seam).
+    // A synthetic 1→2 step targets the next schema through the test seam.
     const chain: Migration[] = [{
-      from: SCHEMA_VERSION - 1,
+      from: SCHEMA_VERSION,
       describe: "write a marker and set a config key",
       apply: async (ctx) => {
         ran.push("applied");
@@ -294,22 +322,22 @@ Deno.test("upgrade runs a pending migration before the sync, then stamps the sch
       ),
     );
     // And the config was stamped to the current schema.
-    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
+    assertEquals(await recordedSchema(dir), SYNTHETIC_CURRENT_SCHEMA);
   });
 });
 
 Deno.test("upgrade re-running an applied migration is a no-op (idempotent fold)", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await setSchema(dir, SCHEMA_VERSION - 1);
+    await setSchema(dir, SCHEMA_VERSION);
     const chain: Migration[] = [{
-      from: SCHEMA_VERSION - 1,
+      from: SCHEMA_VERSION,
       describe: "create a marker",
       apply: (ctx) => ctx.writeText("MIGRATED", "yes\n"),
     }];
     assertEquals(await upgradeIn(dir, chain), 0); // schema 1 → 2, runs
     // Now at the current schema: re-running finds nothing pending, still succeeds.
     assertEquals(await upgradeIn(dir, chain), 0);
-    assertEquals(await recordedSchema(dir), SCHEMA_VERSION);
+    assertEquals(await recordedSchema(dir), SYNTHETIC_CURRENT_SCHEMA);
   });
 });

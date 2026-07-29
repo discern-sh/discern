@@ -3,6 +3,8 @@
  *   - {@link resolveTemplatesDir} — auto-discovery of the scaffold `templates/`
  *     tree, via the `DISCERN_TEMPLATES_DIR` override (validated to be a real
  *     directory, else a clear throw) and a walk-up from the module's location.
+ *   - {@link resolveConfigPath} — root `discern.toml` as the sole install
+ *     marker.
  *   - {@link resolveWorktreeRoot} — the placement convention for new worktrees:
  *     the sibling default and the relative/absolute `[worktree].root` overrides.
  *   - {@link resolveGuidanceSources} — `[guidance].sources` expansion, and the
@@ -22,11 +24,13 @@ import {
 } from "@std/assert";
 import { dirname, join } from "@std/path";
 import {
+  resolveConfigPath,
   resolveGuidanceSources,
   resolveTemplatesDir,
   resolveWorktreeRoot,
 } from "../src/lib/paths.ts";
 import { allGuidanceFilePaths } from "../src/lib/providers.ts";
+import { CONFIG_REL, findRoot, installedConfigRel } from "../src/shared/env.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
@@ -39,6 +43,30 @@ function configWithRoot(root: string): ReturnType<typeof parseConfigOrThrow> {
 }
 
 const OVERRIDE = "DISCERN_TEMPLATES_DIR";
+
+Deno.test("root discern.toml is the only install marker", async () => {
+  await withTempDir(async (dir) => {
+    const nested = join(dir, "nested");
+    await Deno.mkdir(join(dir, ".discern"), { recursive: true });
+    await Deno.mkdir(nested);
+    await Deno.writeTextFile(
+      join(dir, ".discern/config.toml"),
+      "[meta]\nschema_version = 24\n",
+    );
+
+    assertEquals(await installedConfigRel(dir), undefined);
+    assertEquals(await resolveConfigPath(dir), undefined);
+    assertEquals(await findRoot(nested), undefined);
+
+    await Deno.writeTextFile(
+      join(dir, CONFIG_REL),
+      "[meta]\nschema_version = 1\n",
+    );
+    assertEquals(await installedConfigRel(dir), CONFIG_REL);
+    assertEquals(await resolveConfigPath(dir), join(dir, CONFIG_REL));
+    assertEquals(await findRoot(nested), dir);
+  });
+});
 
 Deno.test("override pointing at a real directory is returned verbatim", async () => {
   await withTempDir(async (dir) => {

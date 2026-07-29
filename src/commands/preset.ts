@@ -131,7 +131,7 @@ export async function runPreset(
   const log = new Logger(options);
   const destDir = Deno.cwd();
 
-  // Must be inside an initialized project (either layout — see resolveConfigPath).
+  // Must be inside an initialized project.
   const configPath = await resolveConfigPath(destDir);
   let toml: ReturnType<typeof parseDiscernToml>;
   try {

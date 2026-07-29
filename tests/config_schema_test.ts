@@ -432,9 +432,8 @@ Deno.test("strict: a dead [worktree.db] adapter is rejected with an upgrade hint
 });
 
 Deno.test("strict: a leftover [features].mcp is rejected with the section-level upgrade hint", () => {
-  // The whole [features] section is dead config now (ADR 0101) — an old config
-  // carrying any of it (mcp included) must not crash cryptically; it gets the
-  // friendly "run discern upgrade" nudge, and the 15→16 migration drops it.
+  // The whole [features] section is dead config now (ADR 0101). A config
+  // carrying any of it, mcp included, gets the focused upgrade hint.
   const { issues } = parseConfig(`[features]\nmcp = true\n`);
   assert(
     issues.some((i) => /dead config \[features\]|upgrade/.test(i.message)),

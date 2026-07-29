@@ -5,9 +5,7 @@
  * The whole discern footprint in a project is a single root file: `discern.toml`
  * (ADR 0020 dissolved the hidden `.discern/` namespace). The binary finds the
  * project root by walking up from the cwd to the nearest ancestor holding that
- * file. The pre-6 consolidated location (`.discern/config.toml`) is still
- * recognised as a legacy marker so a not-yet-upgraded install is found and
- * carried forward by `upgrade`.
+ * file.
  *
  * A project script is handed the `DISCERN_*` variables and reads config via `discern
  * config get` rather than sourcing shell helpers; no engine paths
@@ -68,17 +66,6 @@ export function notInitializedResult(
   return { ok: false, verb, error: NOT_INITIALIZED, message };
 }
 
-/** The pre-6 consolidated location, still recognised as a legacy/migration-source
- * marker so a not-yet-upgraded install is found and carried forward. */
-export const LEGACY_CONFIG_REL = ".discern/config.toml";
-
-/** The install markers in precedence order — the new single-file footprint first,
- * the legacy `.discern/` location second. */
-export const CONFIG_MARKERS: readonly string[] = [
-  CONFIG_REL,
-  LEGACY_CONFIG_REL,
-];
-
 /** True when a regular file exists at `path`. */
 async function isFile(path: string): Promise<boolean> {
   try {
@@ -90,19 +77,16 @@ async function isFile(path: string): Promise<boolean> {
 
 /**
  * Walk up from `start` (default: the cwd) to the nearest ancestor that is an
- * discern install — one holding a root `discern.toml` (or, for a not-yet-upgraded
- * install, a legacy `.discern/config.toml`). Returns the project root, or
- * undefined if none exists in this directory or any parent.
+ * discern install — one holding a root `discern.toml`. Returns the project
+ * root, or undefined if none exists in this directory or any parent.
  */
 export async function findRoot(
   start: string = Deno.cwd(),
 ): Promise<string | undefined> {
   let dir = start;
   while (true) {
-    for (const rel of CONFIG_MARKERS) {
-      if (await isFile(join(dir, rel))) {
-        return dir;
-      }
+    if (await isFile(join(dir, CONFIG_REL))) {
+      return dir;
     }
     const parent = dirname(dir);
     if (parent === dir) {
@@ -154,28 +138,20 @@ export async function crossedRepoBoundaries(
 }
 
 /**
- * The relative path of the config file present under `root` — the new
- * `discern.toml` if present, else the legacy `.discern/config.toml`, else
- * undefined when `root` is not a discern install. The new path is preferred so a
- * migrated install is unambiguous; the legacy fallback is what lets the engine,
- * `upgrade`, and `upgrade` keep working in a pre-6 install.
+ * The relative path of the config file present under `root`, or undefined when
+ * `root` is not a discern install.
  */
 export async function installedConfigRel(
   root: string,
 ): Promise<string | undefined> {
-  for (const rel of CONFIG_MARKERS) {
-    if (await isFile(join(root, rel))) {
-      return rel;
-    }
-  }
-  return undefined;
+  return await isFile(join(root, CONFIG_REL)) ? CONFIG_REL : undefined;
 }
 
 /** The resolved pieces a project script's `DISCERN_*` environment is built from. */
 export interface ScriptEnv {
   /** Absolute project root. */
   root: string;
-  /** Absolute path to the install config (resolved: `discern.toml` or legacy). */
+  /** Absolute path to the install config. */
   tomlPath: string;
   /** The `[scripts].dir` value as configured (relative or absolute). */
   scriptsDir: string;

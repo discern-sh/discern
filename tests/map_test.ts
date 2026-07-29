@@ -31,9 +31,9 @@ import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { readTarget, runCli, seedConfig, withTempDir } from "./helpers.ts";
 import { git, gitInit } from "./engine_helpers.ts";
 
-/** Write a small but representative map tree (with an .discern/config.toml anchor).
- * The tree lives at a pinned root `docs/` — a pointed, non-default layout — so
- * these behavior tests double as coverage of the pointing escape hatch. */
+/** Write a small but representative map tree. The tree lives at a pinned root
+ * `docs/` — a pointed, non-default layout — so these behavior tests double as
+ * coverage of the pointing escape hatch. */
 async function makeDocsProject(dir: string): Promise<void> {
   await seedConfig(
     dir,

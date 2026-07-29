@@ -250,8 +250,7 @@ export async function runChecks(
     }
   }
 
-  // 1. the config (discern.toml, or a legacy .discern/config.toml) exists and is
-  // syntactically valid TOML.
+  // 1. discern.toml exists and is syntactically valid TOML.
   const tomlPath = (await resolveConfigPath(destDir)) ??
     join(destDir, CONFIG_REL);
   let toml: ReturnType<typeof parseDiscernToml>;
@@ -286,7 +285,7 @@ export async function runChecks(
   // config newer than the binary (see `isRecordedSchemaNewer`/upgrade's own guard),
   // so advising it there would send the user at a command that rejects their exact
   // state. A newer install means the BINARY is behind — re-run the installer.
-  const recorded = await resolveRecordedSchema(toml.raw, destDir);
+  const recorded = resolveRecordedSchema(toml.raw);
   if (recorded === SCHEMA_VERSION) {
     checks.push({
       name: "schema version",
@@ -761,8 +760,7 @@ export async function runChecks(
   }
 
   // 9. gotchas doc resolves — if [project].gotchas_doc is set, the file the gate
-  // points a failing agent at must exist (a 5→6 migration of a `.discern/`-pointed
-  // doc, or a typo, can leave it dangling).
+  // points a failing agent at must exist.
   {
     const doc = config.project.gotchas_doc.trim();
     if (doc !== "") {
