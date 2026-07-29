@@ -63,16 +63,45 @@ const MCP_RECV_TIMEOUT_MS: number = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
 })();
 
+/** Cleanup bounds for a client whose test path did not reach the happy close. */
+const MCP_STDIN_CLOSE_GRACE_MS = 1_000;
+const MCP_PROCESS_EXIT_GRACE_MS = 5_000;
+
+async function settledWithin<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+): Promise<T | undefined> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 /** A live MCP server process with line-framed JSON-RPC send/recv over stdio. */
 class McpClient {
   private writer: WritableStreamDefaultWriter<Uint8Array>;
   private reader: ReadableStreamDefaultReader<Uint8Array>;
   private decoder = new TextDecoder();
   private buffer = "";
+  private stdinClosed = false;
+  private readerCancelled = false;
+  private readonly statusPromise: Promise<Deno.CommandStatus>;
+  private exitStatus: Deno.CommandStatus | undefined;
 
   constructor(private child: Deno.ChildProcess) {
     this.writer = child.stdin.getWriter();
     this.reader = child.stdout.getReader();
+    this.statusPromise = child.status.then((status) => {
+      this.exitStatus = status;
+      return status;
+    });
   }
 
   /** Send one JSON-RPC message as a single newline-terminated line. */
@@ -89,21 +118,30 @@ class McpClient {
   // deno-lint-ignore no-explicit-any
   async recv(timeoutMs = MCP_RECV_TIMEOUT_MS): Promise<any> {
     let timeout: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
     try {
       return await Promise.race([
         this.recvLine(),
         new Promise((_, reject) => {
           timeout = setTimeout(
-            () =>
+            () => {
+              timedOut = true;
               reject(
                 new Error(
                   `timed out waiting for MCP response after ${timeoutMs}ms`,
                 ),
-              ),
+              );
+            },
             timeoutMs,
           );
         }),
       ]);
+    } catch (error) {
+      if (timedOut) {
+        // Reject only after the server and any in-flight gate tree are gone.
+        await this.terminate();
+      }
+      throw error;
     } finally {
       if (timeout !== undefined) {
         clearTimeout(timeout);
@@ -134,13 +172,78 @@ class McpClient {
 
   /** Close stdin — ends the server's read loop (and triggers its EOF drain). */
   async closeStdin(): Promise<void> {
-    await this.writer.close();
+    if (this.stdinClosed) {
+      return;
+    }
+    this.stdinClosed = true;
+    try {
+      await this.writer.close();
+    } finally {
+      this.writer.releaseLock();
+    }
+  }
+
+  private async cancelReader(): Promise<void> {
+    if (this.readerCancelled) {
+      return;
+    }
+    this.readerCancelled = true;
+    try {
+      await this.reader.cancel();
+    } finally {
+      this.reader.releaseLock();
+    }
+  }
+
+  /** Await the process, escalating through TERM and KILL if EOF cannot stop it. */
+  private async exitWithEscalation(): Promise<Deno.CommandStatus> {
+    let status = this.exitStatus ??
+      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+    if (status !== undefined) {
+      return status;
+    }
+    try {
+      this.child.kill("SIGTERM");
+    } catch {
+      // It raced to exit.
+    }
+    status = this.exitStatus ??
+      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+    if (status !== undefined) {
+      return status;
+    }
+    try {
+      this.child.kill("SIGKILL");
+    } catch {
+      // It raced to exit.
+    }
+    status = this.exitStatus ??
+      await settledWithin(this.statusPromise, MCP_PROCESS_EXIT_GRACE_MS);
+    if (status === undefined) {
+      throw new Error(
+        `MCP server ${this.child.pid} did not exit after SIGKILL`,
+      );
+    }
+    return status;
+  }
+
+  /** Idempotent cleanup for timeout and exceptional test paths. */
+  private async terminate(): Promise<Deno.CommandStatus> {
+    await settledWithin(
+      this.closeStdin().catch(() => undefined),
+      MCP_STDIN_CLOSE_GRACE_MS,
+    );
+    try {
+      return await this.exitWithEscalation();
+    } finally {
+      await this.cancelReader().catch(() => undefined);
+    }
   }
 
   /** Await a clean exit and release the stdout reader. */
   async finish(): Promise<number> {
-    const status = await this.child.status;
-    await this.reader.cancel();
+    const status = await this.exitWithEscalation();
+    await this.cancelReader();
     return status.code;
   }
 
@@ -148,6 +251,11 @@ class McpClient {
   async close(): Promise<number> {
     await this.closeStdin();
     return await this.finish();
+  }
+
+  /** Every lexical MCP binding tears down even when an assertion throws. */
+  async [Symbol.asyncDispose](): Promise<void> {
+    await this.terminate().catch(() => undefined);
   }
 }
 
@@ -165,6 +273,33 @@ async function spawnMcp(
   }).spawn();
   return new McpClient(child);
 }
+
+const MCP_SPAWN_CALL = ["await ", "spawnMcp("].join("");
+
+/** Source lines that start a live MCP server without lexical async disposal. */
+function unmanagedMcpSpawnLines(source: string): string[] {
+  return source.split("\n").flatMap((line, index) =>
+    line.includes(MCP_SPAWN_CALL) && !line.includes("await using ")
+      ? [`${index + 1}: ${line.trim()}`]
+      : []
+  );
+}
+
+Deno.test("mcp harness: every live server binding is async-disposed — future cases auto-enrol", async () => {
+  assertEquals(
+    unmanagedMcpSpawnLines(
+      await Deno.readTextFile(new URL(import.meta.url)),
+    ),
+    [],
+    "bind every spawn with `await using` so timeout and assertion failures reap the server",
+  );
+  const futureSibling = ["const future = ", MCP_SPAWN_CALL, "root);"].join("");
+  assertEquals(
+    unmanagedMcpSpawnLines(futureSibling),
+    [`1: ${futureSibling}`],
+    "an unmanaged future live-server case must enter the detector",
+  );
+});
 
 /** Read the valid verb events written by a spawned MCP server. */
 async function readMcpVerbEvents(
@@ -321,7 +456,7 @@ Deno.test("mcp (live): discern_help serves discern's own docs from a server spaw
   // real spawned-outside-a-project state. End-to-end over stdio, proving the whole
   // tool path (not just runTool) serves help there.
   await withTempDir(async (dir) => {
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -415,7 +550,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
 
     // initialize → server identifies itself and echoes the protocol version.
     await mcp.send({
@@ -642,7 +777,7 @@ Deno.test("discern mcp: protocol version, ping, and unknown method are handled c
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
 
     // An UNSUPPORTED protocol version → the SDK answers with the latest revision
     // it speaks, rather than a false agreement on one it doesn't.
@@ -674,7 +809,7 @@ Deno.test("discern mcp: an unexpected core throw becomes internal_error and the 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -716,7 +851,7 @@ Deno.test("discern mcp: a malformed JSON line does not prevent the next valid ca
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -745,7 +880,7 @@ Deno.test("discern mcp: wrong-typed arguments return a field-naming Zod validati
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -793,7 +928,7 @@ Deno.test("discern mcp: EVERY tool refuses an undeclared argument loudly — nev
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -846,7 +981,7 @@ Deno.test("discern mcp: discern_map indexes, searches, scopes, reads, and report
       defaultMapPath(dir, "00-orientation", "task-right.md"),
       "# Velvet beacon\n",
     );
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -999,7 +1134,7 @@ Deno.test("discern mcp: discern_help returns discern's OWN docs, not the project
       defaultMapPath(dir, "project-only.md"),
       "# Project Only\n\nNothing to do with discern.\n",
     );
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1121,7 +1256,7 @@ Deno.test("discern mcp: help tool and resources serve exactly the staged public 
     const copied = await stageBundledDocs(source, staged);
     const expectedPaths = copied.map((rel) => `staged-help/${rel}`);
 
-    const mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
+    await using mcp = await spawnMcp(dir, { DISCERN_DOCS_DIR: staged });
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1168,7 +1303,7 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { bootstrapped: false }); // un-set-up
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1231,7 +1366,7 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
     // the acceptance plan and touches nothing. (accept is always listed now; it
     // still requires a worktree to act on — the listing test covers visibility.)
     const wt = await addWorktree(dir, "grad");
-    const wtMcp = await spawnMcp(wt);
+    await using wtMcp = await spawnMcp(wt);
     await wtMcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1268,7 +1403,7 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
     // the recovery after a manually resolved conflict). (update is always listed
     // now; it still requires a worktree to act on, per the listing test.)
     const wt = await addWorktree(dir, "intg");
-    const wtMcp = await spawnMcp(wt);
+    await using wtMcp = await spawnMcp(wt);
     await wtMcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1316,7 +1451,7 @@ Deno.test("discern mcp: discern_update returns schema-valid data for a real merg
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream", "--no-gpg-sign");
 
-    const mcp = await spawnMcp(wt);
+    await using mcp = await spawnMcp(wt);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1375,7 +1510,7 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
     }
     await Deno.writeTextFile(join(dir, "a.ts"), "staged\n");
 
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1482,7 +1617,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
     // instructions. ADR 0062 retired the location-based hiding — every lifecycle tool
     // is always registered, and discern_start re-aims the server's working root, so a
     // main-rooted session can drive the whole lifecycle through one connection.
-    const main = await spawnMcp(dir);
+    await using main = await spawnMcp(dir);
     await main.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1524,7 +1659,7 @@ Deno.test("discern mcp: the lifecycle tools list + instructions from both roots 
     // From inside a WORKTREE: the SAME three lifecycle tools are listed and named —
     // symmetric with main, not the absent ⇄ present flip of the old location gating.
     const wt = await addWorktree(dir, "alpha");
-    const wtMcp = await spawnMcp(wt);
+    await using wtMcp = await spawnMcp(wt);
     await wtMcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1627,7 +1762,7 @@ Deno.test("discern mcp: project commands execute in the path-resolved worktree, 
     // The server process stays rooted in `dir` (the stable main checkout), while
     // this one call explicitly targets `worktree`. The command must follow the
     // resolved logical root; inheriting the server cwd produces a false-green gate.
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1680,7 +1815,7 @@ Deno.test("discern mcp: start then accept over ONE main-rooted session — the w
     // the connection. Before ADR 0062 this was impossible (accept was hidden from a
     // main-rooted server, and even revealed it gated the trunk); now discern_start
     // re-aims the server's working root at the new worktree, so accept lands it.
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1748,7 +1883,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     // worktree, so its spawn root IS the worktree — unlike Claude Code, launched from
     // the trunk. A main-rooted server creates + sets up the worktree (start refuses from
     // inside one), then we hand it to a server rooted THERE, the way Codex does.
-    const maker = await spawnMcp(dir);
+    await using maker = await spawnMcp(dir);
     await maker.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1769,7 +1904,7 @@ Deno.test("discern mcp: a worktree-spawned server re-aims to main on accept even
     assertEquals(await maker.close(), 0);
 
     // The accepting server is rooted IN the worktree (spawn root = the worktree).
-    const inWt = await spawnMcp(wtPath);
+    await using inWt = await spawnMcp(wtPath);
     await inWt.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1923,7 +2058,7 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
     // because a server re-aims into the worktree it just started and `start` then refuses
     // from inside one.)
     const startFromMain = async (): Promise<string> => {
-      const m = await spawnMcp(dir);
+      await using m = await spawnMcp(dir);
       await m.send({
         jsonrpc: "2.0",
         id: 1,
@@ -1947,7 +2082,7 @@ Deno.test("discern mcp: accepting a DIFFERENT worktree by `path` leaves the held
     await commitWorktreeForAcceptance(other);
 
     // A server rooted in `held`, accepting `other` by explicit path.
-    const inHeld = await spawnMcp(held);
+    await using inHeld = await spawnMcp(held);
     await inHeld.send({
       jsonrpc: "2.0",
       id: 1,
@@ -1993,7 +2128,7 @@ Deno.test("discern mcp: discern_accept with no prior discern_start refuses clean
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2032,7 +2167,7 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2107,7 +2242,7 @@ Deno.test("discern mcp: an explicit `path` wins over the working root (ADR 0062 
     await scaffoldEngine(dir);
     await gitInit(dir);
 
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2194,7 +2329,7 @@ Deno.test("discern mcp: discern_start with `path` creates the worktree for ANOTH
       await scaffoldEngine(dirB);
       await gitInit(dirB);
 
-      const mcp = await spawnMcp(dirA);
+      await using mcp = await spawnMcp(dirA);
       await mcp.send({
         jsonrpc: "2.0",
         id: 1,
@@ -2274,7 +2409,7 @@ Deno.test("discern mcp: a `path` outside any discern project falls through to no
       prefix: "discern-not-a-project-",
     });
     try {
-      const mcp = await spawnMcp(dir);
+      await using mcp = await spawnMcp(dir);
       await mcp.send({
         jsonrpc: "2.0",
         id: 1,
@@ -2305,7 +2440,7 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2420,7 +2555,7 @@ Deno.test("discern mcp: tools advertise a title, an outputSchema, and honest ann
     // hiding), so one worktree-rooted server advertises them all — verify each
     // lifecycle tool's self-describing surface and honest annotations here.
     const wt = await addWorktree(dir, "adv");
-    const mcp = await spawnMcp(wt);
+    await using mcp = await spawnMcp(wt);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2570,7 +2705,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2622,7 +2757,7 @@ Deno.test("discern mcp: discern_refresh repairs stale generated artifacts", asyn
       `${await Deno.readTextFile(claude)}\n<!-- stale edit -->\n`,
     );
 
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2657,7 +2792,7 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2719,7 +2854,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2764,7 +2899,7 @@ Deno.test("discern mcp: a tool call's structuredContent validates against its ad
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2820,7 +2955,7 @@ Deno.test("discern mcp: discern_standards is listed (slow/on-demand), not read-o
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2881,7 +3016,7 @@ Deno.test("discern mcp: a failing discern_standards apply returns an ok:false en
       ].join("\n"),
     );
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2937,7 +3072,7 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -2992,7 +3127,7 @@ Deno.test("discern mcp: the rendered surface names the project's configured trun
     ]);
     assertEquals(set.code, 0, set.output);
 
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -3045,7 +3180,7 @@ Deno.test("discern mcp: resources list, template, and read fresh content", async
       defaultMapPath(dir, "00-orientation", "concepts.md"),
       "# Concepts\n\nThe core ideas of the project.\n",
     );
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -3208,7 +3343,7 @@ Deno.test("discern mcp: a doc resource resolves by slug, section/slug, AND path 
       defaultMapPath(dir, "00-orientation", "concepts.md"),
       `# Concepts\n\n${marker}\n`,
     );
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -3315,7 +3450,7 @@ Deno.test("discern mcp: the resources follow the re-aimed working root after dis
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     await mcp.send({
       jsonrpc: "2.0",
       id: 1,
@@ -3450,12 +3585,42 @@ async function startInFlightFinish(
   return jobPid;
 }
 
+Deno.test("mcp: a response timeout tree-kills the server's in-flight gate before it rejects", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, sleeperConfig());
+    await gitInit(dir);
+    await using mcp = await spawnMcp(dir);
+    const jobPid = await startInFlightFinish(mcp, dir);
+    let caught: unknown;
+    try {
+      try {
+        await mcp.recv(25);
+      } catch (error) {
+        caught = error;
+      }
+      assert(caught instanceof Error, "the planted call must time out");
+      assertStringIncludes(
+        caught.message,
+        "timed out waiting for MCP response",
+      );
+      await pollUntil(
+        () => !pidAlive(jobPid),
+        `timed-out gate job ${jobPid} to die`,
+        1_000,
+      );
+    } finally {
+      await mcp.close().catch(() => undefined);
+    }
+  });
+});
+
 Deno.test("mcp: cancelling an in-flight discern_done tree-kills its gate jobs", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     const jobPid = await startInFlightFinish(mcp, dir);
 
     // The client cancels the call — the SDK aborts the request's signal, which
@@ -3480,7 +3645,7 @@ Deno.test("mcp: server shutdown (stdin EOF) tree-kills an in-flight gate", async
     await scaffoldEngine(dir);
     await writeConfig(dir, sleeperConfig());
     await gitInit(dir);
-    const mcp = await spawnMcp(dir);
+    await using mcp = await spawnMcp(dir);
     const jobPid = await startInFlightFinish(mcp, dir);
 
     // The client closes the pipe mid-call — the server must cancel the run
