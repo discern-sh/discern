@@ -1,4 +1,4 @@
-# ADR 0218: The public install schema starts at 1
+# ADR 0219: The public install schema starts at 1
 
 **Status**: accepted; applies the clean public baseline from [ADR 0014](0014-versioned-migration-system.md) before the first release tag.
 

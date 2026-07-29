@@ -12,7 +12,7 @@ aliases:
 
 _The versioned steps that bring an installed project up to the current config._
 
-The first public install is [schema version](../00-orientation/glossary.md#schema-version) 1, with an empty production migration registry. The runner is already in place for the first public `1 → 2` change ([ADR 0218](../_adr/0218-public-install-schema-starts-at-one.md)).
+The first public install is [schema version](../00-orientation/glossary.md#schema-version) 1, with an empty production migration registry. The runner is already in place for the first public `1 → 2` change ([ADR 0219](../_adr/0219-public-install-schema-starts-at-one.md)).
 
 A [Migration](../00-orientation/glossary.md#migration) brings an install from schema `N` to `N+1`. `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). A config stamped by a newer binary is refused and keeps its recorded version.
 
