@@ -34,7 +34,7 @@ Markdown prose is stored unwrapped, with two-space indentation, spaces rather th
 | `discern tidy toml`      | Format only the root config.                         |
 | `discern tidy --dry-run` | List every file that would change and write nothing. |
 
-The planner reads and formats every selected target before the first write. If a selected file cannot be parsed, the run fails and leaves all files unchanged. A configured path that does not exist is a successful no-op. A normal run writes only files whose content changes; a second run is a no-op.
+The planner reads and formats every target before the first write; a file that cannot be parsed fails the run, leaving all files unchanged. A missing configured path is a successful no-op, and a run rewrites only changed files — a second run is a no-op.
 
 ## Keep a project formatter first
 
@@ -45,8 +45,8 @@ The planner reads and formats every selected target before the first write. If a
   format = ["<the project's formatter>", "discern tidy"]
 ```
 
-This order lets the project tool own its files and gives `discern tidy` the final word only on discern-owned surfaces. `discern prepare` and `discern done` then run both commands as the ordinary serial fix stage.
+This order lets the project tool own its files, with `discern tidy` taking the final word on discern-owned surfaces; `discern prepare` and `discern done` run both as one serial fix stage.
 
-During setup, `discern doctor` fails if the setup agent dropped every form of `discern tidy` from the format job. After setup is recorded, the same absence is an informational opt-out and never a warning.
+Seeded alone, the format job is housekeeping, not quality coverage: `setup done` and `discern doctor` report `minimal` until a project check joins it ([ADR 0220](../_adr/0220-self-supplied-commands-count-for-nothing-in-assurance.md)). During setup, doctor fails when every form of `discern tidy` leaves the format job; afterwards it is an informational opt-out.
 
 An existing installation can opt in by adding the command to its format job; every config writer (`discern upgrade`, `discern config`, setup, presets, skill ejection, `standards --pin`) already emits the same canonical form.

@@ -52,6 +52,7 @@ export type DiscernKnownErrorSlug =
   | "schema_version_too_new"
   | "setup_plan_failed"
   | "skills_eject_failed"
+  | "tables_malformed"
   | "templates_not_found"
   | "tidy_parse_failed"
   | "tidy_write_failed"
@@ -605,6 +606,7 @@ export type DiscernSetupDoneResult = {
         name: string;
         state: "enforced" | "deferred" | "absent";
         reason?: string;
+        self_supplied?: true;
       }>;
       enforced: number;
       total: number;

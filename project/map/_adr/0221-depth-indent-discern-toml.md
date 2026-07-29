@@ -1,4 +1,4 @@
-# ADR 0220: Depth-indent discern.toml as the canonical tidy convention
+# ADR 0221: Depth-indent discern.toml as the canonical tidy convention
 
 **Status**: accepted
 
