@@ -46,7 +46,7 @@ function sentinelFor(name: SourcePathName): string {
  * config parse loudly, telling its author to teach this builder the shape.
  */
 function sentinelToml(): string {
-  const lines = ['guidance.agents = ["claude_code"]'];
+  const lines = ['project.agents = ["claude_code"]'];
   for (const name of SOURCE_PATH_NAMES) {
     const key = SOURCE_PATHS[name].key;
     if (key === null) {

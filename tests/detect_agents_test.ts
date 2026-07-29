@@ -1,7 +1,7 @@
 /**
  * PATH auto-detection of the known coding agents (Phase A, deliverable 1).
  *
- * Detection resolves a fresh install's default `[guidance].agents` from what is
+ * Detection resolves a fresh install's default `[project].agents` from what is
  * actually installed — registry-driven (`PROVIDERS[*].binaries`), match-any, and
  * falling back to `DEFAULT_AGENTS` when nothing is found. These drive it with an
  * injected `PATH` over temp "bin" dirs holding fake executables, so the assertions

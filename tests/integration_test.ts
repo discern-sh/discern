@@ -58,10 +58,9 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     const toml = parseDiscernToml(tomlText);
     assertEquals(toml.project.slug, "integration-demo");
     assertEquals(toml.repository.branch_prefix, "agent/");
-    // The agents list now lives under [guidance] (the author-once → compile
-    // pipeline owns it), not [project]; read it straight from the parsed doc.
-    const guidance = toml.raw.guidance as { agents?: unknown } | undefined;
-    assertEquals(guidance?.agents, ["claude_code", "codex"]);
+    // The agents list lives under [project] — agents operate at the project
+    // level, so project identity owns which integrations are enabled.
+    assertEquals(toml.project.agents, ["claude_code", "codex"]);
     // Every content token resolved. Runtime tokens use the @…@ delimiter now, so
     // NO {{…}} token should remain in the installed discern.toml at all.
     const leaked = [...tomlText.matchAll(/\{\{\s*([a-z0-9_]+)\s*\}\}/g)]

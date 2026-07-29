@@ -10,7 +10,7 @@ aliases:
 
 # Codex integration
 
-discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[guidance].agents`:
+discern's Codex integration is project-local and registry-driven. It writes or co-manages the files below when Codex is enabled in `[project].agents`:
 
 | File                                   | Role                                      | Ownership             |
 | -------------------------------------- | ----------------------------------------- | --------------------- |

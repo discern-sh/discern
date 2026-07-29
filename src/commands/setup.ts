@@ -600,10 +600,10 @@ async function scaffoldHarness(
   // so the scaffold lays exactly the right per-agent seeds — never DEFAULT_AGENTS by
   // accident:
   //   • FRESH install → detect what is actually on PATH (else DEFAULT_AGENTS) and seed
-  //     [guidance].agents from it (persisted once here; resolveConfiguredAgents stays a
+  //     [project].agents from it (persisted once here; resolveConfiguredAgents stays a
   //     pure runtime reader that never re-detects).
   //   • --force RE-SCAFFOLD over an existing install → re-derive from the PERSISTED
-  //     [guidance].agents via resolveConfiguredAgents, the one resolver every consumer
+  //     [project].agents via resolveConfiguredAgents, the one resolver every consumer
   //     shares: an unset key means the legacy list or the default pair, and an explicit
   //     `agents = []` means no agents (ADR 0125), round-tripping as the empty flag. The
   //     config is write-once, so re-detecting would be inert for
@@ -1366,7 +1366,7 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
           "Work through `data.instructions` (the principles + page 0), pull each next page with `discern setup step <n>`, then run `discern setup done` to finish.",
         project: {
           slug: cfg?.project.slug ?? scaffold?.config.slug ?? "",
-          agents: cfg?.guidance.agents ?? [],
+          agents: cfg?.project.agents ?? [],
         },
         kit_version: KIT_VERSION,
         written: scaffold?.written ?? [],

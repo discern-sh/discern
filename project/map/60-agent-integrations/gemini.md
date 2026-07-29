@@ -10,7 +10,7 @@ aliases:
 
 # Gemini integration
 
-discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[guidance].agents`:
+discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
 | File                    | Role                                    | Ownership             |
 | ----------------------- | --------------------------------------- | --------------------- |
@@ -18,7 +18,7 @@ discern's Gemini integration is project-local and registry-driven. It writes or 
 | `.agents/skills/`       | Materialized Agent Skills               | Generated, gitignored |
 | `.gemini/settings.json` | MCP server entry and session-start hook | Shared, tracked       |
 
-Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[guidance].agents` to emit these artifacts.
+Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[project].agents` to emit these artifacts.
 
 ## Guidance and skills
 

@@ -50,7 +50,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.project.todo, SOURCE_PATHS.todo.defaultPath);
   // `agents` is OPTIONAL (no default): an absent key stays undefined so the
   // resolver can tell "unset" (→ default pair) from an explicit `[]` (→ no agents).
-  assertEquals(c.guidance.agents, undefined);
+  assertEquals(c.project.agents, undefined);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty
   assertEquals(c.jobs, {});
@@ -96,18 +96,24 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
   });
 });
 
-Deno.test("current configs reject settings that no longer live under [project]", () => {
-  // The class: keys whose home moved out of [project] — repository policy to
-  // [repository], providers to [guidance]. No epitaph row and no fallback: no
-  // public install ever wrote these, so plain unknown-key rejection is the
-  // whole contract (the public-baseline reset's reasoning).
-  for (const key of ["main_branch", "branch_prefix", "agents"]) {
+Deno.test("current configs reject settings whose section home moved", () => {
+  // The class: keys living under a section that is not their canonical home —
+  // repository policy moved out of [project], and `agents` is project identity,
+  // not a [guidance] setting. No epitaph row and no fallback: no public install
+  // ever wrote these, so plain unknown-key rejection is the whole contract
+  // (the public-baseline reset's reasoning).
+  const moved = [
+    ["project", "main_branch"],
+    ["project", "branch_prefix"],
+    ["guidance", "agents"],
+  ] as const;
+  for (const [section, key] of moved) {
     const { config, issues } = parseConfig(
-      `[project]\n${key} = "legacy"\n`,
+      `[${section}]\n${key} = "legacy"\n`,
     );
     assertEquals(config, undefined);
     assert(
-      issues.some((issue) => issue.path === `project.${key}`),
+      issues.some((issue) => issue.path === `${section}.${key}`),
       JSON.stringify(issues),
     );
   }
@@ -198,19 +204,19 @@ Deno.test("worktree resource defaults: required/gc default true, retries 0, comm
 });
 
 Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] means no agents", () => {
-  // The class: an empty collection conflated with an absent one (B43). `[guidance]
+  // The class: an empty collection conflated with an absent one (B43). `[project]
   // agents` is optional so the two are DISTINCT states, and the resolver must read
   // them differently — otherwise "emit for no agents" cannot be expressed and the
   // generated reference misdocuments the default. Default expectations are driven
   // off DEFAULT_AGENTS (its single source of truth), never a hand-copied pair.
 
-  // Unset (no key at all, and an empty [guidance] with no agents key) → default pair.
+  // Unset (no key at all, and a [project] with no agents key) → default pair.
   assertEquals(resolveConfiguredAgents(parseConfigOrThrow("")), [
     ...DEFAULT_AGENTS,
   ]);
   assertEquals(
     resolveConfiguredAgents(
-      parseConfigOrThrow('[guidance]\nsources = ["g.md"]\n'),
+      parseConfigOrThrow('[project]\nslug = "demo"\n'),
     ),
     [...DEFAULT_AGENTS],
   );
@@ -218,24 +224,24 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
   // Explicit empty list → emit for NO agents (the reading the old default made
   // impossible). This is the one deliberate semantic change (documented on the key).
   assertEquals(
-    resolveConfiguredAgents(parseConfigOrThrow("[guidance]\nagents = []\n")),
+    resolveConfiguredAgents(parseConfigOrThrow("[project]\nagents = []\n")),
     [],
   );
 
   // A non-empty explicit list is honored verbatim, in order.
   assertEquals(
     resolveConfiguredAgents(
-      parseConfigOrThrow('[guidance]\nagents = ["gemini"]\n'),
+      parseConfigOrThrow('[project]\nagents = ["gemini"]\n'),
     ),
     ["gemini"],
   );
 
   // Provider names validate against the AGENT_NAMES catalogue — one authority.
   // A typo'd name is a load-time rejection, never a silently ignored provider.
-  const typo = parseConfig('[guidance]\nagents = ["claud_code"]\n');
+  const typo = parseConfig('[project]\nagents = ["claud_code"]\n');
   assertEquals(typo.config, undefined);
   assert(
-    typo.issues.some((issue) => issue.path.startsWith("guidance.agents")),
+    typo.issues.some((issue) => issue.path.startsWith("project.agents")),
     JSON.stringify(typo.issues),
   );
 });
@@ -513,7 +519,7 @@ Deno.test("settableConfigValueKind reads the schema's type at a path", () => {
   });
   assertEquals(settableConfigValueKind("gate.timeout"), { kind: "number" });
   assertEquals(settableConfigValueKind("gate.stream"), { kind: "boolean" });
-  assertEquals(settableConfigValueKind("guidance.agents"), {
+  assertEquals(settableConfigValueKind("project.agents"), {
     kind: "string-array",
   });
   assertEquals(settableConfigValueKind("worktree.setup.steps"), {
@@ -549,9 +555,9 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
   assertEquals(configWriteIssues(`[standards.cov]\nlimit = 80\n`), []);
   assertEquals(configWriteIssues(`[scopes.map]\nneutral = true\n`), []);
   // A key PRESENT with the wrong shape blocks.
-  const wrongType = configWriteIssues(`[guidance]\nagents = "claude_code"\n`);
+  const wrongType = configWriteIssues(`[project]\nagents = "claude_code"\n`);
   assert(
-    wrongType.some((i) => i.path === "guidance.agents"),
+    wrongType.some((i) => i.path === "project.agents"),
     JSON.stringify(wrongType),
   );
   const wrongEnum = configWriteIssues(

@@ -6,7 +6,7 @@
  * computed by `renderAgentFiles` in `./guidance_render.ts`, the single source this
  * writer and the `status`/`done` currency check both use, so a generated file can
  * never silently disagree with what a refresh produces (ADR 0034). It writes each
- * provider file named in `[guidance].agents`.
+ * provider file named in `[project].agents`.
  *
  * The files carry no banner — they open with the guidance itself; `base.md`'s
  * in-body "never hand-edit" section conveys their generated-ness to every agent,
@@ -394,7 +394,7 @@ export async function compileGuidelines(
     const gf = providerFor(agent)?.guidanceFile;
     if (gf === undefined) {
       log.warn(
-        `refresh: unknown agent '${agent}' in [guidance].agents — skipping (no output mapping).`,
+        `refresh: unknown agent '${agent}' in [project].agents — skipping (no output mapping).`,
       );
       continue;
     }
@@ -433,8 +433,8 @@ export async function compileGuidelines(
       providerFor(agent)?.guidanceFile !== undefined
     );
     const msg = knownGuidanceAgents.length === 0
-      ? 'refresh: no known providers in [guidance].agents — compiled nothing. Set agents = ["claude_code", …].'
-      : "refresh: configured guidance providers rendered no agent files — check [guidance].agents and provider guidance mappings.";
+      ? 'refresh: no known providers in [project].agents — compiled nothing. Set agents = ["claude_code", …].'
+      : "refresh: configured guidance providers rendered no agent files — check [project].agents and provider guidance mappings.";
     log.warn(msg);
   } else if (agentsWritten.length === 0) {
     log.warn(

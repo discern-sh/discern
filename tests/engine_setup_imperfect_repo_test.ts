@@ -1050,7 +1050,7 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
 
     // Re-run with --force and NO --agents. resolveSetupConfig would fall back to
     // DEFAULT_AGENTS; the cure re-derives the agent set from the persisted
-    // [guidance].agents instead, so the re-scaffold converges on the configured set.
+    // [project].agents instead, so the re-scaffold converges on the configured set.
     const re = await runAgent(dir, [
       "setup",
       "begin",
@@ -1080,7 +1080,7 @@ Deno.test("re-entry (B48): a --force re-scaffold lays the configured agents' see
     // The persisted config is unchanged — the re-scaffold reads it, never rewrites it.
     assertEquals(
       parseConfigOrThrow(await Deno.readTextFile(join(dir, "discern.toml")))
-        .guidance.agents,
+        .project.agents,
       ["gemini"],
     );
   });
@@ -1123,7 +1123,7 @@ Deno.test("re-entry (B48): a --force re-scaffold honours an explicit [guidance] 
     );
     assertEquals(
       parseConfigOrThrow(await Deno.readTextFile(join(dir, "discern.toml")))
-        .guidance.agents,
+        .project.agents,
       [],
       "precondition: the config records the explicit empty list",
     );

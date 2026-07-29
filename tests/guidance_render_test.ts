@@ -26,9 +26,13 @@ async function scaffold(
   const tmp = await Deno.makeTempDir({ prefix: "discern-render-test-" });
   await Deno.writeTextFile(
     join(tmp, "discern.toml"),
-    ["[guidance]", `agents = ${agents}`, 'sources = ["guidance.md"]', ""].join(
-      "\n",
-    ),
+    [
+      "[project]",
+      `agents = ${agents}`,
+      "[guidance]",
+      'sources = ["guidance.md"]',
+      "",
+    ].join("\n"),
   );
   await Deno.writeTextFile(join(tmp, "guidance.md"), "# Mine\nA rule.\n");
   return tmp;
@@ -62,7 +66,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
   try {
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
-      '[project]\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+      '[project]\nslug = "voyager-2"\nagents = ["codex"]\n[guidance]\nsources = ["guidance.md"]\n',
     );
     let files = await renderAgentFiles(dir);
     let agents = files.get("AGENTS.md");
@@ -74,7 +78,7 @@ Deno.test("renderAgentFiles: the compiled file opens as the project's own — [p
 
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
-      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\n[guidance]\nagents = ["codex"]\nsources = ["guidance.md"]\n',
+      '[project]\nname = "Voyager 2"\nslug = "voyager-2"\nagents = ["codex"]\n[guidance]\nsources = ["guidance.md"]\n',
     );
     files = await renderAgentFiles(dir);
     agents = files.get("AGENTS.md");
@@ -184,8 +188,9 @@ Deno.test("compile converges when [guidance].sources globs the generated files' 
     await Deno.writeTextFile(
       join(dir, "discern.toml"),
       [
-        "[guidance]",
+        "[project]",
         'agents = ["claude_code", "codex"]',
+        "[guidance]",
         'sources = ["*.md"]',
         "",
       ].join("\n"),
@@ -292,7 +297,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
   try {
     await Deno.writeTextFile(
       join(bare, "discern.toml"),
-      '[guidance]\nagents = ["codex"]\n',
+      '[project]\nagents = ["codex"]\n',
     );
     await Deno.writeTextFile(
       join(rich, "discern.toml"),
@@ -300,7 +305,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         "[repository]",
         'branch_prefix = "wt/"',
         'trunk = "trunk"',
-        "[guidance]",
+        "[project]",
         'agents = ["codex"]',
         "[standards.coverage]",
         'direction = "up"',
@@ -407,12 +412,12 @@ Deno.test("renderAgentFiles: excluding the teach skill removes its guidance refe
   try {
     await Deno.writeTextFile(
       join(included, "discern.toml"),
-      '[guidance]\nagents = ["codex"]\n',
+      '[project]\nagents = ["codex"]\n',
     );
     await Deno.writeTextFile(
       join(excluded, "discern.toml"),
       [
-        "[guidance]",
+        "[project]",
         'agents = ["codex"]',
         "[skills]",
         'exclude = ["discern-teach-the-project"]',
@@ -435,7 +440,7 @@ Deno.test("renderAgentFiles: excluding the teach skill removes its guidance refe
 });
 
 Deno.test("renderAgentFiles: the never-edit sentence names the project's real generated files (config-derived)", async () => {
-  // generated_agent_files / materialized_skills_dirs derive from [guidance].agents
+  // generated_agent_files / materialized_skills_dirs derive from [project].agents
   // through the SAME registry renderAgentFiles / materializeSkills write to, so the
   // names base.md prints can never drift from the files actually produced.
   const solo = await Deno.makeTempDir({ prefix: "discern-genfiles-solo-" });
@@ -443,11 +448,11 @@ Deno.test("renderAgentFiles: the never-edit sentence names the project's real ge
   try {
     await Deno.writeTextFile(
       join(solo, "discern.toml"),
-      '[guidance]\nagents = ["codex"]\n',
+      '[project]\nagents = ["codex"]\n',
     );
     await Deno.writeTextFile(
       join(multi, "discern.toml"),
-      '[guidance]\nagents = ["claude_code", "codex", "gemini"]\n',
+      '[project]\nagents = ["claude_code", "codex", "gemini"]\n',
     );
     const soloBody = (await renderAgentFiles(solo)).get("AGENTS.md");
     const multiBody = (await renderAgentFiles(multi)).get("AGENTS.md");
@@ -470,7 +475,7 @@ Deno.test("renderAgentFiles: the never-edit sentence names the project's real ge
       "codex + gemini share .agents/skills — deduped, not listed twice",
     );
     // Config-derived: a different agent set yields a different list.
-    assert(soloBody !== multiBody, "the file list tracks [guidance].agents");
+    assert(soloBody !== multiBody, "the file list tracks [project].agents");
   } finally {
     await Deno.remove(solo, { recursive: true });
     await Deno.remove(multi, { recursive: true });
@@ -487,7 +492,7 @@ Deno.test("checkGuidanceCurrent: a templated, non-default config compiles curren
       [
         "[repository]",
         'branch_prefix = "wt/"',
-        "[guidance]",
+        "[project]",
         'agents = ["claude_code", "codex"]',
         "[standards.coverage]",
         'direction = "up"',
@@ -555,48 +560,48 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
     { toml: string; expect?: string; contextOnly?: boolean }
   > = {
     project_name: {
-      toml: '[project]\nname = "ZZ Probe"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[project]\nname = "ZZ Probe"\nagents = ["codex"]\n',
       expect: "ZZ Probe",
     },
     branch_prefix: {
       toml:
-        '[repository]\nbranch_prefix = "zz-wt/"\n[guidance]\nagents = ["codex"]\n',
+        '[repository]\nbranch_prefix = "zz-wt/"\n[project]\nagents = ["codex"]\n',
       expect: "zz-wt/",
     },
     main_branch: {
-      toml: '[repository]\ntrunk = "zztrunk"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[repository]\ntrunk = "zztrunk"\n[project]\nagents = ["codex"]\n',
       expect: "zztrunk",
     },
     map_dir: {
-      toml: '[map]\ndir = "zz-docs/"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[map]\ndir = "zz-docs/"\n[project]\nagents = ["codex"]\n',
       expect: "zz-docs/",
     },
     todo_path: {
-      toml:
-        '[project]\ntodo = "zz-ledger.md"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[project]\ntodo = "zz-ledger.md"\nagents = ["codex"]\n',
       expect: "zz-ledger.md",
       contextOnly: true,
     },
     skills_dir: {
-      toml: '[skills]\ndir = "zz-playbooks"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[skills]\ndir = "zz-playbooks"\n[project]\nagents = ["codex"]\n',
       expect: "zz-playbooks",
       contextOnly: true,
     },
     scripts_dir: {
-      toml: '[scripts]\ndir = "zz-tools"\n[guidance]\nagents = ["codex"]\n',
+      toml: '[scripts]\ndir = "zz-tools"\n[project]\nagents = ["codex"]\n',
       expect: "zz-tools",
       contextOnly: true,
     },
     guidance_sources: {
-      toml: '[guidance]\nagents = ["codex"]\nsources = ["zz-rules.md"]\n',
+      toml:
+        '[project]\nagents = ["codex"]\n[guidance]\nsources = ["zz-rules.md"]\n',
       expect: "zz-rules.md",
     },
     generated_agent_files: {
-      toml: '[guidance]\nagents = ["codex", "gemini"]\n',
+      toml: '[project]\nagents = ["codex", "gemini"]\n',
       expect: "GEMINI.md",
     },
     materialized_skills_dirs: {
-      toml: '[guidance]\nagents = ["codex", "claude_code"]\n',
+      toml: '[project]\nagents = ["codex", "claude_code"]\n',
       expect: ".claude/skills",
     },
   };
@@ -648,7 +653,7 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
   try {
     await Deno.writeTextFile(
       join(probe, "discern.toml"),
-      '[guidance]\nagents = ["codex"]\n',
+      '[project]\nagents = ["codex"]\n',
     );
     const ctx = guidanceContext(await loadConfig(probe));
     assertEquals(
@@ -665,7 +670,7 @@ Deno.test("renderAgentFiles: every guidance template input is config-driven — 
     await Deno.remove(probe, { recursive: true });
   }
 
-  const baseline = await renderBody('[guidance]\nagents = ["codex"]\n');
+  const baseline = await renderBody('[project]\nagents = ["codex"]\n');
   for (const [name, c] of Object.entries(cases)) {
     if (c.contextOnly === true) {
       // Not consumed by any built-in section: prove the context value itself

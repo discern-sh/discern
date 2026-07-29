@@ -32,8 +32,6 @@ Deno.test("a malformed config throws a catchable ConfigParseError with the hint"
 const SAMPLE = `
 [project]
 slug = "demo-app"
-
-[guidance]
 agents = ["claude_code", "codex"]
 
 [repository]
@@ -77,7 +75,7 @@ Deno.test("array: array yields items, scalar yields one, absent yields []", () =
   const c = new RawConfig(SAMPLE);
   assertEquals(c.array("jobs.lint"), ["eslint .", "stylelint ."]);
   assertEquals(c.array("jobs.format"), ["deno fmt"]);
-  assertEquals(c.array("guidance.agents"), ["claude_code", "codex"]);
+  assertEquals(c.array("project.agents"), ["claude_code", "codex"]);
   assertEquals(c.array("missing"), []);
 });
 
@@ -92,15 +90,14 @@ Deno.test("subsections returns child table names only", () => {
 Deno.test("keys returns flat keys, excluding nested tables", () => {
   const c = new RawConfig(SAMPLE);
   assertEquals(c.keys("jobs").sort(), ["format", "lint"]);
-  assertEquals(c.keys("project").sort(), ["slug"]);
-  assertEquals(c.keys("guidance"), ["agents"]);
+  assertEquals(c.keys("project").sort(), ["agents", "slug"]);
   assertEquals(c.keys("repository"), ["trunk"]);
 });
 
 Deno.test("has covers scalars, arrays, and table headers", () => {
   const c = new RawConfig(SAMPLE);
   assertEquals(c.has("project.slug"), true);
-  assertEquals(c.has("guidance.agents"), true);
+  assertEquals(c.has("project.agents"), true);
   assertEquals(c.has("worktree.db"), true); // a table header
   assertEquals(c.has("nope"), false);
 });

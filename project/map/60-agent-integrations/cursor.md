@@ -10,7 +10,7 @@ aliases:
 
 # Cursor integration
 
-discern's Cursor integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when Cursor is enabled in `[guidance].agents`:
+discern's Cursor integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when Cursor is enabled in `[project].agents`:
 
 | File                 | Role                                       | Ownership                       |
 | -------------------- | ------------------------------------------ | ------------------------------- |
@@ -19,11 +19,11 @@ discern's Cursor integration is project-local and registry-driven. It writes, co
 | `.cursor/mcp.json`   | Project MCP server entry                   | Shared, tracked                 |
 | `.cursor/hooks.json` | Session-start hook                         | Shared, tracked                 |
 
-Cursor is not in `DEFAULT_AGENTS`; add `"cursor"` to `[guidance].agents` to wire its provider-specific config.
+Cursor is not in `DEFAULT_AGENTS`; add `"cursor"` to `[project].agents` to wire its provider-specific config.
 
 ## Using the IDE
 
-Setup auto-detection sees PATH binaries, so it cannot detect a Cursor IDE user without `cursor-agent` on PATH. Add `cursor` explicitly under `[guidance].agents`, then run `discern refresh`:
+Setup auto-detection sees PATH binaries, so it cannot detect a Cursor IDE user without `cursor-agent` on PATH. Add `cursor` explicitly under `[project].agents`, then run `discern refresh`:
 
 ```toml
 [guidance]

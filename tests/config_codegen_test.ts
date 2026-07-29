@@ -95,9 +95,8 @@ Deno.test("the generated config schemas fix the two historical staleness bugs", 
     assertEquals(schema.additionalProperties, false, name);
   }
   // Bug 1: the document's agents enum must include gemini (KNOWN_AGENTS, not
-  // just two). The live schema's [guidance].agents deliberately stays an open
-  // string array — the resolver validates providers — so the enum guarantee
-  // belongs to the setup document alone.
+  // just two). The live schema's [project].agents enums the same catalogue, so
+  // the two schemas share one provider-name authority.
   assert(
     renderConfigDocSchemaJson().includes('"gemini"'),
     "the setup document's agents enum must include gemini",
@@ -171,7 +170,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
   );
 });
 
-Deno.test("the reference's [guidance].agents row matches what the resolver actually does (no misleading [] default)", () => {
+Deno.test("the reference's [project].agents row matches what the resolver actually does (no misleading [] default)", () => {
   // B43's docs half: the reference once printed `[]` as the default, which read as
   // "no agents by default" when the resolver actually emits the default pair —
   // and made the true "no agents" choice inexpressible. The key is now optional, so
@@ -181,7 +180,7 @@ Deno.test("the reference's [guidance].agents row matches what the resolver actua
   const row = doc.split("\n").find((l) =>
     l.startsWith("| `agents`") && l.includes("CLAUDE.md")
   );
-  assert(row !== undefined, "the [guidance].agents row should be present");
+  assert(row !== undefined, "the [project].agents row should be present");
   // The default cell is `—` (no default), never a literal empty array.
   assert(
     !/\|\s*`\[\]`\s*\|/.test(row),
@@ -197,7 +196,7 @@ Deno.test("the reference's [guidance].agents row matches what the resolver actua
     ...DEFAULT_AGENTS,
   ]);
   assertEquals(
-    resolveConfiguredAgents(parseConfigOrThrow("[guidance]\nagents = []\n")),
+    resolveConfiguredAgents(parseConfigOrThrow("[project]\nagents = []\n")),
     [],
   );
 });

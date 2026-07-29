@@ -23,7 +23,7 @@ import { withTempDir } from "./helpers.ts";
 /** Single-agent config so exactly one skills dir (.claude/skills) materializes. */
 function cfg(extra = ""): DiscernConfig {
   return parseConfigOrThrow(
-    `[guidance]\nagents = ["claude_code"]\n\n[skills]\ndir = "skills"\n${extra}`,
+    `[project]\nagents = ["claude_code"]\n\n[skills]\ndir = "skills"\n${extra}`,
   );
 }
 

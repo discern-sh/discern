@@ -483,7 +483,7 @@ function renderTypedValue(
  * Render a value for an array-of-strings key: a `["a", "b"]`-shaped value is
  * parsed as a TOML array and re-rendered canonically (so a stray comment or
  * trailing text can never ride into the file verbatim); any other value becomes
- * a one-element array — `config set guidance.agents claude_code` means
+ * a one-element array — `config set project.agents claude_code` means
  * `agents = ["claude_code"]`.
  */
 function renderStringArrayValue(key: string, value: string): string {

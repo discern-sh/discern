@@ -473,7 +473,7 @@ Deno.test("config set renders the schema's type, not the value's spelling", asyn
     const slug = await runCli(["config", "set", "project.slug", "2048"], dir);
     assertEquals(slug.code, 0, slug.stderr);
     const agents = await runCli(
-      ["config", "set", "guidance.agents", "claude_code"],
+      ["config", "set", "project.agents", "claude_code"],
       dir,
     );
     assertEquals(agents.code, 0, agents.stderr);
@@ -487,7 +487,7 @@ Deno.test("config set renders the schema's type, not the value's spelling", asyn
 
     // A TOML-array-shaped value reaches an array key as the full array.
     const list = await runCli(
-      ["config", "set", "guidance.agents", '["claude_code", "codex"]'],
+      ["config", "set", "project.agents", '["claude_code", "codex"]'],
       dir,
     );
     assertEquals(list.code, 0, list.stderr);

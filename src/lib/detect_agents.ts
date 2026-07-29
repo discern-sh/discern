@@ -1,7 +1,7 @@
 /**
  * PATH auto-detection of the coding agents discern knows.
  *
- * A fresh install resolves its default `[guidance].agents` from what is actually
+ * A fresh install resolves its default `[project].agents` from what is actually
  * installed: which of the {@link PROVIDERS} have a binary on `PATH`. This is a
  * **feature-layer** concern (which agents exist is agent-specific), so it lives
  * here, not in the stack-neutral engine.
@@ -123,7 +123,7 @@ export async function detectAgentsOnPath(
 /**
  * The default agent set for a fresh install: the {@link detectAgentsOnPath}
  * result, or {@link DEFAULT_AGENTS} when none is detected. The single resolver
- * `discern setup` uses to seed `[guidance].agents` when the user named no agents
+ * `discern setup` uses to seed `[project].agents` when the user named no agents
  * (no `--agents`, no `--config` agents). Persisted to config — never consulted at
  * runtime. Pass an already-scanned `detected` list to skip the rescan (the
  * detected-else-defaults rule still lives only here).

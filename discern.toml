@@ -51,6 +51,11 @@
   # Set false to stop all writes; existing history stays until you delete it.
   logbook = true
 
+  # Which agent integrations to enable. Guidance targets:
+  #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
+  #   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
+  agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
+
 # ─────────────────────────────────────────────────────────────────────────────
 # [repository] — policy shared by every checkout of this Git repository: where
 # work lands, how discern names worktree branches, and how any checkout converges
@@ -107,11 +112,6 @@
   # Your guideline source file(s), relative to the project root. Globs are allowed.
   # Read only if present; discern's built-in guidance is always prepended.
   sources = ["project/guidance.md"]
-
-  # Which agent integrations to enable. Guidance targets:
-  #   "claude_code" -> CLAUDE.md   "codex" -> AGENTS.md   "gemini" -> GEMINI.md
-  #   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
-  agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [skills] — focused, reusable task playbooks. The effective set is discern's

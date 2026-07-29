@@ -580,7 +580,7 @@ async function pathWithFakeAgent(
   return { path: `${bin}:${Deno.env.get("PATH") ?? ""}`, bin };
 }
 
-Deno.test("discern setup persists the PATH-detected agent set into [guidance].agents (auto-detect, end-to-end)", async () => {
+Deno.test("discern setup persists the PATH-detected agent set into [project].agents (auto-detect, end-to-end)", async () => {
   // The resolver is unit-tested; this proves the SETUP WIRING — freshInstall &&
   // no --agents → write the detected set into discern.toml — actually lands, so a
   // future setup refactor can't silently drop the auto-detect feature (the
@@ -601,15 +601,15 @@ Deno.test("discern setup persists the PATH-detected agent set into [guidance].ag
       assertEquals(r.code, 0, r.output);
 
       // gemini ∉ DEFAULT_AGENTS, so it is in the WRITTEN config only via detection.
-      // `[guidance].agents` is optional (unset ≠ explicit []); detection writes an
+      // `[project].agents` is optional (unset ≠ explicit []); detection writes an
       // explicit list, so it must be present here — an absent key would itself be
       // the regression this guards.
       const agents = parseConfigOrThrow(
         await Deno.readTextFile(join(dir, "discern.toml")),
-      ).guidance.agents;
+      ).project.agents;
       assert(
         agents !== undefined && agents.includes("gemini"),
-        `the PATH-detected gemini must be persisted to [guidance].agents — a setup ` +
+        `the PATH-detected gemini must be persisted to [project].agents — a setup ` +
           `refactor dropping the auto-detect wiring fails here. Got: ${
             JSON.stringify(agents)
           }`,
@@ -639,7 +639,7 @@ Deno.test("discern setup honours an explicit --agents over PATH detection (the a
 
       const agents = parseConfigOrThrow(
         await Deno.readTextFile(join(dir, "discern.toml")),
-      ).guidance.agents;
+      ).project.agents;
       assertEquals(
         agents,
         ["claude_code"],

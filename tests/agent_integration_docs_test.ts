@@ -94,7 +94,7 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
     for (
       const needle of [
         "\n## Using the IDE\n",
-        "[guidance].agents",
+        "[project].agents",
         "discern refresh",
         "IDE marker detection",
       ]

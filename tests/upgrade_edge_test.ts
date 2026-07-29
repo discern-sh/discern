@@ -185,7 +185,7 @@ Deno.test("upgrade refuses an absent templates dir before stamping (human)", asy
 Deno.test("upgrade fills agents from defaults when discern.toml carries no agents key", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    // Strip the `agents = [...]` line so [guidance].agents is absent; the
+    // Strip the `agents = [...]` line so [project].agents is absent; the
     // guideline compile must fall back to the default agents to resolve content.
     const tomlPath = join(dir, "discern.toml");
     const stripped = (await Deno.readTextFile(tomlPath))

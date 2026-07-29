@@ -10,7 +10,7 @@ aliases:
 
 # GitHub Copilot integration
 
-discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[guidance].agents`:
+discern's GitHub Copilot integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when GitHub Copilot is enabled in `[project].agents`:
 
 | File                         | Role                                        | Ownership                       |
 | ---------------------------- | ------------------------------------------- | ------------------------------- |
@@ -19,11 +19,11 @@ discern's GitHub Copilot integration is project-local and registry-driven. It wr
 | `.mcp.json`                  | Project MCP server entry                    | Shared, tracked                 |
 | `.github/hooks/discern.json` | Session-start hook                          | Shared, tracked                 |
 
-GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[guidance].agents` to wire its provider-specific config.
+GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[project].agents` to wire its provider-specific config.
 
 ## Using the IDE
 
-Setup auto-detection sees PATH binaries, so it cannot detect a GitHub Copilot IDE user without the Copilot CLI on PATH. Add `copilot` explicitly under `[guidance].agents`, then run `discern refresh`:
+Setup auto-detection sees PATH binaries, so it cannot detect a GitHub Copilot IDE user without the Copilot CLI on PATH. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
 
 ```toml
 [guidance]

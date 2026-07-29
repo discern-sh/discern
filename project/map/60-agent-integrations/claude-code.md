@@ -10,7 +10,7 @@ aliases:
 
 # Claude Code integration
 
-discern's Claude Code integration is project-local and registry-driven. It writes or co-manages the files below when Claude Code is enabled in `[guidance].agents`:
+discern's Claude Code integration is project-local and registry-driven. It writes or co-manages the files below when Claude Code is enabled in `[project].agents`:
 
 | File                    | Role                                             | Ownership             |
 | ----------------------- | ------------------------------------------------ | --------------------- |

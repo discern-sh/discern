@@ -15,8 +15,9 @@ async function scaffold(): Promise<string> {
   await Deno.writeTextFile(
     join(tmp, "discern.toml"),
     [
-      "[guidance]",
+      "[project]",
       'agents = ["claude_code", "codex"]',
+      "[guidance]",
       'sources = ["guidance.md"]',
       "[skills]",
       'dir = "skills"',
@@ -36,7 +37,7 @@ Deno.test("compileGuidelines: built-in + sources (no banner); copies built-ins, 
   const tmp = await scaffold();
   try {
     const first = await compileGuidelines(tmp);
-    // Provider files written in [guidance].agents order.
+    // Provider files written in [project].agents order.
     assertEquals(first.agentsWritten, ["CLAUDE.md", "AGENTS.md"]);
     // Skills materialize into BOTH configured agents' dirs: Claude's .claude/skills
     // and Codex's shared .agents/skills. So the authored demo is symlinked twice and
@@ -140,7 +141,7 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
       join(dir, "discern.toml"),
       `[skills]\nexclude = ${
         JSON.stringify(bundled)
-      }\n[guidance]\nagents = ["claude_code"]\n`,
+      }\n[project]\nagents = ["claude_code"]\n`,
     );
     const r = await compileGuidelines(dir);
     assertEquals(r.skillsCopied, 0);

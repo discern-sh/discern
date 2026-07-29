@@ -183,8 +183,8 @@ export async function runPreset(
     sourceGlobs: [...DEFAULTS.sourceGlobs],
     brief: "",
     agents:
-      (toml.guidance.agents && toml.guidance.agents.length > 0
-        ? toml.guidance.agents
+      (toml.project.agents && toml.project.agents.length > 0
+        ? toml.project.agents
         : [...DEFAULTS.agents]) as SetupConfig["agents"],
   };
   const tokens = tokensFromConfig(config);

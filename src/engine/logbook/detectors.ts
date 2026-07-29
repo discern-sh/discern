@@ -82,7 +82,7 @@ export interface StreamFacts {
   /** The trunk branch name (`[repository].trunk`) — the branch work must not land on directly. */
   trunk: string;
   /** The native provider names guidance is compiled for (the configured
-   * `[guidance].agents`, resolved) — what the provider-fit detector reads the
+   * `[project].agents`, resolved) — what the provider-fit detector reads the
    * driver mix against. */
   configuredAgents: readonly string[];
   /** The newest event's timestamp — the stream's own "now", so age-relative
@@ -1454,7 +1454,7 @@ const providerFit: Detector = {
   // not a stray visit.
   threshold: 5,
   next_step:
-    "discern can compile guidance and materialize skills for this agent natively — add it to [guidance].agents in discern.toml and run `discern refresh`, so the agents actually driving the project receive its guidance.",
+    "discern can compile guidance and materialize skills for this agent natively — add it to [project].agents in discern.toml and run `discern refresh`, so the agents actually driving the project receive its guidance.",
   detect(facts): DetectorOutcome {
     const runsByIdentity = new Map<string, number>();
     let attributed = 0;
