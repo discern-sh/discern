@@ -2,6 +2,7 @@
 
 import { assert } from "@std/assert";
 import type { HintDef } from "../src/shared/hints.ts";
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 
 export interface HintResult {
   readonly hints?: readonly string[] | undefined;
@@ -11,7 +12,9 @@ type MaybeParams<P> = P extends undefined ? [] : [params?: P];
 
 function rendered<P>(def: HintDef<P>, params: readonly unknown[]): string {
   const value = params.length === 0 ? def.example : params[0] as P;
-  return def.template(value);
+  // Envelopes carry the CLI rendering (`fire` resolves it), so the expected
+  // text resolves the template's command references the same way.
+  return renderCommandRefsCli(def.template(value));
 }
 
 /** Assert that a result carries the registry entry rendered for this case. */

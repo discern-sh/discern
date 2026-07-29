@@ -11,6 +11,7 @@ import {
   hasGenericFailureRecoveryHint,
   hasRegisteredActionableHint,
 } from "./hints.ts";
+import { containsCommandRefTokens } from "./command_reference.ts";
 import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
 
 /**
@@ -31,6 +32,11 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (!r.ok && !hasRegisteredActionableHint(r.hints)) {
     throw new Error(
       `internal result invariant: failed \`discern ${r.verb}\` result has no registered next-step hint`,
+    );
+  }
+  if (r.hints !== undefined && r.hints.some(containsCommandRefTokens)) {
+    throw new Error(
+      `internal result invariant: \`discern ${r.verb}\` hints carry an unresolved command reference at the serialization boundary`,
     );
   }
 

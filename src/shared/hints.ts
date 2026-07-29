@@ -18,6 +18,7 @@
 import type { DiscernResult, FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import type { LandingConsentSource } from "./consent.ts";
+import { renderCommandRefsCli } from "./command_reference.ts";
 
 /**
  * How an entry means to steer the caller. `next-step` names the action to
@@ -66,6 +67,12 @@ export interface HintDef<P = undefined> {
   readonly id: string;
   readonly category: HintCategory;
   readonly audience: HintAudience;
+  /**
+   * The one surface this entry can be delivered on, when it has one. `mcp`
+   * marks an entry only the MCP server fires; its prose may name MCP tools,
+   * and the CLI-rendering guard exempts it. Absent means both surfaces.
+   */
+  readonly delivery?: "mcp";
   /** One-line emitting condition shown in the generated inventory. */
   readonly when?: string;
   /**
@@ -121,7 +128,14 @@ function defineGateFailureRemedyHint<P = undefined>(
 /** A hint fired at a call site: the in-process pair; only `text` reaches the wire. */
 export interface FiredHint {
   readonly id: string;
+  /** The CLI rendering — the canonical spelling every non-MCP surface delivers. */
   readonly text: string;
+  /**
+   * The authored template text with its command-reference tokens intact,
+   * retained only when it differs from `text` — the representation a
+   * non-CLI surface re-renders from ({@link resolveHintTextsForSurface}).
+   */
+  readonly authored?: string;
 }
 
 /**
@@ -139,6 +153,10 @@ const firedHintsByTexts = new WeakMap<
  * Fire a registry entry. A parameterless entry (`HintDef<undefined>`) is fired with
  * no second argument; a parameterized one requires its params — the
  * conditional tuple makes the compiler enforce both.
+ *
+ * The template's command-reference tokens resolve to their CLI spelling
+ * here, so `text` is delivery-ready for every non-MCP surface; the authored
+ * token form rides beside it for the MCP boundary to re-render.
  */
 export function fire<P>(
   def: HintDef<P>,
@@ -147,7 +165,9 @@ export function fire<P>(
   const [p] = params;
   // The tuple type above guarantees `p` is `P` exactly when the template
   // needs it; the cast bridges what the conditional tuple cannot express.
-  return { id: def.id, text: def.template(p as P) };
+  const authored = def.template(p as P);
+  const text = renderCommandRefsCli(authored);
+  return text === authored ? { id: def.id, text } : { id: def.id, text, authored };
 }
 
 /** Project fired hints onto the envelope's wire shape, order preserved. */
@@ -183,6 +203,52 @@ export function appendHintTexts(
   fired: readonly FiredHint[],
 ): string[] {
   return mergeHintTexts(existing ?? [], hintTexts(fired));
+}
+
+/**
+ * Re-render a wire hints array for one delivery surface: each fired entry's
+ * authored command references resolve through `resolveText`, identity moves
+ * to the new array, and strings with no recovered identity pass through
+ * unchanged (they carry no references — only registry templates author
+ * tokens). Returns the same array when nothing resolves differently, so the
+ * CLI path — whose spelling `fire` already produced — costs nothing.
+ */
+export function resolveHintTextsForSurface(
+  texts: readonly string[] | undefined,
+  resolveText: (authored: string) => string,
+): string[] | undefined {
+  if (texts === undefined) {
+    return undefined;
+  }
+  const fired = firedHintsFromTexts(texts);
+  const resolvedByText = new Map<string, string>();
+  const resolvedFired = fired.map((hint) => {
+    if (hint.authored === undefined) {
+      return hint;
+    }
+    const text = resolveText(hint.authored);
+    resolvedByText.set(hint.text, text);
+    return { id: hint.id, text };
+  });
+  const resolvedTexts = texts.map((text) => resolvedByText.get(text) ?? text);
+  if (resolvedFired.length > 0) {
+    firedHintsByTexts.set(resolvedTexts, resolvedFired);
+  }
+  return resolvedTexts;
+}
+
+/**
+ * Re-render a result's hints for one delivery surface — call it at the
+ * surface boundary BEFORE the envelope is observed, recorded, and serialized,
+ * so the logbook and the wire carry the same rendering (hint identity itself
+ * is the registry id and never changes with the surface).
+ */
+export function resolveResultHintsForSurface<TData>(
+  result: DiscernResult<TData>,
+  resolveText: (authored: string) => string,
+): DiscernResult<TData> {
+  const hints = resolveHintTextsForSurface(result.hints, resolveText);
+  return hints === undefined ? result : { ...result, hints };
 }
 
 /** Optional diagnostic reason rendered in the existing parenthesized form. */
