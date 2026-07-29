@@ -65,7 +65,11 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
 
-`partial` means the command reported an error after an irreversible effect. For acceptance, `landing` says whether this call performed recovery, landed the trunk, removed the worktree, and deleted the branch.
+`partial` marks an error after an irreversible effect. Acceptance's `landing` records recovery, trunk landing, worktree removal, and branch deletion.
+
+### Landing authority readers
+
+Acceptance records only consent source and matched scope names. `pre-authorized-landings` audits grant use. After 12 conversational landings in one scope, `grant-suggestion` can name `[acceptance].pre_authorized`; discern writes no grants.
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 

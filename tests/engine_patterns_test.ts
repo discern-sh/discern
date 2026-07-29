@@ -396,6 +396,55 @@ async function seedCollapsedReportLogbook(dir: string): Promise<void> {
   );
 }
 
+/** Seed enough landing history for both authority readers: 8 pre-authorized
+ * landings followed by a dozen conversational docs-only landings. */
+async function seedLandingAuthorityLogbook(dir: string): Promise<void> {
+  const events: Record<string, unknown>[] = [];
+  const sources = [
+    ...Array.from({ length: 4 }, () => "standing-grant" as const),
+    ...Array.from({ length: 4 }, () => "effort-grant" as const),
+    ...Array.from({ length: 12 }, () => "conversation" as const),
+  ];
+  for (const [index, source] of sources.entries()) {
+    events.push({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 1, index)).toISOString(),
+      kind: "verb",
+      verb: "accept",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: {
+        session: `cli:landing-${index}`,
+        json: true,
+        tty: false,
+        ci: false,
+      },
+      branch: `agent/landing-${index}`,
+      head: `head-${index}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 1_000,
+      scopes: ["docs"],
+      consent: source === "standing-grant"
+        ? { source, scopes: ["docs"] }
+        : { source },
+      landing: {
+        recovery_performed: false,
+        trunk_landed: true,
+        worktree_removed: true,
+        branch_deleted: true,
+      },
+      epoch: "e1",
+    });
+  }
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+  );
+}
+
 /** Seed 200 readings whose value dips and recovers to its exact first value. */
 async function seedLongTrajectoryLogbook(dir: string): Promise<number[]> {
   const total = 200;
@@ -684,6 +733,50 @@ Deno.test("patterns: a 200-reading standard stays bounded on the wire and render
         `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
       );
     }
+  });
+});
+
+Deno.test("patterns: landing authority findings render in the overview and behavior report", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedLandingAuthorityLogbook(dir);
+
+    const result = await patternsResult(dir);
+    assert(result.ok && result.data !== undefined);
+    const audit = result.data.findings.filter((finding) =>
+      finding.detector === "pre-authorized-landings"
+    );
+    assertEquals(audit.length, 2, "summary plus the docs grant split");
+    const suggestion = result.data.findings.find((finding) =>
+      finding.detector === "grant-suggestion"
+    );
+    assertEquals(suggestion?.subject, "docs");
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "100", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    const plain = normalized(human.output);
+    assertStringIncludes(
+      plain,
+      "Pre-authorized landings: 8 of 20 consent-recorded landings (40%) · standing 4 · effort 4",
+    );
+    assertStringIncludes(
+      plain,
+      "Repeated conversational landings in one scope",
+    );
+    assertStringIncludes(
+      plain,
+      "Consider adding `docs` to `[acceptance].pre_authorized`",
+    );
+    assertEquals(
+      human.output.trimEnd().split("\n").filter((line) =>
+        line.trim() === "Pre-authorized landings"
+      ).length,
+      1,
+      "the detailed detector block keeps one title",
+    );
   });
 });
 

@@ -27,11 +27,11 @@ discern patterns --json
 
 The human report uses a stable order: trajectory, gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, followed by one row per finding and one recommended next step. `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence; `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
 
-The header names the logbook's day span, event and branch counts, driver split, and detector scoreboard. When attention findings exist, `Worth your attention` points to the strongest 3 in the existing rank order. Each pointer carries only its glyph, detector title, and subject. The full block stays in the section below. The heading is absent when no finding has the `attention` tone.
+The header gives the day span, event and branch counts, driver split, detector scoreboard, and landing audit's count, share, and source split. `Worth your attention` lists the strongest 3 attention findings by glyph, detector, and subject. Full blocks remain below; empty means no heading.
 
-Standard-trajectory rows add a Unicode sparkline between the subject and brief. The detector keeps the first and last readings exact. It reduces longer histories to arithmetic means from equal-duration interior buckets. Its rendering target leaves room for the brief in an 80-column terminal. The optional wire field's cap is 24 points. The `▁▂▃▄▅▆▇█` glyphs are plain characters in colored, `NO_COLOR`, and non-TTY output. There is no separate ASCII rendering.
+Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact endpoints and equal-duration interior means. Wire cap: 24 points; target: 80 columns. Every output mode shares the glyphs, with no ASCII variant.
 
-The closing account names every detector that came back clear or still lacks evidence. `--json` keeps `data.findings` globally ranked by evidence strength and carries the full observation, scope, counts, next step, and the optional bounded `series` on standard trajectories. `data.detectors` accounts for every registry member, and `data.population` carries the driver split.
+The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`. `data.detectors` accounts for the registry; `data.population` carries the driver split.
 
 `patterns` remains the complete reader. Every detector runs here, including batch detectors that need longitudinal history. Inline detectors can also meet you on the working command their scope names: branch findings appear after a qualifying green receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. Those commands inspect at most the newest 200 events. The receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
@@ -51,6 +51,12 @@ A registry of named detectors runs over the event stream, grouped by family:
 Detector thresholds start conservative and are recorded beside each entry in the registry source.
 
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after three resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
+
+### Landing authority findings
+
+After 8 consent-recorded landings, 3 granted, `pre-authorized-landings` reports count, share, source and scope splits, runs of 4, and 30-point half shifts. Older evidence stays out.
+
+`grant-suggestion` names `[acceptance].pre_authorized` after the latest 12 accepts land conversationally in one scope. A refusal, another source, missing scope, or second scope resets it. The owner edits the trunk; discern writes no grants.
 
 ## How the evidence is handled
 
