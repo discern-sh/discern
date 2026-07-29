@@ -81,6 +81,6 @@ After confirmation, `discern worktree prune` removes clean merged worktrees, sta
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
-- Receipt-note recording follows the trunk fast-forward. A note or fetched-history merge failure reports its cause and cannot fail or undo acceptance.
+- Receipt-note recording and fetch-configuration reconciliation follow the trunk fast-forward. Their failures report a cause once and cannot fail or undo acceptance; the later checkout refresh does not retry transport.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.

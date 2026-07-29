@@ -10,6 +10,8 @@ The landed commit is immutable, but a commit in trunk history cannot carry a lat
 
 Git does not fetch or push custom notes refs by default. Wiring fetch is additive. Wiring `remote.<name>.push` is not: the first configured push mapping replaces Git's default choice of what a plain `git push` sends. A notes convenience cannot change the meaning of that everyday command.
 
+An exact positive fetch mapping makes its source mandatory. If the remote has not published `refs/notes/discern`, or later deletes it, ordinary `git fetch` exits nonzero. Fetch transport therefore needs a source pattern that may match zero refs without broadening into another owner's namespace.
+
 Notes also have a multi-clone limit. Each clone advances one notes ref. If 2 clones add different receipts from the same remote tip, the second notes push is rejected as a non-fast-forward until the histories are merged. The design needs to reduce that race without making a network request or claiming cross-clone conflict freedom.
 
 GitHub stores custom refs and exposes them through Git, but its commit page does not render Git notes. Branch and tag CI triggers also ignore a notes-only push. Raw push webhooks and integrations that listen to every ref may still observe it.
@@ -18,7 +20,7 @@ GitHub stores custom refs and exposes them through Git, but its commit page does
 
 The default worktree branch prefix remains `agent/`. Those branches carry agent-authored work, so changing the default to `discern/` would attribute their diffs to the tool. The prefix remains configurable under `[repository].branch_prefix`.
 
-Refs with a `discern` name are reserved for machinery discern writes. `refs/notes/discern` is the persistent receipt channel. Existing acceptance-transaction refs under `refs/worktree/discern/` remain transient recovery evidence. Fetch tracking for this channel lives under `refs/discern/remotes/<remote>/notes`; those refs mirror remote state and never carry user branches.
+Refs with a `discern` name are reserved for machinery discern writes. `refs/notes/discern` is the persistent receipt channel, and the `refs/notes/discern*` prefix is reserved for its zero-match-safe transport. Existing acceptance-transaction refs under `refs/worktree/discern/` remain transient recovery evidence. Fetch tracking for this channel lives under `refs/discern/remotes/<remote>/notes`; those refs mirror remote state and never carry user branches.
 
 After the trunk fast-forward succeeds, acceptance writes the landed gate receipt to the landed commit under `refs/notes/discern`. The note body is the canonical JSON encoding of `data.receipt`, followed by one newline. It is not a Markdown-only rendering. A second landing adds another note without replacing earlier notes.
 
@@ -35,13 +37,15 @@ receipt_notes = "fetch"
 
 The default is `"local"`. An install that has never enabled fetch transport does not add, remove, or rewrite any remote fetch or push setting. Returning a previously enabled repository to local mode removes only the mappings discern marked as managed. In fetch mode, refresh and lifecycle convergence add this fetch mapping once per remote:
 
-The receipt and trust pages offer this switch when an owner decides the evidence should travel between clones; setup does not opt a repository in. Once enabled, a successful landing with a remote present offers the explicit publication command at the point where the new note exists.
-
 ```text
-+refs/notes/discern:refs/discern/remotes/<remote>/notes
++refs/notes/discern*:refs/discern/remotes/<remote>/notes*
 ```
 
-The leading `+` updates a remote-tracking copy only. It cannot overwrite the local `refs/notes/discern` history. Disabling fetch mode removes only mappings discern previously marked as managed. A repository with no remote records local notes and changes no transport configuration.
+The trailing wildcard may capture an empty suffix. A remote with no matching ref therefore leaves ordinary fetch successful. Prefix siblings receive matching suffixes in the tracking namespace, but receipt readers and the pre-write merge consume only the exact tracking ref ending in `/notes`. The leading `+` updates remote-tracking copies only. It cannot overwrite the local `refs/notes/discern` history.
+
+Refresh atomically replaces the older exact mapping when discern's ownership marker is present and collapses duplicate managed entries. The same exact mapping without that marker remains user-owned: refresh leaves it untouched and reports the precise `git config --fixed-value --unset-all` command required to remove it. Disabling fetch mode removes both current and legacy mappings only for marked remotes. A repository with no remote records local notes and changes no transport configuration.
+
+The receipt and trust pages offer this switch when an owner decides the evidence should travel between clones; setup does not opt a repository in. Once enabled, a successful landing with a remote present offers the explicit publication command at the point where the new note exists.
 
 Discern never writes `remote.<name>.push` and never starts a fetch or push. After a successful landing with fetch mode and a remote, acceptance points to the explicit publication command:
 
@@ -50,6 +54,8 @@ git push <remote> refs/notes/discern
 ```
 
 Before adding a new local receipt, acceptance merges every already-fetched `refs/discern/remotes/*/notes` tip into `refs/notes/discern`. This is the local half of the multi-clone policy: an ordinary fetch performed before acceptance supplies the remote history, and acceptance combines it without network access. A conflicting note for the same commit fails open and retains the cause.
+
+Acceptance reconciles fetch transport once after the fast-forward and records the result beside the note-write result. Its subsequent checkout refresh skips that integration. A reconciliation failure therefore remains fail-open data and cannot make the completed acceptance report a refresh failure.
 
 A push can still lose a race after the last fetch. The recovery is:
 
@@ -73,6 +79,8 @@ Anticipated readers share this channel rather than inventing another store: cros
 - GitHub's commit UI does not show the record. Git-native tools and discern are the readers.
 - Notes-only pushes can reach wildcard push-webhook consumers, so transport remains an owner opt-in.
 - A note write, identity failure, or notes merge conflict cannot make an already-landed acceptance fail.
+- An absent or deleted remote notes ref cannot make ordinary fetch fail after discern wires transport.
+- Older discern-managed exact mappings migrate on refresh. Unmarked collisions remain untouched and receive one recovery command.
 - Remote-tracking refs and the managed fetch entries add local Git configuration that refresh and lifecycle convergence must reconcile.
 - Multi-clone publication can still race. The exact fetch, merge, and push recovery is part of the public contract.
 
@@ -80,6 +88,7 @@ Anticipated readers share this channel rather than inventing another store: cros
 
 - **Add a receipt ledger commit after landing.** Rejected because it would replace acceptance's exact fast-forward with a second history mutation.
 - **Fetch directly into `refs/notes/discern`.** Rejected because a forced mapping could discard local receipts that have not been published, while a non-forced mapping would make ordinary fetch fail on divergence.
+- **Fetch the receipt with an exact source mapping.** Rejected because Git fails ordinary fetch when that positive source ref does not exist on the remote.
 - **Configure a notes push mapping.** Rejected because any `remote.<name>.push` entry changes what a plain `git push` sends.
 - **Publish from discern during acceptance.** Rejected because discern makes no network requests and landing must not depend on a remote.
 - **Store receipts in the logbook.** Rejected because the logbook is machine-local advisory evidence; the receipt and Git commit are the verification authority.

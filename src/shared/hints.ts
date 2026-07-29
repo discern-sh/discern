@@ -2254,8 +2254,9 @@ export const HINTS = {
       "A receipt note is recorded after landing with fetch transport enabled.",
     example: { remote: "origin" },
     template: ({ remote }): string =>
-      `Publish the receipt note with \`git push ${remote} refs/notes/discern\`. ` +
-      "Discern fetches and pushes nothing itself.",
+      `Share this landing's receipt with other clones: ` +
+      `\`git push ${remote} refs/notes/discern\`. ` +
+      "Discern records receipts locally and never fetches or pushes for you.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */

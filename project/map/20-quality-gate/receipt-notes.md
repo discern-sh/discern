@@ -33,7 +33,7 @@ git notes --ref=discern show <commit>
 
 The notes commit uses `discern-bot <bot@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The receipt still records.
 
-The post-landing write fails open. `data.receipt_note.write` carries its status and any cause; failure never rolls the trunk back.
+The note write and fetch-configuration reconciliation both fail open. `data.receipt_note.write` and `data.receipt_note.fetch` carry their status and any cause. A transport or recording problem cannot roll the trunk back or turn the completed landing red.
 
 ## Carry notes between clones
 
@@ -47,8 +47,12 @@ receipt_notes = "fetch"
 Refresh or lifecycle convergence adds this mapping once per remote:
 
 ```text
-+refs/notes/discern:refs/discern/remotes/<remote>/notes
++refs/notes/discern*:refs/discern/remotes/<remote>/notes*
 ```
+
+The trailing `*` keeps ordinary fetch usable when the source ref is absent. Git treats a wildcard with no matches as an empty fetch, so `git fetch` succeeds before the remote's first receipt note and after that ref is deleted.
+
+The mapping reserves the `refs/notes/discern*` prefix. Matching sibling refs receive matching suffixes under the tracking path. Receipt readers ignore those siblings and consume only the exact `refs/discern/remotes/<remote>/notes` ref.
 
 An ordinary `git fetch` updates the tracking copy. discern never configures `remote.<name>.push`, changes plain `git push`, or starts a network request. A landing then gives the publication command:
 
@@ -76,5 +80,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 ## Current state and gotchas
 
 - A note proves only the ref you read. Remote publication remains explicit.
+- A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
+- Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
 - An older marker may lack structured data. Acceptance honors its commit proof but reports `missing_receipt`.
 - A conflicting note on the same commit fails open. Inspect the cause in `data.receipt_note.write`.

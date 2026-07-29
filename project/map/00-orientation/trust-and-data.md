@@ -31,7 +31,7 @@ The logbook never leaves the machine, and that claim is held by a check rather t
 
 A green landing records its structured receipt under the local Git ref `refs/notes/discern`. The note identifies the landed commit and carries the receipt's branch, diffstat, standards result, one-line summary, and Markdown page. It is authored by `discern-bot <bot@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
 
-This local record is default-on. It changes no remote setting and sends nothing anywhere. `[repository].receipt_notes = "fetch"` is the separate opt-in for transport: refresh adds an extra fetch mapping into `refs/discern/remotes/<remote>/notes`. Your ordinary `git fetch` can then carry the remote receipt history. discern still makes no network request.
+This local record is default-on. It changes no remote setting and sends nothing anywhere. `[repository].receipt_notes = "fetch"` is the separate opt-in for transport: refresh adds an extra fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no receipt note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote receipt history. discern still makes no network request.
 
 There is no push mapping. Configuring one would change plain `git push`, so publishing stays explicit. GitHub stores the ref but does not show it on commit pages. Branch and tag CI triggers ignore a notes-only push; raw push webhooks may still observe it. [Receipt notes](../20-quality-gate/receipt-notes.md) has the commands and recovery.
 

@@ -55,10 +55,10 @@ trunk = "main"
 # Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
 branch_prefix = "agent/"
 
-# Landed receipts are recorded as local Git notes by default. Set this to
-# "fetch" to add their fetch-only mapping to each remote; publishing remains an
+# This repository carries landed receipts through ordinary fetches. A remote
+# does not need to have published its first receipt note. Publishing remains an
 # explicit `git push <remote> refs/notes/discern`.
-receipt_notes = "local"
+receipt_notes = "fetch"
 
 # Idempotent commands that make ANY checkout usable for its current tracked tree
 # — typically dependency installation from a lockfile. They run in order on each

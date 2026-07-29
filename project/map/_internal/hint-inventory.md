@@ -44,7 +44,7 @@ Review `git status` in /workspace/project. Acceptance landed on main, but post-l
 Rendered example:
 
 ```text
-Publish the receipt note with `git push origin refs/notes/discern`. Discern fetches and pushes nothing itself.
+Share this landing's receipt with other clones: `git push origin refs/notes/discern`. Discern records receipts locally and never fetches or pushes for you.
 ```
 
 ## `accept-refresh-failed`

@@ -56,8 +56,9 @@ trunk = "main"
 branch_prefix = "{{branch_prefix}}"
 
 # Landed receipts are recorded as local Git notes by default. Set this to
-# "fetch" to add their fetch-only mapping to each remote; publishing remains an
-# explicit `git push <remote> refs/notes/discern`.
+# "fetch" so ordinary fetches can carry them, even before a remote publishes its
+# first receipt note. Publishing remains an explicit
+# `git push <remote> refs/notes/discern`.
 receipt_notes = "local"
 
 # Idempotent commands that make ANY checkout usable for its current tracked tree
