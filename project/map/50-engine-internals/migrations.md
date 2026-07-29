@@ -1,6 +1,6 @@
 ---
 title: Migration mechanics
-description: How the versioned migration chain advances installed projects while preserving ownership and config validity.
+description: How schema changes advance installed projects while preserving config validity and project-owned content.
 order: 40
 aliases:
   - migrations
@@ -10,27 +10,54 @@ aliases:
 
 # Migrations
 
-_The versioned chain that evolves an install's shape, one idempotent step at a time._
+_The versioned steps that bring an installed project up to the current config._
 
-A [Migration](../00-orientation/glossary.md#migration) brings an install from [Schema version](../00-orientation/glossary.md#schema-version) `N` to `N+1`. The chain lives in [`src/lib/migrations.ts`](../../../src/lib/migrations.ts); the current schema number and step history live in [`src/lib/version.ts`](../../../src/lib/version.ts). `discern upgrade` reads `[meta].schema_version`, runs every pending step in order, and validates the migrated config against the typed schema before stamping the new number ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). A config stamped by a newer binary is refused and keeps its recorded version.
+The first public install is [schema version](../00-orientation/glossary.md#schema-version) 1, with an empty production migration registry. The runner is already in place for the first public `1 → 2` change ([ADR 0218](../_adr/0218-public-install-schema-starts-at-one.md)).
 
-## The contract each step signs
+A [Migration](../00-orientation/glossary.md#migration) brings an install from schema `N` to `N+1`. `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). A config stamped by a newer binary is refused and keeps its recorded version.
 
-- **Idempotent.** A step re-run against its own output changes nothing — `upgrade` after a crash or a partial revert converges instead of compounding.
-- **Clean-tree gated.** The migration runner refuses a dirty tree without `--allow-dirty` ([ADR 0014](../_adr/0014-versioned-migration-system.md)), so every upgrade is revertible with `git checkout`.
-- **Ownership-preserving.** Config edits keep project comments and layout. A top-level rename also updates the identity inside a clean ruled banner because that region belongs to discern; the later reconciliation pass replaces it from the current template. Comments outside those delimiters survive ([ADR 0138](../_adr/0138-all-ruled-config-banners-are-managed.md)).
-- **Write-surface bound.** Steps mutate files through the `MigrationContext` helpers (write / remove / rename / rewrite / config-edit / settings-merge), whose targets are the registry's legacy and default paths plus the config and settings shims — inside the [write-surface contract](../80-development/install-surface.md#the-write-surface-contract) like every other verb.
+The package version follows releases. The install schema changes only when an installed project needs a migration, so most releases leave it at its current number.
 
-## Reading the chain
+## The contract for a migration
 
-The full step history is the doc comment on `SCHEMA_VERSION` in [`version.ts`](../../../src/lib/version.ts), the single home of both the number and its history. Recent steps show the range of what a step can do:
+- **One version.** A step declares `from: N` and produces schema `N+1`. `isChainContiguous` requires one step for every version between 1 and `SCHEMA_VERSION`.
+- **Idempotent.** Re-running a step against its output changes nothing. If an upgrade stops partway through, the recorded schema stays behind and a retry safely replays the pending set.
+- **Clean-tree gated.** `upgrade` refuses a dirty Git worktree unless the owner passes `--allow-dirty`, keeping the edits recoverable ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
+- **Project-content preserving.** Config edits use `TomlEditor`, which keeps comments and surrounding layout. File renames carry the existing bytes to the new path.
+- **Validated before stamping.** A step sometimes spans several files. The config must parse and satisfy the current typed schema before the version moves forward.
 
-- **`14 → 15`** consolidates authored files under the visible `discern/` [Namespace](../00-orientation/glossary.md#namespace). Each source whose config key still pointed at its pre-namespace default (the guidance seed, map, authored skills, then-named Recipes, ledger, and brief) moves from its `legacyPath` to its `defaultPath`. Both paths come from the [paths registry](../../../src/shared/paths_registry.ts), so the step enumerates no path of its own and leaves a user-pointed path alone ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
-- **`15 → 16`** retires the `[features]` table and the duplicate `[worktree].enabled` key, noting any non-default value it discards ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
+`MigrationContext` supplies the bounded operations a step needs: read, write, remove, recursive remove, rename, text rewrite, comment-preserving config edit, settings merge, and human-readable notes. The repository's write-surface test keeps that context among the enumerated write sites.
 
-A schema bump happens only when an installed project needs a change to stay correct, so most releases leave the number untouched. Coverage for the chain lives in [`tests/upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) and its convergence sibling — each step is exercised against a scaffolded legacy layout, then re-run to prove the no-op.
+## Add the next schema
+
+For the first public migration:
+
+1. Capture an install produced at schema 1 before changing the template. This starts the public historical fixture corpus.
+2. Raise `SCHEMA_VERSION` and the template stamp to 2.
+3. Append one `from: 1` entry to `MIGRATIONS`. Keep the transform specific to the on-disk change.
+4. Add focused tests for the transform and its second-run no-op. The chain guard enrolls the new step.
+5. Exercise `upgrade --check`, `--dry-run`, apply, validation failure, and final stamping through the command seam.
+
+Until that bump exists, the framework test proves the empty schema-1 chain and the generic runner. The upgrade test injects a synthetic next schema and migration registry, which keeps the command fold covered without publishing a transition.
+
+## Where it lives in code
+
+| Concern                                 | File                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| Current install schema                  | [`version.ts`](../../../src/lib/version.ts)                               |
+| Migration registry, runner, and context | [`migrations.ts`](../../../src/lib/migrations.ts)                         |
+| Recorded-version reader and stamper     | [`schema.ts`](../../../src/lib/schema.ts)                                 |
+| Upgrade validation and execution        | [`upgrade.ts`](../../../src/commands/upgrade.ts)                          |
+| Framework invariants                    | [`migrations_test.ts`](../../../tests/migrations_test.ts)                 |
+| Upgrade fold and synthetic next schema  | [`upgrade_migrations_test.ts`](../../../tests/upgrade_migrations_test.ts) |
+
+## Current state and gotchas
+
+`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 is forward skew and the schema-1 binary refuses it.
+
+The prerelease migrations remain visible in the decision records as project history. They are absent from the public compatibility path.
 
 ## See also
 
-- [config-reference.md](../70-reference/config-reference.md) — every section and key the migrated config must validate against.
+- [config-reference.md](../70-reference/config-reference.md) lists every section and key the migrated config must satisfy.
 - The migration system's founding decision ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
