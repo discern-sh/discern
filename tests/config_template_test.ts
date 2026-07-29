@@ -24,6 +24,7 @@ import {
 } from "../src/lib/config_template.ts";
 import { PROVIDERS } from "../src/lib/providers.ts";
 import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
+import { indentToml } from "../src/lib/toml_indent.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
 
@@ -31,6 +32,17 @@ import { AGENT_NAMES, configSchema } from "../src/shared/config_schema.ts";
 async function realTemplate(): Promise<string> {
   return await Deno.readTextFile(join(REAL_TEMPLATES, "discern.toml.tmpl"));
 }
+
+Deno.test("the bundled template is depth-indented (a fixpoint of indentToml)", async () => {
+  const text = await realTemplate();
+  assertEquals(
+    indentToml(text),
+    text,
+    "templates/discern.toml.tmpl must carry the canonical depth indentation — " +
+      "run indentToml over it (its placeholders keep it from parsing, so " +
+      "`discern tidy` cannot) and commit the result",
+  );
+});
 
 function agentTargetPairs(
   comment: string,
@@ -290,9 +302,12 @@ Deno.test("managedBannersFromTemplate finds a ruled banner for every record fami
   );
   for (const [family, block] of banners) {
     const lines = block.split("\n");
-    assert(/^#\s*─/.test(lines[0] ?? ""), `${family} banner opens with a rule`);
     assert(
-      /^#\s*─/.test(lines.at(-1) ?? ""),
+      /^\s*#\s*─/.test(lines[0] ?? ""),
+      `${family} banner opens with a rule`,
+    );
+    assert(
+      /^\s*#\s*─/.test(lines.at(-1) ?? ""),
       `${family} banner closes with a rule`,
     );
   }

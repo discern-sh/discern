@@ -191,7 +191,7 @@ async function removeTidyFormatJob(
 ): Promise<void> {
   const p = join(dir, "discern.toml");
   let text = await Deno.readTextFile(p);
-  text = text.replace(/^format\s*=\s*"discern tidy"\s*\n/m, "");
+  text = text.replace(/^\s*format\s*=\s*"discern tidy"\s*\n/m, "");
   if (bootstrapped) {
     text = text.replace("[meta]\n", "[meta]\nbootstrapped = true\n");
   }

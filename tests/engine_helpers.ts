@@ -23,6 +23,7 @@ import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { applyPlan } from "../src/lib/fs_plan.ts";
 import { TomlEditor } from "../src/lib/toml_edit.ts";
+import { TomlFormatError, writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
@@ -225,15 +226,33 @@ export async function repointSourcePaths(
       editor.setString(key, value);
     }
   }
-  await Deno.writeTextFile(path, editor.toString());
+  await writeDiscernToml(path, editor.toString());
   return repointed;
 }
 
-/** Record `[meta].bootstrapped = true` in a scaffolded config (comment-preserving). */
+/**
+ * Write config text the way production does — through the canonical formatter,
+ * so it lands depth-indented and a later gate run inside the test finds nothing
+ * to reformat. Unparseable TOML (a test exercising the parse-failure path) is
+ * written verbatim: the broken bytes ARE the fixture.
+ */
+async function writeConfigText(path: string, text: string): Promise<void> {
+  try {
+    await writeDiscernToml(path, text);
+  } catch (error) {
+    if (!(error instanceof TomlFormatError)) {
+      throw error;
+    }
+    await Deno.writeTextFile(path, text);
+  }
+}
+
+/** Record `[meta].bootstrapped = true` in a scaffolded config (comment-preserving,
+ * through the canonical writer production uses). */
 async function markBootstrapped(configPath: string): Promise<void> {
   const editor = new TomlEditor(await Deno.readTextFile(configPath));
   editor.setBool("meta.bootstrapped", true);
-  await Deno.writeTextFile(configPath, editor.toString());
+  await writeConfigText(configPath, editor.toString());
 }
 
 /**
@@ -360,10 +379,13 @@ export async function runAgentMerged(
  * Overwrite the scaffolded root `discern.toml` (a seed file) with test content.
  * Keeps the install "set up" (so work verbs run, not redirect — ADR 0036) unless
  * the test config explicitly mentions `bootstrapped` (its own opt-out).
+ *
+ * Writes through {@link writeConfigText}, so a test's flush-left inline TOML
+ * lands on disk in the same depth-indented form a real install carries.
  */
 export async function writeConfig(dir: string, toml: string): Promise<void> {
   const path = join(dir, "discern.toml");
-  await Deno.writeTextFile(path, toml);
+  await writeConfigText(path, toml);
   if (!toml.includes("bootstrapped")) {
     await markBootstrapped(path);
   }

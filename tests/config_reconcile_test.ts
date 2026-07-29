@@ -76,7 +76,7 @@ Deno.test("config reconciliation restores a missing fixed section with comments"
 Deno.test("config reconciliation restores a missing fixed key in template order", async () => {
   const template = await renderedTemplate();
   const drifted = template.replace(
-    /\n# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
+    /\n\s*# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
     "\n",
   );
 
@@ -97,7 +97,7 @@ Deno.test("config reconciliation restores a missing fixed key in template order"
 Deno.test("config reconciliation preserves existing customized values", async () => {
   const template = await renderedTemplate();
   const drifted = template.replace("stream = false", "stream = true").replace(
-    /\n# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
+    /\n\s*# Cancel the in-flight sibling commands[\s\S]*?fail_fast = true\n/u,
     "\n",
   );
 
@@ -110,7 +110,8 @@ Deno.test("config reconciliation preserves existing customized values", async ()
 
 Deno.test("config reconciliation treats named record tables as project-owned", async () => {
   const template = await renderedTemplate();
-  const guidanceStart = template.indexOf("# Agent-instruction surfaces:");
+  const guidanceMark = template.indexOf("# Agent-instruction surfaces:");
+  const guidanceStart = template.lastIndexOf("\n", guidanceMark) + 1;
   const acceptanceHeading = template.indexOf(
     "# [acceptance] — standing grants",
   );
@@ -122,8 +123,8 @@ Deno.test("config reconciliation treats named record tables as project-owned", a
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
   assertEquals(result.operations, []);
-  assert(/^\[scopes\.docs\]$/m.test(result.text));
-  assert(!/^\[scopes\.guidance\]$/m.test(result.text));
+  assert(/^\s*\[scopes\.docs\]$/m.test(result.text));
+  assert(!/^\s*\[scopes\.guidance\]$/m.test(result.text));
 });
 
 const RULE = `# ${"─".repeat(77)}`;
