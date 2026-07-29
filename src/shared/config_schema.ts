@@ -295,9 +295,9 @@ const projectSection = z.strictObject({
     "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
   ),
   logbook: z.boolean().default(true).describe(
-    "When true, record one line of local, metadata-only operational history for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, stored under .git — never committed, never transmitted. The history feeds " +
+    "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds " +
       logbookPoweredPhraseList() +
-      ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading whatever history exists); recorded lines stay until you delete them (`discern patterns reset`).",
+      ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
   ),
   agents: z.array(z.string()).optional().describe(
     "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",

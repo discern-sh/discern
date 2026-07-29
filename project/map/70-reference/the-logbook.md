@@ -12,11 +12,9 @@ aliases:
 
 _With recording on and `discern.toml` readable, each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project adds local, metadata-only history. Effectful verbs add a paired start and completion._
 
-With `discern.toml` readable and recording on, each CLI or MCP call appends a completion line. Effectful calls first append `begin`; the pair shares an invocation id. Worktrees share the plain-text file under `.git`.
+Effectful calls first append `begin`; the pair shares an invocation id. Worktrees share the plain-text file under `.git`.
 
 An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. That path has no project logbook to host the event and no readable project setting to consent to it.
-
-The history lets later versions answer what a single run can't: which gate step has been slowing down, how many runs a task needed before green, where a metric stood six months ago.
 
 - **Read it:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)); `cat .git/discern/logbook/*.jsonl` shows the raw lines.
 - **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
@@ -24,15 +22,15 @@ The history lets later versions answer what a single run can't: which gate step 
 
 ## What it powers
 
-Each of these reads the logbook and switches off with `[project].logbook = false`; `discern patterns` alone keeps reading whatever history already exists.
+Everything here switches off with `[project].logbook = false`; `discern patterns` alone keeps reading existing history.
 
 - the practice report (`discern patterns`) — behavior, gate-fit, funnel, and trajectory findings over accumulated runs
-- each worktree's last action and work in flight — the `last_action` and `running` columns on [fleet rows](../30-worktrees/status.md)
-- fleet activity times that include verb runs — `last_activity` is the later of the git timestamp and the branch's newest event, so a long test run doesn't read as dormancy
-- retry timing in `discern await` from typical run durations — a not-yet answer prices its check-back from the awaited branch's in-flight work
-- config-change attribution and each standard's limit history — `config-change` and `pin` events keep trends comparable across real reconfiguration
-- advisory findings on `status`, the `done` receipt, and `improvement` — the inline detectors that meet you on working commands
-- wait estimates when concurrent test runs queue — the queued-tests notice names the run holding a slot and its typical duration
+- each worktree's last action and work in flight — the fleet survey's `last_action` and `running` columns
+- fleet activity times that include verb runs — a long test run no longer reads as dormancy
+- retry timing in `discern await` from typical run durations
+- config-change attribution and each standard's limit history — the `config-change` and `pin` events
+- advisory findings on `status`, the `done` receipt, and `improvement`
+- wait estimates when concurrent test runs queue
 
 ## Where findings appear
 
@@ -45,7 +43,7 @@ Each detector declares a scope and a tier. Scope selects the reader. Tier contro
 | `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                          |
 | `discern patterns`    | Every finding: grouped by canonical family for humans, globally strength-ranked in JSON, with insufficient-evidence accounting. |
 
-The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision. Set `[project].logbook = false` to suppress every working-command finding as well as future recording.
+The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision.
 
 ## What a line contains
 
