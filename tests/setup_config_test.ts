@@ -10,7 +10,7 @@ import { join } from "@std/path";
 import { runCli, withTempDir } from "./helpers.ts";
 
 const ANSWERS = JSON.stringify({
-  "$schema": "../schema/discern-config.schema.json",
+  "$schema": "../schema/discern-setup-config.schema.json",
   version: "2",
   name: "My App",
   slug: "my-app",

@@ -17,7 +17,10 @@ import {
   type PublicSchemaPublication,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
 } from "../src/shared/public_schemas.ts";
-import { buildConfigDocJsonSchema } from "../src/shared/config_codegen.ts";
+import {
+  buildConfigDocJsonSchema,
+  buildConfigJsonSchema,
+} from "../src/shared/config_codegen.ts";
 import { buildResultJsonSchema } from "../src/shared/result_codegen.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 import frozenResultSchemaV1 from "../schema/discern-results.schema.json" with {
@@ -65,7 +68,8 @@ const CURRENT_SCHEMA_BUILDERS: Record<
   PublicSchemaArtifactPath,
   () => Record<string, unknown>
 > = {
-  "schema/discern-config.schema.json": buildConfigDocJsonSchema,
+  "schema/discern-config.schema.json": buildConfigJsonSchema,
+  "schema/discern-setup-config.schema.json": buildConfigDocJsonSchema,
   "schema/discern-results.schema.json": () => ({ ...frozenResultSchemaV1 }),
   "schema/v2/discern-results.schema.json": buildResultJsonSchema,
 };

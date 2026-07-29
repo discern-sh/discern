@@ -524,6 +524,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: false,
       },
       {
+        path: "schema/discern-setup-config.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
+      {
         path: "project/map/70-reference/config-reference.md",
         kind: "generated-file",
         banner: true,

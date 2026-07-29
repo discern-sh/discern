@@ -1,10 +1,11 @@
 /**
  * Generators that derive the shipped, committed artifacts from the canonical Zod
- * schema (ADR 0026) — the editor JSON Schema and the docs config-reference both
- * render from one source and can never drift from what the engine enforces. (The
- * `discern.toml` template stays hand-authored to preserve its curated, legible
- * comments — ADR 0005 — and is bound to the schema by drift-guard tests instead,
- * not regenerated here.)
+ * schemas (ADR 0026) — the `discern.toml` editor JSON Schema, the setup/preset
+ * config-document JSON Schema, and the docs config-reference all render from one
+ * source and can never drift from what the engine enforces. (The `discern.toml`
+ * template stays hand-authored to preserve its curated, legible comments — ADR
+ * 0005 — and is bound to the schema by drift-guard tests instead, not
+ * regenerated here.)
  *
  * Run by `deno task codegen`; a sync test asserts each committed artifact equals
  * its generator output, so a schema change that isn't regenerated fails the gate.
@@ -17,10 +18,14 @@ import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  SETUP_CONFIG_SCHEMA_ID,
 } from "./public_schemas.ts";
 
-/** Human title for the editor JSON Schema. */
-const SCHEMA_TITLE = "discern config document";
+/** Human title for the live `discern.toml` editor JSON Schema. */
+const CONFIG_SCHEMA_TITLE = "discern.toml configuration";
+
+/** Human title for the setup/preset config-document JSON Schema. */
+const SETUP_CONFIG_SCHEMA_TITLE = "discern setup config document";
 
 /** A non-null, non-array object. */
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -45,37 +50,75 @@ function objectView(schema: Record<string, unknown>): Record<string, unknown> {
   return view;
 }
 
-/**
- * Build the editor JSON Schema for the config *document* from {@link
- * configDocSchema}. Uses the `input` view (defaults/optionals are NOT required,
- * matching what a human writes) and prepends the published `$id` + `title` that
- * Zod doesn't emit. Generating it from the schema keeps it from drifting from the
- * live config shape: every path and enum (the `agents` list, the config path
- * text) follows from the one source.
- */
-export function buildConfigDocJsonSchema(): Record<string, unknown> {
-  const generated = z.toJSONSchema(configDocSchema, { io: "input" }) as Record<
+/** Publish a config-policy Zod schema as JSON Schema: the `input` view
+ * (defaults/optionals are NOT required, matching what a human writes) with the
+ * published `$id`, compatibility policy, and `title` prepended — the identity
+ * fields Zod doesn't emit. Order: $schema, $id, policy, title, then the schema
+ * body Zod produced (description, type, properties, additionalProperties…). */
+function publishedInputSchema(
+  schema: z.ZodType,
+  id: string,
+  title: string,
+): Record<string, unknown> {
+  const generated = z.toJSONSchema(schema, { io: "input" }) as Record<
     string,
     unknown
   >;
-  // Order: $schema, $id, title, then the schema body Zod produced (description,
-  // type, properties, additionalProperties…).
   const { $schema, ...body } = generated;
   return {
     $schema: $schema ?? "https://json-schema.org/draft/2020-12/schema",
-    $id: CONFIG_SCHEMA_ID,
+    $id: id,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
       CONFIG_SCHEMA_COMPATIBILITY_POLICY,
-    title: SCHEMA_TITLE,
+    title,
     ...body,
   };
 }
 
-/** The editor JSON Schema rendered as the committed file's exact text (2-space
+/**
+ * Build the editor JSON Schema for a real `discern.toml` from the live {@link
+ * configSchema} — the same shape the engine validates at load. This is the
+ * artifact the template's `#:schema` line names, so an editor validates exactly
+ * the file the engine will read.
+ */
+export function buildConfigJsonSchema(): Record<string, unknown> {
+  return publishedInputSchema(
+    configSchema,
+    CONFIG_SCHEMA_ID,
+    CONFIG_SCHEMA_TITLE,
+  );
+}
+
+/**
+ * Build the JSON Schema for the config *document* from {@link configDocSchema} —
+ * the declarative shape `setup --config <file>` and a preset's `preset.json`
+ * consume. Generating it from the schema keeps it from drifting from the live
+ * config shape: every path and enum (the `agents` list, the config path text)
+ * follows from the one source.
+ */
+export function buildConfigDocJsonSchema(): Record<string, unknown> {
+  return publishedInputSchema(
+    configDocSchema,
+    SETUP_CONFIG_SCHEMA_ID,
+    SETUP_CONFIG_SCHEMA_TITLE,
+  );
+}
+
+/** A generated JSON Schema rendered as the committed file's exact text (2-space
  * indent, trailing newline — matching `deno fmt`'s JSON style, so the file is
  * stable under the gate's fix stage). */
+function renderSchemaJson(schema: Record<string, unknown>): string {
+  return `${JSON.stringify(schema, null, 2)}\n`;
+}
+
+/** The committed text of `schema/discern-config.schema.json`. */
+export function renderConfigSchemaJson(): string {
+  return renderSchemaJson(buildConfigJsonSchema());
+}
+
+/** The committed text of `schema/discern-setup-config.schema.json`. */
 export function renderConfigDocSchemaJson(): string {
-  return `${JSON.stringify(buildConfigDocJsonSchema(), null, 2)}\n`;
+  return renderSchemaJson(buildConfigDocJsonSchema());
 }
 
 // Re-export the object guard for tests that introspect the generated shape.

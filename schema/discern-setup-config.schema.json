@@ -1,162 +1,68 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://discern.sh/schema/v1/discern-config.schema.json",
+  "$id": "https://discern.sh/schema/v1/discern-setup-config.schema.json",
   "x-discern-compatibility-policy": "config-input",
-  "title": "discern.toml configuration",
+  "title": "discern setup config document",
   "type": "object",
   "properties": {
-    "meta": {
-      "description": "Installer bookkeeping. `schema_version` is the migration anchor; edit by hand only to force a re-migration.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "schema_version": {
-          "description": "The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.",
-          "type": "integer",
-          "minimum": -9007199254740991,
-          "maximum": 9007199254740991
-        },
-        "bootstrapped": {
-          "default": false,
-          "description": "Whether `discern setup` has completed — retires the one-time setup redirect.",
-          "type": "boolean"
-        },
-        "setup_model": {
-          "default": "",
-          "description": "The model the agent self-declared at `discern setup begin --model=…`. Recorded for support triage; advisory only (discern can't verify it).",
-          "type": "string"
-        },
-        "setup_version": {
-          "default": "",
-          "description": "The discern version that ran setup (observed at `begin`). Recorded for support triage.",
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
+    "$schema": {
+      "description": "Editor-only pointer to this schema; ignored by discern.",
+      "type": "string"
     },
-    "project": {
-      "description": "Project identity and authored project paths.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "name": {
-          "default": "",
-          "description": "Display name (free text), used where compiled guidance addresses the project. Empty falls back to the slug.",
+    "version": {
+      "description": "Document major version. Omit (assumed current) or use a matching major; this build understands version 2.",
+      "anyOf": [
+        {
           "type": "string"
         },
-        "slug": {
-          "default": "",
-          "description": "Short, lowercase, dash-separated identity. Used for worktree/site/branch names.",
-          "type": "string"
-        },
-        "gotchas_doc": {
-          "default": "",
-          "description": "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
-          "type": "string"
-        },
-        "todo": {
-          "default": "discern/TODO.md",
-          "description": "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
-          "type": "string"
-        },
-        "logbook": {
-          "default": true,
-          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; retry timing in `discern await` from typical run durations; config-change attribution and each standard's limit history; advisory findings on `status`, the `done` receipt, and `improvement`; wait estimates when concurrent test runs queue. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
-          "type": "boolean"
-        },
-        "agents": {
-          "description": "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        {
+          "type": "number"
         }
-      },
-      "additionalProperties": false
+      ]
     },
-    "repository": {
-      "description": "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "trunk": {
-          "default": "main",
-          "description": "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
-          "type": "string"
-        },
-        "branch_prefix": {
-          "default": "agent/",
-          "description": "Branch prefix for worktrees created by discern, e.g. \"agent/my-feature\".",
-          "type": "string"
-        },
-        "receipt_notes": {
-          "default": "local",
-          "description": "How landed receipt notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. Discern never configures push behavior or starts a network request.",
-          "type": "string",
-          "enum": [
-            "local",
-            "fetch"
-          ]
-        },
-        "ensure": {
-          "default": [],
-          "description": "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
+    "name": {
+      "description": "Project name (free text).",
+      "type": "string"
     },
-    "guidance": {
-      "description": "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "sources": {
-          "default": [
-            "discern/guidance.md"
-          ],
-          "description": "Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "agents": {
-          "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
+    "slug": {
+      "description": "Project slug: lowercase letters, digits and dashes, starting with a letter or digit.",
+      "type": "string"
     },
-    "skills": {
-      "description": "Focused, reusable task playbooks. The effective set is discern's bundled built-ins plus your authored skills under the directory below, where yours override a built-in of the same name, minus any names in `exclude`.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "dir": {
-          "default": "discern/skills",
-          "description": "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.",
-          "type": "string"
-        },
-        "exclude": {
-          "default": [],
-          "description": "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
+    "branch_prefix": {
+      "description": "Branch prefix for worktrees, e.g. \"agent/\".",
+      "type": "string"
+    },
+    "source_globs": {
+      "description": "Primary source globs, e.g. [\"src/**\"].",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "brief": {
+      "description": "Free-text description of what the project is.",
+      "type": "string"
+    },
+    "agents": {
+      "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "claude_code",
+          "codex",
+          "gemini",
+          "cursor",
+          "copilot"
+        ]
+      }
+    },
+    "description": {
+      "description": "Preset metadata, shown when listing presets; ignored by `setup --config`.",
+      "type": "string"
     },
     "map": {
-      "description": "The project documentation tree discern scaffolds, validates, and browses.",
+      "description": "[map] settings — chiefly the project-relative directory holding discern's agent documentation tree.",
       "default": {},
       "type": "object",
       "properties": {
@@ -169,8 +75,7 @@
       "additionalProperties": false
     },
     "jobs": {
-      "description": "The gate's declared jobs in one namespace. Known names (format, build, lint, typecheck, test, smoke) take a command, a command list, or { run, timeout }; their stage is derived from the name. Every custom [jobs.<name>] requires a table with `stage` (fix|build|check|test) and `run`, plus optional `provides` and `timeout`. A known name must not declare `stage`. Omit a known job the project does not have.",
-      "default": {},
+      "description": "[jobs] fills. Known names take a command, list, or { run, timeout } and derive their stage; a custom [jobs.<name>] table requires `stage` and `run`.",
       "allOf": [
         {
           "type": "object",
@@ -484,8 +389,7 @@
       ]
     },
     "scopes": {
-      "default": {},
-      "description": "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; the optional flags tune the gate for changes there. Classification fails OPEN: a path matching no scope counts as a real code change.",
+      "description": "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -537,136 +441,8 @@
         "additionalProperties": false
       }
     },
-    "acceptance": {
-      "description": "Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "pre_authorized": {
-          "default": [],
-          "description": "Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
-    },
-    "worktree": {
-      "description": "The isolated-worktree workflow. The git mechanics are generic; everything project-specific is a RESOURCE you declare.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "root": {
-          "default": "",
-          "description": "Where per-worktree checkouts are created (a <name> dir is made under it). Empty (the default) ⇒ a sibling of the repo, \"<repo>.worktrees\", visible and adjacent outside the checkout. A relative path resolves against the repo root (\".claude/worktrees\" nests them inside the repo); an absolute path is used as-is.",
-          "type": "string"
-        },
-        "port": {
-          "default": false,
-          "description": "Record each worktree's deterministic dev-server port in its configured env files. The port remains available through `discern identity --port` when this is false; it is derived identity and provisions nothing.",
-          "type": "boolean"
-        },
-        "ignored_file_drift": {
-          "default": true,
-          "description": "Track ignored files at worktree setup and report top-level ignored paths that changed before the worktree is removed. Disable for projects whose ignored outputs churn too much to be useful.",
-          "type": "boolean"
-        },
-        "inherit_env": {
-          "default": [],
-          "description": "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "env_files": {
-          "default": [
-            ".env",
-            ".env.local"
-          ],
-          "description": "The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "resources": {
-          "default": {},
-          "description": "[worktree.resources.<name>] — per-worktree external resources (a database, an emulator, a container, a queue). Created top-to-bottom and destroyed bottom-to-top.",
-          "type": "object",
-          "propertyNames": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9_-]+$"
-          },
-          "additionalProperties": {
-            "type": "object",
-            "properties": {
-              "create": {
-                "default": "",
-                "description": "Command run once at worktree setup (skipped when the resource is already provisioned). Author it idempotent and cwd-independent. An empty command is a clean no-op.",
-                "type": "string"
-              },
-              "destroy": {
-                "default": "",
-                "description": "Command run once at teardown. Author it idempotent (it may re-run via worktree prune) and cwd-independent.",
-                "type": "string"
-              },
-              "ensure": {
-                "default": "",
-                "description": "Optional: reconcile drift / re-readiness at session start.",
-                "type": "string"
-              },
-              "required": {
-                "default": true,
-                "description": "false: a create failure is non-fatal (does not abort setup).",
-                "type": "boolean"
-              },
-              "retries": {
-                "default": 0,
-                "description": "Retry create/destroy this many times.",
-                "type": "number"
-              },
-              "gc": {
-                "default": true,
-                "description": "false: exempt it from orphan pruning (teardown-only; for data-loss-sensitive ones).",
-                "type": "boolean"
-              }
-            },
-            "additionalProperties": false
-          }
-        },
-        "setup": {
-          "description": "Linked-worktree setup commands: one-shot `steps` (creation only) and identity-aware convergent `ensure` (re-run on every linked-worktree pass and excluded from the trunk checkout).",
-          "default": {},
-          "type": "object",
-          "properties": {
-            "steps": {
-              "default": [],
-              "description": "Commands run ONCE at worktree creation (one-shot scaffolding — create a database, seed fixtures). Run in order after the resources are created; not re-run.",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "ensure": {
-              "default": [],
-              "description": "Linked-worktree-only commands run on every setup pass: at creation, on session-start re-entry, and on `discern update`. Use for idempotent convergence that depends on worktree identity, ports, or resources; checkout-generic dependencies belong in [repository].ensure. The main checkout does not run them.",
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
     "standards": {
-      "default": {},
-      "description": "[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = \"on-demand\" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count; a quality that scales (coverage, alert density) holds a rate — add `per` so growth alone stays within the limit; a total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows — pinned at today's value it fails the next legitimate change.",
+      "description": "[standards.<name>] tables. Coverage is just a conventional name.",
       "type": "object",
       "propertyNames": {
         "type": "string",
@@ -815,63 +591,8 @@
         ],
         "additionalProperties": false
       }
-    },
-    "gate": {
-      "description": "Ergonomics for the parallel gate stages (and scope gates). These affect how `discern done` runs its concurrent jobs.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "stream": {
-          "default": false,
-          "description": "Stream each job's output live (line-prefixed) instead of buffering it until the stage finishes. Off by default (grouped).",
-          "type": "boolean"
-        },
-        "fail_fast": {
-          "default": true,
-          "description": "Cancel the in-flight sibling commands the moment one fails. ON by default — an agent-driven gate wants a fast abort. Set false to run every job and see all failures in one pass.",
-          "type": "boolean"
-        },
-        "timeout": {
-          "default": 600,
-          "description": "Per-command time budget in SECONDS, applied to every job the gate runs (each declared job, scope gate, and standard measurement). A command that does not exit within it is tree-killed, and the stage fails with a plain-language timeout diagnostic. The global default is 600 seconds (10 minutes): long enough for a real test suite and short enough to catch a stuck watch-mode runner or dev server within minutes. Set to 0 to disable the limit, which lets the gate hang indefinitely and is not recommended.",
-          "type": "number"
-        },
-        "concurrent_test_runs": {
-          "default": 0,
-          "description": "Cap on how many test-stage runs may be in flight at once across every checkout of this repository — the main checkout and all its linked worktrees. Counts whole runs: `discern done`'s and `discern test`'s test group, and `discern standards`' measurement pass; a test runner's own worker parallelism is untouched. A run arriving past the cap waits for a slot before its tests start (fix and check stages never wait), says what it is waiting for, and continues the moment a slot frees. A killed run's slot is released by the operating system, so a crash never blocks the others. 0 (the default) means no cap.",
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 9007199254740991
-        }
-      },
-      "additionalProperties": false
-    },
-    "coupling": {
-      "description": "Coupling is a zero-config, read-only advisory that mines git history for files that change together, so a touched file's habitual sibling is less likely to be missed. It self-calibrates to your repo, so there are no thresholds to tune; the setting controls whether it also runs with the gate. Run it directly with `discern coupling`.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "in_gate": {
-          "default": true,
-          "description": "Include coupling findings in `discern done` and the fast inner loop `discern prepare` as trailing hints, so they reach the author during the change. On by default; set false to keep coupling on demand.",
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false
-    },
-    "scripts": {
-      "description": "Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "dir": {
-          "default": "discern/scripts",
-          "description": "Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. \"tools/\") if you prefer.",
-          "type": "string"
-        }
-      },
-      "additionalProperties": false
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }

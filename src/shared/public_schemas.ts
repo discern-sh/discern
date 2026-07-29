@@ -13,6 +13,13 @@ export const CONFIG_SCHEMA_ID = publicSchemaId(
   "discern-config.schema.json",
 );
 
+/** The declarative document consumed by `setup --config` and presets. */
+export const SETUP_CONFIG_SCHEMA_MAJOR = 1;
+export const SETUP_CONFIG_SCHEMA_ID = publicSchemaId(
+  SETUP_CONFIG_SCHEMA_MAJOR,
+  "discern-setup-config.schema.json",
+);
+
 /** Frozen pre-launch result contract retained for published compatibility. */
 export const RESULT_SCHEMA_V1_MAJOR = 1;
 export const RESULT_SCHEMA_V1_ID = publicSchemaId(
@@ -61,7 +68,17 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "`discern.toml` configuration",
-    contract: "Configuration file structure, keys, and value types.",
+    contract:
+      "The live configuration file: every section, key, and value type the engine validates.",
+  },
+  {
+    id: SETUP_CONFIG_SCHEMA_ID,
+    artifactPath: "schema/discern-setup-config.schema.json",
+    major: SETUP_CONFIG_SCHEMA_MAJOR,
+    compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    label: "Setup config document",
+    contract:
+      "The declarative install document consumed by `setup --config` and presets.",
   },
   {
     id: RESULT_SCHEMA_V1_ID,

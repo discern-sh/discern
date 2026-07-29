@@ -9,9 +9,9 @@
  * Both apply the document's `jobs` / `scopes` / `standards` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
- * `schema/discern-config.schema.json`), it carries an optional `version` so it
- * can evolve without silently misreading an older or newer document, and accepts
- * a `$schema` pointer for editor validation.
+ * `schema/discern-setup-config.schema.json`), it carries an optional `version`
+ * so it can evolve without silently misreading an older or newer document, and
+ * accepts a `$schema` pointer for editor validation.
  */
 
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./config.ts";

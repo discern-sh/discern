@@ -17,6 +17,7 @@ import { dirname, fromFileUrl, join, relative } from "@std/path";
 import {
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
+  renderConfigSchemaJson,
 } from "../src/shared/config_codegen.ts";
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
@@ -130,7 +131,11 @@ async function write(
 }
 
 console.log("Regenerating config artifacts from src/shared/config_schema.ts:");
-await write("schema/discern-config.schema.json", renderConfigDocSchemaJson());
+await write("schema/discern-config.schema.json", renderConfigSchemaJson());
+await write(
+  "schema/discern-setup-config.schema.json",
+  renderConfigDocSchemaJson(),
+);
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));

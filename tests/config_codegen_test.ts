@@ -6,6 +6,7 @@ import {
   recordConfigPaths,
   renderConfigDocSchemaJson,
   renderConfigReferenceDoc,
+  renderConfigSchemaJson,
 } from "../src/shared/config_codegen.ts";
 import {
   DEFAULT_AGENTS,
@@ -19,6 +20,7 @@ import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  SETUP_CONFIG_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
@@ -42,29 +44,59 @@ Deno.test("schema/discern-config.schema.json matches the generator (run `deno ta
   );
   assertEquals(
     committed,
-    renderConfigDocSchemaJson(),
+    renderConfigSchemaJson(),
     "schema/discern-config.schema.json is stale — run `deno task codegen`",
   );
 });
 
-Deno.test("the generated editor schema fixes the two historical staleness bugs", () => {
-  const json = renderConfigDocSchemaJson();
-  const schema = JSON.parse(json) as Record<string, unknown>;
-  // Bug 1: the agents enum must include gemini (KNOWN_AGENTS, not just two).
-  assert(json.includes('"gemini"'), "agents enum must include gemini");
-  // Bug 2: no reference to the abolished `.discern/config.toml` path anywhere.
-  assert(
-    !json.includes(".discern/config.toml"),
-    "must not reference the abolished .discern/config.toml path",
+Deno.test("schema/discern-setup-config.schema.json matches the generator (run `deno task codegen`)", async () => {
+  const committed = await Deno.readTextFile(
+    new URL("../schema/discern-setup-config.schema.json", import.meta.url),
   );
-  assert(!json.includes(".discern"), "must not reference any .discern/ path");
-  assertEquals(schema.$id, CONFIG_SCHEMA_ID);
   assertEquals(
-    schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
-    CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+    committed,
+    renderConfigDocSchemaJson(),
+    "schema/discern-setup-config.schema.json is stale — run `deno task codegen`",
   );
-  // The document is strict (an editor flags a typo'd key).
-  assertEquals(schema.additionalProperties, false);
+});
+
+Deno.test("the generated config schemas fix the two historical staleness bugs", () => {
+  const artifacts = [
+    {
+      name: "live config",
+      json: renderConfigSchemaJson(),
+      id: CONFIG_SCHEMA_ID,
+    },
+    {
+      name: "setup config document",
+      json: renderConfigDocSchemaJson(),
+      id: SETUP_CONFIG_SCHEMA_ID,
+    },
+  ];
+  for (const { name, json, id } of artifacts) {
+    const schema = JSON.parse(json) as Record<string, unknown>;
+    // Bug 2: no reference to the abolished `.discern/config.toml` path anywhere.
+    assert(
+      !json.includes(".discern"),
+      `${name}: must not reference any .discern/ path`,
+    );
+    assertEquals(schema.$id, id, name);
+    assertEquals(
+      schema[PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY],
+      CONFIG_SCHEMA_COMPATIBILITY_POLICY,
+      name,
+    );
+    // Both schemas are strict (an editor flags a typo'd key).
+    assertEquals(schema.additionalProperties, false, name);
+  }
+  // Bug 1: the document's agents enum must include gemini (KNOWN_AGENTS, not
+  // just two). The live schema's [guidance].agents deliberately stays an open
+  // string array — the resolver validates providers — so the enum guarantee
+  // belongs to the setup document alone.
+  assert(
+    renderConfigDocSchemaJson().includes('"gemini"'),
+    "the setup document's agents enum must include gemini",
+  );
 });
 
 Deno.test("the generated jobs object exposes known names and the custom table arm", () => {
