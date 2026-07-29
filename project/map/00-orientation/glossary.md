@@ -160,7 +160,7 @@ A reusable overlay applied with `discern preset <name>`: scaffolded files plus c
 
 ### Project script
 
-A project's own language-agnostic executable under `[scripts].dir` (default `discern/scripts`), run as `discern script <name>` with `DISCERN_*` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).
+A project's own language-agnostic executable under `[scripts].dir` (default `discern/scripts`), run as `discern scripts <name>` with `DISCERN_*` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).
 
 ### Project-owned file
 

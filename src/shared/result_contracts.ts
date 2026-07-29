@@ -30,7 +30,7 @@ import {
   PrepareOutputSchema,
   PresetOutputSchema,
   RefreshOutputSchema,
-  ScriptOutputSchema,
+  ScriptsOutputSchema,
   SetupAcceptOutputSchema,
   SetupDoneOutputSchema,
   SetupOutputSchema,
@@ -344,10 +344,10 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: IdentityOutputSchema,
   },
   {
-    id: "script",
-    commands: ["script"],
-    verb: "script",
-    schema: ScriptOutputSchema,
+    id: "scripts",
+    commands: ["scripts"],
+    verb: "scripts",
+    schema: ScriptsOutputSchema,
   },
   {
     id: "worktree",

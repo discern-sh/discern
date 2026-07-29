@@ -69,7 +69,7 @@ const SPEC: Record<string, OutsideSpec> = {
     verb: "skills list",
     expect: "not_initialized",
   },
-  script: { run: ["script"], verb: "script", expect: "not_initialized" },
+  scripts: { run: ["scripts"], verb: "scripts", expect: "not_initialized" },
 
   // Installer verbs with their own guards — same slug, verb-tailored message.
   upgrade: { run: ["upgrade"], verb: "upgrade", expect: "not_initialized" },

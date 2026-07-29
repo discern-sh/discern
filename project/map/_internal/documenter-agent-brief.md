@@ -140,7 +140,7 @@ Cite decision records as freely as the reasoning requires; rendering handles the
    - 400–800 words per leaf, with 800 as a **hard ceiling**. Other page shapes carry their own budgets; see [`page-templates.md`](page-templates.md).
    - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Report any overrun.
 9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
-10. **Register belongs to the voice skill.** Hold its docs register mix — plain, precise, convinced — and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern script prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures. Delight is a ceiling of one per page and zero in reference and troubleshooting material.
+10. **Register belongs to the voice skill.** Hold its docs register mix — plain, precise, convinced — and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern scripts prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures. Delight is a ceiling of one per page and zero in reference and troubleshooting material.
 
 ---
 

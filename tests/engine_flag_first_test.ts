@@ -119,12 +119,12 @@ Deno.test("pre-setup: a flags-only JSON invocation returns the root refusal", as
   });
 });
 
-Deno.test("flag-first --help renders the operator help with the script command", async () => {
+Deno.test("flag-first --help renders the operator help with the scripts command", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     const r = await runAgent(dir, ["--no-color", "--help"]);
     assertEquals(r.code, 0, r.output);
-    assertStringIncludes(r.stdout, "script");
+    assertStringIncludes(r.stdout, "scripts");
   });
 });
 
@@ -135,7 +135,7 @@ Deno.test("a project script dispatches with a global flag placed first", async (
       join(dir, "discern/scripts/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho HELLO-FROM-PROJECT\n",
     );
-    const r = await runAgent(dir, ["--no-color", "script", "hello"]);
+    const r = await runAgent(dir, ["--no-color", "scripts", "hello"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "HELLO-FROM-PROJECT");
   });

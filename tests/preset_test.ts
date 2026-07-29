@@ -112,7 +112,7 @@ Deno.test("preset: the overlaid project script is runnable through its namespace
   await withTempDir(async (dir) => {
     await runCli(["setup", "--confirmed", "--yes", "--slug", "demo"], dir);
     await runCli(["preset", "example", "--yes"], dir, PRESET_ENV);
-    const r = await runAgent(dir, ["script", "example-deploy"]);
+    const r = await runAgent(dir, ["scripts", "example-deploy"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "example deploy ran");
   });

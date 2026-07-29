@@ -12697,8 +12697,8 @@
         "verb"
       ]
     },
-    "DiscernScriptResult": {
-      "title": "DiscernScriptResult",
+    "DiscernScriptsResult": {
+      "title": "DiscernScriptsResult",
       "type": "object",
       "properties": {
         "ok": {
@@ -12922,7 +12922,7 @@
         },
         "verb": {
           "type": "string",
-          "const": "script"
+          "const": "scripts"
         },
         "data": {
           "anyOf": [
@@ -15857,7 +15857,7 @@
           "$ref": "#/$defs/DiscernIdentityResult"
         },
         {
-          "$ref": "#/$defs/DiscernScriptResult"
+          "$ref": "#/$defs/DiscernScriptsResult"
         },
         {
           "$ref": "#/$defs/DiscernWorktreeResult"
@@ -15919,7 +15919,7 @@
           "accept": "#/$defs/DiscernAcceptResult",
           "update": "#/$defs/DiscernUpdateResult",
           "identity": "#/$defs/DiscernIdentityResult",
-          "script": "#/$defs/DiscernScriptResult",
+          "scripts": "#/$defs/DiscernScriptsResult",
           "worktree": "#/$defs/DiscernWorktreeResult",
           "worktree setup": "#/$defs/DiscernWorktreeSetupResult",
           "worktree teardown": "#/$defs/DiscernWorktreeTeardownResult",
@@ -16291,12 +16291,12 @@
       "schema": "#/$defs/DiscernIdentityResult"
     },
     {
-      "id": "script",
-      "verb": "script",
+      "id": "scripts",
+      "verb": "scripts",
       "commands": [
-        "script"
+        "scripts"
       ],
-      "schema": "#/$defs/DiscernScriptResult"
+      "schema": "#/$defs/DiscernScriptsResult"
     },
     {
       "id": "worktree",

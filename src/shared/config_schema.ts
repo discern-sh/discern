@@ -508,7 +508,7 @@ const scriptsSection = z.strictObject({
     'Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer.',
   ),
 }).prefault({}).describe(
-  "Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.",
+  "Your own executable commands. Drop a script into the directory below and run it with `discern scripts <name>`; an optional `# desc: ...` line describes it in the listing.",
 );
 
 /** The canonical live-`discern.toml` schema. Every section carries a default, so

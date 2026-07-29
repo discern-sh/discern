@@ -4,7 +4,7 @@
  * (see scripts/prose_lib.ts), so a metadata block can never trip the gate
  * and a diagnostic still names the real file and line.
  *
- * Also the page-level loop behind `discern script prose-page`: pass file
+ * Also the page-level loop behind `discern scripts prose-page`: pass file
  * arguments (paths to map pages, relative to the working directory) to lint
  * only those pages, and `--min-level=<suggestion|warning|error>` to widen
  * past the gate's error-only default.

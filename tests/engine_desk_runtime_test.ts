@@ -772,7 +772,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
     empty,
     scripted,
   ]);
-  const choices = [empty.path, BACK, scripted.path, "script", "deploy", QUIT];
+  const choices = [empty.path, BACK, scripted.path, "scripts", "deploy", QUIT];
   const menus: Array<{ message: string; options: string }> = [];
   const discoveryRoots: string[] = [];
   const runs: Array<{
@@ -838,7 +838,7 @@ Deno.test("desk offers and runs only the selected worktree's Project Scripts", a
   assertStringIncludes(scriptMenu.options, "deploy this checkout");
 
   const text = joined(output);
-  assertStringIncludes(text, "discern script deploy  (in scripted)");
+  assertStringIncludes(text, "discern scripts deploy  (in scripted)");
   assertStringIncludes(text, "Project Script exited with status 7");
 });
 

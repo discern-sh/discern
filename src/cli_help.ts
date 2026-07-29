@@ -76,7 +76,7 @@ export const COMMAND_GROUPS: readonly CommandGroup[] = [
   {
     name: "Project Scripts",
     note: "project-owned automation, listed or run by name",
-    commands: ["script"],
+    commands: ["scripts"],
   },
   {
     name: "Setup & maintenance",

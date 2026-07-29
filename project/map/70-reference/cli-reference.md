@@ -32,7 +32,7 @@ aliases:
   - discern test
   - discern improvement
   - discern mcp
-  - discern script
+  - discern scripts
   - discern standards
   - discern refresh
   - discern tidy
@@ -283,11 +283,11 @@ Usage: `discern identity [path] [options]`
 
 Project-owned automation, listed or run by name.
 
-### `discern script`
+### `discern scripts`
 
 List the project's executable project scripts, or run one by name with every following argument forwarded unchanged.
 
-Usage: `discern script [name] [args...] [options]`
+Usage: `discern scripts [name] [args...] [options]`
 
 ## Setup & maintenance
 

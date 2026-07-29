@@ -1003,7 +1003,7 @@ export function globalFlagTokens(root: Command): ReadonlySet<string> {
 }
 
 /**
- * Split a `script` invocation after {@link resolveInvocation} removed the verb.
+ * Split a `scripts` invocation after {@link resolveInvocation} removed the verb.
  * Root-global flags that preceded the verb remain at the front and belong to
  * discern; the first non-global token is the script name, and every token after
  * that name belongs to the child unchanged.
@@ -1177,9 +1177,9 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Project scripts have one explicit namespace. Intercept before Cliffy so
-    // everything after the name reaches the executable untouched; bare `script`
+    // everything after the name reaches the executable untouched; bare `scripts`
     // lists the directory. Only parent-level help stays with Cliffy.
-    if (verb === "script") {
+    if (verb === "scripts") {
       const script = splitScriptInvocation(
         invocation.argsWithoutVerb,
         globalTokens,
@@ -1191,7 +1191,7 @@ export async function main(args: string[]): Promise<void> {
         );
         Deno.exit(
           await recordedRun(
-            "script",
+            "scripts",
             "cli",
             async () =>
               await runProjectScript(script.name, script.args, {
@@ -1203,7 +1203,7 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // An unknown top-level word never executes a project script. The suggestion
-    // path may point at `discern script <name>`, preserving discoverability while
+    // path may point at `discern scripts <name>`, preserving discoverability while
     // keeping the root command vocabulary closed.
     if (!verb.startsWith("-") && !KNOWN_VERBS.has(verb)) {
       Deno.exit(

@@ -224,7 +224,7 @@ Deno.test("SUGGESTABLE_ENGINE_COMMANDS is the engine verbs minus command groups,
   const SUGGESTION_DROPS_ENGINE_VERB = new Set([
     "worktree",
     "skills", // a command group, not a single suggested action
-    "script", // a namespace; project script names are suggested separately
+    "scripts", // a namespace; project script names are suggested separately
     "mcp", // the server entry point, not a suggested action
     "desk", // interactive-only (ADR 0119)
   ]);

@@ -36,7 +36,7 @@ export const DESK_ACTIONS = [
   "grant",
   "revoke_grant",
   "update",
-  "script",
+  "scripts",
   "agent",
   "jump",
   "inspect",
@@ -171,7 +171,7 @@ export function legalActions(
     actions.push("update");
   }
   if (scripts.length > 0) {
-    actions.push("script");
+    actions.push("scripts");
   }
   if (agentLaunches.length > 0) {
     actions.push("agent");

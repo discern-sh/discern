@@ -41,7 +41,7 @@ Pick the **smallest surface that fully carries the lesson**, and give it exactly
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | A standing rule every session must follow ("always X here", "never Y")            | **A guidance line** — the project guidance source ({{guidance_sources}}), compiled into every agent's file | Always in context, so it's never missed — and always _paying_ context, so it must earn its line |
 | A repeatable, multi-step procedure needing judgement                              | **An authored skill** — a `SKILL.md` under `{{skills_dir}}`                                                | Discoverable when the task matches; costs context only when used                                |
-| A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern script <name>`)            | A script executes exactly; prose about commands drifts                                          |
+| A deterministic action — a command sequence you'd otherwise re-derive             | **A project script** — an executable in `{{scripts_dir}}` (run it with `discern scripts <name>`)            | A script executes exactly; prose about commands drifts                                          |
 | Durable context — how a subsystem works, what's true and why it's shaped this way | **A docs page** — under `{{map_dir}}` (the `discern-document-subsystem` skill maintains subtrees)          | Read on demand; the reference the other surfaces can point at                                   |
 | A decision — hard to reverse, surprising without context, a real trade-off        | **An ADR** — via the `discern-write-adr` skill                                                             | Records _why_, so it isn't silently re-litigated                                                |
 
@@ -65,7 +65,7 @@ Write for a _future reader with no memory of today_: name files by path, not "th
 Teaching isn't done until the surface is live:
 
 - Guidance edits: run `discern refresh` so the agent files recompile; the gate fails on drift either way.
-- A new skill or project script: confirm it's discoverable — `discern skills list` shows the skill materialized into the agent dirs; `discern script` lists the script.
+- A new skill or project script: confirm it's discoverable — `discern skills list` shows the skill materialized into the agent dirs; `discern scripts` lists the script.
 - Tell the user what was taught and _where_, in one line each — they're the editor of record for what their project believes.
 
 ---

@@ -28,7 +28,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "worktree",
   "identity",
   "skills",
-  "script",
+  "scripts",
   "mcp",
 ]);
 

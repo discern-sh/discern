@@ -19,7 +19,7 @@ const SLUG_SCRIPT = `#!/usr/bin/env sh
 printf 'SLUG=%s\\n' "$(discern config get project.slug)"
 `;
 
-Deno.test("script: a project script runs under the script command with its raw argument tail", async () => {
+Deno.test("scripts: a project script runs under the script command with its raw argument tail", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -33,7 +33,7 @@ Deno.test("script: a project script runs under the script command with its raw a
     );
 
     const r = await runAgent(dir, [
-      "script",
+      "scripts",
       "deploy",
       "--target",
       "staging",
@@ -66,7 +66,7 @@ Deno.test("Project Script core runs in an explicitly selected worktree", async (
   });
 });
 
-Deno.test("script and scripts list every executable project script in deterministic order", async () => {
+Deno.test("scripts lists every executable project script in deterministic order", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
@@ -82,38 +82,40 @@ Deno.test("script and scripts list every executable project script in determinis
       "#!/usr/bin/env sh\necho no\n",
     );
 
-    for (const command of ["script", "scripts"]) {
-      const r = await runAgent(dir, [command]);
-      assertEquals(r.code, 0, r.output);
-      assertStringIncludes(r.stdout, "Project scripts (from discern/scripts)");
-      assertStringIncludes(r.stdout, "a-first");
-      assertStringIncludes(r.stdout, "first script");
-      assertStringIncludes(r.stdout, "z-last");
-      assert(
-        r.stdout.indexOf("a-first") < r.stdout.indexOf("z-last"),
-        `${command} must sort script names:\n${r.stdout}`,
-      );
-      assert(
-        !r.stdout.includes("not-executable"),
-        `non-executable files are not listable:\n${r.stdout}`,
-      );
-    }
+    const r = await runAgent(dir, ["scripts"]);
+    assertEquals(r.code, 0, r.output);
+    assertStringIncludes(r.stdout, "Project scripts (from discern/scripts)");
+    assertStringIncludes(r.stdout, "a-first");
+    assertStringIncludes(r.stdout, "first script");
+    assertStringIncludes(r.stdout, "z-last");
+    assert(
+      r.stdout.indexOf("a-first") < r.stdout.indexOf("z-last"),
+      `scripts must sort script names:\n${r.stdout}`,
+    );
+    assert(
+      !r.stdout.includes("not-executable"),
+      `non-executable files are not listable:\n${r.stdout}`,
+    );
+    // The retired singular spelling refuses instead of listing: the redirect
+    // table is checked before trailing-s forgiveness, and the table-driven
+    // redirect suite (engine_vocabulary_test.ts) proves that refusal for
+    // every entry, this one included.
   });
 });
 
-Deno.test("script: --json lists project scripts as one structured result", async () => {
+Deno.test("scripts: --json lists project scripts as one structured result", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(
       join(dir, "discern/scripts/hello"),
       "#!/usr/bin/env sh\n# desc: say hello\necho hi\n",
     );
-    for (const args of [["--json", "script"], ["script", "--json"]]) {
+    for (const args of [["--json", "scripts"], ["scripts", "--json"]]) {
       const r = await runAgent(dir, args);
       assertEquals(r.code, 0, r.output);
       const result = JSON.parse(r.stdout);
       assertEquals(result.ok, true);
-      assertEquals(result.verb, "script");
+      assertEquals(result.verb, "scripts");
       assertEquals(result.data.scripts, [{
         name: "hello",
         description: "say hello",
@@ -122,7 +124,7 @@ Deno.test("script: --json lists project scripts as one structured result", async
   });
 });
 
-Deno.test("script: a project script reads config and receives the script environment", async () => {
+Deno.test("scripts: a project script reads config and receives the script environment", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "discern/scripts/show-slug"), SLUG_SCRIPT);
@@ -136,11 +138,11 @@ Deno.test("script: a project script reads config and receives the script environ
       ].join("\n"),
     );
 
-    const slug = await runAgent(dir, ["script", "show-slug"]);
+    const slug = await runAgent(dir, ["scripts", "show-slug"]);
     assertEquals(slug.code, 0, slug.output);
     assertStringIncludes(slug.stdout, "SLUG=engine-test");
 
-    const env = await runAgent(dir, ["script", "show-env"]);
+    const env = await runAgent(dir, ["scripts", "show-env"]);
     assertEquals(env.code, 0, env.output);
     assertStringIncludes(env.stdout, "/discern/scripts");
     assertStringIncludes(env.stdout, "SCRIPTS_DIR=discern/scripts");
@@ -148,7 +150,7 @@ Deno.test("script: a project script reads config and receives the script environ
   });
 });
 
-Deno.test("script: project scripts retain normal executable shell behavior", async () => {
+Deno.test("scripts: project scripts retain normal executable shell behavior", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeExecutable(join(dir, "glob-fixture/a.txt"), "a");
@@ -166,13 +168,13 @@ Deno.test("script: project scripts retain normal executable shell behavior", asy
         "",
       ].join("\n"),
     );
-    const r = await runAgent(dir, ["script", "globby"]);
+    const r = await runAgent(dir, ["scripts", "globby"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "GLOB_COUNT=2");
   });
 });
 
-Deno.test("script: an existing non-executable file is reported, not run", async () => {
+Deno.test("scripts: an existing non-executable file is reported, not run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await Deno.mkdir(join(dir, "discern/scripts"), { recursive: true });
@@ -180,7 +182,7 @@ Deno.test("script: an existing non-executable file is reported, not run", async 
       join(dir, "discern/scripts/deploy"),
       "#!/usr/bin/env sh\necho deployed\n",
     );
-    const r = await runAgent(dir, ["script", "deploy"]);
+    const r = await runAgent(dir, ["scripts", "deploy"]);
     assertEquals(r.code, 1);
     assertStringIncludes(
       r.stderr,
@@ -190,7 +192,7 @@ Deno.test("script: an existing non-executable file is reported, not run", async 
   });
 });
 
-Deno.test("script: [scripts].dir relocates the project scripts directory", async () => {
+Deno.test("scripts: [scripts].dir relocates the project scripts directory", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -209,10 +211,10 @@ Deno.test("script: [scripts].dir relocates the project scripts directory", async
       "#!/usr/bin/env sh\n# desc: build a thing\necho BUILT-THE-THING\n",
     );
 
-    const run = await runAgent(dir, ["script", "build-thing"]);
+    const run = await runAgent(dir, ["scripts", "build-thing"]);
     assertEquals(run.code, 0, run.output);
     assertStringIncludes(run.stdout, "BUILT-THE-THING");
-    const list = await runAgent(dir, ["script"]);
+    const list = await runAgent(dir, ["scripts"]);
     assertStringIncludes(list.stdout, "Project scripts (from tools)");
   });
 });
@@ -228,10 +230,13 @@ Deno.test("a former root-level project script is unknown and points to the names
     const exact = await runAgent(dir, ["deploy"]);
     assertEquals(exact.code, 1, exact.output);
     assert(!exact.output.includes("PROJECT-SCRIPT-RAN"), exact.output);
-    assertStringIncludes(exact.stderr, "Did you mean `discern script deploy`?");
+    assertStringIncludes(
+      exact.stderr,
+      "Did you mean `discern scripts deploy`?",
+    );
 
     const typo = await runAgent(dir, ["deplyo"]);
     assertEquals(typo.code, 1, typo.output);
-    assertStringIncludes(typo.stderr, "Did you mean `discern script deploy`?");
+    assertStringIncludes(typo.stderr, "Did you mean `discern scripts deploy`?");
   });
 });

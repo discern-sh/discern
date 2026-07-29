@@ -1432,12 +1432,12 @@ const projectScriptSchema = z.strictObject({
   description: z.string().optional(),
 });
 
-/** Bare `script` — the discoverable project-script listing. */
-export const ScriptDataSchema = z.strictObject({
+/** Bare `scripts` — the discoverable project-script listing. */
+export const ScriptsDataSchema = z.strictObject({
   scripts: z.array(projectScriptSchema),
   directory: z.string(),
 });
-export type ScriptData = z.infer<typeof ScriptDataSchema>;
+export type ScriptsData = z.infer<typeof ScriptsDataSchema>;
 
 const identityFieldDataSchema = z.strictObject({
   kind: z.literal("field"),
@@ -1734,10 +1734,10 @@ export const LicensesOutputSchema = resultOutputSchema(
   LicensesDataSchema,
 );
 
-/** Bare `script` output: envelope + executable Project Script listing. */
-export const ScriptOutputSchema = resultOutputSchema(
-  "script",
-  ScriptDataSchema,
+/** Bare `scripts` output: envelope + executable Project Script listing. */
+export const ScriptsOutputSchema = resultOutputSchema(
+  "scripts",
+  ScriptsDataSchema,
 );
 
 /** `identity` output: envelope + a structured field/resource projection. */

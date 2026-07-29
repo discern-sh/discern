@@ -326,7 +326,7 @@ function actionLabel(action: DeskAction, trunk: string): string {
       return "Revoke landing pre-authorization";
     case "update":
       return `Update branch from ${trunk}`;
-    case "script":
+    case "scripts":
       return "Run a Project Script";
     case "agent":
       return "Open with an agent";
@@ -702,14 +702,14 @@ async function dispatchAction(
         return true;
       }
     }
-    case "script": {
+    case "scripts": {
       const script = await pickScript(row, runtime);
       if (script === undefined) {
         return false;
       }
       echoCommand(
         out,
-        `discern script ${script.name}  (in ${target})`,
+        `discern scripts ${script.name}  (in ${target})`,
       );
       const code = await runtime.runScript(
         row.entry.path,

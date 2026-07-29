@@ -21,7 +21,7 @@
  *    nothing — if the consent state can't be read, the conservative reading
  *    wins. A verb that exits before its wrapper (a hard crash, a kill signal)
  *    loses that run's event; accepted for v1.
- *  - Envelope-less verbs (`identity`, `script`, the config read surface, …)
+ *  - Envelope-less verbs (`identity`, `scripts`, the config read surface, …)
  *    still record: the event simply carries no `steps`/`diagnostics`. Every
  *    verb records and readers filter — uniform beats curated, and a
  *    verb-sequence reader needs the full stream.

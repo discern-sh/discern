@@ -50,7 +50,7 @@ person / coding agent
 │  verb router:        │              │  done · prepare · worktree   │
 │  root + verb routing │              │  standards · refresh · …     │
 └──────────┬───────────┘              └──────────────┬───────────────┘
-           │ discern script <name>                   │  reads commands from
+           │ discern scripts <name>                  │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
 │  project script (exec'd)     │        │         discern.toml         │

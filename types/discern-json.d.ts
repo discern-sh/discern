@@ -3836,7 +3836,7 @@ export type DiscernIdentityResult = {
   };
 };
 
-export type DiscernScriptResult = {
+export type DiscernScriptsResult = {
   ok: boolean;
   dry_run?: boolean;
   plan?: {
@@ -3915,7 +3915,7 @@ export type DiscernScriptResult = {
   hints?: Array<string>;
   error?: string;
   message?: string;
-  verb: "script";
+  verb: "scripts";
   data?: {
     scripts: Array<{
       name: string;
@@ -4686,7 +4686,7 @@ export type DiscernCliJsonResult =
   | DiscernAcceptResult
   | DiscernUpdateResult
   | DiscernIdentityResult
-  | DiscernScriptResult
+  | DiscernScriptsResult
   | DiscernWorktreeResult
   | DiscernWorktreeSetupResult
   | DiscernWorktreeTeardownResult
@@ -4729,7 +4729,7 @@ export interface DiscernResultByVerb {
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
-  script: DiscernScriptResult;
+  scripts: DiscernScriptsResult;
   worktree: DiscernWorktreeResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;
@@ -4783,7 +4783,7 @@ export interface DiscernResultByCommand {
   accept: DiscernAcceptResult;
   update: DiscernUpdateResult;
   identity: DiscernIdentityResult;
-  script: DiscernScriptResult;
+  scripts: DiscernScriptsResult;
   worktree: DiscernWorktreeResult;
   "worktree setup": DiscernWorktreeSetupResult;
   "worktree teardown": DiscernWorktreeTeardownResult;

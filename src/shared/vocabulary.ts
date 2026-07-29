@@ -13,6 +13,9 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   integrate: "update",
   scopes: "impact",
   ratchets: "standards",
+  // Checked before trailing-s folding, so the retired singular refuses with
+  // its successor instead of silently forwarding as a grammatical variant.
+  script: "scripts",
   "config set-ratchet": "config set-standard",
   "config set-capability": "config set-job",
   "config set-check": "config set-job",

@@ -127,7 +127,7 @@ type VerbBody<TThis, A extends unknown[]> = (
  * Run one CLI verb invocation through the recorder: begin the concurrent
  * context gather, run `body`, record the event, and return the exit code. A
  * thrown error records a `failed` event and rethrows unchanged. The direct
- * entry for pre-Cliffy dispatch paths (the `script` namespace); Cliffy actions
+ * entry for pre-Cliffy dispatch paths (the `scripts` namespace); Cliffy actions
  * use {@link recordedExit}.
  */
 export async function recordedRun(
@@ -143,7 +143,7 @@ export async function recordedRun(
   // `--help` builds the whole CLI tree through recordedExit without it).
   // Start driver enrichment before opening the recorder so an effectful
   // invocation's begin event carries the same raw signals as its completion.
-  const scanArgs = verb !== "script";
+  const scanArgs = verb !== "scripts";
   const driver = cliDriverFacts(scanArgs);
   const flags = scanArgs ? cliFlagNames() : undefined;
   const { beginRecording } = await import("./record.ts");
@@ -153,7 +153,7 @@ export async function recordedRun(
     driver,
     ...(flags !== undefined ? { flags } : {}),
   });
-  // Everything after a `script` name belongs to the child, so only normal verbs
+  // Everything after a `scripts` name belongs to the child, so only normal verbs
   // may inspect this process's argv. Start driver enrichment beside the verb so
   // the host-marker stat does not extend the completion tail.
   const started = performance.now();
@@ -165,7 +165,7 @@ export async function recordedRun(
     const supplementalHintIds = takeSupplementalHintIds();
     const target = takeVerbTarget();
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
-    // fallback for human-mode previews. The `script` namespace is excluded from
+    // fallback for human-mode previews. The `scripts` namespace is excluded from
     // every argv scan (dry-run, --json, flag names) — everything after the
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.

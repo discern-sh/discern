@@ -21,10 +21,10 @@ import { resolveScriptsDir } from "../lib/paths.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
 import type { DiscernResult } from "../shared/result.ts";
-import type { ScriptData } from "../shared/result_schemas.ts";
+import type { ScriptsData } from "../shared/result_schemas.ts";
 
 /** One executable Project Script surfaced by discovery. */
-export type ProjectScript = ScriptData["scripts"][number];
+export type ProjectScript = ScriptsData["scripts"][number];
 
 /** Read a Project Script's first `# desc:` line, or undefined when absent. */
 async function firstDescLine(file: string): Promise<string | undefined> {
@@ -98,15 +98,15 @@ export async function listProjectScripts(
   return await discoverProjectScripts(directory.abs);
 }
 
-/** Build the bare `script --json` listing from one resolved checkout. */
+/** Build the bare `scripts --json` listing from one resolved checkout. */
 export async function projectScriptsResult(
   root: string,
-): Promise<DiscernResult<ScriptData>> {
+): Promise<DiscernResult<ScriptsData>> {
   const config = await loadConfig(root);
   const directory = resolveScriptsDir(root, config);
   return {
     ok: true,
-    verb: "script",
+    verb: "scripts",
     data: {
       scripts: await discoverProjectScripts(directory.abs),
       directory: directory.rel,
@@ -140,11 +140,11 @@ export async function runProjectScriptAt(
     if (opts.json ?? false) {
       emitResult({
         ok: true,
-        verb: "script",
+        verb: "scripts",
         data: {
           scripts: entries,
           directory: directory.rel,
-        } satisfies ScriptData,
+        } satisfies ScriptsData,
       });
       return 0;
     }
@@ -196,7 +196,7 @@ export async function runProjectScriptAt(
     return 1;
   }
 
-  reportUnknownCommand(`script ${name}`, undefined, opts);
+  reportUnknownCommand(`scripts ${name}`, undefined, opts);
   return 1;
 }
 
@@ -209,7 +209,7 @@ export async function runProjectScript(
   const root = await findRoot();
   if (root === undefined) {
     if (opts.json ?? false) {
-      emitResult(notInitializedResult("script"));
+      emitResult(notInitializedResult("scripts"));
     } else {
       console.error(`discern: ${NO_PROJECT_MESSAGE}`);
     }

@@ -215,7 +215,7 @@ const PROJECT_CASES: readonly PurityCase[] = [
     envelopeVerb: "preset",
     args: ["preset", "zz-missing", "--yes"],
   },
-  { commandPath: "script", envelopeVerb: "script", args: ["script"] },
+  { commandPath: "scripts", envelopeVerb: "scripts", args: ["scripts"] },
   {
     commandPath: "skills",
     envelopeVerb: "skills",

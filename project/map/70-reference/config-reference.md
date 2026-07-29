@@ -282,7 +282,7 @@ Coupling is a zero-config, read-only advisory that mines git history for files t
 
 ## `[scripts]`
 
-Your own executable commands. Drop a script into the directory below and run it with `discern script <name>`; an optional `# desc: ...` line describes it in the listing.
+Your own executable commands. Drop a script into the directory below and run it with `discern scripts <name>`; an optional `# desc: ...` line describes it in the listing.
 
 | Key   | Type   | Default             | Description                                                                                                                                        |
 | ----- | ------ | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |

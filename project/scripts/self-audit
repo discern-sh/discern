@@ -86,7 +86,7 @@ try {
   const behind = git.behind_integration ?? "unknown";
   const ahead = git.ahead_integration ?? "unknown";
 
-  console.log("discern script self-audit");
+  console.log("discern scripts self-audit");
   console.log(`Root: ${data.root || "(unknown)"}`);
   console.log(`Location: ${data.location || "unknown"}`);
   console.log(`Branch: ${git.branch || "unknown"} -> ${git.integration_branch || "main"}`);

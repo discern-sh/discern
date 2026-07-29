@@ -39,7 +39,7 @@ function printHelp(defaultRoot: string): void {
   console.log(`Map cliché candidate scanner
 
 Usage:
-  discern script map-cliches [options]
+  discern scripts map-cliches [options]
   project/scripts/map-cliches [options]
 
 Options:

@@ -654,7 +654,7 @@ in_gate = true
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [scripts] — your own executable project scripts. Drop any executable into the
-# directory below; `discern script` lists it and `discern script <name>` runs it.
+# directory below; `discern scripts` lists it and `discern scripts <name>` runs it.
 # An optional `# desc: ...` line describes it in the listing. This directory is
 # yours: `discern upgrade` never writes or refreshes anything here. Built-in names
 # are legal because project scripts live under their own command namespace. A

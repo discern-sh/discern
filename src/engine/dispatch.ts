@@ -1,6 +1,6 @@
 /**
  * The engine-verb dispatcher: attaches the project task-runner verbs to the
- * `discern` CLI, including the `script` namespace for project-owned executables
+ * `discern` CLI, including the `scripts` namespace for project-owned executables
  * under `[scripts].dir` (whose default comes from the paths registry).
  *
  * Engine verbs operate on the project (found by walking up to `discern.toml`), so
@@ -240,17 +240,14 @@ export function attachEngineCommands(
         "flag, an unchanged-tree rerun refuses read-only; a dry-run never needs it.",
     )
     .action(
-      recordedExit(
-        "done",
-        async (o) => {
-          const { runFinish } = await import("./gate/finish.ts");
-          return await runFinish(await requireRoot("done", o.json ?? false), {
-            json: o.json ?? false,
-            dryRun: o.dryRun ?? false,
-            confirmed: o.confirmed ?? false,
-          });
-        },
-      ),
+      recordedExit("done", async (o) => {
+        const { runFinish } = await import("./gate/finish.ts");
+        return await runFinish(await requireRoot("done", o.json ?? false), {
+          json: o.json ?? false,
+          dryRun: o.dryRun ?? false,
+          confirmed: o.confirmed ?? false,
+        });
+      }),
     );
 
   root
@@ -263,16 +260,13 @@ export function attachEngineCommands(
       "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
     )
     .action(
-      recordedExit(
-        "prepare",
-        async (o) => {
-          const { runPrepare } = await import("./gate/prepare.ts");
-          return await runPrepare(
-            await requireRoot("prepare", o.json ?? false),
-            { json: o.json ?? false },
-          );
-        },
-      ),
+      recordedExit("prepare", async (o) => {
+        const { runPrepare } = await import("./gate/prepare.ts");
+        return await runPrepare(
+          await requireRoot("prepare", o.json ?? false),
+          { json: o.json ?? false },
+        );
+      }),
     );
 
   root
@@ -285,15 +279,12 @@ export function attachEngineCommands(
       "Emit the result as a JSON DiscernResult on stdout (output → stderr).",
     )
     .action(
-      recordedExit(
-        "test",
-        async (o) => {
-          const { runTestJob } = await import("./gate/test.ts");
-          return await runTestJob(await requireRoot("test", o.json ?? false), {
-            json: o.json ?? false,
-          });
-        },
-      ),
+      recordedExit("test", async (o) => {
+        const { runTestJob } = await import("./gate/test.ts");
+        return await runTestJob(await requireRoot("test", o.json ?? false), {
+          json: o.json ?? false,
+        });
+      }),
     );
 
   root
@@ -314,20 +305,17 @@ export function attachEngineCommands(
       "Exit non-zero when the overall score is below this floor (a CI/agent gate).",
     )
     .action(
-      recordedExit(
-        "improvement",
-        async (o) => {
-          const { runImprovement } = await import("./improve/improve.ts");
-          return await runImprovement(
-            await requireRoot("improvement", o.json ?? false),
-            {
-              json: o.json ?? false,
-              category: o.category,
-              minScore: o.minScore,
-            },
-          );
-        },
-      ),
+      recordedExit("improvement", async (o) => {
+        const { runImprovement } = await import("./improve/improve.ts");
+        return await runImprovement(
+          await requireRoot("improvement", o.json ?? false),
+          {
+            json: o.json ?? false,
+            category: o.category,
+            minScore: o.minScore,
+          },
+        );
+      }),
     );
 
   root
@@ -343,18 +331,20 @@ export function attachEngineCommands(
     }));
 
   root
-    .command("script")
+    .command("scripts")
     .description(
       "List the project's executable project scripts, or run one by name with every following argument forwarded unchanged.",
     )
     .arguments("[name:string] [...args:string]")
-    .action(recordedExit(
-      "script",
-      async (_o, name: string | undefined, ...args: string[]) => {
-        const { runProjectScript } = await import("./project_scripts.ts");
-        return await runProjectScript(name, args);
-      },
-    ));
+    .action(
+      recordedExit(
+        "scripts",
+        async (_o, name: string | undefined, ...args: string[]) => {
+          const { runProjectScript } = await import("./project_scripts.ts");
+          return await runProjectScript(name, args);
+        },
+      ),
+    );
 
   root
     .command("standards")
@@ -379,22 +369,19 @@ export function attachEngineCommands(
       "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
     )
     .action(
-      recordedExit(
-        "standards",
-        async (o, ...names: string[]) => {
-          const { runStandards } = await import("./gate/standards.ts");
-          return await runStandards(
-            await requireRoot("standards", o.json ?? false),
-            {
-              json: o.json ?? false,
-              dryRun: o.dryRun ?? false,
-              force: o.force ?? false,
-              pin: o.pin ?? false,
-              pinNames: names,
-            },
-          );
-        },
-      ),
+      recordedExit("standards", async (o, ...names: string[]) => {
+        const { runStandards } = await import("./gate/standards.ts");
+        return await runStandards(
+          await requireRoot("standards", o.json ?? false),
+          {
+            json: o.json ?? false,
+            dryRun: o.dryRun ?? false,
+            force: o.force ?? false,
+            pin: o.pin ?? false,
+            pinNames: names,
+          },
+        );
+      }),
     );
 
   root
@@ -466,16 +453,13 @@ export function attachEngineCommands(
       "Test one scope. Bare: print nothing and exit 0/1. JSON: report `data.membership` and exit 0.",
     )
     .action(
-      recordedExit(
-        "impact",
-        async (o) => {
-          const { runImpact } = await import("./scopes/scopes.ts");
-          return await runImpact(await requireRoot("impact", o.json ?? false), {
-            json: o.json ?? false,
-            ...(o.has !== undefined ? { has: o.has } : {}),
-          });
-        },
-      ),
+      recordedExit("impact", async (o) => {
+        const { runImpact } = await import("./scopes/scopes.ts");
+        return await runImpact(await requireRoot("impact", o.json ?? false), {
+          json: o.json ?? false,
+          ...(o.has !== undefined ? { has: o.has } : {}),
+        });
+      }),
     );
 
   root
@@ -551,16 +535,13 @@ export function attachEngineCommands(
       "Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).",
     )
     .action(
-      recordedExit(
-        "patterns",
-        async (o) => {
-          const { runPatterns } = await import("./logbook/patterns.ts");
-          return await runPatterns(
-            await requireRoot("patterns", o.json ?? false),
-            { json: o.json ?? false },
-          );
-        },
-      ),
+      recordedExit("patterns", async (o) => {
+        const { runPatterns } = await import("./logbook/patterns.ts");
+        return await runPatterns(
+          await requireRoot("patterns", o.json ?? false),
+          { json: o.json ?? false },
+        );
+      }),
     )
     .command(
       "reset",
@@ -575,21 +556,18 @@ export function attachEngineCommands(
         )
         .option("--dry-run", "List what would be removed; touch nothing.")
         .action(
-          recordedExit(
-            "patterns reset",
-            async (o) => {
-              const { runPatternsReset } = await import(
-                "./logbook/patterns.ts"
-              );
-              return await runPatternsReset(
-                await requireRoot("patterns", o.json ?? false),
-                {
-                  json: o.json ?? false,
-                  dryRun: o.dryRun ?? false,
-                },
-              );
-            },
-          ),
+          recordedExit("patterns reset", async (o) => {
+            const { runPatternsReset } = await import(
+              "./logbook/patterns.ts"
+            );
+            return await runPatternsReset(
+              await requireRoot("patterns", o.json ?? false),
+              {
+                json: o.json ?? false,
+                dryRun: o.dryRun ?? false,
+              },
+            );
+          }),
         ),
     );
   root.command("patterns", patterns);
@@ -641,13 +619,10 @@ export function attachEngineCommands(
       "The desk is interactive only; use `status --json` to list every worktree.",
     )
     .action(
-      recordedExit(
-        "desk",
-        async (o) => {
-          const { runDesk } = await import("./desk/desk.ts");
-          return await runDesk({ json: o.json ?? false });
-        },
-      ),
+      recordedExit("desk", async (o) => {
+        const { runDesk } = await import("./desk/desk.ts");
+        return await runDesk({ json: o.json ?? false });
+      }),
     );
 
   root
@@ -1284,7 +1259,7 @@ async function suggestCommand(
   if (scriptsAbs !== undefined) {
     for (const name of await projectScriptNames(scriptsAbs)) {
       if (matchCandidate(folded, name)) {
-        return `script ${name}`;
+        return `scripts ${name}`;
       }
     }
   }

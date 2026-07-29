@@ -1024,7 +1024,7 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
   ["identity", "identity-resolution plumbing"],
   ["skills", "a command group (skills list/eject)"],
   ["mcp", "the server itself — it cannot expose itself as one of its tools"],
-  ["script", "arbitrary project executables own their arguments and output"],
+  ["scripts", "arbitrary project executables own their arguments and output"],
   ["tidy", "embedded formatting is CLI-only for now"],
   [
     "desk",

@@ -328,7 +328,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     definition:
       `A project's own language-agnostic executable under \`[scripts].dir\` (default \`${
         sourcePathDefault("scripts")
-      }\`), run as \`discern script <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
+      }\`), run as \`discern scripts <name>\` with \`DISCERN_*\` exported. Scripts occupy their own namespace, so built-in verb names stay legal ([ADR 0137](../_adr/0137-project-scripts-live-under-the-script-command.md)).`,
   },
   {
     term: "Receipt",

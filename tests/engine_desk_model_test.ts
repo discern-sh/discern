@@ -158,7 +158,7 @@ const ACTION_CASES: ReadonlyArray<{
     name: "scripts available in this checkout → run script before jump",
     entry: entry({ ahead: 2 }),
     scripts: [{ name: "deploy", description: "deploy the project" }],
-    expect: ["accept", "grant", "script", "jump", "inspect", "drop"],
+    expect: ["accept", "grant", "scripts", "jump", "inspect", "drop"],
   },
   {
     name: "configured agent available on PATH → agent launcher before jump",

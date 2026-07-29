@@ -338,7 +338,7 @@ async function prepareGateJob(root: string): Promise<BlackBoxRun> {
   };
 }
 
-/** Project Scripts (owned_child.ts via project_scripts.ts): `discern script`.
+/** Project Scripts (owned_child.ts via project_scripts.ts): `discern scripts`.
  * Keeps a listening server in the tree, closing the port a user could observe
  * the orphan by. */
 async function prepareProjectScript(root: string): Promise<BlackBoxRun> {
@@ -365,7 +365,7 @@ async function prepareProjectScript(root: string): Promise<BlackBoxRun> {
     ].join("\n"),
   );
   return {
-    args: ["script", "wait-for-interrupt"],
+    args: ["scripts", "wait-for-interrupt"],
     cwd: root,
     leaderPidFile: join(root, "script.pid"),
     descendantPidFile: join(root, "descendant.pid"),

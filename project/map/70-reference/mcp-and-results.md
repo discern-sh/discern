@@ -147,12 +147,12 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 ## CLI exit codes
 
-| Status                       | Meaning                                                                                                    |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.    |
-| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.     |
-| Project Script's own code    | `discern script <name>` passes through the script's exit code because the script owns its result contract. |
-| Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.         |
+| Status                       | Meaning                                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.     |
+| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.      |
+| Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract. |
+| Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.          |
 
 Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`. JSON predicates always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` requests envelopes.
 
