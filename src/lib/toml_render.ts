@@ -41,8 +41,10 @@ export interface DiscernToml {
   project: {
     name?: string | undefined;
     slug?: string | undefined;
-    agents?: string[] | undefined;
     gotchas_doc?: string | undefined;
+  };
+  guidance: {
+    agents?: string[] | undefined;
   };
   repository: {
     trunk?: string | undefined;
@@ -71,16 +73,19 @@ export function parseDiscernToml(text: string): DiscernToml {
   }
   const raw = isRecord(parsed) ? parsed : {};
   const project = isRecord(raw.project) ? raw.project : {};
+  const guidance = isRecord(raw.guidance) ? raw.guidance : {};
   const repository = isRecord(raw.repository) ? raw.repository : {};
   return {
     project: {
       name: typeof project.name === "string" ? project.name : undefined,
       slug: typeof project.slug === "string" ? project.slug : undefined,
-      agents: Array.isArray(project.agents)
-        ? project.agents.filter((a): a is string => typeof a === "string")
-        : undefined,
       gotchas_doc: typeof project.gotchas_doc === "string"
         ? project.gotchas_doc
+        : undefined,
+    },
+    guidance: {
+      agents: Array.isArray(guidance.agents)
+        ? guidance.agents.filter((a): a is string => typeof a === "string")
         : undefined,
     },
     repository: {

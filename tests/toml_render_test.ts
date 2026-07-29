@@ -61,8 +61,10 @@ Deno.test("parseDiscernToml reads populated project and repository blocks", () =
   const text = `
 [project]
 slug = "demo-app"
-agents = ["claude_code", "codex"]
 gotchas_doc = "docs/gotchas.md"
+
+[guidance]
+agents = ["claude_code", "codex"]
 
 [repository]
 trunk = "stable"
@@ -71,7 +73,7 @@ ensure = ["install"]
 `;
   const parsed = parseDiscernToml(text);
   assertEquals(parsed.project.slug, "demo-app");
-  assertEquals(parsed.project.agents, ["claude_code", "codex"]);
+  assertEquals(parsed.guidance.agents, ["claude_code", "codex"]);
   assertEquals(parsed.project.gotchas_doc, "docs/gotchas.md");
   assertEquals(parsed.repository, {
     trunk: "stable",
@@ -87,9 +89,9 @@ Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
   assertEquals(parsed.project, {
     name: undefined,
     slug: undefined,
-    agents: undefined,
     gotchas_doc: undefined,
   });
+  assertEquals(parsed.guidance, { agents: undefined });
   assertEquals(parsed.repository, {
     trunk: undefined,
     branch_prefix: undefined,
@@ -101,13 +103,12 @@ Deno.test("parseDiscernToml tolerates a missing [project] block", () => {
 Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to undefined", () => {
   // Discover the extracted [project] string fields from a fully-populated parse —
   // the SSOT is the returned shape itself, so a new string field auto-enrols here
-  // rather than shipping with an untested coercion. `agents` is the sole array
-  // field (its wrong-typed case is a separate test below).
+  // rather than shipping with an untested coercion. ([guidance].agents is the
+  // sole array field; its wrong-typed case is a separate test below.)
   const populated = parseDiscernToml(
-    `[project]\nslug = "s"\ngotchas_doc = "g"\nagents = ["claude_code"]`,
+    `[project]\nslug = "s"\ngotchas_doc = "g"`,
   ).project;
-  const stringFields = (Object.keys(populated) as Array<keyof typeof populated>)
-    .filter((f) => f !== "agents");
+  const stringFields = Object.keys(populated) as Array<keyof typeof populated>;
   assert(
     stringFields.length >= 2,
     `expected the [project] string fields (slug/gotchas_doc), got: ${
@@ -130,7 +131,7 @@ Deno.test("parseDiscernToml drops EVERY wrong-typed [project] string field to un
 
   // A non-array `agents` is likewise dropped entirely.
   assertEquals(
-    parseDiscernToml(`[project]\nagents = "claude_code"`).project.agents,
+    parseDiscernToml(`[guidance]\nagents = "claude_code"`).guidance.agents,
     undefined,
   );
 });
@@ -148,10 +149,10 @@ Deno.test("parseDiscernToml drops wrong-typed repository fields", () => {
 
 Deno.test("parseDiscernToml filters non-string entries out of the agents array", () => {
   const parsed = parseDiscernToml(`
-[project]
+[guidance]
 agents = ["claude_code", 7, "codex", true]
 `);
-  assertEquals(parsed.project.agents, ["claude_code", "codex"]);
+  assertEquals(parsed.guidance.agents, ["claude_code", "codex"]);
 });
 
 Deno.test("parseDiscernToml treats a top-level array document as no project", () => {

@@ -63,13 +63,6 @@
           "default": true,
           "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; retry timing in `discern await` from typical run durations; config-change attribution and each standard's limit history; advisory findings on `status`, the `done` receipt, and `improvement`; wait estimates when concurrent test runs queue. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
           "type": "boolean"
-        },
-        "agents": {
-          "description": "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       },
       "additionalProperties": false
@@ -128,7 +121,14 @@
           "description": "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "claude_code",
+              "codex",
+              "gemini",
+              "cursor",
+              "copilot"
+            ]
           }
         }
       },

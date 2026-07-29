@@ -96,8 +96,12 @@ Deno.test("repository owns the trunk, branch prefix, and shared convergence comm
   });
 });
 
-Deno.test("current configs reject repository settings left under [project]", () => {
-  for (const key of ["main_branch", "branch_prefix"]) {
+Deno.test("current configs reject settings that no longer live under [project]", () => {
+  // The class: keys whose home moved out of [project] — repository policy to
+  // [repository], providers to [guidance]. No epitaph row and no fallback: no
+  // public install ever wrote these, so plain unknown-key rejection is the
+  // whole contract (the public-baseline reset's reasoning).
+  for (const key of ["main_branch", "branch_prefix", "agents"]) {
     const { config, issues } = parseConfig(
       `[project]\n${key} = "legacy"\n`,
     );
@@ -226,21 +230,13 @@ Deno.test("resolveConfiguredAgents: unset means the default pair, explicit [] me
     ["gemini"],
   );
 
-  // The legacy [project].agents fallback still fires only when guidance is UNSET;
-  // an explicit empty guidance list overrides it (deliberate "no agents" wins).
-  assertEquals(
-    resolveConfiguredAgents(
-      parseConfigOrThrow('[project]\nagents = ["cursor"]\n'),
-    ),
-    ["cursor"],
-  );
-  assertEquals(
-    resolveConfiguredAgents(
-      parseConfigOrThrow(
-        '[project]\nagents = ["cursor"]\n[guidance]\nagents = []\n',
-      ),
-    ),
-    [],
+  // Provider names validate against the AGENT_NAMES catalogue — one authority.
+  // A typo'd name is a load-time rejection, never a silently ignored provider.
+  const typo = parseConfig('[guidance]\nagents = ["claud_code"]\n');
+  assertEquals(typo.config, undefined);
+  assert(
+    typo.issues.some((issue) => issue.path.startsWith("guidance.agents")),
+    JSON.stringify(typo.issues),
   );
 });
 

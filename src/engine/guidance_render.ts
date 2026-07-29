@@ -96,8 +96,8 @@ const BUILTIN_SECTIONS: ReadonlyArray<{ file: string }> = [
 ];
 
 /**
- * The providers to emit: `[guidance].agents`, else the legacy `[project].agents`,
- * else the default pair. Re-exported under the long-standing `guidanceAgents` name;
+ * The providers to emit: `[guidance].agents`, else the default pair.
+ * Re-exported under the long-standing `guidanceAgents` name;
  * the resolution itself lives in the shared schema module ({@link
  * resolveConfiguredAgents}) so the compiler and the skills currency check share it.
  */

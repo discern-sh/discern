@@ -6,8 +6,7 @@
  * computed by `renderAgentFiles` in `./guidance_render.ts`, the single source this
  * writer and the `status`/`done` currency check both use, so a generated file can
  * never silently disagree with what a refresh produces (ADR 0034). It writes each
- * provider file named in `[guidance].agents` (falling back to the pre-migration
- * `[project].agents`).
+ * provider file named in `[guidance].agents`.
  *
  * The files carry no banner — they open with the guidance itself; `base.md`'s
  * in-body "never hand-edit" section conveys their generated-ness to every agent,

@@ -86,11 +86,10 @@ export const NAME_RE = /^[A-Za-z0-9_-]+$/;
  * configuration choices. */
 
 /**
- * The providers a fresh install emits when neither `[guidance].agents` nor the
- * legacy `[project].agents` is set — the two built-in agents (gemini is
- * opt-in). The ONE definition of this default, shared by the init seed
- * (`lib/config.ts`), the compile fallback ({@link resolveConfiguredAgents}), and
- * the schema-migration fallback, so the three can never disagree.
+ * The providers a fresh install emits when `[guidance].agents` is unset — the
+ * two built-in agents (gemini is opt-in). The ONE definition of this default,
+ * shared by the init seed (`lib/config.ts`) and the compile fallback
+ * ({@link resolveConfiguredAgents}), so the two can never disagree.
  */
 export const DEFAULT_AGENTS = [
   "claude_code",
@@ -299,9 +298,6 @@ const projectSection = z.strictObject({
       logbookPoweredPhraseList() +
       ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
   ),
-  agents: z.array(z.string()).optional().describe(
-    "Deprecated: providers now live under [guidance].agents. Read only as a pre-migration fallback.",
-  ),
 }).prefault({}).describe("Project identity and authored project paths.");
 
 const repositorySection = z.strictObject({
@@ -326,7 +322,7 @@ const guidanceSection = z.strictObject({
     .describe(
       "Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
     ),
-  agents: z.array(z.string()).optional().describe(
+  agents: z.array(z.enum(AGENT_NAMES)).optional().describe(
     "Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.",
   ),
 }).prefault({}).describe(
@@ -542,24 +538,22 @@ export type DiscernConfig = Omit<InferredDiscernConfig, "jobs"> & {
 
 /**
  * The provider names to emit guidance / materialize skills for: the configured
- * `[guidance].agents`, else the legacy `[project].agents`, else {@link
- * DEFAULT_AGENTS}. The single resolver shared by the compiler, the worktree
- * dispatcher, AND the skills currency check — so "which agents are configured" is
- * answered identically everywhere, never re-derived per call-site. Pure: reads only
- * the passed config.
+ * `[guidance].agents`, else {@link DEFAULT_AGENTS}. The single resolver shared
+ * by the compiler, the worktree dispatcher, AND the skills currency check — so
+ * "which agents are configured" is answered identically everywhere, never
+ * re-derived per call-site. Pure: reads only the passed config.
  *
  * `[guidance].agents` is OPTIONAL, so an absent key (undefined) and an explicit
- * empty list are distinct: absent falls through to the legacy key and then the
- * default pair, while an explicit `agents = []` is an author's deliberate "emit for
- * no agents" and is honored verbatim. Conflating the two — the historic behaviour —
- * made "no agents, please" impossible to express.
+ * empty list are distinct: absent falls through to the default pair, while an
+ * explicit `agents = []` is an author's deliberate "emit for no agents" and is
+ * honored verbatim. Conflating the two — the historic behaviour — made "no
+ * agents, please" impossible to express.
  */
 export function resolveConfiguredAgents(config: DiscernConfig): string[] {
   if (config.guidance.agents !== undefined) {
-    return config.guidance.agents;
+    return [...config.guidance.agents];
   }
-  const legacy = config.project.agents ?? [];
-  return legacy.length > 0 ? legacy : [...DEFAULT_AGENTS];
+  return [...DEFAULT_AGENTS];
 }
 
 /**
