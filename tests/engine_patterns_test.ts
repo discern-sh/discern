@@ -751,7 +751,7 @@ Deno.test("patterns: landing authority findings render in the overview and behav
     const suggestion = result.data.findings.find((finding) =>
       finding.detector === "grant-suggestion"
     );
-    assertEquals(suggestion?.subject, "docs");
+    assertEquals(suggestion?.subject, "map");
 
     const human = await runAgent(dir, ["patterns"], {
       env: { COLUMNS: "100", NO_COLOR: "1" },
@@ -768,7 +768,7 @@ Deno.test("patterns: landing authority findings render in the overview and behav
     );
     assertStringIncludes(
       plain,
-      "Consider adding `docs` to `[acceptance].pre_authorized`",
+      "Consider adding `map` to `[acceptance].pre_authorized`",
     );
     assertEquals(
       human.output.trimEnd().split("\n").filter((line) =>
