@@ -3,11 +3,11 @@ import { integrationBranch } from "../src/engine/worktree/git.ts";
 import { scriptEnvVars } from "../src/shared/env.ts";
 import { fakeEnv } from "./helpers.ts";
 
-Deno.test("the integration-branch override is namespaced and ignores MAIN_BRANCH", () => {
+Deno.test("the trunk override is namespaced and ignores unnamespaced variables", () => {
   assertEquals(
     integrationBranch(
       "configured",
-      fakeEnv({ MAIN_BRANCH: "stray-ci-value" }),
+      fakeEnv({ MAIN_BRANCH: "stray-ci-value", TRUNK: "stray-ci-value" }),
     ),
     "configured",
   );
@@ -16,14 +16,15 @@ Deno.test("the integration-branch override is namespaced and ignores MAIN_BRANCH
       "configured",
       fakeEnv({
         MAIN_BRANCH: "stray-ci-value",
-        DISCERN_MAIN_BRANCH: "explicit-override",
+        TRUNK: "stray-ci-value",
+        DISCERN_TRUNK: "explicit-override",
       }),
     ),
     "explicit-override",
   );
 });
 
-Deno.test("Project scripts receive DISCERN_MAIN_BRANCH and no unnamespaced alias", () => {
+Deno.test("Project scripts receive DISCERN_TRUNK and no unnamespaced alias", () => {
   assertEquals(
     scriptEnvVars({
       root: "/project",
@@ -37,7 +38,7 @@ Deno.test("Project scripts receive DISCERN_MAIN_BRANCH and no unnamespaced alias
       DISCERN_TOML: "/project/discern.toml",
       DISCERN_SCRIPTS: "/project/scripts",
       DISCERN_SCRIPTS_DIR: "scripts",
-      DISCERN_MAIN_BRANCH: "trunk",
+      DISCERN_TRUNK: "trunk",
     },
   );
 });

@@ -81,7 +81,7 @@
       "properties": {
         "trunk": {
           "default": "main",
-          "description": "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
+          "description": "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.",
           "type": "string"
         },
         "branch_prefix": {

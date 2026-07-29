@@ -370,7 +370,19 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Trunk",
     definition:
       "The shared branch accepted work lands on: `[repository].trunk`, usually `main`. Worktrees bring it in with `discern update` and land back on it with `discern accept`.",
-    retired: [{ phrase: "integration branch" }],
+    retired: [
+      { phrase: "integration branch" },
+      {
+        // The retired per-invocation override env var (now DISCERN_TRUNK).
+        phrase: "DISCERN_MAIN_BRANCH",
+        pattern: String.raw`\bDISCERN_MAIN_BRANCH\b`,
+      },
+      {
+        // The retired setup error slug (now not_on_trunk).
+        phrase: "not_on_integration_branch",
+        pattern: String.raw`\bnot_on_integration_branch\b`,
+      },
+    ],
   },
   {
     term: "Tidy",

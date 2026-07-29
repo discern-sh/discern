@@ -185,7 +185,7 @@ export async function statusResult(
   }
 
   const cfg = await loadConfig(root);
-  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+  const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
     cfg.repository.trunk;
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);

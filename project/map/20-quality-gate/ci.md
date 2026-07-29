@@ -69,7 +69,7 @@ jobs:
 
       - name: Run the gate
         env:
-          DISCERN_MAIN_BRANCH: origin/main
+          DISCERN_TRUNK: origin/main
         run: discern done
 
       - name: Assert a clean tree
@@ -105,5 +105,5 @@ A cloud coding agent may start from a clone without the discern binary or materi
 ## Current state & gotchas
 
 - Do not run `discern refresh` in the gate job. CI verifies committed guidance and accepts an intentionally missing untracked copy; regenerating first can hide drift.
-- A pull-request checkout may lack a local trunk branch. Fetching `origin/main` and setting `DISCERN_MAIN_BRANCH` prevents the never-loosen check from becoming unverified.
+- A pull-request checkout may lack a local trunk branch. Fetching `origin/main` and setting `DISCERN_TRUNK` prevents the never-loosen check from becoming unverified.
 - `git diff --exit-code` catches fixer output. A workflow that omits it can finish after changing the runner's checkout, which proves less than the commit contains.

@@ -265,7 +265,7 @@ export async function classifyScopes(
   const names = Object.keys(scopes);
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
-  const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+  const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
     config.repository.trunk;
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {

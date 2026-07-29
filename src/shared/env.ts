@@ -170,6 +170,6 @@ export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
     DISCERN_TOML: e.tomlPath,
     DISCERN_SCRIPTS: e.scriptsAbs,
     DISCERN_SCRIPTS_DIR: e.scriptsDir,
-    DISCERN_MAIN_BRANCH: e.mainBranch,
+    DISCERN_TRUNK: e.mainBranch,
   };
 }

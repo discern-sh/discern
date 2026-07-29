@@ -75,7 +75,7 @@ After installation, discern itself makes no network calls. Project commands rema
 
 | Variable                         | Consumer and value                                                                      |
 | -------------------------------- | --------------------------------------------------------------------------------------- |
-| `DISCERN_MAIN_BRANCH`            | Per-process override for the configured trunk branch.                                   |
+| `DISCERN_TRUNK`                  | Per-process override for the configured trunk branch.                                   |
 | `DISCERN_NO_ATTRIBUTION`         | Omits the `discern-bot` co-author trailer from discern-composed commits when non-empty. |
 | `DISCERN_PROJECT_SLUG`           | Per-process override for the project slug used in derived identity.                     |
 | `DISCERN_WORKTREE_BRANCH_PREFIX` | Per-process override for the worktree branch prefix.                                    |
@@ -86,7 +86,7 @@ After installation, discern itself makes no network calls. Project commands rema
 | `DISCERN_SCRIPTS_DIR`            | The configured Project Scripts directory value exported to a Project Script.            |
 | `DISCERN_DESK_SESSION`           | `1` in desk-launched processes; `discern doctor` reports it.                            |
 
-Project Scripts also receive `DISCERN_MAIN_BRANCH`. They read other config through `discern config get|array|has|subsections|keys` rather than parsing TOML or sourcing a helper library.
+Project Scripts also receive `DISCERN_TRUNK`. They read other config through `discern config get|array|has|subsections|keys` rather than parsing TOML or sourcing a helper library.
 
 ## Worktree identity selectors
 

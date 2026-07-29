@@ -443,7 +443,7 @@ async function diffCoupling(
   config: DiscernConfig,
   env: EnvReader,
 ): Promise<CouplingData> {
-  const mainBranch = env.get("DISCERN_MAIN_BRANCH") ||
+  const mainBranch = env.get("DISCERN_TRUNK") ||
     config.repository.trunk;
   const raw = await collectPaths(root, mainBranch);
   const changed = [

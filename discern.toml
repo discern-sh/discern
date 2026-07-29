@@ -60,7 +60,7 @@ logbook = true
 [repository]
 # The shared branch the gate merges into and completed work lands on. Detected
 # at setup (origin/HEAD, then the branch setup started from, then
-# init.defaultBranch). Override per-invocation with DISCERN_MAIN_BRANCH.
+# init.defaultBranch). Override per-invocation with DISCERN_TRUNK.
 trunk = "main"
 
 # Branch prefix for worktrees created by discern, e.g. "agent/my-feature".
@@ -659,7 +659,7 @@ in_gate = true
 # yours: `discern upgrade` never writes or refreshes anything here. Built-in names
 # are legal because project scripts live under their own command namespace. A
 # project script can use any language; discern exports DISCERN_* environment values
-# (DISCERN_ROOT, DISCERN_SCRIPTS, DISCERN_MAIN_BRANCH, …) and forwards every
+# (DISCERN_ROOT, DISCERN_SCRIPTS, DISCERN_TRUNK, …) and forwards every
 # argument after its name unchanged. It reads config by calling the binary
 # (`discern config get <key>`) and resolves worktree
 # identity with `discern identity --db|--site|--port|--resource <name>`.

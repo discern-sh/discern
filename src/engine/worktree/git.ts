@@ -10,7 +10,7 @@
  * `Deno.exit`. The lifecycle layer drives them; the dispatcher decides the
  * process exit code.
  *
- * The integration branch is read from `DISCERN_MAIN_BRANCH` (env) /
+ * The integration branch is read from `DISCERN_TRUNK` (env) /
  * `[repository].trunk`
  * (default `main`); `git` from `GIT_BIN` (default `git`). Path identity throughout
  * uses real (canonical) paths so a symlinked checkout compares correctly.
@@ -49,7 +49,7 @@ export class WorktreeGitError extends Error {
 }
 
 /**
- * The integration branch: `DISCERN_MAIN_BRANCH` env wins (the dispatcher exports it from
+ * The integration branch: `DISCERN_TRUNK` env wins (the dispatcher exports it from
  * `[repository].trunk`); otherwise `fallback` (a config-derived value the
  * lifecycle layer passes when calling outside a dispatched env); otherwise
  * `main`.
@@ -58,7 +58,7 @@ export function integrationBranch(
   fallback?: string,
   envReader: EnvReader = Deno.env,
 ): string {
-  const env = envReader.get("DISCERN_MAIN_BRANCH");
+  const env = envReader.get("DISCERN_TRUNK");
   if (env !== undefined && env !== "") {
     return env;
   }
@@ -2029,7 +2029,7 @@ async function aheadBehind(
 
 /**
  * The read-only {@link GitSnapshot} for the checkout at `cwd`, compared to the
- * integration branch (`DISCERN_MAIN_BRANCH` / `mainBranchFallback` / `main`). The
+ * integration branch (`DISCERN_TRUNK` / `mainBranchFallback` / `main`). The
  * `clean`
  * predicate is the user-facing / removal-safety one: no tracked changes and no
  * untracked non-ignored files. Pure reads — `rev-parse`, `branch`,
@@ -2216,7 +2216,7 @@ export async function listWorktreeFleet(
 export interface PruneScanOptions {
   /** Allow clean detached worktrees whose HEAD is already merged to be removed. */
   includeDetached?: boolean;
-  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[repository].trunk`). */
+  /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
 }
 
@@ -2777,7 +2777,7 @@ export async function pruneStaleWorktreeMetadata(
 export interface SweepScanOptions {
   /** Extra directories to scan (besides every registered worktree's parent). */
   extraDirs?: string[];
-  /** Integration-branch fallback when `DISCERN_MAIN_BRANCH` is unset (`[repository].trunk`). */
+  /** Integration-branch fallback when `DISCERN_TRUNK` is unset (`[repository].trunk`). */
   mainBranch?: string;
 }
 

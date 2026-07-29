@@ -47,7 +47,7 @@ Every variable and predicate is built by `guidanceContext(config)` in [`guidance
 
 > **Invariant.** The context must read **nothing that varies between two runs on the same commit** — no git branch/status, env var, clock, randomness, absolute path, or ignored/per-worktree file. The agent files are gate-checked for currency ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)): `status` and `done` recompile in memory and compare to disk, so a context that read mutable state would make the file perpetually "stale" and break the gate everywhere. A determinism test and the currency test guard this.
 >
-> The classic trap: use `config.repository.trunk` (committed), **never** the `DISCERN_MAIN_BRANCH` env override (applied at runtime in the worktree/git layer).
+> The classic trap: use `config.repository.trunk` (committed), **never** the `DISCERN_TRUNK` env override (applied at runtime in the worktree/git layer).
 
 **To add a variable or predicate:** add it to `guidanceContext`, deriving it solely from the loaded config, then use it in a section. Add one only when a template uses it.
 

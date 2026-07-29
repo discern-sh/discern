@@ -164,7 +164,7 @@ export async function runProjectScriptAt(
 
   const scriptFile = join(directory.abs, name.replace(/:/g, "-"));
   if (await isExecutable(scriptFile)) {
-    const mainBranch = Deno.env.get("DISCERN_MAIN_BRANCH") ||
+    const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
       config.repository.trunk;
     const tomlPath = join(
       root,

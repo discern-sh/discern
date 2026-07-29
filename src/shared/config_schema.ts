@@ -306,7 +306,7 @@ const projectSection = z.strictObject({
 
 const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
-    "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_MAIN_BRANCH env var.",
+    "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.",
   ),
   branch_prefix: z.string().default("agent/").describe(
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
