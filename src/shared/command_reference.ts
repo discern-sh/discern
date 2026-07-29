@@ -134,7 +134,9 @@ function buildReference(
     );
   }
   const reference: CommandReference = { words, args, executor };
-  return `${TOKEN_OPEN}${JSON.stringify(reference)}${TOKEN_CLOSE}` as CommandRef;
+  return `${TOKEN_OPEN}${
+    JSON.stringify(reference)
+  }${TOKEN_CLOSE}` as CommandRef;
 }
 
 /**
@@ -221,7 +223,9 @@ export function renderMcpReference(
       }
       const name = arg.flag.replaceAll("-", "_");
       params.push(
-        `${name}: ${arg.value === undefined ? "true" : mcpParamValue(arg.value)}`,
+        `${name}: ${
+          arg.value === undefined ? "true" : mcpParamValue(arg.value)
+        }`,
       );
     } else if ("positional" in arg) {
       params.push(
@@ -229,7 +233,9 @@ export function renderMcpReference(
       );
     }
   }
-  return params.length === 0 ? `\`${tool}\`` : `\`${tool}\` (${params.join(", ")})`;
+  return params.length === 0
+    ? `\`${tool}\``
+    : `\`${tool}\` (${params.join(", ")})`;
 }
 
 function parsePayload(payload: string): CommandReference {

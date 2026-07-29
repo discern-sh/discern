@@ -8,6 +8,13 @@
  */
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import {
+  type CommandRef,
+  discernCommand,
+  endOfFlags,
+  flag,
+  positional,
+} from "../../shared/command_reference.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { canonicalDocTargetFromPath } from "../../lib/docs.ts";
 import { resolveMapDir } from "../../lib/paths.ts";
@@ -37,17 +44,26 @@ function shellWord(value: string): string {
     : `'${value.replaceAll("'", "'\\''")}'`;
 }
 
-/** Render the structured map fetch for one canonical target. */
-function mapFetchCommand(target: string): string {
+/** Reference the structured map fetch for one canonical target. */
+function mapFetchCommand(target: string): CommandRef {
   return target.startsWith("-")
-    ? `discern map --json -- ${shellWord(target)}`
-    : `discern map ${shellWord(target)} --json`;
+    ? discernCommand(
+      "map",
+      flag("json"),
+      endOfFlags(),
+      positional("target", shellWord(target)),
+    )
+    : discernCommand(
+      "map",
+      positional("target", shellWord(target)),
+      flag("json"),
+    );
 }
 
 /** How a failure references the gotchas doc: the map verb's canonical fetch
  * when the doc lives below `[map].dir`, the filesystem path otherwise. */
 export type GotchasDocReference =
-  | { command: string; path?: never }
+  | { command: CommandRef; path?: never }
   | { path: string; command?: never };
 
 /** The configured doc's reference, or undefined when gotchas_doc is empty. */

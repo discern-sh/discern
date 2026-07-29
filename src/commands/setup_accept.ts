@@ -20,6 +20,10 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import {
+  type CommandRef,
+  discernCommand,
+} from "../shared/command_reference.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -38,6 +42,12 @@ export interface SetupAcceptOptions {
 /** The exact command a user runs to land their setup — the one string `setup done`
  * and any guidance quote, so the verb name lives in one place. */
 export const ACCEPT_COMMAND = "discern setup accept";
+
+/** The same command as a typed reference, derived from the one string above,
+ * for the registered hints that carry it across delivery surfaces. */
+export const ACCEPT_COMMAND_REF: CommandRef = discernCommand(
+  ACCEPT_COMMAND.replace(/^discern /, ""),
+);
 
 /** A light, read-only account of where finished setup work lives and how to land it —
  * what `setup done` reports without running the merge. */

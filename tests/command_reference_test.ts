@@ -69,7 +69,11 @@ Deno.test("a bare tool-backed reference renders the tool name alone", () => {
 
 Deno.test("boolean flags become true-valued parameters; json drops from the tool spelling", () => {
   const text = `${discernCommand("done", flag("confirmed"))} probes; ${
-    discernCommand("map", positional("target", "70-reference/cli"), flag("json"))
+    discernCommand(
+      "map",
+      positional("target", "70-reference/cli"),
+      flag("json"),
+    )
   } reads.`;
   assertEquals(
     renderCommandRefsCli(text),
@@ -83,7 +87,11 @@ Deno.test("boolean flags become true-valued parameters; json drops from the tool
 
 Deno.test("numeric and pre-quoted values render verbatim as MCP parameters", () => {
   const text = `e.g. ${
-    discernCommand("await", flag("green", "agent/upload-retry"), flag("timeout", "180"))
+    discernCommand(
+      "await",
+      flag("green", "agent/upload-retry"),
+      flag("timeout", "180"),
+    )
   }.`;
   assertEquals(
     renderCommandRefsCli(text),
@@ -106,7 +114,12 @@ Deno.test("multi-word flag names map to underscored MCP parameters", () => {
 
 Deno.test("the end-of-flags separator renders on the CLI and drops from the tool spelling", () => {
   const text = `${
-    discernCommand("map", flag("json"), endOfFlags(), positional("target", "-dashed"))
+    discernCommand(
+      "map",
+      flag("json"),
+      endOfFlags(),
+      positional("target", "-dashed"),
+    )
   }`;
   assertEquals(renderCommandRefsCli(text), "`discern map --json -- -dashed`");
   assertEquals(

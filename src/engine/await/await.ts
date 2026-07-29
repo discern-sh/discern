@@ -40,6 +40,11 @@ import type {
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
+  type CommandRef,
+  discernCommand,
+  flag,
+} from "../../shared/command_reference.ts";
+import {
   failureRecoveryHintTexts,
   fire,
   type FiredHint,
@@ -318,13 +323,13 @@ function retryCommand(
   condition: AwaitConditionKind,
   branch: string | undefined,
   seconds: number,
-): string {
-  const flag = condition === "green"
-    ? `--green ${branch}`
+): CommandRef {
+  const conditionArg = condition === "green"
+    ? flag("green", `${branch}`)
     : condition === "landed"
-    ? `--landed ${branch}`
-    : "--trunk-moved";
-  return `discern await ${flag} --timeout ${seconds}`;
+    ? flag("landed", `${branch}`)
+    : flag("trunk-moved");
+  return discernCommand("await", conditionArg, flag("timeout", `${seconds}`));
 }
 
 /** The one-line "what is still untrue" for the "not yet" hint. */
