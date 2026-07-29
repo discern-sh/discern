@@ -3,7 +3,7 @@
  * authorship, divergence repair, and the post-fast-forward fail-open boundary.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { DISCERN_BOT } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -14,6 +14,7 @@ import {
   type GateData,
   type Receipt,
   ReceiptSchema,
+  type RefreshData,
 } from "../src/shared/result_schemas.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import {
@@ -112,6 +113,31 @@ async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
     "--format=%an%x00%ae%x00%cn%x00%ce",
     ref,
   )).split("\0");
+}
+
+function receiptFetchMapping(remote: string): string {
+  return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
+}
+
+function legacyReceiptFetchMapping(remote: string): string {
+  return `+refs/notes/discern:refs/discern/remotes/${remote}/notes`;
+}
+
+async function localConfigValues(
+  root: string,
+  key: string,
+): Promise<string[]> {
+  const result = await runGit(
+    ["config", "--local", "--get-all", key],
+    { cwd: root },
+  );
+  assert(
+    result.success || result.code === 1,
+    `could not read ${key}: ${result.stderr}`,
+  );
+  return result.success
+    ? result.stdout.split(/\r?\n/).filter((value) => value !== "")
+    : [];
 }
 
 Deno.test("accept records matching receipt notes without a remote, status reads them, and later landings preserve earlier notes", async () => {
@@ -215,29 +241,50 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(wired.code, 0, wired.output);
     const wiredAgain = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(wiredAgain.code, 0, wiredAgain.output);
-    const fetches = (await gitOut(
-      dir,
-      "config",
-      "--local",
-      "--get-all",
-      "remote.origin.fetch",
-    )).split("\n");
-    const receiptMapping =
-      "+refs/notes/discern:refs/discern/remotes/origin/notes";
-    assertEquals(fetches.filter((value) => value === receiptMapping).length, 1);
     for (const remoteName of ["backup", "origin"]) {
+      const fetches = await localConfigValues(
+        dir,
+        `remote.${remoteName}.fetch`,
+      );
+      assertEquals(
+        fetches.filter((value) => value === receiptFetchMapping(remoteName))
+          .length,
+        1,
+      );
+      assertEquals(
+        fetches.includes(legacyReceiptFetchMapping(remoteName)),
+        false,
+      );
       const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
       assert(
         emptyFetch.success,
         `ordinary fetch from ${remoteName} must succeed before the first receipt-note publication: ${emptyFetch.stderr}`,
       );
     }
-    const pushConfig = await runGit(
-      ["config", "--local", "--get-all", "remote.origin.push"],
-      { cwd: dir },
+
+    const mirror = join(dir, "mirror.git");
+    await git(dir, "init", "--bare", mirror);
+    await git(dir, "remote", "add", "mirror", mirror);
+    await git(dir, "push", "mirror", "main");
+    const enrolled = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(enrolled.code, 0, enrolled.output);
+    assertEquals(
+      (await localConfigValues(dir, "remote.mirror.fetch")).filter(
+        (value) => value === receiptFetchMapping("mirror"),
+      ).length,
+      1,
     );
-    assertEquals(pushConfig.success, false);
-    assertEquals(pushConfig.code, 1);
+    const mirrorFetch = await runGit(["fetch", "mirror"], { cwd: dir });
+    assert(
+      mirrorFetch.success,
+      `ordinary fetch from a newly enrolled remote must succeed before the first receipt-note publication: ${mirrorFetch.stderr}`,
+    );
+    for (const remoteName of ["backup", "mirror", "origin"]) {
+      assertEquals(
+        await localConfigValues(dir, `remote.${remoteName}.push`),
+        [],
+      );
+    }
 
     const fetchedLanding = await land(dir, "fetched");
     assertEquals(
@@ -278,9 +325,21 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       await noteAt(remote, fetchedLanding.target),
       fetchedLanding.receipt,
     );
+    const remoteNotesTip = await gitOut(
+      remote,
+      "rev-parse",
+      RECEIPT_NOTES_REF,
+    );
+    await git(
+      remote,
+      "update-ref",
+      "refs/notes/discern-preview",
+      remoteNotesTip,
+    );
     await git(dir, "update-ref", "-d", RECEIPT_NOTES_REF);
     await git(dir, "fetch", "origin");
     const trackingRef = "refs/discern/remotes/origin/notes";
+    const siblingTrackingRef = "refs/discern/remotes/origin/notes-preview";
     const trackingTip = await runGit(
       ["rev-parse", "--verify", "-q", trackingRef],
       { cwd: dir },
@@ -288,7 +347,11 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assert(trackingTip.success, trackingTip.stderr);
     assertEquals(
       trackingTip.stdout.trim(),
-      await gitOut(remote, "rev-parse", RECEIPT_NOTES_REF),
+      remoteNotesTip,
+    );
+    assertEquals(
+      await gitOut(dir, "rev-parse", siblingTrackingRef),
+      remoteNotesTip,
     );
     const fetchedStatus = await runAgent(dir, ["status", "--json"]);
     assertEquals(fetchedStatus.code, 0, fetchedStatus.output);
@@ -300,6 +363,46 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(
       fetchedStatusResult.data.landed_receipt.receipt,
       fetchedLanding.receipt,
+    );
+
+    await git(dir, "update-ref", "-d", trackingRef);
+    const siblingOnlyStatus = await runAgent(dir, ["status", "--json"]);
+    assertEquals(siblingOnlyStatus.code, 0, siblingOnlyStatus.output);
+    assertEquals(
+      JSON.parse(siblingOnlyStatus.stdout).data.landed_receipt,
+      undefined,
+      "receipt refs that only share discern's reserved prefix must not be read as landing receipts",
+    );
+    await git(dir, "fetch", "origin");
+
+    await git(remote, "update-ref", "-d", RECEIPT_NOTES_REF);
+    const fetchAfterDeletion = await runGit(["fetch", "origin"], {
+      cwd: dir,
+    });
+    assert(
+      fetchAfterDeletion.success,
+      `ordinary fetch must succeed after the remote receipt ref is deleted: ${fetchAfterDeletion.stderr}`,
+    );
+    await git(dir, "fetch", "--prune", "origin");
+    const prunedTracking = await runGit(
+      ["rev-parse", "--verify", "-q", trackingRef],
+      { cwd: dir },
+    );
+    assertEquals(prunedTracking.success, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", siblingTrackingRef),
+      remoteNotesTip,
+    );
+
+    await git(dir, "remote", "remove", "backup");
+    const removedRemote = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(removedRemote.code, 0, removedRemote.output);
+    assertEquals(
+      (await localConfigValues(
+        dir,
+        "discern.receiptNotesFetchRemote",
+      )).sort(),
+      ["mirror", "origin"],
     );
 
     const foreignMapping = "+refs/tags/*:refs/discern/test-tags/*";
@@ -323,20 +426,139 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     );
     const unwired = await runAgent(dir, ["refresh", "--json"]);
     assertEquals(unwired.code, 0, unwired.output);
-    const remainingFetches = (await gitOut(
+    const remainingFetches = await localConfigValues(
+      dir,
+      "remote.origin.fetch",
+    );
+    assertEquals(
+      remainingFetches.includes(receiptFetchMapping("origin")),
+      false,
+    );
+    assert(remainingFetches.includes(foreignMapping));
+    assertEquals(
+      (await localConfigValues(dir, "remote.mirror.fetch")).includes(
+        receiptFetchMapping("mirror"),
+      ),
+      false,
+    );
+    for (const remoteName of ["mirror", "origin"]) {
+      assertEquals(
+        await localConfigValues(dir, `remote.${remoteName}.push`),
+        [],
+      );
+    }
+  });
+});
+
+Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and explains unowned collisions", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, receiptConfig("fetch"));
+    await gitInit(dir);
+    const remote = join(dir, "remote.git");
+    await git(dir, "init", "--bare", remote);
+    await git(dir, "remote", "add", "origin", remote);
+    await git(dir, "push", "-u", "origin", "main");
+
+    const key = "remote.origin.fetch";
+    const marker = "discern.receiptNotesFetchRemote";
+    const legacy = legacyReceiptFetchMapping("origin");
+    const optional = receiptFetchMapping("origin");
+    await git(dir, "config", "--local", "--add", marker, "origin");
+    await git(dir, "config", "--local", "--add", key, legacy);
+    await git(dir, "config", "--local", "--add", key, legacy);
+
+    const migrated = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(migrated.code, 0, migrated.output);
+    const migratedResult = JSON.parse(
+      migrated.stdout,
+    ) as DiscernResult<RefreshData>;
+    assertEquals(migratedResult.ok, true);
+    assert(
+      migratedResult.data?.receipt_notes_fetch_changed?.includes(key),
+      migrated.output,
+    );
+    const migratedFetches = await localConfigValues(dir, key);
+    assertEquals(
+      migratedFetches.filter((value) => value === optional).length,
+      1,
+    );
+    assertEquals(migratedFetches.includes(legacy), false);
+    const emptyFetch = await runGit(["fetch", "origin"], { cwd: dir });
+    assert(
+      emptyFetch.success,
+      `ordinary fetch must succeed after migration: ${emptyFetch.stderr}`,
+    );
+
+    await git(
       dir,
       "config",
       "--local",
-      "--get-all",
-      "remote.origin.fetch",
-    )).split("\n");
-    assertEquals(remainingFetches.includes(receiptMapping), false);
-    assert(remainingFetches.includes(foreignMapping));
-    const stillNoPush = await runGit(
-      ["config", "--local", "--get-all", "remote.origin.push"],
-      { cwd: dir },
+      "--fixed-value",
+      "--unset-all",
+      marker,
+      "origin",
     );
-    assertEquals(stillNoPush.success, false);
+    await git(
+      dir,
+      "config",
+      "--local",
+      "--fixed-value",
+      "--unset-all",
+      key,
+      optional,
+    );
+    await git(dir, "config", "--local", "--add", key, legacy);
+
+    const collision = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(collision.code, 1, collision.output);
+    const collisionResult = JSON.parse(
+      collision.stdout,
+    ) as DiscernResult<RefreshData>;
+    assertEquals(collisionResult.ok, false);
+    assertEquals(collisionResult.error, "partial_refresh");
+    const error = collisionResult.data?.errors.find((message) =>
+      message.includes(key)
+    );
+    assert(error !== undefined, collision.output);
+    assertStringIncludes(error, "git fetch origin");
+    assertStringIncludes(
+      error,
+      `git config --local --fixed-value --unset-all ${key} ${legacy}`,
+    );
+    assertEquals(await localConfigValues(dir, marker), []);
+    assertEquals((await localConfigValues(dir, key)).includes(legacy), true);
+    assertEquals((await localConfigValues(dir, key)).includes(optional), false);
+
+    const failedFetch = await runGit(["fetch", "origin"], { cwd: dir });
+    assertEquals(failedFetch.success, false);
+    assertStringIncludes(
+      failedFetch.stderr,
+      "couldn't find remote ref refs/notes/discern",
+    );
+
+    const landing = await land(dir, "unowned-exact");
+    assertEquals(landing.result.ok, true);
+    assertEquals(
+      landing.result.data?.receipt_note?.fetch.status,
+      "failed",
+    );
+    assertEquals(
+      landing.result.data?.receipt_note?.fetch.errors,
+      collisionResult.data?.errors,
+    );
+    assertEquals(
+      landing.result.data?.receipt_note?.write.status,
+      "recorded",
+    );
+    assertLacksHint(
+      landing.result,
+      HINTS["accept-publish-receipt-note"],
+    );
+    assertLacksHint(
+      landing.result,
+      HINTS["accept-refresh-failed"],
+    );
   });
 });
 
@@ -392,6 +614,12 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       dir,
       "update-ref",
       "refs/discern/remotes/origin/notes",
+      commonNotes,
+    );
+    await git(
+      dir,
+      "update-ref",
+      "refs/discern/remotes/origin/notes-preview",
       commonNotes,
     );
     await git(dir, "update-ref", "-d", RECEIPT_NOTES_REF);

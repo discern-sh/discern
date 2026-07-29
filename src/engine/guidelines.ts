@@ -86,6 +86,15 @@ export interface GuidelinesResult {
   errors: string[];
 }
 
+export interface CompileGuidelinesOptions {
+  /**
+   * Acceptance reconciles this integration before writing the note, where its
+   * fail-open result is recorded. Its later checkout refresh skips the duplicate
+   * pass so the same transport error cannot make a successful landing look red.
+   */
+  readonly reconcileReceiptNotesFetch?: boolean;
+}
+
 /** The non-blank refresh errors a caller should treat as failed artifacts.
  * Whitespace-only entries are ignored so accidental empty strings don't turn a
  * successful refresh into a failure. */
@@ -170,6 +179,7 @@ function errText(error: unknown): string {
 export async function compileGuidelines(
   root: string,
   logger?: Logger,
+  options: CompileGuidelinesOptions = {},
 ): Promise<GuidelinesResult> {
   // info/ok → stdout, UNLESS the caller passes
   // its own logger to control the stream — e.g. `upgrade --json` passes its
@@ -293,32 +303,36 @@ export async function compileGuidelines(
 
   // --- job 2d: receipt-note fetch transport -----------------------------------
   // Local receipt recording is unconditional at acceptance. Transport remains
-  // opt-in: only "fetch" adds an exact additive mapping, and returning to
+  // opt-in: only "fetch" adds an optional additive mapping, and returning to
   // "local" removes only mappings marked as managed by this integration.
   let receiptNotesFetchChanged: string[] = [];
-  try {
-    const reconciled = await reconcileReceiptNotesFetch(
-      root,
-      config.repository.receipt_notes,
-    );
-    receiptNotesFetchChanged = [
-      ...reconciled.added,
-      ...reconciled.removed,
-    ];
-    errors.push(...reconciled.errors);
-    if (receiptNotesFetchChanged.length > 0) {
-      log.info(
-        `updated receipt-note fetch transport in: ${
-          receiptNotesFetchChanged.join(", ")
-        }`,
+  if (options.reconcileReceiptNotesFetch !== false) {
+    try {
+      const reconciled = await reconcileReceiptNotesFetch(
+        root,
+        config.repository.receipt_notes,
       );
+      receiptNotesFetchChanged = [
+        ...new Set([
+          ...reconciled.added,
+          ...reconciled.removed,
+        ]),
+      ];
+      errors.push(...reconciled.errors);
+      if (receiptNotesFetchChanged.length > 0) {
+        log.info(
+          `updated receipt-note fetch transport in: ${
+            receiptNotesFetchChanged.join(", ")
+          }`,
+        );
+      }
+    } catch (error) {
+      const msg = `could not update receipt-note fetch transport: ${
+        errText(error)
+      }`;
+      log.warn(msg);
+      errors.push(msg);
     }
-  } catch (error) {
-    const msg = `could not update receipt-note fetch transport: ${
-      errText(error)
-    }`;
-    log.warn(msg);
-    errors.push(msg);
   }
 
   // --- job 2e: the maintained ADR index ---------------------------------------

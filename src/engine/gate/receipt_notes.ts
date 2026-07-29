@@ -32,6 +32,10 @@ function fetchRef(remote: string): string {
 }
 
 function fetchMapping(remote: string): string {
+  return `+${RECEIPT_NOTES_REF}*:${fetchRef(remote)}*`;
+}
+
+function legacyFetchMapping(remote: string): string {
   return `+${RECEIPT_NOTES_REF}:${fetchRef(remote)}`;
 }
 
@@ -73,6 +77,53 @@ async function removeFixedConfigValue(
   return gitReason(result);
 }
 
+async function replaceFixedConfigValue(
+  root: string,
+  key: string,
+  value: string,
+  previous: string,
+): Promise<string | undefined> {
+  const result = await runGit(
+    [
+      "config",
+      "--local",
+      "--fixed-value",
+      "--replace-all",
+      key,
+      value,
+      previous,
+    ],
+    { cwd: root },
+  );
+  return result.success ? undefined : gitReason(result);
+}
+
+function pushUnique(values: string[], value: string): void {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
+}
+
+function shellArgument(value: string): string {
+  return /^[A-Za-z0-9._/@%+=:,~-]+$/.test(value)
+    ? value
+    : `'${value.replaceAll("'", `'\\''`)}'`;
+}
+
+function legacyMappingError(
+  remote: string,
+  key: string,
+  mapping: string,
+): string {
+  return `${key} contains an older receipt-note mapping without discern's ` +
+    `ownership marker. This mapping makes \`git fetch ${
+      shellArgument(remote)
+    }\` fail whenever the remote has no receipt note. Remove it with ` +
+    `\`git config --local --fixed-value --unset-all ${shellArgument(key)} ${
+      shellArgument(mapping)
+    }\`, then run \`discern refresh\` again.`;
+}
+
 async function removeManagedRemote(
   root: string,
   remote: string,
@@ -80,19 +131,27 @@ async function removeManagedRemote(
   errors: string[],
 ): Promise<void> {
   const key = `remote.${remote}.fetch`;
-  const mapping = fetchMapping(remote);
   const current = await configValues(root, key);
   if (current.error !== undefined) {
     errors.push(`could not read ${key}: ${current.error}`);
     return;
   }
-  if (current.values.includes(mapping)) {
+  let mappingRemoved = false;
+  for (
+    const mapping of [fetchMapping(remote), legacyFetchMapping(remote)]
+  ) {
+    if (!current.values.includes(mapping)) {
+      continue;
+    }
     const removalError = await removeFixedConfigValue(root, key, mapping);
     if (removalError !== undefined) {
       errors.push(`could not remove ${key}: ${removalError}`);
       return;
     }
-    removed.push(key);
+    mappingRemoved = true;
+  }
+  if (mappingRemoved) {
+    pushUnique(removed, key);
   }
   const markerError = await removeFixedConfigValue(
     root,
@@ -107,8 +166,10 @@ async function removeManagedRemote(
 }
 
 /**
- * Reconcile the opt-in fetch transport. Only exact mappings this function added
- * are marked and later removable. No push key is read or written.
+ * Reconcile the opt-in fetch transport. The trailing wildcard makes the source
+ * optional: Git accepts a zero-ref match, while an absent exact positive refspec
+ * makes ordinary fetch fail. Only mappings this function marked are migrated or
+ * removed. No push key is read or written.
  */
 export async function reconcileReceiptNotesFetch(
   root: string,
@@ -184,12 +245,76 @@ export async function reconcileReceiptNotesFetch(
   for (const remote of remotes) {
     const key = `remote.${remote}.fetch`;
     const mapping = fetchMapping(remote);
+    const legacyMapping = legacyFetchMapping(remote);
     const current = await configValues(root, key);
     if (current.error !== undefined) {
       errors.push(`could not read ${key}: ${current.error}`);
       continue;
     }
-    if (current.values.includes(mapping)) {
+
+    const mappingCount = current.values.filter((value) =>
+      value === mapping
+    ).length;
+    const hasLegacyMapping = current.values.includes(legacyMapping);
+    if (!managed.has(remote) && hasLegacyMapping) {
+      errors.push(legacyMappingError(remote, key, legacyMapping));
+      continue;
+    }
+
+    if (managed.has(remote)) {
+      if (hasLegacyMapping && mappingCount === 0) {
+        const migrationError = await replaceFixedConfigValue(
+          root,
+          key,
+          mapping,
+          legacyMapping,
+        );
+        if (migrationError !== undefined) {
+          errors.push(
+            `could not migrate ${key} to an optional receipt-note mapping: ${migrationError}`,
+          );
+          continue;
+        }
+        pushUnique(added, key);
+        pushUnique(removed, key);
+        continue;
+      }
+
+      if (hasLegacyMapping) {
+        const removalError = await removeFixedConfigValue(
+          root,
+          key,
+          legacyMapping,
+        );
+        if (removalError !== undefined) {
+          errors.push(
+            `could not remove the older receipt-note mapping from ${key}: ${removalError}`,
+          );
+          continue;
+        }
+        pushUnique(removed, key);
+      }
+
+      if (mappingCount > 1) {
+        const normalizeError = await replaceFixedConfigValue(
+          root,
+          key,
+          mapping,
+          mapping,
+        );
+        if (normalizeError !== undefined) {
+          errors.push(
+            `could not normalize discern's receipt-note mapping in ${key}: ${normalizeError}`,
+          );
+          continue;
+        }
+        pushUnique(added, key);
+      }
+
+      if (mappingCount > 0) {
+        continue;
+      }
+    } else if (mappingCount > 0) {
       continue;
     }
 
@@ -229,7 +354,7 @@ export async function reconcileReceiptNotesFetch(
       }
       continue;
     }
-    added.push(key);
+    pushUnique(added, key);
   }
 
   return {

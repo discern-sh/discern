@@ -2679,13 +2679,17 @@ async function compileGuidelinesForLandingRefresh(
   templatesDir: string | undefined,
 ): Promise<Awaited<ReturnType<typeof compileGuidelines>>> {
   if (templatesDir === undefined) {
-    return await compileGuidelines(root, logger);
+    return await compileGuidelines(root, logger, {
+      reconcileReceiptNotesFetch: false,
+    });
   }
 
   const previous = Deno.env.get("DISCERN_TEMPLATES_DIR");
   Deno.env.set("DISCERN_TEMPLATES_DIR", templatesDir);
   try {
-    return await compileGuidelines(root, logger);
+    return await compileGuidelines(root, logger, {
+      reconcileReceiptNotesFetch: false,
+    });
   } finally {
     if (previous === undefined) {
       Deno.env.delete("DISCERN_TEMPLATES_DIR");
