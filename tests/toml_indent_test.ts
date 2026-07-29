@@ -22,7 +22,8 @@ run = "deno lint --fix"
 [jobs.fix.deep]
 nested = true
 `,
-  "comments attach to the next structural line": `# preamble documenting the file
+  "comments attach to the next structural line":
+    `# preamble documenting the file
 # stays at the root level
 
 [project]
@@ -78,7 +79,8 @@ const EXPECTED: Record<string, string> = {
     [jobs.fix.deep]
       nested = true
 `,
-  "comments attach to the next structural line": `# preamble documenting the file
+  "comments attach to the next structural line":
+    `# preamble documenting the file
 # stays at the root level
 
 [project]

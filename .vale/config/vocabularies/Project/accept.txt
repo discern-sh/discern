@@ -94,6 +94,7 @@ Hono
 idempotence
 idempotency
 idempotently
+indenter('s|s)?
 Infracost
 init
 injectable
