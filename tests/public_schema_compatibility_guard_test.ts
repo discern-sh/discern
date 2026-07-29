@@ -1781,7 +1781,7 @@ Deno.test("schema publication paths keep every trunk artifact enrolled while all
   );
 });
 
-Deno.test("generated public schemas remain compatible with each configured-trunk artifact", async () => {
+Deno.test("generated public schemas carry their identities and, once released, remain compatible with each configured-trunk artifact", async () => {
   const config = await loadConfig(REPO_ROOT);
   const trunk = config.repository.trunk;
   const listed = await runGit(
@@ -1800,16 +1800,26 @@ Deno.test("generated public schemas remain compatible with each configured-trunk
     listed.success,
     `cannot list public schemas from configured trunk ${trunk}: ${listed.stderr}`,
   );
+  // The append-only promise begins at the first release tag (ADR 0208, pre-tag
+  // reset amendment): before any tag exists no consumer has pinned an identity,
+  // so publications may still be corrected in place. Any tag arms the freeze —
+  // erring toward freezing early is the safe direction for a ratchet.
+  const tags = await runGit(["tag", "--list"], { cwd: REPO_ROOT });
+  assert(
+    tags.success,
+    `cannot list release tags: ${tags.stderr}`,
+  );
+  const released = tags.stdout.split("\n").some((tag) => tag.trim().length > 0);
   const trunkPaths = new Set(
     listed.stdout.split("\n").filter((path) => path.length > 0),
   );
-  const trunkHasPublicationRegistry = trunkPaths.has(
+  const baselineArmed = released && trunkPaths.has(
     "src/shared/public_schemas.ts",
   );
   const trunkSchemaArtifactPaths = [...trunkPaths].filter((path) =>
     path.startsWith("schema/") && path.endsWith(".json")
   );
-  if (trunkHasPublicationRegistry) {
+  if (baselineArmed) {
     assertEquals(
       publicSchemaArtifactEnrollmentIssues(
         trunkSchemaArtifactPaths,
@@ -1833,7 +1843,7 @@ Deno.test("generated public schemas remain compatible with each configured-trunk
       `${publication.artifactPath} must carry its registered public identity`,
     );
     if (
-      !trunkHasPublicationRegistry ||
+      !baselineArmed ||
       !trunkPaths.has(publication.artifactPath)
     ) {
       continue;

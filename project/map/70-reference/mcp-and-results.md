@@ -175,7 +175,7 @@ Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`
 
 Package releases do not change public schema `$id`s; breaks require a new major. Runtime result schemas stay strict. Their published schema remains open to optional fields and unknown `error` slugs.
 
-For an artifact already registered on the configured trunk, the gate keeps its repository path and public identity enrolled. Every generated artifact and trunk baseline must compile as JSON Schema Draft 2020-12. The artifact records its compatibility policy, and same-major comparisons use the policy from the trunk artifact. A breaking major adds a publication, artifact, and route while retaining the earlier major.
+The append-only promise arms at the first release tag; until then a publication may still be corrected in place. From that tag onward, the gate keeps each registered repository path and public identity enrolled on the configured trunk. Every generated artifact and trunk baseline must compile as JSON Schema Draft 2020-12. The artifact records its compatibility policy, and same-major comparisons use the policy from the trunk artifact. A breaking major adds a publication, artifact, and route while retaining the earlier major.
 
 The comparison permits the table's additions, reordered contract unions, and the first MCP exposure of an existing CLI contract. In config schemas, a new named property must accept every value admitted for that name by the trunk object's `additionalProperties` schema. Its named schema may add members to the catchall's `type` set; `oneOf` stays under structural comparison. Tuple schemas compare `prefixItems` by position.
 
