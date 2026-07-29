@@ -1,5 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
+import { join } from "@std/path";
+import { Ajv2020 } from "ajv-2020";
 import {
   configSectionNames,
   isJsonObject,
@@ -20,8 +22,11 @@ import {
   CONFIG_SCHEMA_COMPATIBILITY_POLICY,
   CONFIG_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  PUBLIC_SCHEMA_PUBLICATIONS,
   SETUP_CONFIG_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
+import { withTempDir } from "./helpers.ts";
+import { scaffoldEngine } from "./engine_helpers.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import {
   defaultDocumentationScopePaths,
@@ -248,15 +253,76 @@ Deno.test("a fresh config seeds separate documentation and guidance scopes", asy
   assertStringIncludes(rendered, 'pre_authorized = [] # e.g. ["docs"]');
 });
 
-Deno.test("discern.toml.tmpl starts at byte zero with the public config schema id", async () => {
-  const template = await Deno.readFile(
-    new URL("../templates/discern.toml.tmpl", import.meta.url),
+// ── the schema-marker class guard ─────────────────────────────────────────────
+// The pre-launch defect class: a discern.toml whose `#:schema` line names a
+// schema that rejects the file. The line's predecessor guard pinned the id
+// alone, which ENFORCED the bug while the id served the setup-document schema —
+// a shape that refuses every real config table. This guard closes the whole
+// loop instead — first line → registered publication → committed artifact →
+// validation of the parsed file — for both a freshly scaffolded config and this
+// repo's own, so the template and its schema can never diverge silently again.
+
+/** The `#:schema <url>` marker required at byte zero (editors read it there). */
+function schemaMarkerUrl(configText: string, label: string): string {
+  const firstLine = configText.split("\n", 1)[0] ?? "";
+  const url = /^#:schema (\S+)$/.exec(firstLine)?.[1];
+  assert(
+    url !== undefined,
+    `${label} must start at byte zero with '#:schema <url>'; first line: ${firstLine}`,
   );
-  const marker = new TextEncoder().encode(`#:schema ${CONFIG_SCHEMA_ID}\n`);
+  return url;
+}
+
+/** Assert one discern.toml names the public config schema and validates against
+ * the committed artifact that id resolves to in the publication registry. */
+async function assertConfigValidatesAgainstNamedSchema(
+  path: string | URL,
+  label: string,
+): Promise<void> {
+  const text = await Deno.readTextFile(path);
+  const url = schemaMarkerUrl(text, label);
   assertEquals(
-    template.slice(0, marker.length),
-    marker,
-    "templates/discern.toml.tmpl must begin with the public config schema marker",
+    url,
+    CONFIG_SCHEMA_ID,
+    `${label} must name the public config schema`,
+  );
+  const publication = PUBLIC_SCHEMA_PUBLICATIONS.find((p) => p.id === url);
+  assert(
+    publication !== undefined,
+    `${label} names ${url}, which is not a registered public schema id`,
+  );
+  const artifact = JSON.parse(
+    await Deno.readTextFile(
+      new URL(`../${publication.artifactPath}`, import.meta.url),
+    ),
+  ) as Record<string, unknown>;
+  const validate = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: true,
+  }).compile(artifact);
+  const valid = validate(parseToml(text));
+  assert(
+    valid === true,
+    `${label} does not validate against ${publication.artifactPath}:\n` +
+      JSON.stringify(validate.errors, null, 2),
+  );
+}
+
+Deno.test("a scaffolded discern.toml validates against the schema its own #:schema line names", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await assertConfigValidatesAgainstNamedSchema(
+      join(dir, "discern.toml"),
+      "the scaffolded discern.toml",
+    );
+  });
+});
+
+Deno.test("the repo's own discern.toml validates against the schema its own #:schema line names", async () => {
+  await assertConfigValidatesAgainstNamedSchema(
+    new URL("../discern.toml", import.meta.url),
+    "discern.toml",
   );
 });
 
