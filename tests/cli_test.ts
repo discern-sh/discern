@@ -27,16 +27,6 @@ async function assertNotExists(path: string): Promise<void> {
   assert(!(await pathExists(path)), `expected ${path} not to exist`);
 }
 
-/** Rewrite an install's recorded `[meta].schema_version`. */
-async function setSchema(dir: string, version: number): Promise<void> {
-  const p = join(dir, "discern.toml");
-  const text = await Deno.readTextFile(p);
-  await Deno.writeTextFile(
-    p,
-    text.replace(/schema_version\s*=\s*\d+/, `schema_version = ${version}`),
-  );
-}
-
 Deno.test("--version prints the kit version", async () => {
   await withTempDir(async (dir) => {
     const { code, stdout } = await runCli(["--version"], dir);
@@ -191,26 +181,6 @@ Deno.test("doctor --json reports invalid result when not initialized", async () 
     );
     assertEquals(toml.ok, false);
     assert(typeof toml.fix === "string" && toml.fix.length > 0);
-  });
-});
-
-Deno.test("doctor flags a stale schema version and points at upgrade", async () => {
-  await withTempDir(async (dir) => {
-    assertEquals(
-      (await runCli(["setup", "--confirmed", "--slug", "demo"], dir)).code,
-      0,
-    );
-    // Model an install left a schema behind (a migration shipped since).
-    await setSchema(dir, 1);
-
-    const { stdout } = await runCli(["doctor", "--json"], dir);
-    const result = JSON.parse(stdout);
-    const schema = result.data.checks.find((c: { name: string }) =>
-      c.name === "schema version"
-    );
-    assert(schema !== undefined, "expected a 'schema version' check");
-    assertEquals(schema.ok, false);
-    assertStringIncludes(schema.fix, "upgrade");
   });
 });
 

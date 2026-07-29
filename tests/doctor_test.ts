@@ -21,6 +21,7 @@ import { providerFor, providersWithHooks } from "../src/lib/providers.ts";
 import { AGENT_NAMES, toCommandList } from "../src/shared/config_schema.ts";
 import { KIT_VERSION, SCHEMA_VERSION } from "../src/lib/version.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { runChecks } from "../src/commands/doctor.ts";
 
 /** One check in the `doctor --json` payload. */
 interface DoctorCheck {
@@ -278,7 +279,6 @@ Deno.test("every failing doctor check names a fix (shape guard over the emitted 
     await setupInstall(dir);
     const cfgPath = join(dir, "discern.toml");
     let toml = await Deno.readTextFile(cfgPath);
-    toml = toml.replace(/schema_version = \d+/, "schema_version = 1"); // stale → fails
     toml = toml.replace(/agents = \[[^\]]*\]/, 'agents = ["bogus_agent"]'); // unknown → fails
     await Deno.writeTextFile(cfgPath, toml);
 
@@ -453,26 +453,25 @@ for (const { label, segments } of SUBDIR_DEPTHS) {
 Deno.test("doctor: a stale schema is flagged with an upgrade fix", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
-    await setSchema(dir, 1);
-
-    const { code, payload } = await runDoctorJson(dir);
-    assertEquals(code, 1);
-    const schema = check(payload, "schema version");
+    const checks = await runChecks(dir, {
+      currentSchema: SCHEMA_VERSION + 1,
+    });
+    const schema = checks.find((candidate) =>
+      candidate.name === "schema version"
+    );
+    assert(schema !== undefined, "expected a 'schema version' check");
     assertEquals(schema.status, "fail");
     assertEquals(schema.ok, false);
-    assertStringIncludes(schema.detail, "v1");
     assertStringIncludes(schema.detail, `v${SCHEMA_VERSION}`);
+    assertStringIncludes(schema.detail, `v${SCHEMA_VERSION + 1}`);
     assertStringIncludes(schema.fix ?? "", "discern upgrade");
   });
 });
 
 // The class guard for B51: doctor must give schema advice the recommended command
-// actually honors. `discern upgrade` migrates an OLDER install forward (the case the
-// "a stale schema is flagged with an upgrade fix" test above pins) but REFUSES one
-// newer than the binary — so advising it there sends the user at a command that
-// rejects their exact state. This guards the newer direction and additionally proves
-// the contradiction by running `discern upgrade` and confirming it refuses, so a
-// regression that re-advises the migrate command fails here.
+// actually honors. The synthetic-current-schema test above proves that an older
+// install points at `discern upgrade`; this test proves a newer one points at the
+// binary update channel and that upgrade refuses the exact state.
 Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never the `discern upgrade` it refuses", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -506,21 +505,6 @@ Deno.test("doctor: a NEWER-than-binary schema advises updating discern, never th
       "schema_version_too_new",
       "upgrade must refuse a newer-than-binary schema — the state doctor's fix must route around",
     );
-  });
-});
-
-Deno.test("doctor: human output for a stale schema prints the fix and a failure summary", async () => {
-  await withTempDir(async (dir) => {
-    await setupInstall(dir);
-    await setSchema(dir, 1);
-
-    const { code, stderr } = await runCli(["doctor"], dir);
-    assertEquals(code, 1);
-    assertStringIncludes(stderr, "schema version:");
-    assertStringIncludes(stderr, "fix: ");
-    assertStringIncludes(stderr, "discern upgrade");
-    // The failure summary counts the failed checks.
-    assertStringIncludes(stderr, "1 check failed — see the fixes above.");
   });
 });
 

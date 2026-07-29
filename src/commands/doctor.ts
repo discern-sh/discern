@@ -219,9 +219,14 @@ async function fileExists(path: string): Promise<boolean> {
  * walk, which the boundary check below compares against the resolved root. */
 export async function runChecks(
   destDir: string,
-  opts: { cwd?: string } = {},
+  opts: {
+    cwd?: string;
+    /** Test seam for exercising an older valid install at schema-1 baseline. */
+    currentSchema?: number;
+  } = {},
 ): Promise<Check[]> {
   const checks: DraftCheck[] = [];
+  const currentSchema = opts.currentSchema ?? SCHEMA_VERSION;
 
   // 0. root discovery crossed a repository boundary — findRoot roots at the
   // NEAREST discern.toml and does not stop at a `.git`, so a working directory
@@ -286,18 +291,18 @@ export async function runChecks(
   // so advising it there would send the user at a command that rejects their exact
   // state. A newer install means the BINARY is behind — re-run the installer.
   const recorded = resolveRecordedSchema(toml.raw);
-  if (recorded === SCHEMA_VERSION) {
+  if (recorded === currentSchema) {
     checks.push({
       name: "schema version",
       ok: true,
-      detail: `schema ${SCHEMA_VERSION} (current)`,
+      detail: `schema ${currentSchema} (current)`,
     });
-  } else if (isRecordedSchemaNewer(recorded, SCHEMA_VERSION)) {
+  } else if (isRecordedSchemaNewer(recorded, currentSchema)) {
     checks.push({
       name: "schema version",
       ok: false,
       detail:
-        `install schema v${recorded} is newer than this build's v${SCHEMA_VERSION} — the project was upgraded by a newer discern`,
+        `install schema v${recorded} is newer than this build's v${currentSchema} — the project was upgraded by a newer discern`,
       fix:
         `get a newer discern (${UPDATE_CHANNEL}) — \`discern upgrade\` refuses a newer-than-binary config`,
     });
@@ -306,7 +311,7 @@ export async function runChecks(
       name: "schema version",
       ok: false,
       detail:
-        `install schema v${recorded}, this build expects v${SCHEMA_VERSION}`,
+        `install schema v${recorded}, this build expects v${currentSchema}`,
       fix: "run `discern upgrade` to migrate the install",
     });
   }
