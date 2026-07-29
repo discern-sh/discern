@@ -25,6 +25,11 @@ import {
   TEMP_ARTIFACT_SUFFIX,
   TEMP_ARTIFACT_TTL_MS,
 } from "../src/shared/temp_artifacts.ts";
+import {
+  sweepDueTempArtifacts,
+  TEMP_ARTIFACT_SWEEP_INTERVAL_MS,
+} from "../src/engine/gate/temp_artifact_sweep.ts";
+import { gitInit } from "./engine_helpers.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -69,7 +74,7 @@ Deno.test("temp artifacts: every registered family is reaped past the TTL — ne
       );
     }
 
-    const removed = await pruneStaleTempArtifacts({ dir });
+    const { removed } = await pruneStaleTempArtifacts({ dir });
 
     assertEquals(removed, stale.length);
     for (const path of stale) {
@@ -109,7 +114,7 @@ Deno.test("temp artifacts: every directory family is reaped recursively past the
       fresh.push(await fileAged(dir, `${prefix}file-trap`, age));
     }
 
-    const removed = await pruneStaleTempArtifacts({ dir });
+    const { removed } = await pruneStaleTempArtifacts({ dir });
 
     assertEquals(removed, stale.length);
     for (const path of stale) {
@@ -153,7 +158,7 @@ Deno.test("temp artifacts: nothing outside the registry's prefix+suffix shape is
     const dirTrap = join(dir, `discern-job-dir${TEMP_ARTIFACT_SUFFIX}`);
     await Deno.mkdir(dirTrap);
 
-    const removed = await pruneStaleTempArtifacts({ dir });
+    const { removed } = await pruneStaleTempArtifacts({ dir });
 
     assertEquals(removed, 0);
     assertEquals(await exists(foreign), true);
@@ -171,11 +176,111 @@ Deno.test("temp artifacts: the removal budget bounds a sweep, and later sweeps d
     }
     // A sweep against a backlog bigger than its budget removes exactly the
     // budget (the inline sweep must stay fast even on a polluted machine)…
-    assertEquals(await pruneStaleTempArtifacts({ dir, maxRemovals: 2 }), 2);
-    assertEquals(await pruneStaleTempArtifacts({ dir, maxRemovals: 2 }), 2);
+    assertEquals(
+      (await pruneStaleTempArtifacts({ dir, maxRemovals: 2 })).removed,
+      2,
+    );
+    assertEquals(
+      (await pruneStaleTempArtifacts({ dir, maxRemovals: 2 })).removed,
+      2,
+    );
     // …and successive sweeps finish the job.
-    assertEquals(await pruneStaleTempArtifacts({ dir, maxRemovals: 2 }), 1);
-    assertEquals(await pruneStaleTempArtifacts({ dir, maxRemovals: 2 }), 0);
+    assertEquals(
+      (await pruneStaleTempArtifacts({ dir, maxRemovals: 2 })).removed,
+      1,
+    );
+    assertEquals(
+      (await pruneStaleTempArtifacts({ dir, maxRemovals: 2 })).removed,
+      0,
+    );
+  });
+});
+
+Deno.test("temp artifacts: the inspection budget bounds a fresh population, and its cursor rotates across future siblings", async () => {
+  await withTempDir(async (dir) => {
+    const prefix = Object.values(TEMP_ARTIFACT_KINDS)[0] ?? "discern-job-";
+    // The unrelated names model future artifacts in this registered family:
+    // the detector changes neither its scan nor its expected pages for them.
+    for (const name of ["alpha", "bravo", "charlie", "delta"]) {
+      await fileAged(
+        dir,
+        `${prefix}${name}${TEMP_ARTIFACT_SUFFIX}`,
+        HOUR_MS,
+      );
+    }
+    await fileAged(
+      dir,
+      `${prefix}future${TEMP_ARTIFACT_SUFFIX}`,
+      TEMP_ARTIFACT_TTL_MS + HOUR_MS,
+    );
+
+    let cursor: string | undefined;
+    const inspected: number[] = [];
+    const removed: number[] = [];
+    for (let page = 0; page < 3; page++) {
+      const result = await pruneStaleTempArtifacts({
+        dir,
+        maxInspections: 2,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      inspected.push(result.inspected);
+      removed.push(result.removed);
+      cursor = result.cursor;
+    }
+
+    assertEquals(inspected, [2, 2, 2]);
+    assertEquals(
+      removed,
+      [0, 0, 1],
+      "the cursor reaches the stale future sibling instead of rescanning page one",
+    );
+  });
+});
+
+Deno.test("temp artifacts: independent callers share one repository-wide sweep interval", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const artifacts = join(dir, "artifacts");
+    await Deno.mkdir(artifacts);
+    const prefix = Object.values(TEMP_ARTIFACT_KINDS)[0] ?? "discern-job-";
+    const age = TEMP_ARTIFACT_TTL_MS + HOUR_MS;
+    for (const name of ["first", "future-sibling"]) {
+      await fileAged(
+        artifacts,
+        `${prefix}${name}${TEMP_ARTIFACT_SUFFIX}`,
+        age,
+      );
+    }
+    const now = Date.now();
+    const sweep = () =>
+      sweepDueTempArtifacts(dir, {
+        now,
+        prune: { dir: artifacts, maxInspections: 1, maxRemovals: 1 },
+      });
+
+    const concurrent = await Promise.all([sweep(), sweep()]);
+    assertEquals(
+      concurrent.filter((outcome) => outcome.kind === "swept").length,
+      1,
+      "one caller sweeps; its repository-shared stamp suppresses the other",
+    );
+    assertEquals(
+      (await Array.fromAsync(Deno.readDir(artifacts))).length,
+      1,
+      "the suppressed caller must not spend a second inspection budget",
+    );
+
+    const next = await sweepDueTempArtifacts(dir, {
+      now: now + TEMP_ARTIFACT_SWEEP_INTERVAL_MS + 1,
+      prune: { dir: artifacts, maxInspections: 1, maxRemovals: 1 },
+    });
+    assertEquals(next.kind, "swept");
+    assertEquals(
+      (await Array.fromAsync(Deno.readDir(artifacts))).length,
+      0,
+      "the persisted cursor drains the next page when the interval expires",
+    );
   });
 });
 

@@ -147,6 +147,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the fleet test-run slot files — registry-resolved .git-internal state outside the project tree",
   ],
   [
+    "src/engine/gate/temp_artifact_sweep.ts",
+    "the temp-retention sweep schedule and cursor — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/engine/logbook/store.ts",
     "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
   ],

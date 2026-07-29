@@ -22,7 +22,7 @@ import {
 } from "../../shared/hints.ts";
 import { serializeJobSteps, stageGroup } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
-import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
+import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -77,7 +77,7 @@ async function runTestGate(
   }
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
-  await sweepDueTempArtifacts();
+  await sweepDueTempArtifacts(root);
   const { results, failedStage } = await runJobGroups(
     [group],
     runOpts,

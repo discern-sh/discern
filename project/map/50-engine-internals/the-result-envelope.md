@@ -68,5 +68,5 @@ The MCP instructions render the policies required on that surface from the opera
 ## Current state & gotchas
 
 - `steps` and `plan` are mutually exclusive. A fail-fast sibling is `cancelled`; a configured step that did not run is `skipped`.
-- Full job output is a best-effort OS temporary artifact. Registered artifacts age out after 24 hours; failure to write or reap one cannot change a job's result.
+- Full job output is a best-effort OS temporary artifact. Registered artifacts become eligible for removal after 24 hours. One repository-shared sweep runs at most hourly, inspects and removes at most 500 entries per page, and carries a cursor across pages; failure to write or reap an artifact cannot change a job's result ([ADR 0117](../_adr/0117-temp-output-artifacts-are-reaped-by-age.md), [ADR 0216](../_adr/0216-temp-retention-is-repository-throttled-and-inspection-bounded.md)).
 - A new JSON-emitting command needs registry enrollment, a per-verb schema, faithfulness coverage, and regenerated artifacts. MCP exposure also needs the server adapter and surface-parity coverage.

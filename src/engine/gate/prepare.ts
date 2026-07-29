@@ -26,7 +26,7 @@ import {
 } from "../../shared/hints.ts";
 import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
-import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
+import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -59,7 +59,7 @@ async function runPrepareGate(
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
-  await sweepDueTempArtifacts();
+  await sweepDueTempArtifacts(root);
   // The fleet test-run cap can never bite here — prepare's groups are fix and
   // check, and only a test-stage or standard-measurement group draws a slot —
   // but the context threads through the one seam like every other gate verb.

@@ -39,6 +39,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  tempArtifactSweep: {
+    path: "discern/temp-artifact-sweep",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   gateReceipt: {
     path: "discern/gate-receipt",
     scope: "worktree",

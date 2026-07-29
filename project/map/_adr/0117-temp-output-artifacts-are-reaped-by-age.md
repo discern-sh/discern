@@ -1,6 +1,8 @@
 # ADR 0117: Temp output artifacts are reaped by age, from one registry
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `finish` → `done`; the decision and reasoning are unchanged.
+>
+> **Concurrency refinement ([ADR 0216](0216-temp-retention-is-repository-throttled-and-inspection-bounded.md)):** The registry, TTL, and gate-entry placement stand. The hourly throttle now lives in repository-shared Git-admin state, and each cursor-backed page bounds inspections as well as removals.
 
 **Status**: accepted; refines [ADR 0096](0096-passing-jobs-keep-output-artifacts.md) and [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)
 

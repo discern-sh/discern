@@ -11,22 +11,18 @@
  * that scratched markers under `.claude/`, and an orphan sweep that hardcoded
  * `.claude/worktrees`.
  *
- * It scans CODE only — comments are stripped first, so explaining the rule (or a
- * skills/settings feature) by NAME is fine; only constructing a `.claude` path is
- * a violation.
+ * It scans string literals in CODE only — comments and property access are
+ * skipped, so explaining the rule (or naming an unrelated `.cursor` property)
+ * is fine; constructing a `.claude` path is a violation.
  */
 
-import { assert } from "@std/assert";
+import { assert, assertEquals } from "@std/assert";
 import { walk } from "@std/fs";
 import { fromFileUrl, join, relative } from "@std/path";
 import { PROVIDERS } from "../src/lib/providers.ts";
+import { stringLiterals } from "./vocab_scan.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
-
-/** Source with block + line comments removed, so the scan sees code, not prose. */
-function codeOnly(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-}
 
 /**
  * Provider-specific path fragments the stack-neutral engine must never CONSTRUCT,
@@ -105,11 +101,22 @@ function forbiddenAgentPathFragments(): string[] {
   return fragments;
 }
 
-function agentPathHits(rel: string, code: string): AgentPathHit[] {
+function agentPathHits(rel: string, source: string): AgentPathHit[] {
+  const literals = stringLiterals(source);
   return FORBIDDEN_AGENT_PATHS.flatMap((fragment) =>
-    code.includes(fragment) ? [{ rel, fragment }] : []
+    literals.some((literal) => literal.text.includes(fragment))
+      ? [{ rel, fragment }]
+      : []
   );
 }
+
+Deno.test("the agent-path detector distinguishes property access from constructed paths", () => {
+  assertEquals(agentPathHits("fixture.ts", "state.cursor"), []);
+  assertEquals(
+    agentPathHits("fixture.ts", 'join(root, ".cursor")'),
+    [{ rel: "fixture.ts", fragment: ".cursor" }],
+  );
+});
 
 function isException(hit: AgentPathHit): boolean {
   return AGENT_PATH_EXCEPTIONS.some((exception) =>
@@ -146,8 +153,7 @@ Deno.test("the stack-neutral engine builds no provider-specific agent path", asy
   ) {
     const rel = relative(REPO, entry.path);
     scannedRels.add(rel);
-    const code = codeOnly(await Deno.readTextFile(entry.path));
-    hits.push(...agentPathHits(rel, code));
+    hits.push(...agentPathHits(rel, await Deno.readTextFile(entry.path)));
   }
   assertExceptionsAreLive(hits, scannedRels);
   const offenders = hits.filter((hit) => !isException(hit));
@@ -176,8 +182,9 @@ Deno.test("the generic resource tests and the shared engine harness build no age
     ]
   ) {
     scannedRels.add(rel);
-    const code = codeOnly(await Deno.readTextFile(join(REPO, rel)));
-    hits.push(...agentPathHits(rel, code));
+    hits.push(
+      ...agentPathHits(rel, await Deno.readTextFile(join(REPO, rel))),
+    );
   }
   assertExceptionsAreLive(hits, scannedRels);
   const hit = hits.find((candidate) => !isException(candidate));

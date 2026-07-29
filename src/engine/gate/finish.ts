@@ -43,7 +43,7 @@ import {
   sameTreeIdentity,
   UNCHANGED_TREE_RERUN_SLUG,
 } from "./receipt.ts";
-import { sweepDueTempArtifacts } from "../../shared/temp_artifacts.ts";
+import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import {
   type AdrNumberDuplicate,
   duplicateAdrNumbers,
@@ -403,7 +403,7 @@ async function runGate(
   const treePin = await pinValidatedTree(root);
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
-  await sweepDueTempArtifacts();
+  await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
   // Human: gate narration + job output → stdout. --json:
   // quiet — the result envelope is the entire output (ADR 0030), so the runner

@@ -209,6 +209,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0213 — `await` blocks on authoritative fleet conditions, with the logbook as wake signal only](0213-await-blocks-on-authoritative-fleet-conditions.md)
 - [0214 — MCP instructions render operating policies; guidance remains authored](0214-mcp-instructions-render-operating-policies.md)
 - [0215 — Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport](0215-landing-receipts-travel-as-git-notes.md)
+- [0216 — Temp retention is repository-throttled and inspection-bounded](0216-temp-retention-is-repository-throttled-and-inspection-bounded.md)
 
 <!-- END GENERATED: current ADR records -->
 
