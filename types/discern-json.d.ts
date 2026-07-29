@@ -2890,6 +2890,7 @@ export type DiscernPatternsResult = {
     logbook: {
       events: number;
       unparsed: number;
+      setup_era: number;
       months: number;
       first_at?: string;
       last_at?: string;

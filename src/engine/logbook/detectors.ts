@@ -28,9 +28,15 @@
  * history. Identity evidence follows the catalogue's lifetime classification:
  * invocation-scoped signals may drive a reading, ambient host state never
  * does, and conflicting evidence stays honestly unresolved. Trend detectors
- * compare only within one config epoch and writer version
- * ({@link comparableTail}); across a boundary they attribute — naming what
- * moved and when — rather than staying silent or comparing blindly.
+ * compare only runs sharing one setup — equality of config epoch, writer
+ * version, and dominant-client version ({@link comparableSeries}), never
+ * position in the stream: parallel worktrees append to ONE logbook, so one
+ * setup's runs are routinely interleaved with another's and a contiguous
+ * window would fragment what is genuinely comparable. Runs under other
+ * setups are attributed — named and counted — rather than blended in or
+ * silently discarded. Events recorded during one-time setup (the dedicated
+ * setup branch) are excluded from analysis entirely: they describe a project
+ * being stood up, not a practice.
  *
  * Thresholds are recorded judgment: each carries a comment saying why that
  * number, all start conservative, and accumulated dogfood history is the
@@ -38,6 +44,7 @@
  */
 
 import { AGENT_CATALOGUE } from "../../shared/agent_catalogue.ts";
+import { SETUP_BRANCH } from "../../shared/setup_state.ts";
 import {
   type DetectorFamily,
   type DetectorScope,
@@ -71,7 +78,8 @@ export const TRAJECTORY_BOUNDARY_ATTRIBUTION =
 
 /** The event stream plus everything detectors keep re-deriving, computed once. */
 export interface StreamFacts {
-  /** Every parsed event, oldest first. */
+  /** Every parsed event eligible for analysis, oldest first (setup-era
+   * events — see {@link buildStreamFacts} — are already set aside). */
   events: LogbookEvent[];
   /** Verb events eligible for analysis: CI runs and `--dry-run` previews excluded. */
   verbs: VerbEvent[];
@@ -88,31 +96,49 @@ export interface StreamFacts {
   /** The newest event's timestamp — the stream's own "now", so age-relative
    * detectors are pure functions of the stream (and deterministic in tests). */
   horizon: string | undefined;
+  /** Events recorded during the project's one-time setup, set aside before
+   * any population was derived — reported, so the exclusion is never silent. */
+  setupEra: number;
 }
 
 /** The analysis population of a raw stream: verb events minus CI noise and
- * `--dry-run` previews — shared by {@link buildStreamFacts} and the boundary
- * vocabulary in {@link comparableTail}, so the two can't diverge. */
+ * `--dry-run` previews — shared by {@link buildStreamFacts} and the setup
+ * vocabulary in {@link comparableSeries}, so the two can't diverge. */
 function analyzableVerbs(events: readonly LogbookEvent[]): VerbEvent[] {
   return events.filter((e): e is VerbEvent => e.kind === "verb")
     .filter((e) => e.driver?.ci !== true && e.dry_run !== true);
 }
 
-/** Build the pre-digested facts every detector receives. */
+/** True for an event recorded during the project's one-time setup: work on
+ * the dedicated setup branch is a project being configured, not the practice
+ * the detectors describe — gate runs there measure a half-wired gate, and
+ * their durations and outcomes would read as trends about a setup that no
+ * longer exists. Reader-side interpretation: the events stay recorded, and a
+ * revised reading covers all history. Prune digests carry no branch and are
+ * never setup-era. */
+function setupEraEvent(e: LogbookEvent): boolean {
+  return e.kind !== "prune" && e.branch === SETUP_BRANCH;
+}
+
+/** Build the pre-digested facts every detector receives. Setup-era events are
+ * set aside first — every derived population, the boundary vocabulary, and
+ * the stream horizon read from the remainder. */
 export function buildStreamFacts(
   events: LogbookEvent[],
   trunk: string,
   configuredAgents: readonly string[] = [],
 ): StreamFacts {
-  const verbs = analyzableVerbs(events);
+  const analyzed = events.filter((e) => !setupEraEvent(e));
+  const verbs = analyzableVerbs(analyzed);
   const agentish = verbs.filter((e) => driverKind(e) !== "human");
   return {
-    events,
+    events: analyzed,
     verbs,
     agentish,
     trunk,
     configuredAgents,
-    horizon: events[events.length - 1]?.at,
+    horizon: analyzed[analyzed.length - 1]?.at,
+    setupEra: events.length - analyzed.length,
   };
 }
 
@@ -162,6 +188,11 @@ export interface Detector {
    * qualifying cohorts, so `threshold` is the seam's two-population bar and a
    * split that cannot compare reports insufficient evidence. */
   cohorts?: true;
+  /** Present on trend detectors that window their candidates through
+   * {@link comparableSeries}. The parameterized interleaving guards iterate
+   * exactly this set: a windowed detector's findings must be identical
+   * whether or not foreign-setup runs interleave its comparable series. */
+  windowed?: true;
   /** Minimum `considered` before the detector may speak. */
   threshold: number;
   /** The recommended structural next step (findings may override per shape). */
@@ -232,111 +263,151 @@ function testRed(e: VerbEvent): boolean {
     (e.failed_stage === "test" || e.failed_stage === "check/test");
 }
 
+/** What a trend's candidate events resolved to: the comparable series and,
+ * when any candidate ran under a different setup, the excluded remainder. */
+export interface ComparableSeries {
+  /** Every candidate sharing the newest candidate's setup, oldest first. */
+  series: VerbEvent[];
+  /** Candidates under other setups — counted and named, never blended in. */
+  excluded?: { runs: number; setups: number; detail: string };
+}
+
+/** One event's setup identity, as a grouping key: config epoch, writer
+ * version, and the dominant client's version in effect. */
+function setupOf(
+  e: VerbEvent,
+  versionInEffectOf: (e: VerbEvent) => string | undefined,
+): string {
+  return `${e.epoch ?? ""} ${e.writer ?? ""} ${
+    versionInEffectOf(e) ?? ""
+  }`;
+}
+
 /**
- * The stream's comparable tail: the longest run of newest events sharing the
- * final event's config epoch, writer version, AND dominant-client version era
- * ({@link dominantClientEras}) — the only window a trend may compare within.
- * The three boundary kinds carry equal weight: a shift that lands exactly at
- * the dominant client's upgrade is attributed to the driver's release, not
- * blended into the trend or blamed on the setup. When older events exist
- * beyond the tail, `boundary` names what moved and when (the section list
- * from the matching `config-change` event where one exists; the client, its
- * version pair, and the date for a client release), so a trend detector can
- * attribute instead of blending.
+ * The comparable series among a trend's candidate events: every run sharing
+ * the newest run's SETUP — the config epoch, the writer version, and the
+ * dominant client's version in effect ({@link dominantClientEras}) — wherever
+ * it sits in the stream. Comparability is equality, never contiguity:
+ * parallel worktrees carry their own configs and append to one shared
+ * logbook, so one setup's runs are routinely interleaved with another's, and
+ * runs under the same config stay one series across any number of
+ * interleaved flips. The three setup dimensions carry equal weight: a shift
+ * that lands exactly at the dominant client's upgrade is attributed to the
+ * driver's release, not blended into the trend or blamed on the config.
+ * When candidates under other setups exist, `excluded` counts them and names
+ * how they differ (the section list from the newest `config-change` event
+ * producing the current epoch where one exists; the version pair for a
+ * writer or client release), so a trend detector can attribute instead of
+ * blending — or staying silent.
  */
-export function comparableTail(
+export function comparableSeries(
   events: VerbEvent[],
   all: LogbookEvent[],
-): {
-  tail: VerbEvent[];
-  boundary?: { at: string; detail: string; prior: number };
-} {
+): ComparableSeries {
   const last = events[events.length - 1];
   if (last === undefined) {
-    return { tail: [] };
+    return { series: [] };
   }
   const eras = dominantClientEras(analyzableVerbs(all));
-  let start = events.length - 1;
-  while (start > 0) {
-    const prev = events[start - 1];
-    if (
-      prev === undefined || prev.epoch !== last.epoch ||
-      prev.writer !== last.writer ||
-      eras.eraOf(prev) !== eras.eraOf(last)
-    ) {
-      break;
-    }
-    start -= 1;
+  const version = eras.versionInEffectOf;
+  const currentSetup = setupOf(last, version);
+  const series: VerbEvent[] = [];
+  const excludedEvents: VerbEvent[] = [];
+  for (const e of events) {
+    (setupOf(e, version) === currentSetup ? series : excludedEvents).push(e);
   }
-  const tail = events.slice(start);
-  if (start === 0) {
-    return { tail };
+  if (excludedEvents.length === 0) {
+    return { series };
   }
-  const first = tail[0];
-  const before = events[start - 1];
-  if (first === undefined || before === undefined) {
-    return { tail };
-  }
+
+  const setups = new Set(excludedEvents.map((e) => setupOf(e, version))).size;
   const moved: string[] = [];
-  if (before.epoch !== last.epoch) {
-    const change = all.find((
-      e,
-    ): e is Extract<LogbookEvent, { kind: "config-change" }> =>
-      e.kind === "config-change" && e.epoch === last.epoch
-    );
-    moved.push(
-      change !== undefined && change.sections.length > 0
-        ? `a config change to [${change.sections.join("], [")}]`
-        : "a config change",
-    );
-  }
-  if (before.writer !== last.writer) {
-    moved.push(
-      `the ${before.writer ?? "unversioned"} → ${
-        last.writer ?? "unversioned"
-      } release`,
-    );
-  }
-  if (eras.eraOf(before) !== eras.eraOf(last)) {
-    const from = eras.versionOf(eras.eraOf(before));
-    const to = eras.versionOf(eras.eraOf(last));
-    if (eras.label !== undefined && from !== undefined && to !== undefined) {
-      moved.push(`the ${eras.label} ${from} → ${to} client release`);
+  const otherEpochs = new Set(
+    excludedEvents.filter((e) => e.epoch !== last.epoch).map((e) => e.epoch),
+  );
+  if (otherEpochs.size > 0) {
+    let change: Extract<LogbookEvent, { kind: "config-change" }> | undefined;
+    for (const e of all) {
+      if (e.kind === "config-change" && e.epoch === last.epoch) {
+        change = e; // the stream is chronological; keep the newest
+      }
     }
+    const named = change !== undefined && change.sections.length > 0
+      ? ` (the change to it touched [${change.sections.join("], [")}])`
+      : "";
+    moved.push(
+      otherEpochs.size === 1
+        ? `another configuration${named}`
+        : `${formatHumanNumber(otherEpochs.size)} other configurations${named}`,
+    );
+  }
+  const otherWriters = new Set(
+    excludedEvents.filter((e) => e.writer !== last.writer)
+      .map((e) => e.writer ?? "unversioned"),
+  );
+  if (otherWriters.size > 0) {
+    const [only] = otherWriters;
+    moved.push(
+      otherWriters.size === 1 && only !== undefined
+        ? `the ${only} → ${last.writer ?? "unversioned"} release`
+        : `${formatHumanNumber(otherWriters.size)} other releases`,
+    );
+  }
+  const currentVersion = version(last);
+  const otherVersions = new Set(
+    excludedEvents.map(version).filter((v) => v !== currentVersion),
+  );
+  if (otherVersions.size > 0 && eras.label !== undefined) {
+    const [only] = otherVersions;
+    moved.push(
+      otherVersions.size === 1 && only !== undefined &&
+        currentVersion !== undefined
+        ? `the ${eras.label} ${only} → ${currentVersion} client release`
+        : `other ${eras.label} client releases`,
+    );
   }
   return {
-    tail,
-    boundary: {
-      at: first.at,
-      detail: `${moved.join(" and ")} on ${day(first.at)}`,
-      prior: start,
+    series,
+    excluded: {
+      runs: excludedEvents.length,
+      setups,
+      detail: moved.join(" and "),
     },
   };
 }
 
-/** The attribution finding a trend detector reports when its comparable tail is
- * too short to trend but older, non-comparable history exists — naming the
- * boundary rather than staying silent or comparing blindly. */
+/** The attribution finding a trend detector reports when its comparable
+ * series is too short to trend but runs under other setups exist — counting
+ * and naming them rather than staying silent or comparing blindly. */
 function attributionFinding(
-  tail: number,
-  boundary: { at: string; detail: string; prior: number },
+  series: VerbEvent[],
+  excluded: { runs: number; setups: number; detail: string },
 ): DetectorFinding {
+  const comparable = series.length;
+  const firstAt = series[0]?.at;
+  const since = firstAt === undefined ? "" : `, first recorded ${day(firstAt)}`;
   return {
-    brief: `${formatHumanNumber(tail)} comparable ${
-      tail === 1 ? "run" : "runs"
-    } since ${boundary.detail}`,
+    brief: `${formatHumanNumber(comparable)} comparable ${
+      comparable === 1 ? "run" : "runs"
+    } on the current setup · ${formatHumanNumber(excluded.runs)} under ${
+      excluded.setups === 1 ? "another" : "others"
+    }`,
     tone: "neutral",
-    observed:
-      `only ${formatHumanNumber(tail)} comparable ${
-        tail === 1 ? "run" : "runs"
-      } since ${boundary.detail} — ` +
-      `the ${formatHumanNumber(boundary.prior)} earlier ${
-        boundary.prior === 1 ? "run predates" : "runs predate"
-      } it and can't be trended against the current setup.`,
-    evidence: { comparable_runs: tail, prior_runs: boundary.prior },
+    observed: `only ${formatHumanNumber(comparable)} ${
+      comparable === 1 ? "run shares" : "runs share"
+    } the current setup${since} — the ${formatHumanNumber(excluded.runs)} ${
+      excluded.runs === 1 ? "other run ran" : "other runs ran"
+    } under ${excluded.detail} and ${
+      excluded.runs === 1 ? "is" : "are"
+    } excluded from the trend, not blended in.`,
+    evidence: {
+      comparable_runs: comparable,
+      other_setup_runs: excluded.runs,
+      other_setups: excluded.setups,
+    },
     strength: 1,
     next_step:
-      "Trend analysis restarts at a configuration or release boundary; check back once more runs accrue on the current setup.",
+      "A trend compares only runs sharing one configuration and release, wherever they sit in the stream; check back once more runs accrue on the current setup.",
   };
 }
 
@@ -1706,32 +1777,33 @@ const dominantStage: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
+  windowed: true,
   // 5 timed gate runs on the current setup before calling a job dominant.
   threshold: 5,
   next_step:
     "When one job is most of the gate's wall clock, that job sets the pace of every loop — cache it, split it, or move the slow part behind a scope gate so unrelated changes skip it.",
   detect(facts): DetectorOutcome {
-    const { tail, boundary } = comparableTail(
+    const { series, excluded } = comparableSeries(
       facts.verbs.filter((e) =>
         e.verb === "done" &&
         (e.steps ?? []).some((s) => s.duration_s !== undefined)
       ),
       facts.events,
     );
-    // "Considered" counts every examined run, comparable or not, so a window
-    // bisected by a boundary reports the attribution instead of going quiet.
-    const considered = tail.length + (boundary?.prior ?? 0);
-    if (tail.length < 5) {
+    // "Considered" counts every examined run, comparable or not, so a series
+    // outnumbered by other setups reports the attribution instead of going quiet.
+    const considered = series.length + (excluded?.runs ?? 0);
+    if (series.length < 5) {
       return {
         considered,
-        findings: boundary !== undefined && considered >= 5
-          ? [attributionFinding(tail.length, boundary)]
+        findings: excluded !== undefined && considered >= 5
+          ? [attributionFinding(series, excluded)]
           : [],
       };
     }
     const totals = new Map<string, number>();
     let all = 0;
-    for (const e of tail) {
+    for (const e of series) {
       for (const s of e.steps ?? []) {
         const d = s.duration_s ?? 0;
         totals.set(s.label, (totals.get(s.label) ?? 0) + d);
@@ -1744,25 +1816,25 @@ const dominantStage: Detector = {
     if (top !== undefined && all > 0) {
       const [label, seconds] = top;
       const share = seconds / all;
-      const meanS = seconds / tail.length;
+      const meanS = seconds / series.length;
       // Half the gate AND a real cost — a 1-second gate has no dominant-stage problem.
       if (share >= 0.5 && meanS >= 10) {
         findings.push({
           subject: label,
           brief: `${formatHumanNumber(round1(meanS))}s per \`done\` · ${
             formatHumanNumber(Math.round(share * 100))
-          }% of gate time · ${formatHumanNumber(tail.length)} runs`,
+          }% of gate time · ${formatHumanNumber(series.length)} runs`,
           observed: `\`${label}\` averages ${
             formatHumanNumber(round1(meanS))
           }s per \`done\` — ${
             formatHumanNumber(Math.round(share * 100))
           }% of all recorded gate time across ${
-            formatHumanNumber(tail.length)
+            formatHumanNumber(series.length)
           } runs.`,
           evidence: {
             mean_seconds: round1(meanS),
             share_pct: Math.round(share * 100),
-            runs: tail.length,
+            runs: series.length,
           },
           strength: Math.round(share * 100),
         });
@@ -1779,27 +1851,28 @@ const durationCreep: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
+  windowed: true,
   // 8 runs on one setup: two halves of 4 are the fewest medians worth comparing.
   threshold: 8,
   next_step:
     "The gate got slower on an unchanged setup — find what grew (test count, build cache misses, an input set that widened) before the extra seconds tax every loop.",
   detect(facts): DetectorOutcome {
-    const { tail, boundary } = comparableTail(
+    const { series, excluded } = comparableSeries(
       facts.verbs.filter((e) => e.verb === "done"),
       facts.events,
     );
-    const considered = tail.length + (boundary?.prior ?? 0);
-    if (tail.length < 8) {
+    const considered = series.length + (excluded?.runs ?? 0);
+    if (series.length < 8) {
       return {
         considered,
-        findings: boundary !== undefined && considered >= 8
-          ? [attributionFinding(tail.length, boundary)]
+        findings: excluded !== undefined && considered >= 8
+          ? [attributionFinding(series, excluded)]
           : [],
       };
     }
-    const half = Math.floor(tail.length / 2);
-    const earlier = tail.slice(0, half);
-    const later = tail.slice(tail.length - half);
+    const half = Math.floor(series.length / 2);
+    const earlier = series.slice(0, half);
+    const later = series.slice(series.length - half);
     const durEarly = median(earlier.map((e) => e.duration_ms)) / 1000;
     const durLate = median(later.map((e) => e.duration_ms)) / 1000;
     const sizeEarly = median(earlier.map((e) => e.change?.files ?? 0));
@@ -1813,11 +1886,11 @@ const durationCreep: Detector = {
       findings.push({
         brief: `${formatHumanNumber(round1(durEarly))}s → ${
           formatHumanNumber(round1(durLate))
-        }s median · ${formatHumanNumber(tail.length)} runs`,
+        }s median · ${formatHumanNumber(series.length)} runs`,
         observed: `median \`done\` duration rose from ${
           formatHumanNumber(round1(durEarly))
         }s to ${formatHumanNumber(round1(durLate))}s across ${
-          formatHumanNumber(tail.length)
+          formatHumanNumber(series.length)
         } runs on one setup (${day(earlier[0]?.at ?? "")} → ${
           day(later[later.length - 1]?.at ?? "")
         }), while the median change stayed ~${
@@ -1826,7 +1899,7 @@ const durationCreep: Detector = {
         evidence: {
           median_early_s: round1(durEarly),
           median_late_s: round1(durLate),
-          runs: tail.length,
+          runs: series.length,
         },
         strength: Math.round((durLate / durEarly) * 10),
       });
@@ -1842,34 +1915,35 @@ const fixStageIdle: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
+  windowed: true,
   // 10 runs: a fixer's value shows rarely by design, so the bar to call it
   // idle is the highest in the registry.
   threshold: 10,
   next_step:
     "If the fixers never change anything the agents didn't already do, the stage is paying rent without working — check whether it still earns its place in the inner loop, or belongs in `done` alone.",
   detect(facts): DetectorOutcome {
-    const { tail, boundary } = comparableTail(
+    const { series, excluded } = comparableSeries(
       facts.verbs.filter((e) =>
         (e.verb === "done" || e.verb === "prepare") &&
         stageSeconds(e, "Fix") !== undefined
       ),
       facts.events,
     );
-    const considered = tail.length + (boundary?.prior ?? 0);
-    if (tail.length < 10) {
+    const considered = series.length + (excluded?.runs ?? 0);
+    if (series.length < 10) {
       return {
         considered,
-        findings: boundary !== undefined && considered >= 10
-          ? [attributionFinding(tail.length, boundary)]
+        findings: excluded !== undefined && considered >= 10
+          ? [attributionFinding(series, excluded)]
           : [],
       };
     }
     const fixLabels = new Set(
-      tail.flatMap((e) =>
+      series.flatMap((e) =>
         (e.steps ?? []).filter((s) => s.group === "Fix").map((s) => s.label)
       ),
     );
-    const anyEffect = tail.some((e) =>
+    const anyEffect = series.some((e) =>
       e.failed_stage === "fix" || e.failed_stage === "tree_drift" ||
       (e.diagnostics ?? []).some((d) => fixLabels.has(d.tool)) ||
       (e.steps ?? []).some((s) =>
@@ -1877,20 +1951,20 @@ const fixStageIdle: Detector = {
       )
     );
     const meanS =
-      tail.reduce((sum, e) => sum + (stageSeconds(e, "Fix") ?? 0), 0) /
-      tail.length;
+      series.reduce((sum, e) => sum + (stageSeconds(e, "Fix") ?? 0), 0) /
+      series.length;
     const findings: DetectorFinding[] = [];
     if (!anyEffect && meanS >= 3) {
       findings.push({
         brief: `${formatHumanNumber(round1(meanS))}s per run · ${
-          formatHumanNumber(tail.length)
+          formatHumanNumber(series.length)
         } runs · no visible effect`,
         observed: `the fix stage (${[...fixLabels].sort().join(", ")}) cost ~${
           formatHumanNumber(round1(meanS))
         }s per run across ${
-          formatHumanNumber(tail.length)
+          formatHumanNumber(series.length)
         } runs with no visible effect: no fix failures, no tree drift, no diagnostics.`,
-        evidence: { mean_seconds: round1(meanS), runs: tail.length },
+        evidence: { mean_seconds: round1(meanS), runs: series.length },
         strength: Math.round(meanS),
       });
     }
@@ -2247,29 +2321,30 @@ const updateFriction: Detector = {
   scope: "project",
   tier: "batch",
   tone: "attention",
+  windowed: true,
   // 6 updates on one setup: halves of 3 are the fewest worth comparing.
   threshold: 6,
   next_step:
     "Rising behind-counts and overlap mean efforts are outliving the trunk's pace — update earlier in the task, and land smaller so each merge brings less in.",
   detect(facts): DetectorOutcome {
-    const { tail, boundary } = comparableTail(
+    const { series, excluded } = comparableSeries(
       facts.verbs.filter((e) =>
         e.verb === "update" && e.update !== undefined && e.outcome === "ok"
       ),
       facts.events,
     );
-    const considered = tail.length + (boundary?.prior ?? 0);
-    if (tail.length < 6) {
+    const considered = series.length + (excluded?.runs ?? 0);
+    if (series.length < 6) {
       return {
         considered,
-        findings: boundary !== undefined && considered >= 6
-          ? [attributionFinding(tail.length, boundary)]
+        findings: excluded !== undefined && considered >= 6
+          ? [attributionFinding(series, excluded)]
           : [],
       };
     }
-    const half = Math.floor(tail.length / 2);
-    const earlier = tail.slice(0, half);
-    const later = tail.slice(tail.length - half);
+    const half = Math.floor(series.length / 2);
+    const earlier = series.slice(0, half);
+    const later = series.slice(series.length - half);
     const behindEarly = median(earlier.map((e) => e.update?.behind ?? 0));
     const behindLate = median(later.map((e) => e.update?.behind ?? 0));
     const overlapEarly = median(earlier.map((e) => e.update?.overlap ?? 0));
@@ -2285,16 +2360,16 @@ const updateFriction: Detector = {
           formatHumanNumber(behindLate)
         } · overlap ${formatHumanNumber(overlapEarly)} → ${
           formatHumanNumber(overlapLate)
-        } · ${formatHumanNumber(tail.length)} updates`,
+        } · ${formatHumanNumber(series.length)} updates`,
         observed: `across ${
-          formatHumanNumber(tail.length)
+          formatHumanNumber(series.length)
         } updates, the median behind-count moved ${
           formatHumanNumber(behindEarly)
         } → ${formatHumanNumber(behindLate)} and overlapping files ${
           formatHumanNumber(overlapEarly)
         } → ${formatHumanNumber(overlapLate)}.`,
         evidence: {
-          updates: tail.length,
+          updates: series.length,
           behind_early: behindEarly,
           behind_late: behindLate,
           overlap_early: overlapEarly,
@@ -2443,13 +2518,13 @@ const standardTrajectory: Detector = {
       const ownPins = pins.filter((p) => p.standard === name);
       const firstPin = ownPins[0];
       const lastPin = ownPins[ownPins.length - 1];
-      const boundaries = readings.reduce((count, r, i) => {
-        const prev = readings[i - 1];
-        return prev !== undefined &&
-            (prev.epoch !== r.epoch || prev.writer !== r.writer)
-          ? count + 1
-          : count;
-      }, 0);
+      // Distinct setups, not consecutive-pair flips: parallel worktrees
+      // interleave their runs through one logbook, so the same two setups
+      // can alternate for pages — that is still two setups, not a boundary
+      // per flip.
+      const setups = new Set(
+        readings.map((r) => `${r.epoch ?? ""} ${r.writer ?? ""}`),
+      ).size;
       const pieces = [
         `\`${name}\` measured ${formatHumanNumber(first.value)} → ${
           formatHumanNumber(last.value)
@@ -2468,13 +2543,11 @@ const standardTrajectory: Detector = {
       } else if (last.limit !== undefined) {
         pieces.push(`the limit held at ${formatHumanNumber(last.limit)}`);
       }
-      if (boundaries > 0) {
+      if (setups > 1) {
         pieces.push(
-          `the series crosses ${
-            formatHumanNumber(boundaries)
-          } config/release boundar${
-            boundaries === 1 ? "y" : "ies"
-          }, so ${TRAJECTORY_BOUNDARY_ATTRIBUTION}`,
+          `the readings span ${
+            formatHumanNumber(setups)
+          } config/release setups, so ${TRAJECTORY_BOUNDARY_ATTRIBUTION}`,
         );
       }
       // Direction-aware slack: the last three readings all strictly better

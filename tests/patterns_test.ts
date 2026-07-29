@@ -10,8 +10,13 @@
  *    find nothing; sparse fixtures sit below the threshold and stay silent;
  *  - **the segmentation promises, class-wide**: a stream of CI-marked runs (or
  *    dry-run previews) reaches NO detector at all;
- *  - **epoch/writer attribution**: a trend split by a config change or release
- *    names the boundary instead of comparing across it or going silent;
+ *  - **setup attribution**: a trend whose candidates ran under several setups
+ *    (config epoch, writer release, client version) compares only the runs
+ *    sharing the newest run's setup — by equality, never contiguity, so
+ *    parallel-worktree interleaving cannot fragment a series — and names the
+ *    excluded setups instead of comparing across them or going silent; the
+ *    windowed guards iterate every `windowed` detector, so a new trend
+ *    detector inherits the interleaving invariants by marking itself;
  *  - **coarse-history honesty**: rotation digests extend the red-rate series,
  *    marked coarse;
  *  - **writer/reader parity**: every event kind and top-level driver signal in
@@ -33,12 +38,13 @@ import {
 } from "../src/engine/logbook/cohorts.ts";
 import {
   buildStreamFacts,
-  comparableTail,
+  comparableSeries,
   type Detector,
   type DetectorReport,
   DETECTORS,
   runDetector,
 } from "../src/engine/logbook/detectors.ts";
+import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -486,7 +492,7 @@ interface DetectorFixtures {
   firing: LogbookEvent[];
   /** Clears the threshold and produces none. */
   quiet: QuietFixture;
-  /** Sits below the threshold (and carries no boundary to attribute). */
+  /** Sits below the threshold (and carries no other-setup runs to attribute). */
   sparse: LogbookEvent[];
   /** Configured native providers the stream is read against, for detectors
    * whose verdict depends on config context (shared by all three streams). */
@@ -1891,7 +1897,7 @@ Deno.test("patterns segmentation: an interactive human's thrash never reads as a
   assertEquals(driverKind(sample), "human");
 });
 
-Deno.test("patterns attribution: a config change bounds the comparable window and is named", () => {
+Deno.test("patterns attribution: runs under another configuration are excluded and the change is named", () => {
   const events: LogbookEvent[] = [
     ...run(
       Array.from({ length: 5 }, () => ({
@@ -1925,7 +1931,7 @@ Deno.test("patterns attribution: a config change bounds the comparable window an
   assertEquals(
     outcome.findings.length,
     1,
-    "a boundary with too-short a tail must be attributed, not silent",
+    "a too-short series beside other-setup runs must be attributed, not silent",
   );
   const finding = outcome.findings[0];
   assert(finding !== undefined);
@@ -1935,7 +1941,7 @@ Deno.test("patterns attribution: a config change bounds the comparable window an
   );
   assert(
     finding.observed.includes("2026-07-01"),
-    `the attribution must date the boundary: ${finding.observed}`,
+    `the attribution must date the current series: ${finding.observed}`,
   );
 });
 
@@ -2028,7 +2034,7 @@ Deno.test("patterns attribution: the dominant client's version change bounds the
   assertEquals(
     outcome.findings.length,
     1,
-    "a client-release boundary with too short a tail must be attributed, not silent",
+    "a too-short series beside another client release must be attributed, not silent",
   );
   const finding = outcome.findings[0];
   assert(finding !== undefined);
@@ -2070,46 +2076,242 @@ Deno.test("patterns attribution: a version-blind stream trends normally — abse
   );
 });
 
-Deno.test("patterns attribution: comparableTail keeps only the newest epoch+writer run", () => {
+Deno.test("patterns attribution: comparableSeries groups by setup equality, not contiguity", () => {
+  // Two configs alternating — the parallel-worktree shape. The current
+  // setup's series is every `b` run, however many `a` runs interleave.
   const events = [
-    verb({ at: t(0), epoch: "a", writer: "9.9.9" }),
-    verb({ at: t(1), epoch: "b", writer: "9.9.9" }),
+    verb({ at: t(0), epoch: "b", writer: "9.9.9" }),
+    verb({ at: t(1), epoch: "a", writer: "9.9.9" }),
     verb({ at: t(2), epoch: "b", writer: "9.9.9" }),
+    verb({ at: t(3), epoch: "a", writer: "9.9.9" }),
+    verb({ at: t(4), epoch: "b", writer: "9.9.9" }),
   ];
-  const { tail, boundary } = comparableTail(events, events);
-  assertEquals(tail.length, 2);
-  assert(boundary !== undefined);
-  assertEquals(boundary.prior, 1);
+  const { series, excluded } = comparableSeries(events, events);
+  assertEquals(series.length, 3);
+  assert(series.every((e) => e.epoch === "b"));
+  assertEquals(
+    series.map((e) => e.at),
+    [t(0), t(2), t(4)],
+    "the series must keep chronological order across the interleaving",
+  );
+  assert(excluded !== undefined);
+  assertEquals(excluded.runs, 2);
+  assertEquals(excluded.setups, 1);
 });
 
-Deno.test("patterns attribution: a standard's series names the boundaries it crosses", () => {
-  const events: LogbookEvent[] = [
-    ...Array.from(
-      { length: 3 },
-      (_, i) =>
-        verb({
-          at: t(i),
-          standards: [reading("cov", 70 + i, 80)],
-          epoch: "old1",
-        }),
-    ),
-    ...Array.from(
-      { length: 3 },
-      (_, i) =>
-        verb({
-          at: t(3 + i),
-          standards: [reading("cov", 73 + i, 80)],
-          epoch: "new2",
-        }),
-    ),
+Deno.test("patterns attribution: a same-setup stream has nothing excluded", () => {
+  const events = [
+    verb({ at: t(0), epoch: "b" }),
+    verb({ at: t(1), epoch: "b" }),
   ];
+  const { series, excluded } = comparableSeries(events, events);
+  assertEquals(series.length, 2);
+  assertEquals(excluded, undefined);
+});
+
+Deno.test("patterns attribution: a standard's series counts the setups it spans, not the flips it crosses", () => {
+  // Interleaved: the same two configs alternate across six readings. That is
+  // 2 setups — a per-flip boundary count would claim 5.
+  const events: LogbookEvent[] = Array.from(
+    { length: 6 },
+    (_, i) =>
+      verb({
+        at: t(i),
+        standards: [reading("cov", 70 + i, 80)],
+        epoch: i % 2 === 0 ? "old1" : "new2",
+      }),
+  );
   const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
   assert(trajectory !== undefined);
   const outcome = runDetector(trajectory, buildStreamFacts(events, "main"));
   assertEquals(outcome.findings.length, 1);
+  const observed = outcome.findings[0]?.observed ?? "";
   assert(
-    outcome.findings[0]?.observed.includes("boundar"),
-    `the series must note crossed boundaries: ${outcome.findings[0]?.observed}`,
+    observed.includes("2 config/release setups"),
+    `the series must count distinct setups: ${observed}`,
+  );
+  assert(
+    observed.includes("segments are attributed, not blended"),
+    `the attribution marker must survive: ${observed}`,
+  );
+});
+
+// ── the windowed guards (parameterized: every `windowed` detector) ──────────
+
+/** Foreign-setup clones of a stream's verb events, each on another branch and
+ * half an hour BEFORE its source event — so the newest event keeps the
+ * current setup. Clones keep the source's shape (verb, steps, durations,
+ * update counts), so they enter the same candidate population and would have
+ * fragmented a contiguity-based window. */
+function foreignSetupClones(events: readonly LogbookEvent[]): LogbookEvent[] {
+  return events
+    .filter((e): e is VerbEvent => e.kind === "verb")
+    .map((e): LogbookEvent => ({
+      ...e,
+      at: new Date(Date.parse(e.at) - 1_800_000).toISOString(),
+      epoch: "zz-foreign",
+      branch: "agent/elsewhere",
+    }));
+}
+
+const windowedDetectors = DETECTORS.filter((d) => d.windowed === true);
+
+Deno.test("patterns windowed: the registry carries windowed trend detectors", () => {
+  assert(
+    windowedDetectors.length > 0,
+    "no detector is marked `windowed` — the interleaving guards guard nothing",
+  );
+});
+
+for (const d of windowedDetectors) {
+  Deno.test(`patterns windowed ${d.id}: an interleaved comparable series survives intact`, () => {
+    const firing = fixturesOf(d).firing;
+    const base = runDetector(d, buildStreamFacts(firing, "main"));
+    assertEquals(base.status, "fired", `${d.id}: firing fixture must fire`);
+    const interleaved = [...firing, ...foreignSetupClones(firing)]
+      .sort((a, b) => a.at.localeCompare(b.at));
+    const under = runDetector(d, buildStreamFacts(interleaved, "main"));
+    assertEquals(
+      under.findings,
+      base.findings,
+      `${d.id}: interleaved foreign-setup runs must not change the trend`,
+    );
+    assert(
+      under.findings.every((f) => f.evidence.comparable_runs === undefined),
+      `${d.id}: enough same-setup runs must trend, never refuse as too few comparable`,
+    );
+  });
+
+  Deno.test(`patterns windowed ${d.id}: a series outnumbered by other setups attributes them`, () => {
+    const verbs = fixturesOf(d).firing
+      .filter((e): e is VerbEvent => e.kind === "verb");
+    const newest = verbs[verbs.length - 1];
+    assert(newest !== undefined);
+    const events = [...foreignSetupClones(verbs), newest]
+      .sort((a, b) => a.at.localeCompare(b.at));
+    const under = runDetector(d, buildStreamFacts(events, "main"));
+    assertEquals(
+      under.status,
+      "fired",
+      `${d.id}: a lone comparable run beside a full foreign series must attribute, not go quiet`,
+    );
+    assertEquals(under.findings.length, 1);
+    const finding = under.findings[0];
+    assert(finding !== undefined);
+    assertEquals(finding.evidence.comparable_runs, 1);
+    assertEquals(finding.evidence.other_setup_runs, verbs.length);
+    assert(
+      finding.observed.includes("another configuration"),
+      `${d.id}: the exclusion must name what differs: ${finding.observed}`,
+    );
+    assert(
+      finding.observed.includes("not blended"),
+      `${d.id}: the exclusion must state the runs are excluded: ${finding.observed}`,
+    );
+  });
+}
+
+Deno.test("patterns regression: a gate-duration trend survives interleaved config flip-flop", () => {
+  // The observed parallel-worktree failure shape: two configs alternating
+  // run-by-run in one shared logbook while one of them slows down. The
+  // slowing config's runs are one comparable series; the interleaved runs
+  // from the other config must neither fragment it nor blend into it.
+  const events: LogbookEvent[] = [];
+  for (let i = 0; i < 10; i += 1) {
+    events.push(verb({
+      at: t(2 * i),
+      verb: "done",
+      duration_ms: i < 5 ? 100_000 : 170_000,
+      epoch: "aa",
+      branch: "agent/one",
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    }));
+    events.push(verb({
+      at: t(2 * i + 1),
+      verb: "done",
+      duration_ms: 5_000,
+      epoch: "bb",
+      branch: "agent/two",
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    }));
+  }
+  events.push(verb({
+    at: t(21),
+    verb: "done",
+    duration_ms: 170_000,
+    epoch: "aa",
+    branch: "agent/one",
+    change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+  }));
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(outcome.status, "fired");
+  assertEquals(outcome.findings.length, 1);
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.runs, 11);
+  assertEquals(finding.evidence.median_early_s, 100);
+  assertEquals(finding.evidence.median_late_s, 170);
+  assert(
+    finding.evidence.comparable_runs === undefined,
+    `enough interleaved same-config runs must trend, not refuse: ${finding.brief}`,
+  );
+});
+
+// ── setup-era exclusion ──────────────────────────────────────────────────────
+
+Deno.test("patterns setup era: events on the setup branch are set aside before analysis", () => {
+  const events: LogbookEvent[] = [
+    verb({ at: t(0), branch: SETUP_BRANCH, verb: "done", duration_ms: 600 }),
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: t(1),
+      kind: "config-change",
+      branch: SETUP_BRANCH,
+      sections: ["jobs"],
+      epoch: "e1",
+    },
+    verb({ at: t(2), branch: "agent/task", verb: "done" }),
+  ];
+  const facts = buildStreamFacts(events, "main");
+  assertEquals(facts.setupEra, 2);
+  assertEquals(facts.events.length, 1);
+  assertEquals(facts.verbs.length, 1);
+  assertEquals(facts.verbs[0]?.branch, "agent/task");
+  assertEquals(facts.horizon, t(2), "the horizon must ignore setup-era events");
+});
+
+Deno.test("patterns setup era: half-wired gate runs during setup never read as duration creep", () => {
+  // The one-time-setup shape: the gate gets wired while the project is stood
+  // up around it — sub-second runs on the setup branch under the SAME config
+  // epoch as the real work that follows (the completion marker is masked out
+  // of the epoch). Without the exclusion this reads as the gate "slowing"
+  // from 0.6s to 120s on its first day.
+  const events: LogbookEvent[] = [
+    ...Array.from({ length: 4 }, (_, i) =>
+      verb({
+        at: t(i),
+        branch: SETUP_BRANCH,
+        verb: "done",
+        duration_ms: 600,
+      })),
+    ...Array.from({ length: 8 }, (_, i) =>
+      verb({
+        at: t(4 + i),
+        branch: "agent/task",
+        verb: "done",
+        duration_ms: 120_000,
+      })),
+  ];
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(outcome.considered, 8);
+  assertEquals(
+    outcome.findings,
+    [],
+    "a steady post-setup gate must read as steady",
   );
 });
 

@@ -266,6 +266,11 @@ export interface ClientVersionEras {
   eraOf(e: VerbEvent): number;
   /** The dominant client's version in effect during one era. */
   versionOf(era: number): string | undefined;
+  /** The dominant client's version in effect for one event: the event's own
+   * recorded declaration when it came from the dominant client (evidence
+   * beats imputation — parallel sessions can interleave versions), the era's
+   * version otherwise. */
+  versionInEffectOf(e: VerbEvent): string | undefined;
 }
 
 /** Compute {@link ClientVersionEras} over a stream's analyzable verb events. */
@@ -294,6 +299,7 @@ export function dominantClientEras(
       boundaries: [],
       eraOf: () => 0,
       versionOf: () => undefined,
+      versionInEffectOf: () => undefined,
     };
   }
   let label = dominant;
@@ -320,12 +326,20 @@ export function dominantClientEras(
     }
     lastVersion = client.version;
   }
+  const eraOf = (e: VerbEvent): number =>
+    boundaries.filter((b) => b.at <= e.at).length;
+  const versionOf = (era: number): string | undefined =>
+    era === 0 ? firstVersion : boundaries[era - 1]?.to;
   return {
     label,
     boundaries,
-    eraOf: (e: VerbEvent): number =>
-      boundaries.filter((b) => b.at <= e.at).length,
-    versionOf: (era: number): string | undefined =>
-      era === 0 ? firstVersion : boundaries[era - 1]?.to,
+    eraOf,
+    versionOf,
+    versionInEffectOf: (e: VerbEvent): string | undefined => {
+      const client = e.driver?.mcp_client;
+      return client !== undefined && client.name === dominant
+        ? client.version
+        : versionOf(eraOf(e));
+    },
   };
 }
