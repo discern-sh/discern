@@ -16,6 +16,7 @@ import {
 import {
   addAdvisoryHints,
   routeDetectorReports,
+  routedFindingData,
   workingSurfaceFor,
 } from "../src/engine/logbook/routing.ts";
 import {
@@ -86,6 +87,30 @@ Deno.test("logbook routing: every registry finding lands on patterns and exactly
       );
     }
   }
+});
+
+Deno.test("logbook routing: the optional trajectory series reaches the wire unchanged", () => {
+  const detector = DETECTORS.find((entry) =>
+    entry.id === "standard-trajectory"
+  );
+  assertEquals(detector?.id, "standard-trajectory");
+  if (detector === undefined) {
+    return;
+  }
+  const series = [1, 2, 1];
+  const finding = routedFindingData({
+    detector,
+    considered: series.length,
+    finding: {
+      subject: "coverage",
+      brief: "1 → 1 vs floor 0 — holding",
+      series,
+      observed: "`coverage` measured 1 → 1 across 3 readings.",
+      evidence: { readings: series.length },
+      strength: series.length,
+    },
+  });
+  assertEquals(finding.series, series);
 });
 
 Deno.test("logbook routing: advisory attachment can change only hints on an envelope", () => {

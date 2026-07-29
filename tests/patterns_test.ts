@@ -50,6 +50,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   PATTERN_FINDING_TONES,
+  PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -1282,6 +1283,24 @@ for (const d of DETECTORS) {
         PATTERN_FINDING_TONES.includes(f.tone ?? d.tone),
         `${d.id}: unknown finding tone ${f.tone ?? d.tone}`,
       );
+      if (d.id === "standard-trajectory") {
+        assert(f.series !== undefined, `${d.id}: missing trajectory series`);
+      } else {
+        assertEquals(
+          f.series,
+          undefined,
+          `${d.id}: only standard trajectories may carry a series`,
+        );
+      }
+      if (f.series !== undefined) {
+        assert(
+          f.series.length <= PATTERNS_SERIES_MAX_POINTS,
+          `${d.id}: ${f.series.length}-point series exceeds the wire cap`,
+        );
+        for (const value of f.series) {
+          assert(Number.isFinite(value), `${d.id}: non-finite series value`);
+        }
+      }
       const values = Object.values(f.evidence);
       assert(values.length > 0, `${d.id}: a finding carries no evidence`);
       for (const v of values) {
@@ -1921,6 +1940,33 @@ Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
   assertEquals(finding.tone, "good");
   assertEquals(finding.evidence.limit_first, 80);
   assertEquals(finding.evidence.limit_last, 80);
+});
+
+Deno.test("patterns trajectory: long series use equal-time bucket means and exact endpoints", () => {
+  const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
+  assert(trajectory !== undefined);
+  const values = Array.from({ length: 200 }, (_, index) => index % 2);
+  const events = run(values.map((value) => ({
+    standards: [reading("pulse", value, -1, "up")],
+  })));
+  const outcome = runDetector(trajectory, buildStreamFacts(events, "main"));
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assert(finding.series !== undefined);
+  assert(
+    finding.series.length <= PATTERNS_SERIES_MAX_POINTS,
+    `${finding.series.length}-point series exceeds the wire cap`,
+  );
+  assert(
+    finding.series.length < values.length,
+    "the long trajectory must be downsampled",
+  );
+  assertEquals(finding.series[0], values[0]);
+  assertEquals(finding.series[finding.series.length - 1], values.at(-1));
+  assert(
+    finding.series.slice(1, -1).some((value) => value > 0 && value < 1),
+    "interior points must be bucket means rather than sampled readings",
+  );
 });
 
 Deno.test("patterns trajectory: direction-aware facts decide tone without changing rank", () => {

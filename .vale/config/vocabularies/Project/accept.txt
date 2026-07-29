@@ -183,6 +183,7 @@ shellcheck
 snake_case
 snapshotting
 spawners?
+sparklines?
 stderr
 stdin
 stdout

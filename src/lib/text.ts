@@ -16,6 +16,7 @@ const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
 const MARK = /\p{Mark}/u;
 const PICTOGRAPH = /\p{Extended_Pictographic}/u;
 const EMOJI_PRESENTATION = /\p{Emoji_Presentation}/u;
+const SPARKLINE_GLYPHS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
 
 /** Whether one Unicode scalar is conventionally two terminal columns. */
 function isWideCodePoint(code: number): boolean {
@@ -111,6 +112,41 @@ export function displayWidth(text: string): number {
     width += graphemeWidth(segment);
   }
   return width;
+}
+
+/**
+ * Render finite numeric values as a compact Unicode sparkline scaled across
+ * their own minimum and maximum. Flat input uses the lowest glyph for every
+ * point, including a single value. Empty input stays empty; a non-finite value
+ * is a contract error rather than an invented mark.
+ */
+export function sparkline(values: readonly number[]): string {
+  if (values.length === 0) {
+    return "";
+  }
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new TypeError("sparkline values must be finite numbers");
+  }
+  const first = values[0];
+  if (first === undefined) {
+    return "";
+  }
+  let minimum = first;
+  let maximum = first;
+  for (const value of values.slice(1)) {
+    minimum = Math.min(minimum, value);
+    maximum = Math.max(maximum, value);
+  }
+  if (minimum === maximum) {
+    return SPARKLINE_GLYPHS[0].repeat(values.length);
+  }
+  const range = maximum - minimum;
+  return values.map((value) => {
+    const index = Math.round(
+      ((value - minimum) / range) * (SPARKLINE_GLYPHS.length - 1),
+    );
+    return SPARKLINE_GLYPHS[index] ?? SPARKLINE_GLYPHS[0];
+  }).join("");
 }
 
 /**
