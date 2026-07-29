@@ -1031,14 +1031,14 @@ const preAuthorizedLandings: Detector = {
     const findings: DetectorFinding[] = [{
       brief: `${formatHumanNumber(delegated.length)} of ${
         formatHumanNumber(landings.length)
-      } landings (${formatHumanNumber(share)}%) · standing ${
+      } consent-recorded landings (${formatHumanNumber(share)}%) · standing ${
         formatHumanNumber(standing.length)
       } · effort ${formatHumanNumber(effort)}${
         trendBriefs.length === 0 ? "" : ` · ${trendBriefs.join(" · ")}`
       }`,
       observed: `${formatHumanNumber(delegated.length)} of ${
         formatHumanNumber(landings.length)
-      } recorded landings (${
+      } landings with recorded consent evidence (${
         formatHumanNumber(share)
       }%) used pre-authorization: ${
         formatHumanNumber(standing.length)
@@ -1048,7 +1048,7 @@ const preAuthorizedLandings: Detector = {
         trendSentences.length === 0 ? "" : ` ${trendSentences.join(" ")}`
       }`,
       evidence: {
-        recorded_landings: landings.length,
+        consent_recorded_landings: landings.length,
         pre_authorized_landings: delegated.length,
         pre_authorized_share_pct: share,
         standing_grant_landings: standing.length,

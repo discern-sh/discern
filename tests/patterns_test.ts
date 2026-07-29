@@ -1331,7 +1331,7 @@ Deno.test("pre-authorized landings reports mixed consent sources, granted scopes
   );
   assert(summary !== undefined);
   assertEquals(summary.evidence, {
-    recorded_landings: 8,
+    consent_recorded_landings: 8,
     pre_authorized_landings: 4,
     pre_authorized_share_pct: 50,
     standing_grant_landings: 3,
