@@ -101,13 +101,11 @@ Map search covers every page visible to the agent-facing map, including a page m
 | `steps`       | Applied calls | Attempted operations and outcomes.                    |
 | `diagnostics` | Failures      | Failure details and reproduce command.                |
 | `data`        | Verb-specific | The verb's payload.                                   |
-| `hints`       | Advisory      | Next actions; failures carry one; never changes `ok`. |
+| `hints`       | Advisory      | Next actions, spelled per surface; failures carry one; never changes `ok`. |
 | `error`       | Refusals      | Machine-readable slug.                                |
 | `message`     | Refusals      | Human-readable refusal.                               |
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
-
-Hints spell commands for the surface that delivers them ([ADR 0217](../_adr/0217-envelope-command-references-render-per-surface.md)). Over MCP, a runnable command names the tool with its arguments as parameters, such as `` `discern_start` (name: "…") ``; a command whose verb has no tool is an explicit shell instruction, marked `(in a shell)`; a command the agent relays for its human owner keeps the CLI spelling. CLI and `--json` callers always read CLI spellings. The wording around a command never differs between surfaces.
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective; an absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 

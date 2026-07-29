@@ -31,7 +31,7 @@ _Every verb builds one result object; types, runtime validation, generated contr
 
 Before serialization, the CLI and MCP keep any registered `next-step` hint already present and add the registry's `failure-recovery` floor when none exists. `serializeResult` rejects a failed envelope that still lacks a registered actionable hint.
 
-A runnable discern command inside a hint is a typed reference, never prose ([ADR 0217](../_adr/0217-envelope-command-references-render-per-surface.md)). [`command_reference.ts`](../../../src/shared/command_reference.ts) owns the constructors, the token grammar, and one renderer per surface. `fire` resolves references to the CLI spelling and keeps the authored form beside the fired hint; the MCP completion boundary re-renders from that form — tool spellings with parameters, CLI spellings for owner-relayed commands, and an explicit shell instruction for a verb with no tool — before the envelope is observed, recorded, and rendered. Recorded hint identity stays the registry id on both surfaces. `serializeResult` also refuses a hint that still carries an unresolved reference token.
+A runnable discern command inside a hint is a typed reference, never prose ([ADR 0217](../_adr/0217-envelope-command-references-render-per-surface.md)). [`command_reference.ts`](../../../src/shared/command_reference.ts) owns the constructors, the token grammar, and one renderer per surface: over MCP a tool-backed command names the tool with its arguments as parameters, a verb with no tool is an explicit shell instruction, and an owner-relayed command keeps the CLI spelling every caller reads on the CLI. `fire` resolves the CLI spelling and keeps the authored form beside the fired hint; the MCP boundary re-renders from it before the envelope is observed, recorded, and rendered. Hint identity stays the registry id on both surfaces, and `serializeResult` refuses an unresolved token.
 
 ## Runtime schemas and enrollment
 
@@ -50,7 +50,7 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 
 ## Protocol adapters
 
-[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside the `TOOLS` table with a reason per member, records the verbs left without a tool; the parity guard reconciles the two halves against the whole verb vocabulary, and the hint renderer's shell-instruction fallback covers the declared set. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
+[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool; the parity guard reconciles the two halves against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
 
