@@ -96,10 +96,36 @@ Deno.test("scripts lists every executable project script in deterministic order"
       !r.stdout.includes("not-executable"),
       `non-executable files are not listable:\n${r.stdout}`,
     );
-    // The retired singular spelling refuses instead of listing: the redirect
-    // table is checked before trailing-s forgiveness, and the table-driven
-    // redirect suite (engine_vocabulary_test.ts) proves that refusal for
-    // every entry, this one included.
+  });
+});
+
+Deno.test("script (singular) folds silently to the scripts dispatch", async () => {
+  // The singular is an accepted input variant, not a retired command: typed
+  // input folds to the canonical verb with no notice, while every surface
+  // discern writes spells `scripts` (the term registry bans the singular
+  // invocation from written surfaces, and verb parity pins the registration).
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeExecutable(
+      join(dir, "discern/scripts/deploy"),
+      "#!/usr/bin/env sh\n# desc: deploy\necho SINGULAR-RAN-$1\n",
+    );
+
+    // Running one script through the singular dispatches it, arguments intact.
+    const run = await runAgent(dir, ["script", "deploy", "staging"]);
+    assertEquals(run.code, 0, run.output);
+    assertStringIncludes(run.stdout, "SINGULAR-RAN-staging");
+
+    // The bare singular reaches the same listing, and the envelope carries the
+    // canonical verb — folding rewrites the spelling before dispatch.
+    const list = await runAgent(dir, ["script", "--json"]);
+    assertEquals(list.code, 0, list.output);
+    const envelope = JSON.parse(list.stdout);
+    assertEquals(envelope.verb, "scripts");
+    assertEquals(envelope.data.scripts, [{
+      name: "deploy",
+      description: "deploy",
+    }]);
   });
 });
 

@@ -5,7 +5,11 @@
  * earn a did-you-mean suggestion naming the canonical verb.
  */
 
-/** Retired command paths and the canonical command path each names now. */
+/** Retired command paths and the canonical command path each names now.
+ * Deliberately NOT here: `script`, which is not a retired command but a
+ * grammatical variant of `scripts` — typed input folds to the canonical verb
+ * silently (trailing-s forgiveness), while every surface discern writes spells
+ * `scripts` exclusively. */
 export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   finish: "done",
   graduate: "accept",
@@ -13,9 +17,6 @@ export const RETIRED_COMMAND_REDIRECTS: Readonly<Record<string, string>> = {
   integrate: "update",
   scopes: "impact",
   ratchets: "standards",
-  // Checked before trailing-s folding, so the retired singular refuses with
-  // its successor instead of silently forwarding as a grammatical variant.
-  script: "scripts",
   "config set-ratchet": "config set-standard",
   "config set-capability": "config set-job",
   "config set-check": "config set-job",
