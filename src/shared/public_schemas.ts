@@ -61,8 +61,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "`discern.toml` configuration",
-    contract:
-      "The live configuration file: every section, key, and value type the engine validates.",
+    contract: "Every section, key, and value type the engine validates.",
   },
   {
     id: SETUP_CONFIG_SCHEMA_ID,
@@ -70,8 +69,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: SETUP_CONFIG_SCHEMA_MAJOR,
     compatibility: CONFIG_SCHEMA_COMPATIBILITY_POLICY,
     label: "Setup config document",
-    contract:
-      "The declarative install document consumed by `setup --config` and presets.",
+    contract: "The install document consumed by `setup --config` and presets.",
   },
   {
     id: RESULT_SCHEMA_ID,
@@ -79,7 +77,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     major: RESULT_SCHEMA_MAJOR,
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "Result contracts",
-    contract: "Every `discern <command> --json` and MCP tool result envelope.",
+    contract: "Every CLI `--json` and MCP tool result envelope.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 
