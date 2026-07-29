@@ -38,12 +38,13 @@
  */
 
 import { AGENT_CATALOGUE } from "../../shared/agent_catalogue.ts";
-import type {
-  DetectorFamily,
-  DetectorScope,
-  DetectorStatus,
-  DetectorTier,
-  PatternFindingTone,
+import {
+  type DetectorFamily,
+  type DetectorScope,
+  type DetectorStatus,
+  type DetectorTier,
+  type PatternFindingTone,
+  PATTERNS_SERIES_MAX_POINTS,
 } from "../../shared/patterns_vocabulary.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { type HintFollowThroughRule, HINTS } from "../../shared/hints.ts";
@@ -125,6 +126,8 @@ export interface DetectorFinding {
   brief: string;
   /** Overrides the detector's presentation tone when this finding's facts decide it. */
   tone?: PatternFindingTone;
+  /** Optional bounded numeric series for a compact reading aid. */
+  series?: number[];
   /** The observation as one plain-count sentence. */
   observed: string;
   /** The counts behind the sentence, named. */
@@ -2304,6 +2307,85 @@ const updateFriction: Detector = {
   },
 };
 
+interface TrajectorySeriesPoint {
+  at: string;
+  value: number;
+}
+
+// Leaves room for the subject and brief in the conventional 80-column report;
+// the wire cap remains the authority if it ever falls below this target.
+const STANDARD_TRAJECTORY_SERIES_POINTS = Math.min(
+  16,
+  PATTERNS_SERIES_MAX_POINTS,
+);
+
+/**
+ * Reduce a long trajectory to equal-duration buckets while keeping its first
+ * and last recorded readings exact. The interior buckets divide the full
+ * timestamp span evenly and contribute their arithmetic mean when populated.
+ * A malformed or zero-duration timestamp span falls back to equal ordinal
+ * slices, preserving event order and the same payload cap.
+ */
+function downsampleTrajectorySeries(
+  readings: readonly TrajectorySeriesPoint[],
+): number[] {
+  if (readings.length <= STANDARD_TRAJECTORY_SERIES_POINTS) {
+    return readings.map((reading) => reading.value);
+  }
+  const first = readings[0];
+  const last = readings[readings.length - 1];
+  if (first === undefined || last === undefined) {
+    return [];
+  }
+
+  const bucketCount = STANDARD_TRAJECTORY_SERIES_POINTS - 2;
+  const buckets = Array.from(
+    { length: bucketCount },
+    () => ({ sum: 0, count: 0 }),
+  );
+  const timestamps = readings.map((reading) => Date.parse(reading.at));
+  const start = timestamps[0];
+  const end = timestamps[timestamps.length - 1];
+  const chronological = timestamps.every((timestamp, index) =>
+    Number.isFinite(timestamp) &&
+    (index === 0 || timestamp >= (timestamps[index - 1] ?? timestamp))
+  );
+  const timeSpan = chronological &&
+      start !== undefined &&
+      end !== undefined &&
+      end > start
+    ? { start, end }
+    : undefined;
+
+  for (let index = 1; index < readings.length - 1; index += 1) {
+    const reading = readings[index];
+    if (reading === undefined) {
+      continue;
+    }
+    const fraction = timeSpan !== undefined
+      ? ((timestamps[index] ?? timeSpan.start) - timeSpan.start) /
+        (timeSpan.end - timeSpan.start)
+      : index / (readings.length - 1);
+    const bucketIndex = Math.min(
+      bucketCount - 1,
+      Math.max(0, Math.floor(fraction * bucketCount)),
+    );
+    const bucket = buckets[bucketIndex];
+    if (bucket !== undefined) {
+      bucket.sum += reading.value;
+      bucket.count += 1;
+    }
+  }
+
+  return [
+    first.value,
+    ...buckets
+      .filter((bucket) => bucket.count > 0)
+      .map((bucket) => bucket.sum / bucket.count),
+    last.value,
+  ];
+}
+
 const standardTrajectory: Detector = {
   id: "standard-trajectory",
   title: "Each standard's value and limit over time",
@@ -2447,6 +2529,7 @@ const standardTrajectory: Detector = {
           formatHumanNumber(last.value)
         }${againstLimit} — ${movement}`,
         tone,
+        series: downsampleTrajectorySeries(readings),
         observed: `${pieces.join("; ")}.`,
         evidence: {
           readings: readings.length,

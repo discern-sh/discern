@@ -1,7 +1,8 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertThrows } from "@std/assert";
 import {
   displayWidth,
   renderAlignedTable,
+  sparkline,
   terminalWidth,
   wrapText,
 } from "../src/lib/text.ts";
@@ -19,6 +20,27 @@ Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", ()
   assertEquals(displayWidth("🇬🇧"), 2);
   assertEquals(displayWidth("1️⃣"), 2);
   assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
+});
+
+Deno.test("sparkline scales flat, endpoint, and negative series", () => {
+  assertEquals(sparkline([]), "");
+  assertEquals(sparkline([7]), "▁");
+  assertEquals(sparkline([7, 7, 7]), "▁▁▁");
+  assertEquals(sparkline([-10, 10]), "▁█");
+  assertEquals(sparkline([-10, -5, 0]), "▁▅█");
+});
+
+Deno.test("sparkline refuses non-finite values", () => {
+  assertThrows(
+    () => sparkline([0, Number.NaN]),
+    TypeError,
+    "finite numbers",
+  );
+  assertThrows(
+    () => sparkline([0, Number.POSITIVE_INFINITY]),
+    TypeError,
+    "finite numbers",
+  );
 });
 
 Deno.test("wrapText handles narrow, exact, long-token, empty, and hanging-indent cases", () => {

@@ -4,8 +4,9 @@
  * whether the setup follows best practice, `patterns` whether the practice is
  * actually healthy. It runs the detector registry (`detectors.ts`) over the
  * recorded event stream. The result keeps findings ranked by evidence strength;
- * the human report groups that same order into canonical family sections and
- * collapses repeated detector guidance into one block.
+ * the human report points to the strongest attention findings, groups that same
+ * order into canonical family sections, and collapses repeated detector
+ * guidance into one block.
  *
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * `--json`, and the MCP tool are three renderings of the same object.
@@ -47,6 +48,7 @@ import {
 import {
   displayWidth,
   renderAlignedTable,
+  sparkline,
   terminalWidth,
   wrapText,
 } from "../../lib/text.ts";
@@ -219,6 +221,10 @@ export const PATTERNS_TONE_GLYPHS = {
 export const PATTERNS_TRAJECTORY_CAVEAT =
   "Series crossing configuration or release boundaries keep each segment attributed to its setup.";
 
+/** Heading for the bounded pointer list above the full report sections. */
+export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
+export const PATTERNS_ATTENTION_LIMIT = 3;
+
 const DAY_MS = 86_400_000;
 const PIN_COMMAND = "`discern standards --pin`";
 
@@ -339,6 +345,7 @@ function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
 
 interface FindingRow {
   finding: PatternsFinding;
+  renderedSeries: string;
 }
 
 function renderFindingRows(
@@ -346,8 +353,13 @@ function renderFindingRows(
   findings: readonly PatternsFinding[],
   width: number,
 ): void {
-  const rows = findings.map((finding) => ({ finding }));
-  const prefixes = renderAlignedTable<FindingRow>([
+  const rows = findings.map((finding) => ({
+    finding,
+    renderedSeries: finding.series === undefined
+      ? ""
+      : sparkline(finding.series),
+  }));
+  const basePrefixes = renderAlignedTable<FindingRow>([
     {
       header: "",
       value: (row) => toneGlyph(row.finding.tone, out.c),
@@ -358,10 +370,26 @@ function renderFindingRows(
     },
     { header: "", value: () => "" },
   ], rows).slice(1);
+  const seriesPrefixes = renderAlignedTable<FindingRow>([
+    {
+      header: "",
+      value: (row) => toneGlyph(row.finding.tone, out.c),
+    },
+    {
+      header: "",
+      value: (row) => row.finding.subject ?? "",
+    },
+    { header: "", value: (row) => row.renderedSeries },
+    { header: "", value: () => "" },
+  ], rows).slice(1);
   for (const [index, row] of rows.entries()) {
     writeWrapped(
       out,
-      `    ${prefixes[index] ?? ""}`,
+      `    ${
+        row.renderedSeries === ""
+          ? basePrefixes[index] ?? ""
+          : seriesPrefixes[index] ?? ""
+      }`,
       row.finding.brief,
       width,
     );
@@ -423,6 +451,7 @@ function renderFamily(
   family: DetectorFamily,
   data: PatternsData,
   width: number,
+  titleById: ReadonlyMap<string, string>,
 ): void {
   const familyFindings = data.findings.filter((finding) =>
     finding.family === family
@@ -430,9 +459,6 @@ function renderFamily(
   if (familyFindings.length === 0) {
     return;
   }
-  const titleById = new Map(
-    data.detectors.map((detector) => [detector.id, detector.title]),
-  );
   const groups = findingsByDetector(familyFindings);
   const c = out.c;
   out.raw(
@@ -469,6 +495,38 @@ function renderFamily(
       (line) => `${c.dim}${line}${c.reset}`,
     );
     out.raw("\n");
+  }
+}
+
+function renderAttentionBanner(
+  out: Out,
+  data: PatternsData,
+  width: number,
+  titleById: ReadonlyMap<string, string>,
+): void {
+  // `data.findings` is already strength-ranked. Tone filters that order and
+  // never becomes a second ranking policy.
+  const findings = data.findings
+    .filter((finding) => finding.tone === "attention")
+    .slice(0, PATTERNS_ATTENTION_LIMIT);
+  if (findings.length === 0) {
+    return;
+  }
+
+  const c = out.c;
+  out.raw("\n");
+  out.raw(`  ${c.bold}${PATTERNS_ATTENTION_HEADING}${c.reset}\n`);
+  for (const finding of findings) {
+    const title = titleById.get(finding.detector) ?? finding.detector;
+    const subject = finding.subject === undefined
+      ? ""
+      : ` · ${finding.subject}`;
+    writeWrapped(
+      out,
+      `    ${toneGlyph(finding.tone, c)} `,
+      `${title}${subject}`,
+      width,
+    );
   }
 }
 
@@ -515,6 +573,9 @@ function renderClosingAccount(
 function renderReport(out: Out, data: PatternsData, slug: string): void {
   const c = out.c;
   const width = terminalWidth();
+  const titleById = new Map(
+    data.detectors.map((detector) => [detector.id, detector.title]),
+  );
   out.heading(`discern patterns${slug ? ` · ${slug}` : ""}`);
   writeWrapped(
     out,
@@ -549,6 +610,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
       (line) => `${c.dim}${line}${c.reset}`,
     );
   }
+  renderAttentionBanner(out, data, width, titleById);
   out.raw("\n");
 
   if (data.logbook.events === 0) {
@@ -562,7 +624,7 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   }
 
   for (const family of DETECTOR_FAMILIES) {
-    renderFamily(out, family, data, width);
+    renderFamily(out, family, data, width, titleById);
   }
   renderClosingAccount(out, data, width);
 }

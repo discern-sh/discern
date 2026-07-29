@@ -26,12 +26,12 @@ The history lets later versions answer what a single run can't: which gate step 
 
 Each detector declares a scope and a tier. Scope selects the reader. Tier controls whether a working command may run it ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
-| Reader                | Findings it carries                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`        | Inline branch findings after a qualifying green receipt, capped at 1 line and held to a higher bar.                             |
-| `discern status`      | Inline session findings as observation-plus-next-step hints after setup is complete.                                            |
-| `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                          |
-| `discern patterns`    | Every finding: grouped by canonical family for humans, globally strength-ranked in JSON, with insufficient-evidence accounting. |
+| Reader                | Findings it carries                                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`        | Inline branch findings after a qualifying green receipt, capped at 1 line and held to a higher bar.                                                                          |
+| `discern status`      | Inline session findings as observation-plus-next-step hints after setup is complete.                                                                                         |
+| `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                                                                       |
+| `discern patterns`    | Every finding: up to 3 attention pointers, blocks grouped by family and standard sparklines for humans, globally strength-ranked JSON, and insufficient-evidence accounting. |
 
 The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision. Set `[project].logbook = false` to suppress every working-command finding as well as future recording.
 
@@ -65,13 +65,11 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
 
-`partial` means the command reported an error after an irreversible effect. For acceptance, `landing` says whether this call performed recovery, landed the trunk, removed the worktree, and deleted the branch.
+`partial` marks an error after an irreversible effect. Acceptance's `landing` records recovery, trunk landing, worktree removal, and branch deletion.
 
 ### Landing authority readers
 
-Successful acceptance records `consent.source` and matched configured scope names in top-level `scopes`; no paths or values enter.
-
-`pre-authorized-landings` audits grant use. `grant-suggestion` requires 12 conversational landings in one scope before naming `[acceptance].pre_authorized`. Missing evidence cannot support it; neither reader writes grants.
+Acceptance records only consent source and matched scope names. `pre-authorized-landings` audits grant use. After 12 conversational landings in one scope, `grant-suggestion` can name `[acceptance].pre_authorized`; discern writes no grants.
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 

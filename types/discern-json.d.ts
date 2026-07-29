@@ -2167,6 +2167,7 @@ export type DiscernImprovementResult = {
         tone: "good" | "neutral" | "attention";
         subject?: string;
         brief: string;
+        series?: Array<number>;
         observed: string;
         evidence: {
           [key: string]: number;
@@ -2911,6 +2912,7 @@ export type DiscernPatternsResult = {
       tone: "good" | "neutral" | "attention";
       subject?: string;
       brief: string;
+      series?: Array<number>;
       observed: string;
       evidence: {
         [key: string]: number;

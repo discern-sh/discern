@@ -60,10 +60,13 @@ export const PATTERN_FINDING_TONES = [
 /** One finding tone ({@link PATTERN_FINDING_TONES}). */
 export type PatternFindingTone = (typeof PATTERN_FINDING_TONES)[number];
 
+/** Maximum readings carried by one finding's compact trajectory series. */
+export const PATTERNS_SERIES_MAX_POINTS = 24;
+
 /** One `patterns` finding: which detector spoke, its presentation tone and
- * one-line brief, what it observed (one plain-count sentence), the named
- * counts behind it, and the recommended next step. `strength` is the report's
- * ranking key — unitless, never evidence. */
+ * one-line brief, an optional bounded trajectory series, what it observed (one
+ * plain-count sentence), the named counts behind it, and the recommended next
+ * step. `strength` is the report's ranking key — unitless, never evidence. */
 export const PatternsFindingSchema = z.strictObject({
   detector: z.string(),
   family: z.enum(DETECTOR_FAMILIES),
@@ -71,6 +74,7 @@ export const PatternsFindingSchema = z.strictObject({
   tone: z.enum(PATTERN_FINDING_TONES),
   subject: z.string().optional(),
   brief: z.string(),
+  series: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
   observed: z.string(),
   evidence: z.record(z.string(), z.number()),
   strength: z.number(),
