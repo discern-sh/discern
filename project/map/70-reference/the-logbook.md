@@ -69,9 +69,9 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 
 ### Landing authority readers
 
-Successful acceptance records `consent.source` as `conversation`, `standing-grant`, or `effort-grant`. A standing grant also records the scopes that supplied authority. Fresh landings put every configured scope matched by the changed paths in the event's top-level `scopes` list, whichever consent source they used. This addition records no changed paths or configuration values.
+Successful acceptance records `consent.source` and matched configured scope names in top-level `scopes`; no paths or values enter.
 
-`pre-authorized-landings` audits the source, share, scope split, runs, and rate changes after enough consent-bearing landings exist. `grant-suggestion` looks for 12 uninterrupted conversational landings that all touched the same single scope, then asks the owner to consider adding it to `[acceptance].pre_authorized` on the trunk. It writes no grant. Older lines missing consent or changed-scope names remain readable and cannot support a suggestion.
+`pre-authorized-landings` audits grant use. `grant-suggestion` requires 12 conversational landings in one scope before naming `[acceptance].pre_authorized`. Missing evidence cannot support it; neither reader writes grants.
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
