@@ -278,9 +278,7 @@ function setupOf(
   e: VerbEvent,
   versionInEffectOf: (e: VerbEvent) => string | undefined,
 ): string {
-  return `${e.epoch ?? ""} ${e.writer ?? ""} ${
-    versionInEffectOf(e) ?? ""
-  }`;
+  return `${e.epoch ?? ""} ${e.writer ?? ""} ${versionInEffectOf(e) ?? ""}`;
 }
 
 /**
