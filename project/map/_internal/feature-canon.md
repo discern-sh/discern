@@ -246,7 +246,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `prepare` — prepare
 - `preset` — presets
 - `refresh` — guidance
-- `script` — project-scripts
+- `scripts` — project-scripts
 - `setup` — setup
 - `skills` — skills
 - `standards` — standards
