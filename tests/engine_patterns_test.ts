@@ -25,12 +25,17 @@ import type {
   PatternsData,
   PatternsResetData,
 } from "../src/shared/result_schemas.ts";
-import { DETECTOR_FAMILIES } from "../src/shared/patterns_vocabulary.ts";
+import {
+  DETECTOR_FAMILIES,
+  PATTERNS_SERIES_MAX_POINTS,
+} from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { displayWidth } from "../src/lib/text.ts";
+import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
   inclusiveSpanDays,
+  PATTERNS_ATTENTION_HEADING,
+  PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
   PATTERNS_TONE_GLYPHS,
   PATTERNS_TRAJECTORY_CAVEAT,
@@ -391,6 +396,52 @@ async function seedCollapsedReportLogbook(dir: string): Promise<void> {
   );
 }
 
+/** Seed 200 readings whose value dips and recovers to its exact first value. */
+async function seedLongTrajectoryLogbook(dir: string): Promise<number[]> {
+  const total = 200;
+  const midpoint = (total - 1) / 2;
+  const values = Array.from(
+    { length: total },
+    (_, index) => 70 + (Math.abs(index - midpoint) / midpoint) * 10,
+  );
+  const events = values.map((value, index) => ({
+    schema: 1,
+    at: new Date(
+      Date.UTC(2026, 6, 1) + index * 3_600_000,
+    ).toISOString(),
+    kind: "verb",
+    verb: "standards",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: {
+      session: "cli:trajectory",
+      json: true,
+      tty: false,
+      ci: false,
+    },
+    branch: "agent/trajectory",
+    head: `trajectory-${index}`,
+    clean: true,
+    outcome: "ok",
+    duration_ms: 100,
+    standards: [{
+      name: "recovery",
+      direction: "up",
+      limit: 90,
+      value,
+      verdict: "unchanged",
+    }],
+    epoch: "e1",
+  }));
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+  );
+  return values;
+}
+
 function normalized(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
@@ -562,6 +613,13 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     await scaffoldEngine(dir);
     await gitInit(dir);
     await seedLogbook(dir);
+    const result = await patternsResult(dir);
+    assert(result.ok && result.data !== undefined);
+    const thrash = result.data.findings.find((finding) =>
+      finding.detector === "done-thrash"
+    );
+    assert(thrash !== undefined);
+    assertEquals(thrash.series, undefined);
     const r = await runAgent(dir, ["patterns"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.output, "discern patterns");
@@ -570,6 +628,62 @@ Deno.test("patterns: the human report carries the findings and the advisory boun
     assertStringIncludes(r.output, "Claude Code 1");
     assertStringIncludes(r.output, "Advisory only");
     assertStringIncludes(r.output, "→");
+    assertStringIncludes(
+      r.output,
+      `    !  ${thrash.subject ?? ""}  ${thrash.brief}`,
+      "a row without series must keep the 2A spacing",
+    );
+  });
+});
+
+Deno.test("patterns: a 200-reading standard stays bounded on the wire and renders one sparkline", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const rawValues = await seedLongTrajectoryLogbook(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const data = parsed.data as PatternsData;
+    const trajectory = data.findings.find((finding) =>
+      finding.detector === "standard-trajectory" &&
+      finding.subject === "recovery"
+    );
+    assert(trajectory !== undefined);
+    assert(trajectory.series !== undefined);
+    assert(
+      trajectory.series.length <= PATTERNS_SERIES_MAX_POINTS,
+      `${trajectory.series.length}-point series exceeds the wire cap`,
+    );
+    assertEquals(trajectory.series[0], rawValues[0]);
+    assertEquals(
+      trajectory.series[trajectory.series.length - 1],
+      rawValues[rawValues.length - 1],
+    );
+    assertEquals(
+      data.findings.filter((finding) => finding.series !== undefined).length,
+      1,
+      "only the standard trajectory may carry a series",
+    );
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assert(!human.output.includes("\x1b["), "NO_COLOR must emit no ANSI");
+    assertStringIncludes(human.output, sparkline(trajectory.series));
+    assert(
+      !human.output.includes(PATTERNS_ATTENTION_HEADING),
+      "a neutral trajectory must not grow an empty attention banner",
+    );
+    for (const [index, line] of human.output.trimEnd().split("\n").entries()) {
+      assert(
+        displayWidth(line) <= 80,
+        `80-column line ${index + 1} is ${displayWidth(line)} columns: ${line}`,
+      );
+    }
   });
 });
 
@@ -626,6 +740,50 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       assertStringIncludes(plain, "(identified:");
     }
 
+    // The banner filters the existing strength order without re-sorting it,
+    // carries no body prose, and points to blocks that remain below.
+    const attention = data.findings.filter((finding) =>
+      finding.tone === "attention"
+    );
+    assert(
+      attention.length > PATTERNS_ATTENTION_LIMIT,
+      "the fixture needs enough attention findings to prove the cap",
+    );
+    const bannerStart = lines.findIndex((line) =>
+      line.trim() === PATTERNS_ATTENTION_HEADING
+    );
+    assert(bannerStart >= 0, "attention findings need a banner");
+    const firstSection = lines.findIndex((line) =>
+      line.includes(PATTERNS_FAMILY_SECTIONS.trajectory.heading)
+    );
+    assert(firstSection > bannerStart, "the banner belongs above the sections");
+    const bannerLines = lines.slice(bannerStart + 1, firstSection);
+    const bannerGlyphLines = bannerLines.filter((line) =>
+      line.startsWith("    ! ")
+    );
+    assertEquals(bannerGlyphLines.length, PATTERNS_ATTENTION_LIMIT);
+    const bannerText = normalized(bannerLines.join("\n"));
+    const titleById = new Map(
+      data.detectors.map((detector) => [detector.id, detector.title]),
+    );
+    let previousFinding = -1;
+    for (const finding of attention.slice(0, PATTERNS_ATTENTION_LIMIT)) {
+      const title = titleById.get(finding.detector) ?? finding.detector;
+      const subject = finding.subject === undefined
+        ? ""
+        : ` · ${finding.subject}`;
+      const index = bannerText.indexOf(normalized(`! ${title}${subject}`));
+      assert(
+        index > previousFinding,
+        `${finding.detector} is out of rank order`,
+      );
+      previousFinding = index;
+      assert(
+        lines.slice(firstSection).some((line) => line.trim() === title),
+        `${title} must also name its full block below`,
+      );
+    }
+
     // The canonical family vocabulary owns section order. The total
     // presentation record makes a new family fail type-checking until titled.
     let previousSection = -1;
@@ -659,11 +817,21 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
       line.slice(5, 7) === "  "
     );
     assertEquals(glyphRows.length, data.findings.length);
+    const seriesFindings = data.findings.filter((finding) =>
+      finding.series !== undefined
+    );
+    const sparklineRows = lines.filter((line) => /[▁▂▃▄▅▆▇█]/u.test(line));
+    assertEquals(sparklineRows.length, seriesFindings.length);
+    for (const finding of seriesFindings) {
+      assertEquals(finding.detector, "standard-trajectory");
+      assert(finding.series !== undefined);
+      assertStringIncludes(human.output, sparkline(finding.series));
+    }
     const rowKeys = new Map<string, number>();
     for (const finding of data.findings) {
       const key = normalized(
-        `${
-          finding.subject === undefined ? "" : finding.subject
+        `${finding.subject === undefined ? "" : finding.subject} ${
+          finding.series === undefined ? "" : sparkline(finding.series)
         } ${finding.brief}`,
       );
       rowKeys.set(key, (rowKeys.get(key) ?? 0) + 1);
