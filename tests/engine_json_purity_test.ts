@@ -335,11 +335,11 @@ interface PredicateFixture {
  */
 const PREDICATE_FIXTURES: readonly PredicateFixture[] = [
   {
-    contractId: "config-has",
+    contractId: "configHas",
     values: { true: "project.slug", false: "missing.key" },
   },
   {
-    contractId: "impact-has",
+    contractId: "impactHas",
     values: { true: "code", false: "missing-scope" },
   },
 ];

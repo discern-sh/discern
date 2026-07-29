@@ -263,6 +263,26 @@ Deno.test("predicate invocation contracts publish their subject and boolean payl
   assertEquals(CLI_PREDICATE_STATES, ["true", "false"]);
 });
 
+Deno.test("contract and predicate ids are lowerCamelCase identifiers", () => {
+  // The ids seed generated $defs, TypeScript type names, and fixture keys, so
+  // they follow one shape: lowerCamelCase, no separators. Two kebab-case
+  // predicate ids once slipped through; this holds every current and future id
+  // to the sibling convention (setupVerify, patternsReset, worktreePrune, …).
+  const ID_SHAPE = /^[a-z][a-zA-Z0-9]*$/;
+  for (const contract of CLI_JSON_RESULT_CONTRACTS) {
+    assert(
+      ID_SHAPE.test(contract.id),
+      `contract id "${contract.id}" is not lowerCamelCase`,
+    );
+    for (const predicate of contract.predicates ?? []) {
+      assert(
+        ID_SHAPE.test(predicate.id),
+        `predicate id "${predicate.id}" is not lowerCamelCase`,
+      );
+    }
+  }
+});
+
 Deno.test("CLI JSON exclusions are intentional non-result surfaces with reasons", () => {
   assertEquals(
     CLI_JSON_CONTRACT_EXCLUSIONS.map((entry) => entry.command),

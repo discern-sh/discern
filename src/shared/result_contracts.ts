@@ -111,6 +111,12 @@ export interface ResultContract {
 
 export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
   {
+    // Deliberately contracted, not excluded: bare `discern --json` emits a real
+    // DiscernResult on stdout — the machine-mode command-required refusal — so
+    // the one-result protocol genuinely owns that stdout, and the generated
+    // type documents the envelope a tool consumer actually receives. The
+    // excluded paths (`help`, `mcp`, the hook namespace) hand stdout to some
+    // OTHER protocol; the root does not.
     id: "discern",
     commands: ["discern"],
     verb: "discern",
@@ -208,7 +214,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     verb: "config",
     schema: ConfigOutputSchema,
     predicates: [{
-      id: "config-has",
+      id: "configHas",
       command: "config has",
       subjectPath: ["data", "key"],
       presentPath: ["data", "present"],
@@ -269,7 +275,7 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     schema: ImpactOutputSchema,
     mcpTool: "discern_impact",
     predicates: [{
-      id: "impact-has",
+      id: "impactHas",
       command: "impact",
       option: "--has",
       subjectPath: ["data", "membership", "scope"],
