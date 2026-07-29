@@ -1467,7 +1467,7 @@ Rendered example:
 Rendered example:
 
 ```text
-Re-root or cd into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If you can't change your working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
+Re-root into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If your client already permits file writes there but can't change its working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. If it asks for approval on external file edits, open the returned worktree as the workspace in a fresh session instead of approving files one by one. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
 ```
 
 ## `start-name-fallback`

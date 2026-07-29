@@ -2508,13 +2508,12 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
   });
 });
 
-Deno.test("the can't-re-root fallback is one shared pattern across every shipped surface", () => {
+Deno.test("the re-root and fixed-root fallback is one safe pattern across every shipped surface", () => {
   // An agent that cannot change its working root must read the SAME fallback —
   // prefix every shell command with `cd <path> &&`, and pass `path` to every
-  // discern tool — whether it looks at the compiled worktree guidance, the
-  // discern_start MCP result hint, or the MCP server instructions. Hold all three
-  // to both halves at once, driven off the same predicate, so none can teach
-  // half the pattern.
+  // discern tool — but an editor that protects external files must instead open
+  // the worktree as its workspace rather than approval-gate each edit. Hold all
+  // three to the full pattern at once, so none teaches the unsafe half alone.
   const mcpHint = mcpStartHint("/wt/x");
   assertHasMcpHint(
     { hints: [mcpHint] },
@@ -2522,7 +2521,7 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
     { path: "/wt/x" },
   );
   const surfaces: Record<string, string> = {
-    "compiled guidance (worktrees.md)": Deno.readTextFileSync(
+    "worktree guidance template": Deno.readTextFileSync(
       new URL("../templates/guidance/worktrees.md", import.meta.url),
     ),
     "discern_start MCP hint": mcpHint,
@@ -2533,6 +2532,16 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
     assert(
       /pass\s+`?path/i.test(text),
       `${name} must say to pass \`path\` to every discern tool: ${text}`,
+    );
+    assert(
+      /open[^.\n]{0,80}(worktree|returned path)[^.\n]{0,80}workspace/i.test(
+        text,
+      ),
+      `${name} must tell protected editors to open the worktree as their workspace: ${text}`,
+    );
+    assert(
+      /(approval|approve)[^.\n]{0,80}(edit|file)/i.test(text),
+      `${name} must explain why external edit approvals are not the fallback: ${text}`,
     );
   }
 });

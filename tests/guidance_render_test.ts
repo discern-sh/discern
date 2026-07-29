@@ -61,6 +61,27 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
   }
 });
 
+Deno.test("renderAgentFiles: protected editors receive the safe worktree handoff", async () => {
+  const dir = await scaffold('["cursor"]');
+  try {
+    const files = await renderAgentFiles(dir);
+    const agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assert(
+      /open[^.\n]{0,80}(worktree|returned path)[^.\n]{0,80}workspace/i.test(
+        agents,
+      ),
+      "compiled guidance must tell protected editors to open the worktree as their workspace",
+    );
+    assert(
+      /(approval|approve)[^.\n]{0,80}(edit|file)/i.test(agents),
+      "compiled guidance must explain why per-file edit approvals are not the fallback",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("renderAgentFiles: the compiled file opens as the project's own — [project].name, else the slug", async () => {
   const dir = await scaffold();
   try {

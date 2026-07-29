@@ -19,18 +19,24 @@ discern's Cursor integration is project-local and registry-driven. It writes, co
 | `.cursor/mcp.json`   | Project MCP server entry                   | Shared, tracked                 |
 | `.cursor/hooks.json` | Session-start hook                         | Shared, tracked                 |
 
-Cursor is not in `DEFAULT_AGENTS`; add `"cursor"` to `[project].agents` to wire its provider-specific config.
+Cursor is not in `DEFAULT_AGENTS`. A fresh setup adds it when Cursor installation evidence is present. Explicit `[project].agents` remains the fallback.
 
 ## Using the IDE
 
-Setup auto-detection sees PATH binaries, so it cannot detect a Cursor IDE user without `cursor-agent` on PATH. Add `cursor` explicitly under `[project].agents`, then run `discern refresh`:
+`discern setup` detects Cursor from the separate [`cursor-agent` terminal agent](https://docs.cursor.com/en/cli/installation), the editor's `cursor` shell command, or a conventional application location declared for the host operating system. A portable AppImage can live anywhere, so a nonstandard install may still need explicit configuration.
+
+Add `cursor` under `[project].agents`, then run `discern refresh`:
 
 ```toml
-[guidance]
+[project]
 agents = ["cursor"]
 ```
 
-If the project already lists other agents, include `cursor` in that same array. IDE marker detection is a future option; explicit config is the reliable path today.
+If the project already lists other agents, include `cursor` in that same array.
+
+## Editing in discern worktrees
+
+Cursor's External File Protection treats discern's sibling worktree as external while the window stays rooted at the main checkout. [Open the returned path as the editor workspace](../30-worktrees/editor-workspaces.md) before editing. Keep the protection enabled. discern does not replace it with a broad user setting or CLI-only permission.
 
 ## Guidance and skills
 
@@ -77,13 +83,13 @@ The discern-owned Cursor hook seed is:
 
 `discern refresh` re-seeds this hook idempotently and preserves unrelated Cursor hook groups. The hook keeps a Cursor session re-ready when opened or resumed inside a discern worktree.
 
-discern does not set Cursor sandbox options, static command allow lists, workspace-write paths, model settings, or approval defaults. Those remain user or project choices.
+discern does not set Cursor sandbox options, static command allow lists, model settings, or approval defaults. Those remain user or project choices.
 
 ## Runtime behavior and gotchas
 
 Committed `.cursor/` config is gated by Cursor workspace trust. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
 
-Cursor's workspace root is pinned at launch with `--workspace` or the launch cwd. A running session cannot move its project root into a discern worktree. Use `discern start` / `discern_start` to create the worktree, then launch Cursor with that worktree as its workspace when the agent's shell needs to live there.
+A running agent session does not move its editor workspace when `discern_start` returns a new path. Follow the returned re-root hint or the [editor workspace guide](../30-worktrees/editor-workspaces.md) before editing.
 
 Cursor has a `sessionStart` hook for the setup step, but no worktree create/remove hook contract. discern owns worktree creation, integration, and acceptance through its CLI and MCP verbs.
 

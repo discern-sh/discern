@@ -23,14 +23,14 @@ GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[project].agents`
 
 ## Using the IDE
 
-Setup auto-detection sees PATH binaries, so it cannot detect a GitHub Copilot IDE user without the Copilot CLI on PATH. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
+GitHub Copilot currently declares no IDE installation evidence, so `discern setup` sees it only when the `copilot` terminal CLI is on `PATH`. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
 
 ```toml
-[guidance]
+[project]
 agents = ["copilot"]
 ```
 
-If the project already lists other agents, include `copilot` in that same array. IDE marker detection is a future option; explicit config is the reliable path today.
+If the project already lists other agents, include `copilot` in that same array. Explicit config is the reliable path for an IDE-only install.
 
 ## Guidance and skills
 

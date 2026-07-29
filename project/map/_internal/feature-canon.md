@@ -117,7 +117,7 @@ _Author once; every agent — cloud agents included — reads the same page._
   - **Cursor** — Reuses the canonical `AGENTS.md` and gets its own hooks and MCP wiring under `.cursor/`.
   - **GitHub Copilot** — Reuses the canonical `AGENTS.md`, with hook wiring under `.github/`, sharing the co-owned `.mcp.json` through one writer.
 - **Session and lifecycle hooks** — Provider hooks run `discern worktree ensure` at session start — idempotent re-readiness plus a reminder while setup is unfinished — and hand worktree create/remove events to the binary, with no `jq` or shell parsing in between. _A session starts ready, or says what's missing, before any work begins._
-- **Detection at setup** — A fresh install resolves its default agent set by detecting the agents present on `PATH`, and a wider identity catalogue recognizes the agent driving a session as advisory logbook evidence.
+- **Detection at setup** — A fresh install resolves its default agent set from each provider's declared installation evidence: terminal launchers, editor commands, and conventional application locations. The desk still offers only terminal agents it can launch from `PATH`, while a separate identity catalogue recognizes the agent driving a session as advisory logbook evidence.
 
 ## Skills
 

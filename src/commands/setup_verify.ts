@@ -7,8 +7,8 @@
  * `docs/` folder of its own (the map lives at its own default home and never touches
  * it — the consent message reassures rather than offers to adopt it; ADR 0100, ADR
  * 0131), a pre-existing agent-instructions file `begin` will fold into the
- * guidance source, the agents detected on PATH (ADR 0069), and the exact sibling path
- * the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
+ * guidance source, the agents detected as installed (ADR 0069), and the exact sibling
+ * path the worktrees will use (ADR 0052) — then serves the agent a ready-to-relay `guidance`
  * block (the pre-composed "message to your human": what discern adds, what it will do
  * and cost, the model question, the worktree location) it relays and
  * then runs `begin`. The
@@ -281,8 +281,8 @@ function printPreflight(p: {
     } — begin preserves it (folded into ${SOURCE_PATHS.guidance.defaultPath})`
     : `none yet — begin seeds ${SOURCE_PATHS.guidance.defaultPath}`;
   const agents = p.detected.length > 0
-    ? `detected on PATH: ${p.detected.join(", ")}`
-    : `none detected on PATH — begin will default to ${
+    ? `detected on this machine: ${p.detected.join(", ")}`
+    : `none detected on this machine — begin will default to ${
       p.effectiveAgents.join(", ")
     }`;
 

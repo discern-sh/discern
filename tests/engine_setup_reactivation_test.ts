@@ -56,6 +56,17 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
             `trust action — the wired config would stay inert with no explanation`,
         );
       }
+      if (provider.worktreeAccess !== undefined) {
+        assert(
+          step.includes(provider.worktreeAccess.hint),
+          `"${name}" needs a provider-specific linked-worktree action, but its ` +
+            "setup-done handoff omits it",
+        );
+        assert(
+          !step.includes(".."),
+          `"${name}" setup handoff joins trust and worktree instructions with duplicate punctuation`,
+        );
+      }
     } else {
       // It wires nothing that loads at session start (a reuse-canonical agent with no
       // MCP, hooks, or project rules) → it MUST NOT be told to restart for nothing.

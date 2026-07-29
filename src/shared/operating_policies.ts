@@ -34,8 +34,11 @@ export const OPERATING_POLICIES = [
       "it returns the new worktree's path and re-aims these tools at it, so your " +
       "later done/update/accept calls operate on the new worktree automatically. " +
       "You must still move your OWN file operations into that path: re-root " +
-      "there, or if you can't change your working root, prefix every shell " +
-      "command with `cd <path> &&` and pass `path` to every discern tool. " +
+      "there. If your client already permits file writes there but can't change " +
+      "its working root, prefix every shell command with `cd <path> &&` and pass " +
+      "`path` to every discern tool. If it asks for approval on external file " +
+      "edits, open the returned worktree as the workspace in a fresh session " +
+      "instead of approving files one by one. " +
       "Otherwise edits land on the trunk while the gate runs in the worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],

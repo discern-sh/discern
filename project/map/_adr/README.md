@@ -216,6 +216,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0220 — Self-supplied commands count for nothing in setup assurance](0220-self-supplied-commands-count-for-nothing-in-assurance.md)
 - [0221 — Depth-indent discern.toml as the canonical tidy convention](0221-depth-indent-discern-toml.md)
 - [0222 — The frozen contract surface completes the vocabulary canon before the first tag](0222-frozen-contracts-complete-the-canon.md)
+- [0223 — Setup separates installation evidence from terminal launchers](0223-setup-separates-installation-evidence-from-terminal-launchers.md)
+- [0224 — Protected editors open the worktree as the workspace](0224-protected-editors-open-the-worktree-as-the-workspace.md)
 
 <!-- END GENERATED: current ADR records -->
 
