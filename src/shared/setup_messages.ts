@@ -178,8 +178,8 @@ export function consentMessage(ctx: ConsentContext): string {
   const command = confirmedBeginCommand();
 
   const plan = gitRepo
-    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green."
-    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's docs and guidance, wire up the quality checks, and prove it green.";
+    ? "The plan: I'll study the repo, come back with one short batch of questions, author the project's map and guidance, wire up the quality checks, and prove it green."
+    : "The plan: I'll initialize git first (`git init` — the safety net below needs it), then study the project, come back with one short batch of questions, author the project's map and guidance, wire up the quality checks, and prove it green.";
   const safety = gitRepo
     ? "It's safe and reversible: I work on a dedicated `discern-setup` branch, so nothing touches your main branch until you merge, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service."
     : "It's safe and reversible: once git is initialized I work on a dedicated `discern-setup` branch, you can undo it all by deleting that branch (or later with `discern uninstall`), and there's no API key or outside service.";
@@ -195,7 +195,7 @@ export function consentMessage(ctx: ConsentContext): string {
     "  • isolated working copies (git worktrees) — each task gets its own copy, so parallel work never collides;",
     "  • shared project instructions — one place that tells every coding session how this project works; the agent files are committed, so cloud sessions read them too.",
     "",
-    `  • On disk, discern itself owns one root file (\`discern.toml\`), one visible \`discern/\` folder — a deferred-work ledger and those shared instructions — and a map of your codebase at \`${SOURCE_PATHS.map.defaultPath}\` (docs your agents keep current for you to audit). It also updates the files your coding tools require, committed openly for review.`,
+    `  • discern owns one root file (\`discern.toml\`), one visible \`discern/\` folder — a deferred-work ledger and those shared instructions — and a map of your codebase at \`${SOURCE_PATHS.map.defaultPath}\`: an agent-maintained account of how the codebase fits together, kept current for your audit. It updates the files your coding tools require, committed for review.`,
     ...(docsExists
       ? [
         "",

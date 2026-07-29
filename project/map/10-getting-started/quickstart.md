@@ -30,11 +30,11 @@ In your project, tell your agent:
 
 > Set this project up with discern.
 
-The agent runs `discern`, and discern walks it through a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing anything, discern serves a consent message for the agent to relay, naming what it will write: one `discern.toml` at the repo root, a visible `discern/` folder for content you own, the documentation map, the agent files each coding agent reads, and a delimited `.gitignore` block. Everything authored is plain Markdown, and `discern uninstall` removes the wiring.
+The agent runs `discern`, and discern walks it through a staged setup ([ADR 0075](../_adr/0075-setup-staged-handshake.md)). Before writing anything, discern serves a consent message for the agent to relay, naming what it will write: one `discern.toml` at the repo root, a visible `discern/` folder for content you own, the agent-maintained map, the agent files each coding agent reads, and a delimited `.gitignore` block. Everything authored is plain Markdown, and `discern uninstall` removes the wiring.
 
 Answer in plain language — "yes, go ahead; set up Claude Code and Codex." The agent can't proceed until you've said yes ([ADR 0086](../_adr/0086-setup-serves-relay-messages-and-a-consent-attestation.md)).
 
-Setup then happens as ordinary file edits on a separate `discern-setup` branch, so your `main` is untouched until you land it. The format job already contains `discern tidy` for discern-owned Markdown and the root config; the agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first docs under that live gate. From that point on, every agent you configured reads the same compiled instructions and runs the same commands.
+Setup then happens as ordinary file edits on a separate `discern-setup` branch, so your `main` is untouched until you land it. The format job already contains `discern tidy` for discern-owned Markdown and the root config; the agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first map pages under that live gate. From that point on, every agent you configured reads the same compiled instructions and runs the same commands.
 
 ## 3. Let setup prove itself
 
