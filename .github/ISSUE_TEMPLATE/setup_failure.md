@@ -39,6 +39,6 @@ The error or message that stopped setup (paste the command's output).
 ## Environment
 
 - discern version (`discern --version`):
-- OS / architecture (and WSL, if on Windows):
+- OS / architecture (and Windows Subsystem for Linux version, if used):
 - Coding agent and model, if known:
-- Is the project a git repository? Which branch was checked out?
+- Is the project a git repository? Which branch did you have checked out?

@@ -35,7 +35,7 @@ What you expected to happen instead.
 ## Environment
 
 - discern version (`discern --version`):
-- OS / architecture (and WSL, if on Windows):
+- OS / architecture (and Windows Subsystem for Linux version, if used):
 - Coding agent(s) in use (Claude Code, Codex, Gemini, Cursor, Copilot):
 
 ## Anything else
