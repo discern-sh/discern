@@ -3129,7 +3129,7 @@ Deno.test("discern mcp: the rendered surface names the project's configured trun
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    // Customise the integration branch — the value the graduate_to / guidance.sources
+    // Customise the trunk — the value the graduate_to / guidance.sources
     // fixes proved the agent files must reflect. The MCP surface must reflect it too:
     // a description that names the branch shows the REAL one, never a baked-in "main".
     const set = await runAgent(dir, [

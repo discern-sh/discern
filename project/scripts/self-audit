@@ -83,13 +83,13 @@ try {
   const changedFiles = Number.isFinite(git.changed_files)
     ? git.changed_files
     : "unknown";
-  const behind = git.behind_integration ?? "unknown";
-  const ahead = git.ahead_integration ?? "unknown";
+  const behind = git.behind_trunk ?? "unknown";
+  const ahead = git.ahead_trunk ?? "unknown";
 
   console.log("discern scripts self-audit");
   console.log(`Root: ${data.root || "(unknown)"}`);
   console.log(`Location: ${data.location || "unknown"}`);
-  console.log(`Branch: ${git.branch || "unknown"} -> ${git.integration_branch || "main"}`);
+  console.log(`Branch: ${git.branch || "unknown"} -> ${git.trunk || "main"}`);
   console.log(`Git: ${git.clean ? "clean" : `${changedFiles} changed`} (${ahead} ahead, ${behind} behind)`);
   console.log(`Gate receipt: ${gateReceipt(data.gate_receipt)}`);
   console.log(`Changed scopes: ${list(scopes)}`);
