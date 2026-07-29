@@ -111,11 +111,11 @@ function analyzableVerbs(events: readonly LogbookEvent[]): VerbEvent[] {
 
 /** True for an event recorded during the project's one-time setup: work on
  * the dedicated setup branch is a project being configured, not the practice
- * the detectors describe — gate runs there measure a half-wired gate, and
- * their durations and outcomes would read as trends about a setup that no
- * longer exists. Reader-side interpretation: the events stay recorded, and a
- * revised reading covers all history. Prune digests carry no branch and are
- * never setup-era. */
+ * the detectors describe — gate runs there measure a half-wired gate, so
+ * their durations and outcomes describe the wiring, not the finished setup.
+ * Reader-side interpretation: the events stay recorded, and a revised
+ * reading covers all history. Prune digests carry no branch and are never
+ * setup-era. */
 function setupEraEvent(e: LogbookEvent): boolean {
   return e.kind !== "prune" && e.branch === SETUP_BRANCH;
 }
