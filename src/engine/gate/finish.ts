@@ -432,7 +432,7 @@ async function runGate(
   if (merged.kind === "behind") {
     failedStage = "merge";
   } else if (merged.kind === "missing") {
-    mergeWarning = fire(HINTS["missing-integration-branch"], {
+    mergeWarning = fire(HINTS["missing-trunk-branch"], {
       branch: merged.branch,
     });
     out.warn(mergeWarning.text);

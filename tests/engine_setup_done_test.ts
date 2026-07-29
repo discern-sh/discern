@@ -795,7 +795,7 @@ Deno.test("discern setup isolates a fresh install on the discern-setup branch (A
   });
 });
 
-Deno.test("discern setup begin refuses to start from a feature branch when the integration branch exists", async () => {
+Deno.test("discern setup begin refuses to start from a feature branch when the trunk exists", async () => {
   // A setup branch forks from the CURRENT HEAD, and `setup accept` later
   // fast-forwards the integration branch to it — so a setup begun on a
   // feature branch would sweep that branch's unmerged commits onto `main`.
@@ -819,7 +819,7 @@ Deno.test("discern setup begin refuses to start from a feature branch when the i
 
     const r = await runAgent(dir, ["setup", "begin", "--confirmed", "--json"]);
     assertEquals(r.code, 1, r.output);
-    assertEquals(JSON.parse(r.stdout).error, "not_on_integration_branch");
+    assertEquals(JSON.parse(r.stdout).error, "not_on_trunk");
 
     // Nothing was scaffolded and no setup branch was created.
     assert(!(await exists(join(dir, "discern.toml"))));

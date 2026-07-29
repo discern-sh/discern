@@ -976,7 +976,7 @@ Rendered example:
 Restart your agent session or reload its MCP servers to replace MCP server v1.4.0 with installed v1.5.0. Until then, its results can conflict with the current CLI and rewrite generated files from different builds. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
 ```
 
-## `missing-integration-branch`
+## `missing-trunk-branch`
 
 - Category: `next-step`
 - Audience: `all`

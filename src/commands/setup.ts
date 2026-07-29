@@ -1547,8 +1547,8 @@ async function ensureSetupBranch(
       cwd: destDir,
     })).success;
   // Fresh creation only (a resume checks out the existing branch as-is): refuse
-  // to fork the setup branch off anything but the integration branch, so the
-  // later `setup accept` can never sweep a feature branch's own commits onto it.
+  // to fork the setup branch off anything but the trunk, so the later
+  // `setup accept` can never sweep a feature branch's own commits onto it.
   if (!exists && integrationBranchName !== undefined) {
     const targetExists = (await runGit(
       [
@@ -1571,7 +1571,7 @@ async function ensureSetupBranch(
         log.result({
           ok: false,
           verb: "setup",
-          error: "not_on_integration_branch",
+          error: "not_on_trunk",
           message,
         });
       } else {

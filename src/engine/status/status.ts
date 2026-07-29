@@ -212,7 +212,7 @@ export async function statusResult(
       ? 0
       : Number(merged.behind) || 0;
     if (merged.kind === "missing") {
-      mergeWarning = fire(HINTS["missing-integration-branch"], {
+      mergeWarning = fire(HINTS["missing-trunk-branch"], {
         branch: merged.branch,
       });
     }

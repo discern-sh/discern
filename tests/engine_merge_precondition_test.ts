@@ -144,7 +144,7 @@ Deno.test("done warns when the configured trunk is missing locally", async () =>
     const obj = JSON.parse(json.stdout);
     const expected = assertHasHint(
       obj,
-      HINTS["missing-integration-branch"],
+      HINTS["missing-trunk-branch"],
       { branch: "main" },
     );
     assertStringIncludes(human.output, expected);

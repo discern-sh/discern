@@ -70,7 +70,7 @@ export function integrationBranch(
 
 /** One-line warning when the configured integration branch cannot be checked. */
 export function missingIntegrationBranchWarning(branch: string): string {
-  return fire(HINTS["missing-integration-branch"], { branch }).text;
+  return fire(HINTS["missing-trunk-branch"], { branch }).text;
 }
 
 /**

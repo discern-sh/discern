@@ -296,7 +296,7 @@ export const ERROR_SLUGS = [
   "not_found",
   "not_initialized",
   "not_main_checkout",
-  "not_on_integration_branch",
+  "not_on_trunk",
   "not_set_up",
   "not_setup_branch",
   "partial_acceptance",

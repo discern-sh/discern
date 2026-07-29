@@ -387,9 +387,9 @@ export const HINTS = {
     },
   }),
 
-  /** One-line warning when the configured integration branch cannot be checked. */
-  "missing-integration-branch": defineHint<{ branch: string }>({
-    id: "missing-integration-branch",
+  /** One-line warning when the configured trunk branch cannot be checked. */
+  "missing-trunk-branch": defineHint<{ branch: string }>({
+    id: "missing-trunk-branch",
     category: "next-step",
     audience: "all",
     when: "The configured trunk branch is unavailable for the merge check.",
