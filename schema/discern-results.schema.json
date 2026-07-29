@@ -11655,6 +11655,12 @@
                     "source"
                   ]
                 },
+                "scopes_changed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "landing": {
                   "type": "object",
                   "properties": {
