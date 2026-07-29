@@ -1491,7 +1491,70 @@ Deno.test("accept gives unknown trunk grants zero authority and reports them", a
   });
 });
 
-Deno.test("accept falls back loudly when trunk authority is unreadable and confirmed cannot bypass malformed policy", async () => {
+Deno.test("conversation consent lands the branch that outgrew the trunk's committed policy schema", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Valid TOML carrying a section the current schema no longer recognizes:
+    // the committed record predates the engine reading it, and the branch
+    // being landed is itself the migration that repairs it.
+    await writeConfig(
+      dir,
+      `${authorityConfig()}\n[retired_levers]\nenabled = true\n`,
+    );
+    await gitInit(dir);
+    const worktree = await addWorktree(dir, "schema-migration");
+    await writeConfig(worktree, authorityConfig());
+    await commitPaths(worktree, { "docs/migration.md": "migrated\n" });
+
+    const flagless = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(flagless.code, 1, flagless.output);
+    const refusal = JSON.parse(flagless.stdout);
+    assertEquals(refusal.error, "awaiting_consent");
+    assertStringIncludes(refusal.message, "could not be checked");
+    assertStringIncludes(
+      refusal.message,
+      "does not match the current config schema",
+    );
+    assertStringIncludes(refusal.message, "retired_levers");
+
+    const branch = await gitOut(worktree, "branch", "--show-current");
+    await grantEffort(worktree, branch, "2026-07-29T08:00:00.000Z");
+    const effort = await runAgent(worktree, ["accept", "--json"]);
+    assertEquals(effort.code, 1, effort.output);
+    assertStringIncludes(
+      effort.stdout,
+      "could not be checked",
+      "a recorded effort grant must not bypass an unreadable policy record",
+    );
+
+    const confirmed = await runAgent(worktree, [
+      "accept",
+      "--confirmed",
+      "--json",
+    ]);
+    assertEquals(confirmed.code, 0, confirmed.output);
+    const envelope = JSON.parse(confirmed.stdout);
+    assertEquals(envelope.data.consent, { source: "conversation" });
+    assert(
+      (envelope.data.authority_warnings ?? []).some((warning: string) =>
+        warning.includes("does not match the current config schema")
+      ),
+      confirmed.stdout,
+    );
+    assertStringIncludes(
+      envelope.data.receipt_line,
+      "landed with conversation consent",
+    );
+    assertEquals(await exists(worktree), false);
+    const landedConfig = await Deno.readTextFile(join(dir, "discern.toml"));
+    assert(
+      !landedConfig.includes("retired_levers"),
+      "the landing itself must repair the committed record",
+    );
+  });
+});
+
+Deno.test("accept falls back loudly when trunk authority is unreadable and recorded grants stay blocked", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, "[acceptance\npre_authorized = [\n");
@@ -1517,13 +1580,25 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and confi
       "a recorded effort grant must not bypass malformed trunk policy",
     );
 
+    // Conversation consent never rests on the policy record, so it passes the
+    // consent boundary; a syntactically dead trunk config then stops at the
+    // gate's own never-loosen verification with its own diagnostic.
     const confirmed = await runAgent(worktree, [
       "accept",
       "--confirmed",
       "--json",
     ]);
     assertEquals(confirmed.code, 1, confirmed.output);
-    assertStringIncludes(confirmed.stdout, "policy is invalid");
+    assert(
+      !confirmed.stdout.includes("policy is invalid") &&
+        !confirmed.stdout.includes("cannot bypass"),
+      confirmed.stdout,
+    );
+    assertStringIncludes(
+      confirmed.stdout,
+      "never-loosen check cannot verify",
+      confirmed.stdout,
+    );
     assert(await exists(worktree));
   });
 });

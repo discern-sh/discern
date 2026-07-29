@@ -1520,6 +1520,14 @@ function acceptAwaitingConsentResult(
   };
 }
 
+/** Resolve the consent this apply lands under, or throw the awaiting-consent
+ * refusal. An unreadable committed policy already blocked every recorded
+ * source upstream; the conversation attestation never rests on that record —
+ * which can only widen authority, never restrict it — so it stays honorable
+ * here and the record's defect travels as an authority warning instead of a
+ * veto. Otherwise the branch carrying a config-schema migration could never
+ * land itself, on any engine, since the trunk's committed config predates the
+ * schema reading it. */
 function landingConsentForApply(
   authority: LandingAuthorityResolution,
   confirmed: boolean,
@@ -1531,12 +1539,6 @@ function landingConsentForApply(
     const result = acceptAwaitingConsentResult(authority);
     throw new WorktreeResultError(result.message ?? "", result);
   }
-  if (authority.blockingReason !== undefined) {
-    throw new WorktreeGitError(
-      `The trunk's committed landing policy is invalid: ${authority.blockingReason}. ` +
-        "Fix the trunk config before landing; conversation consent cannot bypass a broken policy record.",
-    );
-  }
   return { source: "conversation" };
 }
 
@@ -1547,9 +1549,7 @@ function availableLandingConsent(
   if (authority.kind === "authorized") {
     return authority.consent;
   }
-  return confirmed && authority.blockingReason === undefined
-    ? { source: "conversation" }
-    : undefined;
+  return confirmed ? { source: "conversation" } : undefined;
 }
 
 function freshAcceptLandingState(): AcceptLandingState {
