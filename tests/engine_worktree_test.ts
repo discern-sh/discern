@@ -9,6 +9,7 @@
  * to the dispatcher, so the bytes under test are what an install runs.
  */
 
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import {
   assert,
   assertEquals,
@@ -243,7 +244,9 @@ Deno.test("worktree ensure on the main checkout leads with the worktree-first li
     // calls no verb first. On the main-checkout side the orientation must
     // reach stdout; the registry entry is the single source of its text.
     await mainWithWorktree(dir, "orient");
-    const expected = HINTS["ensure-main-worktree-first"].template(undefined);
+    const expected = renderCommandRefsCli(
+      HINTS["ensure-main-worktree-first"].template(undefined),
+    );
     const r = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, expected);
@@ -253,7 +256,9 @@ Deno.test("worktree ensure on the main checkout leads with the worktree-first li
 Deno.test("worktree ensure orientation stays off the worktree side", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "quiet-orient");
-    const expected = HINTS["ensure-main-worktree-first"].template(undefined);
+    const expected = renderCommandRefsCli(
+      HINTS["ensure-main-worktree-first"].template(undefined),
+    );
     const r = await runAgent(wt, ["worktree", "ensure"]);
     assertEquals(r.code, 0, r.output);
     assertEquals(

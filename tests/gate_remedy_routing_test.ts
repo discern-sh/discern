@@ -23,6 +23,7 @@
  * fails the guard loudly instead of leaving it vacuously green.
  */
 
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { assert, assertEquals } from "@std/assert";
 import { FAILED_STAGES } from "../src/shared/result.ts";
 import { gateFailureRemedy, HINTS } from "../src/shared/hints.ts";
@@ -84,7 +85,7 @@ Deno.test("done-rerun hints route the fix through the fast loop", () => {
     if (def.family !== "done-rerun") {
       continue;
     }
-    const text = def.template(def.example);
+    const text = renderCommandRefsCli(def.template(def.example));
     if (!FIX_THE_FAILURE.test(text)) {
       continue;
     }
