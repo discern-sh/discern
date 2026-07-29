@@ -978,7 +978,7 @@ export function attachEngineCommands(
   // operator. Namespacing keeps the payload plumbing callable for the generated
   // integration files while keeping protocol verbs out of the human `worktree`
   // vocabulary, where `remove` sat one typo from the destructive
-  // `drop`/`teardown`/`prune` and read as the way to remove a worktree.
+  // `drop`/`teardown`/`prune` and read as the way to remove a worktree (ADR 0220).
   const worktreeHook = new Command()
     .description(
       "Provider hook entry points (machine-invoked; stdin carries the hook payload).",

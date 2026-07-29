@@ -213,6 +213,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0217 — Envelope command references render per delivery surface](0217-envelope-command-references-render-per-surface.md)
 - [0218 — `docs` owns the manual; `help` owns CLI reference](0218-docs-owns-the-manual-help-owns-cli-reference.md)
 - [0219 — The public install schema starts at 1](0219-public-install-schema-starts-at-one.md)
+- [0220 — The frozen contract surface completes the vocabulary canon before the first tag](0220-frozen-contracts-complete-the-canon.md)
 
 <!-- END GENERATED: current ADR records -->
 
