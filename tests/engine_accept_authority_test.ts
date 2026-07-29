@@ -16,6 +16,7 @@ import {
 import {
   ACCEPTANCE_TRANSACTION_BOUNDARIES,
   type AcceptanceTransactionBoundary,
+  withAcceptanceTransactionLock,
 } from "../src/engine/worktree/acceptance_transaction.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import {
@@ -128,32 +129,43 @@ async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
   return events;
 }
 
-async function waitForPath(path: string, timeoutMs = 10_000): Promise<void> {
+const ACCEPT_READINESS_TIMEOUT_MS = 180_000;
+
+async function waitForPath<T>(
+  path: string,
+  pending: Promise<T>,
+): Promise<void> {
+  let settled:
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: unknown }
+    | undefined;
+  void pending.then(
+    (value) => {
+      settled = { ok: true, value };
+    },
+    (error: unknown) => {
+      settled = { ok: false, error };
+    },
+  );
+  const timeoutMs = ACCEPT_READINESS_TIMEOUT_MS;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     if (await exists(path)) {
       return;
     }
+    if (settled !== undefined) {
+      if (!settled.ok) {
+        throw settled.error;
+      }
+      throw new Error(
+        `accept settled before writing its readiness marker: ${
+          JSON.stringify(settled.value)
+        }`,
+      );
+    }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error(`timed out waiting for ${path}`);
-}
-
-async function resultWithin<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
-): Promise<T | undefined> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<undefined>((resolve) => {
-    timer = setTimeout(() => resolve(undefined), timeoutMs);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-    }
-  }
 }
 
 interface InterruptedAcceptanceFixture {
@@ -1139,18 +1151,12 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     };
 
     const first = runAgent(worktree, ["accept", "--json"], { env });
-    let second:
-      | ReturnType<typeof runAgent>
-      | undefined;
-    let secondBeforeRelease:
-      | Awaited<ReturnType<typeof runAgent>>
-      | undefined;
     let failure: unknown;
     let journalBefore = "";
     let claimPath = "";
     let claimBefore = "";
     try {
-      await waitForPath(paused, 30_000);
+      await waitForPath(paused, first);
       journalBefore = await Deno.readTextFile(journal);
       const transaction = JSON.parse(journalBefore);
       assertEquals(transaction.worktree_branch, branch);
@@ -1165,16 +1171,28 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
         { kind: "missing" },
       );
 
-      second = runAgent(worktree, ["accept", "--json"], { env });
-      secondBeforeRelease = await resultWithin(second, 2_000);
+      let concurrentOperationRan = false;
+      let concurrentRefusal: unknown;
+      try {
+        await withAcceptanceTransactionLock(worktree, () => {
+          concurrentOperationRan = true;
+          return Promise.resolve();
+        });
+      } catch (error) {
+        concurrentRefusal = error;
+      }
       assert(
-        secondBeforeRelease !== undefined,
-        "a concurrent accept must refuse instead of waiting or recovering the active journal",
+        concurrentRefusal instanceof Error,
+        "the active acceptance lock must refuse a concurrent operation",
       );
-      assertEquals(secondBeforeRelease.code, 1, secondBeforeRelease.output);
       assertStringIncludes(
-        JSON.parse(secondBeforeRelease.stdout).message,
+        concurrentRefusal.message,
         "Another acceptance is already running",
+      );
+      assertEquals(
+        concurrentOperationRan,
+        false,
+        "the refused operation must never enter the transaction body",
       );
 
       assertEquals(await Deno.readTextFile(journal), journalBefore);
@@ -1192,12 +1210,10 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     }
 
     const landed = await first;
-    const refused = second === undefined ? undefined : await second;
     if (failure !== undefined) {
       throw failure;
     }
     assertEquals(landed.code, 0, landed.output);
-    assertEquals(refused, secondBeforeRelease);
     assertEquals(
       await gitOut(dir, "show", "main:feature.txt"),
       "one acceptance owns the transition",

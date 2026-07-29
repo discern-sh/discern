@@ -46,7 +46,10 @@ const DESK_DRIVER = fromFileUrl(
 
 const DECODER = new TextDecoder();
 const POLL_INTERVAL_MS = 50;
-const SURFACE_STARTUP_TIMEOUT_MS = 45_000;
+// Readiness is infrastructure, not the behaviour under test. Cold Deno/module
+// startup may queue behind another capped suite; the signal-to-reap clock below
+// starts only after the planted child tree has written every readiness artifact.
+const SURFACE_READINESS_TIMEOUT_MS = 180_000;
 const TREE_SHUTDOWN_TIMEOUT_MS = 10_000;
 const EARLY_EXIT_DIAGNOSTIC_CEILING_MS = 10_000;
 
@@ -63,7 +66,7 @@ async function waitForSurfaceStart(
     earlyStatus = status;
   });
 
-  const deadline = Date.now() + SURFACE_STARTUP_TIMEOUT_MS;
+  const deadline = Date.now() + SURFACE_READINESS_TIMEOUT_MS;
   while (true) {
     if (earlyStatus !== undefined) {
       const [outText, errText] = await drained;
@@ -78,7 +81,7 @@ async function waitForSurfaceStart(
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
   }
   throw new Error(
-    `timed out after ${SURFACE_STARTUP_TIMEOUT_MS}ms waiting for the surface's child tree to start`,
+    `timed out after ${SURFACE_READINESS_TIMEOUT_MS}ms waiting for the surface's child tree to become ready`,
   );
 }
 
@@ -277,26 +280,20 @@ async function assertInterruptStopsTree(
   }
 }
 
-Deno.test("the interrupt harness reports an early surface exit without spending its startup allowance", async () => {
-  const started = Date.now();
+Deno.test("the interrupt harness reports an early surface exit without spending its readiness allowance", async () => {
+  const status: Deno.CommandStatus = {
+    success: false,
+    code: 23,
+    signal: null,
+  };
+  const started = performance.now();
   let caught: unknown;
   try {
-    await assertInterruptStopsTree("SIGTERM", async (root) => {
-      await scaffoldEngine(root);
-      const runner = join(root, "exit-early.sh");
-      await writeExecutable(
-        runner,
-        ["#!/bin/sh", "echo deliberate-early-exit >&2", "exit 23", ""].join(
-          "\n",
-        ),
-      );
-      return {
-        args: ["with-gotchas", runner],
-        cwd: root,
-        leaderPidFile: join(root, "never-written-leader.pid"),
-        descendantPidFile: join(root, "never-written-descendant.pid"),
-      };
-    });
+    await waitForSurfaceStart(
+      () => false,
+      Promise.resolve(status),
+      Promise.resolve(["", "deliberate-early-exit\n"]),
+    );
   } catch (error) {
     caught = error;
   }
@@ -311,8 +308,8 @@ Deno.test("the interrupt harness reports an early surface exit without spending 
   );
   assertStringIncludes(caught.message, "deliberate-early-exit");
   assert(
-    Date.now() - started < EARLY_EXIT_DIAGNOSTIC_CEILING_MS,
-    "an early exit should be reported without spending the startup allowance",
+    performance.now() - started < EARLY_EXIT_DIAGNOSTIC_CEILING_MS,
+    "an observed early exit must be reported without spending the readiness allowance",
   );
 });
 

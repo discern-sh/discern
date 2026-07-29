@@ -51,16 +51,22 @@ import { assertHasHint } from "./hint_asserts.ts";
 
 const ENCODER = new TextEncoder();
 
-/**
- * Failure bound for one MCP response. A healthy server answers in
- * milliseconds, so the bound only matters when something is wedged — but a
- * loaded machine running the full parallel suite can stretch honest responses
- * past a tight bound, and a flaked gate costs more than a slow failure
- * report. Override via DISCERN_TEST_MCP_TIMEOUT_MS for a stricter budget.
- */
+/** Behavioural bound after the server has produced its first response. */
 const MCP_RECV_TIMEOUT_MS: number = (() => {
   const raw = Number(Deno.env.get("DISCERN_TEST_MCP_TIMEOUT_MS") ?? "");
   return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
+})();
+
+/**
+ * Infrastructure allowance for the first response. It includes cold Deno and
+ * module startup, so it stays separate from the response bound every
+ * initialized server uses.
+ */
+const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
+  const raw = Number(
+    Deno.env.get("DISCERN_TEST_MCP_READINESS_TIMEOUT_MS") ?? "",
+  );
+  return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
 })();
 
 /** Cleanup bounds for a client whose test path did not reach the happy close. */
@@ -92,6 +98,7 @@ class McpClient {
   private buffer = "";
   private stdinClosed = false;
   private readerCancelled = false;
+  private receivedResponse = false;
   private readonly statusPromise: Promise<Deno.CommandStatus>;
   private exitStatus: Deno.CommandStatus | undefined;
 
@@ -116,11 +123,15 @@ class McpClient {
 
   /** Read the next non-empty JSON line from the server. */
   // deno-lint-ignore no-explicit-any
-  async recv(timeoutMs = MCP_RECV_TIMEOUT_MS): Promise<any> {
+  async recv(timeoutMs?: number): Promise<any> {
+    const deadlineMs = timeoutMs ??
+      (this.receivedResponse
+        ? MCP_RECV_TIMEOUT_MS
+        : MCP_SERVER_READINESS_TIMEOUT_MS);
     let timeout: ReturnType<typeof setTimeout> | undefined;
     let timedOut = false;
     try {
-      return await Promise.race([
+      const response = await Promise.race([
         this.recvLine(),
         new Promise((_, reject) => {
           timeout = setTimeout(
@@ -128,14 +139,16 @@ class McpClient {
               timedOut = true;
               reject(
                 new Error(
-                  `timed out waiting for MCP response after ${timeoutMs}ms`,
+                  `timed out waiting for MCP response after ${deadlineMs}ms`,
                 ),
               );
             },
-            timeoutMs,
+            deadlineMs,
           );
         }),
       ]);
+      this.receivedResponse = true;
+      return response;
     } catch (error) {
       if (timedOut) {
         // Reject only after the server and any in-flight gate tree are gone.

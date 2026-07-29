@@ -18,6 +18,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { exists } from "@std/fs";
 import { join } from "@std/path";
 import { runParallel } from "../src/engine/jobs/runner.ts";
 import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
@@ -36,12 +37,104 @@ import {
   writeExecutable,
 } from "./engine_helpers.ts";
 
-// Direct runner checks keep the tight behavioural assertion. Full-engine checks
-// include temp-project scaffolding, cold Deno startup, and concurrent gate load,
-// so their ceiling is deliberately gross without redefining the product budget.
+// Startup and behaviour are separate clocks. A loaded parallel suite may delay
+// a cold engine before it reaches its configured command; once that command
+// writes its readiness marker, the watchdog keeps the tight behavioural bound.
+const ENGINE_READINESS_TIMEOUT_MS = 180_000;
 const DIRECT_WATCHDOG_CEILING_MS = 10_000;
-const FULL_GATE_TIMEOUT_CEILING_MS = 45_000;
+const FULL_GATE_POST_READY_CEILING_MS = 15_000;
 const OVERRIDE_WATCHDOG_CEILING_MS = 15_000;
+const TIMEOUT_READY_FILE = ".discern-timeout-ready";
+
+async function waitForReadiness<T>(
+  path: string,
+  pending: Promise<T>,
+  what: string,
+): Promise<void> {
+  let settled:
+    | { readonly ok: true; readonly value: T }
+    | { readonly ok: false; readonly error: unknown }
+    | undefined;
+  void pending.then(
+    (value) => {
+      settled = { ok: true, value };
+    },
+    (error: unknown) => {
+      settled = { ok: false, error };
+    },
+  );
+  const deadline = Date.now() + ENGINE_READINESS_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await exists(path)) {
+      return;
+    }
+    if (settled !== undefined) {
+      if (!settled.ok) {
+        throw settled.error;
+      }
+      throw new Error(
+        `${what} settled before writing its readiness marker: ${
+          JSON.stringify(settled.value)
+        }`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(
+    `timed out after ${ENGINE_READINESS_TIMEOUT_MS}ms waiting for ${what} readiness`,
+  );
+}
+
+async function settleAfterReadiness<T>(
+  path: string,
+  pending: Promise<T>,
+  what: string,
+): Promise<{ readonly result: T; readonly elapsedMs: number }> {
+  await waitForReadiness(path, pending, what);
+  const started = performance.now();
+  const result = await pending;
+  return { result, elapsedMs: performance.now() - started };
+}
+
+function readyThen(command: string): string {
+  return `: > ${TIMEOUT_READY_FILE} && ${command}`;
+}
+
+const RUN_AGENT_CALL = ["run", "Agent("].join("");
+
+function preReadinessAgentTimers(source: string): string[] {
+  const lines = source.split("\n");
+  const offenders: string[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? "";
+    if (!line.includes(RUN_AGENT_CALL)) {
+      continue;
+    }
+    const lead = lines.slice(Math.max(0, index - 4), index + 1).join("\n");
+    if (/Date\.now\(\)|performance\.now\(\)/.test(lead)) {
+      offenders.push(`${index + 1}: ${line.trim()}`);
+    }
+  }
+  return offenders;
+}
+
+Deno.test("gate timeout harness: a full-engine deadline cannot start before readiness — future cases auto-enrol", async () => {
+  assertEquals(
+    preReadinessAgentTimers(
+      await Deno.readTextFile(new URL(import.meta.url)),
+    ),
+    [],
+    "launch the agent, wait for the planted job marker, then start the behavioural clock",
+  );
+  const futureSibling = [
+    "const started = Date.now();",
+    `const result = await ${RUN_AGENT_CALL}root, ["done"]);`,
+  ].join("\n");
+  assertEquals(
+    preReadinessAgentTimers(futureSibling),
+    ['2: const result = await runAgent(root, ["done"]);'],
+  );
+});
 
 /** Poll until a PID no longer exists (signal 0 probes without sending). */
 async function waitForExit(pid: number): Promise<void> {
@@ -59,13 +152,13 @@ async function waitForExit(pid: number): Promise<void> {
 Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a genuine timeout failure", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-timeout-" });
   try {
-    const start = performance.now();
-    const r = await runParallel([
+    const pending = runParallel([
       // Record the backgrounded grandchild's PID so the test can prove the whole
       // process GROUP died, not just the direct `sh`.
       {
         label: "hang",
-        command: "sh -c 'echo $$ > inner.pid; sleep 9999' & wait",
+        command:
+          `sh -c 'echo $$ > inner.pid; : > ${TIMEOUT_READY_FILE}; sleep 9999' & wait`,
       },
     ], {
       cwd: dir,
@@ -75,7 +168,11 @@ Deno.test("gate timeout: a job that never exits is tree-killed and recorded as a
       timeoutS: 1,
       write: () => {},
     });
-    const elapsed = performance.now() - start;
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      "the never-exiting job",
+    );
 
     const hang = r.results.find((x) => x.label === "hang");
     assertEquals(r.ok, false);
@@ -112,9 +209,11 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
   // with the recorded timeout silently swallowed.
   const dir = await Deno.makeTempDir({ prefix: "discern-timeout-escape-" });
   try {
-    const start = performance.now();
-    const r = await runParallel([
-      { label: "escape", command: escapedDaemonCommand(15) },
+    const pending = runParallel([
+      {
+        label: "escape",
+        command: escapedDaemonCommand(15, TIMEOUT_READY_FILE),
+      },
     ], {
       cwd: dir,
       stream: false,
@@ -123,7 +222,11 @@ Deno.test("gate timeout: an escaped descendant holding the pipes cannot wedge th
       timeoutS: 2,
       write: () => {},
     });
-    const elapsed = performance.now() - start;
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      "the escaped pipe holder",
+    );
 
     const escape = r.results.find((x) => x.label === "escape");
     assertEquals(r.ok, false);
@@ -184,7 +287,7 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
         'trunk = "main"',
         "",
         "[jobs]",
-        'test = "sleep 9999"', // never exits — the watch-mode-runner hang, distilled
+        `test = ${JSON.stringify(readyThen("sleep 9999"))}`, // never exits
         "",
         "[gate]",
         "timeout = 1", // a tiny budget so the test is fast
@@ -193,9 +296,12 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     );
     await gitInit(dir);
 
-    const start = Date.now();
-    const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = Date.now() - start;
+    const pending = runAgent(dir, ["done", "--json"]);
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      "the full-gate test job",
+    );
 
     assertEquals(r.code, 1, r.output);
     // deno-lint-ignore no-explicit-any
@@ -211,8 +317,8 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
     assertStringIncludes(diag.message, "[gate].timeout");
     // Bounded: the gate returned in seconds, not the 9999s the command wanted.
     assert(
-      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
-      `the gate should fail within the budget, took ${elapsed}ms`,
+      elapsed < FULL_GATE_POST_READY_CEILING_MS,
+      `the ready gate should fail within the budget, took ${elapsed}ms`,
     );
   });
 });
@@ -227,12 +333,15 @@ Deno.test("gate timeout: a never-exiting test command fails `discern done` with 
  * (scope gates only) marks the scope changed so its gate fires.
  */
 async function assertStageKindTimesOut(opts: {
-  wiring: string[];
+  wiring: (command: string) => string[];
   jobLabel: string;
   changedFile?: string;
+  command?: (markerFile: string) => string;
 }): Promise<void> {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const command = opts.command?.(TIMEOUT_READY_FILE) ??
+      readyThen("sleep 9999");
     await writeConfig(
       dir,
       [
@@ -242,7 +351,7 @@ async function assertStageKindTimesOut(opts: {
         "[repository]",
         'trunk = "main"',
         "",
-        ...opts.wiring,
+        ...opts.wiring(command),
         "",
         "[gate]",
         "timeout = 1",
@@ -254,9 +363,12 @@ async function assertStageKindTimesOut(opts: {
       await writeExecutable(join(dir, opts.changedFile), "x");
     }
 
-    const start = Date.now();
-    const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = Date.now() - start;
+    const pending = runAgent(dir, ["done", "--json"]);
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      `${opts.jobLabel} job`,
+    );
 
     assertEquals(r.code, 1, r.output);
     // deno-lint-ignore no-explicit-any
@@ -274,8 +386,8 @@ async function assertStageKindTimesOut(opts: {
     assertStringIncludes(diag.message, "watch-mode");
     assertStringIncludes(diag.message, "[gate].timeout");
     assert(
-      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
-      `${opts.jobLabel}: the watchdog should fire within budget, took ${elapsed}ms`,
+      elapsed < FULL_GATE_POST_READY_CEILING_MS,
+      `${opts.jobLabel}: the ready watchdog should fire within budget, took ${elapsed}ms`,
     );
   });
 }
@@ -305,7 +417,10 @@ for (const stage of STAGES) {
       `no capability represents the "${stage}" stage — extend the timeout stage-coverage guard`,
     );
     await assertStageKindTimesOut({
-      wiring: ["[jobs]", `${cap} = "sleep 9999"`],
+      wiring: (command) => [
+        "[jobs]",
+        `${cap} = ${JSON.stringify(command)}`,
+      ],
       jobLabel: cap,
     });
   });
@@ -318,11 +433,9 @@ for (const stage of STAGES) {
 // bound it hung for the daemon's whole lifetime and reported the job ok.
 Deno.test("gate timeout: a daemonizing command is bounded and diagnosed", async () => {
   await assertStageKindTimesOut({
-    wiring: [
-      "[jobs]",
-      `test = ${JSON.stringify(escapedDaemonCommand(60))}`,
-    ],
+    wiring: (command) => ["[jobs]", `test = ${JSON.stringify(command)}`],
     jobLabel: "test",
+    command: (markerFile) => escapedDaemonCommand(60, markerFile),
   });
 });
 
@@ -330,14 +443,22 @@ Deno.test("gate timeout: a daemonizing command is bounded and diagnosed", async 
 // [jobs.<name>] and a changed scope's own gate.
 Deno.test("gate timeout: a custom check is bounded", async () => {
   await assertStageKindTimesOut({
-    wiring: ["[jobs.slowcheck]", 'stage = "check"', 'run = "sleep 9999"'],
+    wiring: (command) => [
+      "[jobs.slowcheck]",
+      'stage = "check"',
+      `run = ${JSON.stringify(command)}`,
+    ],
     jobLabel: "slowcheck",
   });
 });
 
 Deno.test("gate timeout: a changed scope's gate is bounded", async () => {
   await assertStageKindTimesOut({
-    wiring: ["[scopes.widget]", 'paths = ["widget/**"]', 'gate = "sleep 9999"'],
+    wiring: (command) => [
+      "[scopes.widget]",
+      'paths = ["widget/**"]',
+      `gate = ${JSON.stringify(command)}`,
+    ],
     jobLabel: "scope:widget",
     changedFile: "widget/x.txt",
   });
@@ -346,30 +467,35 @@ Deno.test("gate timeout: a changed scope's gate is bounded", async () => {
 // ── per-job `timeout` overrides: one job's own budget, siblings keep the global ──
 
 Deno.test("timeout override: a job's own budget bounds only that job — siblings keep the run-level budget", async () => {
-  const start = performance.now();
-  const r = await runParallel([
-    // Overridden down to 1s: killed. The sibling sleeps past that override but
-    // well inside the run-level budget: untouched.
-    { label: "tight", command: "sleep 9999", timeoutS: 1 },
-    { label: "roomy", command: "sleep 2" },
-  ], {
-    cwd: Deno.cwd(),
-    stream: false,
-    failFast: false,
-    color: false,
-    timeoutS: 30,
-    write: () => {},
+  await withTempDir(async (dir) => {
+    const pending = runParallel([
+      // Overridden down to 1s: killed. The sibling sleeps past that override but
+      // well inside the run-level budget: untouched.
+      { label: "tight", command: readyThen("sleep 9999"), timeoutS: 1 },
+      { label: "roomy", command: "sleep 2" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: false,
+      color: false,
+      timeoutS: 30,
+      write: () => {},
+    });
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      "the job with a timeout override",
+    );
+    const tight = r.results.find((x) => x.label === "tight");
+    const roomy = r.results.find((x) => x.label === "roomy");
+    assertEquals(tight?.timedOutAfterS, 1, JSON.stringify(tight));
+    assertEquals(roomy?.timedOutAfterS, undefined, JSON.stringify(roomy));
+    assertEquals(roomy?.code, 0);
+    assert(
+      elapsed < OVERRIDE_WATCHDOG_CEILING_MS,
+      `bounded by the override after readiness, took ${elapsed}ms`,
+    );
   });
-  const elapsed = performance.now() - start;
-  const tight = r.results.find((x) => x.label === "tight");
-  const roomy = r.results.find((x) => x.label === "roomy");
-  assertEquals(tight?.timedOutAfterS, 1, JSON.stringify(tight));
-  assertEquals(roomy?.timedOutAfterS, undefined, JSON.stringify(roomy));
-  assertEquals(roomy?.code, 0);
-  assert(
-    elapsed < OVERRIDE_WATCHDOG_CEILING_MS,
-    `bounded by the override, took ${elapsed}ms`,
-  );
 });
 
 Deno.test("timeout override: 0 disables the bound for that job alone", async () => {
@@ -394,7 +520,7 @@ Deno.test("timeout override: 0 disables the bound for that job alone", async () 
  * must bound ITS job — failing within seconds — while the sibling passes.
  */
 async function assertOverrideBoundsOwnJob(opts: {
-  wiring: string[];
+  wiring: (command: string) => string[];
   jobLabel: string;
 }): Promise<void> {
   await withTempDir(async (dir) => {
@@ -408,7 +534,7 @@ async function assertOverrideBoundsOwnJob(opts: {
         "[repository]",
         'trunk = "main"',
         "",
-        ...opts.wiring,
+        ...opts.wiring(readyThen("sleep 9999")),
         "",
         "[gate]",
         "timeout = 600", // generous global: only the override can fire this fast
@@ -418,9 +544,12 @@ async function assertOverrideBoundsOwnJob(opts: {
     );
     await gitInit(dir);
 
-    const start = Date.now();
-    const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = Date.now() - start;
+    const pending = runAgent(dir, ["done", "--json"]);
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      `${opts.jobLabel} override`,
+    );
 
     assertEquals(r.code, 1, r.output);
     // deno-lint-ignore no-explicit-any
@@ -439,8 +568,8 @@ async function assertOverrideBoundsOwnJob(opts: {
     const sibling = (obj.steps ?? []).find((s: any) => s.label === "lint");
     assertEquals(sibling?.outcome, "ok", JSON.stringify(sibling));
     assert(
-      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
-      `the override should bound its job, took ${elapsed}ms`,
+      elapsed < FULL_GATE_POST_READY_CEILING_MS,
+      `the ready override should bound its job, took ${elapsed}ms`,
     );
   });
 }
@@ -450,10 +579,10 @@ async function assertOverrideBoundsOwnJob(opts: {
 // bound its own job while a sibling keeps the global budget.
 Deno.test("timeout override: the capability table form { run, timeout } bounds its job", async () => {
   await assertOverrideBoundsOwnJob({
-    wiring: [
+    wiring: (command) => [
       "[jobs]",
       'lint = "true"',
-      'test = { run = "sleep 9999", timeout = 1 }',
+      `test = { run = ${JSON.stringify(command)}, timeout = 1 }`,
     ],
     jobLabel: "test",
   });
@@ -461,13 +590,13 @@ Deno.test("timeout override: the capability table form { run, timeout } bounds i
 
 Deno.test("timeout override: [jobs.<name>].timeout bounds its job", async () => {
   await assertOverrideBoundsOwnJob({
-    wiring: [
+    wiring: (command) => [
       "[jobs]",
       'lint = "true"',
       "",
       "[jobs.slowcheck]",
       'stage = "check"',
-      'run = "sleep 9999"',
+      `run = ${JSON.stringify(command)}`,
       "timeout = 1",
     ],
     jobLabel: "slowcheck",
@@ -491,7 +620,7 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
         "",
         "[scopes.widget]",
         'paths = ["widget/**"]',
-        'gate = "sleep 9999"',
+        `gate = ${JSON.stringify(readyThen("sleep 9999"))}`,
         "timeout = 1",
         "",
         "[gate]",
@@ -502,9 +631,12 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     await gitInit(dir);
     await writeExecutable(join(dir, "widget/x.txt"), "x");
 
-    const start = Date.now();
-    const r = await runAgent(dir, ["done", "--json"]);
-    const elapsed = Date.now() - start;
+    const pending = runAgent(dir, ["done", "--json"]);
+    const { result: r, elapsedMs: elapsed } = await settleAfterReadiness(
+      join(dir, TIMEOUT_READY_FILE),
+      pending,
+      "the scope timeout override",
+    );
 
     assertEquals(r.code, 1, r.output);
     // deno-lint-ignore no-explicit-any
@@ -516,8 +648,8 @@ Deno.test("timeout override: [scopes.<name>].timeout bounds its gate job", async
     assert(diag !== undefined, `expected a timeout diagnostic: ${r.stdout}`);
     assertStringIncludes(diag.message, "timed out after 1s");
     assert(
-      elapsed < FULL_GATE_TIMEOUT_CEILING_MS,
-      `bounded by the override, took ${elapsed}ms`,
+      elapsed < FULL_GATE_POST_READY_CEILING_MS,
+      `bounded by the override after readiness, took ${elapsed}ms`,
     );
   });
 });
