@@ -74,7 +74,12 @@ Deno.test("stripDiscernFromJsonSettings keeps user hooks and permissions, remove
           { hooks: [{ type: "command", command: "discern worktree ensure" }] },
         ],
         WorktreeCreate: [
-          { hooks: [{ type: "command", command: "discern worktree create" }] },
+          {
+            hooks: [{
+              type: "command",
+              command: "discern worktree hook create",
+            }],
+          },
         ],
       },
       mcpServers: {

@@ -78,7 +78,7 @@ The Claude Code settings seed includes the worktree hooks and a conservative per
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree create"
+            "command": "discern worktree hook create"
           }
         ]
       }
@@ -88,7 +88,7 @@ The Claude Code settings seed includes the worktree hooks and a conservative per
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree remove"
+            "command": "discern worktree hook remove"
           }
         ]
       }
@@ -102,7 +102,7 @@ The Claude Code settings seed includes the worktree hooks and a conservative per
 
 ## Runtime behavior and gotchas
 
-Claude Code is the only supported agent with a worktree create/remove hook contract. `WorktreeCreate` runs `discern worktree create`, `WorktreeRemove` runs `discern worktree remove`, and `SessionStart` runs `discern worktree ensure`.
+Claude Code is the only supported agent with a worktree create/remove hook contract. `WorktreeCreate` runs `discern worktree hook create`, `WorktreeRemove` runs `discern worktree hook remove`, and `SessionStart` runs `discern worktree ensure`.
 
 Claude Code can also re-root a running session with `EnterWorktree`. That moves Claude Code's shell and instruction-file context, but a stdio MCP process still has the process cwd it started with. When the worktree is created through `discern_start`, the live discern MCP server re-aims its own logical working root to the new worktree; a native cwd move alone does not move a generic MCP process.
 

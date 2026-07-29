@@ -443,12 +443,17 @@ export const CLI_JSON_CONTRACT_EXCLUSIONS = [
       "long-lived JSON-RPC stdio server; its stream is the MCP protocol, not one CLI result",
   },
   {
-    command: "worktree create",
+    command: "worktree hook",
+    reason:
+      "hidden namespace grouping the provider hook entry points; the group itself only routes",
+  },
+  {
+    command: "worktree hook create",
     reason:
       "provider hook entry point; stdin and stdout belong to the provider hook protocol",
   },
   {
-    command: "worktree remove",
+    command: "worktree hook remove",
     reason:
       "provider hook entry point; stdin and stdout belong to the provider hook protocol",
   },

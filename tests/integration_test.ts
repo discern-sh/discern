@@ -120,7 +120,7 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     assert(Array.isArray(settings.hooks?.WorktreeCreate));
     assertStringIncludes(
       JSON.stringify(settings.hooks.WorktreeCreate),
-      "worktree create",
+      "worktree hook create",
     );
     assert(!/\bjq\b/.test(JSON.stringify(settings.hooks)));
 

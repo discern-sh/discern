@@ -2,7 +2,7 @@
  * Coverage for the worktree-lifecycle hook commands wired into
  * `.claude/settings.json` — the SessionStart / WorktreeCreate / WorktreeRemove
  * entries that drive the worktree workflow. They are now thin `discern
- * worktree ensure` / `worktree create` / `worktree remove` dispatches: the binary
+ * worktree ensure` / `worktree hook create` / `worktree hook remove` dispatches: the binary
  * reads the hook's JSON payload from stdin itself, so the hooks no longer shell
  * out to `jq` (ADR 0039) — and a positive-form guard below holds every shipped
  * hook to that shape, so no other external binary can take jq's place. Each
@@ -95,7 +95,9 @@ Deno.test("hooks: the dispatch predicate rejects external binaries and shell plu
   assert(
     hookCommandViolation("discern worktree ensure && rm cache") !== undefined,
   );
-  assert(hookCommandViolation("discern worktree remove $(cat)") !== undefined);
+  assert(
+    hookCommandViolation("discern worktree hook remove $(cat)") !== undefined,
+  );
   assert(
     hookCommandViolation("echo ready; discern worktree ensure") !== undefined,
   );
@@ -142,11 +144,11 @@ Deno.test("hooks: every shipped hook is a bare discern dispatch", async () => {
     );
     assertStringIncludes(
       await hookCommand(dir, "WorktreeCreate"),
-      "worktree create",
+      "worktree hook create",
     );
     assertStringIncludes(
       await hookCommand(dir, "WorktreeRemove"),
-      "worktree remove",
+      "worktree hook remove",
     );
   });
 });

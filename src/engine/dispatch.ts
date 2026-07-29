@@ -96,8 +96,6 @@ export const SUGGESTABLE_ENGINE_COMMANDS: readonly string[] = [
   "start",
   "identity",
   "worktree-setup",
-  "worktree-create",
-  "worktree-remove",
   "worktree-ensure",
   "worktree-teardown",
   "worktree-drop",
@@ -975,33 +973,39 @@ export function attachEngineCommands(
           );
         })),
     );
-  // These two commands are provider hook entry points, not operator commands.
-  // Keep them callable for the generated integration files but hide their payload
-  // plumbing from human help.
-  const worktreeCreate = worktree.command(
-    "create",
-    new Command().action(
-      recordedExit("worktree create", async () => {
-        const { worktreeCreateHook } = await import(
-          "../lib/worktree_hooks.ts"
-        );
-        return await worktreeCreateHook();
-      }),
-    ),
-  );
-  worktreeCreate.hidden();
-  const worktreeRemove = worktree.command(
-    "remove",
-    new Command().action(
-      recordedExit("worktree remove", async () => {
-        const { worktreeRemoveHook } = await import(
-          "../lib/worktree_hooks.ts"
-        );
-        return await worktreeRemoveHook();
-      }),
-    ),
-  );
-  worktreeRemove.hidden();
+  // The `hook` namespace holds the provider hook entry points — machine-invoked
+  // verbs whose stdin/stdout belong to the provider hook protocol, not to an
+  // operator. Namespacing keeps the payload plumbing callable for the generated
+  // integration files while keeping protocol verbs out of the human `worktree`
+  // vocabulary, where `remove` sat one typo from the destructive
+  // `drop`/`teardown`/`prune` and read as the way to remove a worktree.
+  const worktreeHook = new Command()
+    .description(
+      "Provider hook entry points (machine-invoked; stdin carries the hook payload).",
+    )
+    .command(
+      "create",
+      new Command().action(
+        recordedExit("worktree hook create", async () => {
+          const { worktreeCreateHook } = await import(
+            "../lib/worktree_hooks.ts"
+          );
+          return await worktreeCreateHook();
+        }),
+      ),
+    )
+    .command(
+      "remove",
+      new Command().action(
+        recordedExit("worktree hook remove", async () => {
+          const { worktreeRemoveHook } = await import(
+            "../lib/worktree_hooks.ts"
+          );
+          return await worktreeRemoveHook();
+        }),
+      ),
+    );
+  worktree.command("hook", worktreeHook).hidden();
   root.command("worktree", worktree);
 }
 

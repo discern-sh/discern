@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree create"
+            "command": "discern worktree hook create"
           }
         ]
       }
@@ -32,7 +32,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "discern worktree remove"
+            "command": "discern worktree hook remove"
           }
         ]
       }
