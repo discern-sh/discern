@@ -2066,6 +2066,13 @@ interface TrajectorySeriesPoint {
   value: number;
 }
 
+// Leaves room for the subject and brief in the conventional 80-column report;
+// the wire cap remains the authority if it ever falls below this target.
+const STANDARD_TRAJECTORY_SERIES_POINTS = Math.min(
+  16,
+  PATTERNS_SERIES_MAX_POINTS,
+);
+
 /**
  * Reduce a long trajectory to equal-duration buckets while keeping its first
  * and last recorded readings exact. The interior buckets divide the full
@@ -2076,7 +2083,7 @@ interface TrajectorySeriesPoint {
 function downsampleTrajectorySeries(
   readings: readonly TrajectorySeriesPoint[],
 ): number[] {
-  if (readings.length <= PATTERNS_SERIES_MAX_POINTS) {
+  if (readings.length <= STANDARD_TRAJECTORY_SERIES_POINTS) {
     return readings.map((reading) => reading.value);
   }
   const first = readings[0];
@@ -2085,7 +2092,7 @@ function downsampleTrajectorySeries(
     return [];
   }
 
-  const bucketCount = PATTERNS_SERIES_MAX_POINTS - 2;
+  const bucketCount = STANDARD_TRAJECTORY_SERIES_POINTS - 2;
   const buckets = Array.from(
     { length: bucketCount },
     () => ({ sum: 0, count: 0 }),

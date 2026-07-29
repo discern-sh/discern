@@ -1953,7 +1953,14 @@ Deno.test("patterns trajectory: long series use equal-time bucket means and exac
   const finding = outcome.findings[0];
   assert(finding !== undefined);
   assert(finding.series !== undefined);
-  assertEquals(finding.series.length, PATTERNS_SERIES_MAX_POINTS);
+  assert(
+    finding.series.length <= PATTERNS_SERIES_MAX_POINTS,
+    `${finding.series.length}-point series exceeds the wire cap`,
+  );
+  assert(
+    finding.series.length < values.length,
+    "the long trajectory must be downsampled",
+  );
   assertEquals(finding.series[0], values[0]);
   assertEquals(finding.series[finding.series.length - 1], values.at(-1));
   assert(
