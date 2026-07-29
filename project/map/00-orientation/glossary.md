@@ -51,7 +51,7 @@ aliases:
   - binary version
   - file dispositions
   - the binary's files
-  - [scopes.docs]
+  - scopes.docs
   - co-managed seed
   - integration branch
   - discern_main_branch

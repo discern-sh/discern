@@ -352,7 +352,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     retired: [
       {
         // The seeded documentation scope's retired name (now [scopes.map]).
-        phrase: "[scopes.docs]",
+        phrase: "scopes.docs",
         pattern: String.raw`\[scopes\.docs\b|\bscopes\.docs\b`,
       },
     ],
