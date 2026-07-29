@@ -1,9 +1,9 @@
 /**
  * Tests for the canonical-block extractor (`src/lib/config_template.ts`), the
- * single source of truth a 5→6 migration reads so it can insert a section —
- * documentation and all — instead of a bare EOF append. Covers the real template
- * (the blocks the migration actually inserts) plus the structural rules on
- * synthetic input (doc-block detection, the inline-doc/[meta] case, body bounds).
+ * single source of truth upgrade reconciliation reads when restoring a section
+ * with its documentation. Covers the real template plus the structural rules on
+ * synthetic input: doc-block detection, the inline-doc/[meta] case, and body
+ * bounds.
  */
 
 import {
@@ -17,7 +17,6 @@ import {
   keyBlockFromTemplate,
   managedBannersFromTemplate,
   readConfigTemplate,
-  renameRuledBannerIdentity,
   scanManagedBanners,
   sectionBlockFromTemplate,
   sectionKeyNamesFromTemplate,
@@ -279,29 +278,6 @@ Deno.test("readConfigTemplate resolves the bundled template", async () => {
 });
 
 const RULE = `# ${"─".repeat(77)}`;
-
-Deno.test("renameRuledBannerIdentity updates an unrelated future identity but preserves ordinary comments", () => {
-  const text = [
-    RULE,
-    "# [legacy_console.jobs] — managed documentation",
-    RULE,
-    "",
-    "# legacy_console stays ordinary project prose here",
-    "[legacy_console.jobs.build]",
-  ].join("\n");
-
-  const renamed = renameRuledBannerIdentity(
-    text,
-    "legacy_console",
-    "operator_desk",
-  );
-
-  assertStringIncludes(renamed, "# [operator_desk.jobs] —");
-  assertStringIncludes(
-    renamed,
-    "# legacy_console stays ordinary project prose here",
-  );
-});
 
 Deno.test("managedBannersFromTemplate finds a ruled banner for every record family", async () => {
   const banners = managedBannersFromTemplate(

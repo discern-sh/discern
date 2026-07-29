@@ -4,16 +4,13 @@
  * The template (`templates/discern.toml.tmpl`) is the single source of truth for
  * how a section *should* read in a project's config: its `# ───` documentation
  * paragraph, its `[header]`, and its body of commented defaults. `setup` lays the
- * whole template down, so a fresh config is fully documented. A 5→6 migration
- * (ADR 0020) adds sections to an *existing* config — and an only-if-absent line
- * edit would append them as bare keys, leaving a migrated config worse-documented
- * than an init'd one the longer it has existed.
+ * whole template down, so a fresh config is fully documented. `upgrade`
+ * reconciles missing fixed sections, keys, and managed banners from the same
+ * source without replacing project-owned values.
  *
- * This module closes that gap: it extracts a section's canonical block verbatim
- * from the template so the migration can insert it (doc block and all) at the
- * section's canonical position, giving a migrated config the same quality as a
- * fresh one. It is template-shaped, not a general TOML parser — it reads the
- * regular structure the template author maintains.
+ * This module extracts canonical blocks verbatim for that reconciliation. It is
+ * template-shaped, not a general TOML parser: it reads the regular structure the
+ * template author maintains.
  */
 
 import { join } from "@std/path";
@@ -23,7 +20,6 @@ import { scanManagedBanners, scanRuledBanners } from "./config_banners.ts";
 
 export {
   type ManagedBannerSpan,
-  renameRuledBannerIdentity,
   type RuledBannerSpan,
   scanManagedBanners,
   scanRuledBanners,

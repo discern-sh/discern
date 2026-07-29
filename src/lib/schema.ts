@@ -11,7 +11,6 @@
  * and re-stamps. `upgrade` reads it to report status.
  */
 
-import { join } from "@std/path";
 import type { TomlEditor } from "./toml_edit.ts";
 
 /** The dotted config key the schema version is recorded under. */
@@ -35,30 +34,14 @@ export function schemaFromRaw(
 }
 
 /**
- * Resolve the install's recorded schema version — the anchor the migration
- * chain steps from. Resolution preserves the prior chain's intent:
- *
- *   1. `[meta].schema_version` in the config, if present. A fresh `setup` always
- *      stamps it, so every current install hits this.
- *   2. else a legacy `.discern/manifest.json`'s `schema_version`, if present —
- *      so an old hash-tracked install starts its migration from the right step
- *      (and its engine is pruned by the final step).
- *   3. else `1` — a config predating the field is, by definition, a schema-1
- *      install (that anchor was introduced as v1), to be migrated forward.
- *
- * @param raw     the parsed config's `raw` tree
- * @param destDir the install root, for the legacy-manifest fallback
+ * Resolve the install's recorded schema version. A fresh setup always stamps
+ * `[meta].schema_version`; a config without the field belongs to schema 1, the
+ * public baseline.
  */
-export async function resolveRecordedSchema(
+export function resolveRecordedSchema(
   raw: Record<string, unknown>,
-  destDir: string,
-): Promise<number> {
-  const fromConfig = schemaFromRaw(raw);
-  if (fromConfig !== undefined) {
-    return fromConfig;
-  }
-  const fromManifest = await schemaFromLegacyManifest(destDir);
-  return fromManifest ?? 1;
+): number {
+  return schemaFromRaw(raw) ?? 1;
 }
 
 /** True when the project was written by a newer binary than this one. */
@@ -75,35 +58,6 @@ export function newerSchemaRefusalMessage(
   current: number,
 ): string {
   return `this project needs a newer discern — re-run the installer (project schema v${recorded}, this discern supports v${current}).`;
-}
-
-/**
- * Read `schema_version` from a legacy `.discern/manifest.json`, or undefined
- * when the manifest is absent, unreadable, or carries no integer version. The
- * manifest is otherwise dead — only its recorded schema still anchors an
- * upgrading legacy install, after which the prune step deletes the file.
- */
-async function schemaFromLegacyManifest(
-  destDir: string,
-): Promise<number | undefined> {
-  let text: string;
-  try {
-    text = await Deno.readTextFile(join(destDir, ".discern/manifest.json"));
-  } catch {
-    return undefined;
-  }
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (!isRecord(parsed)) {
-      return undefined;
-    }
-    const v = parsed.schema_version;
-    return typeof v === "number" && Number.isInteger(v) && v >= 1
-      ? v
-      : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 /** Stamp `[meta].schema_version = <version>` into a config editor, in place. */

@@ -838,9 +838,9 @@ export function parseConfigOrThrow(text: string): DiscernConfig {
 }
 
 /**
- * Load, parse, and validate the install config (`discern.toml`, or a legacy
- * `.discern/config.toml`) from under a project `root`, returning the fully-typed
- * object. Throws on a missing file, a syntax error, or a schema violation.
+ * Load, parse, and validate `discern.toml` under a project `root`, returning the
+ * fully-typed object. Throws on a missing file, a syntax error, or a schema
+ * violation.
  */
 export async function loadConfig(root: string): Promise<DiscernConfig> {
   const rel = (await installedConfigRel(root)) ?? CONFIG_REL;

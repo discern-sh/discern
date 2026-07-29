@@ -33,14 +33,6 @@ Deno.test("registry defaults follow the namespace policy and classify gate-neutr
     );
     if (name === "map") {
       assertEquals(entry.defaultPath, "discern/map/");
-      assertEquals(entry.legacyPath, "discern/docs/");
-    } else if (name === "scripts") {
-      assertEquals(entry.legacyPath, "discern/recipes");
-    } else {
-      assert(
-        !entry.legacyPath.startsWith(NAMESPACE_DIR),
-        `${name}: legacy "${entry.legacyPath}" predates the namespace`,
-      );
     }
     assertEquals(
       entry.gateNeutral,

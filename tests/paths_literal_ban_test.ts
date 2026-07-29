@@ -7,9 +7,7 @@
  * banned list derives from the registry (`SOURCE_PATHS`), so a new source path
  * auto-enrols too (ADR 0051; modelled on `engine_subprocess_ssot_test.ts`).
  *
- * Allowed homes: the registry module itself, and the migrations file — its
- * paths describe old on-disk schemas and are historically correct, not
- * defaults to resolve.
+ * The registry module is the only allowed home.
  */
 
 import { assertEquals } from "@std/assert";
@@ -22,14 +20,12 @@ import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 /** The files permitted to carry a registry default verbatim. */
 const ALLOWED = new Set([
-  join("src", "shared", "paths_registry.ts"), // the single source itself
-  join("src", "lib", "migrations.ts"), // historical schemas, not defaults
+  join("src", "shared", "paths_registry.ts"),
 ]);
 
 /** Match `default` as a path of its own: not preceded by a word char, `.`, or
- * `/` (so the legacy dotted `.discern/skills` never false-positives), and — for
- * a default without a trailing slash — not merely a prefix of a longer
- * path/word. */
+ * `/`, and — for a default without a trailing slash — not merely a prefix of a
+ * longer path or word. */
 function banned(defaultPath: string): RegExp {
   const escaped = defaultPath.replaceAll(/[.*+?^${}()|[\]\\/]/g, "\\$&");
   const tail = defaultPath.endsWith("/") ? "" : "(?![\\w-])";
@@ -44,8 +40,8 @@ Deno.test("no registry path default appears as a literal outside the registry", 
   }));
   const offenders: string[] = [];
   for (const rel of AUTHORED_TS_FILES) {
-    // Tests deliberately carry literals as independent expectations, fixtures,
-    // and migration history. Runtime code has no such reason.
+    // Tests deliberately carry literals as independent expectations and
+    // fixtures. Runtime code has no such reason.
     if (rel.startsWith("tests/") || ALLOWED.has(rel)) {
       continue;
     }

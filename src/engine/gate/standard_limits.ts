@@ -51,13 +51,11 @@ export async function readTrunkConfig(
     };
   }
   const commit = ref.stdout.trim();
-  for (const rel of ["discern.toml", ".discern/config.toml"]) {
-    const out = await runGit(["show", `${commit}:./${rel}`], {
-      cwd: root,
-    });
-    if (!out.success) {
-      continue;
-    }
+  const rel = "discern.toml";
+  const out = await runGit(["show", `${commit}:./${rel}`], {
+    cwd: root,
+  });
+  if (out.success) {
     try {
       return {
         kind: "parsed",

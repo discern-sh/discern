@@ -1,14 +1,14 @@
 /**
  * The discern **paths registry** — the single source of truth for every
  * configurable source path (ADR 0102). Each entry defines one authored-surface
- * location: its config key (when it has one), its prescriptive default, the
- * previous default a migration may need to carry, and a one-line description.
+ * location: its config key (when it has one), its prescriptive default, and a
+ * one-line description.
  *
  * Everything else derives from this table: the Zod schema's path `.default()`s
  * (`config_schema.ts`), the resolver helpers (`lib/paths.ts`), setup's seeding,
- * the migration, codegen, and the leakage guards. Adding a path means adding one
- * entry here — every satellite either auto-enrols or fails the gate. A path
- * default written as a literal anywhere else in `src/**` is a defect.
+ * codegen, and the leakage guards. Adding a path means adding one entry here —
+ * every satellite either auto-enrols or fails the gate. A path default written
+ * as a literal anywhere else in `src/**` is a defect.
  */
 
 import type { FileOwnershipDeclaration } from "./file_ownership.ts";
@@ -26,8 +26,6 @@ export interface SourcePathEntry {
    * (`[map].dir` keeps its trailing slash; the skills/scripts dirs do not),
    * matching what the schema defaults and the shipped template write. */
   readonly defaultPath: string;
-  /** The previous default a migration carries forward. It never seeds anything new. */
-  readonly legacyPath: string;
   /** Whether the write-surface contract admits one file or a directory tree. */
   readonly pathKind: "file" | "directory";
   /** How the write target is selected from config. */
@@ -67,7 +65,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   guidance: {
     key: "guidance.sources",
     defaultPath: "discern/guidance.md",
-    legacyPath: "guidance.md",
     pathKind: "file",
     resolution: "guidance-seed",
     ownership: { "project-owned": true },
@@ -78,7 +75,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   map: {
     key: "map.dir",
     defaultPath: "discern/map/",
-    legacyPath: "discern/docs/",
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
@@ -89,7 +85,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   skills: {
     key: "skills.dir",
     defaultPath: "discern/skills",
-    legacyPath: "skills",
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
@@ -99,7 +94,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   scripts: {
     key: "scripts.dir",
     defaultPath: "discern/scripts",
-    legacyPath: "discern/recipes",
     pathKind: "directory",
     resolution: "configured",
     ownership: { "project-owned": true },
@@ -109,7 +103,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   todo: {
     key: "project.todo",
     defaultPath: "discern/TODO.md",
-    legacyPath: "TODO.md",
     pathKind: "file",
     resolution: "configured",
     ownership: { "project-owned": true },
@@ -120,7 +113,6 @@ export const SOURCE_PATHS: Readonly<Record<SourcePathName, SourcePathEntry>> = {
   brief: {
     key: null,
     defaultPath: "discern/brief.md",
-    legacyPath: "brief.md",
     pathKind: "file",
     resolution: "default",
     ownership: { "project-owned": true },

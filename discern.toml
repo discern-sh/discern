@@ -449,7 +449,7 @@ per = { words = "${map.dir}**" }
 scale = 1000
 # Rebaselined after completed private planning archives were removed: the alert
 # count stayed 4,774 while the measured corpus shrank to 435,702 words.
-limit = 10.96
+limit = 10.95
 run = "deno task prose \"${map.dir}\""
 inputs = [
   "${map.dir}**",
@@ -494,7 +494,7 @@ inputs = [
 # At zero, move the detector into an always-on test and retire this table.
 [standards.lint_suppressions]
 direction = "down"
-limit = 31
+limit = 26
 run = "deno task lint-suppressions"
 inputs = [
   "*.ts",
@@ -675,5 +675,5 @@ dir = "project/scripts"
 [meta]
 # The install schema version — managed by discern (bumped by `discern upgrade`).
 # Don't edit this by hand.
-schema_version = 24
+schema_version = 1
 bootstrapped = true

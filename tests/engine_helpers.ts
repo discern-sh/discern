@@ -14,7 +14,7 @@
  * Tests that exercise scope/scope-gate/standard behaviour need a git repo so
  * `scopes` can answer; `gitInit` makes a hermetic one (its own config,
  * no signing, a `main` branch) so a developer's global git settings can't leak
- * in. `writeConfig` overwrites the scaffolded `.discern/config.toml` (a seed file) with
+ * in. `writeConfig` overwrites the scaffolded `discern.toml` seed with
  * test-specific capabilities/checks/scopes/standards.
  */
 
@@ -135,10 +135,10 @@ export async function engineEnv(
 }
 
 /**
- * Scaffold the real harness (engine, dispatcher, default `.discern/config.toml`) into
- * `dir` via the installer's own plan/apply path, so the bytes under test are the
- * bytes a real install ships. Tests usually follow with `writeConfig` to set
- * the capabilities/checks/scopes/standards they need.
+ * Scaffold the real harness into `dir` via the installer's own plan/apply path,
+ * so the bytes under test are the bytes a real install ships. Tests usually
+ * follow with `writeConfig` to set the capabilities/checks/scopes/standards they
+ * need.
  */
 export async function scaffoldEngine(
   dir: string,

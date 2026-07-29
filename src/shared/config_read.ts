@@ -42,8 +42,7 @@ export class RawConfig {
     }
   }
 
-  /** Read the install config (`discern.toml`, or a legacy `.discern/config.toml`)
-   * from under a project `root` as a raw, un-validated view. */
+  /** Read `discern.toml` under a project `root` as a raw, un-validated view. */
   static async load(root: string): Promise<RawConfig> {
     const rel = (await installedConfigRel(root)) ?? CONFIG_REL;
     return new RawConfig(await Deno.readTextFile(join(root, rel)));

@@ -98,23 +98,6 @@ export function defaultGuidanceScopes(): string[] {
   return defaultGuidanceScopePaths().map((path) => `"${path}"`);
 }
 
-/** The combined neutral-scope target used by schema 22→23. Keeping this target
- * distinct from the fresh seed paths prevents an older install's generated
- * scope from acquiring the current split during upgrade. */
-export function defaultNeutralScopePaths(): string[] {
-  return [
-    ...SOURCE_PATH_NAMES
-      .filter((name) => SOURCE_PATHS[name].gateNeutral)
-      .map(neutralSourceScopePath),
-    ...neutralAgentScopePaths(),
-  ];
-}
-
-/** The schema-23 combined neutral paths, quoted for migration callers. */
-export function defaultNeutralScopes(): string[] {
-  return defaultNeutralScopePaths().map((path) => `"${path}"`);
-}
-
 /** The fully-resolved answers that drive scaffolding. */
 export interface SetupConfig {
   projectName: string;

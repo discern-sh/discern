@@ -212,6 +212,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0216 — Temp retention is repository-throttled and inspection-bounded](0216-temp-retention-is-repository-throttled-and-inspection-bounded.md)
 - [0217 — Envelope command references render per delivery surface](0217-envelope-command-references-render-per-surface.md)
 - [0218 — `docs` owns the manual; `help` owns CLI reference](0218-docs-owns-the-manual-help-owns-cli-reference.md)
+- [0219 — The public install schema starts at 1](0219-public-install-schema-starts-at-one.md)
 
 <!-- END GENERATED: current ADR records -->
 

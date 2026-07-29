@@ -1,15 +1,12 @@
 /**
  * CLI tests for `discern upgrade --check` — the read-only currency primitive.
- * With the managed-file machinery gone there is no file drift to detect: an
- * install is current iff its recorded schema (`[meta].schema_version`) is current.
- * `--check` reports that and exits non-zero when config migrations are pending,
- * writing nothing. Human lines go to stderr, so the machine assertions read
- * `--json` from stdout.
+ * `--check` reports schema and scaffold currency without writing. The first
+ * public baseline has no pending production migrations; synthetic in-process
+ * tests exercise that branch until the first public migration exists.
  */
 
 import { assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { MIGRATIONS } from "../src/lib/migrations.ts";
 import {
   KIT_VERSION,
   SCHEMA_VERSION,
@@ -56,38 +53,13 @@ Deno.test("upgrade --check passes on a fresh, in-sync install", async () => {
 Deno.test("upgrade --check writes nothing", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);
-    await setSchema(dir, 1);
     const before = await Deno.readTextFile(join(dir, "discern.toml"));
     const r = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(r.code, 1, r.stderr);
-    // A read-only check must not stamp the schema or otherwise edit the config.
+    assertEquals(r.code, 0, r.stderr);
     assertEquals(
       await Deno.readTextFile(join(dir, "discern.toml")),
       before,
     );
-  });
-});
-
-Deno.test("upgrade --check flags a stale schema and lists the pending steps", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    await setSchema(dir, 1);
-    const r = await runCli(["upgrade", "--check", "--json"], dir);
-    assertEquals(r.code, 1, r.stderr);
-    const res = JSON.parse(r.stdout);
-    assertEquals(res.ok, false);
-    assertEquals(res.data.schema.recorded, 1);
-    assertEquals(res.data.schema.current, SCHEMA_VERSION);
-    // Every step from 1 up to the current schema is pending.
-    assertEquals(
-      res.data.pending_migrations.map((m: { from: number }) => m.from),
-      MIGRATIONS.map((migration) => migration.from),
-    );
-    const recovery = assertHasHint(
-      res,
-      HINTS["upgrade-check-pending"],
-    );
-    assertStringIncludes(recovery, "`discern upgrade`");
   });
 });
 
@@ -105,30 +77,6 @@ Deno.test("upgrade --check refuses a config from a newer schema", async () => {
     assertStringIncludes(res.message, "this project needs a newer discern");
     assertStringIncludes(res.message, "re-run the installer");
     assertEquals(await Deno.readTextFile(join(dir, "discern.toml")), before);
-  });
-});
-
-Deno.test("upgrade --check (human mode) names the stale schema on stderr", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    await setSchema(dir, 1);
-    const r = await runCli(["upgrade", "--check"], dir);
-    assertEquals(r.code, 1, r.stderr);
-    assertStringIncludes(r.stderr, "schema");
-  });
-});
-
-Deno.test("upgrade --check heals with the product command, never engine-internal vocabulary", async () => {
-  await withTempDir(async (dir) => {
-    await setup(dir);
-    await setSchema(dir, 1);
-    const r = await runCli(["upgrade", "--check"], dir);
-    assertEquals(r.code, 1, r.stderr);
-    // The hint is always the product command — the retired self-host Deno-task
-    // aliases (`deno task selfsync`/`selfcheck`) must never leak into output.
-    assertStringIncludes(r.stderr, "discern upgrade");
-    assertEquals(r.stderr.includes("deno task"), false, r.stderr);
-    assertEquals(r.stderr.includes("selfsync"), false, r.stderr);
   });
 });
 

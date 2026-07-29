@@ -99,30 +99,3 @@ export function scanManagedBanners(
   }
   return spans;
 }
-
-/**
- * Rename the first path segment in clean ruled-banner identities. Ordinary
- * comments and every byte outside the owned rule pairs remain untouched.
- */
-export function renameRuledBannerIdentity(
-  text: string,
-  from: string,
-  to: string,
-): string {
-  const lines = text.split("\n");
-  for (const span of scanRuledBanners(text)) {
-    const parts = span.identity.split(".");
-    if (parts[0] !== from) {
-      continue;
-    }
-    const identityLine = lines[span.start + 1];
-    if (identityLine === undefined) {
-      continue;
-    }
-    lines[span.start + 1] = identityLine.replace(
-      `[${span.identity}]`,
-      `[${[to, ...parts.slice(1)].join(".")}]`,
-    );
-  }
-  return lines.join("\n");
-}

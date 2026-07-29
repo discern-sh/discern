@@ -82,6 +82,12 @@ export interface UpgradeOptions {
    */
   registry?: Migration[] | undefined;
   /**
+   * Schema target paired with an injected registry. Production callers use
+   * `SCHEMA_VERSION`; tests can exercise a future migration without changing
+   * the public baseline.
+   */
+  currentSchema?: number | undefined;
+  /**
    * Project root to operate on; defaults to `Deno.cwd()`. Tests pass it directly
    * so they never chdir the process — a process-global change that races across
    * test files running concurrently under `deno test --parallel`.
@@ -119,10 +125,9 @@ function restartAgentsHint(): FiredHint {
 export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   const log = new Logger(options);
   const destDir = options.cwd ?? Deno.cwd();
+  const currentSchema = options.currentSchema ?? SCHEMA_VERSION;
 
-  // Must be inside an initialized project. Detect either layout so a
-  // pre-6 install (legacy `.discern/config.toml`) is recognised and carried
-  // forward by the migration chain below.
+  // Must be inside an initialized project.
   const configPath = await resolveConfigPath(destDir);
   const tomlText = configPath === undefined
     ? undefined
@@ -157,15 +162,15 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   }
 
   // The migration chain to run: every step from the install's recorded schema
-  // (read from `[meta].schema_version`, falling back to a legacy manifest or
-  // schema 1) up to this build's SCHEMA_VERSION.
-  const migrateFrom = await resolveRecordedSchema(toml.raw, destDir);
-  if (isRecordedSchemaNewer(migrateFrom, SCHEMA_VERSION)) {
-    return refuseNewerSchema(log, migrateFrom);
+  // (read from `[meta].schema_version`, defaulting to schema 1) up to this
+  // build's current schema.
+  const migrateFrom = resolveRecordedSchema(toml.raw);
+  if (isRecordedSchemaNewer(migrateFrom, currentSchema)) {
+    return refuseNewerSchema(log, migrateFrom, currentSchema);
   }
   const pending = pendingMigrations(
     migrateFrom,
-    SCHEMA_VERSION,
+    currentSchema,
     options.registry,
   );
   const pendingJson = pending.map((m) => ({
@@ -205,7 +210,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         data: {
           check: true,
           kit_version: KIT_VERSION,
-          schema: { recorded: migrateFrom, current: SCHEMA_VERSION },
+          schema: { recorded: migrateFrom, current: currentSchema },
           pending_migrations: pendingJson,
           pending_reconciliation: pendingReconciliationJson,
           config_template_available: currentReconciliation.templateAvailable,
@@ -216,13 +221,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       });
     } else if (ok) {
       log.ok(
-        `Install is up to date (discern ${KIT_VERSION}, schema ${SCHEMA_VERSION}).`,
+        `Install is up to date (discern ${KIT_VERSION}, schema ${currentSchema}).`,
       );
       log.info(newerDiscernHint().text);
     } else {
       if (pending.length > 0) {
         log.error(
-          `Install schema is v${migrateFrom}, but this build expects v${SCHEMA_VERSION}.`,
+          `Install schema is v${migrateFrom}, but this build expects v${currentSchema}.`,
         );
         for (const m of pending) {
           log.detail(`migration ${m.from}→${m.from + 1}: ${m.describe}`);
@@ -342,14 +347,13 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     }
   }
 
-  // 1. Run the migration chain. Steps are idempotent; for a pre-6 install the
-  // schema 5→6 step dissolves `.discern/` into the new single-file layout.
+  // 1. Run the migration chain. Steps are idempotent.
   let applied: Awaited<ReturnType<typeof applyMigrations>>;
   try {
     applied = await applyMigrations({
       destDir,
       from: migrateFrom,
-      to: SCHEMA_VERSION,
+      to: currentSchema,
       registry: options.registry,
       onNote: (m) => log.detail(m),
     });
@@ -365,7 +369,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         verb: "upgrade",
         error: "invalid_migrated_config",
         message,
-        data: { schema: { from: migrateFrom, current: SCHEMA_VERSION } },
+        data: { schema: { from: migrateFrom, current: currentSchema } },
       });
     } else {
       log.error(message);
@@ -389,7 +393,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         error: "invalid_migrated_config",
         message: validity.message,
         data: {
-          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          schema: { from: migrateFrom, current: currentSchema },
           ...(validity.issues === undefined ? {} : { issues: validity.issues }),
         },
       });
@@ -410,7 +414,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         error: "config_template_unavailable",
         message,
         data: {
-          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          schema: { from: migrateFrom, current: currentSchema },
           config_reconciled: [],
         },
       });
@@ -428,7 +432,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         error: "invalid_migrated_config",
         message: reconciledValidity.message,
         data: {
-          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          schema: { from: migrateFrom, current: currentSchema },
           config_reconciled: reconciliation.operations.map(operationToJson),
           ...(reconciledValidity.issues === undefined
             ? {}
@@ -458,7 +462,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         error: "gitignore_template_unavailable",
         message,
         data: {
-          schema: { from: migrateFrom, current: SCHEMA_VERSION },
+          schema: { from: migrateFrom, current: currentSchema },
           config_reconciled: reconciliation.operations.map(operationToJson),
           gitignore_reconciled: [],
         },
@@ -500,7 +504,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     guidelinesErrors.length === 0;
 
   // 3. Stamp the new schema version into the config (now at its migrated path).
-  await stampSchema(newConfigPath, SCHEMA_VERSION);
+  await stampSchema(newConfigPath, currentSchema);
 
   if (options.json) {
     log.result({
@@ -519,7 +523,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         kit_version: KIT_VERSION,
         // `from` is the pre-upgrade schema; the install now records `current`
         // (the stamp ran above), so reporting it as still "recorded" would mislead.
-        schema: { from: migrateFrom, current: SCHEMA_VERSION },
+        schema: { from: migrateFrom, current: currentSchema },
         migrations_applied: applied.map((m) => ({
           from: m.from,
           to: m.from + 1,
@@ -568,19 +572,24 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     applied.length,
     reconciliation.operations,
     gitignoreReconciliation.operations,
+    currentSchema,
   );
   return 0;
 }
 
-function refuseNewerSchema(log: Logger, recorded: number): number {
-  const message = newerSchemaRefusalMessage(recorded, SCHEMA_VERSION);
+function refuseNewerSchema(
+  log: Logger,
+  recorded: number,
+  currentSchema: number,
+): number {
+  const message = newerSchemaRefusalMessage(recorded, currentSchema);
   if (log.json) {
     log.result({
       ok: false,
       verb: "upgrade",
       error: "schema_version_too_new",
       message,
-      data: { schema: { recorded, current: SCHEMA_VERSION } },
+      data: { schema: { recorded, current: currentSchema } },
     });
   } else {
     log.error(message);
@@ -628,6 +637,7 @@ function renderUpgradeSummary(
   migrationCount: number,
   reconciliation: ConfigReconcileOperation[],
   gitignoreReconciliation: GitignoreReconcileOperation[],
+  currentSchema: number,
 ): void {
   log.heading("Upgrade summary");
   if (migrationCount > 0) {
@@ -657,7 +667,7 @@ function renderUpgradeSummary(
         : "guidelines: nothing to compile",
     );
   }
-  log.ok(`install stamped at schema ${SCHEMA_VERSION}`);
+  log.ok(`install stamped at schema ${currentSchema}`);
   // R6: keep the two upgrade axes distinct — `discern upgrade` refreshed THIS
   // project to match the installed binary; getting a NEWER binary is separate.
   log.line();
