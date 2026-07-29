@@ -50,7 +50,7 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 
 ## Protocol adapters
 
-[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside the `TOOLS` table with a reason per member, records the verbs deliberately left without a tool; the parity guard reconciles the two halves against the whole verb vocabulary, and the hint renderer's shell-instruction fallback covers exactly the declared set. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
+[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside the `TOOLS` table with a reason per member, records the verbs left without a tool; the parity guard reconciles the two halves against the whole verb vocabulary, and the hint renderer's shell-instruction fallback covers the declared set. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
 
