@@ -173,6 +173,10 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     await git(dir, "init", "--bare", remote);
     await git(dir, "remote", "add", "origin", remote);
     await git(dir, "push", "-u", "origin", "main");
+    const backup = join(dir, "backup.git");
+    await git(dir, "init", "--bare", backup);
+    await git(dir, "remote", "add", "backup", backup);
+    await git(dir, "push", "backup", "main");
 
     const configBefore = await Deno.readTextFile(join(dir, ".git", "config"));
     const localRefresh = await runAgent(dir, ["refresh", "--json"]);
@@ -221,6 +225,13 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     const receiptMapping =
       "+refs/notes/discern:refs/discern/remotes/origin/notes";
     assertEquals(fetches.filter((value) => value === receiptMapping).length, 1);
+    for (const remoteName of ["backup", "origin"]) {
+      const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
+      assert(
+        emptyFetch.success,
+        `ordinary fetch from ${remoteName} must succeed before the first receipt-note publication: ${emptyFetch.stderr}`,
+      );
+    }
     const pushConfig = await runGit(
       ["config", "--local", "--get-all", "remote.origin.push"],
       { cwd: dir },
