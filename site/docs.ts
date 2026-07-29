@@ -39,6 +39,7 @@ import {
   type GlossaryEntry,
   glossarySummary,
 } from "../scripts/glossary_registry.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
 import { DISCERN_FAVICON_PATH } from "./brand.ts";
 import { designSystemAssetPath } from "./design_system.ts";
 import { buildSearchIndex } from "./search.ts";
@@ -699,129 +700,40 @@ function sectionIndexOf(dir: string): string {
   return /^(\d+)-/.exec(dir)?.[1] ?? "§";
 }
 
-export type DocsNavContext =
-  | "current"
-  | "nearby"
-  | "recommended"
-  | "other";
-
-export interface DocsNavPage {
-  readonly page: DocsPage;
-  readonly context: DocsNavContext;
-  readonly relation?: "Previous" | "Recommended";
-}
-
-export interface DocsNavSection {
-  readonly section: DocsSection;
-  readonly context: DocsNavContext;
-  readonly pages: readonly DocsNavPage[];
-}
-
-export interface DocsNavigationProjection {
-  /** Full is the intentional fallback when no guidance page supplies context. */
-  readonly defaultMode: "focused" | "full";
-  readonly sections: readonly DocsNavSection[];
-}
-
-/**
- * Project the one canonical page order into contextual and full nav states.
- * The full tree stays in the DOM; context only identifies the current page,
- * its previous neighbour, and the canonical next-page recommendation.
- */
-export function docsNavigationProjection(
-  site: DocsSite,
-  current: DocsPage | null,
-): DocsNavigationProjection {
-  if (current === null) {
-    return {
-      defaultMode: "full",
-      sections: site.sections.map((section) => ({
-        section,
-        context: "other",
-        pages: section.pages.map((page) => ({
-          page,
-          context: "other",
-        })),
-      })),
-    };
-  }
-
-  const currentIndex = site.pages.findIndex((page) =>
-    page.route === current.route
-  );
-  if (currentIndex < 0) {
-    throw new Error(`docs: navigation cannot place ${current.route}`);
-  }
-  const previous = currentIndex > 0 ? site.pages[currentIndex - 1] : undefined;
-  const recommended = currentIndex < site.pages.length - 1
-    ? site.pages[currentIndex + 1]
-    : undefined;
-
-  const sections = site.sections.map((section): DocsNavSection => {
-    const pages = section.pages.map((page): DocsNavPage => {
-      if (page.route === current.route) {
-        return { page, context: "current" };
-      }
-      if (page.route === previous?.route) {
-        return { page, context: "nearby", relation: "Previous" };
-      }
-      if (page.route === recommended?.route) {
-        return { page, context: "recommended", relation: "Recommended" };
-      }
-      return { page, context: "other" };
-    });
-    const context: DocsNavContext = section.slug === current.sectionSlug
-      ? "current"
-      : pages.some((page) => page.context === "recommended")
-      ? "recommended"
-      : pages.some((page) => page.context === "nearby")
-      ? "nearby"
-      : "other";
-    return { section, context, pages };
-  });
-  return { defaultMode: "focused", sections };
-}
-
 function navHtml(site: DocsSite, current: DocsPage | null): string {
-  const projection = docsNavigationProjection(site, current);
-  const sections = projection.sections.map(({ section, context, pages }) => {
-    const leaves = pages.map(({ page, context: pageContext, relation }) => {
-      const here = pageContext === "current";
-      const relationHtml = relation === undefined
-        ? ""
-        : `<span class="docs-nav-relation">${relation}</span>`;
-      return `<li data-nav-page data-nav-context="${pageContext}"><a href="${page.route}"${
+  const sections = site.sections.map((section) => {
+    const leaves = section.pages.map((page) => {
+      const here = page.route === current?.route;
+      return `<li data-nav-page><a href="${page.route}"${
         here ? ' aria-current="page"' : ""
-      }>${relationHtml}<span>${
+      }><span>${
         page.isIndex ? "Overview" : esc(page.entry.title)
       }</span></a></li>`;
     }).join("");
-    const scope = context === "current"
-      ? '<span class="docs-nav-scope">Current section</span>'
-      : "";
     // Emitted flat: this fragment repeats on every docs page, so template
     // pretty-printing would spend page-size budget on invisible whitespace.
-    return `<div class="discern-docs-nav__section docs-nav-chapter" data-nav-section data-nav-context="${context}"><div class="docs-nav-chapter-heading"><strong class="discern-docs-nav__title docs-nav-label"><span class="docs-nav-section-index">${
+    return `<div class="discern-docs-nav__section docs-nav-chapter" data-nav-section><div class="docs-nav-chapter-heading"><strong class="discern-docs-nav__title docs-nav-label"><span class="docs-nav-section-index">${
       sectionIndexOf(section.dir)
-    }</span>${
-      esc(section.title)
-    }</strong>${scope}</div><ul>${leaves}</ul></div>`;
+    }</span>${esc(section.title)}</strong></div><ul>${leaves}</ul></div>`;
   }).join("");
-  const disclosure = projection.defaultMode === "focused"
-    ? `<button class="docs-nav-disclosure" type="button"
-        data-nav-disclosure aria-controls="docs-nav-sections"
-        aria-expanded="false"><span data-nav-disclosure-label>Full manual</span></button>`
-    : "";
-  return `${disclosure}<div id="docs-nav-sections" data-nav-sections data-nav-default="${projection.defaultMode}">${sections}</div>`;
+  return `<div id="docs-nav-sections" data-nav-sections>${sections}</div>`;
 }
 
 function tocHtml(toc: TocItem[]): string {
   if (toc.length === 0) return "";
-  const items = toc.map((item, index) =>
-    `<li class="docs-toc-d${item.depth}"><a href="#${esc(item.id)}"><span>${
-      String(index + 1).padStart(2, "0")
-    }</span>${esc(item.text)}</a></li>`
-  ).join("");
+  let sectionNumber = 0;
+  const items = toc.map((item) => {
+    const nested = item.depth > 2;
+    const itemClass = nested
+      ? ' class="discern-table-of-contents__item--nested"'
+      : "";
+    const number = nested
+      ? ""
+      : `<span>${String(++sectionNumber).padStart(2, "0")}</span>`;
+    return `<li${itemClass}><a href="#${esc(item.id)}">${number}${
+      esc(item.text)
+    }</a></li>`;
+  }).join("");
   return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page"><strong class="discern-table-of-contents__title">On this page</strong><ol>${items}</ol></nav>`;
 }
 
@@ -982,8 +894,9 @@ function shellFrame(site: DocsSite, frame: ShellFrame): string {
 ${navHtml(site, frame.current)}
     </nav>
     <div class="docs-nav-foot discern-mono">
-      <a href="/llms.txt">llms.txt</a>
-      <a href="${GITHUB}">github&nbsp;↗</a>
+      <a href="/docs/orientation/glossary">Glossary</a>
+      <a href="/docs/reference/cli-reference">Commands</a>
+      <a href="/docs/reference/config-reference">Configuration</a>
     </div>
   </aside>
   <main id="doc" class="docs-main">
@@ -1032,20 +945,20 @@ function colophonHtml(
 ): string {
   const route = page?.route ??
     (index === "decisions" ? DECISIONS_ROUTE : "/docs");
-  const raw = page?.kind === "guide"
-    ? ` — the same bytes <code>discern help ${
-      esc(page.entry.slug)
-    } --raw</code> prints`
-    : "";
+  const helpPage = page?.kind === "guide"
+    ? esc(page.entry.slug)
+    : "&lt;page&gt;";
   const source = page === null
     ? index === "decisions"
       ? `${GITHUB}/tree/main/${MAP_REPO_REL}/_adr`
       : `${GITHUB}/tree/main/${MAP_REPO_REL}`
     : `${GITHUB}/blob/main/${MAP_REPO_REL}/${esc(page.mapPath)}`;
   return `<footer class="docs-colophon">
-      <span>This page is plain text too:
-        <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>${raw}.</span>
+      <span>Plain text for agents:
+        <a class="discern-mono" href="${route}.md">curl&nbsp;discern.sh${route}.md</a>
+        or <code>discern help ${helpPage} --raw</code></span>
       <span class="docs-colophon-links">
+        <a href="/llms.txt">llms.txt</a>
         <a href="${DECISIONS_ROUTE}">Project decisions</a>
         <a href="${source}">View source&nbsp;↗</a>
       </span>
@@ -1150,7 +1063,9 @@ export function docsIndexShell(site: DocsSite): string {
   }).join("\n");
 
   const cover = `<header class="docs-cover">
-    <span class="discern-kicker"><span class="discern-kicker__index">man(1)</span>The discern manual</span>
+    <span class="discern-kicker"><span class="discern-kicker__index">v${
+    esc(KIT_VERSION)
+  }</span>The Discern Manual</span>
     <h1>Read what your <em class="discern-heading__accent">agents</em> read.</h1>
     <p class="docs-cover-lead">The same documentation <code>discern help</code>
     serves in a terminal, kept current by the agents that work on discern.
@@ -1158,6 +1073,8 @@ export function docsIndexShell(site: DocsSite): string {
     <code>.md</code> — for the pristine Markdown.</p>
   </header>
   <div class="docs-chapters">
+  <div class="discern-divider discern-divider--canvas discern-divider--plain"
+    role="separator"></div>
   ${chapters}
   </div>
   ${colophonHtml(null)}`;

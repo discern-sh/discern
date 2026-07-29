@@ -31,6 +31,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "brand",
       "heading",
       "kicker",
+      "divider",
       "table",
       "breadcrumbs",
       ...WORKFLOW_COMPONENTS,

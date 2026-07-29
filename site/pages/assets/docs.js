@@ -51,11 +51,7 @@ import { searchPages } from "./search.js";
   // ── Drawer ───────────────────────────────────────────────────────────────
 
   const nav = $("#docs-nav");
-  const navSections = nav ? $("[data-nav-sections]", nav) : null;
-  const navDisclosure = nav ? $("[data-nav-disclosure]", nav) : null;
-  const navDisclosureLabel = navDisclosure
-    ? $("[data-nav-disclosure-label]", navDisclosure)
-    : null;
+  const navScroll = nav ? $(".docs-nav-scroll", nav) : null;
   const drawerVeil = $("[data-drawer-close]");
   const burger = $("[data-drawer-toggle]");
   const drawerMedia = matchMedia("(max-width: 64em)");
@@ -71,33 +67,39 @@ import { searchPages } from "./search.js";
   let drawerOpen = false;
   let drawerReturnFocus = null;
 
-  const setNavMode = (mode) => {
-    if (!navSections) return;
-    const focused = mode === "focused";
-    navSections.dataset.navMode = mode;
-    for (const element of $$("[data-nav-context]", navSections)) {
-      element.hidden = focused && element.dataset.navContext === "other";
-    }
-    if (navDisclosure) {
-      navDisclosure.setAttribute("aria-expanded", String(!focused));
-    }
-    if (navDisclosureLabel) {
-      navDisclosureLabel.textContent = focused
-        ? "Full manual"
-        : "Focused navigation";
+  const navScrollKey = "discern:docs-nav-scroll";
+  const persistNavScroll = () => {
+    if (!navScroll) return;
+    try {
+      sessionStorage.setItem(navScrollKey, String(navScroll.scrollTop));
+    } catch {
+      // Storage can be disabled without making documentation navigation fail.
     }
   };
-
-  if (navSections) {
-    setNavMode(
-      navSections.dataset.navDefault === "focused" ? "focused" : "full",
-    );
+  const revealCurrentNavItem = () => {
+    if (!navScroll) return;
+    const current = $('[aria-current="page"]', navScroll);
+    if (!current) return;
+    const viewport = navScroll.getBoundingClientRect();
+    const item = current.getBoundingClientRect();
+    if (item.top < viewport.top) {
+      navScroll.scrollTop -= viewport.top - item.top;
+    } else if (item.bottom > viewport.bottom) {
+      navScroll.scrollTop += item.bottom - viewport.bottom;
+    }
+  };
+  if (navScroll) {
+    try {
+      const saved = Number(sessionStorage.getItem(navScrollKey));
+      if (Number.isFinite(saved) && saved >= 0) navScroll.scrollTop = saved;
+    } catch {
+      // Storage can be disabled without making documentation navigation fail.
+    }
+    queueMicrotask(revealCurrentNavItem);
+    navScroll.addEventListener("scroll", persistNavScroll, { passive: true });
+    navScroll.addEventListener("click", persistNavScroll);
+    addEventListener("pagehide", persistNavScroll);
   }
-  navDisclosure?.addEventListener("click", () => {
-    setNavMode(
-      navSections?.dataset.navMode === "focused" ? "full" : "focused",
-    );
-  });
 
   const focusFirstInDrawer = () => {
     const first = nav ? focusablesIn(nav)[0] : null;

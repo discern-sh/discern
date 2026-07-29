@@ -21,7 +21,6 @@ import { handler } from "../site/serve.ts";
 import {
   createGlossaryProseRenderer,
   docsLlmsSection,
-  docsNavigationProjection,
   type DocsPage,
   glossaryMentions,
   loadDocsSite,
@@ -34,6 +33,7 @@ import type { DocEntry } from "../src/lib/docs.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
 import { parseFrontmatter } from "../src/lib/frontmatter.ts";
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { helpResult } from "../src/commands/docs.ts";
 // @ts-types="@types/jsdom"
@@ -204,10 +204,10 @@ Deno.test("the full nav contains every published page exactly once in model orde
     site.sections.length,
   );
   assertEquals(
-    nav?.querySelector("[data-nav-sections]")?.getAttribute(
+    nav?.querySelector("[data-nav-sections]")?.hasAttribute(
       "data-nav-default",
     ),
-    "full",
+    false,
   );
   assertEquals(nav?.querySelector("[data-nav-disclosure]"), null);
   assertEquals(nav?.querySelectorAll("[hidden]").length, 0);
@@ -218,85 +218,45 @@ Deno.test("the full nav contains every published page exactly once in model orde
   dom.window.close();
 });
 
-Deno.test("every guide gets current, nearby, and recommended context from canonical order", async () => {
+Deno.test("every guide keeps the complete canonical nav and marks only itself", async () => {
   const site = await loadDocsSite();
   const canonicalRoutes = site.pages.map((page) => page.route);
-  for (const [index, current] of site.pages.entries()) {
-    const projection = docsNavigationProjection(site, current);
-    assertEquals(projection.defaultMode, "focused", current.route);
+  for (const current of site.pages) {
+    const html = await (await get(current.route, BROWSER)).text();
+    const dom = new JSDOM(html);
+    const nav = dom.window.document.querySelector(".docs-nav-scroll");
     assertEquals(
-      projection.sections.flatMap((section) =>
-        section.pages.map(({ page }) => page.route)
+      [...nav?.querySelectorAll("[data-nav-page] > a") ?? []].map((link) =>
+        link.getAttribute("href")
       ),
       canonicalRoutes,
       current.route,
     );
-    const pages = projection.sections.flatMap((section) => section.pages);
     assertEquals(
-      pages.filter((page) => page.context === "current")
-        .map(({ page }) => page.route),
+      [...nav?.querySelectorAll('[aria-current="page"]') ?? []].map((link) =>
+        link.getAttribute("href")
+      ),
       [current.route],
       current.route,
     );
     assertEquals(
-      pages.filter((page) => page.context === "nearby")
-        .map(({ page, relation }) => [page.route, relation]),
-      index === 0 ? [] : [[site.pages[index - 1]?.route, "Previous"]],
-      current.route,
-    );
-    assertEquals(
-      pages.filter((page) => page.context === "recommended")
-        .map(({ page, relation }) => [page.route, relation]),
-      index === site.pages.length - 1
-        ? []
-        : [[site.pages[index + 1]?.route, "Recommended"]],
-      current.route,
-    );
-    assertEquals(
-      projection.sections.filter((section) => section.context === "current")
-        .map(({ section }) => section.slug),
-      [current.sectionSlug],
-      current.route,
-    );
-  }
-});
-
-Deno.test("focused nav markup and full fallbacks expose their state intentionally", async () => {
-  const site = await loadDocsSite();
-  const representatives = site.sections.map((section) =>
-    section.pages.find((page) => !page.isIndex) ?? section.index
-  );
-  const tasks = site.byRoute.get("/docs/getting-started/tasks");
-  if (tasks?.kind === "guide" && !representatives.includes(tasks)) {
-    representatives.push(tasks);
-  }
-  for (const page of representatives) {
-    const html = await (await get(page.route, BROWSER)).text();
-    const dom = new JSDOM(html);
-    const nav = dom.window.document.querySelector(".docs-nav-scroll");
-    assertEquals(
-      nav?.querySelector("[data-nav-sections]")?.getAttribute(
-        "data-nav-default",
+      nav?.querySelector(
+        "[data-nav-disclosure], [data-nav-context], .docs-nav-relation, .docs-nav-scope",
       ),
-      "focused",
-      page.route,
-    );
-    const disclosure = nav?.querySelector("[data-nav-disclosure]");
-    assertEquals(disclosure?.textContent?.trim(), "Full manual", page.route);
-    assertEquals(
-      disclosure?.getAttribute("aria-expanded"),
-      "false",
-      page.route,
-    );
-    assertEquals(
-      [...nav?.querySelectorAll('[aria-current="page"]') ?? []]
-        .map((link) => link.getAttribute("href")),
-      [page.route],
-      page.route,
+      null,
+      current.route,
     );
     dom.window.close();
   }
+});
 
+Deno.test("docs navigation foot keeps the three durable reference links visible", async () => {
+  const site = await loadDocsSite();
+  const expected = [
+    ["Glossary", "/docs/orientation/glossary"],
+    ["Commands", "/docs/reference/cli-reference"],
+    ["Configuration", "/docs/reference/config-reference"],
+  ];
   const decision = site.decisions.pages[0];
   for (
     const route of [
@@ -307,22 +267,116 @@ Deno.test("focused nav markup and full fallbacks expose their state intentionall
   ) {
     const html = await (await get(route, BROWSER)).text();
     const dom = new JSDOM(html);
-    const nav = dom.window.document.querySelector(".docs-nav-scroll");
     assertEquals(
-      nav?.querySelector("[data-nav-sections]")?.getAttribute(
-        "data-nav-default",
+      [...dom.window.document.querySelectorAll(".docs-nav-foot a")].map(
+        (link) => [link.textContent?.trim(), link.getAttribute("href")],
       ),
-      "full",
+      expected,
       route,
     );
-    assertEquals(nav?.querySelector("[data-nav-disclosure]"), null, route);
     assertEquals(
-      nav?.querySelectorAll('[aria-current="page"]').length,
+      dom.window.document.querySelectorAll(
+        ".docs-nav-scroll [aria-current='page']",
+      ).length,
       0,
       route,
     );
     dom.window.close();
   }
+});
+
+Deno.test("the manual cover and colophon expose current, agent-friendly metadata", async () => {
+  const site = await loadDocsSite();
+  const guide = site.pages.find((page) => !page.isIndex);
+  if (guide === undefined) throw new Error("docs fixture has no guide page");
+
+  const indexDom = new JSDOM(await (await get("/docs", BROWSER)).text());
+  assertEquals(
+    indexDom.window.document.querySelector(".discern-kicker__index")
+      ?.textContent,
+    `v${KIT_VERSION}`,
+  );
+  assertEquals(
+    indexDom.window.document.querySelector(".discern-kicker")?.textContent
+      ?.replace(/\s+/g, " ").trim(),
+    `v${KIT_VERSION}The Discern Manual`,
+  );
+  assertEquals(
+    indexDom.window.document.querySelector(
+      ".docs-chapters > .discern-divider[role='separator']",
+    )?.className,
+    "discern-divider discern-divider--canvas discern-divider--plain",
+  );
+  assert(DESIGN_SYSTEM_BUNDLES.docs.components.includes("divider"));
+  indexDom.window.close();
+
+  for (const route of ["/docs", guide.route]) {
+    const dom = new JSDOM(await (await get(route, BROWSER)).text());
+    const colophon = dom.window.document.querySelector(".docs-colophon");
+    assertStringIncludes(
+      colophon?.textContent?.replace(/\s+/g, " ").trim() ?? "",
+      "Plain text for agents:",
+      route,
+    );
+    assertEquals(
+      colophon?.textContent?.includes("This page is plain text too"),
+      false,
+      route,
+    );
+    assertEquals(
+      [...colophon?.querySelectorAll(".docs-colophon-links a") ?? []].map(
+        (link) => link.getAttribute("href"),
+      )[0],
+      "/llms.txt",
+      route,
+    );
+    dom.window.close();
+  }
+});
+
+Deno.test("nested contents headings are unnumbered and do not advance sections", async () => {
+  const site = await loadDocsSite();
+  const page = site.pages.find((candidate) =>
+    candidate.entry.slug === "mcp-and-results"
+  );
+  if (page === undefined) throw new Error("MCP docs fixture is missing");
+  const dom = new JSDOM(await (await get(page.route, BROWSER)).text());
+  const document = dom.window.document;
+  const items = [...document.querySelectorAll<HTMLLIElement>(".docs-toc li")];
+  const topLevel = items.filter((item) =>
+    !item.classList.contains("discern-table-of-contents__item--nested")
+  );
+  const nested = items.filter((item) =>
+    item.classList.contains("discern-table-of-contents__item--nested")
+  );
+
+  assertEquals(
+    topLevel.map((item) =>
+      item.querySelector(":scope > a")?.getAttribute("href")
+    ),
+    [...document.querySelectorAll(".docs-article h2[id]")].map((heading) =>
+      `#${heading.id}`
+    ),
+  );
+  assertEquals(
+    topLevel.map((item) =>
+      item.querySelector(":scope > a > span")?.textContent
+    ),
+    topLevel.map((_, index) => String(index + 1).padStart(2, "0")),
+  );
+  assertEquals(
+    nested.map((item) =>
+      item.querySelector(":scope > a")?.getAttribute("href")
+    ),
+    [...document.querySelectorAll(".docs-article h3[id]")].map((heading) =>
+      `#${heading.id}`
+    ),
+  );
+  assertEquals(
+    nested.every((item) => item.querySelector(":scope > a > span") === null),
+    true,
+  );
+  dom.window.close();
 });
 
 Deno.test("the shared CLI/MCP help core and site model have exact guidance parity", async () => {
@@ -659,6 +713,25 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assertStringIncludes(css, "color: var(--discern-color-ink-faint)");
   assertStringIncludes(css, "font-size: 1rem");
   assertStringIncludes(css, "transform: translate(-50%, -60%)");
+});
+
+Deno.test("the docs rails scroll flush beneath the header and footer rule", async () => {
+  const css = await Deno.readTextFile(
+    new URL("../site/pages/assets/docs.css", import.meta.url),
+  );
+  assertStringIncludes(
+    css,
+    ".docs-nav {\n  position: sticky;\n  top: 56px;",
+  );
+  assertStringIncludes(css, "padding-block: 0 var(--discern-space-4);");
+  assertStringIncludes(
+    css,
+    ".docs-nav-scroll {\n  flex: 1;\n  overflow-y: auto;\n  padding-block-start: var(--discern-space-8);",
+  );
+  assertStringIncludes(css, "margin-top: 0;");
+  assertEquals(css.includes(".docs-chapters::before"), false);
+  assertEquals(css.includes(".docs-toc-d3"), false);
+  assertEquals(css.includes(".docs-nav-disclosure"), false);
 });
 
 Deno.test("the docs top bar aligns its children without vertical nudges", async () => {

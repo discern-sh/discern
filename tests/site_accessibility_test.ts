@@ -1,6 +1,6 @@
 /**
  * Automated WCAG guard for the docs shell. Axe scans representative rendered
- * pages; focused contract checks cover responsive and client-generated states
+ * pages; interaction checks cover responsive and client-generated states
  * a layoutless DOM cannot activate (drawer, modal, reduced motion, no-JS).
  */
 
@@ -8,7 +8,7 @@ import { assertEquals } from "@std/assert";
 import axe from "axe-core";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { docsNavigationProjection, loadDocsSite } from "../site/docs.ts";
+import { loadDocsSite } from "../site/docs.ts";
 import { handler } from "../site/serve.ts";
 
 const BROWSER = {
@@ -175,7 +175,7 @@ Deno.test("Workflow commands receive the accessible package copy anatomy", async
   });
 });
 
-Deno.test("navigation disclosure preserves focus and one canonical tree", async () => {
+Deno.test("navigation restores its position and keeps the current page visible", async () => {
   const site = await loadDocsSite();
   const page = site.pages.find((candidate) =>
     candidate.route === "/docs/quality-gate/when-the-gate-fails"
@@ -193,70 +193,37 @@ Deno.test("navigation disclosure preserves focus and one canonical tree", async 
     value: () => ({ matches: false, addEventListener: () => undefined }),
   });
   dom.window.document.querySelector(".docs-toc")?.remove();
-  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
-
   const document = dom.window.document;
-  const nav = document.querySelector("#docs-nav");
-  const disclosure = nav?.querySelector<HTMLButtonElement>(
-    "[data-nav-disclosure]",
+  const navScroll = document.querySelector<HTMLElement>(
+    ".docs-nav-scroll",
   );
-  if (!nav || !disclosure) {
-    throw new Error("focused navigation fixture has no disclosure");
+  const current = navScroll?.querySelector<HTMLElement>(
+    '[aria-current="page"]',
+  );
+  if (!navScroll || !current) {
+    throw new Error("navigation fixture has no current page");
   }
-  const visibleRoutes = (): string[] =>
-    [...nav.querySelectorAll("[data-nav-page]:not([hidden]) > a")]
-      .filter((link) => link.closest("[data-nav-section][hidden]") === null)
-      .map((link) => link.getAttribute("href") ?? "");
-  const expectedFocused = docsNavigationProjection(site, page).sections
-    .flatMap((section) =>
-      section.pages
-        .filter(({ context }) => context !== "other")
-        .map(({ page: contextualPage }) => contextualPage.route)
-    );
-  const initial = {
-    label: disclosure.textContent?.trim(),
-    expanded: disclosure.getAttribute("aria-expanded"),
-    visibleRoutes: visibleRoutes(),
-    currentPages: nav.querySelectorAll('[aria-current="page"]').length,
-  };
+  navScroll.getBoundingClientRect = () => ({ top: 0, bottom: 300 } as DOMRect);
+  current.getBoundingClientRect = () => ({ top: 340, bottom: 365 } as DOMRect);
+  dom.window.sessionStorage.setItem("discern:docs-nav-scroll", "180");
+  dom.window.eval(client.replace(/^import .*?;\n/gm, ""));
+  await Promise.resolve();
 
-  disclosure.focus();
-  disclosure.click();
-  const full = {
-    label: disclosure.textContent?.trim(),
-    expanded: disclosure.getAttribute("aria-expanded"),
-    hidden: nav.querySelectorAll("[data-nav-context][hidden]").length,
-    routes: nav.querySelectorAll("[data-nav-page] > a").length,
-    focusPreserved: document.activeElement === disclosure,
-  };
-  disclosure.click();
-  const focusedAgain = {
-    label: disclosure.textContent?.trim(),
-    expanded: disclosure.getAttribute("aria-expanded"),
-    visibleRoutes: visibleRoutes(),
-    focusPreserved: document.activeElement === disclosure,
-  };
+  assertEquals(navScroll.scrollTop, 245);
+  navScroll.scrollTop = 312;
+  navScroll.dispatchEvent(new dom.window.Event("scroll"));
+  const persisted = dom.window.sessionStorage.getItem(
+    "discern:docs-nav-scroll",
+  );
+  const routes = [
+    ...navScroll.querySelectorAll("[data-nav-page] > a"),
+  ].map((link) => link.getAttribute("href"));
+  const disclosure = navScroll.querySelector("[data-nav-disclosure]");
   dom.window.close();
 
-  assertEquals(initial, {
-    label: "Full manual",
-    expanded: "false",
-    visibleRoutes: expectedFocused,
-    currentPages: 1,
-  });
-  assertEquals(full, {
-    label: "Focused navigation",
-    expanded: "true",
-    hidden: 0,
-    routes: site.pages.length,
-    focusPreserved: true,
-  });
-  assertEquals(focusedAgain, {
-    label: "Full manual",
-    expanded: "false",
-    visibleRoutes: expectedFocused,
-    focusPreserved: true,
-  });
+  assertEquals(persisted, "312");
+  assertEquals(routes, site.pages.map((candidate) => candidate.route));
+  assertEquals(disclosure, null);
 });
 
 Deno.test("deep links expose page and heading context without competing claims", async () => {
