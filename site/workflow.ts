@@ -42,7 +42,6 @@ interface PreparedProjection<Model = unknown> {
 
 interface ProcedurePrerequisite {
   readonly requirement: string;
-  readonly state: "satisfied" | "unresolved";
 }
 
 interface ProcedureStep {
@@ -186,14 +185,11 @@ function parseProcedure(body: string, source: string): ProcedureModel {
   const prerequisites = trimBlankLines(
     lines.slice(beforeIndex + 1, stepsIndex),
   ).map((line): ProcedurePrerequisite => {
-    const item = /^- \[([ xX])\]\s+(.+)$/.exec(line);
-    if (item?.[1] === undefined || item[2] === undefined) {
+    const item = /^- (?!\[[ xX]\]\s)(.+)$/.exec(line);
+    if (item?.[1] === undefined) {
       fail(source, `invalid prerequisite line: ${line}`);
     }
-    return {
-      requirement: item[2],
-      state: item[1].toLowerCase() === "x" ? "satisfied" : "unresolved",
-    };
+    return { requirement: item[1] };
   });
   if (prerequisites.length === 0) {
     fail(source, "procedure has no prerequisites");
@@ -362,14 +358,6 @@ function parseBranchChoice(body: string, source: string): BranchChoiceModel {
   return { title, choices };
 }
 
-function stateMarker(state: ProcedurePrerequisite["state"]): string {
-  return state === "satisfied" ? "✓" : "!";
-}
-
-function stateLabel(state: ProcedurePrerequisite["state"]): string {
-  return state === "satisfied" ? "Satisfied" : "Unresolved";
-}
-
 function renderProcedure(
   model: ProcedureModel,
   options: MarkdownHtmlOptions,
@@ -378,18 +366,18 @@ function renderProcedure(
   const prerequisites = model.prerequisites.map((item) =>
     `<li class="${
       componentClass("prerequisite-list", "item")
-    }" data-discern-state="${item.state}">
+    }" data-discern-state="required">
       <span class="${
       componentClass("prerequisite-list", "marker")
-    }" aria-hidden="true">${stateMarker(item.state)}</span>
+    }" aria-hidden="true">•</span>
       <span class="${componentClass("prerequisite-list", "body")}">
         <span class="${componentClass("prerequisite-list", "requirement")}">${
       inlineHtml(item.requirement, options)
     }</span>
       </span>
-      <span class="${componentClass("prerequisite-list", "state")}">${
-      stateLabel(item.state)
-    }</span>
+      <span class="${
+      componentClass("prerequisite-list", "state")
+    }">Required</span>
     </li>`
   ).join("");
   const steps = model.steps.map((step) =>

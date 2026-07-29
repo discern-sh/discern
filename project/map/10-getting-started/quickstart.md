@@ -53,8 +53,8 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 
 **Before you start:**
 
-- [ ] Setup's `discern-setup` branch is reviewed and landed.
-- [ ] The coding agent is running in a fresh session.
+- Setup's `discern-setup` branch is reviewed and landed.
+- The coding agent is running in a fresh session.
 
 **Steps:**
 

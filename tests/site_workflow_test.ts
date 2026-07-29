@@ -119,6 +119,34 @@ Deno.test("Workflow-enhanced routes keep their pristine Markdown editions", asyn
   }
 });
 
+Deno.test("static procedure prerequisites render as requirements, not status", async () => {
+  const response = await get("/docs/getting-started/quickstart");
+  const html = await response.text();
+  const items = [
+    ...html.matchAll(
+      /<li class="discern-prerequisite-list__item" data-discern-state="([^"]+)">([\s\S]*?)<\/li>/g,
+    ),
+  ];
+  assertEquals(items.length, 2);
+  assertEquals(items.map((item) => item[1]), ["required", "required"]);
+  assertEquals(
+    items.map((item) =>
+      /discern-prerequisite-list__marker"[^>]*>([^<]+)</.exec(
+        item[2] ?? "",
+      )?.[1]
+    ),
+    ["•", "•"],
+  );
+  assertEquals(
+    items.map((item) =>
+      /discern-prerequisite-list__state">([^<]+)</.exec(item[2] ?? "")
+        ?.[1]
+    ),
+    ["Required", "Required"],
+  );
+  assertEquals(/\b(?:Unresolved|Satisfied)\b/.test(html), false);
+});
+
 Deno.test("malformed and unknown Workflow directives fail at the source boundary", () => {
   assertThrows(
     () => {
@@ -141,5 +169,32 @@ Deno.test("malformed and unknown Workflow directives fail at the source boundary
     },
     Error,
     "has no closing marker",
+  );
+  assertThrows(
+    () => {
+      renderWorkflowMarkdown(
+        [
+          "<!-- discern-workflow:procedure -->",
+          "## Ship a change",
+          "",
+          "Take one change through the gate.",
+          "",
+          "**Before you start:**",
+          "",
+          "- [ ] The setup branch is landed.",
+          "",
+          "**Steps:**",
+          "",
+          "1. **Start.** Open a worktree.",
+          "",
+          "**You are done when:** The branch is landed.",
+          "<!-- /discern-workflow -->",
+        ].join("\n"),
+        {},
+        "fixture.md",
+      );
+    },
+    Error,
+    "invalid prerequisite line",
   );
 });
