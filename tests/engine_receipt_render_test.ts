@@ -271,9 +271,9 @@ Deno.test("landing receipt line records each canonical consent source", () => {
   assertEquals(
     renderLandingReceiptLine(line, {
       source: "standing-grant",
-      scopes: ["docs", "site"],
+      scopes: ["map", "site"],
     }),
-    `${line} · landed under standing grant: docs, site`,
+    `${line} · landed under standing grant: map, site`,
   );
   assertEquals(
     renderLandingReceiptLine(line, { source: "effort-grant" }),

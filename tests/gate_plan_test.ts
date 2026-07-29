@@ -42,7 +42,7 @@ typecheck = "tsc --noEmit"
 test = "vitest run"
 smoke = "node -e 0"
 
-[scopes.docs]
+[scopes.map]
 paths = ["docs/"]
 neutral = true
 
@@ -493,7 +493,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
     {
       step: {
         kind: "scope-gate",
-        label: "scope:docs",
+        label: "scope:map",
         disposition: "skip",
         note: "scope unchanged",
         group: "Scopes",
@@ -530,7 +530,7 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
   assertStringIncludes(text, "3 output lines");
   assertStringIncludes(text, "1 diagnostic-like line");
   assertStringIncludes(text, "output: /tmp/format.out");
-  assert(/skipped\s+scope:docs/.test(text), text);
+  assert(/skipped\s+scope:map/.test(text), text);
   assert(/failed\s+coverage/.test(text), text);
   assert(/cancelled\s+typecheck/.test(text), text);
 });

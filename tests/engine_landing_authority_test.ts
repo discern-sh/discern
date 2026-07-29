@@ -26,7 +26,7 @@ const DOCS_CONFIG = [
   "[repository]",
   'trunk = "main"',
   "",
-  "[scopes.docs]",
+  "[scopes.map]",
   'paths = ["project/map/**"]',
   "neutral = true",
   "",
@@ -34,7 +34,7 @@ const DOCS_CONFIG = [
   'paths = ["src/**"]',
   "",
   "[acceptance]",
-  'pre_authorized = ["docs"]',
+  'pre_authorized = ["map"]',
   "",
 ].join("\n");
 
@@ -67,14 +67,14 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
     "effort-grant",
   ]);
   const classifications = [
-    classified("project/map/guide.md", ["docs"]),
+    classified("project/map/guide.md", ["map"]),
     classified("src/main.ts", ["engine"]),
   ];
   const effort = resolveLandingAuthority({
     effortGranted: true,
     classifications,
     grantedScopes: [],
-    definedScopes: ["docs", "engine"],
+    definedScopes: ["map", "engine"],
   });
   assertEquals(effort.kind, "authorized");
   assertEquals(
@@ -85,7 +85,7 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
     effortGranted: true,
     classifications,
     grantedScopes: [],
-    definedScopes: ["docs", "engine"],
+    definedScopes: ["map", "engine"],
     blockingReason: "the trunk policy is malformed",
   });
   assertEquals(
@@ -96,23 +96,23 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
 
   const standing = resolveLandingAuthority({
     effortGranted: false,
-    classifications: [classified("project/map/guide.md", ["docs"])],
-    grantedScopes: ["docs"],
-    definedScopes: ["docs", "engine"],
+    classifications: [classified("project/map/guide.md", ["map"])],
+    grantedScopes: ["map"],
+    definedScopes: ["map", "engine"],
     trunkCommit: "trunk-sha",
     headCommit: "head-sha",
   });
   assertEquals(standing.kind, "authorized");
   assertEquals(
     standing.kind === "authorized" ? standing.consent : undefined,
-    { source: "standing-grant", scopes: ["docs"] },
+    { source: "standing-grant", scopes: ["map"] },
   );
 
   const partial = resolveLandingAuthority({
     effortGranted: false,
     classifications,
-    grantedScopes: ["docs"],
-    definedScopes: ["docs", "engine"],
+    grantedScopes: ["map"],
+    definedScopes: ["map", "engine"],
   });
   assertEquals(partial.kind, "conversation-required");
   assertEquals(partial.uncovered, [classified("src/main.ts", ["engine"])]);
@@ -120,8 +120,8 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
   const unscoped = resolveLandingAuthority({
     effortGranted: false,
     classifications: [classified("notes.txt", [])],
-    grantedScopes: ["docs"],
-    definedScopes: ["docs"],
+    grantedScopes: ["map"],
+    definedScopes: ["map"],
   });
   assertEquals(unscoped.kind, "conversation-required");
   assertEquals(unscoped.uncovered, [classified("notes.txt", [])]);
@@ -130,13 +130,13 @@ Deno.test("landing authority: effort wins; standing coverage is all-path and fai
 Deno.test("landing authority: unknown grants cover nothing and say so", () => {
   const resolution = resolveLandingAuthority({
     effortGranted: false,
-    classifications: [classified("project/map/guide.md", ["docs"])],
+    classifications: [classified("project/map/guide.md", ["map"])],
     grantedScopes: ["missing"],
-    definedScopes: ["docs"],
+    definedScopes: ["map"],
   });
   assertEquals(resolution.kind, "conversation-required");
   assertEquals(resolution.uncovered, [
-    classified("project/map/guide.md", ["docs"]),
+    classified("project/map/guide.md", ["map"]),
   ]);
   assert(
     resolution.warnings.some((warning) =>
@@ -151,7 +151,7 @@ Deno.test("landing authority reads standing grants only from the committed trunk
     await writeConfig(
       dir,
       DOCS_CONFIG.replace(
-        '\n[acceptance]\npre_authorized = ["docs"]\n',
+        '\n[acceptance]\npre_authorized = ["map"]\n',
         "\n",
       ),
     );
@@ -196,7 +196,7 @@ Deno.test("landing authority covers neutral docs from the pinned trunk scope", a
     assertEquals(resolution.kind, "authorized");
     assertEquals(
       resolution.kind === "authorized" ? resolution.consent : undefined,
-      { source: "standing-grant", scopes: ["docs"] },
+      { source: "standing-grant", scopes: ["map"] },
     );
     assert(
       resolution.trunkCommit !== undefined &&

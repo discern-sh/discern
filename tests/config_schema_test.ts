@@ -290,26 +290,26 @@ Deno.test("a standard margin cannot be negative (a negative margin pins a failin
 Deno.test("[acceptance].pre_authorized accepts defined scopes and rejects every unknown entry", () => {
   const configured = parseConfigOrThrow(
     [
-      "[scopes.docs]",
+      "[scopes.map]",
       'paths = ["docs/**"]',
       "",
       "[scopes.release]",
       'paths = ["release/**"]',
       "",
       "[acceptance]",
-      'pre_authorized = ["docs", "release"]',
+      'pre_authorized = ["map", "release"]',
       "",
     ].join("\n"),
   );
-  assertEquals(configured.acceptance.pre_authorized, ["docs", "release"]);
+  assertEquals(configured.acceptance.pre_authorized, ["map", "release"]);
 
   const missing = parseConfig(
     [
-      "[scopes.docs]",
+      "[scopes.map]",
       'paths = ["docs/**"]',
       "",
       "[acceptance]",
-      'pre_authorized = ["ghost", "docs", "other"]',
+      'pre_authorized = ["ghost", "map", "other"]',
       "",
     ].join("\n"),
   );
@@ -319,7 +319,7 @@ Deno.test("[acceptance].pre_authorized accepts defined scopes and rejects every 
     ["acceptance.pre_authorized.0", "acceptance.pre_authorized.2"],
   );
   for (const issue of missing.issues) {
-    assertStringIncludes(issue.message, "defined scopes: docs");
+    assertStringIncludes(issue.message, "defined scopes: map");
   }
 });
 
@@ -547,7 +547,7 @@ Deno.test("configWriteIssues blocks wrong shapes but excuses an in-progress reco
   // Incremental record construction writes: required keys still MISSING inside
   // a [standards.<n>] / [scopes.<n>] entry are the documented allowance.
   assertEquals(configWriteIssues(`[standards.cov]\nlimit = 80\n`), []);
-  assertEquals(configWriteIssues(`[scopes.docs]\nneutral = true\n`), []);
+  assertEquals(configWriteIssues(`[scopes.map]\nneutral = true\n`), []);
   // A key PRESENT with the wrong shape blocks.
   const wrongType = configWriteIssues(`[guidance]\nagents = "claude_code"\n`);
   assert(

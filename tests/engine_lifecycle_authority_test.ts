@@ -41,7 +41,7 @@ const BASE_CONFIG = [
   "[jobs]",
   'test = "true"',
   "",
-  "[scopes.docs]",
+  "[scopes.map]",
   'paths = ["docs/**"]',
   "neutral = true",
   "",
@@ -53,7 +53,7 @@ const BASE_CONFIG = [
 const STANDING_CONFIG = [
   BASE_CONFIG,
   "[acceptance]",
-  'pre_authorized = ["docs"]',
+  'pre_authorized = ["map"]',
   "",
 ].join("\n");
 
@@ -122,11 +122,11 @@ Deno.test("start reports prospective standing authority while the unconfigured d
     );
     assertEquals(started.data?.landing_authority, {
       kind: "conversation-required",
-      standing_scopes: ["docs"],
+      standing_scopes: ["map"],
     });
     assertHasHint(started, HINTS["start-landing-authority"], {
       source: undefined,
-      standingScopes: ["docs"],
+      standingScopes: ["map"],
       warnings: [],
     });
   });
@@ -147,12 +147,12 @@ Deno.test("covered standing authority agrees across green done, local status, an
     assertEquals(done.data?.landing_authority, {
       kind: "authorized",
       source: "standing-grant",
-      scopes: ["docs"],
-      standing_scopes: ["docs"],
+      scopes: ["map"],
+      standing_scopes: ["map"],
     });
     assertHasHint(done, HINTS["gate-land-under-verified-authority"], {
       source: "standing-grant",
-      scopes: ["docs"],
+      scopes: ["map"],
     });
     assertLacksHint(done, HINTS["gate-relay-receipt"]);
 
@@ -162,7 +162,7 @@ Deno.test("covered standing authority agrees across green done, local status, an
     assertEquals(local.data?.landing_authority, done.data?.landing_authority);
     assertHasHint(local, HINTS["status-land-under-verified-authority"], {
       source: "standing-grant",
-      scopes: ["docs"],
+      scopes: ["map"],
     });
     assertLacksHint(local, HINTS["status-ready-for-review"], {
       trunk: "main",
@@ -199,7 +199,7 @@ Deno.test("partial standing authority names the same uncovered path at done and 
     );
     assertEquals(done.data?.landing_authority, {
       kind: "conversation-required",
-      standing_scopes: ["docs"],
+      standing_scopes: ["map"],
       uncovered: [{ path: "src/main.ts", scopes: ["engine"] }],
     });
     assertHasHint(done, HINTS["gate-relay-uncovered-authority"], {
@@ -208,7 +208,7 @@ Deno.test("partial standing authority names the same uncovered path at done and 
     });
     assertLacksHint(done, HINTS["gate-land-under-verified-authority"], {
       source: "standing-grant",
-      scopes: ["docs"],
+      scopes: ["map"],
     });
 
     const status = parseResult<StatusData>(

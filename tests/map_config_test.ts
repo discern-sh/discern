@@ -13,7 +13,7 @@ dir = "docs/discern/"
 stage = "check"
 run = "vale \\"\${map.dir}\\""
 
-[scopes.docs]
+[scopes.map]
 paths = ["\${map.dir}"]
 
 [scopes.preview]
@@ -34,7 +34,7 @@ Deno.test("every config surface that follows the map root expands [map].dir", ()
   );
   assertEquals(
     scopesForPaths(["docs/discern/README.md"], CONFIG),
-    ["docs", "preview"],
+    ["map", "preview"],
   );
   assertEquals(
     scopesForPaths(["docs/README.md"], CONFIG),

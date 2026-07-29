@@ -29,7 +29,7 @@ function sideGateConfig(widgetCmd: string, gadgetCmd: string): string {
     "[repository]",
     'trunk = "main"',
     "",
-    "[scopes.docs]",
+    "[scopes.map]",
     'paths = ["docs/"]',
     "neutral = true",
     "",

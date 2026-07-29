@@ -61,7 +61,7 @@ function authorityConfig(grants: string[] = []): string {
     "[jobs]",
     'lint = ":"',
     "",
-    "[scopes.docs]",
+    "[scopes.map]",
     'paths = ["docs/**"]',
     "neutral = true",
     "",
@@ -234,7 +234,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
       dir,
-      authorityConfig(["docs"]),
+      authorityConfig(["map"]),
       { "docs/guide.md": "covered\n" },
       "standing",
     );
@@ -243,9 +243,9 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     const envelope = JSON.parse(landed.stdout);
     assertEquals(envelope.data.consent, {
       source: "standing-grant",
-      scopes: ["docs"],
+      scopes: ["map"],
     });
-    assertEquals(envelope.data.scopes_changed, ["docs"]);
+    assertEquals(envelope.data.scopes_changed, ["map"]);
     assertStringIncludes(
       envelope.data.receipt_line,
       "landed under standing grant: docs",
@@ -261,16 +261,16 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     assert(event?.kind === "verb");
     assertEquals(event.consent, {
       source: "standing-grant",
-      scopes: ["docs"],
+      scopes: ["map"],
     });
-    assertEquals(event.scopes, ["docs"]);
+    assertEquals(event.scopes, ["map"]);
   });
 });
 
 Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, authorityConfig(["docs"]));
+    await writeConfig(dir, authorityConfig(["map"]));
     await gitInit(dir);
     const expected = await gitOut(dir, "rev-parse", "main");
     const worktree = await addWorktree(dir, "cas-race");
@@ -329,7 +329,7 @@ Deno.test("landing compare-and-swap rejects an ancestor trunk advance", async ()
 Deno.test("landing compare-and-swap converges the unchanged trunk checkout", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, authorityConfig(["docs"]));
+    await writeConfig(dir, authorityConfig(["map"]));
     await gitInit(dir);
     const expected = await gitOut(dir, "rev-parse", "main");
     const worktree = await addWorktree(dir, "cas-control");
@@ -483,7 +483,7 @@ Deno.test("an unconfirmed retry leaves an unbound post-CAS transaction byte-for-
 Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and records the partial landing", async () => {
   const consentCases: LandingConsent[] = [
     { source: "conversation" },
-    { source: "standing-grant", scopes: ["docs"] },
+    { source: "standing-grant", scopes: ["map"] },
   ];
   for (
     const consent of consentCases
@@ -492,7 +492,7 @@ Deno.test("journal-bound consent recovers a post-CAS transaction flaglessly and 
       const worktree = await readyWorktree(
         dir,
         consent.source === "standing-grant"
-          ? authorityConfig(["docs"])
+          ? authorityConfig(["map"])
           : authorityConfig(),
         consent.source === "standing-grant"
           ? { "docs/guide.md": "landed before checkout convergence\n" }
@@ -922,7 +922,7 @@ Deno.test("accept recovery preserves tracked data changed after an interrupted t
 Deno.test("landing compare-and-swap preserves a colliding untracked file", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, authorityConfig(["docs"]));
+    await writeConfig(dir, authorityConfig(["map"]));
     await gitInit(dir);
     const expected = await gitOut(dir, "rev-parse", "main");
     const worktree = await addWorktree(dir, "cas-untracked");
@@ -991,7 +991,7 @@ Deno.test("landing compare-and-swap preserves ignored file, directory, and symli
     await t.step(testCase.name, async () => {
       await withTempDir(async (dir) => {
         await scaffoldEngine(dir);
-        await writeConfig(dir, authorityConfig(["docs"]));
+        await writeConfig(dir, authorityConfig(["map"]));
         await Deno.writeTextFile(join(dir, ".gitignore"), "local-*\n");
         await gitInit(dir);
         const expected = await gitOut(dir, "rev-parse", "main");
@@ -1041,7 +1041,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
     assertEquals(envelope.data.consent, { source: "conversation" });
-    assertEquals(envelope.data.scopes_changed, ["docs"]);
+    assertEquals(envelope.data.scopes_changed, ["map"]);
     assertStringIncludes(
       envelope.data.receipt_line,
       "landed with conversation consent",
@@ -1051,7 +1051,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     const event = events.at(-1);
     assert(event?.kind === "verb");
     assertEquals(event.consent, { source: "conversation" });
-    assertEquals(event.scopes, ["docs"]);
+    assertEquals(event.scopes, ["map"]);
   });
 });
 
@@ -1456,7 +1456,7 @@ Deno.test("accept refuses partial and unscoped standing coverage with the paths 
     await withTempDir(async (dir) => {
       const worktree = await readyWorktree(
         dir,
-        authorityConfig(["docs"]),
+        authorityConfig(["map"]),
         fixture.paths,
         fixture.name,
       );
@@ -1532,7 +1532,7 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
       dir,
-      authorityConfig(["docs"]),
+      authorityConfig(["map"]),
       { "docs/guide.md": "preview\n" },
       "authority-preview",
     );

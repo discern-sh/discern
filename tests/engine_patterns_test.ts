@@ -424,9 +424,9 @@ async function seedLandingAuthorityLogbook(dir: string): Promise<void> {
       clean: true,
       outcome: "ok",
       duration_ms: 1_000,
-      scopes: ["docs"],
+      scopes: ["map"],
       consent: source === "standing-grant"
-        ? { source, scopes: ["docs"] }
+        ? { source, scopes: ["map"] }
         : { source },
       landing: {
         recovery_performed: false,
