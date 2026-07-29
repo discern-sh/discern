@@ -913,6 +913,252 @@ const confirmedRerun: Detector = {
   },
 };
 
+/** A consent-bearing accept event that proves the trunk moved. Successful
+ * results imply the landing; partial results need the recorded effect bit. */
+function recordedLanding(event: VerbEvent): boolean {
+  return event.verb === "accept" && event.consent !== undefined &&
+    (event.outcome === "ok" ||
+      (event.outcome === "partial" && event.landing?.trunk_landed === true));
+}
+
+function preAuthorized(event: VerbEvent): boolean {
+  return event.consent?.source === "standing-grant" ||
+    event.consent?.source === "effort-grant";
+}
+
+function percent(part: number, whole: number): number {
+  return whole === 0 ? 0 : Math.round((part / whole) * 100);
+}
+
+function grantSourceLabel(source: string): string {
+  return source === "standing-grant" ? "standing grant" : "effort grant";
+}
+
+const preAuthorizedLandings: Detector = {
+  id: "pre-authorized-landings",
+  title: "Pre-authorized landings",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  tone: "neutral",
+  // 8 consent-bearing landings gives two halves of 4 for a rate comparison.
+  // The detector also waits for 3 pre-authorized landings before auditing a
+  // delegation, so one exceptional effort never becomes a pattern.
+  threshold: 8,
+  next_step:
+    "Use the source and scope counts to review where landing authority comes from. If a standing grant no longer matches your intent, edit `[acceptance].pre_authorized` on the trunk.",
+  detect(facts): DetectorOutcome {
+    const landings = facts.verbs.filter(recordedLanding);
+    const delegated = landings.filter(preAuthorized);
+    if (delegated.length < 3) {
+      return { considered: landings.length, findings: [] };
+    }
+
+    const standing = delegated.filter((event) =>
+      event.consent?.source === "standing-grant"
+    );
+    const effort = delegated.length - standing.length;
+    const share = percent(delegated.length, landings.length);
+    const longest = longestStreak(landings, preAuthorized);
+    let current = 0;
+    const currentSources = new Set<string>();
+    for (let index = landings.length - 1; index >= 0; index -= 1) {
+      const event = landings[index];
+      if (event === undefined || !preAuthorized(event)) {
+        break;
+      }
+      current += 1;
+      const source = event.consent?.source;
+      if (source !== undefined) {
+        currentSources.add(source);
+      }
+    }
+
+    const half = Math.floor(landings.length / 2);
+    const earlier = landings.slice(0, half);
+    const later = landings.slice(landings.length - half);
+    const earlierShare = percent(
+      earlier.filter(preAuthorized).length,
+      earlier.length,
+    );
+    const laterShare = percent(
+      later.filter(preAuthorized).length,
+      later.length,
+    );
+    const shifted = half >= 4 &&
+      Math.abs(laterShare - earlierShare) >= 30;
+
+    const trendBriefs: string[] = [];
+    const trendSentences: string[] = [];
+    if (current >= 4) {
+      const source = currentSources.size === 1
+        ? currentSources.values().next().value
+        : undefined;
+      trendBriefs.push(
+        `current run ${formatHumanNumber(current)}${
+          source === undefined ? "" : ` ${grantSourceLabel(source)}`
+        }`,
+      );
+      trendSentences.push(
+        `The current run is ${formatHumanNumber(current)} pre-authorized ${
+          current === 1 ? "landing" : "landings"
+        }${
+          source === undefined ? "." : ` under the ${grantSourceLabel(source)}.`
+        }`,
+      );
+    } else if (longest >= 4) {
+      trendBriefs.push(`longest run ${formatHumanNumber(longest)}`);
+      trendSentences.push(
+        `The longest pre-authorized run was ${
+          formatHumanNumber(longest)
+        } landings.`,
+      );
+    }
+    if (shifted) {
+      trendBriefs.push(
+        `share ${formatHumanNumber(earlierShare)}% → ${
+          formatHumanNumber(laterShare)
+        }%`,
+      );
+      trendSentences.push(
+        `The pre-authorized share moved from ${
+          formatHumanNumber(earlierShare)
+        }% across the earlier ${
+          formatHumanNumber(earlier.length)
+        } landings to ${formatHumanNumber(laterShare)}% across the later ${
+          formatHumanNumber(later.length)
+        }.`,
+      );
+    }
+
+    const findings: DetectorFinding[] = [{
+      brief: `${formatHumanNumber(delegated.length)} of ${
+        formatHumanNumber(landings.length)
+      } consent-recorded landings (${formatHumanNumber(share)}%) · standing ${
+        formatHumanNumber(standing.length)
+      } · effort ${formatHumanNumber(effort)}${
+        trendBriefs.length === 0 ? "" : ` · ${trendBriefs.join(" · ")}`
+      }`,
+      observed: `${formatHumanNumber(delegated.length)} of ${
+        formatHumanNumber(landings.length)
+      } landings with recorded consent evidence (${
+        formatHumanNumber(share)
+      }%) used pre-authorization: ${
+        formatHumanNumber(standing.length)
+      } used a standing grant and ${
+        formatHumanNumber(effort)
+      } used an effort grant.${
+        trendSentences.length === 0 ? "" : ` ${trendSentences.join(" ")}`
+      }`,
+      evidence: {
+        consent_recorded_landings: landings.length,
+        pre_authorized_landings: delegated.length,
+        pre_authorized_share_pct: share,
+        standing_grant_landings: standing.length,
+        effort_grant_landings: effort,
+        longest_pre_authorized_streak: longest,
+        current_pre_authorized_streak: current,
+        ...(shifted
+          ? {
+            earlier_share_pct: earlierShare,
+            later_share_pct: laterShare,
+          }
+          : {}),
+      },
+      strength: delegated.length,
+    }];
+
+    const scopeCounts = new Map<string, number>();
+    for (const event of standing) {
+      for (const scope of event.consent?.scopes ?? []) {
+        scopeCounts.set(scope, (scopeCounts.get(scope) ?? 0) + 1);
+      }
+    }
+    for (
+      const [scope, count] of [...scopeCounts.entries()].sort((a, b) =>
+        b[1] - a[1] || a[0].localeCompare(b[0])
+      )
+    ) {
+      findings.push({
+        subject: scope,
+        brief: `${formatHumanNumber(count)} standing grant ${
+          count === 1 ? "landing" : "landings"
+        }`,
+        observed: `The standing grant for \`${scope}\` covered ${
+          formatHumanNumber(count)
+        } of ${formatHumanNumber(standing.length)} standing grant landings.`,
+        evidence: {
+          scope_landings: count,
+          standing_grant_landings: standing.length,
+        },
+        strength: count,
+      });
+    }
+    return { considered: landings.length, findings };
+  },
+};
+
+const grantSuggestion: Detector = {
+  id: "grant-suggestion",
+  title: "Repeated conversational landings in one scope",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  tone: "neutral",
+  // A dozen is intentionally expensive evidence: every newest accept attempt
+  // must be a successful conversational landing in the same single scope.
+  threshold: 12,
+  next_step:
+    "A standing grant is an owner decision. Consider adding the named scope to `[acceptance].pre_authorized` in the trunk's `discern.toml` only when this run matches the delegation you want.",
+  detect(facts): DetectorOutcome {
+    const attempts = facts.verbs.filter((event) => event.verb === "accept");
+    let scope: string | undefined;
+    let run = 0;
+    for (let index = attempts.length - 1; index >= 0; index -= 1) {
+      const event = attempts[index];
+      if (
+        event === undefined || event.outcome !== "ok" ||
+        event.consent?.source !== "conversation" ||
+        event.scopes?.length !== 1
+      ) {
+        break;
+      }
+      const eventScope = event.scopes[0];
+      if (
+        eventScope === undefined ||
+        (scope !== undefined && eventScope !== scope)
+      ) {
+        break;
+      }
+      scope = eventScope;
+      run += 1;
+    }
+    if (run < 12 || scope === undefined) {
+      return { considered: attempts.length, findings: [] };
+    }
+    return {
+      considered: attempts.length,
+      findings: [{
+        subject: scope,
+        brief: `${
+          formatHumanNumber(run)
+        } consecutive conversational landings · one scope`,
+        observed: `The latest ${
+          formatHumanNumber(run)
+        } \`accept\` attempts landed with conversation consent, and each changed only \`${scope}\`. No refusal interrupted the run.`,
+        evidence: {
+          consecutive_conversational_landings: run,
+          scopes: 1,
+          intervening_refusals: 0,
+        },
+        strength: run,
+        next_step:
+          `Consider adding \`${scope}\` to \`[acceptance].pre_authorized\` in the trunk's \`discern.toml\`. Type the grant there yourself. discern never writes grants.`,
+      }],
+    };
+  },
+};
+
 const docsGap: Detector = {
   id: "docs-gap",
   title: "Documentation lookups and misses",
@@ -2407,6 +2653,8 @@ export const DETECTORS: readonly Detector[] = [
   trunkEdits,
   forceHabit,
   confirmedRerun,
+  preAuthorizedLandings,
+  grantSuggestion,
   docsGap,
   abandonedWorktrees,
   sequenceAnomaly,

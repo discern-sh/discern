@@ -3543,6 +3543,7 @@ export type DiscernAcceptResult = {
       source: "conversation" | "standing-grant" | "effort-grant";
       scopes?: Array<string>;
     };
+    scopes_changed?: Array<string>;
     landing?: {
       recovery_performed: boolean;
       trunk_landed: boolean;

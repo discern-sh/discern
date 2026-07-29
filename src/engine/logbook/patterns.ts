@@ -308,6 +308,17 @@ function scoreboardLine(data: PatternsData): string {
   } too young to say`;
 }
 
+/** The trust audit's one overview row. Its detailed source and scope findings
+ * still render in the canonical behavior section below. */
+function preAuthorizedLandingOverview(
+  data: PatternsData,
+): PatternsFinding | undefined {
+  return data.findings.find((finding) =>
+    finding.detector === "pre-authorized-landings" &&
+    finding.subject === undefined
+  );
+}
+
 function writeWrapped(
   out: Out,
   prefix: string,
@@ -589,6 +600,16 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     width,
     (line) => `${c.dim}${line}${c.reset}`,
   );
+  const preAuthorized = preAuthorizedLandingOverview(data);
+  if (preAuthorized !== undefined) {
+    writeWrapped(
+      out,
+      "  Pre-authorized landings: ",
+      preAuthorized.brief,
+      width,
+      (line) => `${c.dim}${line}${c.reset}`,
+    );
+  }
   renderAttentionBanner(out, data, width, titleById);
   out.raw("\n");
 

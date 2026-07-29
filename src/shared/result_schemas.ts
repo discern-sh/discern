@@ -639,6 +639,10 @@ export type AcceptReceiptNoteData = z.infer<typeof AcceptReceiptNoteSchema>;
 export const AcceptDataSchema = z.strictObject({
   root: z.string(),
   consent: LandingConsentDataSchema,
+  /** Configured scope names matched by the landed paths. Optional for
+   * compatibility with acceptance results written before this evidence was
+   * exposed; current fresh landings emit it when at least one scope matched. */
+  scopes_changed: z.array(z.string()).optional(),
   /** Exact effects already performed. Optional for additive v1 compatibility;
    * current apply results always emit it. */
   landing: AcceptLandingStateSchema.optional(),

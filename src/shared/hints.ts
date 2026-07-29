@@ -1452,6 +1452,18 @@ export const HINTS = {
       `${next} Logbook finding: ${observed}`,
   }),
 
+  /** The audit names its missing input instead of reading as a clean bill. */
+  "improvement-logbook-off": defineHint({
+    id: "improvement-logbook-off",
+    category: "notice",
+    audience: "all",
+    when:
+      "`improvement` runs while logbook recording is off, so the practice-history group has nothing to read.",
+    example: undefined,
+    template: (): string =>
+      "Practice-history findings aren't available because `[project].logbook` is off.",
+  }),
+
   /**
    * Gate context for the shared unfinished-setup action. Gate verbs run during
    * setup, but their output is not the final project verdict yet.

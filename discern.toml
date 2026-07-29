@@ -34,10 +34,20 @@ gotchas_doc = "project/map/80-development/done-gate-gotchas.md"
 todo = "project/TODO.md"
 
 # discern keeps a logbook: one line of local operational history per verb run,
-# stored under .git and shared by this repository's worktrees. Metadata only —
-# timings, outcomes, and names, never code or command output — and it never
-# leaves this machine. It exists because recording writes even when never read:
-# set false to stop all writes (existing history stays until you delete it).
+# stored under .git and shared by this repository's worktrees. Metadata only:
+# timings, outcomes, and names, never code or command output, so any line is
+# safe to read aloud. It is never committed and never transmitted. Delete it
+# any time with `discern patterns reset`.
+# Recommended on. History can't be recorded after the fact, and while
+# recording is off this project goes without:
+#   - the practice report (`discern patterns`) — frozen at existing history
+#   - each worktree's last action and work in flight
+#   - fleet activity times that include verb runs
+#   - retry timing in `discern await` from typical run durations
+#   - config-change attribution and each standard's limit history
+#   - advisory findings on `status`, the `done` receipt, and `improvement`
+#   - wait estimates when concurrent test runs queue
+# Set false to stop all writes; existing history stays until you delete it.
 logbook = true
 
 # ─────────────────────────────────────────────────────────────────────────────

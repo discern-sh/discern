@@ -857,6 +857,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .logbookEventSchema.options.map((option) => option.shape.kind.value),
   },
   {
+    id: "logbook-powered",
+    title: "Logbook-powered capabilities",
+    what:
+      "The advisory capabilities that switch off with [project].logbook = false; every opt-out wording surface quotes each member's phrase verbatim.",
+    source: {
+      kind: "module",
+      module: "src/shared/logbook_powered.ts",
+      exportName: "LOGBOOK_POWERED",
+    },
+    guards: ["tests/logbook_powered_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "opt-out wording behind the documented Logbook concept, not separate product vocabulary",
+      },
+      featureCanon: { nodeId: "logbook" },
+    },
+    members: async () =>
+      (await import("../src/shared/logbook_powered.ts")).LOGBOOK_POWERED
+        .map((member) => member.key),
+  },
+  {
     id: "detector-families",
     title: "Patterns detector families",
     what:
