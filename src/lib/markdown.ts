@@ -433,13 +433,15 @@ export function inlineToPlain(text: string): string {
 // ── block rendering ──────────────────────────────────────────────────────--
 
 /** A delimiter row like `|---|:--:|` that marks the line above as a table head. */
-function isTableDelimiter(line: string): boolean {
+export function isTableDelimiter(line: string): boolean {
   return /\|/.test(line) && /^\s*\|?[\s:|-]*-[\s:|-]*\|?\s*$/.test(line) &&
     /-/.test(line);
 }
 
-/** Split a `|`-delimited row into trimmed cells, honouring `\|` escapes. */
-function splitRow(line: string): string[] {
+/** Split a `|`-delimited row into trimmed cells, honouring `\|` escapes — the
+ * one definition of a table row's cells, shared by the renderers here and the
+ * table-integrity scanner (table_integrity.ts). */
+export function splitRow(line: string): string[] {
   let s = line.trim();
   if (s.startsWith("|")) s = s.slice(1);
   if (s.endsWith("|")) s = s.slice(0, -1);
