@@ -192,7 +192,7 @@ Deno.test("hidden top-level commands stay registered but never greet the help re
   }
 });
 
-Deno.test("worktree help hides provider-hook payload commands while keeping them callable", () => {
+Deno.test("worktree help hides the provider-hook namespace while keeping it callable", () => {
   const worktree = child(fullRoot(), "worktree");
   const visible = worktree.getCommands(false).map((command) =>
     command.getName()
@@ -200,14 +200,21 @@ Deno.test("worktree help hides provider-hook payload commands while keeping them
   const registered = worktree.getCommands(true).map((command) =>
     command.getName()
   );
-  for (const hook of ["create", "remove"]) {
+  assert(
+    registered.includes("hook"),
+    "the hook namespace must stay dispatchable",
+  );
+  assert(
+    !visible.includes("hook"),
+    "the hook namespace leaked into user help",
+  );
+  const hook = child(worktree, "hook");
+  for (const entry of ["create", "remove"]) {
     assert(
-      registered.includes(hook),
-      `${hook} hook entry point must stay callable`,
-    );
-    assert(
-      !visible.includes(hook),
-      `${hook} hook plumbing leaked into user help`,
+      hook.getCommands(true).map((command) => command.getName()).includes(
+        entry,
+      ),
+      `${entry} hook entry point must stay callable`,
     );
   }
 });

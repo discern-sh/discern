@@ -123,7 +123,7 @@ Deno.test("config reconciliation treats named record tables as project-owned", a
   const result = reconcileConfigTextWithTemplate(drifted, template);
 
   assertEquals(result.operations, []);
-  assert(/^\s*\[scopes\.docs\]$/m.test(result.text));
+  assert(/^\s*\[scopes\.map\]$/m.test(result.text));
   assert(!/^\s*\[scopes\.guidance\]$/m.test(result.text));
 });
 

@@ -248,7 +248,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     assertEquals(envelope.data.scopes_changed, ["map"]);
     assertStringIncludes(
       envelope.data.receipt_line,
-      "landed under standing grant: docs",
+      "landed under standing grant: map",
     );
     assertEquals(await exists(worktree), false);
     assertEquals(
@@ -1546,7 +1546,7 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
     assertEquals(envelope.dry_run, true);
     assert(
       envelope.plan.details.some((detail: string) =>
-        detail.includes("standing grant (docs)")
+        detail.includes("standing grant (map)")
       ),
     );
     assert(await exists(worktree));

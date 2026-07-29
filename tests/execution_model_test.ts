@@ -107,7 +107,7 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   preset: INSTALLER_ABSENCE,
   refresh:
     "one direct convergence operation already shown inside modeled workflows",
-  script:
+  scripts:
     "a project-owned command discovered at runtime, with no closed sequence",
   setup: INSTALLER_ABSENCE,
   skills: "a command group whose subcommands act directly on one skill",

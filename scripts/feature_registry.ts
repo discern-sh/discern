@@ -1053,7 +1053,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Any executable dropped under `[scripts].dir` becomes `discern scripts <name>`: language-agnostic, `DISCERN_*` environment exported, arguments forwarded unchanged, and an optional `# desc:` line for the listing. Scripts occupy their own namespace, so built-in verb names stay legal.",
         why:
           "The project's own tooling gets discern's context — root, config, worktree identity — without wrapper boilerplate.",
-        surfaces: ["verb:script"],
+        surfaces: ["verb:scripts"],
       },
       {
         id: "forgiving-cli",
