@@ -349,6 +349,13 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "Scope",
     definition:
       "A named region of the repository, declared as `[scopes.<name>]` with path globs and an optional `gate` command run only when that region changed. Classification fails open: a path matching no scope counts as a real code change ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)). Covered in [the quality gate](../20-quality-gate/).",
+    retired: [
+      {
+        // The seeded documentation scope's retired name (now [scopes.map]).
+        phrase: "[scopes.docs]",
+        pattern: String.raw`\[scopes\.docs\b|\bscopes\.docs\b`,
+      },
+    ],
   },
   {
     term: "Skill",

@@ -163,7 +163,7 @@ Deno.test("the docs reference documents every section, with its describe() prose
   assert(doc.includes("isolated-worktree workflow"));
   assertStringIncludes(
     doc,
-    "Fresh setup seeds `[scopes.docs]` with the map and deferred-work ledger.",
+    "Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger.",
   );
   assertStringIncludes(
     doc,
@@ -239,9 +239,9 @@ Deno.test("a fresh config seeds separate documentation and guidance scopes", asy
   const rendered = await renderedTemplate();
   const raw = parseToml(rendered) as Record<string, unknown>;
   const scopes = raw.scopes as Record<string, Record<string, unknown>>;
-  assertEquals(Object.keys(scopes), ["docs", "guidance"]);
-  assertEquals(scopes.docs?.paths, defaultDocumentationScopePaths());
-  assertEquals(scopes.docs?.neutral, true);
+  assertEquals(Object.keys(scopes), ["map", "guidance"]);
+  assertEquals(scopes.map?.paths, defaultDocumentationScopePaths());
+  assertEquals(scopes.map?.neutral, true);
   assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
   assertEquals(scopes.guidance?.neutral, true);
   for (const path of defaultDocumentationScopePaths()) {
@@ -250,7 +250,7 @@ Deno.test("a fresh config seeds separate documentation and guidance scopes", asy
       `${path} must belong to the documentation seed only`,
     );
   }
-  assertStringIncludes(rendered, 'pre_authorized = [] # e.g. ["docs"]');
+  assertStringIncludes(rendered, 'pre_authorized = [] # e.g. ["map"]');
 });
 
 // ── the schema-marker class guard ─────────────────────────────────────────────
@@ -406,7 +406,7 @@ function hasConfigPath(obj: unknown, path: string): boolean {
  * (Jack, 2026-07-28: green docs-scope changes land without a conversation.)
  */
 const ROOT_CONFIG_OWNER_DECISIONS: Record<string, unknown> = {
-  acceptance: { pre_authorized: ["docs"] },
+  acceptance: { pre_authorized: ["map"] },
 };
 
 // Makes the "a new template key (like [worktree.setup].ensure) is forgotten in the

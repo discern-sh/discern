@@ -674,7 +674,7 @@ Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 erro
 Rendered example:
 
 ```text
-The receipt's clean HEAD is covered by the standing grant for docs. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.receipt_line` afterward.
+The receipt's clean HEAD is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.receipt_line` afterward.
 ```
 
 ## `gate-previewable-change`
@@ -1441,7 +1441,7 @@ Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, mea
 Rendered example:
 
 ```text
-Standing landing authority is recorded for docs. Changes kept within that scope can land without a further conversation; discern will check the final changed paths.
+Standing landing authority is recorded for map. Changes kept within that scope can land without a further conversation; discern will check the final changed paths.
 ```
 
 ## `start-main-changes-stay`
@@ -1584,7 +1584,7 @@ Use `discern prepare` or targeted tests while iterating on uncommitted changes. 
 Rendered example:
 
 ```text
-Use `discern prepare` or targeted tests while iterating on changes in code, docs. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
+Use `discern prepare` or targeted tests while iterating on changes in code, map. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
 ```
 
 ## `status-fleet-authorized-landings`
@@ -1688,7 +1688,7 @@ Investigate 5 worktrees whose git state cannot be read: damaged, missing, unread
 Rendered example:
 
 ```text
-The clean HEAD is covered by the standing grant for docs and has an honored receipt. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
+The clean HEAD is covered by the standing grant for map and has an honored receipt. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
 ```
 
 ## `status-main-checkout-dirty`

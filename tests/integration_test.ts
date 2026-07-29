@@ -75,16 +75,16 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       string,
       { paths?: unknown; neutral?: unknown }
     >;
-    assertEquals(Object.keys(scopes), ["docs", "guidance"]);
-    assertEquals(scopes.docs?.paths, defaultDocumentationScopePaths());
-    assertEquals(scopes.docs?.neutral, true);
+    assertEquals(Object.keys(scopes), ["map", "guidance"]);
+    assertEquals(scopes.map?.paths, defaultDocumentationScopePaths());
+    assertEquals(scopes.map?.neutral, true);
     assertEquals(scopes.guidance?.paths, defaultGuidanceScopePaths());
     assertEquals(scopes.guidance?.neutral, true);
     const acceptance = toml.raw.acceptance as
       | { pre_authorized?: unknown }
       | undefined;
     assertEquals(acceptance?.pre_authorized, []);
-    assertStringIncludes(tomlText, 'pre_authorized = [] # e.g. ["docs"]');
+    assertStringIncludes(tomlText, 'pre_authorized = [] # e.g. ["map"]');
 
     // 2. The schema version is stamped into the config's [meta] block.
     assertEquals(schemaFromRaw(toml.raw), SCHEMA_VERSION);

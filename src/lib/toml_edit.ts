@@ -287,7 +287,7 @@ export class TomlEditor {
    * inline comment), inserts the key after its section header if the key is
    * absent, or — if the section itself is absent — creates it: right after the
    * last sibling in its dotted family if one exists (e.g. a new
-   * `[scopes.assets]` lands beside an existing `[scopes.docs]`). The first member
+   * `[scopes.assets]` lands beside an existing `[scopes.map]`). The first member
    * of a schema-declared record family lands inside that family's managed banner
    * region; an unrelated section with neither anchor is appended at EOF.
    */
@@ -307,7 +307,7 @@ export class TomlEditor {
 
     if (span === null) {
       // No such section. If a sibling already exists in this section's dotted
-      // family (e.g. [scopes.docs] when we're creating [scopes.assets]),
+      // family (e.g. [scopes.map] when we're creating [scopes.assets]),
       // insert right after the LAST such sibling — keeping the family
       // contiguous instead of scattering a new [scopes.*] far from the rest
       // of [scopes.*]. With no family member, try its managed record banner;
@@ -813,7 +813,7 @@ export class TomlEditor {
   /**
    * The LAST existing section sharing `section`'s dotted family — its parent
    * group, i.e. the path with its final segment dropped (`scopes.assets`'s
-   * group is `scopes`, so an existing `[scopes.docs]` is a sibling). Returns
+   * group is `scopes`, so an existing `[scopes.map]` is a sibling). Returns
    * null when `section` has no parent group (a single bare segment, e.g.
    * `scripts`) or no family member exists yet, so callers can fall back to an
    * EOF append exactly as before this method existed.

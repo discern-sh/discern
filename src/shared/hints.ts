@@ -634,7 +634,7 @@ export const HINTS = {
     audience: "all",
     when: "`status` finds scoped, uncommitted changes in the current worktree.",
     family: "status-dirty-worktree",
-    example: { scopes: ["code", "docs"] },
+    example: { scopes: ["code", "map"] },
     template: ({ scopes }): string =>
       `Use ${CMD.prepare} or targeted tests while iterating on changes in ${
         scopes.join(", ")
@@ -733,7 +733,7 @@ export const HINTS = {
     when:
       "A clean, current branch has an honored receipt and machine-verified landing authority.",
     family: "landing-authority",
-    example: { source: "standing-grant", scopes: ["docs"] },
+    example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
         ? `The owner pre-authorized this landing at the desk, and the clean HEAD has an honored receipt. Run ${CMD.accept} now to land it; the command rechecks the grant at the fast-forward boundary.`
@@ -2023,7 +2023,7 @@ export const HINTS = {
     when:
       "A successful gate records a receipt for a tree with machine-verified landing authority.",
     family: "landing-authority",
-    example: { source: "standing-grant", scopes: ["docs"] },
+    example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
         ? `The owner pre-authorized this landing at the desk, and the receipt covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.receipt_line\` afterward.`
@@ -2559,7 +2559,7 @@ export const HINTS = {
     family: "landing-authority",
     example: {
       source: "standing-grant",
-      standingScopes: ["docs"],
+      standingScopes: ["map"],
       warnings: [],
     },
     template: ({ source, standingScopes, warnings }): string => {

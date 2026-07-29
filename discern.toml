@@ -194,7 +194,7 @@ provides = "docs prose lint (Vale; error-severity findings block the gate)"
 # Pure documentation: the map and the deferred-work ledger. Needs no gate, and
 # [acceptance] pre-authorizes it — green changes here land without a
 # conversation. Root-level *.md is always treated as neutral.
-[scopes.docs]
+[scopes.map]
 paths = [
   "${map.dir}",
   "project/TODO.md",
@@ -202,7 +202,7 @@ paths = [
 neutral = true
 
 # Agent-instruction surfaces: authored guidance and skills, plus the exact
-# materialized-skills directories compiled from them. Gate-neutral like docs,
+# materialized-skills directories compiled from them. Gate-neutral like the map scope,
 # but deliberately outside [acceptance] — instructions steer every future
 # session, so landing them always gets owner review. Project Scripts and
 # provider-owned sibling files still run the gate.
@@ -241,7 +241,7 @@ previewable = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [acceptance]
-pre_authorized = ["docs"]
+pre_authorized = ["map"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [worktree] — the isolated-worktree workflow. The git mechanics are generic;

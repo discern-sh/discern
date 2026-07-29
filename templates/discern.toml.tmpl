@@ -206,14 +206,14 @@ format = "discern tidy"
 # Pure documentation: the map and the deferred-work ledger. Needs no gate, and
 # the [acceptance] example below grants this scope alone. Root-level *.md is
 # always treated as neutral.
-[scopes.docs]
+[scopes.map]
 paths   = [{{scopes_neutral}}]
 neutral = true
 
 # Agent-instruction surfaces: the project brief, authored guidance and skills,
 # and the exact materialized-skills directories compiled from them. Gate-neutral
-# like docs, but outside the [acceptance] example: these files steer agents, so
-# landing them stays owner-reviewed. Executable Project Scripts and
+# like the map scope, but outside the [acceptance] example: these files steer
+# agents, so landing them stays owner-reviewed. Executable Project Scripts and
 # provider-owned sibling files still run the gate.
 [scopes.guidance]
 paths   = [{{scopes_guidance}}]
@@ -240,7 +240,7 @@ neutral = true
 # ─────────────────────────────────────────────────────────────────────────────
 
 [acceptance]
-pre_authorized = [] # e.g. ["docs"]
+pre_authorized = [] # e.g. ["map"]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

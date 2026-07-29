@@ -125,7 +125,7 @@ Deno.test("every gate-neutral authored path belongs to exactly one seed scope", 
 Deno.test("the fresh neutral scopes separate pure docs from owner-reviewed instructions", () => {
   const config = parseConfigOrThrow(
     [
-      "[scopes.docs]",
+      "[scopes.map]",
       `paths = [${defaultDocumentationScopes().join(", ")}]`,
       "neutral = true",
       "",

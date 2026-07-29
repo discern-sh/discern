@@ -67,7 +67,7 @@ function neutralSourceScopePath(
 
 const DOCUMENTATION_SCOPE_SOURCES = ["map", "todo"] as const;
 
-/** The pure-documentation paths a fresh install seeds under `[scopes.docs]`. */
+/** The pure-documentation paths a fresh install seeds under `[scopes.map]`. */
 export function defaultDocumentationScopePaths(): string[] {
   return DOCUMENTATION_SCOPE_SOURCES.map(neutralSourceScopePath);
 }

@@ -175,7 +175,7 @@ Deno.test("editor conservatively appends a first record member when its managed 
 const FAMILY_SAMPLE = `[project]
 slug = "demo"
 
-[scopes.docs]
+[scopes.map]
 paths   = ["docs/"]
 neutral = true
 
@@ -184,19 +184,19 @@ stream = false
 `;
 
 Deno.test("editor inserts a brand-new section beside its existing dotted-family siblings, not at EOF", () => {
-  // [scopes.assets] doesn't exist yet, but [scopes.docs] does — the new
+  // [scopes.assets] doesn't exist yet, but [scopes.map] does — the new
   // section must land next to it, not scattered after unrelated [gate].
   const out = new TomlEditor(FAMILY_SAMPLE)
     .setStringArray("scopes.assets.paths", ["assets/**"])
     .toString();
   const lines = out.split("\n");
-  const docsIdx = lines.indexOf("[scopes.docs]");
+  const mapIdx = lines.indexOf("[scopes.map]");
   const assetsIdx = lines.indexOf("[scopes.assets]");
   const gateIdx = lines.indexOf("[gate]");
   assert(
-    docsIdx >= 0 && docsIdx < assetsIdx && assetsIdx < gateIdx,
-    `expected [scopes.assets] between [scopes.docs] and [gate], got order: ${
-      JSON.stringify({ docsIdx, assetsIdx, gateIdx })
+    mapIdx >= 0 && mapIdx < assetsIdx && assetsIdx < gateIdx,
+    `expected [scopes.assets] between [scopes.map] and [gate], got order: ${
+      JSON.stringify({ mapIdx, assetsIdx, gateIdx })
     }`,
   );
   // A single blank-line gap, matching this file's established section spacing
@@ -209,7 +209,7 @@ Deno.test("editor inserts a brand-new section beside its existing dotted-family 
 });
 
 Deno.test("editor anchors a new section on the LAST matching sibling when several exist", () => {
-  const sample = `[scopes.docs]
+  const sample = `[scopes.map]
 paths = ["docs/"]
 
 [scopes.native]
@@ -417,7 +417,7 @@ Deno.test("editor sets array, number and bool values", () => {
 });
 
 Deno.test("editor replaces and deletes multiline array values as one value span", () => {
-  const input = `[scopes.docs]
+  const input = `[scopes.map]
 paths = [
   "docs/**",
   "literal ] inside the value",
@@ -429,11 +429,11 @@ stream = false
 `;
 
   const replaced = new TomlEditor(input)
-    .setStringArray("scopes.docs.paths", ["src/**", "unicode/é/**"])
+    .setStringArray("scopes.map.paths", ["src/**", "unicode/é/**"])
     .toString();
   assertEquals(
     replaced,
-    `[scopes.docs]
+    `[scopes.map]
 paths = ["src/**", "unicode/é/**"]
 neutral = true
 
@@ -443,10 +443,10 @@ stream = false
   );
 
   const editor = new TomlEditor(input);
-  assert(editor.deleteKey("scopes.docs.paths"));
+  assert(editor.deleteKey("scopes.map.paths"));
   assertEquals(
     editor.toString(),
-    `[scopes.docs]
+    `[scopes.map]
 neutral = true
 
 [gate]
