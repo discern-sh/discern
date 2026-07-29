@@ -6,28 +6,41 @@
  * might wire format/lint/typecheck but legitimately have no test suite wired yet, or
  * no build step at all. That is correct — but "the gate is proven" must not read to a
  * novice as "every protection is running." So at `done` we classify each known
- * job into one of three honest states and roll them into an overall verdict,
+ * job into one of four honest states and roll them into an overall verdict,
  * which the human output and the `--json` envelope both render. This keeps
  * "setup is complete" cleanly distinct from "the full recommended gate is active."
  *
  * The classification is DERIVED from the known names under `[jobs]` — unfakeable
  * and free of any self-report — and iterates {@link KNOWN_JOBS} (the SSOT), so a
- * new known job auto-enrolls here the moment it joins that set.
+ * new known job auto-enrolls here the moment it joins that set. Commands that
+ * invoke discern's own built-in vocabulary count for nothing (see
+ * {@link isSelfSuppliedCommand}): the scaffold seeds `format = "discern tidy"`
+ * into every install, so counting it would start every project at one enforced
+ * job and make the floor verdict unreachable — an unearned green.
  */
 
 import { KNOWN_JOBS } from "./capabilities.ts";
 import { type DiscernConfig, toCommandList } from "./config_schema.ts";
+import { KNOWN_VERBS } from "./verbs.ts";
 
 /**
  * How a known job stands relative to the gate:
- *  - `enforced` — a real command is wired; `discern done` runs it.
+ *  - `enforced` — a real, project-supplied command is wired; `discern done` runs it.
+ *  - `housekeeping` — every real command is discern invoking itself (the seeded
+ *    `format = "discern tidy"`): discern's own upkeep runs, but no check the
+ *    project wired. Counts for nothing in the verdict.
  *  - `deferred` — the job is PRESENT in `[jobs]` but set to a no-op
  *    (`:` or an empty string), the deliberate "I know about this, but it isn't
  *    running yet" signal. Distinct from a silent omission, and the place a reason
  *    can travel (an inline `#` comment on the line).
  *  - `absent` — the job is omitted entirely; the project has no such command.
  */
-export const KNOWN_JOB_STATES = ["enforced", "deferred", "absent"] as const;
+export const KNOWN_JOB_STATES = [
+  "enforced",
+  "housekeeping",
+  "deferred",
+  "absent",
+] as const;
 export type KnownJobState = typeof KNOWN_JOB_STATES[number];
 
 /** One known job's assurance: its name, its {@link KnownJobState}, and — for a
@@ -45,7 +58,8 @@ export interface KnownJobAssurance {
  * The overall coverage verdict, over the {@link KNOWN_JOBS} set:
  *  - `full` — every known job is enforced (the full recommended gate is active);
  *  - `partial` — at least one is enforced, but not all;
- *  - `minimal` — none is enforced (setup is complete, but the gate guards nothing yet).
+ *  - `minimal` — none is enforced (setup is complete, but the gate guards nothing
+ *    of the project's own yet — even when discern's housekeeping still runs).
  */
 export const ASSURANCE_VERDICTS = ["full", "partial", "minimal"] as const;
 export type AssuranceVerdict = typeof ASSURANCE_VERDICTS[number];
@@ -63,10 +77,28 @@ export interface SetupAssurance {
 }
 
 /**
- * Classify ONE known job from the resolved config. `enforced` when a real command
- * survives no-op filtering (the same {@link toCommandList} the gate runs through),
- * `absent` when the key is omitted, `deferred` when it is present but a `:`/empty
- * no-op. The single decision the summary and any other consumer share.
+ * True when a command invokes discern's own built-in vocabulary — `discern`
+ * followed by one of {@link KNOWN_VERBS} (`discern tidy`, with any arguments),
+ * or bare `discern`. Such a command is SELF-SUPPLIED: discern maintaining its
+ * own surfaces, present in essentially every install, so it is no evidence the
+ * project wired a check of its own and counts for nothing in the assurance.
+ * Driven off {@link KNOWN_VERBS} (the SSOT), so a new built-in verb auto-enrolls.
+ * A Project Script invoked through the same namespace (`discern <script>`) IS
+ * project-authored and never matches: its name is outside the built-in set.
+ */
+export function isSelfSuppliedCommand(command: string): boolean {
+  const [program, verb] = command.trim().split(/\s+/);
+  return program === "discern" && (verb === undefined || KNOWN_VERBS.has(verb));
+}
+
+/**
+ * Classify ONE known job from the resolved config. `absent` when the key is
+ * omitted, `deferred` when it is present but a `:`/empty no-op (the same
+ * {@link toCommandList} filtering the gate runs through), `housekeeping` when
+ * every surviving command is a discern self-invocation
+ * ({@link isSelfSuppliedCommand}), `enforced` only when at least one
+ * project-supplied command remains. The single decision the summary and any
+ * other consumer share.
  */
 export function classifyKnownJob(
   config: DiscernConfig,
@@ -76,7 +108,11 @@ export function classifyKnownJob(
   if (value === undefined) {
     return "absent";
   }
-  return toCommandList(value).length > 0 ? "enforced" : "deferred";
+  const commands = toCommandList(value);
+  if (commands.length === 0) {
+    return "deferred";
+  }
+  return commands.every(isSelfSuppliedCommand) ? "housekeeping" : "enforced";
 }
 
 /**

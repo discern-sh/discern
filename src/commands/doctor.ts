@@ -37,6 +37,7 @@ import {
   providersWithHooks,
 } from "../lib/providers.ts";
 import { isKnownJob, KNOWN_JOBS } from "../shared/capabilities.ts";
+import { classifyKnownJob } from "../shared/setup_assurance.ts";
 import { commandExists, leadingCommandWord } from "../shared/subprocess.ts";
 import {
   gitVersion,
@@ -377,10 +378,18 @@ export async function runChecks(
   // "Wired" means the SAME thing the gate, status, and improve mean: the command
   // survives `toCommandList` (a `""`, `[]`, or `:` no-op runs nothing, so it is not
   // wired). Re-deriving that with a looser predicate would let doctor call a no-op
-  // job healthy while `discern done` runs nothing for it.
+  // job healthy while `discern done` runs nothing for it. The WARN keys on the
+  // stricter shared classifier: a job whose only commands are discern's own
+  // (the seeded `format = "discern tidy"`) runs, but protects nothing of the
+  // project's — without that distinction the seed would silence this warning
+  // on every fresh install.
   const wiredKnownJobs = Object.keys(KNOWN_JOBS).filter((name) =>
     toCommandList(config.jobs[name as keyof typeof KNOWN_JOBS]).length > 0
   );
+  const enforcedKnownJobs =
+    (Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>).filter(
+      (name) => classifyKnownJob(config, name) === "enforced",
+    );
   const wiredCustomJobs = Object.entries(config.jobs)
     .filter(([name, value]) =>
       !isKnownJob(name) && toCommandList(value).length > 0
@@ -394,8 +403,12 @@ export async function runChecks(
     ok: wiredKnownJobs.length > 0,
     detail: wiredKnownJobs.length === 0
       ? `none wired yet (gate may pass without the built-in protections); ${customDetail}`
+      : enforcedKnownJobs.length === 0
+      ? `only discern's own upkeep is wired (${
+        wiredKnownJobs.join(", ")
+      }) — no check of the project's own yet; ${customDetail}`
       : `wired: ${wiredKnownJobs.join(", ")}; ${customDetail}`,
-    ...(wiredKnownJobs.length === 0
+    ...(enforcedKnownJobs.length === 0
       ? {
         status: "warn" as const,
         fix:

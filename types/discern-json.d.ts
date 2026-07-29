@@ -603,7 +603,7 @@ export type DiscernSetupDoneResult = {
     assurance: {
       known_jobs: Array<{
         name: string;
-        state: "enforced" | "deferred" | "absent";
+        state: "enforced" | "housekeeping" | "deferred" | "absent";
         reason?: string;
       }>;
       enforced: number;

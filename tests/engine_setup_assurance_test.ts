@@ -4,11 +4,13 @@
  * protection runs".
  *
  * Two layers:
- *   - unit, over {@link assessSetupAssurance}: the three-way classification
- *     (enforced / deferred / absent) is derived from the resolved `[jobs]`
- *     alone, the verdict rolls them up, and the summary covers EXACTLY the
+ *   - unit, over {@link assessSetupAssurance}: the four-way classification
+ *     (enforced / housekeeping / deferred / absent) is derived from the resolved
+ *     `[jobs]` alone, the verdict rolls them up, and the summary covers EXACTLY the
  *     {@link KNOWN_JOBS} SSOT — so a new capability auto-enrols (fix-the-class,
- *     ADR 0051), never silently dropped from the report;
+ *     ADR 0051), never silently dropped from the report. Self-supplied commands
+ *     (discern's own built-in vocabulary, e.g. the seeded `discern tidy`) count
+ *     for nothing, so a fresh scaffold can never award itself coverage;
  *   - integration, over the real `setup done` CLI: the `--json` envelope carries the
  *     assurance block + verdict + the landing summary, and the human output names what
  *     is enforced vs deferred, where the just-finished work lives, the exact land
@@ -20,10 +22,13 @@ import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { KNOWN_VERBS } from "../src/shared/verbs.ts";
+import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
 import {
   assessSetupAssurance,
   classifyKnownJob,
   deferralReason,
+  isSelfSuppliedCommand,
 } from "../src/shared/setup_assurance.ts";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -70,6 +75,38 @@ Deno.test("a list capability with only no-op items is deferred, not enforced", (
   assertEquals(classifyKnownJob(config, "test"), "deferred");
 });
 
+Deno.test("a capability carrying only discern's own commands is housekeeping, never enforced", () => {
+  // The seeded scaffold case: discern's own upkeep runs, but no project check.
+  const seeded = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
+  assertEquals(classifyKnownJob(seeded, "format"), "housekeeping");
+  // A project command alongside it carries the capability to enforced.
+  const mixed = parseConfigOrThrow(
+    '[jobs]\nformat = ["deno fmt", "discern tidy"]\n',
+  );
+  assertEquals(classifyKnownJob(mixed, "format"), "enforced");
+  // No-op items don't change the answer: filtered first, the remainder is
+  // still purely self-supplied.
+  const padded = parseConfigOrThrow('[jobs]\nformat = ["discern tidy", ":"]\n');
+  assertEquals(classifyKnownJob(padded, "format"), "housekeeping");
+});
+
+Deno.test("EVERY built-in verb is self-supplied; a Project Script through the namespace is not", () => {
+  // The class, driven off KNOWN_VERBS (the SSOT): a new built-in verb
+  // auto-enrols as self-supplied the moment it joins the vocabulary.
+  for (const verb of KNOWN_VERBS) {
+    assert(
+      isSelfSuppliedCommand(`discern ${verb}`),
+      `\`discern ${verb}\` must count for nothing in the assurance`,
+    );
+  }
+  assert(isSelfSuppliedCommand("discern"));
+  assert(isSelfSuppliedCommand("  discern tidy toml  "));
+  // `discern <script>` runs a project-authored script — real evidence of a
+  // wired check, so it still counts as enforced.
+  assert(!isSelfSuppliedCommand("discern check-licenses"));
+  assert(!isSelfSuppliedCommand("deno fmt"));
+});
+
 Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", () => {
   const full = parseConfigOrThrow(
     [
@@ -96,6 +133,31 @@ Deno.test("the verdict rolls up enforced coverage: full / partial / minimal", ()
   assertEquals(assessSetupAssurance(deferred).enforced, 0);
 
   assertEquals(assessSetupAssurance(parseConfigOrThrow("")).verdict, "minimal");
+
+  // A housekeeping-only config guards nothing of the project's own — the
+  // verdict is minimal, never partial, so the honest no-checks copy fires.
+  const housekeeping = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
+  assertEquals(assessSetupAssurance(housekeeping).enforced, 0);
+  assertEquals(assessSetupAssurance(housekeeping).verdict, "minimal");
+});
+
+Deno.test("the seeded template's [jobs] awards no coverage: a fresh scaffold reads minimal", async () => {
+  // The false-green guard: the scaffold must never satisfy the assurance count
+  // by itself. Assess the REAL template's canonical [jobs] block (the same
+  // extractor `upgrade` reconciles from), so seeding any job there that would
+  // fake coverage fails this test.
+  const template = await Deno.readTextFile(
+    new URL("../templates/discern.toml.tmpl", import.meta.url),
+  );
+  const jobs = sectionBlockFromTemplate(template, "jobs");
+  assert(jobs !== undefined, "the template must carry a [jobs] section");
+  const a = assessSetupAssurance(parseConfigOrThrow(jobs));
+  assertEquals(a.enforced, 0);
+  assertEquals(
+    a.verdict,
+    "minimal",
+    "the seeded [jobs] must not count as project coverage",
+  );
 });
 
 Deno.test("deferralReason extracts an inline comment, scoped to [jobs]", () => {
@@ -253,5 +315,27 @@ Deno.test("setup done reports an absent test capability honestly, not as a false
     );
     assertEquals(test.state, "absent");
     assertEquals(res.data.assurance.verdict, "partial");
+  });
+});
+
+Deno.test("setup done on the seeded config alone is honest: minimal, with the no-checks copy", async () => {
+  // The first-contact case: a scaffold whose only job is the seeded
+  // `format = "discern tidy"` has wired no check of its own. The verdict must
+  // be minimal — never a green earned by discern's own upkeep — and the relay
+  // message must say so.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    await writeConfig(dir, '[jobs]\nformat = "discern tidy"\n');
+    const res = JSON.parse(
+      (await runAgent(dir, ["setup", "done", "--force", "--json"])).stdout,
+    );
+    const a = res.data.assurance;
+    assertEquals(a.verdict, "minimal");
+    assertEquals(a.enforced, 0);
+    const format = a.known_jobs.find(
+      (c: { name: string }) => c.name === "format",
+    );
+    assertEquals(format.state, "housekeeping");
+    assertStringIncludes(res.data.guidance, "No quality checks are wired yet");
   });
 });
