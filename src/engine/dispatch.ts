@@ -428,7 +428,7 @@ export function attachEngineCommands(
   root
     .command("tidy [type:string]")
     .description(
-      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML is refused and left unchanged.",
+      "Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\\|`), is refused and left unchanged.",
     )
     .option(
       "--json",

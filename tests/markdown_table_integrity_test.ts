@@ -210,7 +210,7 @@ Deno.test("every GFM table row in tracked Markdown splits cleanly against its he
     failures,
     [],
     'malformed table row(s). A raw "|" inside a code span still separates ' +
-      'cells, so a formatter drops whatever overflows the header — escape ' +
+      "cells, so a formatter drops whatever overflows the header — escape " +
       'every in-span pipe as "\\|". For an unclosed_span finding the loss ' +
       "may already have happened: recover the row from git history, then " +
       "escape it. (Scanner: src/lib/table_integrity.ts)",

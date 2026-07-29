@@ -14,6 +14,12 @@
  * the tree still converges — but they fail the result, one diagnostic per
  * misaligned glyph, so the gate's fix stage stops until the author realigns
  * the diagram (or tags the fence `freeform`).
+ *
+ * Tables are the opposite case: a row holding a raw `|` inside a code span
+ * splits into more cells than its header, and formatting it would DROP the
+ * overflow (src/lib/table_integrity.ts). Those findings are taken on the
+ * pre-format bytes and refuse the whole invocation before any write, because
+ * here the formatting itself is the destruction.
  */
 
 import { walk } from "@std/fs";
@@ -45,6 +51,7 @@ import {
   FREEFORM_FENCE_WORD,
   scanMarkdownDiagrams,
 } from "../../lib/diagram_geometry.ts";
+import { scanMarkdownTables } from "../../lib/table_integrity.ts";
 
 /** The explicit selectors accepted after `discern tidy`. */
 export const TIDY_TYPES = ["md", "toml"] as const;
@@ -69,12 +76,21 @@ export interface DiagramFinding {
   reason: string;
 }
 
+/** A table row formatting would destroy, found on the pre-format bytes. */
+export interface TableFinding {
+  display: string;
+  line: number;
+  reason: string;
+}
+
 /** The complete read-only plan; only changed files become operations. */
 export interface TidyPlan {
   types: readonly TidyType[];
   changes: readonly TidyChange[];
   /** Diagram-geometry findings across every Markdown target, in order. */
   diagrams: readonly DiagramFinding[];
+  /** Lossy table rows across every Markdown target; any entry blocks writes. */
+  tables: readonly TableFinding[];
 }
 
 /** A target failed while the planner was reading or parsing it. */
@@ -193,7 +209,7 @@ async function formatTarget(
   root: string,
   type: TidyType,
   abs: string,
-): Promise<{ change: TidyChange | undefined; after: string }> {
+): Promise<{ change: TidyChange | undefined; before: string; after: string }> {
   const display = displayPath(root, abs);
   try {
     const before = await Deno.readTextFile(abs);
@@ -204,6 +220,7 @@ async function formatTarget(
       change: before === after
         ? undefined
         : { type, abs, display, before, after },
+      before,
       after,
     };
   } catch (error) {
@@ -220,15 +237,29 @@ export async function planTidy(
   const types = selectedTypes(type);
   const changes: TidyChange[] = [];
   const diagrams: DiagramFinding[] = [];
+  const tables: TableFinding[] = [];
   if (types.includes("md")) {
     for (const target of await markdownTargets(root)) {
-      const { change, after } = await formatTarget(root, "md", target);
+      const { change, before, after } = await formatTarget(root, "md", target);
       if (change !== undefined) {
         changes.push(change);
       }
+      const display = displayPath(root, target);
+      // Lossy tables are checked on the PRE-format bytes: the row still holds
+      // the cells formatting would drop, so the author can still escape them.
+      // Torn-span findings stay out of tidy — that state formats losslessly,
+      // and refusing it would brick projects on wreckage they inherited.
+      for (const violation of scanMarkdownTables(before)) {
+        if (violation.kind === "extra_cells") {
+          tables.push({
+            display,
+            line: violation.line,
+            reason: violation.reason,
+          });
+        }
+      }
       // Geometry is checked on the bytes the executor will leave on disk, so
       // a finding's line and column stay accurate after the write.
-      const display = displayPath(root, target);
       for (const violation of scanMarkdownDiagrams(after)) {
         diagrams.push({ display, ...violation });
       }
@@ -243,7 +274,7 @@ export async function planTidy(
       }
     }
   }
-  return { types, changes, diagrams };
+  return { types, changes, diagrams, tables };
 }
 
 /** Project a private byte plan onto the shared serializable plan vocabulary. */
@@ -260,6 +291,13 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
           `${plan.diagrams.length} misaligned diagram glyph${
             plan.diagrams.length === 1 ? "" : "s"
           }`,
+        ]
+        : []),
+      ...(plan.tables.length > 0
+        ? [
+          `${plan.tables.length} table row${
+            plan.tables.length === 1 ? "" : "s"
+          } would lose cells — writes blocked`,
         ]
         : []),
     ],
@@ -292,6 +330,12 @@ const DIAGRAMS_MESSAGE =
   `connects, or add \`${FREEFORM_FENCE_WORD}\` to a fence's info string ` +
   "to leave that block unchecked.";
 
+const TABLES_MALFORMED = "tables_malformed";
+const TABLES_MESSAGE =
+  "Formatting would drop Markdown table cells, so tidy left every file " +
+  'unchanged. A raw "|" separates table cells even inside a code span: ' +
+  'escape each in-span pipe as "\\|" in the listed rows, then rerun.';
+
 function diagramDiagnostic(finding: DiagramFinding): Diagnostic {
   return {
     tool: "tidy md",
@@ -321,6 +365,38 @@ function withDiagramFindings(
     diagnostics: [
       ...(result.diagnostics ?? []),
       ...findings.map(diagramDiagnostic),
+    ],
+  };
+}
+
+function tableDiagnostic(finding: TableFinding): Diagnostic {
+  return {
+    tool: "tidy md",
+    severity: "error",
+    message: `${finding.display}:${finding.line} ${finding.reason}`,
+    reproduce_cmd: "discern tidy md",
+    file: finding.display,
+    line: finding.line,
+  };
+}
+
+/** Fold lossy-table findings into a result: `ok` falls, the writes they
+ * blocked never ran. Applied before the diagram fold so its error wins. */
+function withTableFindings(
+  result: DiscernResult,
+  findings: readonly TableFinding[],
+): DiscernResult {
+  if (findings.length === 0) {
+    return result;
+  }
+  return {
+    ...result,
+    ok: false,
+    error: result.ok ? TABLES_MALFORMED : result.error,
+    message: result.ok ? TABLES_MESSAGE : result.message,
+    diagnostics: [
+      ...(result.diagnostics ?? []),
+      ...findings.map(tableDiagnostic),
     ],
   };
 }
@@ -403,7 +479,18 @@ export async function tidyResult(
   }
   if (opts.dryRun ?? false) {
     return withDiagramFindings(
-      previewResult("tidy", tidyPlanToEngine(plan)),
+      withTableFindings(
+        previewResult("tidy", tidyPlanToEngine(plan)),
+        plan.tables,
+      ),
+      plan.diagrams,
+    );
+  }
+  if (plan.tables.length > 0) {
+    // Applying the plan would write the truncated rows, so nothing runs: the
+    // whole invocation is refused, like a parse failure.
+    return withDiagramFindings(
+      withTableFindings({ ok: true, verb: "tidy", steps: [] }, plan.tables),
       plan.diagrams,
     );
   }
