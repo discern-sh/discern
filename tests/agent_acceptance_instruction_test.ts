@@ -1,6 +1,11 @@
 import { assertEquals } from "@std/assert";
 import { join, relative } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
+import {
+  renderCommandRefsCli,
+  renderCommandRefsMcp,
+} from "../src/shared/command_reference.ts";
+import { mcpToolNameForVerb } from "../src/engine/mcp/server.ts";
 
 const AGENT_FACING_SURFACES = [
   "templates/guidance",
@@ -40,7 +45,7 @@ const MISLEADING_ACCEPTANCE_PATTERNS: Array<{
   },
   {
     name: "run accept now",
-    pattern: /run `discern accept` now/i,
+    pattern: /run `discern[ _]accept` now/i,
   },
 ];
 
@@ -99,8 +104,14 @@ Deno.test("only exact machine-verified runtime hints may instruct landing", () =
   const violations: string[] = [];
   const exercised = new Set<string>();
   for (const [id, def] of Object.entries(HINTS)) {
-    const rendered = def.template(def.example as never);
-    const found = acceptanceViolations(`hint:${id}`, rendered);
+    // A hint's command references render per delivery surface, so probe BOTH
+    // renderings — an acceptance instruction may only spell itself in either
+    // form from an exempted, authority-gated hint.
+    const authored = def.template(def.example as never);
+    const found = [
+      renderCommandRefsCli(authored),
+      renderCommandRefsMcp(authored, mcpToolNameForVerb),
+    ].flatMap((rendered) => acceptanceViolations(`hint:${id}`, rendered));
     if (found.length > 0) {
       if (VERIFIED_AUTHORITY_HINT_IDS.has(id)) {
         exercised.add(id);

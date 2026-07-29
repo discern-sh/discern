@@ -116,8 +116,10 @@ import {
   firedHintsFromTexts,
   HINTS,
   hintTexts,
+  resolveResultHintsForSurface,
   withFailureRecoveryHint,
 } from "../../shared/hints.ts";
+import { renderCommandRefsMcp } from "../../shared/command_reference.ts";
 import {
   createInstalledVersionResolver,
   versionMismatchHint,
@@ -1005,6 +1007,54 @@ export const TOOLS: McpTool[] = orderTools([
 ]);
 
 /**
+ * The verbs deliberately NOT exposed as MCP tools, each with its reason —
+ * the shell-only half of the verb→tool decision, declared beside {@link TOOLS}
+ * so the two together cover the whole verb vocabulary. The parity guard
+ * asserts exactly that split, so a new verb must either register a tool or
+ * record itself here the day it is born; and the command-reference renderer's
+ * shell-instruction fallback is the documented posture for these, never an
+ * accident.
+ */
+export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
+  // Engine verbs.
+  [
+    "worktree",
+    "a hook-driven command group; an agent must never operate on its own footing",
+  ],
+  ["identity", "identity-resolution plumbing"],
+  ["skills", "a command group (skills list/eject)"],
+  ["mcp", "the server itself — it cannot expose itself as one of its tools"],
+  ["script", "arbitrary project executables own their arguments and output"],
+  ["tidy", "embedded formatting is CLI-only for now"],
+  [
+    "desk",
+    "the interactive human surface; it wields supervisory actions over other efforts",
+  ],
+  // Installer verbs (doctor/map/help are the tool-backed exceptions).
+  ["setup", "the one-time interactive setup flow, driven at a terminal"],
+  ["upgrade", "operates on the discern install itself, not a project state"],
+  ["uninstall", "operates on the discern install itself, not a project state"],
+  ["preset", "install-time configuration authoring"],
+  ["config", "config plumbing; agents read and edit discern.toml directly"],
+  ["licenses", "license-text dump for humans"],
+]);
+
+/**
+ * Resolve a verb's tool name from the {@link TOOLS} table — the single
+ * verb→tool source the parity guard ties to the CLI verb list. Multi-word
+ * command paths (`setup begin`) never match a tool and fall through to the
+ * shell-instruction rendering.
+ */
+export function mcpToolNameForVerb(words: string): string | undefined {
+  return TOOLS.find((tool) => verbOf(tool.name) === words)?.name;
+}
+
+/** Re-render one authored hint text for the MCP surface. */
+function renderMcpHintText(authored: string): string {
+  return renderCommandRefsMcp(authored, mcpToolNameForVerb);
+}
+
+/**
  * The `discern_accept` tool core: build a lifecycle context with a quiet logger
  * (accept narrates through its logger as it runs — silence it so the stdio
  * channel carries only protocol messages), perform the acceptance, and map a
@@ -1127,7 +1177,8 @@ async function startToolResult(
  * share). Exported so the parity guard can hold it to that shared wording.
  */
 export function mcpStartHint(path: string): string {
-  return fire(HINTS["start-mcp-re-root"], { path }).text;
+  const fired = fire(HINTS["start-mcp-re-root"], { path });
+  return renderMcpHintText(fired.authored ?? fired.text);
 }
 
 /** The verb slug behind a tool name (`discern_impact` → `impact`),
@@ -1333,7 +1384,14 @@ async function completeToolCall(
   stale: FiredHint | undefined,
 ): Promise<ToolResult> {
   const prepared = withFailureRecoveryHint(pending.result);
-  const result = stale === undefined ? prepared : appendHint(prepared, stale);
+  const withStale = stale === undefined
+    ? prepared
+    : appendHint(prepared, stale);
+  // Surface-faithful hints: re-render each hint's command references for the
+  // MCP surface (tool spellings, owner commands CLI-spelled, shell-only verbs
+  // marked) BEFORE the envelope is observed, recorded, and rendered — one
+  // envelope, identically worded everywhere it lands.
+  const result = resolveResultHintsForSurface(withStale, renderMcpHintText);
   observeResult(result);
   const observed = takeObservedResult();
   // Supplemental ids describe CLI-only output such as a session-start

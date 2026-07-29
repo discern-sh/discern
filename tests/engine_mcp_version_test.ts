@@ -18,7 +18,7 @@ import { KIT_VERSION } from "../src/lib/version.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { withTempDir } from "./helpers.ts";
 import { gitInit, scaffoldEngine } from "./engine_helpers.ts";
-import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
+import { assertHasMcpHint, assertLacksMcpHint } from "./mcp_hint_asserts.ts";
 
 Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", () => {
   // Matching versions and an unresolvable on-disk version both stay silent — the
@@ -28,7 +28,7 @@ Deno.test("versionMismatchHint: fires only on a real, resolvable disagreement", 
 
   const hint = versionMismatchHint("9.0.0", "9.1.0");
   assert(hint !== undefined, "a genuine mismatch must produce a hint");
-  assertHasHint(
+  assertHasMcpHint(
     { hints: [hint.text] },
     HINTS["mcp-version-mismatch"],
     { serverVersion: "9.0.0", installedVersion: "9.1.0" },
@@ -120,7 +120,7 @@ Deno.test("runTool: a stale on-disk version appends the restart hint to every re
       undefined,
       () => Promise.resolve(staleVersion),
     );
-    assertHasHint(
+    assertHasMcpHint(
       stale.structuredContent,
       HINTS["mcp-version-mismatch"],
       { serverVersion: KIT_VERSION, installedVersion: staleVersion },
@@ -145,7 +145,7 @@ Deno.test("runTool: a matching on-disk version appends no hint", async () => {
       undefined,
       () => Promise.resolve(KIT_VERSION),
     );
-    assertLacksHint(
+    assertLacksMcpHint(
       fresh.structuredContent,
       HINTS["mcp-version-mismatch"],
       { serverVersion: KIT_VERSION, installedVersion: KIT_VERSION },
