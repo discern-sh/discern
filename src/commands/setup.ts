@@ -2112,21 +2112,21 @@ function verdictSentence(a: SetupAssurance): string {
 }
 
 /** The aligned known-job assurance lines (A12) — each known job and its honest
- * state (enforced / housekeeping / deferred [+reason] / absent). */
+ * state (enforced / housekeeping [self-supplied] / deferred [+reason] / absent). */
 function assuranceLines(a: SetupAssurance): string[] {
   const width = Math.max(...a.known_jobs.map((job) => job.name.length));
   return a.known_jobs.map((c) => {
     const name = c.name.padEnd(width);
     const mark = c.state === "enforced"
       ? "✓"
-      : c.state === "housekeeping"
+      : c.self_supplied === true
       ? "○"
       : c.state === "deferred"
       ? "•"
       : "·";
     const label = c.state === "enforced"
       ? "enforced — runs on every `discern done`"
-      : c.state === "housekeeping"
+      : c.self_supplied === true
       ? "housekeeping — only discern's own upkeep runs here; add the project's own command"
       : c.state === "deferred"
       ? (c.reason !== undefined

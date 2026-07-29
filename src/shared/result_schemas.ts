@@ -1231,11 +1231,15 @@ export type SetupVerifyData = z.infer<typeof SetupVerifyDataSchema>;
 
 /** One known job's coverage state at completion — mirrors
  * {@link import("./setup_assurance.ts").KnownJobAssurance}. The `state` enum is
- * DERIVED from `KNOWN_JOB_STATES` (the SSOT). */
+ * DERIVED from `KNOWN_JOB_STATES` (the SSOT). `self_supplied` marks a deferred
+ * job wired only with discern's own commands (rendered as housekeeping) — an
+ * additive optional marker, because the public result contract closes the
+ * `state` vocabulary within a schema major (ADR 0208/0220). */
 export const KnownJobAssuranceSchema = z.strictObject({
   name: z.string(),
   state: z.enum(KNOWN_JOB_STATES),
   reason: z.string().optional(),
+  self_supplied: z.literal(true).optional(),
 });
 
 /** The rolled-up known-job coverage `setup done` reports — mirrors

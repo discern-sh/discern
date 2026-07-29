@@ -6,7 +6,7 @@
  * might wire format/lint/typecheck but legitimately have no test suite wired yet, or
  * no build step at all. That is correct — but "the gate is proven" must not read to a
  * novice as "every protection is running." So at `done` we classify each known
- * job into one of four honest states and roll them into an overall verdict,
+ * job into one of three honest states and roll them into an overall verdict,
  * which the human output and the `--json` envelope both render. This keeps
  * "setup is complete" cleanly distinct from "the full recommended gate is active."
  *
@@ -16,7 +16,7 @@
  * invoke discern's own built-in vocabulary count for nothing (see
  * {@link isSelfSuppliedCommand}): the scaffold seeds `format = "discern tidy"`
  * into every install, so counting it would start every project at one enforced
- * job and make the floor verdict unreachable — an unearned green.
+ * job and make the floor verdict unreachable — an unearned green (ADR 0220).
  */
 
 import { KNOWN_JOBS } from "./capabilities.ts";
@@ -26,32 +26,32 @@ import { KNOWN_VERBS } from "./verbs.ts";
 /**
  * How a known job stands relative to the gate:
  *  - `enforced` — a real, project-supplied command is wired; `discern done` runs it.
- *  - `housekeeping` — every real command is discern invoking itself (the seeded
- *    `format = "discern tidy"`): discern's own upkeep runs, but no check the
- *    project wired. Counts for nothing in the verdict.
- *  - `deferred` — the job is PRESENT in `[jobs]` but set to a no-op
- *    (`:` or an empty string), the deliberate "I know about this, but it isn't
- *    running yet" signal. Distinct from a silent omission, and the place a reason
- *    can travel (an inline `#` comment on the line).
+ *  - `deferred` — the job is PRESENT in `[jobs]` but counts for nothing: either a
+ *    no-op (`:` or an empty string — the deliberate "I know about this, but it
+ *    isn't running yet" signal, whose reason can travel as an inline `#` comment),
+ *    or commands that are all discern self-invocations (the seeded
+ *    `format = "discern tidy"`), marked `self_supplied` and rendered as
+ *    housekeeping. The vocabulary is closed on the public result contract, so
+ *    the self-supplied case rides an additive marker, not a new state.
  *  - `absent` — the job is omitted entirely; the project has no such command.
  */
-export const KNOWN_JOB_STATES = [
-  "enforced",
-  "housekeeping",
-  "deferred",
-  "absent",
-] as const;
+export const KNOWN_JOB_STATES = ["enforced", "deferred", "absent"] as const;
 export type KnownJobState = typeof KNOWN_JOB_STATES[number];
 
-/** One known job's assurance: its name, its {@link KnownJobState}, and — for a
- * `deferred` one — the reason recorded as an inline comment on its config line, when
- * present. */
+/** One known job's assurance: its name, its {@link KnownJobState}, for a
+ * no-op `deferred` job the reason recorded as an inline comment on its config
+ * line (when present), and for a `deferred` job whose commands are all discern
+ * self-invocations the `self_supplied` marker. */
 export interface KnownJobAssurance {
   name: string;
   state: KnownJobState;
   /** The deferral reason (an inline `#` comment), present only for a `deferred`
    * job that carries one. */
   reason?: string;
+  /** Present only on a `deferred` job whose real commands are ALL discern
+   * self-invocations ({@link isSelfSuppliedCommand}): discern's own upkeep
+   * runs, but no check the project wired. Rendered as housekeeping. */
+  self_supplied?: true;
 }
 
 /**
@@ -93,12 +93,11 @@ export function isSelfSuppliedCommand(command: string): boolean {
 
 /**
  * Classify ONE known job from the resolved config. `absent` when the key is
- * omitted, `deferred` when it is present but a `:`/empty no-op (the same
- * {@link toCommandList} filtering the gate runs through), `housekeeping` when
- * every surviving command is a discern self-invocation
- * ({@link isSelfSuppliedCommand}), `enforced` only when at least one
- * project-supplied command remains. The single decision the summary and any
- * other consumer share.
+ * omitted, `enforced` only when at least one project-supplied command survives
+ * no-op filtering (the same {@link toCommandList} the gate runs through) and
+ * {@link isSelfSuppliedCommand}, `deferred` otherwise — a no-op, or nothing
+ * beyond discern's own commands. The single decision the summary and any other
+ * consumer (doctor's known-jobs warning) share.
  */
 export function classifyKnownJob(
   config: DiscernConfig,
@@ -108,11 +107,25 @@ export function classifyKnownJob(
   if (value === undefined) {
     return "absent";
   }
-  const commands = toCommandList(value);
-  if (commands.length === 0) {
-    return "deferred";
+  return toCommandList(value).some((command) => !isSelfSuppliedCommand(command))
+    ? "enforced"
+    : "deferred";
+}
+
+/** True when a known job is present with real commands that are ALL discern
+ * self-invocations — the housekeeping case {@link KnownJobAssurance} marks
+ * `self_supplied`. Distinct from the `:`/empty no-op deferral, which carries a
+ * reason instead. */
+export function isSelfSuppliedOnly(
+  config: DiscernConfig,
+  name: keyof typeof KNOWN_JOBS,
+): boolean {
+  const value = config.jobs[name];
+  if (value === undefined) {
+    return false;
   }
-  return commands.every(isSelfSuppliedCommand) ? "housekeeping" : "enforced";
+  const commands = toCommandList(value);
+  return commands.length > 0 && commands.every(isSelfSuppliedCommand);
 }
 
 /**
@@ -154,7 +167,7 @@ export function deferralReason(
  * Assess the full {@link SetupAssurance} for a project — the per-known-job states
  * and the overall verdict — from its resolved config. Iterates
  * {@link KNOWN_JOBS} so the summary can never omit a known job the gate knows
- * about. When `rawToml` is supplied, a `deferred` job's inline-
+ * about. When `rawToml` is supplied, a no-op `deferred` job's inline-
  * comment reason is attached (best-effort; omitted when there is none).
  */
 export function assessSetupAssurance(
@@ -164,10 +177,18 @@ export function assessSetupAssurance(
   const names = Object.keys(KNOWN_JOBS) as Array<keyof typeof KNOWN_JOBS>;
   const known_jobs: KnownJobAssurance[] = names.map((name) => {
     const state = classifyKnownJob(config, name);
-    const reason = state === "deferred" && rawToml !== undefined
+    const selfSupplied = state === "deferred" &&
+      isSelfSuppliedOnly(config, name);
+    const reason = state === "deferred" && !selfSupplied &&
+        rawToml !== undefined
       ? deferralReason(rawToml, name)
       : undefined;
-    return reason !== undefined ? { name, state, reason } : { name, state };
+    return {
+      name,
+      state,
+      ...(reason !== undefined ? { reason } : {}),
+      ...(selfSupplied ? { self_supplied: true as const } : {}),
+    };
   });
   const enforced = known_jobs.filter((job) => job.state === "enforced").length;
   const total = known_jobs.length;

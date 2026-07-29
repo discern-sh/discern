@@ -472,13 +472,14 @@ Deno.test("setup done serves the completion message at parity across the human r
     );
     assertStringIncludes(human, d.guidance);
 
-    // The close carries the relay licence, the honest coverage (minimal here — nothing
-    // wired), the reactivation step, and the landing account — in BOTH surfaces.
+    // The close carries the relay licence, the honest coverage (minimal here — the
+    // seeded tidy job is housekeeping, nothing of the project's own is wired), the
+    // reactivation step, and the landing account — in BOTH surfaces.
     for (
       const needle of [
         "Relay the message below to your human",
         "discern is set up",
-        "Quality checks: 1 of 6 are wired and running",
+        "No quality checks are wired yet",
         "start a fresh session",
       ]
     ) {

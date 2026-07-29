@@ -1781,13 +1781,16 @@
                             "type": "string",
                             "enum": [
                               "enforced",
-                              "housekeeping",
                               "deferred",
                               "absent"
                             ]
                           },
                           "reason": {
                             "type": "string"
+                          },
+                          "self_supplied": {
+                            "type": "boolean",
+                            "const": true
                           }
                         },
                         "required": [

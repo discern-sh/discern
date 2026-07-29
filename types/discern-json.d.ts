@@ -603,8 +603,9 @@ export type DiscernSetupDoneResult = {
     assurance: {
       known_jobs: Array<{
         name: string;
-        state: "enforced" | "housekeeping" | "deferred" | "absent";
+        state: "enforced" | "deferred" | "absent";
         reason?: string;
+        self_supplied?: true;
       }>;
       enforced: number;
       total: number;

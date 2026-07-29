@@ -4,13 +4,14 @@
  * protection runs".
  *
  * Two layers:
- *   - unit, over {@link assessSetupAssurance}: the four-way classification
- *     (enforced / housekeeping / deferred / absent) is derived from the resolved
- *     `[jobs]` alone, the verdict rolls them up, and the summary covers EXACTLY the
+ *   - unit, over {@link assessSetupAssurance}: the three-way classification
+ *     (enforced / deferred / absent) is derived from the resolved `[jobs]`
+ *     alone, the verdict rolls them up, and the summary covers EXACTLY the
  *     {@link KNOWN_JOBS} SSOT — so a new capability auto-enrols (fix-the-class,
  *     ADR 0051), never silently dropped from the report. Self-supplied commands
  *     (discern's own built-in vocabulary, e.g. the seeded `discern tidy`) count
- *     for nothing, so a fresh scaffold can never award itself coverage;
+ *     for nothing — such a job is deferred with the additive `self_supplied`
+ *     marker (ADR 0220), so a fresh scaffold can never award itself coverage;
  *   - integration, over the real `setup done` CLI: the `--json` envelope carries the
  *     assurance block + verdict + the landing summary, and the human output names what
  *     is enforced vs deferred, where the just-finished work lives, the exact land
@@ -75,10 +76,17 @@ Deno.test("a list capability with only no-op items is deferred, not enforced", (
   assertEquals(classifyKnownJob(config, "test"), "deferred");
 });
 
-Deno.test("a capability carrying only discern's own commands is housekeeping, never enforced", () => {
-  // The seeded scaffold case: discern's own upkeep runs, but no project check.
+Deno.test("a capability carrying only discern's own commands is deferred housekeeping, never enforced", () => {
+  // The seeded scaffold case: discern's own upkeep runs, but no project check —
+  // deferred on the wire (the closed public state vocabulary), with the additive
+  // self_supplied marker carrying the housekeeping distinction.
   const seeded = parseConfigOrThrow('[jobs]\nformat = "discern tidy"\n');
-  assertEquals(classifyKnownJob(seeded, "format"), "housekeeping");
+  assertEquals(classifyKnownJob(seeded, "format"), "deferred");
+  const format = assessSetupAssurance(seeded).known_jobs.find(
+    (job) => job.name === "format",
+  );
+  assertEquals(format?.state, "deferred");
+  assertEquals(format?.self_supplied, true);
   // A project command alongside it carries the capability to enforced.
   const mixed = parseConfigOrThrow(
     '[jobs]\nformat = ["deno fmt", "discern tidy"]\n',
@@ -87,7 +95,12 @@ Deno.test("a capability carrying only discern's own commands is housekeeping, ne
   // No-op items don't change the answer: filtered first, the remainder is
   // still purely self-supplied.
   const padded = parseConfigOrThrow('[jobs]\nformat = ["discern tidy", ":"]\n');
-  assertEquals(classifyKnownJob(padded, "format"), "housekeeping");
+  assertEquals(classifyKnownJob(padded, "format"), "deferred");
+  // A plain no-op deferral never carries the marker — the two deferral kinds
+  // stay distinguishable.
+  const noop = assessSetupAssurance(parseConfigOrThrow('[jobs]\ntest = ":"\n'))
+    .known_jobs.find((job) => job.name === "test");
+  assertEquals(noop?.self_supplied, undefined);
 });
 
 Deno.test("EVERY built-in verb is self-supplied; a Project Script through the namespace is not", () => {
@@ -335,7 +348,8 @@ Deno.test("setup done on the seeded config alone is honest: minimal, with the no
     const format = a.known_jobs.find(
       (c: { name: string }) => c.name === "format",
     );
-    assertEquals(format.state, "housekeeping");
+    assertEquals(format.state, "deferred");
+    assertEquals(format.self_supplied, true);
     assertStringIncludes(res.data.guidance, "No quality checks are wired yet");
   });
 });
