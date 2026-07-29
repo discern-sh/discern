@@ -7,7 +7,7 @@
  * lines and only ever rewrites the *value* of a targeted key — preserving the
  * key, its `=` alignment, and every comment elsewhere.
  *
- * It targets exactly the shape `toml.awk` reads (see ADR 0005): `[section]` and
+ * It targets exactly the declarative-config subset (ADR 0005): `[section]` and
  * `[section.sub]` headers, and single-line `key = scalar|array` assignments — plus
  * ROOT-level keys (a `key = value` before any header), which `discern.toml` itself
  * has none of but a co-managed foreign file does (Codex's `environment.toml`
