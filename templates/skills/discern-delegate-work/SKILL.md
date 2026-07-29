@@ -50,12 +50,14 @@ Assume the new agent knows nothing of this conversation. Everything that mattere
 Give each prompt a clear spine. Adapt the headings to the task, but cover:
 
 - **Title and one-line goal.** What this achieves, in a sentence. When the handoff spans multiple streams (§2), lead the title with the workstream key: `1B — Add rate limiting to the upload endpoint`.
-- **Orient first.** Have it begin by orienting (`discern_status`) and reading the project's guidance file before it edits anything.
+- **Orient first.** Have it begin by orienting (`discern_status`) and reading the project's guidance file, then create its worktree with `discern_start` under the name the brief gives it, before it edits anything.
 - **Background: why this, why now.** The context you hold and it doesn't: the problem, what's true today, what made the change worth doing. Usually the part only you can supply, and the part most often skipped.
 - **Deliverables.** The concrete, ordered changes. For each, say what and where, and name an existing thing to mirror for house style ("model it on X"). Anchor each deliverable in real files, tests, and patterns.
 - **Constraints.** The rules it must hold to (see §4).
 - **Out of scope.** What not to touch. Named non-goals prevent scope creep. For one stream of a fan-out, the other streams' slices are always out of scope; say so.
 - **Definition of done.** Pair a measurable bar with a semantic one. The measurable half is a short, falsifiable checklist ("the gate is green and X, Y, Z hold", never "it works"). The semantic half states the outcome from the user's side ("someone doing the real task can reach the intended result with a smooth, high-quality experience") so the agent aims at work that is correct and well-made, not only work that passes the checks.
+
+**Write the worktree name into the brief, literally.** For a multi-stream handoff, derive one short programme slug — one word for the whole effort — and give each brief its stream's full worktree name as the string to pass to `discern_start`: slug first, then key, as in `upgrade-1a`. An agent handed a rule ("lead with your key") assembles something else often enough to break the convention; the literal string survives. Slug-first is what keeps two programmes' `1a`s apart, and it groups the fleet table by programme with the waves in order inside each. Resist a longer slug: discern adds its own uniqueness suffix to whatever you pass.
 
 Anchor the prompt in the real tree, then tell the agent to verify those anchors against the live code: files move, and a brief written from this conversation can be stale by the time someone runs it.
 
@@ -70,6 +72,7 @@ A handful of constraints hold for any task in any discern project. Fold them in 
 - **Never hand-edit generated files.** Change the source and re-run the producing command; the gate flags drift either way.
 - **Cure the class, not the symptom.** A real fix leaves behind a check that fails on the whole class of defect (the `discern-cure-a-bug` skill is the procedure).
 - **Record notable decisions.** A hard-to-reverse or surprising choice deserves an ADR (the `discern-write-adr` skill).
+- **Wait with the verb.** A brief that depends on a sibling stream has its agent wait by re-invoking `discern await` with a bounded `--timeout`, following the retry advice each "not yet" answer returns (a flat default where the project keeps no logbook) — never a hand-rolled sleep loop, and never a human relaying "it's ready".
 
 Keep this to a few lines. The agent's own guidance file already states most of it, the project's own rules included; reinforce the constraints this task leans on.
 
@@ -79,9 +82,9 @@ Keep this to a few lines. The agent's own guidance file already states most of i
 
 Present each finished prompt as one self-contained block the user can copy verbatim: clearly delimited, complete top to bottom, nothing left for them to fill in by hand. Always present the prompts in the session first.
 
-When there's more than one, also offer to save them as Markdown files in the user's project, each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a spot you suggest from the project's own layout (an existing planning or prompts folder, say). Write them only if the user says yes. Give each brief you save one final line in its own definition of done: when its task is complete, move the brief file into a `_done/` subfolder beside it (`planning/2c-<slug>.md` → `planning/_done/2c-<slug>.md`), landed as part of that work, so completed briefs don't linger for you to tidy. That line belongs only in a saved brief (a chat-only prompt has no file to move), and lands cleanly only once the briefs are committed to the trunk each stream branches from.
+When there's more than one, also offer to save them as Markdown files in the user's project, each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a spot you suggest from the project's own layout (an existing planning or prompts folder, say). Files keep the key first — the folder scopes them, and the key sorts them into the wave plan; only worktree names lead with the programme slug (§3). Write them only if the user says yes. Give each brief you save one final line in its own definition of done: when its task is complete, move the brief file into a `_done/` subfolder beside it (`planning/2c-<slug>.md` → `planning/_done/2c-<slug>.md`), landed as part of that work, so completed briefs don't linger for you to tidy. That line belongs only in a saved brief (a chat-only prompt has no file to move), and lands cleanly only once the briefs are committed to the trunk each stream branches from.
 
-Then explain how the handoff runs: each prompt launches as a new session that starts on its own branch in a fresh worktree, isolated from your current work and from the other streams. If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer; handing the prompts over is the default. For a fan-out, restate the landing order from §2 so the user knows which result lands first.
+Then explain how the handoff runs: each prompt launches as a new session that starts on its own branch in a fresh worktree, isolated from your current work and from the other streams. If you can launch the sessions or worktrees directly yourself and the user would prefer it, offer; handing the prompts over is the default. For a fan-out, restate the landing order from §2 so the user knows which result lands first. When every cross-wave brief carries its wait (§2, §4), the whole set can dispatch in one sitting: the `await` conditions sequence the waves with no one relaying readiness by hand.
 
 ---
 
@@ -105,7 +108,7 @@ Report what you find plainly: what stands, and what needs another pass. Feed any
 
 - The work is pinned down: goal, shape, and every unknown either resolved or explicitly handed to the agent to decide.
 - The handoff has the simplest shape that fits: one brief, a fan-out on real seams with disjoint files in flight and a fixed landing order, or staged briefs — every wave's brief written now, each cross-wave brief naming its dependency and the composition move (`start --from` a green sibling, or `await --landed` then update).
-- For a multi-brief handoff, every brief carries its workstream key in its title (and its filename, if saved), you offered to save the set as Markdown files in the project, and any saved brief tells its agent to move the file into `_done/` when its task is complete.
+- For a multi-brief handoff, every brief carries its workstream key in its title (and its filename, if saved) and its literal `<slug>-<key>` worktree name, you offered to save the set as Markdown files in the project, and any saved brief tells its agent to move the file into `_done/` when its task is complete.
 - Every prompt is self-contained: it assumes no memory of this conversation and carries title, orientation, background, deliverables, constraints, out-of-scope, and a definition of done that is both falsifiable and stated from the user's side.
 - The standing project constraints (the gate as the bar, atomic commits, no hand-editing generated files, plus the project's own guidelines) are baked into each.
 - The user has each prompt as a copyable block and knows that launching one spins up a fresh worktree.
