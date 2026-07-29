@@ -50,6 +50,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   PATTERN_FINDING_TONES,
+  PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
@@ -254,6 +255,21 @@ function redDone(over: Partial<VerbEvent> = {}): Partial<VerbEvent> {
     outcome: "failed",
     failed_stage: "check/test",
     ...over,
+  };
+}
+
+/** One successful acceptance with recorded consent and changed-scope names. */
+function accepted(
+  source: NonNullable<VerbEvent["consent"]>["source"],
+  scopes: string[] = ["docs"],
+): Partial<VerbEvent> {
+  return {
+    verb: "accept",
+    outcome: "ok",
+    scopes: [...scopes],
+    consent: source === "standing-grant"
+      ? { source, scopes: [...scopes] }
+      : { source },
   };
 }
 
@@ -586,6 +602,43 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       { verb: "done", flags: ["confirmed"] },
       { verb: "done", flags: ["confirmed"] },
     ]),
+  },
+  "pre-authorized-landings": {
+    firing: run([
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("standing-grant"),
+      accepted("standing-grant"),
+      accepted("standing-grant"),
+      accepted("effort-grant"),
+    ]),
+    quiet: run(
+      Array.from({ length: 8 }, () => accepted("conversation")),
+    ),
+    sparse: run([
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("conversation"),
+      accepted("standing-grant"),
+      accepted("standing-grant"),
+      accepted("standing-grant"),
+    ]),
+  },
+  "grant-suggestion": {
+    firing: run(
+      Array.from({ length: 12 }, () => accepted("conversation")),
+    ),
+    quiet: run([
+      ...Array.from({ length: 6 }, () => accepted("conversation")),
+      accepted("conversation", ["engine"]),
+      ...Array.from({ length: 5 }, () => accepted("conversation")),
+    ]),
+    sparse: run(
+      Array.from({ length: 11 }, () => accepted("conversation")),
+    ),
   },
   "docs-gap": {
     firing: run([
@@ -1266,6 +1319,142 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
   );
 });
 
+Deno.test("pre-authorized landings reports mixed consent sources, granted scopes, and a rate shift", () => {
+  const detectorUnderTest = detector("pre-authorized-landings");
+  const audit = report(
+    detectorUnderTest,
+    fixturesOf(detectorUnderTest).firing,
+  );
+  assertEquals(audit.status, "fired");
+  assertEquals(audit.considered, 8);
+  const summary = audit.findings.find((finding) =>
+    finding.subject === undefined
+  );
+  assert(summary !== undefined);
+  assertEquals(summary.evidence, {
+    consent_recorded_landings: 8,
+    pre_authorized_landings: 4,
+    pre_authorized_share_pct: 50,
+    standing_grant_landings: 3,
+    effort_grant_landings: 1,
+    longest_pre_authorized_streak: 4,
+    current_pre_authorized_streak: 4,
+    earlier_share_pct: 0,
+    later_share_pct: 100,
+  });
+  assert(
+    summary.observed.includes(
+      "3 used a standing grant and 1 used an effort grant",
+    ),
+  );
+  assert(
+    summary.observed.includes(
+      "share moved from 0% across the earlier 4 landings to 100%",
+    ),
+  );
+  const docs = audit.findings.find((finding) => finding.subject === "docs");
+  assertEquals(docs?.evidence, {
+    scope_landings: 3,
+    standing_grant_landings: 3,
+  });
+});
+
+Deno.test("pre-authorized landings calls out a current single-source streak", () => {
+  const events = run([
+    ...Array.from({ length: 4 }, () => accepted("conversation")),
+    ...Array.from({ length: 4 }, () => accepted("standing-grant")),
+  ]);
+  const audit = runDetector(
+    detector("pre-authorized-landings"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(audit.status, "fired");
+  const summary = audit.findings.find((finding) =>
+    finding.subject === undefined
+  );
+  assert(summary !== undefined);
+  assert(
+    summary.brief.includes("current run 4 standing grant"),
+    summary.brief,
+  );
+  assert(
+    summary.observed.includes(
+      "current run is 4 pre-authorized landings under the standing grant",
+    ),
+    summary.observed,
+  );
+});
+
+Deno.test("grant suggestion names the scope after a dozen uninterrupted conversational landings", () => {
+  const detectorUnderTest = detector("grant-suggestion");
+  const suggestion = report(
+    detectorUnderTest,
+    fixturesOf(detectorUnderTest).firing,
+  );
+  assertEquals(suggestion.status, "fired");
+  assertEquals(suggestion.considered, 12);
+  assertEquals(suggestion.findings.length, 1);
+  const finding = suggestion.findings[0];
+  assertEquals(finding?.subject, "docs");
+  assertEquals(finding?.evidence, {
+    consecutive_conversational_landings: 12,
+    scopes: 1,
+    intervening_refusals: 0,
+  });
+  assert(
+    finding?.next_step?.includes(
+      "adding `docs` to `[acceptance].pre_authorized`",
+    ),
+  );
+  assert(finding?.next_step?.includes("discern never writes grants"));
+});
+
+Deno.test("grant suggestion stays silent when a refusal interrupts the conversational run", () => {
+  const events = run([
+    ...Array.from({ length: 6 }, () => accepted("conversation")),
+    {
+      verb: "accept",
+      outcome: "refused",
+      error: "awaiting_consent",
+    },
+    ...Array.from({ length: 6 }, () => accepted("conversation")),
+  ]);
+  const suggestion = runDetector(
+    detector("grant-suggestion"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(suggestion.considered, 13);
+  assertEquals(suggestion.status, "quiet");
+  assertEquals(suggestion.findings, []);
+});
+
+Deno.test("grant suggestion stays silent when a second scope interrupts the run", () => {
+  const events = run([
+    ...Array.from({ length: 6 }, () => accepted("conversation")),
+    accepted("conversation", ["engine"]),
+    ...Array.from({ length: 5 }, () => accepted("conversation")),
+  ]);
+  const suggestion = runDetector(
+    detector("grant-suggestion"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(suggestion.considered, 12);
+  assertEquals(suggestion.status, "quiet");
+  assertEquals(suggestion.findings, []);
+});
+
+Deno.test("landing-authority detectors stay silent on an empty logbook", () => {
+  const facts = buildStreamFacts([], "main");
+  for (
+    const id of ["pre-authorized-landings", "grant-suggestion"] as const
+  ) {
+    const outcome = runDetector(detector(id), facts);
+    assertEquals(outcome.status, "insufficient-evidence", id);
+    assertEquals(outcome.considered, 0, id);
+    assertEquals(outcome.findings, [], id);
+  }
+});
+
 for (const d of DETECTORS) {
   Deno.test(`patterns detector ${d.id}: fires on its firing stream with plain-count evidence`, () => {
     const r = report(d, fixturesOf(d).firing);
@@ -1282,6 +1471,24 @@ for (const d of DETECTORS) {
         PATTERN_FINDING_TONES.includes(f.tone ?? d.tone),
         `${d.id}: unknown finding tone ${f.tone ?? d.tone}`,
       );
+      if (d.id === "standard-trajectory") {
+        assert(f.series !== undefined, `${d.id}: missing trajectory series`);
+      } else {
+        assertEquals(
+          f.series,
+          undefined,
+          `${d.id}: only standard trajectories may carry a series`,
+        );
+      }
+      if (f.series !== undefined) {
+        assert(
+          f.series.length <= PATTERNS_SERIES_MAX_POINTS,
+          `${d.id}: ${f.series.length}-point series exceeds the wire cap`,
+        );
+        for (const value of f.series) {
+          assert(Number.isFinite(value), `${d.id}: non-finite series value`);
+        }
+      }
       const values = Object.values(f.evidence);
       assert(values.length > 0, `${d.id}: a finding carries no evidence`);
       for (const v of values) {
@@ -1921,6 +2128,33 @@ Deno.test("patterns trajectory: sustained slack proposes the pin", () => {
   assertEquals(finding.tone, "good");
   assertEquals(finding.evidence.limit_first, 80);
   assertEquals(finding.evidence.limit_last, 80);
+});
+
+Deno.test("patterns trajectory: long series use equal-time bucket means and exact endpoints", () => {
+  const trajectory = DETECTORS.find((d) => d.id === "standard-trajectory");
+  assert(trajectory !== undefined);
+  const values = Array.from({ length: 200 }, (_, index) => index % 2);
+  const events = run(values.map((value) => ({
+    standards: [reading("pulse", value, -1, "up")],
+  })));
+  const outcome = runDetector(trajectory, buildStreamFacts(events, "main"));
+  const finding = outcome.findings[0];
+  assert(finding !== undefined);
+  assert(finding.series !== undefined);
+  assert(
+    finding.series.length <= PATTERNS_SERIES_MAX_POINTS,
+    `${finding.series.length}-point series exceeds the wire cap`,
+  );
+  assert(
+    finding.series.length < values.length,
+    "the long trajectory must be downsampled",
+  );
+  assertEquals(finding.series[0], values[0]);
+  assertEquals(finding.series[finding.series.length - 1], values.at(-1));
+  assert(
+    finding.series.slice(1, -1).some((value) => value > 0 && value < 1),
+    "interior points must be bucket means rather than sampled readings",
+  );
 });
 
 Deno.test("patterns trajectory: direction-aware facts decide tone without changing rank", () => {

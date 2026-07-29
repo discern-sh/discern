@@ -1574,9 +1574,27 @@ function cloneLandingConsent(consent: LandingConsent): AcceptData["consent"] {
   };
 }
 
+/** Configured scope names matched by the landing's classified paths. Names
+ * only: acceptance exposes no path or configuration value to the logbook. */
+function changedLandingScopes(
+  authority: LandingAuthorityResolution,
+): string[] {
+  if (authority.scopeNames !== undefined) {
+    return [...authority.scopeNames];
+  }
+  const scopes = new Set<string>();
+  for (const classification of authority.classifications) {
+    for (const scope of classification.scopes) {
+      scopes.add(scope);
+    }
+  }
+  return [...scopes].sort();
+}
+
 interface AcceptExecutionProgress {
   readonly steps: StepResult[];
   readonly landing: AcceptLandingState;
+  readonly scopesChanged: string[];
   gateValidation?: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown?: string;
   receiptLine?: string;
@@ -1588,10 +1606,12 @@ interface AcceptExecutionProgress {
 
 function freshAcceptExecutionProgress(
   steps: StepResult[] = [],
+  scopesChanged: string[] = [],
 ): AcceptExecutionProgress {
   return {
     steps,
     landing: freshAcceptLandingState(),
+    scopesChanged,
     convergenceHints: [],
     diagnostics: [],
     authorityWarnings: [],
@@ -1613,6 +1633,9 @@ function partialAcceptanceResult(
     data: {
       root,
       consent: cloneLandingConsent(consent),
+      ...(progress.scopesChanged.length === 0
+        ? {}
+        : { scopes_changed: [...progress.scopesChanged] }),
       landing: cloneLandingState(progress.landing),
       ...(progress.authorityWarnings.length === 0
         ? {}
@@ -2519,6 +2542,7 @@ async function executeAcceptResult(
     authority = await inspectLandingAuthority(
       ctx.cwd,
       ctx.config.repository.trunk,
+      { includeScopeEvidence: true },
     );
     if (dryRun) {
       const enginePlan = acceptPlanToEngine(plan);
@@ -2529,7 +2553,10 @@ async function executeAcceptResult(
       return previewResult("accept", enginePlan);
     }
     const consent = landingConsentForApply(authority, confirmed);
-    const progress = freshAcceptExecutionProgress(recoverySteps);
+    const progress = freshAcceptExecutionProgress(
+      recoverySteps,
+      changedLandingScopes(authority),
+    );
     if (recoverySteps.length > 0) {
       progress.landing.recovery_performed = true;
     }
@@ -2554,6 +2581,9 @@ async function executeAcceptResult(
     result.data = {
       root: plan.mainRepo,
       consent: cloneLandingConsent(consent),
+      ...(progress.scopesChanged.length === 0
+        ? {}
+        : { scopes_changed: [...progress.scopesChanged] }),
       landing: cloneLandingState(progress.landing),
       ...(authority.warnings.length + executed.authorityWarnings.length > 0
         ? {

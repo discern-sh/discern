@@ -6971,6 +6971,13 @@
                           "brief": {
                             "type": "string"
                           },
+                          "series": {
+                            "maxItems": 24,
+                            "type": "array",
+                            "items": {
+                              "type": "number"
+                            }
+                          },
                           "observed": {
                             "type": "string"
                           },
@@ -9422,6 +9429,13 @@
                       "brief": {
                         "type": "string"
                       },
+                      "series": {
+                        "maxItems": 24,
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      },
                       "observed": {
                         "type": "string"
                       },
@@ -11654,6 +11668,12 @@
                   "required": [
                     "source"
                   ]
+                },
+                "scopes_changed": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 },
                 "landing": {
                   "type": "object",

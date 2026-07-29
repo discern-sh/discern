@@ -52,6 +52,9 @@ export type LandingAuthorityResolution =
     readonly classifications: readonly ClassifiedLandingPath[];
     readonly uncovered: readonly [];
     readonly warnings: readonly string[];
+    /** Configured scope names matched by this tree when an acceptance caller
+     * requested metadata evidence. It never participates in authority. */
+    readonly scopeNames?: readonly string[];
     readonly trunkCommit?: string;
     readonly headCommit?: string;
   }
@@ -62,6 +65,9 @@ export type LandingAuthorityResolution =
     readonly classifications: readonly ClassifiedLandingPath[];
     readonly uncovered: readonly ClassifiedLandingPath[];
     readonly warnings: readonly string[];
+    /** Configured scope names matched by this tree when an acceptance caller
+     * requested metadata evidence. It never participates in authority. */
+    readonly scopeNames?: readonly string[];
     readonly blockingReason?: string;
     readonly trunkCommit?: string;
     readonly headCommit?: string;
@@ -242,6 +248,49 @@ function effortWarnings(
   return [];
 }
 
+type LandingClassification =
+  | {
+    readonly kind: "classified";
+    readonly classifications: ClassifiedLandingPath[];
+    readonly scopeNames: string[];
+    readonly headCommit: string;
+  }
+  | { readonly kind: "unavailable"; readonly reason: "head" | "paths" };
+
+/** Classify the committed landing against the pinned trunk config. Callers
+ * decide whether an unavailable classification affects authority or only
+ * omits optional metadata. */
+async function classifyLanding(
+  cwd: string,
+  trunkCommit: string,
+  config: DiscernConfig,
+): Promise<LandingClassification> {
+  const headRead = await runGit(
+    ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
+    { cwd },
+  );
+  if (!headRead.success || headRead.stdout.trim() === "") {
+    return { kind: "unavailable", reason: "head" };
+  }
+  const headCommit = headRead.stdout.trim();
+  const changedPaths = await collectPaths(cwd, trunkCommit, headCommit);
+  if (changedPaths === null) {
+    return { kind: "unavailable", reason: "paths" };
+  }
+  const paths = unique(changedPaths);
+  const classifications = paths.map((path) => ({
+    path,
+    scopes: scopeNamesForPath(path, config),
+  }));
+  return {
+    kind: "classified",
+    classifications,
+    scopeNames: unique(classifications.flatMap((entry) => entry.scopes))
+      .sort(),
+    headCommit,
+  };
+}
+
 /**
  * Read the current worktree's landing authority. The trunk snapshot is pinned
  * before its config and diff are read, so a branch cannot alter either side of
@@ -250,6 +299,7 @@ function effortWarnings(
 export async function inspectLandingAuthority(
   cwd: string,
   trunk: string,
+  opts: { includeScopeEvidence?: boolean } = {},
 ): Promise<LandingAuthorityResolution> {
   const [branchRead, effort] = await Promise.all([
     runGit(["branch", "--show-current"], { cwd }),
@@ -303,51 +353,50 @@ export async function inspectLandingAuthority(
       reason,
     );
   }
+  const classification = opts.includeScopeEvidence === true
+    ? await classifyLanding(cwd, trunkConfig.commit, typed.config)
+    : undefined;
+  const scopeEvidence = classification?.kind === "classified"
+    ? classification
+    : undefined;
   if (effortGranted) {
-    return resolveLandingAuthority({
+    const authority = resolveLandingAuthority({
       effortGranted: true,
       classifications: [],
       grantedScopes: [],
       definedScopes: Object.keys(typed.config.scopes),
       warnings,
     });
+    return scopeEvidence === undefined
+      ? authority
+      : { ...authority, scopeNames: scopeEvidence.scopeNames };
   }
   const grantedScopes = typed.config.acceptance.pre_authorized;
   if (grantedScopes.length === 0) {
-    return conversationRequired(warnings);
+    const authority = conversationRequired(warnings);
+    return scopeEvidence === undefined
+      ? authority
+      : { ...authority, scopeNames: scopeEvidence.scopeNames };
   }
 
-  const headRead = await runGit(
-    ["rev-parse", "--verify", "--quiet", "HEAD^{commit}"],
-    { cwd },
-  );
-  if (!headRead.success || headRead.stdout.trim() === "") {
+  const authorityClassification = classification ??
+    await classifyLanding(cwd, trunkConfig.commit, typed.config);
+  if (authorityClassification.kind === "unavailable") {
     return conversationRequired([
       ...warnings,
-      "Standing landing authority could not be checked: HEAD does not resolve to a commit.",
+      authorityClassification.reason === "head"
+        ? "Standing landing authority could not be checked: HEAD does not resolve to a commit."
+        : "Standing landing authority could not classify the changed paths.",
     ]);
   }
-  const headCommit = headRead.stdout.trim();
-  const changedPaths = await collectPaths(cwd, trunkConfig.commit, headCommit);
-  if (changedPaths === null) {
-    return conversationRequired([
-      ...warnings,
-      "Standing landing authority could not classify the changed paths.",
-    ]);
-  }
-  const paths = unique(changedPaths);
-  const classifications = paths.map((path) => ({
-    path,
-    scopes: scopeNamesForPath(path, typed.config as DiscernConfig),
-  }));
   return resolveLandingAuthority({
     effortGranted: false,
-    classifications,
+    classifications: authorityClassification.classifications,
     grantedScopes,
     definedScopes: Object.keys(typed.config.scopes),
     warnings,
     trunkCommit: trunkConfig.commit,
-    headCommit,
+    headCommit: authorityClassification.headCommit,
   });
 }
 

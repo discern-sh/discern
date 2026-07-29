@@ -245,6 +245,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
       source: "standing-grant",
       scopes: ["docs"],
     });
+    assertEquals(envelope.data.scopes_changed, ["docs"]);
     assertStringIncludes(
       envelope.data.receipt_line,
       "landed under standing grant: docs",
@@ -262,6 +263,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
       source: "standing-grant",
       scopes: ["docs"],
     });
+    assertEquals(event.scopes, ["docs"]);
   });
 });
 
@@ -1028,7 +1030,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     const worktree = await readyWorktree(
       dir,
       authorityConfig(),
-      { "feature.txt": "conversation\n" },
+      { "docs/conversation.md": "conversation\n" },
       "conversation",
     );
     const landed = await runAgent(worktree, [
@@ -1039,6 +1041,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
     assertEquals(envelope.data.consent, { source: "conversation" });
+    assertEquals(envelope.data.scopes_changed, ["docs"]);
     assertStringIncludes(
       envelope.data.receipt_line,
       "landed with conversation consent",
@@ -1048,6 +1051,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     const event = events.at(-1);
     assert(event?.kind === "verb");
     assertEquals(event.consent, { source: "conversation" });
+    assertEquals(event.scopes, ["docs"]);
   });
 });
 
