@@ -4,6 +4,7 @@
  */
 
 import { type HintDef, HINTS } from "./hints.ts";
+import { renderCommandRefsCli } from "./command_reference.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =
@@ -18,7 +19,9 @@ function renderEntry(def: HintDef<unknown>): string {
   if (/\r|\n/.test(when)) {
     throw new Error(`hint ${def.id} has a multi-line emitting context`);
   }
-  const example = def.template(def.example);
+  // The inventory is a CLI-canonical page: command references render in
+  // their CLI spelling, exactly as `fire` delivers them to the envelope.
+  const example = renderCommandRefsCli(def.template(def.example));
   let fence = "```";
   while (example.includes(fence)) fence += "`";
   return [

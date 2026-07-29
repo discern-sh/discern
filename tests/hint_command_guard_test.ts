@@ -1,19 +1,23 @@
 /**
- * Command-reference guard for the hint registry (ADR 0172). Two passes, both
- * through the same live-registry validator as the map's fenced commands:
+ * Command-reference guard for the hint registry (ADR 0172). Every runnable
+ * discern command a hint names is a typed reference; this guard holds each
+ * one to the LIVE command registry, through the same validator as the map's
+ * fenced commands:
  *
- * 1. RENDERED: every template is rendered from its typed example and each
- *    quoted `discern …` code span is validated — this exercises spans whose
- *    command text arrives via interpolation.
- * 2. SOURCE: the registry module's source text is scanned for backticked
- *    `discern …` spans — this reaches conditional branches the example never
- *    renders and the shared helper strings templates call into, where a
- *    misspelled or retired command would otherwise ship silently. Spans
- *    carrying a `${…}` interpolation are skipped here (their text is not
- *    knowable statically); the rendered pass covers those.
- *
- * The scope contract: every hint lives in `src/shared/hints.ts` (the closed
- * registry), so that module's source is the whole search universe for pass 2.
+ * 1. RENDERED: every template renders from its typed example, references
+ *    resolve to their CLI spelling, and each quoted `discern …` span is
+ *    validated — a renamed verb or dropped flag fails here, not in a user's
+ *    session. This exercises spans whose command text arrives via
+ *    interpolation.
+ * 2. COMPLETENESS: after stripping the reference tokens, a rendered hint may
+ *    carry NO bare `discern …` span — a runnable command written as prose
+ *    (which the surface renderers could never re-spell) is rejected.
+ * 3. SOURCE: the registry module's source text is scanned for backticked
+ *    `discern …` spans — post-migration these can only be commentary, and any
+ *    that appear must still be live. Constructor calls with literal words are
+ *    scanned across ALL authored TypeScript (call sites build references
+ *    too), so a stale word path in a branch no example renders is caught
+ *    statically.
  */
 
 import { assert, assertEquals } from "@std/assert";
@@ -24,50 +28,23 @@ import { cliCommandModel } from "../src/shared/cli_reference_codegen.ts";
 import { validateFencedCommand } from "../src/lib/docs_integrity.ts";
 import { discoverProjectScripts } from "../src/engine/project_scripts.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import {
+  renderCommandRefsCli,
+  stripCommandRefs,
+} from "../src/shared/command_reference.ts";
+import {
+  AUTHORED_TS_FILES,
+  REPO_AUTHORED_PATHS,
+  REPO_ROOT,
+} from "./repo_authored_paths.ts";
 
 /** The channel-owning module — the closed universe every hint is defined in. */
 const HINTS_MODULE = join(REPO_ROOT, "src", "shared", "hints.ts");
 
-/** Extract Markdown code spans whose content is a `discern` command. */
-function quotedDiscernCommands(text: string): string[] {
-  const commands: string[] = [];
-  for (const match of text.matchAll(/`([^`\r\n]+)`/gu)) {
-    const code = (match[1] ?? "").trim();
-    if (/^discern(?:\s|$)/u.test(code)) commands.push(code);
-  }
-  return commands;
-}
-
-/**
- * Extract backticked `discern …` spans from SOURCE text — TypeScript, not
- * rendered prose. Code spans appear there in two spellings: `\`…\`` inside a
- * template literal and bare `` ` `` inside a quoted string. The escaped form
- * is rewritten to a private delimiter first so the two systems cannot pair
- * with each other, and string-concatenation glue is dropped so a span split
- * across `+` pieces survives. Spans containing `${` are skipped — their
- * command text only exists after rendering.
- */
-function sourceDiscernCommands(source: string): string[] {
-  // `"…" + "…"` renders as one string: drop the glue between string literals
-  // so a code span split across the pieces is extracted whole.
-  const glued = source.replace(/(["'`])\s*\+\s*(["'`])/gu, "");
-  // Escaped backticks (code spans inside template literals) become a private
-  // delimiter that cannot pair with the literals' own bare-backtick delimiters.
-  const marked = glued.replace(/\\`/gu, "\uE000");
-  const spans = [
-    ...marked.matchAll(/\uE000([^\uE000`\r\n]+)\uE000/gu),
-    ...marked.matchAll(/`([^\uE000`\r\n]+)`/gu),
-  ];
-  const commands: string[] = [];
-  for (const match of spans) {
-    const code = (match[1] ?? "").trim();
-    if (/^discern(?:\s|$)/u.test(code) && !code.includes("${")) {
-      commands.push(code);
-    }
-  }
-  return commands;
-}
+import {
+  quotedDiscernCommands,
+  sourceDiscernCommands,
+} from "./command_span_scan.ts";
 
 Deno.test("hint command guard extracts only quoted discern commands", () => {
   assertEquals(
@@ -120,13 +97,15 @@ Deno.test("every quoted discern command in the hint registry validates against t
   const extraVerbs = new Set(scripts.map((script) => script.name));
   const failures: string[] = [];
 
-  // Pass 1 — rendered examples, per hint (covers interpolated spans).
+  // Pass 1 — rendered examples, per hint, with references resolved to their
+  // CLI spelling (covers interpolated spans AND every reference the example
+  // reaches: a renamed verb or dropped flag inside a reference fails here).
   for (const [key, value] of Object.entries(HINTS)) {
     const def = value as {
       example: unknown;
       template: (params: unknown) => string;
     };
-    const rendered = def.template(def.example);
+    const rendered = renderCommandRefsCli(def.template(def.example));
     for (const command of quotedDiscernCommands(rendered)) {
       const reason = validateFencedCommand(command, model, extraVerbs);
       if (reason !== undefined) {
@@ -150,5 +129,105 @@ Deno.test("every quoted discern command in the hint registry validates against t
     [],
     "quoted hint commands must match the live command registry — update the " +
       `template or command declaration:\n  ${failures.join("\n  ")}`,
+  );
+});
+
+/** Bare runnable spans left in a rendered hint once references are stripped —
+ * the completeness detector the live pass and its negative control share. A
+ * lone `discern` span is the product NAME, not a runnable command with a verb
+ * to re-spell, so it stays legal prose. */
+function proseCommandSpans(authoredText: string): string[] {
+  return quotedDiscernCommands(stripCommandRefs(authoredText))
+    .filter((span) => span !== "discern");
+}
+
+Deno.test("every rendered hint spells runnable discern commands only through references", () => {
+  const failures: string[] = [];
+  for (const [key, value] of Object.entries(HINTS)) {
+    const def = value as {
+      example: unknown;
+      template: (params: unknown) => string;
+    };
+    for (const span of proseCommandSpans(def.template(def.example))) {
+      failures.push(`${key}: \`${span}\``);
+    }
+  }
+  assertEquals(
+    failures,
+    [],
+    "a runnable discern command is written as prose — build it with " +
+      "discernCommand()/ownerDiscernCommand() so every surface can spell it:\n  " +
+      failures.join("\n  "),
+  );
+});
+
+Deno.test("the completeness detector rejects a prose-spelled command beside a reference", () => {
+  // The adversarial future sibling: one converted reference, one span left as
+  // prose. The stripped text must still expose the prose span.
+  const authored =
+    '⟦discern-cmd:{"words":"update","args":[],"executor":"caller"}⟧ first, then `discern done`.';
+  assertEquals(proseCommandSpans(authored), ["discern done"]);
+});
+
+Deno.test("a reference with a stale flag or subcommand fails the live validation", async () => {
+  // Constructors validate the verb word at build time, but a stale flag or
+  // subcommand only resolves against the live CLI model — prove the rendered
+  // pass rejects both, through the same validator the live pass uses.
+  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
+  const extraVerbs = new Set(scripts.map((script) => script.name));
+  for (
+    const stale of ["discern map some-target --jsonx", "discern setup beginx"]
+  ) {
+    assert(
+      validateFencedCommand(stale, model, extraVerbs) !== undefined,
+      `the live validator must reject "${stale}"`,
+    );
+  }
+});
+
+Deno.test("every constructor-built reference in authored source names a live verb path", async () => {
+  // References are built at call sites too (gotchas, await, setup), so the
+  // static sweep covers ALL authored TypeScript, not just the registry: a
+  // literal word path in a branch no test renders still resolves or fails
+  // here. Interpolated word paths are covered by the constructors' own
+  // KNOWN_VERBS check at build time.
+  const model = cliCommandModel(buildCli(false) as unknown as Command);
+  const scripts = await discoverProjectScripts(REPO_AUTHORED_PATHS.scripts);
+  const extraVerbs = new Set(scripts.map((script) => script.name));
+  const pattern = /(?:discernCommand|ownerDiscernCommand)\(\s*"([^"\n]*)"/g;
+  const failures: string[] = [];
+  let scanned = 0;
+  // Narrower than AUTHORED_TS_FILES for a stated reason: test files construct
+  // deliberately invalid references as negative fixtures (and this guard's
+  // own scan pattern), which are not shipped call sites.
+  for (const rel of AUTHORED_TS_FILES.filter((r) => !r.startsWith("tests/"))) {
+    const source = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const match of source.matchAll(pattern)) {
+      const words = match[1] ?? "";
+      scanned += 1;
+      if (words === "") {
+        continue; // the root form (`discern --help`) has no word path
+      }
+      const reason = validateFencedCommand(
+        `discern ${words}`,
+        model,
+        extraVerbs,
+      );
+      if (reason !== undefined) {
+        failures.push(`${rel}: discernCommand("${words}") — ${reason}`);
+      }
+    }
+  }
+  assert(
+    scanned > 0,
+    "the constructor sweep found no references — broken scan",
+  );
+  assertEquals(
+    failures,
+    [],
+    `constructor-built references must name live verb paths:\n  ${
+      failures.join("\n  ")
+    }`,
   );
 });

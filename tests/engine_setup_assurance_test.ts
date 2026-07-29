@@ -18,6 +18,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { KNOWN_JOBS } from "../src/shared/capabilities.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import {
   assessSetupAssurance,
@@ -199,7 +200,7 @@ Deno.test("setup done --json carries the landing summary + coach pointer", async
     assertHasHint(res, HINTS["setup-done-land-dedicated"], {
       branch: "discern-setup",
       target: "main",
-      acceptCommand: "discern setup accept",
+      acceptCommand: ACCEPT_COMMAND_REF,
     });
     assertHasHint(res, HINTS["setup-run-coach"], {
       coachVerb: "improvement",

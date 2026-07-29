@@ -12,15 +12,25 @@ aliases:
 
 _With recording on and `discern.toml` readable, each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project adds local, metadata-only history. Effectful verbs add a paired start and completion._
 
-With `discern.toml` readable and recording on, each CLI or MCP call appends a completion line. Effectful calls first append `begin`; the pair shares an invocation id. Worktrees share the plain-text file under `.git`.
+The pair shares an invocation id; worktrees share one plain-text file under `.git`.
 
-An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing. That path has no project logbook to host the event and no readable project setting to consent to it.
-
-The history lets later versions answer what a single run can't: which gate step has been slowing down, how many runs a task needed before green, where a metric stood six months ago.
+An MCP call whose explicit `path` falls outside every discern project returns `not_initialized` and records nothing: no project logbook to host the event, no readable setting to consent to it.
 
 - **Read it:** `discern patterns` reports the findings ([practice patterns](../20-quality-gate/patterns.md)); `cat .git/discern/logbook/*.jsonl` shows the raw lines.
 - **Delete it:** `discern patterns reset` (preview with `--dry-run`). Nothing else references the files it removes.
 - **Turn it off:** set `logbook = false` under `[project]` in `discern.toml`. Recording stops; existing files stay until you reset them.
+
+## What it powers
+
+Everything here switches off with `[project].logbook = false`; `discern patterns` alone keeps reading existing history.
+
+- the practice report (`discern patterns`) — behavior, gate-fit, funnel, and trajectory findings over accumulated runs
+- each worktree's last action and work in flight — the fleet survey's `last_action` and `running` columns
+- fleet activity times that include verb runs — a long test run no longer reads as dormancy
+- retry timing in `discern await` from typical run durations
+- config-change attribution and each standard's limit history — the `config-change` and `pin` events
+- advisory findings on `status`, the `done` receipt, and `improvement`
+- wait estimates when concurrent test runs queue
 
 ## Where findings appear
 
@@ -33,7 +43,7 @@ Each detector declares a scope and a tier. Scope selects the reader. Tier contro
 | `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                                                                       |
 | `discern patterns`    | Every finding: up to 3 attention pointers, blocks grouped by family and standard sparklines for humans, globally strength-ranked JSON, and insufficient-evidence accounting. |
 
-The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision. Set `[project].logbook = false` to suppress every working-command finding as well as future recording.
+The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory: findings change no command outcome, exit code, failed gate stage, score, receipt identity, or acceptance decision.
 
 ## What a line contains
 
@@ -61,21 +71,17 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `steps`        | per-step labels, stages, outcomes, timings      |
 | `diagnostics`  | tool, rule id, file path at most                |
 | `standards`    | each standard's limit and measured value        |
-| `consent`      | an acceptance's verified consent source         |
+| `consent`      | consent source and matched scopes on accept     |
 | `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
 
-`partial` marks an error after an irreversible effect. Acceptance's `landing` records recovery, trunk landing, worktree removal, and branch deletion.
-
-### Landing authority readers
-
-Acceptance records only consent source and matched scope names. `pre-authorized-landings` audits grant use. After 12 conversational landings in one scope, `grant-suggestion` can name `[acceptance].pre_authorized`; discern writes no grants.
+`partial` marks an error after an irreversible effect. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
 ### Possible agent identity signals
 
-`driver.agent_signals` is an optional list of evidence. It supplies no detected-agent verdict. Each item has an `agent`, a `source`, and the marker names that matched. Several items can appear together, and their order is not a ranking.
+`driver.agent_signals` is an optional list of evidence. It supplies no detected-agent verdict. Each item has an `agent`, a `source`, and the marker names that matched. Items can appear together; their order is not a ranking.
 
 The source explains the marker's lifetime:
 
@@ -83,11 +89,11 @@ The source explains the marker's lifetime:
 - `mcp-client` means the MCP client's declared name or title matched a known client name.
 - `host-filesystem` is ambient machine state. The current `/opt/.devin` marker can persist after Devin's installation, so it does not mean Devin drove that invocation.
 
-For an MCP call, `driver.mcp_client` also retains the client's declared `name`, optional `title`, and `version`. Each field has a 256-character cap. MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent or inherited, and clients can fake them. discern records them for cautious interpretation. They never change output, guidance, setup, or gate behavior.
+For an MCP call, `driver.mcp_client` also retains the client's declared `name`, optional `title`, and `version`, each capped at 256 characters. MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent or inherited, and clients can fake them. discern records them for cautious interpretation. They never change output, guidance, setup, or gate behavior.
 
 ## It never leaves the machine
 
-The logbook is written under the git admin area, so it lands in no commit and needs no gitignore entry. Nothing transmits it: a test in discern's own gate proves the recording code can reach no network interface, so a change giving it one would fail discern's own build. Recording also never interferes — if the file can't be written, the verb runs as if the logbook didn't exist.
+The logbook is written under the git admin area, so it lands in no commit and needs no gitignore entry. Nothing transmits it: a test in discern's own gate proves the recording code can reach no network interface. Recording also never interferes — if the file can't be written, the verb runs as if the logbook didn't exist.
 
 ## Rotation and config epochs
 

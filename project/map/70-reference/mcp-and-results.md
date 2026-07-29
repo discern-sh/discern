@@ -92,18 +92,18 @@ Map search covers every page visible to the agent-facing map, including a page m
 
 ## The `DiscernResult` envelope
 
-| Field         | Presence      | Caller-visible meaning                                |
-| ------------- | ------------- | ----------------------------------------------------- |
-| `ok`          | Always        | Success verdict.                                      |
-| `verb`        | Always        | Producing command.                                    |
-| `dry_run`     | Preview       | `true` for a preview.                                 |
-| `plan`        | Preview       | Context and steps that would run.                     |
-| `steps`       | Applied calls | Attempted operations and outcomes.                    |
-| `diagnostics` | Failures      | Failure details and reproduce command.                |
-| `data`        | Verb-specific | The verb's payload.                                   |
-| `hints`       | Advisory      | Next actions; failures carry one; never changes `ok`. |
-| `error`       | Refusals      | Machine-readable slug.                                |
-| `message`     | Refusals      | Human-readable refusal.                               |
+| Field         | Presence      | Caller-visible meaning                                                     |
+| ------------- | ------------- | -------------------------------------------------------------------------- |
+| `ok`          | Always        | Success verdict.                                                           |
+| `verb`        | Always        | Producing command.                                                         |
+| `dry_run`     | Preview       | `true` for a preview.                                                      |
+| `plan`        | Preview       | Context and steps that would run.                                          |
+| `steps`       | Applied calls | Attempted operations and outcomes.                                         |
+| `diagnostics` | Failures      | Failure details and reproduce command.                                     |
+| `data`        | Verb-specific | The verb's payload.                                                        |
+| `hints`       | Advisory      | Next actions, spelled per surface; failures carry one; never changes `ok`. |
+| `error`       | Refusals      | Machine-readable slug.                                                     |
+| `message`     | Refusals      | Human-readable refusal.                                                    |
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 

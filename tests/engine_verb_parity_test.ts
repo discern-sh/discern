@@ -29,7 +29,11 @@ import {
   SUGGESTABLE_ENGINE_COMMANDS,
 } from "../src/engine/dispatch.ts";
 import { buildCli, KNOWN_VERBS } from "../src/main.ts";
-import { TOOLS, verbOf } from "../src/engine/mcp/server.ts";
+import {
+  MCP_SHELL_ONLY_VERBS,
+  TOOLS,
+  verbOf,
+} from "../src/engine/mcp/server.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { WORKTREE_FIELDS } from "../src/engine/worktree/identity.ts";
 import {
@@ -91,21 +95,10 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
 
   // The MCP surface is an intentional subset+ of the verbs: it ADDS three
   // non-engine verbs (core/installer verbs an agent reaches for) and omits
-  // engine verbs that have no tool (command groups / plumbing). Both differences
-  // are pinned here, so a new verb forces a choice rather than drifting.
+  // verbs that have no tool. The tool-less half is DECLARED in the source
+  // beside TOOLS (MCP_SHELL_ONLY_VERBS) — with a reason per member, read by
+  // the command-reference rendering contract — and reconciled here.
   const NON_ENGINE_TOOL_VERBS = new Set(["doctor", "map", "help"]);
-  const ENGINE_VERBS_WITHOUT_TOOL = new Set([
-    "worktree", // a command group (worktree command group), not a single tool
-    "identity", // identity-resolution plumbing
-    "skills", // a command group (skills list/eject)
-    "mcp", // the server itself — it cannot expose itself as one of its tools
-    "script", // arbitrary project executables own their arguments and output
-    "tidy", // embedded formatting is CLI-only for now
-    // The interactive human surface: it wields supervisory actions over OTHER
-    // efforts' worktrees, which the fleet-ownership rule forbids an agent —
-    // deliberately CLI-only for `worktree drop`'s reason (ADR 0119).
-    "desk",
-  ]);
 
   // The exception sets must themselves stay honest (no stale member).
   for (const v of NON_ENGINE_TOOL_VERBS) {
@@ -114,23 +107,31 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
       `NON_ENGINE_TOOL_VERBS lists "${v}", but it is not a non-engine MCP tool verb anymore`,
     );
   }
-  for (const v of ENGINE_VERBS_WITHOUT_TOOL) {
+  for (const v of MCP_SHELL_ONLY_VERBS.keys()) {
     assert(
-      KNOWN_ENGINE_VERBS.has(v) && !toolVerbs.includes(v),
-      `ENGINE_VERBS_WITHOUT_TOOL lists "${v}", but it is not a tool-less engine verb anymore`,
+      KNOWN_VERBS.has(v) && !toolVerbs.includes(v),
+      `MCP_SHELL_ONLY_VERBS declares "${v}", but it is not a tool-less known verb anymore`,
     );
   }
 
-  // The reconciliation: tool verbs == (engine verbs that DO have a tool) + the
-  // non-engine additions.
+  // The FULL reconciliation: every known verb either has a tool or is
+  // declared shell-only — a new verb must decide its MCP story the day it is
+  // born, and the two halves can never overlap or leave a gap.
+  assertEquals(
+    sorted([...toolVerbs, ...MCP_SHELL_ONLY_VERBS.keys()]),
+    sorted(KNOWN_VERBS),
+    "the verb vocabulary and the MCP surface have drifted — register a tool for the " +
+      "new verb, or declare it (with its reason) in MCP_SHELL_ONLY_VERBS beside TOOLS",
+  );
+  // And the engine/non-engine split stays explicit.
   const expected = [...KNOWN_ENGINE_VERBS]
-    .filter((v) => !ENGINE_VERBS_WITHOUT_TOOL.has(v))
+    .filter((v) => !MCP_SHELL_ONLY_VERBS.has(v))
     .concat([...NON_ENGINE_TOOL_VERBS]);
   assertEquals(
     sorted(toolVerbs),
     sorted(expected),
     "the MCP TOOLS table has drifted from the verb SSOT — register a tool for the new " +
-      "verb, or record it in ENGINE_VERBS_WITHOUT_TOOL / NON_ENGINE_TOOL_VERBS",
+      "verb, or record it in MCP_SHELL_ONLY_VERBS / NON_ENGINE_TOOL_VERBS",
   );
 });
 

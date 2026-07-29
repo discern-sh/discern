@@ -127,6 +127,7 @@ import {
 import type { SetupDoneData } from "../shared/result_schemas.ts";
 import {
   ACCEPT_COMMAND,
+  ACCEPT_COMMAND_REF,
   type LandingSummary,
   landingSummary,
 } from "./setup_accept.ts";
@@ -2080,12 +2081,12 @@ function doneHints(
         ? fire(HINTS["setup-done-land-dedicated"], {
           branch: landing.branch,
           target: landing.target,
-          acceptCommand: ACCEPT_COMMAND,
+          acceptCommand: ACCEPT_COMMAND_REF,
         })
         : fire(HINTS["setup-done-land-manually"], {
           branch: landing.branch,
           target: landing.target,
-          acceptCommand: ACCEPT_COMMAND,
+          acceptCommand: ACCEPT_COMMAND_REF,
           setupBranch: SETUP_BRANCH,
         }),
     );

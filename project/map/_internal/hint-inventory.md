@@ -898,6 +898,19 @@ Rendered example:
 Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
 ```
 
+## `improvement-logbook-off`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: `improvement` runs while logbook recording is off, so the practice-history group has nothing to read.
+
+Rendered example:
+
+```text
+Practice-history findings aren't available because `[project].logbook` is off.
+```
+
 ## `logbook-receipt-finding`
 
 - Category: `next-step`

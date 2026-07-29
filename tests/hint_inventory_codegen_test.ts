@@ -3,6 +3,7 @@
  * entry auto-enrols in both the page and this guard; hand edits drift at once.
  */
 
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { type HintDef, HINTS } from "../src/shared/hints.ts";
@@ -55,7 +56,10 @@ Deno.test("the hint inventory is total over HINTS and renders every example", ()
       `- Family: ${def.family === undefined ? "—" : `\`${def.family}\``}`,
     );
     assertStringIncludes(section, `- Emitting context: ${when}`);
-    assertStringIncludes(section, def.template(def.example));
+    assertStringIncludes(
+      section,
+      renderCommandRefsCli(def.template(def.example)),
+    );
   }
 });
 

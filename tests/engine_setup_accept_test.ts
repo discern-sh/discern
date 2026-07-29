@@ -20,6 +20,7 @@ import {
   runAgent,
   scaffoldEngine,
 } from "./engine_helpers.ts";
+import { ACCEPT_COMMAND_REF } from "../src/commands/setup_accept.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
@@ -215,12 +216,12 @@ Deno.test("setup done steers a non-setup branch to a manual merge, never `setup 
     assertLacksHint(obj, HINTS["setup-done-land-dedicated"], {
       branch: "feature-x",
       target: "main",
-      acceptCommand: "discern setup accept",
+      acceptCommand: ACCEPT_COMMAND_REF,
     });
     assertHasHint(obj, HINTS["setup-done-land-manually"], {
       branch: "feature-x",
       target: "main",
-      acceptCommand: "discern setup accept",
+      acceptCommand: ACCEPT_COMMAND_REF,
       setupBranch: "discern-setup",
     });
     assertStringIncludes(

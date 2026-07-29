@@ -47,7 +47,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { assertHasHint } from "./hint_asserts.ts";
+import { assertHasMcpHint } from "./mcp_hint_asserts.ts";
 
 const ENCODER = new TextEncoder();
 
@@ -734,7 +734,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
     assertEquals(test.result.isError, false);
     assertEquals(test.result.structuredContent.verb, "test");
     assertEquals(test.result.structuredContent.ok, true);
-    assertHasHint(
+    assertHasMcpHint(
       test.result.structuredContent,
       HINTS["test-job-not-configured"],
     );
@@ -1349,7 +1349,7 @@ Deno.test("discern mcp: pre-setup gates docs but not the gate proof verbs or hel
     const finish = await mcp.recv();
     assertEquals(finish.result.structuredContent.verb, "done");
     assert(finish.result.structuredContent.error !== "not_set_up");
-    assertHasHint(
+    assertHasMcpHint(
       finish.result.structuredContent,
       HINTS["setup-unfinished-gate"],
     );
@@ -2487,7 +2487,7 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
     // now follow the new worktree automatically, AND the agent must still move its own
     // file context there (alluded to, not a vendor tool name) or its edits and the gate
     // diverge. The hint names the new path so the agent knows where to go.
-    assertHasHint(
+    assertHasMcpHint(
       started.result.structuredContent,
       HINTS["start-mcp-re-root"],
       { path: wtPath },
@@ -2516,7 +2516,7 @@ Deno.test("the can't-re-root fallback is one shared pattern across every shipped
   // to both halves at once, driven off the same predicate, so none can teach
   // half the pattern.
   const mcpHint = mcpStartHint("/wt/x");
-  assertHasHint(
+  assertHasMcpHint(
     { hints: [mcpHint] },
     HINTS["start-mcp-re-root"],
     { path: "/wt/x" },
