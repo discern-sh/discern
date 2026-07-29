@@ -229,11 +229,11 @@ export async function statusResult(
     const trunkExists = await localBranchExists(root, mainBranch);
     git = {
       branch: snap.branch,
-      integration_branch: mainBranch,
+      trunk: mainBranch,
       clean: snap.clean,
       changed_files: snap.changedFiles,
-      behind_integration: behind,
-      ahead_integration: trunkExists ? snap.ahead : null,
+      behind_trunk: behind,
+      ahead_trunk: trunkExists ? snap.ahead : null,
       ...(overlapInfo !== undefined
         ? { incoming_overlap: overlapInfo.overlap }
         : {}),
@@ -893,12 +893,12 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // which gives the same advice without the false claim. With no git block to check
   // against (no repo), keep the original wording — unverifiable, not contradicted.
   if (ctx.location === "main" && ctx.setupPending === undefined) {
-    // `ahead_integration === null` is the "no local trunk" signal (the same
+    // `ahead_trunk === null` is the "no local trunk" signal (the same
     // honesty rule that replaced the fabricated "0 ahead") — the off-trunk
     // wording would prescribe a `git switch` onto a branch that isn't there.
     hints.push(
       ctx.git !== null && ctx.git.branch !== main
-        ? ctx.git.ahead_integration === null
+        ? ctx.git.ahead_trunk === null
           ? fire(HINTS["status-missing-trunk"], {
             branch: ctx.git.branch,
             trunk: main,
@@ -923,10 +923,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           : fire(HINTS["status-dirty-worktree"]),
       );
     }
-    if (g.behind_integration !== null && g.behind_integration > 0) {
+    if (g.behind_trunk !== null && g.behind_trunk > 0) {
       hints.push(
         fire(HINTS["status-branch-behind"], {
-          behind: g.behind_integration,
+          behind: g.behind_trunk,
           trunk: main,
           overlap: ctx.incomingOverlap === undefined ? undefined : {
             total: ctx.incomingOverlap.total,
@@ -937,8 +937,8 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     }
     const readinessFacts = {
       clean: g.clean,
-      ahead: g.ahead_integration,
-      behind: g.behind_integration,
+      ahead: g.ahead_trunk,
+      behind: g.behind_trunk,
     };
     if (isLandingCandidate(readinessFacts)) {
       // accept would refuse against tracked changes in the main checkout — say so
@@ -1346,14 +1346,12 @@ function renderStatusHuman(
   if (data.git !== null) {
     const g = data.git;
     const state = g.clean ? "clean" : `${g.changed_files} changed`;
-    const behind = g.behind_integration === null
-      ? ""
-      : `, ${g.behind_integration} behind`;
+    const behind = g.behind_trunk === null ? "" : `, ${g.behind_trunk} behind`;
     // With no local integration branch there is no count to print — say so
     // honestly instead of a fabricated "0 ahead".
-    const versus = g.ahead_integration === null
-      ? `no ${g.integration_branch} branch to compare against`
-      : `${g.ahead_integration} ahead${behind} ${g.integration_branch}`;
+    const versus = g.ahead_trunk === null
+      ? `no ${g.trunk} branch to compare against`
+      : `${g.ahead_trunk} ahead${behind} ${g.trunk}`;
     out.raw(
       `  ${label("branch")}${
         g.branch || "(detached)"
@@ -1365,7 +1363,7 @@ function renderStatusHuman(
       out.raw(
         `  ${label("overlap")}${c.yellow}${
           g.incoming_overlap.join(", ")
-        }${c.reset}${c.dim} (your files ${g.integration_branch} also changed)${c.reset}\n`,
+        }${c.reset}${c.dim} (your files ${g.trunk} also changed)${c.reset}\n`,
       );
     }
   } else {

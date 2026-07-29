@@ -10440,7 +10440,7 @@
                         "branch": {
                           "type": "string"
                         },
-                        "integration_branch": {
+                        "trunk": {
                           "type": "string"
                         },
                         "clean": {
@@ -10449,7 +10449,7 @@
                         "changed_files": {
                           "type": "number"
                         },
-                        "behind_integration": {
+                        "behind_trunk": {
                           "anyOf": [
                             {
                               "type": "number"
@@ -10459,7 +10459,7 @@
                             }
                           ]
                         },
-                        "ahead_integration": {
+                        "ahead_trunk": {
                           "anyOf": [
                             {
                               "type": "number"
@@ -10478,11 +10478,11 @@
                       },
                       "required": [
                         "branch",
-                        "integration_branch",
+                        "trunk",
                         "clean",
                         "changed_files",
-                        "behind_integration",
-                        "ahead_integration"
+                        "behind_trunk",
+                        "ahead_trunk"
                       ]
                     },
                     {

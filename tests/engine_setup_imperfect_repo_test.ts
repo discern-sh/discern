@@ -78,7 +78,7 @@ Deno.test("begin on a master repo stamps [repository].trunk = master and land wo
     const status = JSON.parse(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
-    assertEquals(status.data.git.integration_branch, "master");
+    assertEquals(status.data.git.trunk, "master");
   });
 });
 

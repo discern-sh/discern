@@ -27,9 +27,9 @@ import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 const BRANCH_OBSERVED =
   "`done` failed 4 consecutive runs on `agent/surface` (5 runs in the conversation).";
 const SESSION_OBSERVED =
-  "`update` refused 3 times on `agent/surface` with the same slug (`behind_integration`).";
+  "`update` refused 3 times on `agent/surface` with the same slug (`behind_trunk`).";
 const MAIN_SESSION_OBSERVED =
-  "`update` refused 3 times on `main` with the same slug (`behind_integration`).";
+  "`update` refused 3 times on `main` with the same slug (`behind_trunk`).";
 const SESSION_NEXT =
   "A refusal means the verb declined — repeating the call won't change its answer. Read the refusal message for the precondition it names; if agents keep hitting it, capture the lesson with the `discern-teach-the-project` skill.";
 
@@ -99,7 +99,7 @@ async function seedMixedLogbook(main: string): Promise<void> {
     events.push(event(10 + i, {
       verb: "update",
       outcome: "refused",
-      error: "behind_integration",
+      error: "behind_trunk",
     }));
   }
 
@@ -342,7 +342,7 @@ Deno.test("status suppresses session findings until setup is bootstrapped", asyn
         branch: "main",
         verb: "update",
         outcome: "refused",
-        error: "behind_integration",
+        error: "behind_trunk",
       })
     );
     await Deno.writeTextFile(
@@ -372,7 +372,7 @@ Deno.test("status does not correct an owner for interactive refusal history", as
         branch: "main",
         verb: "update",
         outcome: "refused",
-        error: "behind_integration",
+        error: "behind_trunk",
         driver: {
           session: "cli:owner",
           json: false,

@@ -863,8 +863,8 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.git.clean, true);
-    assertEquals(obj.data.git.ahead_integration, 1);
-    assertEquals(obj.data.git.behind_integration, 0);
+    assertEquals(obj.data.git.ahead_trunk, 1);
+    assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_receipt.status, "missing");
     assertHasHint(obj, HINTS["status-missing-done-receipt"], {
       trunk: "main",
@@ -901,8 +901,8 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.git.clean, true);
-    assertEquals(obj.data.git.ahead_integration, 1);
-    assertEquals(obj.data.git.behind_integration, 0);
+    assertEquals(obj.data.git.ahead_trunk, 1);
+    assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_receipt.status, "honored");
     // The honored record carries the stored receipt page, and the one-line form
     // the review-ready hint tells the agent to end its report with.
@@ -985,7 +985,7 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
     assertEquals(local.data.gate_receipt.status, "honored");
-    assert(local.data.git.behind_integration > 0, JSON.stringify(local.data));
+    assert(local.data.git.behind_trunk > 0, JSON.stringify(local.data));
     assertLacksHint(local, HINTS["status-ready-for-review"], {
       trunk: "main",
       branch: "agent/alpha",
@@ -1017,8 +1017,8 @@ Deno.test("status: an ahead worktree with untracked work is not ready for owner 
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.git.clean, false);
-    assertEquals(obj.data.git.ahead_integration, 1);
-    assertEquals(obj.data.git.behind_integration, 0);
+    assertEquals(obj.data.git.ahead_trunk, 1);
+    assertEquals(obj.data.git.behind_trunk, 0);
     assertLacksHint(obj, HINTS["status-ready-for-review"], {
       trunk: "main",
       branch: "agent/alpha",
@@ -1332,11 +1332,11 @@ Deno.test("status: when behind, incoming_overlap names the files you AND main bo
     await git(dir, "commit", "-q", "-m", "main edits shared", "--no-gpg-sign");
 
     const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
-    assert(obj.data.git.behind_integration >= 1, JSON.stringify(obj.data.git));
+    assert(obj.data.git.behind_trunk >= 1, JSON.stringify(obj.data.git));
     // The hot zone is shared.txt; upstream.txt is incoming but not yours, so excluded.
     assertEquals(obj.data.git.incoming_overlap, ["shared.txt"]);
     assertHasHint(obj, HINTS["status-branch-behind"], {
-      behind: obj.data.git.behind_integration,
+      behind: obj.data.git.behind_trunk,
       trunk: "main",
       overlap: { total: 1, paths: ["shared.txt"] },
     });
@@ -1357,7 +1357,7 @@ Deno.test("status: incoming_overlap is absent when behind but none of your files
     await git(dir, "commit", "-q", "-m", "main work", "--no-gpg-sign");
 
     const obj = parseStatus((await runAgent(wt, ["status", "--json"])).stdout);
-    assert(obj.data.git.behind_integration >= 1, JSON.stringify(obj.data.git));
+    assert(obj.data.git.behind_trunk >= 1, JSON.stringify(obj.data.git));
     // Behind, but the field is honestly absent (no intersection) — not an empty array.
     assertEquals(obj.data.git.incoming_overlap, undefined);
   });
@@ -1374,7 +1374,7 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
     const json = await runAgent(wt, ["status", "--json"]);
     assertEquals(json.code, 0, json.output);
     const obj = parseStatus(json.stdout);
-    assertEquals(obj.data.git.behind_integration, null);
+    assertEquals(obj.data.git.behind_trunk, null);
     const expected = assertHasHint(
       obj,
       HINTS["missing-trunk-branch"],

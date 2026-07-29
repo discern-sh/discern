@@ -740,20 +740,20 @@ const statusWorktreeSchema = z.strictObject({
 });
 export type StatusWorktree = z.infer<typeof statusWorktreeSchema>;
 
-/** The local git situation relative to the integration branch. */
+/** The local git situation relative to the trunk. */
 const statusGitSchema = z.strictObject({
   branch: z.string(),
-  integration_branch: z.string(),
+  trunk: z.string(),
   /** Ordinary Git-clean: no tracked changes and no untracked non-ignored files. */
   clean: z.boolean(),
   /** Count of ordinary `git status --porcelain` entries. */
   changed_files: z.number(),
-  behind_integration: z.number().nullable(),
-  /** Null when the integration branch doesn't exist locally — there is nothing to
+  behind_trunk: z.number().nullable(),
+  /** Null when the trunk branch doesn't exist locally — there is nothing to
    * count against, and an honest null beats a fabricated 0. */
-  ahead_integration: z.number().nullable(),
-  /** When behind: the files THIS branch changed that the incoming integration branch
-   * also changed — the hot zone to re-check on updating (capped; present only in a
+  ahead_trunk: z.number().nullable(),
+  /** When behind: the files THIS branch changed that the incoming trunk also
+   * changed — the hot zone to re-check on updating (capped; present only in a
    * worktree that is behind and has overlap). The same intersection `update` reports. */
   incoming_overlap: z.array(z.string()).optional(),
 });

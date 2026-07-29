@@ -24,7 +24,7 @@ import {
 
 interface StatusJson {
   data: {
-    git: { ahead_integration: number | null } | null;
+    git: { ahead_trunk: number | null } | null;
     fleet?: Array<{
       path: string;
       id?: string;
@@ -158,7 +158,7 @@ Deno.test("status reports ahead as null (not 0) when the trunk branch is missing
     const result = await statusJson(dir);
     assert(result.data.git !== null);
     assertEquals(
-      result.data.git.ahead_integration,
+      result.data.git.ahead_trunk,
       null,
       "no trunk to count against — null, never a fabricated 0",
     );

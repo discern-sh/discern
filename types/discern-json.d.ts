@@ -3219,11 +3219,11 @@ export type DiscernStatusResult = {
     } | null;
     git: {
       branch: string;
-      integration_branch: string;
+      trunk: string;
       clean: boolean;
       changed_files: number;
-      behind_integration: number | null;
-      ahead_integration: number | null;
+      behind_trunk: number | null;
+      ahead_trunk: number | null;
       incoming_overlap?: Array<string>;
     } | null;
     scopes?: Array<string>;
