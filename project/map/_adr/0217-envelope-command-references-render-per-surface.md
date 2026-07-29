@@ -4,7 +4,7 @@
 
 ## Context
 
-discern is driven primarily over MCP, with the CLI as the documented fallback. But every envelope hint was authored in CLI spelling and rode both surfaces verbatim: an agent that had just called `discern_prepare` was told to "run `discern done`" — an instruction that contradicts the prefer-the-tools stance the same server serves, and that nudges the agent into a shell round-trip. Each bypass costs the structured result the tool would have returned and muddies per-surface attribution in the logbook.
+discern is driven primarily over the Model Context Protocol (MCP), with the CLI as the documented fallback. But every envelope hint was authored in CLI spelling and rode both surfaces verbatim: an agent that had just called `discern_prepare` was told to "run `discern done`" — an instruction that contradicts the prefer-the-tools stance the same server serves, and that nudges the agent into a shell round-trip. Each bypass costs the structured result the tool would have returned and muddies per-surface attribution in the logbook.
 
 The inconsistency was systemic, not editorial. The registry held dozens of CLI spellings across templates, shared helper strings, and hint parameters built at call sites (the gotchas doc fetch, the `await` retry command, setup's landing command), and every future hint inherited the problem. Meanwhile some spellings were correct **because** of the split: commands the agent relays for its human owner (`discern status --verbose`), and commands whose verbs deliberately have no tool. Nothing distinguished the deliberate cases from the accidental ones.
 
