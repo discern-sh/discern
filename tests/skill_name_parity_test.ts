@@ -41,6 +41,10 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "discern-design-system",
     "the design-system import-map alias, quoted in the site docs' example",
   ],
+  [
+    "discern-setup-config",
+    "the setup config document's published schema artifact basename",
+  ],
 ]);
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;
