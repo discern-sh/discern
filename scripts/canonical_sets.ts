@@ -1025,7 +1025,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "feature-canon",
     title: "Feature canon",
     what:
-      "The feature registry behind the canon page: pillars, nodes, and surface claims.",
+      "The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.",
     source: {
       kind: "module",
       module: "scripts/feature_registry.ts",
@@ -1038,6 +1038,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [
       {
         path: "project/map/_internal/feature-canon.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/map/_internal/feature-canon-plain.md",
         kind: "generated-file",
         banner: true,
       },

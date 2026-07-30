@@ -24,7 +24,9 @@ import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts"
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
   FEATURE_CANON_PAGE_REL,
+  FEATURE_CANON_PLAIN_PAGE_REL,
   renderFeatureCanonDoc,
+  renderFeatureCanonPlainDoc,
 } from "./feature_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
@@ -81,6 +83,10 @@ const glossary = relative(
 const featureCanon = relative(
   repoRoot,
   join(mapDir, FEATURE_CANON_PAGE_REL),
+);
+const featureCanonPlain = relative(
+  repoRoot,
+  join(mapDir, FEATURE_CANON_PLAIN_PAGE_REL),
 );
 const installSurface = relative(
   repoRoot,
@@ -156,6 +162,7 @@ console.log(
   "Regenerating the feature canon from scripts/feature_registry.ts:",
 );
 await write(featureCanon, renderFeatureCanonDoc());
+await write(featureCanonPlain, renderFeatureCanonPlainDoc());
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );
