@@ -30,6 +30,6 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | [Continuous improvement](improvement.md)          | Find the highest-value practice to improve after the current change passes. |
 | [Co-change coupling](coupling.md)                 | Check whether this change omitted a file that usually moves with it.        |
 | [Practice patterns](patterns.md)                  | Read what the logbook shows about how agents drive discern here.            |
-| [Bragging rights](bragging-rights.md)             | Share what went well as one card of plain counts from the local logbook.    |
 | [`discern tidy`](tidy.md)                         | Format discern-owned Markdown and TOML directly or through the format job.  |
 | [The fleet test-run cap](concurrent-test-runs.md) | Queue concurrent test-stage runs so parallel agents share one machine.      |
+| [Bragging rights](bragging-rights.md)             | Share what went well as one card of plain counts from the local logbook.    |

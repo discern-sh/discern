@@ -1,7 +1,7 @@
 ---
 title: Bragging rights
 description: Read the logbook for what went well — landings, green streaks, cycle times, and tightened limits — as one shareable card of plain counts.
-order: 91
+order: 120
 aliases:
   - discern patterns --brag
   - brag
