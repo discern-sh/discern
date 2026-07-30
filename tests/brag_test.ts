@@ -235,6 +235,50 @@ Deno.test("brag: breadth counts branches, active days, and the busiest day", () 
   assertEquals(b.breadth.busiest_day, { day: "2026-07-04", branches: 3 });
 });
 
+Deno.test("brag: cadence series cover the span's calendar days, zero-filled", () => {
+  const b = brag(run([
+    { verb: "accept", at: t(1) },
+    { verb: "accept", at: t(2) },
+    { verb: "done", at: t(3) },
+    { verb: "accept", at: t(49) }, // 2026-07-03 — day 2 stays an honest zero
+    {
+      verb: "done",
+      at: t(50),
+      outcome: "failed",
+      failed_stage: "check/test",
+    },
+  ]));
+  assertEquals(b.series_days_per_point, 1);
+  assertEquals(b.landings.per_day, [2, 0, 1]);
+  assertEquals(b.gate.greens_per_day, [1, 0, 0], "a red day is not a green");
+  assertEquals(b.breadth.branches_per_day, [1, 0, 1]);
+});
+
+Deno.test("brag: a one-day span carries no cadence series", () => {
+  const b = brag(run([{ verb: "accept" }, { verb: "done" }]));
+  assertEquals(b.series_days_per_point, undefined);
+  assertEquals(b.landings.per_day, undefined);
+  assertEquals(b.gate.greens_per_day, undefined);
+  assertEquals(b.breadth.branches_per_day, undefined);
+});
+
+Deno.test("brag: a span past the wire cap folds whole days per point — sums for counts, the peak for branches", () => {
+  const b = brag(run([
+    { verb: "accept", branch: "agent/a", at: t(0) },
+    { verb: "accept", branch: "agent/b", at: t(24) },
+    // Day 47 anchors a 48-day span: 2 whole days per point, 24 points.
+    { verb: "done", branch: "agent/x", at: t(24 * 47) },
+  ]));
+  assertEquals(b.series_days_per_point, 2);
+  assertEquals(b.landings.per_day?.length, 24);
+  assertEquals(b.landings.per_day?.[0], 2, "a point sums its days' landings");
+  assertEquals(
+    b.breadth.branches_per_day?.[0],
+    1,
+    "a point keeps its peak day's distinct branches, never a cross-day sum",
+  );
+});
+
 Deno.test("brag: CI runs, previews, and setup-era events never reach a feat", () => {
   const b = brag(run([
     {

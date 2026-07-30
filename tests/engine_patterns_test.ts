@@ -723,6 +723,11 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       day: "2026-07-01",
       branches: 3,
     });
+    assertEquals(
+      brag.series_days_per_point,
+      undefined,
+      "a one-day span carries no cadence series",
+    );
 
     const human = await runAgent(dir, ["patterns", "--brag"], {
       env: { COLUMNS: "100", NO_COLOR: "1" },
@@ -742,15 +747,14 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       card,
       "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
     );
+    assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
+    assertStringIncludes(card, "1 of 2 branches green first try (50%)");
     assertStringIncludes(
       card,
-      "3 `done` runs · 2 green (67%) · longest green streak 2 · current 2",
+      "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
     );
-    assertStringIncludes(card, "first-try green on 1 of 2 branches");
-    assertStringIncludes(
-      card,
-      "3h of checks run (`done` · `prepare` · `test`)",
-    );
+    assertStringIncludes(card, "█", "the proportion meters render");
+    assertStringIncludes(card, "░");
     assertStringIncludes(
       card,
       "2 start-to-accept cycles · median 2.5h · fastest 2h",

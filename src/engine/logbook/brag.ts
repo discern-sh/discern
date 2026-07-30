@@ -22,7 +22,10 @@
  * presents.
  */
 
-import type { PatternsBrag } from "../../shared/patterns_vocabulary.ts";
+import {
+  PATTERNS_SERIES_MAX_POINTS,
+  type PatternsBrag,
+} from "../../shared/patterns_vocabulary.ts";
 import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
 import {
@@ -44,6 +47,86 @@ const CHECK_VERBS = new Set(["done", "prepare", "test"]);
 /** Epoch day number of a "YYYY-MM-DD" string, for consecutive-day arithmetic. */
 function epochDay(dayString: string): number {
   return Math.floor(Date.parse(`${dayString}T00:00:00Z`) / DAY_MS);
+}
+
+/** The cadence series' geometry: the span's first calendar day, its inclusive
+ * day count, and how many whole days each wire point folds together to honor
+ * the cap. Undefined until the span holds 2 days — a one-day cadence is just
+ * the count already on the card. */
+interface SeriesSpan {
+  firstDay: number;
+  spanDays: number;
+  daysPerPoint: number;
+}
+
+function seriesSpan(verbs: readonly VerbEvent[]): SeriesSpan | undefined {
+  const first = verbs[0];
+  const last = verbs[verbs.length - 1];
+  if (first === undefined || last === undefined) {
+    return undefined;
+  }
+  const spanDays = inclusiveSpanDays(first.at, last.at);
+  if (spanDays === undefined || spanDays < 2) {
+    return undefined;
+  }
+  return {
+    firstDay: epochDay(day(first.at)),
+    spanDays,
+    daysPerPoint: Math.ceil(spanDays / PATTERNS_SERIES_MAX_POINTS),
+  };
+}
+
+/** Events per calendar day across the span, zero-filled. */
+function dailyTotals(
+  events: readonly { at: string }[],
+  span: SeriesSpan,
+): number[] {
+  const daily = new Array<number>(span.spanDays).fill(0);
+  for (const e of events) {
+    const index = epochDay(day(e.at)) - span.firstDay;
+    if (index >= 0 && index < daily.length) {
+      daily[index] = (daily[index] ?? 0) + 1;
+    }
+  }
+  return daily;
+}
+
+/** Distinct branches active per calendar day across the span, zero-filled. */
+function dailyBranchCounts(
+  verbs: readonly VerbEvent[],
+  span: SeriesSpan,
+): number[] {
+  const sets = Array.from({ length: span.spanDays }, () => new Set<string>());
+  for (const e of verbs) {
+    if (e.branch === null) {
+      continue;
+    }
+    sets[epochDay(day(e.at)) - span.firstDay]?.add(e.branch);
+  }
+  return sets.map((branches) => branches.size);
+}
+
+/** Fold the daily values into runs of `daysPerPoint` whole days (the last
+ * run may cover fewer). `fold` combines a run: sums for event counts, max
+ * for the peak-parallelism reading. Zero is both folds' identity over
+ * counts, so an empty tail run stays an honest zero. */
+function foldDaily(
+  daily: readonly number[],
+  daysPerPoint: number,
+  fold: (a: number, b: number) => number,
+): number[] {
+  if (daysPerPoint <= 1) {
+    return [...daily];
+  }
+  const points: number[] = [];
+  for (let start = 0; start < daily.length; start += daysPerPoint) {
+    points.push(
+      // Binary application only: reduce's extra callback arguments must
+      // never reach a variadic fold like Math.max.
+      daily.slice(start, start + daysPerPoint).reduce((a, b) => fold(a, b), 0),
+    );
+  }
+  return points;
 }
 
 /** Longest run of consecutive UTC days in a set of "YYYY-MM-DD" strings. */
@@ -222,14 +305,43 @@ export function computeBrag(facts: StreamFacts): PatternsBrag {
   );
   const pins = facts.events.filter((e): e is PinEvent => e.kind === "pin");
   const cycles = cycleFeats(facts, landings);
+  const span = seriesSpan(facts.verbs);
+  const sum = (a: number, b: number): number => a + b;
+  const fold = (daily: number[]): number[] =>
+    foldDaily(daily, span?.daysPerPoint ?? 1, sum);
+  const greens = facts.verbs.filter((e) =>
+    e.verb === "done" && e.outcome === "ok"
+  );
   return {
-    landings: landingFeats(landings),
-    gate: gateFeats(facts),
+    ...(span !== undefined ? { series_days_per_point: span.daysPerPoint } : {}),
+    landings: {
+      ...landingFeats(landings),
+      ...(span !== undefined
+        ? { per_day: fold(dailyTotals(landings, span)) }
+        : {}),
+    },
+    gate: {
+      ...gateFeats(facts),
+      ...(span !== undefined
+        ? { greens_per_day: fold(dailyTotals(greens, span)) }
+        : {}),
+    },
     ...(cycles !== undefined ? { cycles } : {}),
     ratchet: {
       pins: pins.length,
       standards: new Set(pins.map((p) => p.standard)).size,
     },
-    breadth: breadthFeats(facts),
+    breadth: {
+      ...breadthFeats(facts),
+      ...(span !== undefined
+        ? {
+          branches_per_day: foldDaily(
+            dailyBranchCounts(facts.verbs, span),
+            span.daysPerPoint,
+            Math.max,
+          ),
+        }
+        : {}),
+    },
   };
 }

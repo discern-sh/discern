@@ -50,6 +50,7 @@ import {
 } from "../../shared/hints.ts";
 import {
   displayWidth,
+  meter,
   renderAlignedTable,
   sparkline,
   terminalWidth,
@@ -648,6 +649,40 @@ function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`;
 }
 
+/** Meter cells on a proportion row — wide enough to read, narrow enough to
+ * leave the count and its denominator room on an 80-column card. */
+export const BRAG_METER_WIDTH = 18;
+
+/** A proportion row: a green-filled meter, then the counts it summarizes. */
+function meterRow(c: Palette, fraction: number, text: string): string {
+  const cells = meter(fraction, BRAG_METER_WIDTH);
+  return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
+}
+
+/** Cadence label beside a sparkline — "landings per day", or the folded form
+ * once the span outgrew the wire cap. */
+function cadenceLabel(unit: string, daysPerPoint: number): string {
+  return daysPerPoint <= 1
+    ? `${unit} per day`
+    : `${unit} per ${formatHumanNumber(daysPerPoint)} days`;
+}
+
+/** A section heading's cadence sparkline, when the series has a shape. */
+interface BragSpark {
+  series: readonly number[];
+  label: string;
+}
+
+function bragSpark(
+  series: readonly number[] | undefined,
+  label: string,
+): BragSpark | undefined {
+  return series !== undefined && series.length > 1 &&
+      series.some((value) => value > 0)
+    ? { series, label }
+    : undefined;
+}
+
 /** "12 days (2026-07-18 → 2026-07-29) · 1,670 analyzed runs · 61 branches" */
 function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
   const parts: string[] = [];
@@ -671,8 +706,12 @@ function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
 
 /** The shipped section: landings and their recorded scale. A single landing
  * keeps the card quiet about "biggest" and "best day" — with one member,
- * both would restate the landing itself. */
-function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
+ * both would restate the landing itself. Records read in yellow; the daily
+ * run is a streak, so it reads in green. */
+function bragShippedRows(
+  landings: PatternsBrag["landings"],
+  c: Palette,
+): string[] {
   if (landings.count === 0) {
     return ["No landings yet."];
   }
@@ -684,7 +723,7 @@ function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
     }`
     : "";
   const rows = [
-    `${plural(landings.count, "landing")} on ${
+    `${c.bold}${plural(landings.count, "landing")}${c.reset} on ${
       plural(landings.branches, "branch", "branches")
     }${scale}`,
   ];
@@ -694,7 +733,7 @@ function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
       rows.push(
         `biggest: ${
           biggest.branch !== undefined ? `\`${biggest.branch}\` · ` : ""
-        }${plural(biggest.lines, "changed line")} · ${
+        }${c.yellow}${plural(biggest.lines, "changed line")}${c.reset} · ${
           plural(biggest.files, "file")
         } (${biggest.day})`,
       );
@@ -702,11 +741,13 @@ function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
     const best = landings.best_day;
     if (best !== undefined) {
       rows.push(
-        `best day: ${best.day} · ${plural(best.landings, "landing")}${
+        `best day: ${best.day} · ${c.yellow}${
+          plural(best.landings, "landing")
+        }${c.reset}${
           landings.longest_daily_streak > 1
-            ? ` · longest daily run ${
+            ? ` · longest daily run ${c.green}${
               plural(landings.longest_daily_streak, "day")
-            }`
+            }${c.reset}`
             : ""
         }`,
       );
@@ -715,48 +756,71 @@ function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
   return rows;
 }
 
-/** The gate section: runs, green share, streaks, and check time. Streaks of
- * one stay off the card. */
-function bragGateRows(gate: PatternsBrag["gate"]): string[] {
+/** The gate section: the green share and first-try share as meter rows with
+ * their denominators, then streaks and check time. Streaks of one stay off
+ * the card. */
+function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
   }
   const rows = [
-    `${plural(gate.runs, "`done` run")} · ${
-      formatHumanNumber(gate.greens)
-    } green (${percent(gate.greens, gate.runs)})` +
-    (gate.longest_green_streak > 1
-      ? ` · longest green streak ${
-        formatHumanNumber(gate.longest_green_streak)
-      }`
-      : "") +
-    (gate.current_green_streak > 1
-      ? ` · current ${formatHumanNumber(gate.current_green_streak)}`
-      : ""),
+    meterRow(
+      c,
+      gate.greens / gate.runs,
+      `${c.green}${formatHumanNumber(gate.greens)}${c.reset} of ${
+        plural(gate.runs, "`done` run")
+      } green (${percent(gate.greens, gate.runs)})`,
+    ),
   ];
-  const parts: string[] = [];
   if (gate.gated_branches > 0) {
-    parts.push(
-      `first-try green on ${
-        formatHumanNumber(gate.first_try_green_branches)
-      } of ${plural(gate.gated_branches, "branch", "branches")}`,
+    rows.push(
+      meterRow(
+        c,
+        gate.first_try_green_branches / gate.gated_branches,
+        `${c.green}${
+          formatHumanNumber(gate.first_try_green_branches)
+        }${c.reset} of ${
+          plural(gate.gated_branches, "branch", "branches")
+        } green first try (${
+          percent(gate.first_try_green_branches, gate.gated_branches)
+        })`,
+      ),
+    );
+  }
+  const tail: string[] = [];
+  if (gate.longest_green_streak > 1) {
+    tail.push(
+      `longest green streak ${c.green}${
+        formatHumanNumber(gate.longest_green_streak)
+      }${c.reset}`,
+    );
+  }
+  if (gate.current_green_streak > 1) {
+    tail.push(
+      `current ${c.green}${
+        formatHumanNumber(gate.current_green_streak)
+      }${c.reset}`,
     );
   }
   if (gate.check_hours > 0) {
-    parts.push(
+    tail.push(
       `${
         formatHumanNumber(gate.check_hours)
       }h of checks run (\`done\` · \`prepare\` · \`test\`)`,
     );
   }
-  if (parts.length > 0) {
-    rows.push(parts.join(" · "));
+  if (tail.length > 0) {
+    rows.push(tail.join(" · "));
   }
   return rows;
 }
 
-/** The pace section's one row, or nothing before the first completed cycle. */
-function bragPaceRow(cycles: PatternsBrag["cycles"]): string | undefined {
+/** The pace section's one row, or nothing before the first completed cycle.
+ * The fastest cycle is a record, so it reads in yellow. */
+function bragPaceRow(
+  cycles: PatternsBrag["cycles"],
+  c: Palette,
+): string | undefined {
   if (cycles === undefined) {
     return undefined;
   }
@@ -767,30 +831,44 @@ function bragPaceRow(cycles: PatternsBrag["cycles"]): string | undefined {
   }
   return `${plural(cycles.completed, "start-to-accept cycle")} · median ${
     formatHumanNumber(cycles.median_hours)
-  }h · fastest ${formatHumanNumber(cycles.fastest_hours)}h`;
+  }h · fastest ${c.yellow}${
+    formatHumanNumber(cycles.fastest_hours)
+  }h${c.reset}`;
 }
 
 /** The breadth section: branches driven, active days, the busiest day. */
-function bragBreadthRow(breadth: PatternsBrag["breadth"]): string {
+function bragBreadthRow(
+  breadth: PatternsBrag["breadth"],
+  c: Palette,
+): string {
   const busiest = breadth.busiest_day;
   return `${plural(breadth.branches, "branch", "branches")} driven · active ${
     formatHumanNumber(breadth.active_days)
   } of ${plural(breadth.span_days, "day")}${
     busiest !== undefined && busiest.branches > 1
-      ? ` · busiest day ${
+      ? ` · busiest day ${c.yellow}${
         plural(busiest.branches, "branch", "branches")
-      } (${busiest.day})`
+      }${c.reset} (${busiest.day})`
       : ""
   }`;
 }
 
+/** One card section: a bold label — carrying its cyan cadence sparkline when
+ * the span has one — then its wrapped stat rows. */
 function bragSection(
   out: Out,
   width: number,
   label: string,
   rows: readonly string[],
+  spark?: BragSpark | undefined,
 ): void {
-  out.raw(`  ${out.c.bold}${label}${out.c.reset}\n`);
+  const c = out.c;
+  const tail = spark === undefined
+    ? ""
+    : `  ${c.cyan}${
+      sparkline(spark.series)
+    }${c.reset} ${c.dim}${spark.label}${c.reset}`;
+  out.raw(`  ${c.bold}${label}${c.reset}${tail}\n`);
   for (const row of rows) {
     writeWrapped(out, "    ", row, width);
   }
@@ -799,7 +877,8 @@ function bragSection(
 /** Render the bragging-rights card: the practice's countable feats, each
  * with its denominator beside it, from the same analysis population the
  * detectors read. The detector report looks for what needs attention; this
- * card counts what went well. */
+ * card counts what went well. Color is meaning, never decoration: green for
+ * gate greens and streaks, yellow for records, cyan for cadence sparklines. */
 function renderBragReport(
   out: Out,
   data: PatternsData,
@@ -817,14 +896,25 @@ function renderBragReport(
   writeWrapped(out, "  ", bragHeaderLine(data, brag), width, dim);
   writeWrapped(out, "  ", BRAG_PROVENANCE, width, dim);
   out.raw("\n");
+  const daysPerPoint = brag.series_days_per_point ?? 1;
   bragSection(
     out,
     width,
     BRAG_SECTIONS.shipped,
-    bragShippedRows(brag.landings),
+    bragShippedRows(brag.landings, c),
+    bragSpark(brag.landings.per_day, cadenceLabel("landings", daysPerPoint)),
   );
-  bragSection(out, width, BRAG_SECTIONS.gate, bragGateRows(brag.gate));
-  const pace = bragPaceRow(brag.cycles);
+  bragSection(
+    out,
+    width,
+    BRAG_SECTIONS.gate,
+    bragGateRows(brag.gate, c),
+    bragSpark(
+      brag.gate.greens_per_day,
+      cadenceLabel("green runs", daysPerPoint),
+    ),
+  );
+  const pace = bragPaceRow(brag.cycles, c);
   if (pace !== undefined) {
     bragSection(out, width, BRAG_SECTIONS.pace, [pace]);
   }
@@ -835,9 +925,18 @@ function renderBragReport(
       }. Loosening fails the gate.`,
     ]);
   }
-  bragSection(out, width, BRAG_SECTIONS.breadth, [
-    bragBreadthRow(brag.breadth),
-  ]);
+  bragSection(
+    out,
+    width,
+    BRAG_SECTIONS.breadth,
+    [bragBreadthRow(brag.breadth, c)],
+    bragSpark(
+      brag.breadth.branches_per_day,
+      daysPerPoint <= 1
+        ? "branches active per day"
+        : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
+    ),
+  );
   out.raw("\n");
   writeWrapped(
     out,

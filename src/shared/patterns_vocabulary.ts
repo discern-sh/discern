@@ -142,8 +142,16 @@ export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
  * read from the same analysis population as the detectors (CI runs, previews,
  * and setup-era events excluded). Counts and durations only, all local
  * evidence; nothing is scored and nothing is compared to anyone else's
- * numbers. Present exactly when the invocation asked for it. */
+ * numbers. Present exactly when the invocation asked for it.
+ *
+ * The cadence series (`per_day` and kin) cover the span's calendar days,
+ * zero-filled, one point per run of `series_days_per_point` whole days —
+ * 1 until the span outgrows the wire cap. They appear once the span holds
+ * at least 2 days. */
 export const PatternsBragSchema = z.strictObject({
+  /** Whole days each cadence-series point covers (the last point may cover
+   * fewer). Present exactly when any series is. */
+  series_days_per_point: z.number().int().optional(),
   /** Successful `accept` runs — work that landed on the trunk. Sums read from
    * each landing's recorded change scale; a landing recorded without one
    * still counts, contributing zero to the sums. */
@@ -154,6 +162,9 @@ export const PatternsBragSchema = z.strictObject({
     deletions: z.number().int(),
     files: z.number().int(),
     commits: z.number().int(),
+    /** Landings per series point across the span. */
+    per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
+      .optional(),
     /** The largest single landing by changed lines, when any landing carried
      * a change scale. `branch` is absent when the event recorded none. */
     biggest: z.strictObject({
@@ -181,6 +192,9 @@ export const PatternsBragSchema = z.strictObject({
     longest_green_streak: z.number().int(),
     current_green_streak: z.number().int(),
     check_hours: z.number(),
+    /** Green `done` runs per series point across the span. */
+    greens_per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
+      .optional(),
   }),
   /** Completed start-to-accept cycles, matched the same way the funnel
    * detector matches them. Present once at least one cycle completed. */
@@ -207,6 +221,10 @@ export const PatternsBragSchema = z.strictObject({
       day: z.string(),
       branches: z.number().int(),
     }).optional(),
+    /** Distinct branches active per series point across the span; a point
+     * covering several days keeps its peak day. */
+    branches_per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
+      .optional(),
   }),
 });
 /** The `--brag` payload. */

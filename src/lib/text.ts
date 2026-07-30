@@ -150,6 +150,31 @@ export function sparkline(values: readonly number[]): string {
 }
 
 /**
+ * A fixed-width proportion meter, returned as its two runs — the filled cells
+ * and the remaining track — so the caller styles each with its own palette
+ * entry. The fraction clamps to [0, 1]; a nonzero fraction always shows at
+ * least one filled cell, and a fraction under one always keeps at least one
+ * track cell, so "barely" and "almost" never render as "none" and "all".
+ */
+export function meter(
+  fraction: number,
+  width: number,
+): { filled: string; track: string } {
+  if (!Number.isFinite(fraction)) {
+    throw new TypeError("meter fraction must be a finite number");
+  }
+  const clamped = Math.max(0, Math.min(1, fraction));
+  let cells = Math.round(clamped * width);
+  if (clamped > 0 && cells === 0) {
+    cells = 1;
+  }
+  if (clamped < 1 && cells === width) {
+    cells = width - 1;
+  }
+  return { filled: "█".repeat(cells), track: "░".repeat(width - cells) };
+}
+
+/**
  * Greedy word-wrap `text` into lines no wider than `width`. Continuation lines
  * carry `hangingIndent`, whose display width reduces their available content
  * width. A single word longer than the available width overflows on its own

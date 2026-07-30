@@ -9578,6 +9578,11 @@
                 "brag": {
                   "type": "object",
                   "properties": {
+                    "series_days_per_point": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
                     "landings": {
                       "type": "object",
                       "properties": {
@@ -9610,6 +9615,15 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
                         },
                         "biggest": {
                           "type": "object",
@@ -9705,6 +9719,15 @@
                         },
                         "check_hours": {
                           "type": "number"
+                        },
+                        "greens_per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
                         }
                       },
                       "required": [
@@ -9797,6 +9820,15 @@
                             "day",
                             "branches"
                           ]
+                        },
+                        "branches_per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
                         }
                       },
                       "required": [

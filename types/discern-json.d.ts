@@ -2939,6 +2939,7 @@ export type DiscernPatternsResult = {
       findings: number;
     }>;
     brag?: {
+      series_days_per_point?: number;
       landings: {
         count: number;
         branches: number;
@@ -2946,6 +2947,7 @@ export type DiscernPatternsResult = {
         deletions: number;
         files: number;
         commits: number;
+        per_day?: Array<number>;
         biggest?: {
           branch?: string;
           lines: number;
@@ -2966,6 +2968,7 @@ export type DiscernPatternsResult = {
         longest_green_streak: number;
         current_green_streak: number;
         check_hours: number;
+        greens_per_day?: Array<number>;
       };
       cycles?: {
         completed: number;
@@ -2986,6 +2989,7 @@ export type DiscernPatternsResult = {
           day: string;
           branches: number;
         };
+        branches_per_day?: Array<number>;
       };
     };
   } | {
