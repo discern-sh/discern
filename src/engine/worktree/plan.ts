@@ -505,9 +505,14 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       kind: "git",
       label: c.path,
       disposition: plan.reclaimContained ? "run" : "skip",
+      // Both modes carry the full evidence — the branch tips and the
+      // container's lead — so the human confirms shas, not bare names.
       note: plan.reclaimContained
-        ? `reclaim checkout; keep branch ${c.branch} (contained in ${c.containingBranch})`
-        : `contained in ${c.containingBranch} (${c.tip.slice(0, 12)} carried ` +
+        ? `reclaim checkout; keep branch ${c.branch} @ ${c.tip.slice(0, 12)} ` +
+          `(contained in ${c.containingBranch} @ ` +
+          `${c.containingTip.slice(0, 12)}, +${c.containerAhead} ahead)`
+        : `contained in ${c.containingBranch} @ ` +
+          `${c.containingTip.slice(0, 12)} (${c.tip.slice(0, 12)} carried ` +
           `+${c.containerAhead} ahead) — pass --contained to reclaim the ` +
           `checkout; the branch ref is kept`,
       group: "Contained worktrees",

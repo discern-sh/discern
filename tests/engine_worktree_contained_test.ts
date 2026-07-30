@@ -46,6 +46,7 @@ import {
   WorktreeGitError,
   worktreeReclaimContained,
 } from "../src/engine/worktree/lifecycle.ts";
+import { awaitResult } from "../src/engine/await/await.ts";
 import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
 import { Logger } from "../src/lib/log.ts";
 
@@ -476,5 +477,190 @@ Deno.test("worktreeReclaimContained reclaims one validated stage and refuses a n
     assertEquals(fact.containingBranch, "agent/b");
     assertEquals(await exists(a), false);
     assert((await branchList(dir)).includes("agent/a"), "the ref must be kept");
+  });
+});
+
+// ── the destructive-edge guarantees ──────────────────────────────────────────
+
+Deno.test("containment: a checkout whose status cannot be read is never offered", async () => {
+  await withTempDir(async (dir) => {
+    const { a } = await chainFixture(dir);
+    // Make `git status` FAIL inside stage A while `rev-parse` still succeeds:
+    // an unreadable index. The fleet snapshot reads that failure as an empty
+    // entry list (clean), so only the scan's own provably-clean read stands
+    // between an unknowable tree and a forced removal.
+    const index = join(dir, ".git", "worktrees", basename(a), "index");
+    await Deno.chmod(index, 0o000);
+    try {
+      const facts = byBranch(await scan(dir));
+      assert(
+        !facts.has("agent/a"),
+        "an unreadable checkout must fail safe, never read as clean",
+      );
+      assert(facts.has("agent/b"), "readable stages are still flagged");
+    } finally {
+      await Deno.chmod(index, 0o644);
+    }
+  });
+});
+
+Deno.test("worktreeReclaimContained hits exactly the selected path when basenames collide", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Two contained worktrees whose directories share a basename: the default
+    // root holds `dup` (branch agent/dup), a nested root holds `alt/dup`
+    // (branch agent/alt-dup, forked from agent/dup), and a live tip contains
+    // both. A basename can therefore name either checkout; only the absolute
+    // path is unambiguous.
+    const dup = await addWorktree(dir, "dup");
+    await commitFile(dup, "one.txt", "one\n", "dup work");
+    const altDup = join(`${dir}.worktrees`, "alt", "dup");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      altDup,
+      "-b",
+      "agent/alt-dup",
+      "agent/dup",
+    );
+    await commitFile(altDup, "two.txt", "two\n", "alt dup work");
+    const tip = await addWorktreeFrom(dir, "tip", "agent/alt-dup");
+    await commitFile(tip, "three.txt", "three\n", "tip work");
+
+    const root = await Deno.realPath(dir);
+    const ctx = await lifecycleContext(
+      root,
+      new Logger({ json: true, noColor: true }),
+    );
+    const fact = await worktreeReclaimContained(
+      ctx,
+      await Deno.realPath(altDup),
+    );
+    assertEquals(fact.branch, "agent/alt-dup");
+    assertEquals(await exists(altDup), false, "the selected checkout is gone");
+    assert(
+      await exists(dup),
+      "the same-basename sibling must be left untouched",
+    );
+    const branches = await branchList(dir);
+    assert(branches.includes("agent/dup"), branches);
+    assert(branches.includes("agent/alt-dup"), "the ref is kept");
+  });
+});
+
+Deno.test("a failed resource destroy refuses the reclaim and keeps the checkout", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const markers = join(dir, "markers");
+    const a = await addWorktree(dir, "a");
+    const cfg = await Deno.readTextFile(join(a, "discern.toml"));
+    await Deno.writeTextFile(
+      join(a, "discern.toml"),
+      `${cfg}\n[worktree.resources.thing]\n` +
+        `create  = "mkdir -p ${markers} && touch ${markers}/@resource@.live"\n` +
+        `destroy = "false"\n`,
+    );
+    await runAgent(a, ["tidy"]);
+    await git(a, "add", "-A");
+    await git(a, "commit", "-q", "-m", "declare resource", "--no-gpg-sign");
+    const setup = await runAgent(a, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    await git(a, "add", "-A");
+    await git(a, "commit", "-q", "-m", "materialized files", "--no-gpg-sign");
+    const b = await addWorktreeFrom(dir, "b", "agent/a");
+    await commitFile(b, "b.txt", "b\n", "stage b");
+
+    const r = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--contained",
+      "--yes",
+    ]);
+    assertEquals(r.code, 1, r.output);
+    assertStringIncludes(r.output, "could not be destroyed");
+    assert(
+      await exists(a),
+      `a checkout whose resources survive must survive too\n${r.output}`,
+    );
+    assert((await branchList(dir)).includes("agent/a"));
+  });
+});
+
+Deno.test("a candidate that gains work during an earlier teardown is skipped, never force-reclaimed", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Stage A's resource destroy writes into stage B's tree — a stand-in for
+    // any agent re-entering B while A's teardown buys it time. B passed the
+    // plan-time scan, so only per-candidate revalidation protects it.
+    const bPath = worktreePath(dir, "b");
+    const a = await addWorktree(dir, "a");
+    const cfg = await Deno.readTextFile(join(a, "discern.toml"));
+    await Deno.writeTextFile(
+      join(a, "discern.toml"),
+      `${cfg}\n[worktree.resources.thing]\n` +
+        `create  = "true"\n` +
+        `destroy = "touch ${bPath}/injected.txt"\n`,
+    );
+    await runAgent(a, ["tidy"]);
+    await git(a, "add", "-A");
+    await git(a, "commit", "-q", "-m", "declare resource", "--no-gpg-sign");
+    const setup = await runAgent(a, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    await git(a, "add", "-A");
+    await git(a, "commit", "-q", "-m", "materialized files", "--no-gpg-sign");
+    const b = await addWorktreeFrom(dir, "b", "agent/a");
+    await commitFile(b, "b.txt", "b\n", "stage b");
+    const c = await addWorktreeFrom(dir, "c", "agent/b");
+    await commitFile(c, "c.txt", "c\n", "stage c");
+
+    const r = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--contained",
+      "--yes",
+    ]);
+    assertEquals(r.code, 0, r.output);
+    assertEquals(await exists(a), false, "the validated stage is reclaimed");
+    assert(
+      await exists(join(b, "injected.txt")),
+      "work created during the earlier teardown must survive",
+    );
+    assertStringIncludes(r.output, "Skipped");
+    const branches = await branchList(dir);
+    assert(branches.includes("agent/a"), branches);
+    assert(branches.includes("agent/b"), branches);
+  });
+});
+
+Deno.test("await --green skips a ref-only container and points at a stage that can answer", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Both early stages of A → B → C are reclaimed (refs kept, checkouts
+    // gone). Awaiting A must point at C — B's receipt is equally impossible.
+    const a = await addWorktree(dir, "a");
+    await commitFile(a, "a.txt", "a\n", "stage a");
+    const b = await addWorktreeFrom(dir, "b", "agent/a");
+    await commitFile(b, "b.txt", "b\n", "stage b");
+    const c = await addWorktreeFrom(dir, "c", "agent/b");
+    await commitFile(c, "c.txt", "c\n", "stage c");
+    await git(dir, "worktree", "remove", "--force", a);
+    await git(dir, "worktree", "remove", "--force", b);
+
+    const refused = await awaitResult(dir, {
+      green: "agent/a",
+      timeoutSeconds: 0,
+    });
+    assertEquals(refused.ok, false);
+    assert(
+      refused.hints?.some((h) => h.includes("--green agent/c")) === true,
+      `the pointer must skip the ref-only container\n${
+        JSON.stringify(refused.hints)
+      }`,
+    );
   });
 });

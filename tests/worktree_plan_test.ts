@@ -332,6 +332,10 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
   assertEquals(offeredStep?.disposition, "skip");
   assert(offeredStep?.note?.includes("agent/next") === true);
   assert(offeredStep?.note?.includes("--contained") === true);
+  // The offer carries the evidence: both tips and the container's lead.
+  assert(offeredStep?.note?.includes("aaaaaaaaaaaa") === true);
+  assert(offeredStep?.note?.includes("bbbbbbbbbbbb") === true);
+  assert(offeredStep?.note?.includes("+3 ahead") === true);
   assert(
     offeredPlan.details.some((d) => d.includes("branch refs are always kept")),
   );
@@ -346,6 +350,11 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
   );
   assertEquals(reclaimingStep?.disposition, "run");
   assert(reclaimingStep?.note?.includes("keep branch agent/spent") === true);
+  // The reclaim confirmation keeps the same evidence the offer showed — the
+  // human confirms shas, not bare names.
+  assert(reclaimingStep?.note?.includes("aaaaaaaaaaaa") === true);
+  assert(reclaimingStep?.note?.includes("bbbbbbbbbbbb") === true);
+  assert(reclaimingStep?.note?.includes("+3 ahead") === true);
   assert(
     reclaimingPlan.details.some(
       (d) =>

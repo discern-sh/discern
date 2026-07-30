@@ -701,7 +701,10 @@ async function dispatchAction(
         return false;
       }
       const ctx = await runtime.lifecycle(root);
-      await runtime.reclaim(ctx, target);
+      // The ABSOLUTE selected path, never the basename: two roots can hold
+      // same-named worktree directories, and the reclaim must hit exactly the
+      // row the confirmation named.
+      await runtime.reclaim(ctx, row.entry.path);
       out.ok(
         `Reclaimed ${target}. Branch ${row.entry.branch} kept — it lands with ${containedIn} and self-cleans on the next prune.`,
       );

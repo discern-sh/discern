@@ -31,6 +31,7 @@ import {
   type FleetWorktree,
   integrationBranch,
   listWorktreeFleet,
+  parseWorktreeList,
 } from "./git.ts";
 import type { FleetLogbookActivity } from "../logbook/read.ts";
 
@@ -80,6 +81,40 @@ export function containmentIdleCheck(
   return (_branch, lastActivityUnixSeconds) =>
     lastActivityUnixSeconds !== undefined &&
     nowMs - lastActivityUnixSeconds * 1000 >= CONTAINED_QUIET_PERIOD_MS;
+}
+
+/**
+ * Whether the checkout at `path` is PROVABLY clean: `git status` ran and
+ * reported nothing. A failed read is "unknown", and unknown fails safe — the
+ * checkout may hold anything, so it never qualifies for a forced removal.
+ * (The fleet snapshot's `clean` cannot carry this burden alone: it reads a
+ * failed status as an empty entry list.)
+ */
+export async function treeProvablyClean(path: string): Promise<boolean> {
+  const run = await runGit(
+    ["status", "--porcelain", "--untracked-files=normal"],
+    { cwd: path },
+  );
+  return run.success && run.stdout.trim() === "";
+}
+
+/** The short branch names currently checked out in registered worktrees. */
+async function checkoutHoldingBranches(
+  repoRoot: string,
+): Promise<Set<string>> {
+  const run = await runGit(["worktree", "list", "--porcelain"], {
+    cwd: repoRoot,
+  });
+  const held = new Set<string>();
+  if (!run.success) {
+    return held;
+  }
+  for (const rec of parseWorktreeList(run.stdout)) {
+    if (rec.branch.startsWith("refs/heads/")) {
+      held.add(rec.branch.slice("refs/heads/".length));
+    }
+  }
+  return held;
 }
 
 /** Every local branch's tip sha, in one `for-each-ref` read. */
@@ -172,6 +207,12 @@ export async function scanContainedWorktrees(
     if (row.branch === "" || row.branch === mainBranch) {
       continue;
     }
+    // The snapshot's `clean` is the cheap pre-filter; the qualifying read must
+    // PROVE cleanliness (a failed status is unknown, and unknown never
+    // qualifies a checkout for a forced removal).
+    if (!(await treeProvablyClean(row.path))) {
+      continue;
+    }
     const tip = tips.get(row.branch);
     if (tip === undefined) {
       continue;
@@ -223,10 +264,11 @@ export async function scanContainedWorktrees(
 }
 
 /**
- * The nearest live branch strictly containing `branch`'s tip, or undefined —
- * the light-weight pointer `await --green` uses when a branch's checkout is
- * gone: the receipt can never appear, and the correct await target was always
- * the containing branch.
+ * The nearest branch strictly containing `branch`'s tip AND holding a
+ * registered checkout, or undefined — the pointer `await --green` uses when a
+ * branch's own checkout is gone. Only a checkout can ever record a receipt,
+ * so a ref-only container (another reclaimed stage) would be an equally
+ * impossible target; the pointer skips past it to a stage that can answer.
  */
 export async function nearestContainingBranch(
   repoRoot: string,
@@ -235,6 +277,7 @@ export async function nearestContainingBranch(
 ): Promise<string | undefined> {
   const trunk = integrationBranch(mainBranch);
   const tips = await localBranchTips(repoRoot);
+  const held = await checkoutHoldingBranches(repoRoot);
   const tip = tips.get(branch);
   if (tip === undefined) {
     return undefined;
@@ -242,6 +285,9 @@ export async function nearestContainingBranch(
   let nearest: { branch: string; ahead: number } | undefined;
   for (const [candidate, candidateTip] of tips) {
     if (candidate === branch || candidate === trunk || candidateTip === tip) {
+      continue;
+    }
+    if (!held.has(candidate)) {
       continue;
     }
     if (!(await isAncestor(repoRoot, tip, candidateTip))) {

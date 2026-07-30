@@ -1022,7 +1022,10 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
     ),
     0,
   );
-  assertEquals(reclaims, ["stage-a"]);
+  // The core receives the ABSOLUTE selected path — two roots can hold
+  // same-named worktree directories, and the reclaim must hit exactly the
+  // row the confirmation named.
+  assertEquals(reclaims, ["/worktrees/stage-a"]);
   assertEquals(pauses, 1);
   assertStringIncludes(joined(output), "Branch agent/stage-a kept");
 });

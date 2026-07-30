@@ -159,6 +159,7 @@ import {
   type ContainedWorktree,
   containmentIdleCheck,
   scanContainedWorktrees,
+  treeProvablyClean,
 } from "./containment.ts";
 import { readFleetLogbookActivity } from "../logbook/read.ts";
 import { configEpoch } from "../logbook/epoch.ts";
@@ -4006,11 +4007,16 @@ interface ContainedReclaimResult {
  * NEVER deleted here — it stays as the recovery guarantee, and self-cleans
  * through the ordinary landed-branch prune once the train finally lands.
  *
- * Apply re-validates every candidate against LIVE state first (the same
- * discipline as the stale-worktree removal's re-check): the plan may have
- * waited at a confirmation prompt while an agent re-entered the worktree, so
- * a candidate that fails the predicate by then — new commits, a dirty tree,
- * fresh activity — is skipped, never force-reclaimed.
+ * Apply re-validates EACH candidate against live state immediately before
+ * acting on it (the same per-candidate discipline as the stale-worktree
+ * removal's re-check): the plan waited at a confirmation prompt, and every
+ * earlier candidate's resource teardown buys time for an agent to re-enter a
+ * later one. A candidate that fails the predicate by its turn — new commits,
+ * a dirty tree, fresh activity, a different containing branch than the one
+ * confirmed — is skipped, never force-reclaimed. A failed resource teardown
+ * stops that candidate's reclaim outright: the checkout keeps owning its
+ * resources, because the prune GC has already run this invocation and a
+ * guarded (`gc = false`) resource would otherwise be stranded forever.
  */
 async function reclaimContainedWorktrees(
   ctx: LifecycleContext,
@@ -4024,17 +4030,19 @@ async function reclaimContainedWorktrees(
   if (planned.length === 0) {
     return result;
   }
-  const fresh = await pruneContainedScan(ctx);
-  const liveByPath = new Map(fresh.map((f) => [f.path, f]));
   const commonGitDir = await resolveCommonGitDir(ctx.cwd);
   for (const fact of planned) {
-    const live = liveByPath.get(fact.path);
+    const live = (await pruneContainedScan(ctx)).find(
+      (f) => f.path === fact.path,
+    );
     const reason = live === undefined
-      ? "no longer contained, clean, and idle"
+      ? "it stopped qualifying as contained, clean, and idle"
       : live.branch !== fact.branch
       ? `now on branch ${live.branch}, planned as ${fact.branch}`
       : live.tip !== fact.tip
       ? "the branch tip moved since the plan was built"
+      : live.containingBranch !== fact.containingBranch
+      ? `the containing branch is now ${live.containingBranch}, planned as ${fact.containingBranch}`
       : undefined;
     if (reason !== undefined) {
       ctx.log.warn(
@@ -4048,8 +4056,9 @@ async function reclaimContainedWorktrees(
     );
     try {
       // Resources first, from inside the target so `@dir@` destroys resolve; a
-      // configless checkout falls back to the main context. Best-effort — a
-      // teardown hiccup never strands the reclaim; the prune GC is the backstop.
+      // configless checkout falls back to the main context. A failed destroy
+      // REFUSES this candidate's reclaim: the checkout stays, still owning its
+      // resources, and the failure names the retry.
       const gitKey = await worktreeGitKey(fact.path);
       const entries = commonGitDir !== undefined && gitKey !== undefined
         ? await entriesForWorktree(commonGitDir, gitKey)
@@ -4060,7 +4069,33 @@ async function reclaimContainedWorktrees(
           ctx.log,
           fact.path,
         ).catch(() => ctx);
-        await destroyResources(teardownCtx, entries);
+        const { failed } = await destroyResources(teardownCtx, entries);
+        if (failed.length > 0) {
+          ctx.log.error(
+            `Reclaim of ${fact.path} stopped: resource${
+              failed.length === 1 ? "" : "s"
+            } ${failed.join(", ")} could not be destroyed. The checkout is ` +
+              `kept; fix the destroy failure above, then re-run ` +
+              `\`discern worktree prune --contained\`.`,
+          );
+          result.failed = true;
+          continue;
+        }
+        // The teardown ran arbitrary commands and took real time, and the
+        // removal below is forced — prove the tree is STILL clean first.
+        if (!(await treeProvablyClean(fact.path))) {
+          ctx.log.warn(
+            `Skipped ${fact.path}: its tree changed during resource teardown, ` +
+              `so the checkout is kept. Its external resources were already ` +
+              `destroyed; re-run \`discern worktree setup\` there to ` +
+              `re-create them.`,
+          );
+          result.skipped.push({
+            fact,
+            reason: "the tree changed during resource teardown",
+          });
+          continue;
+        }
       }
       await removeWorktreeSafely(fact.path, ctx.root);
       result.reclaimed.push(fact);
