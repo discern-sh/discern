@@ -159,16 +159,16 @@ Deno.test("the shipped .gitignore fragment becomes the canonical marked block up
   );
 });
 
-Deno.test("every known agent declares at least one detection binary (match-any)", () => {
-  // PATH auto-detect (src/lib/detect_agents.ts) iterates AGENT_NAMES × each
-  // provider's `binaries`, so a provider with an empty list silently never
-  // detects — a new agent must name its CLI executable(s) or red-light here.
+Deno.test("every known agent declares at least one terminal-agent launcher (match-any)", () => {
+  // The desk's PATH scan iterates AGENT_NAMES × each provider's `binaries`, so a
+  // provider with an empty list can never be launched. Setup also treats any one
+  // of these launchers as baseline installation evidence.
   for (const name of AGENT_NAMES) {
     const p = providerFor(name);
     assert(p !== undefined, `no provider for ${name}`);
     assert(
       p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
-      `${name}: empty binaries — declare the agent's CLI executable name(s) so PATH auto-detect can find it`,
+      `${name}: empty binaries — declare the terminal-agent executable name(s) the desk can launch`,
     );
   }
 });
@@ -548,10 +548,10 @@ Deno.test("KEYSTONE: every known agent is covered by every cross-cutting satelli
       );
     }
 
-    // 3. PATH auto-detect: at least one detection binary, match-any (deliverable 1).
+    // 3. Terminal launch: at least one PATH binary, match-any.
     assert(
       p.binaries.length > 0 && p.binaries.every((b) => b.length > 0),
-      `${name}: empty binaries — PATH auto-detect can't find it`,
+      `${name}: empty binaries — the desk cannot launch it`,
     );
 
     // 4. Guidance modelling: a reuse-canonical provider reads the canonical without

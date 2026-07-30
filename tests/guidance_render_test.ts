@@ -61,6 +61,24 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
   }
 });
 
+Deno.test("renderAgentFiles: Cursor configuration does not change the generic worktree instructions", async () => {
+  const dir = await scaffold('["cursor"]');
+  try {
+    const files = await renderAgentFiles(dir);
+    const agents = files.get("AGENTS.md");
+    assert(agents !== undefined);
+    assertStringIncludes(agents, "from the main checkout");
+    assertStringIncludes(agents, "create your isolated worktree");
+    assertStringIncludes(agents, "Can't change your working root?");
+    assert(
+      !/(external file protection|approval-gates external edits)/i.test(agents),
+      "compiled guidance must not condition an agent on Cursor's human-visible approval state",
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("renderAgentFiles: the compiled file opens as the project's own — [project].name, else the slug", async () => {
   const dir = await scaffold();
   try {

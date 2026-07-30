@@ -1052,11 +1052,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "agent-autodetect",
         title: "Detection at setup",
         what:
-          "A fresh install resolves its default agent set by detecting the agents present on `PATH`, and a wider identity catalogue recognizes the agent driving a session as advisory logbook evidence.",
+          "A fresh install resolves its default agent set from each provider's declared installation evidence: terminal launchers, editor commands, and conventional application locations. The desk still offers only terminal agents it can launch from `PATH`, while a separate identity catalogue recognizes the agent driving a session as advisory logbook evidence.",
         plain: {
           title: "Finding the installed coding agents at setup",
           what:
-            "A fresh installation chooses its starting set of coding agents by finding the supported programs present on the computer, and a wider recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.",
+            "A fresh installation chooses its starting set of coding agents from each kind's declared signs of being installed: command-window launchers, editor commands, and the usual application locations. The desk still offers only the coding agents it can start from the computer's standard installed-program list (called `PATH`), and a separate recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.",
         },
       },
     ],

@@ -390,6 +390,7 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     reactivation: READY_REACTIVATION,
   });
   assertStringIncludes(withAgents, "start a fresh session");
+  assertStringIncludes(withAgents, "Claude Code: start a new session");
   // Reactivation rides the headline, BEFORE the bullets: cold runs show a courier
   // agent keeps the opening sentence and prunes middle bullets, and the fresh-session
   // step is the one instruction a novice cannot recover on their own.
@@ -397,6 +398,11 @@ Deno.test("completionMessage omits the reactivation step when nothing wired at s
     withAgents.indexOf("start a fresh session") <
       withAgents.indexOf("all run on every change"),
     "the reactivation step must precede the coverage bullet",
+  );
+  assert(
+    withAgents.indexOf("Claude Code: start a new session") <
+      withAgents.indexOf("all run on every change"),
+    "the provider-specific handoff must be relayed before the coverage bullet",
   );
 
   const noAgents = completionMessage({

@@ -117,7 +117,7 @@ _Write the instructions once, and every coding agent (including one working on a
   - **Cursor** — Reuses the main `AGENTS.md` and keeps its own automatic actions and Discern connection under `.cursor/`.
   - **GitHub Copilot** — Reuses the main `AGENTS.md`, keeps its automatic actions under `.github/`, and shares the jointly owned `.mcp.json` connection file through one agreed writer.
 - **Automatic actions when a session starts** — A supported coding agent runs `discern worktree ensure` when its session begins — safely making the working copy ready again, with a reminder while setup remains unfinished — and hands working-copy creation and removal events straight to Discern, with no extra translator and no home-made command text between them. _A session starts ready, or says what is missing, before any work begins._
-- **Finding the installed coding agents at setup** — A fresh installation chooses its starting set of coding agents by finding the supported programs present on the computer, and a wider recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.
+- **Finding the installed coding agents at setup** — A fresh installation chooses its starting set of coding agents from each kind's declared signs of being installed: command-window launchers, editor commands, and the usual application locations. The desk still offers only the coding agents it can start from the computer's standard installed-program list (called `PATH`), and a separate recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.
 
 ## Reusable how-to guides
 

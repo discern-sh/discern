@@ -6,25 +6,25 @@
  * documenting it fails the gate, driven off the registry so a new member
  * auto-enrols (ADR 0051).
  *
- * Signposting: a reuse-canonical (IDE-first) agent — Cursor, Copilot, and
- * Antigravity next — reads `AGENTS.md` natively and often runs with no CLI
- * binary on PATH, so PATH auto-detect can't find it. Its integration doc is the
- * compensating surface: it signposts the IDE-only user to configure the agent
- * explicitly. This guard drives off the reuse-canonical subset of the provider
- * registry (ADR 0031), so a new IDE-first agent red-lights until its doc
- * carries the signpost — the hand-listed {cursor, copilot} pair it replaces
- * would have shipped Antigravity invisible.
+ * Structure: the subtree contains exactly one leaf per provider, keeping every
+ * vendor-specific instruction on that provider's integration page.
+ *
+ * Signposting: a reuse-canonical (IDE-first) agent reads `AGENTS.md` natively
+ * and may run without its terminal-agent binary on PATH. Its integration doc
+ * must explain either the provider-declared IDE installation signals setup can
+ * see or the explicit configuration needed when it has none. This guard drives
+ * off the provider registry, so a new IDE-first agent and a later detection
+ * marker both update the documentation obligation automatically.
  */
 
-import { assert, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { providerFor } from "../src/lib/providers.ts";
 import { extractTitle } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 
-/** The IDE-first agents (read the canonical file, emit no vendor file), derived
- * from the registry — the exact set that needs an explicit-config signpost. */
+/** The IDE-first agents (read the canonical file, emit no vendor file). */
 function reuseCanonicalAgents(): readonly string[] {
   return AGENT_NAMES.filter(
     (n) => providerFor(n)?.guidanceFile.reuseCanonical === true,
@@ -53,11 +53,21 @@ async function integrationDocs(): Promise<
   return docs;
 }
 
-Deno.test("every supported agent provider has an integration doc", async () => {
+Deno.test("every supported agent provider has exactly one integration doc", async () => {
   // The tie is the page's own title: every integration doc opens with
   // `# <label> integration`, and `label` comes from the provider registry — so
   // the check follows a provider rename and a new provider auto-enrols.
   const docs = await integrationDocs();
+  const expectedTitles = AGENT_NAMES.map((name) => {
+    const label = providerFor(name)?.label;
+    assert(label !== undefined, `no provider registered for "${name}"`);
+    return `${label} integration`;
+  });
+  assertEquals(
+    docs.map((doc) => extractTitle(doc.text)).sort(),
+    expectedTitles.toSorted(),
+    `${REPO_AUTHORED_PATHS.mapRel}/60-agent-integrations must contain one page per provider`,
+  );
   for (const name of AGENT_NAMES) {
     const label = providerFor(name)?.label;
     assert(label !== undefined, `no provider registered for "${name}"`);
@@ -70,7 +80,7 @@ Deno.test("every supported agent provider has an integration doc", async () => {
   }
 });
 
-Deno.test("every reuse-canonical agent's integration doc signposts IDE-only users to explicit config", async () => {
+Deno.test("every reuse-canonical integration doc explains its IDE setup detection path", async () => {
   const agents = reuseCanonicalAgents();
   // The set is registry-derived, but sanity-check it isn't empty (a refactor that
   // dropped reuseCanonical would otherwise make this guard vacuously pass).
@@ -84,19 +94,20 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
   const docs = await integrationDocs();
 
   for (const name of agents) {
-    const doc = docs.find((d) => d.text.includes(`agents = ["${name}"]`));
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider registered for "${name}"`);
+    const doc = docs.find((d) =>
+      extractTitle(d.text) === `${provider.label} integration`
+    );
     assert(
       doc !== undefined,
-      `no integration doc signposts IDE-only "${name}" users — a reuse-canonical agent ` +
-        `whose CLI isn't on PATH is invisible to setup without a ${REPO_AUTHORED_PATHS.mapRel}/60-agent-integrations/ ` +
-        `page carrying agents = ["${name}"]. Add one (mirror cursor.md / github-copilot.md).`,
+      `no integration doc signposts IDE-only "${name}" users`,
     );
     for (
       const needle of [
         "\n## Using the IDE\n",
         "[project].agents",
         "discern refresh",
-        "IDE marker detection",
       ]
     ) {
       assertStringIncludes(
@@ -105,5 +116,60 @@ Deno.test("every reuse-canonical agent's integration doc signposts IDE-only user
         `${doc.file}: missing IDE-signpost element "${needle}" for ${name}`,
       );
     }
+    const detectsIde =
+      provider.setupPresence.additionalPathBinaries.length > 0 ||
+      provider.setupPresence.filesystemMarkers.length > 0;
+    if (detectsIde) {
+      for (const needle of ["`discern setup`", "detect"]) {
+        assertStringIncludes(
+          doc.text,
+          needle,
+          `${doc.file}: setup can detect this IDE, so the page must explain "${needle}"`,
+        );
+      }
+    } else {
+      assertStringIncludes(
+        doc.text,
+        `agents = ["${name}"]`,
+        `${doc.file}: setup has no IDE installation signal for ${name}, so the page must carry explicit config`,
+      );
+    }
   }
+});
+
+Deno.test("every provider's human setup advice has provider-specific documentation", async () => {
+  const docs = await integrationDocs();
+  let advisedProviders = 0;
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider registered for "${name}"`);
+    const advice = provider.humanSetupAdvice;
+    if (advice === undefined) {
+      continue;
+    }
+    advisedProviders++;
+    assert(
+      advice.documentationTopics.length > 0,
+      `${name}: human setup advice declares no documentation topics`,
+    );
+    const doc = docs.find((candidate) =>
+      extractTitle(candidate.text) === advice.documentationTitle
+    );
+    assert(
+      doc !== undefined,
+      `no provider-specific setup doc titled "${advice.documentationTitle}" ` +
+        `found for "${name}"`,
+    );
+    for (const topic of advice.documentationTopics) {
+      assertStringIncludes(
+        doc.text,
+        topic,
+        `${doc.file}: human setup advice requires documentation topic "${topic}"`,
+      );
+    }
+  }
+  assert(
+    advisedProviders > 0,
+    "expected at least one provider to declare human setup advice",
+  );
 });

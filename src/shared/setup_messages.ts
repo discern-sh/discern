@@ -38,14 +38,14 @@ const HUMAN_DOCS_REL = "docs/";
 
 /** The agent set the consent conversation puts to the human: which coding tools
  * `begin` will wire, each as its display label plus the registry name `--agents`
- * accepts, and whether the set was detected on PATH or fell back to the defaults.
- * Declared here — the bottom layer — and produced by the feature layer's PATH
- * detection (`src/lib/detect_agents.ts`), mirroring how {@link CompletionLanding}
- * keeps this module from importing upward. */
+ * accepts, and whether the set was detected as installed or fell back to the
+ * defaults. Declared here — the bottom layer — and produced by the feature
+ * layer's installation detection (`src/lib/detect_agents.ts`), mirroring how
+ * {@link CompletionLanding} keeps this module from importing upward. */
 export interface ConsentAgentSet {
   /** The set `begin` will wire, in registry order. */
   wired: ReadonlyArray<{ label: string; name: string }>;
-  /** True when detected on PATH; false when it fell back to the default set. */
+  /** True when installation evidence was found; false for the default set. */
   detected: boolean;
 }
 
@@ -70,8 +70,8 @@ export interface ConsentContext {
  * re-serves it in the `awaiting_consent` refusal), so the two can never drift. The
  * worktree location is the default sibling discern computes on a fresh install:
  * `<repo>.worktrees` beside the checkout (no config exists yet to relocate it).
- * The agent set arrives from the caller (the PATH scan lives in the feature layer,
- * which this bottom module never imports).
+ * The agent set arrives from the caller (installation detection lives in the
+ * feature layer, which this bottom module never imports).
  */
 export async function deriveConsentContext(
   destDir: string,
@@ -323,6 +323,9 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     headline,
     "",
+    ...reactivation.per_agent.map((agent) =>
+      `  • ${agent.label}: ${agent.step}`
+    ),
     `  • ${coverageLine(assurance)}`,
     "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
     `  • ${landingLine(landing)}`,

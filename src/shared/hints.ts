@@ -2945,8 +2945,9 @@ export const HINTS = {
 
   /**
    * The MCP-specific start re-root guardrail. It distinguishes the server's
-   * automatic tool re-aim from the file move the client must perform, gives the
-   * fallback for a fixed working root, and names the split-state consequence.
+   * automatic tool re-aim from the file operations the connected agent must
+   * move, gives the fallback for a fixed working root, and names the split-state
+   * consequence.
    * Agent-audience: it fires only over MCP and instructs the connected agent.
    */
   "start-mcp-re-root": defineHint<{ path: string }>({
@@ -2955,7 +2956,7 @@ export const HINTS = {
     audience: "agent",
     delivery: "mcp",
     when:
-      "`start` runs through the Model Context Protocol and the client must re-root before editing.",
+      "`start` runs through the Model Context Protocol and the connected agent must re-root before editing.",
     family: "start-result",
     example: { path: "/workspace/project.worktrees/hint-registry" },
     template: ({ path }): string =>
