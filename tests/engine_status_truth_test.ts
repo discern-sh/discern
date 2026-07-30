@@ -11,6 +11,9 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { HINTS } from "../src/shared/hints.ts";
+import type { StatusFleetEntry } from "../src/shared/result_schemas.ts";
+import { legalActions } from "../src/engine/desk/model.ts";
+import { gitSnapshot } from "../src/engine/worktree/git.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -25,13 +28,7 @@ import {
 interface StatusJson {
   data: {
     git: { ahead_trunk: number | null } | null;
-    fleet?: Array<{
-      path: string;
-      id?: string;
-      broken?: boolean;
-      clean?: boolean;
-      git_unavailable?: boolean;
-    }>;
+    fleet?: StatusFleetEntry[];
     unlanded_branches?: string[];
   };
   hints?: string[];
@@ -94,29 +91,52 @@ Deno.test("status fleet ids are per-row truths — an env id override cannot rep
   });
 });
 
-Deno.test("status reports an unreadable worktree honestly — never as clean/0-ahead", async () => {
+Deno.test("a failed worktree status read stays unreadable through status and the desk", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     const wt = await addWorktree(dir, "damaged");
-    // git cannot run inside the checkout (a corrupted gitlink here; dubious
-    // ownership or permission refusals are the same shape). Its state is
-    // UNKNOWN — fabricating "clean, 0 ahead" hid destroyable work.
-    await Deno.writeTextFile(join(wt, ".git"), "gitdir: /nonexistent/gone\n");
+    await Deno.writeTextFile(join(wt, "work.txt"), "ready\n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "ready work", "--no-gpg-sign");
 
-    const result = await statusJson(dir);
-    const row = result.data.fleet?.find((e) => e.path.endsWith("damaged"));
-    assert(row !== undefined, JSON.stringify(result.data.fleet));
-    assertEquals(row.git_unavailable, true, JSON.stringify(row));
-    assertEquals(row.clean, undefined, "unknown state must not claim clean");
-    assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
-      total: 1,
-      names: ["gone"],
-    });
+    // `rev-parse --is-inside-work-tree` still succeeds, but `git status` cannot
+    // read the index. This future-sibling fixture catches status-only failures,
+    // not just a checkout whose whole gitlink is broken.
+    const index = join(dir, ".git", "worktrees", basename(wt), "index");
+    await Deno.chmod(index, 0o000);
+    try {
+      assertEquals(
+        await gitSnapshot(wt, "main"),
+        undefined,
+        "the source snapshot must preserve an unreadable status as unknown",
+      );
+      const result = await statusJson(dir);
+      const row = result.data.fleet?.find((e) => e.path.endsWith("damaged"));
+      assert(row !== undefined, JSON.stringify(result.data.fleet));
+      assertEquals(row.git_unavailable, true, JSON.stringify(row));
+      assertEquals(row.clean, undefined, "unknown state must not claim clean");
+      assertEquals(
+        legalActions(row, false, [], []),
+        ["drop"],
+        "an unreadable ready branch must never offer accept",
+      );
+      assertHasHint(result, HINTS["status-fleet-member-unreadable"], {
+        total: 1,
+        names: ["damaged"],
+      });
 
-    // The human table says "unreadable", not "clean".
-    const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "unreadable");
+      // The human table says "unreadable", not "clean".
+      const human = await runAgent(dir, ["status"]);
+      assertStringIncludes(human.output, "unreadable");
+      const local = await runAgent(wt, ["status"]);
+      assertStringIncludes(
+        local.output,
+        "unavailable (Git could not read this checkout)",
+      );
+    } finally {
+      await Deno.chmod(index, 0o644);
+    }
   });
 });
 

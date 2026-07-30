@@ -60,7 +60,7 @@ Acceptance journals its transition and recovers without replaying one-shot autho
 
 ## Remove abandoned work
 
-From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs human `--force`; a git lock still protects it. The command is CLI-only because agents cannot discard another line of work.
+From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs human `--force`. A git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because agents cannot discard another line of work.
 
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
 

@@ -199,7 +199,8 @@ export async function statusResult(
   const location: Location = gitKey !== undefined ? "worktree" : "main";
   const snap = await gitSnapshot(root, mainBranch);
 
-  // The git block — read-only; null when this isn't a git repo (degrade, don't throw).
+  // The git block — read-only; null when this isn't a git repo or its status
+  // cannot be read (degrade, don't throw).
   let git: StatusGit | null = null;
   // The hot zone, when this worktree is behind: the files it changed that the incoming
   // main also changed. Captured for both the git block and the behind hint.
@@ -1391,7 +1392,9 @@ function renderStatusHuman(
     }
   } else {
     out.raw(
-      `  ${label("git")}${c.dim}unavailable (not a git repository)${c.reset}\n`,
+      `  ${
+        label("git")
+      }${c.dim}unavailable (Git could not read this checkout)${c.reset}\n`,
     );
   }
 
