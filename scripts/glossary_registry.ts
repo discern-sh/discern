@@ -477,20 +477,30 @@ export function retiredSynonyms(): Array<
 }
 
 /**
- * The matcher a retired synonym is policed with: its explicit `pattern`, or a
- * word-bounded, case-insensitive form of the phrase whose spaces match any
- * whitespace — so hard-wrapped prose can't hide a multi-word phrase behind a
- * line break. One derivation, shared by the drift guard and its positive
- * controls.
+ * The word-bounded regex source a display phrase is matched with: spaces
+ * match any whitespace, so hard-wrapped prose can't hide a multi-word phrase
+ * behind a line break. One derivation, shared by the retired-synonym drift
+ * guard and the plain-register jargon guard.
  */
-export function retiredPattern(synonym: RetiredSynonym): RegExp {
-  const source = synonym.pattern ?? String.raw`\b${
-    synonym.phrase
+export function phrasePatternSource(phrase: string): string {
+  return String.raw`\b${
+    phrase
       .split(/\s+/)
       .map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
       .join(String.raw`\s+`)
   }\b`;
-  return new RegExp(source, "gi");
+}
+
+/**
+ * The matcher a retired synonym is policed with: its explicit `pattern`, or
+ * the case-insensitive {@link phrasePatternSource} form of the phrase. One
+ * derivation, shared by the drift guard and its positive controls.
+ */
+export function retiredPattern(synonym: RetiredSynonym): RegExp {
+  return new RegExp(
+    synonym.pattern ?? phrasePatternSource(synonym.phrase),
+    "gi",
+  );
 }
 
 /** The banner stamped atop the generated glossary page. */

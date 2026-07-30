@@ -155,6 +155,7 @@ Deno.test("hint-citation extraction reads the whole tree (positive control)", ()
       what: "A fixture.",
       agent: "A fixture.",
       hints: ["gate-prove-it-works"],
+      plain: { title: "Fixture", what: "A fixture." },
       children: [
         {
           id: "leaf",
@@ -162,6 +163,7 @@ Deno.test("hint-citation extraction reads the whole tree (positive control)", ()
           what: "A fixture.",
           agent: "A fixture.",
           hints: ["status-start-on-trunk"],
+          plain: { title: "Fixture", what: "A fixture." },
         },
       ],
     },
@@ -181,12 +183,14 @@ Deno.test("enrolment guard: claims are read from the whole tree, at any depth", 
       id: "root",
       title: "Root",
       what: "A fixture.",
+      plain: { title: "Fixture", what: "A fixture." },
       surfaces: ["verb:done"],
       children: [
         {
           id: "leaf",
           title: "Leaf",
           what: "A fixture.",
+          plain: { title: "Fixture", what: "A fixture." },
           surfaces: ["job:test", "stage:fix"],
         },
       ],
@@ -203,7 +207,13 @@ Deno.test("enrolment guard: malformed and unknown-set claims fail loudly", () =>
   assertThrows(
     () =>
       allSurfaceClaims([
-        { id: "bad", title: "Bad", what: "A fixture.", surfaces: ["done"] },
+        {
+          id: "bad",
+          title: "Bad",
+          what: "A fixture.",
+          plain: { title: "Fixture", what: "A fixture." },
+          surfaces: ["done"],
+        },
       ]),
     Error,
     "malformed surface key",
@@ -215,6 +225,7 @@ Deno.test("enrolment guard: malformed and unknown-set claims fail loudly", () =>
           id: "bad",
           title: "Bad",
           what: "A fixture.",
+          plain: { title: "Fixture", what: "A fixture." },
           surfaces: ["tool:discern_done"],
         },
       ]),

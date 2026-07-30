@@ -58,7 +58,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 221     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 222     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -69,7 +69,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 56      | —                | node `canonical-sets`       |
 
-56 sets · 77 guard tests · 21 committed artifacts.
+56 sets · 78 guard tests · 22 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -115,6 +115,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/execution_model_test.ts`                   | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/feature_canon_codegen_test.ts`             | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/feature_canon_enrolment_test.ts`           | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                          |
+| `tests/feature_canon_plain_register_test.ts`      | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/gate_plan_test.ts`                         | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/git_admin_state_test.ts`                   | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/glossary_codegen_test.ts`                  | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -168,6 +169,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
 | `project/map/70-reference/mcp-and-results.md`    | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
 | `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/_internal/feature-canon-plain.md`   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
 | `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
@@ -539,12 +541,12 @@ The term registry behind the glossary page, its search aliases, and the retired-
 
 ## `feature-canon` — Feature canon
 
-The feature registry behind the canon page: pillars, nodes, and surface claims.
+The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
 - Members: 123
-- Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`
-- Artifacts: `project/map/_internal/feature-canon.md`
+- Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`
+- Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
 - Feature canon: not enrolled — the canon is the enrolling registry; a node describing itself would claim nothing
 
@@ -658,7 +660,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 221
+- Members: 222
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
