@@ -36,6 +36,7 @@ export const DESK_ACTIONS = [
   "grant",
   "revoke_grant",
   "update",
+  "reclaim",
   "scripts",
   "agent",
   "jump",
@@ -170,6 +171,13 @@ export function legalActions(
   if ((entry.behind ?? 0) > 0) {
     actions.push("update");
   }
+  if (entry.contained_in !== undefined) {
+    // A spent train stage: its commits travel inside a live branch, so the
+    // checkout is reclaimable while the branch ref stays. Offered, never
+    // automatic — the action collects an explicit confirmation naming what is
+    // kept and what is destroyed.
+    actions.push("reclaim");
+  }
   if (scripts.length > 0) {
     actions.push("scripts");
   }
@@ -241,6 +249,9 @@ export function rowSummary(
     parts.push("Gate passed");
   } else if (entry.clean === true && ahead > 0) {
     parts.push("Awaiting gate");
+  }
+  if (entry.contained_in !== undefined) {
+    parts.push(`Contained in ${entry.contained_in}`);
   }
   if (entry.clean === false) {
     const changed = entry.changed_files;

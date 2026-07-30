@@ -105,6 +105,10 @@ import {
   resolveWorktreeId,
 } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
+import {
+  containmentIdleCheck,
+  scanContainedWorktrees,
+} from "../worktree/containment.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import {
   colorEnabled,
@@ -408,6 +412,24 @@ export async function statusResult(
         );
       }),
     );
+    // The containment fact, carried as advisory colour: a row whose committed
+    // work travels inside a live sibling branch (the spent early stage of a
+    // `start --from` train) names its container. The desk reads this to offer
+    // the human-confirmed reclaim; nothing acts on it here.
+    if (fleet.some((e) => !e.is_main)) {
+      const contained = await scanContainedWorktrees(root, {
+        mainBranch,
+        currentPath: here,
+        fleet: fleetRows,
+        idle: containmentIdleCheck(logbookActivity, nowMs),
+      });
+      for (const fact of contained) {
+        const row = fleet.find((e) => e.path === fact.path);
+        if (row !== undefined) {
+          row.contained_in = fact.containingBranch;
+        }
+      }
+    }
     data.fleet = fleet;
     // Cross-worktree changed-file collisions — the one fleet fact no single
     // row can carry: pairs of efforts whose fork diffs touch the same paths.

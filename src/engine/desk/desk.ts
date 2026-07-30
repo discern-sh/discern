@@ -48,6 +48,7 @@ import {
   update,
   worktreeDrop,
   WorktreeGitError,
+  worktreeReclaimContained,
 } from "../worktree/lifecycle.ts";
 import { mainRepoPath } from "../worktree/git.ts";
 import { runGit } from "../../shared/subprocess.ts";
@@ -132,6 +133,7 @@ export interface DeskRuntime {
     target: string,
     opts: { dryRun?: boolean; force?: boolean },
   ): DeskMaybePromise<void>;
+  reclaim(ctx: LifecycleContext, target: string): DeskMaybePromise<void>;
   git(
     args: string[],
     cwd: string,
@@ -258,6 +260,9 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   accept: (ctx, opts) => accept(ctx, opts),
   update: (ctx, opts) => update(ctx, opts),
   drop: (ctx, target, opts) => worktreeDrop(ctx, target, opts),
+  reclaim: async (ctx, target) => {
+    await worktreeReclaimContained(ctx, target);
+  },
   git: (args, cwd) => runGit(args, { cwd }),
   interactive: (command, args, cwd, env) =>
     runDeskInteractiveChild(command, args, cwd, env),
@@ -316,7 +321,11 @@ async function loadWorktreeConfig(
 }
 
 /** The human label for a row action in the menu. */
-function actionLabel(action: DeskAction, trunk: string): string {
+function actionLabel(
+  action: DeskAction,
+  trunk: string,
+  containedIn?: string,
+): string {
   switch (action) {
     case "accept":
       return `Accept and land on ${trunk}`;
@@ -326,6 +335,10 @@ function actionLabel(action: DeskAction, trunk: string): string {
       return "Revoke landing pre-authorization";
     case "update":
       return `Update branch from ${trunk}`;
+    case "reclaim":
+      return `Reclaim checkout, keep branch (work contained in ${
+        containedIn ?? "a live branch"
+      })`;
     case "scripts":
       return "Run a Project Script";
     case "agent":
@@ -666,6 +679,35 @@ async function dispatchAction(
       await runtime.pause(out);
       return true;
     }
+    case "reclaim": {
+      // The reclaim confirmation is the whole consent: it names the specific
+      // worktree, what is kept (the branch ref — the work travels inside its
+      // containing branch), and what is destroyed (the checkout and its
+      // per-worktree state, gate receipt included, so a sibling's
+      // `await --green` on this branch can no longer resolve).
+      echoCommand(
+        out,
+        `discern worktree prune --contained  (reclaims ${target})`,
+      );
+      const containedIn = row.entry.contained_in ?? "a live branch";
+      if (
+        !(await runtime.confirm(
+          `Reclaim ${target}? Branch ${row.entry.branch} is KEPT (its commits ` +
+            `are contained in ${containedIn}); the checkout and its ` +
+            `per-worktree state — gate receipt included — are destroyed.`,
+          false,
+        ))
+      ) {
+        return false;
+      }
+      const ctx = await runtime.lifecycle(root);
+      await runtime.reclaim(ctx, target);
+      out.ok(
+        `Reclaimed ${target}. Branch ${row.entry.branch} kept — it lands with ${containedIn} and self-cleans on the next prune.`,
+      );
+      await runtime.pause(out);
+      return true;
+    }
     case "drop": {
       echoCommand(out, `discern worktree drop ${target}`);
       const ctx = await runtime.lifecycle(root);
@@ -824,7 +866,7 @@ async function actOn(
   while (true) {
     const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
       ...row.actions.map((a) => ({
-        name: actionLabel(a, config.repository.trunk),
+        name: actionLabel(a, config.repository.trunk, row.entry.contained_in),
         value: a as string,
       })),
       Select.separator(

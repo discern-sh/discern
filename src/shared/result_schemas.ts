@@ -801,6 +801,12 @@ const statusFleetEntrySchema = z.strictObject({
   last_action: statusFleetLastActionSchema.optional(),
   /** A fresh effectful begin event with no paired completion. */
   running: statusFleetRunningSchema.optional(),
+  /** Present when this worktree is CONTAINED: clean, idle, and its branch tip
+   * a strict ancestor of the named live branch's tip — the spent early stage
+   * of a `start --from` train. Advisory colour only: reclaiming the checkout
+   * stays a human-confirmed action (`worktree prune --contained` or the
+   * desk), and the branch ref is always kept. */
+  contained_in: z.string().optional(),
   /** Present (true) when git could not run inside this worktree (a missing
    * directory, a corrupted gitlink, a permission refusal): its state is
    * UNKNOWN, so the per-checkout git fields are absent rather than fabricated —

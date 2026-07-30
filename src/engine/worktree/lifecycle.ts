@@ -4076,6 +4076,53 @@ async function reclaimContainedWorktrees(
   return result;
 }
 
+/**
+ * Reclaim ONE contained worktree by id (directory basename) or path — the
+ * desk's per-worktree action. Runs the same containment scan the prune offer
+ * uses and refuses a target that does not qualify right now, so the desk can
+ * never reclaim past the predicate. The caller collects the explicit human
+ * confirmation FIRST — this core is the act, never the offer — and the branch
+ * ref is never deleted.
+ */
+export async function worktreeReclaimContained(
+  ctx: LifecycleContext,
+  target: string,
+): Promise<ContainedWorktree> {
+  await assertOpSide("worktree-prune", ctx.cwd);
+  const wanted = target.trim().replace(/\/+$/, "");
+  if (wanted === "") {
+    throw new WorktreeGitError(
+      "Reclaiming needs a target. Pass a worktree id or path, then re-run.",
+    );
+  }
+  const wantedAbs = isAbsolute(wanted) || wanted.includes("/")
+    ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
+    : undefined;
+  const facts = await pruneContainedScan(ctx);
+  const match = facts.find((f) =>
+    f.path === wantedAbs || basename(f.path) === wanted
+  );
+  if (match === undefined) {
+    throw new WorktreeGitError(
+      `Worktree '${target}' is not a contained candidate right now. A candidate ` +
+        `is clean, idle, and its branch tip is strictly contained in another ` +
+        `live branch. Review the fleet with \`discern worktree prune --dry-run\`, ` +
+        `then re-run.`,
+    );
+  }
+  const result = await reclaimContainedWorktrees(ctx, [match]);
+  if (result.reclaimed.length !== 1) {
+    const skippedReason = result.skipped[0]?.reason;
+    throw new WorktreeGitError(
+      skippedReason !== undefined
+        ? `Reclaim skipped ${match.path}: ${skippedReason}. Nothing was removed.`
+        : `Reclaim failed for ${match.path}. Review the error above, fix its ` +
+          `cause, then re-run.`,
+    );
+  }
+  return match;
+}
+
 /** Map the real prune/sweep/GC/reclaim outcomes to `--json` step results. */
 function pruneResults(
   prune: {

@@ -161,6 +161,7 @@ function scriptedRuntime(
     accept: () => {},
     update: () => {},
     drop: () => {},
+    reclaim: () => {},
     git: () => ({ success: true, stdout: "", stderr: "" }),
     interactive: () => 0,
     detectAgents: () => [],
