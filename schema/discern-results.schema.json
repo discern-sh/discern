@@ -9583,7 +9583,7 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
-                    "landings": {
+                    "shipped": {
                       "type": "object",
                       "properties": {
                         "count": {
@@ -9612,6 +9612,11 @@
                           "maximum": 9007199254740991
                         },
                         "commits": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "cleanups": {
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
@@ -9657,7 +9662,7 @@
                             "day": {
                               "type": "string"
                             },
-                            "landings": {
+                            "shipped": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -9665,10 +9670,10 @@
                           },
                           "required": [
                             "day",
-                            "landings"
+                            "shipped"
                           ]
                         },
-                        "longest_daily_streak": {
+                        "longest_streak": {
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
@@ -9681,7 +9686,8 @@
                         "deletions",
                         "files",
                         "commits",
-                        "longest_daily_streak"
+                        "cleanups",
+                        "longest_streak"
                       ]
                     },
                     "gate": {
@@ -9743,7 +9749,17 @@
                     "cycles": {
                       "type": "object",
                       "properties": {
+                        "started": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
                         "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "under_day": {
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
@@ -9756,7 +9772,9 @@
                         }
                       },
                       "required": [
+                        "started",
                         "completed",
+                        "under_day",
                         "median_hours",
                         "fastest_hours"
                       ]
@@ -9839,7 +9857,7 @@
                     }
                   },
                   "required": [
-                    "landings",
+                    "shipped",
                     "gate",
                     "ratchet",
                     "breadth"

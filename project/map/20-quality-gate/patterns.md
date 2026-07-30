@@ -37,7 +37,7 @@ The closing account names clear and young detectors. `--json` keeps findings ran
 
 An empty logbook is a normal state: the report says so and suggests checking back. A repository that never recorded (or opted out with `[project].logbook = false`) still gets a readable answer.
 
-`discern patterns --brag` reads the same logbook for what went well and renders [bragging rights](bragging-rights.md) instead of the detector report: landings, green streaks, cycle times, and tightened limits, as one shareable card of plain counts.
+`discern patterns --brag` reads the same logbook for what went well and renders [bragging rights](bragging-rights.md) instead of the detector report: changes shipped, green streaks, cycle times, and tightened limits, as one shareable card of plain counts.
 
 ## What the detectors watch
 

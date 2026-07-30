@@ -533,7 +533,7 @@ export function attachEngineCommands(
     )
     .option(
       "--brag",
-      "Report bragging rights instead: landings, green streaks, cycle times, and " +
+      "Report bragging rights instead: changes shipped, green streaks, cycle times, and " +
         "tightened limits, counted from the same local evidence. With --json, " +
         "the counts join the result as data.brag.",
     )

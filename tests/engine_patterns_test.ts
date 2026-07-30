@@ -692,16 +692,17 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     assertEquals(parsed.ok, true);
     const brag = (parsed.data as PatternsData).brag;
     assert(brag !== undefined, "the flag must carry data.brag");
-    assertEquals(brag.landings, {
+    assertEquals(brag.shipped, {
       count: 2,
       branches: 2,
       insertions: 130,
       deletions: 30,
       files: 3,
       commits: 4,
+      cleanups: 0,
       biggest: { branch: "agent/b1", lines: 150, files: 2, day: "2026-07-01" },
-      best_day: { day: "2026-07-01", landings: 2 },
-      longest_daily_streak: 1,
+      best_day: { day: "2026-07-01", shipped: 2 },
+      longest_streak: 1,
     });
     assertEquals(brag.gate, {
       runs: 3,
@@ -713,7 +714,9 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       check_hours: 3,
     });
     assertEquals(brag.cycles, {
+      started: 2,
       completed: 2,
+      under_day: 2,
       median_hours: 2.5,
       fastest_hours: 2,
     });
@@ -739,25 +742,32 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     for (const label of Object.values(BRAG_SECTIONS)) {
       assertStringIncludes(card, label);
     }
+    assertStringIncludes(card, "2 changes shipped from 2 branches · 4 commits");
     assertStringIncludes(
       card,
-      "2 landings on 2 branches · +130 −30 across 3 files · 4 commits",
+      "+130 −30 across 3 files · 4.3 lines added per line removed",
     );
     assertStringIncludes(
       card,
       "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
     );
+    assertStringIncludes(card, "best day: 2026-07-01 · 2 shipped");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
+    assertStringIncludes(
+      card,
+      "1 red run stopped at the gate · it never shipped",
+    );
     assertStringIncludes(
       card,
       "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
     );
     assertStringIncludes(card, "█", "the proportion meters render");
     assertStringIncludes(card, "░");
+    assertStringIncludes(card, "2 of 2 starts went on to ship (100%)");
     assertStringIncludes(
       card,
-      "2 start-to-accept cycles · median 2.5h · fastest 2h",
+      "2 start-to-accept cycles · median 2.5h · fastest 2h · 2 inside a day",
     );
     assertStringIncludes(
       card,
@@ -788,7 +798,7 @@ Deno.test("patterns --brag: an empty logbook renders the empty state, and the wi
     const brag = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
       .data as PatternsData).brag;
     assert(brag !== undefined);
-    assertEquals(brag.landings.count, 0);
+    assertEquals(brag.shipped.count, 0);
     assertEquals(brag.gate.runs, 0);
     assertEquals(brag.cycles, undefined);
   });

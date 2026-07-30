@@ -152,20 +152,23 @@ export const PatternsBragSchema = z.strictObject({
   /** Whole days each cadence-series point covers (the last point may cover
    * fewer). Present exactly when any series is. */
   series_days_per_point: z.number().int().optional(),
-  /** Successful `accept` runs — work that landed on the trunk. Sums read from
-   * each landing's recorded change scale; a landing recorded without one
+  /** Successful `accept` runs — changes shipped to the trunk. Sums read from
+   * each shipped change's recorded scale; a change recorded without one
    * still counts, contributing zero to the sums. */
-  landings: z.strictObject({
+  shipped: z.strictObject({
     count: z.number().int(),
     branches: z.number().int(),
     insertions: z.number().int(),
     deletions: z.number().int(),
     files: z.number().int(),
     commits: z.number().int(),
-    /** Landings per series point across the span. */
+    /** Shipped changes whose recorded scale removed more lines than it
+     * added. */
+    cleanups: z.number().int(),
+    /** Changes shipped per series point across the span. */
     per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
       .optional(),
-    /** The largest single landing by changed lines, when any landing carried
+    /** The largest single shipped change by changed lines, when any carried
      * a change scale. `branch` is absent when the event recorded none. */
     biggest: z.strictObject({
       branch: z.string().optional(),
@@ -173,13 +176,15 @@ export const PatternsBragSchema = z.strictObject({
       files: z.number().int(),
       day: z.string(),
     }).optional(),
-    /** The UTC day with the most landings (earliest such day on a tie). */
+    /** The UTC day with the most changes shipped (earliest such day on a
+     * tie). */
     best_day: z.strictObject({
       day: z.string(),
-      landings: z.number().int(),
+      shipped: z.number().int(),
     }).optional(),
-    /** Longest run of consecutive UTC days each holding a landing. */
-    longest_daily_streak: z.number().int(),
+    /** Longest run of consecutive UTC days each shipping at least one
+     * change. */
+    longest_streak: z.number().int(),
   }),
   /** `done` runs — the full gate. Streaks count consecutive `done` runs in
    * stream order across all branches; `check_hours` sums wall-clock time
@@ -199,7 +204,12 @@ export const PatternsBragSchema = z.strictObject({
   /** Completed start-to-accept cycles, matched the same way the funnel
    * detector matches them. Present once at least one cycle completed. */
   cycles: z.strictObject({
+    /** Successful `start` runs that created a branch — the population the
+     * completed cycles are drawn from. */
+    started: z.number().int(),
     completed: z.number().int(),
+    /** Completed cycles that finished inside 24 hours. */
+    under_day: z.number().int(),
     median_hours: z.number(),
     fastest_hours: z.number(),
   }).optional(),

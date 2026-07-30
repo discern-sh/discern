@@ -65,6 +65,7 @@ import { computeBrag } from "./brag.ts";
 import {
   buildStreamFacts,
   inclusiveSpanDays,
+  round1,
   runDetectors,
   type StreamFacts,
   TRAJECTORY_BOUNDARY_ATTRIBUTION,
@@ -659,7 +660,7 @@ function meterRow(c: Palette, fraction: number, text: string): string {
   return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
 }
 
-/** Cadence label beside a sparkline — "landings per day", or the folded form
+/** Cadence label beside a sparkline — "shipped per day", or the folded form
  * once the span outgrew the wire cap. */
 function cadenceLabel(unit: string, daysPerPoint: number): string {
   return daysPerPoint <= 1
@@ -704,31 +705,47 @@ function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
   return parts.join(" · ");
 }
 
-/** The shipped section: landings and their recorded scale. A single landing
- * keeps the card quiet about "biggest" and "best day" — with one member,
- * both would restate the landing itself. Records read in yellow; the daily
- * run is a streak, so it reads in green. */
+/** The shipped section: changes shipped and their recorded scale. A single
+ * shipped change keeps the card quiet about "biggest" and "best day" — with
+ * one member, both would restate the change itself. Records read in yellow;
+ * the shipping streak reads in green. */
 function bragShippedRows(
-  landings: PatternsBrag["landings"],
+  shipped: PatternsBrag["shipped"],
   c: Palette,
 ): string[] {
-  if (landings.count === 0) {
-    return ["No landings yet."];
+  if (shipped.count === 0) {
+    return ["Nothing shipped yet."];
   }
-  const scale = landings.insertions + landings.deletions > 0
-    ? ` · +${formatHumanNumber(landings.insertions)} −${
-      formatHumanNumber(landings.deletions)
-    } across ${plural(landings.files, "file")} · ${
-      plural(landings.commits, "commit")
-    }`
-    : "";
   const rows = [
-    `${c.bold}${plural(landings.count, "landing")}${c.reset} on ${
-      plural(landings.branches, "branch", "branches")
-    }${scale}`,
+    `${c.bold}${plural(shipped.count, "change")} shipped${c.reset} from ${
+      plural(shipped.branches, "branch", "branches")
+    }${shipped.commits > 0 ? ` · ${plural(shipped.commits, "commit")}` : ""}`,
   ];
-  if (landings.count > 1) {
-    const biggest = landings.biggest;
+  if (shipped.insertions + shipped.deletions > 0) {
+    const ratio = shipped.deletions > 0
+      ? round1(shipped.insertions / shipped.deletions)
+      : undefined;
+    rows.push(
+      `+${formatHumanNumber(shipped.insertions)} −${
+        formatHumanNumber(shipped.deletions)
+      } across ${plural(shipped.files, "file")}${
+        ratio !== undefined
+          ? ` · ${formatHumanNumber(ratio)} ${
+            ratio === 1 ? "line" : "lines"
+          } added per line removed`
+          : ""
+      }`,
+    );
+  }
+  if (shipped.cleanups > 0) {
+    rows.push(
+      `${formatHumanNumber(shipped.cleanups)} of ${
+        formatHumanNumber(shipped.count)
+      } removed more lines than they added`,
+    );
+  }
+  if (shipped.count > 1) {
+    const biggest = shipped.biggest;
     if (biggest !== undefined) {
       rows.push(
         `biggest: ${
@@ -738,15 +755,15 @@ function bragShippedRows(
         } (${biggest.day})`,
       );
     }
-    const best = landings.best_day;
+    const best = shipped.best_day;
     if (best !== undefined) {
       rows.push(
         `best day: ${best.day} · ${c.yellow}${
-          plural(best.landings, "landing")
-        }${c.reset}${
-          landings.longest_daily_streak > 1
-            ? ` · longest daily run ${c.green}${
-              plural(landings.longest_daily_streak, "day")
+          formatHumanNumber(best.shipped)
+        } shipped${c.reset}${
+          shipped.longest_streak > 1
+            ? ` · longest streak ${c.green}${
+              plural(shipped.longest_streak, "day")
             }${c.reset}`
             : ""
         }`,
@@ -757,8 +774,8 @@ function bragShippedRows(
 }
 
 /** The gate section: the green share and first-try share as meter rows with
- * their denominators, then streaks and check time. Streaks of one stay off
- * the card. */
+ * their denominators, red runs reframed as the gate's saves, then streaks
+ * and check time. Streaks of one stay off the card. */
 function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
@@ -785,6 +802,14 @@ function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
           percent(gate.first_try_green_branches, gate.gated_branches)
         })`,
       ),
+    );
+  }
+  const reds = gate.runs - gate.greens;
+  if (reds > 0) {
+    rows.push(
+      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate · ${
+        reds === 1 ? "it never shipped" : "none of them shipped"
+      }`,
     );
   }
   const tail: string[] = [];
@@ -815,25 +840,58 @@ function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
   return rows;
 }
 
-/** The pace section's one row, or nothing before the first completed cycle.
- * The fastest cycle is a record, so it reads in yellow. */
-function bragPaceRow(
-  cycles: PatternsBrag["cycles"],
-  c: Palette,
-): string | undefined {
-  if (cycles === undefined) {
-    return undefined;
+/** An every-N interval in hours, shifting to days once hours stop reading
+ * well. */
+function everyLabel(hours: number): string {
+  return hours < 48
+    ? `${formatHumanNumber(round1(hours))}h`
+    : `${plural(round1(hours / 24), "day")}`;
+}
+
+/** The pace section: how many starts went on to ship (a meter row), the
+ * completed cycles with their times, and the span-wide shipping cadence.
+ * Empty before the first completed cycle on a one-day span. The fastest
+ * cycle is a record, so it reads in yellow. */
+function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
+  const rows: string[] = [];
+  const cycles = brag.cycles;
+  if (cycles !== undefined) {
+    rows.push(
+      meterRow(
+        c,
+        cycles.completed / cycles.started,
+        `${c.green}${formatHumanNumber(cycles.completed)}${c.reset} of ${
+          plural(cycles.started, "start")
+        } went on to ship (${percent(cycles.completed, cycles.started)})`,
+      ),
+    );
+    if (cycles.completed === 1) {
+      rows.push(
+        `1 start-to-accept cycle · ${formatHumanNumber(cycles.fastest_hours)}h`,
+      );
+    } else {
+      rows.push(
+        `${plural(cycles.completed, "start-to-accept cycle")} · median ${
+          formatHumanNumber(cycles.median_hours)
+        }h · fastest ${c.yellow}${
+          formatHumanNumber(cycles.fastest_hours)
+        }h${c.reset}${
+          cycles.under_day > 0
+            ? ` · ${formatHumanNumber(cycles.under_day)} inside a day`
+            : ""
+        }`,
+      );
+    }
   }
-  if (cycles.completed === 1) {
-    return `1 start-to-accept cycle · ${
-      formatHumanNumber(cycles.fastest_hours)
-    }h`;
+  const shipped = brag.shipped;
+  if (shipped.count > 1 && brag.breadth.span_days > 1) {
+    rows.push(
+      `a change shipped every ${
+        everyLabel((brag.breadth.span_days * 24) / shipped.count)
+      } across the span`,
+    );
   }
-  return `${plural(cycles.completed, "start-to-accept cycle")} · median ${
-    formatHumanNumber(cycles.median_hours)
-  }h · fastest ${c.yellow}${
-    formatHumanNumber(cycles.fastest_hours)
-  }h${c.reset}`;
+  return rows;
 }
 
 /** The breadth section: branches driven, active days, the busiest day. */
@@ -854,7 +912,8 @@ function bragBreadthRow(
 }
 
 /** One card section: a bold label — carrying its cyan cadence sparkline when
- * the span has one — then its wrapped stat rows. */
+ * the span has one — then its wrapped stat rows, then a blank line so the
+ * groups read apart. */
 function bragSection(
   out: Out,
   width: number,
@@ -872,6 +931,7 @@ function bragSection(
   for (const row of rows) {
     writeWrapped(out, "    ", row, width);
   }
+  out.raw("\n");
 }
 
 /** Render the bragging-rights card: the practice's countable feats, each
@@ -901,8 +961,8 @@ function renderBragReport(
     out,
     width,
     BRAG_SECTIONS.shipped,
-    bragShippedRows(brag.landings, c),
-    bragSpark(brag.landings.per_day, cadenceLabel("landings", daysPerPoint)),
+    bragShippedRows(brag.shipped, c),
+    bragSpark(brag.shipped.per_day, cadenceLabel("shipped", daysPerPoint)),
   );
   bragSection(
     out,
@@ -914,9 +974,9 @@ function renderBragReport(
       cadenceLabel("green runs", daysPerPoint),
     ),
   );
-  const pace = bragPaceRow(brag.cycles, c);
-  if (pace !== undefined) {
-    bragSection(out, width, BRAG_SECTIONS.pace, [pace]);
+  const pace = bragPaceRows(brag, c);
+  if (pace.length > 0) {
+    bragSection(out, width, BRAG_SECTIONS.pace, pace);
   }
   if (brag.ratchet.pins > 0) {
     bragSection(out, width, BRAG_SECTIONS.standards, [
@@ -937,7 +997,6 @@ function renderBragReport(
         : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
     ),
   );
-  out.raw("\n");
   writeWrapped(
     out,
     "  ",

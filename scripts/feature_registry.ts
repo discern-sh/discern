@@ -1475,7 +1475,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "patterns",
         title: "Patterns",
         what:
-          "`discern patterns` mines the logbook with a registry of named detectors across behavior loops, gate fit, funnel flow, and standard trajectories — done-thrash, refusal loops, ignored update advice, abandoned worktrees, duration creep, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence threshold it reports insufficient evidence, and `patterns reset` deletes the recorded history. `patterns --brag` reads the same logbook for what went well — landings and their scale, green-gate streaks, start-to-accept cycle times, tightened limits — and reports bragging rights in the same plain counts, for the owner to share; nothing is scored or compared.",
+          "`discern patterns` mines the logbook with a registry of named detectors across behavior loops, gate fit, funnel flow, and standard trajectories — done-thrash, refusal loops, ignored update advice, abandoned worktrees, duration creep, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence threshold it reports insufficient evidence, and `patterns reset` deletes the recorded history. `patterns --brag` reads the same logbook for what went well — changes shipped and their scale, green-gate streaks, start-to-accept cycle times, tightened limits — and reports bragging rights in the same plain counts, for the owner to share; nothing is scored or compared.",
         why:
           "Recurring workflow failures surface as counted findings instead of anecdotes.",
         plain: {

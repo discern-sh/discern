@@ -1,6 +1,6 @@
 ---
 title: Bragging rights
-description: Read the logbook for what went well — landings, green streaks, cycle times, and tightened limits — as one shareable card of plain counts.
+description: Read the logbook for what went well — changes shipped, green streaks, cycle times, and tightened limits — as one shareable card of plain counts.
 order: 120
 aliases:
   - discern patterns --brag
@@ -19,17 +19,17 @@ discern patterns --brag
 
 ## What the card counts
 
-| Section   | Counts                                                                                                                                                    |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shipped   | Landings and the branches they landed from; inserted and deleted lines, files, and commits; the biggest landing; the best day; the longest daily run.     |
-| The gate  | `done` runs and greens, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`. |
-| Pace      | Completed start-to-accept cycles, with the median and fastest times.                                                                                      |
-| Standards | Limits tightened, and how many standards they cover.                                                                                                      |
-| Breadth   | Branches driven, active days against the span, and the day the most branches were active at once.                                                         |
+| Section   | Counts                                                                                                                                                                                          |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Shipped   | Changes shipped and the branches they came from; lines added and removed with their ratio; the changes that removed more than they added; the biggest change; the best day; the longest streak. |
+| The gate  | `done` runs and greens, the red runs the gate stopped, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`.        |
+| Pace      | Starts that went on to ship, completed start-to-accept cycles with the median and fastest times and how many finished inside a day, and how often a change shipped across the span.             |
+| Standards | Limits tightened, and how many standards they cover.                                                                                                                                            |
+| Breadth   | Branches driven, active days against the span, and the day the most branches were active at once.                                                                                               |
 
-A landing is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them.
+A shipped change is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them.
 
-Once the span holds 2 days, cadence sparklines sit beside the Shipped, gate, and Breadth headings — landings, green runs, and active branches per day — and the gate's two shares render as filled bars beside their denominators. The same series are in the JSON (`per_day`, `greens_per_day`, `branches_per_day`), capped at 24 points; a longer span folds whole days into each point and states the fold in `series_days_per_point`.
+Once the span holds 2 days, cadence sparklines sit beside the Shipped, gate, and Breadth headings — changes shipped, green runs, and active branches per day — and the shares render as filled bars beside their denominators. The same series are in the JSON (`per_day`, `greens_per_day`, `branches_per_day`), capped at 24 points; a longer span folds whole days into each point and states the fold in `series_days_per_point`.
 
 ## The rules of the surface
 
@@ -37,7 +37,7 @@ Every number is a count or duration from the same analysis population the detect
 
 `--json` carries the counts as `data.brag`, and over MCP `discern_patterns` takes `brag: true`. Without the flag the payload carries no brag key at all.
 
-A single landing keeps `biggest` and `best day` off the card, since either would restate the landing itself, and streaks of one stay quiet. An empty logbook says there is nothing to brag about yet and suggests checking back.
+A single shipped change keeps `biggest` and `best day` off the card, since either would restate the change itself, and streaks of one stay quiet. An empty logbook says there is nothing to brag about yet and suggests checking back.
 
 ## Where it lives in code
 

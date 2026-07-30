@@ -1,9 +1,9 @@
 /**
  * Brag-reader unit tests — {@link computeBrag} driven over synthetic streams,
  * proving every number on the card is the plain count it claims to be:
- * landings and their recorded scale, gate streaks in stream order, first-try
- * greens per branch, start-to-accept cycles matched the way the funnel
- * detector matches them, the pin ratchet, and breadth. The reader shares the
+ * changes shipped and their recorded scale, gate streaks in stream order,
+ * first-try greens per branch, start-to-accept cycles matched the way the
+ * funnel detector matches them, the pin ratchet, and breadth. The reader shares the
  * detectors' analysis population, so CI runs, previews, and setup-era events
  * must never reach a feat.
  */
@@ -73,25 +73,25 @@ function brag(events: LogbookEvent[]): PatternsBrag {
   return computeBrag(buildStreamFacts(events, "main"));
 }
 
-Deno.test("brag: landings count successful accepts and sum their recorded scale", () => {
+Deno.test("brag: shipped counts successful accepts and sums their recorded scale", () => {
   const b = brag(run([
     {
       verb: "accept",
       branch: "agent/a",
       change: { files: 3, insertions: 100, deletions: 20, commits: 2 },
     },
-    // A landing recorded without a change scale still counts, adding zero.
+    // An accept recorded without a change scale still counts, adding zero.
     { verb: "accept", branch: "agent/b" },
-    // A red accept is not a landing.
+    // A red accept never ships.
     { verb: "accept", branch: "agent/c", outcome: "failed" },
   ]));
-  assertEquals(b.landings.count, 2);
-  assertEquals(b.landings.branches, 2);
-  assertEquals(b.landings.insertions, 100);
-  assertEquals(b.landings.deletions, 20);
-  assertEquals(b.landings.files, 3);
-  assertEquals(b.landings.commits, 2);
-  assertEquals(b.landings.biggest, {
+  assertEquals(b.shipped.count, 2);
+  assertEquals(b.shipped.branches, 2);
+  assertEquals(b.shipped.insertions, 100);
+  assertEquals(b.shipped.deletions, 20);
+  assertEquals(b.shipped.files, 3);
+  assertEquals(b.shipped.commits, 2);
+  assertEquals(b.shipped.biggest, {
     branch: "agent/a",
     lines: 120,
     files: 3,
@@ -99,7 +99,29 @@ Deno.test("brag: landings count successful accepts and sum their recorded scale"
   });
 });
 
-Deno.test("brag: the biggest landing is by changed lines, and a branch-less event carries no branch", () => {
+Deno.test("brag: cleanups count shipped changes that removed more lines than they added", () => {
+  const b = brag(run([
+    {
+      verb: "accept",
+      branch: "agent/prune",
+      change: { files: 2, insertions: 5, deletions: 40, commits: 1 },
+    },
+    {
+      verb: "accept",
+      branch: "agent/grow",
+      change: { files: 2, insertions: 40, deletions: 5, commits: 1 },
+    },
+    // A wash is not a cleanup.
+    {
+      verb: "accept",
+      branch: "agent/even",
+      change: { files: 1, insertions: 7, deletions: 7, commits: 1 },
+    },
+  ]));
+  assertEquals(b.shipped.cleanups, 1);
+});
+
+Deno.test("brag: the biggest shipped change is by changed lines, and a branch-less event carries no branch", () => {
   const b = brag(run([
     {
       verb: "accept",
@@ -112,16 +134,16 @@ Deno.test("brag: the biggest landing is by changed lines, and a branch-less even
       change: { files: 9, insertions: 400, deletions: 100, commits: 4 },
     },
   ]));
-  assertEquals(b.landings.count, 2);
-  assertEquals(b.landings.branches, 1, "a null branch never mints a branch");
-  assertEquals(b.landings.biggest, {
+  assertEquals(b.shipped.count, 2);
+  assertEquals(b.shipped.branches, 1, "a null branch never mints a branch");
+  assertEquals(b.shipped.biggest, {
     lines: 500,
     files: 9,
     day: "2026-07-01",
   });
 });
 
-Deno.test("brag: the best day and the daily streak read UTC calendar days, ties to the earliest", () => {
+Deno.test("brag: the best day and the shipping streak read UTC calendar days, ties to the earliest", () => {
   const accept = (hours: number): Partial<VerbEvent> => ({
     verb: "accept",
     at: t(hours),
@@ -131,10 +153,10 @@ Deno.test("brag: the best day and the daily streak read UTC calendar days, ties 
     accept(2), // 2026-07-01 × 2
     accept(25),
     accept(26), // 2026-07-02 × 2 — a tie the earliest day wins
-    accept(73), // 2026-07-04 — the gap ends the daily streak
+    accept(73), // 2026-07-04 — the gap ends the streak
   ]));
-  assertEquals(b.landings.best_day, { day: "2026-07-01", landings: 2 });
-  assertEquals(b.landings.longest_daily_streak, 2);
+  assertEquals(b.shipped.best_day, { day: "2026-07-01", shipped: 2 });
+  assertEquals(b.shipped.longest_streak, 2);
 });
 
 Deno.test("brag: gate streaks run in stream order and the current streak reads from the tail", () => {
@@ -192,10 +214,15 @@ Deno.test("brag: cycles match a start's created branch to the first later accept
     { verb: "accept", branch: "agent/orphan" }, // t(3)
     { verb: "start", branch: "main", target: "agent/orphan" }, // t(4)
     { verb: "accept", branch: "agent/slow" }, // t(5) → 4h
+    { verb: "start", branch: "main", target: "agent/marathon", at: t(6) },
+    // 30h later — a completed cycle, but not one inside a day.
+    { verb: "accept", branch: "agent/marathon", at: t(36) },
   ]));
   assertEquals(b.cycles, {
-    completed: 2,
-    median_hours: 3,
+    started: 4,
+    completed: 3,
+    under_day: 2,
+    median_hours: 4,
     fastest_hours: 2,
   });
 });
@@ -249,7 +276,7 @@ Deno.test("brag: cadence series cover the span's calendar days, zero-filled", ()
     },
   ]));
   assertEquals(b.series_days_per_point, 1);
-  assertEquals(b.landings.per_day, [2, 0, 1]);
+  assertEquals(b.shipped.per_day, [2, 0, 1]);
   assertEquals(b.gate.greens_per_day, [1, 0, 0], "a red day is not a green");
   assertEquals(b.breadth.branches_per_day, [1, 0, 1]);
 });
@@ -257,7 +284,7 @@ Deno.test("brag: cadence series cover the span's calendar days, zero-filled", ()
 Deno.test("brag: a one-day span carries no cadence series", () => {
   const b = brag(run([{ verb: "accept" }, { verb: "done" }]));
   assertEquals(b.series_days_per_point, undefined);
-  assertEquals(b.landings.per_day, undefined);
+  assertEquals(b.shipped.per_day, undefined);
   assertEquals(b.gate.greens_per_day, undefined);
   assertEquals(b.breadth.branches_per_day, undefined);
 });
@@ -270,8 +297,8 @@ Deno.test("brag: a span past the wire cap folds whole days per point — sums fo
     { verb: "done", branch: "agent/x", at: t(24 * 47) },
   ]));
   assertEquals(b.series_days_per_point, 2);
-  assertEquals(b.landings.per_day?.length, 24);
-  assertEquals(b.landings.per_day?.[0], 2, "a point sums its days' landings");
+  assertEquals(b.shipped.per_day?.length, 24);
+  assertEquals(b.shipped.per_day?.[0], 2, "a point sums its days' ships");
   assertEquals(
     b.breadth.branches_per_day?.[0],
     1,
@@ -288,21 +315,22 @@ Deno.test("brag: CI runs, previews, and setup-era events never reach a feat", ()
     { verb: "accept", dry_run: true },
     { verb: "done", branch: SETUP_BRANCH },
   ]));
-  assertEquals(b.landings.count, 0);
+  assertEquals(b.shipped.count, 0);
   assertEquals(b.gate.runs, 0);
   assertEquals(b.breadth.branches, 0);
 });
 
 Deno.test("brag: an empty stream produces a card of zeros, not an error", () => {
   const b = brag([]);
-  assertEquals(b.landings, {
+  assertEquals(b.shipped, {
     count: 0,
     branches: 0,
     insertions: 0,
     deletions: 0,
     files: 0,
     commits: 0,
-    longest_daily_streak: 0,
+    cleanups: 0,
+    longest_streak: 0,
   });
   assertEquals(b.gate, {
     runs: 0,

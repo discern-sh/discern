@@ -1,8 +1,8 @@
 /**
  * The `--brag` reader — bragging rights, computed from the logbook. Where the
  * detector registry (`detectors.ts`) looks for what needs attention, this
- * module counts what went well: landings and their scale, green-gate streaks,
- * completed cycles, tightened limits, and how wide the practice ran.
+ * module counts what went well: changes shipped and their scale, green-gate
+ * streaks, completed cycles, tightened limits, and how wide the practice ran.
  *
  * Rules of the surface:
  *
@@ -161,11 +161,13 @@ function peakDay(
   return peak;
 }
 
-/** Landings and their recorded scale ({@link PatternsBrag}, `landings`). */
-function landingFeats(landings: VerbEvent[]): PatternsBrag["landings"] {
+/** Shipped changes and their recorded scale ({@link PatternsBrag},
+ * `shipped`). */
+function shippedFeats(shipped: VerbEvent[]): PatternsBrag["shipped"] {
   const sums = { insertions: 0, deletions: 0, files: 0, commits: 0 };
-  let biggest: NonNullable<PatternsBrag["landings"]["biggest"]> | undefined;
-  for (const e of landings) {
+  let cleanups = 0;
+  let biggest: NonNullable<PatternsBrag["shipped"]["biggest"]> | undefined;
+  for (const e of shipped) {
     if (e.change === undefined) {
       continue;
     }
@@ -173,6 +175,9 @@ function landingFeats(landings: VerbEvent[]): PatternsBrag["landings"] {
     sums.deletions += e.change.deletions;
     sums.files += e.change.files;
     sums.commits += e.change.commits;
+    if (e.change.deletions > e.change.insertions) {
+      cleanups += 1;
+    }
     const lines = e.change.insertions + e.change.deletions;
     if (biggest === undefined || lines > biggest.lines) {
       biggest = {
@@ -183,17 +188,18 @@ function landingFeats(landings: VerbEvent[]): PatternsBrag["landings"] {
       };
     }
   }
-  const best = peakDay(landings);
+  const best = peakDay(shipped);
   return {
-    count: landings.length,
-    branches: byBranch(landings).size,
+    count: shipped.length,
+    branches: byBranch(shipped).size,
     ...sums,
+    cleanups,
     ...(biggest !== undefined ? { biggest } : {}),
     ...(best !== undefined
-      ? { best_day: { day: best.day, landings: best.count } }
+      ? { best_day: { day: best.day, shipped: best.count } }
       : {}),
-    longest_daily_streak: longestDailyStreak(
-      new Set(landings.map((e) => day(e.at))),
+    longest_streak: longestDailyStreak(
+      new Set(shipped.map((e) => day(e.at))),
     ),
   };
 }
@@ -236,14 +242,14 @@ function gateFeats(facts: StreamFacts): PatternsBrag["gate"] {
  * `ok` accept on it ({@link PatternsBrag}, `cycles`). */
 function cycleFeats(
   facts: StreamFacts,
-  landings: VerbEvent[],
+  shipped: VerbEvent[],
 ): PatternsBrag["cycles"] {
   const starts = facts.verbs.filter((e) =>
     e.verb === "start" && e.outcome === "ok" && e.target !== undefined
   );
   const cycles: number[] = [];
   for (const start of starts) {
-    const accept = landings.find((a) =>
+    const accept = shipped.find((a) =>
       a.branch === start.target && a.at > start.at
     );
     if (accept !== undefined) {
@@ -252,7 +258,9 @@ function cycleFeats(
   }
   return cycles.length > 0
     ? {
+      started: starts.length,
       completed: cycles.length,
+      under_day: cycles.filter((hours) => hours < 24).length,
       median_hours: round1(median(cycles)),
       fastest_hours: round1(Math.min(...cycles)),
     }
@@ -300,11 +308,11 @@ function breadthFeats(facts: StreamFacts): PatternsBrag["breadth"] {
 /** Compute bragging rights from the pre-digested stream. Pure, and total over
  * any stream: an empty logbook produces a card of zeros, not an error. */
 export function computeBrag(facts: StreamFacts): PatternsBrag {
-  const landings = facts.verbs.filter((e) =>
+  const shipped = facts.verbs.filter((e) =>
     e.verb === "accept" && e.outcome === "ok"
   );
   const pins = facts.events.filter((e): e is PinEvent => e.kind === "pin");
-  const cycles = cycleFeats(facts, landings);
+  const cycles = cycleFeats(facts, shipped);
   const span = seriesSpan(facts.verbs);
   const sum = (a: number, b: number): number => a + b;
   const fold = (daily: number[]): number[] =>
@@ -314,10 +322,10 @@ export function computeBrag(facts: StreamFacts): PatternsBrag {
   );
   return {
     ...(span !== undefined ? { series_days_per_point: span.daysPerPoint } : {}),
-    landings: {
-      ...landingFeats(landings),
+    shipped: {
+      ...shippedFeats(shipped),
       ...(span !== undefined
-        ? { per_day: fold(dailyTotals(landings, span)) }
+        ? { per_day: fold(dailyTotals(shipped, span)) }
         : {}),
     },
     gate: {
