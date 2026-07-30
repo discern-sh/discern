@@ -222,6 +222,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0226 — Setup separates installation evidence from terminal launchers](0226-setup-separates-installation-evidence-from-terminal-launchers.md)
 - [0227 — `await` bounds follow repository evidence](0227-await-bounds-follow-repository-evidence.md)
 - [0228 — The feature canon carries a plain-language register](0228-the-feature-canon-carries-a-plain-language-register.md)
+- [0229 — JUnit XML joins diagnostic auto-detection](0229-junit-xml-joins-diagnostic-auto-detection.md)
 
 <!-- END GENERATED: current ADR records -->
 

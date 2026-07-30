@@ -11,6 +11,14 @@
  * 2.x/sarif marker), so a non-SARIF tool's output can never be misread; anything
  * unrecognized falls back to the Tier-0 raw-output diagnostic.
  *
+ * The second format is **JUnit XML** — the cross-runner test-report standard
+ * most test tools can emit (`--reporter=junit`, `--junit-xml`, …). The same
+ * doctrine applies: the format is recognized, never the runner. Only failing
+ * test cases become diagnostics, each carrying the case's file and name when
+ * the report offers them, so a red test stage names which tests broke — and a
+ * recorded diagnostic class can attribute a recurring or flaky failure to its
+ * test — instead of handing back one opaque output blob.
+ *
  * Declared text formats (a per-check regex / `[diagnostics.<name>]`) are the
  * planned next slice; until then, a tool that emits only human text carries its
  * raw output (Tier 0), which an LLM agent reads directly.
@@ -143,10 +151,189 @@ export function sarifToDiagnostics(
 }
 
 /**
+ * Slice the JUnit XML report out of a command's combined output, or undefined
+ * when there isn't one. The slice runs from the first `<testsuites`/`<testsuite`
+ * open tag to the last matching close tag, so runner banners before the report
+ * and exit-status noise after it never confuse the parse. Detection requires a
+ * real element boundary, so prose that merely mentions the word cannot fire it;
+ * a document with no close tag is rejected rather than half-read.
+ */
+export function extractJunit(output: string): string | undefined {
+  const open = output.search(/<testsuites?[\s/>]/);
+  if (open < 0) {
+    return undefined;
+  }
+  const ends = ["</testsuites>", "</testsuite>"]
+    .map((tag) => {
+      const at = output.lastIndexOf(tag);
+      return at < 0 ? -1 : at + tag.length;
+    })
+    .filter((end) => end > open);
+  if (ends.length === 0) {
+    return undefined;
+  }
+  return output.slice(open, Math.max(...ends));
+}
+
+/** Decode the XML entities machine-emitted JUnit uses; anything else passes through. */
+function decodeXmlEntities(text: string): string {
+  const named: Record<string, string> = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+  };
+  return text.replace(
+    /&(#x[0-9a-fA-F]+|#\d+|[a-z]+);/g,
+    (whole, body: string) => {
+      if (body.startsWith("#")) {
+        const code = body.startsWith("#x")
+          ? Number.parseInt(body.slice(2), 16)
+          : Number.parseInt(body.slice(1), 10);
+        try {
+          return String.fromCodePoint(code);
+        } catch {
+          return whole;
+        }
+      }
+      return named[body] ?? whole;
+    },
+  );
+}
+
+/** Unwrap CDATA sections, whose contents are literal text, before entity decoding. */
+function stripCdata(text: string): string {
+  return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+}
+
+/** Parse one XML open tag's attributes into a name → decoded-value map. */
+function tagAttributes(tag: string): Map<string, string> {
+  const attrs = new Map<string, string>();
+  for (const m of tag.matchAll(/([\w.:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+    const name = m[1];
+    const value = m[2] ?? m[3] ?? "";
+    if (name !== undefined && !attrs.has(name)) {
+      attrs.set(name, decodeXmlEntities(value));
+    }
+  }
+  return attrs;
+}
+
+/** A trimmed attribute value, or undefined when absent or blank. */
+function nonBlank(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed === undefined || trimmed === "" ? undefined : trimmed;
+}
+
+/**
+ * A value that names a file only when it reads like a path (it carries a
+ * separator). JUnit `classname` holds a real path for some runners and a dotted
+ * language identifier for others; only the former may become `file`.
+ */
+function pathLike(value: string | undefined): string | undefined {
+  if (value === undefined || !/[\\/]/.test(value)) {
+    return undefined;
+  }
+  return value.replace(/^\.\//, "");
+}
+
+/** Read a 1-based positive integer attribute, or undefined. */
+function positiveIntAttr(value: string | undefined): number | undefined {
+  if (value === undefined || !/^\d+$/.test(value.trim())) {
+    return undefined;
+  }
+  const n = Number.parseInt(value, 10);
+  return n > 0 ? n : undefined;
+}
+
+/**
+ * Project a JUnit XML report into {@link Diagnostic}s — one per failing (or
+ * errored) test case; passing and skipped cases contribute nothing. `file`
+ * prefers the case's own `file` attribute, then a path-like `classname`, then a
+ * path-like enclosing `<testsuite name>`; `rule` is the test's name, so a
+ * recorded diagnostic class identifies the exact test. Returns undefined when
+ * no case failed — a red run whose report shows no failures (a crash before the
+ * suite, a runner error) keeps its Tier-0 raw output instead. Defensive
+ * throughout: runners vary in which fields they populate, and a malformed
+ * fragment is skipped, never thrown.
+ */
+export function junitToDiagnostics(
+  xml: string,
+  tool: string,
+  reproduceCmd: string,
+): Diagnostic[] | undefined {
+  // Suite open tags in document order; a case's suite is the nearest one above.
+  const suites: { at: number; name: string | undefined }[] = [];
+  for (const m of xml.matchAll(/<testsuite(?![\w-])[^>]*>/g)) {
+    if (m.index !== undefined) {
+      suites.push({ at: m.index, name: tagAttributes(m[0]).get("name") });
+    }
+  }
+  const out: Diagnostic[] = [];
+  let suiteIdx = -1;
+  const cases = xml.matchAll(
+    /<testcase(?![\w-])([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/testcase\s*>)/g,
+  );
+  for (const m of cases) {
+    const body = m[2];
+    if (m.index === undefined || body === undefined) {
+      continue; // self-closing: a passing case, nothing to report
+    }
+    const failure = body.match(
+      /<(failure|error)(?![\w-])([^>]*?)(?:\/\s*>|>([\s\S]*?)<\/\1\s*>)/,
+    );
+    if (failure === null) {
+      continue;
+    }
+    while (
+      suiteIdx + 1 < suites.length && (suites[suiteIdx + 1]?.at ?? 0) < m.index
+    ) {
+      suiteIdx++;
+    }
+    const attrs = tagAttributes(m[1] ?? "");
+    const failureAttrs = tagAttributes(failure[2] ?? "");
+    const failureBody = failure[3];
+    const message = nonBlank(failureAttrs.get("message")) ??
+      nonBlank(
+        failureBody === undefined
+          ? undefined
+          : decodeXmlEntities(stripCdata(failureBody)),
+      ) ?? "(no message)";
+    const diag: Diagnostic = {
+      tool,
+      severity: "error",
+      message,
+      reproduce_cmd: reproduceCmd,
+    };
+    const file = nonBlank(attrs.get("file"))?.replace(/^\.\//, "") ??
+      pathLike(attrs.get("classname")) ??
+      pathLike(suites[suiteIdx]?.name);
+    if (file !== undefined) {
+      diag.file = file;
+    }
+    const line = positiveIntAttr(attrs.get("line"));
+    if (line !== undefined) {
+      diag.line = line;
+    }
+    const col = positiveIntAttr(attrs.get("col"));
+    if (col !== undefined) {
+      diag.col = col;
+    }
+    const rule = nonBlank(attrs.get("name"));
+    if (rule !== undefined) {
+      diag.rule = rule;
+    }
+    out.push(diag);
+  }
+  return out.length > 0 ? out : undefined;
+}
+
+/**
  * Normalize a failed job's captured output into structured diagnostics, or
  * undefined when no known format is recognized (the caller then keeps the Tier-0
- * raw-output diagnostic). Currently recognizes SARIF; declared text formats are
- * the next slice.
+ * raw-output diagnostic). Currently recognizes SARIF and JUnit XML; declared
+ * text formats are the next slice.
  */
 export function normalizeDiagnostics(
   output: string,
@@ -156,6 +343,10 @@ export function normalizeDiagnostics(
   const sarif = extractSarif(output);
   if (sarif !== undefined) {
     return sarifToDiagnostics(sarif, tool, reproduceCmd);
+  }
+  const junit = extractJunit(output);
+  if (junit !== undefined) {
+    return junitToDiagnostics(junit, tool, reproduceCmd);
   }
   return undefined;
 }

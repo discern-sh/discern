@@ -46,7 +46,7 @@ export interface JobResult {
   /**
    * The job's FULL captured combined stdout+stderr (uncapped — stream mode keeps a
    * head+tail window), present ONLY on a GENUINELY failed job. finish normalizes it
-   * (SARIF) or caps it into a Tier-0 `DiscernResult.diagnostics` entry, so an agent
+   * (SARIF, JUnit XML) or caps it into a Tier-0 `DiscernResult.diagnostics` entry, so an agent
    * reads the error from the result instead of re-running and scraping. Absent on a
    * cancelled sibling (its output is noise).
    */
@@ -70,7 +70,7 @@ export interface JobResult {
    * A failure summary from a {@link Job.evaluate} verdict — the words the
    * diagnostic should lead with when the job's failure is a judgement over its
    * output (a metric past its limit), not its exit code. Serialization prefers
-   * this over the generic exit-code message and skips structured (SARIF)
+   * this over the generic exit-code message and skips structured (SARIF, JUnit)
    * normalization for it: the verdict IS the diagnostic.
    */
   failureMessage?: string;

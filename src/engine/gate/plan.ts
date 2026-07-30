@@ -476,7 +476,7 @@ export function jobFailureMessage(label: string, r: JobResult): string {
  * or scope-gate job becomes a step (looked up by label; missing → skipped), in
  * plan order. A genuine failure that captured output yields a Tier-0 diagnostic (the
  * command to reproduce it + its captured output), or — when the FULL captured output
- * is a recognized machine format (SARIF) — one Tier-1 diagnostic per finding
+ * is a recognized machine format (SARIF, JUnit XML) — one Tier-1 diagnostic per finding
  * (file/line/rule). A fail-fast-cancelled sibling is neither failed nor diagnosed
  * (it wasn't a real failure, just killed mid-run).
  */
@@ -520,7 +520,7 @@ export async function serializeJobSteps(
       }
       if (r !== undefined && r.code !== 0 && r.cancelled !== true) {
         const fixAvailable = fixAvailableFor(j, fixStageWired);
-        // A timed-out job is a hang, not a tool diagnostic — never SARIF-normalize
+        // A timed-out job is a hang, not a tool diagnostic — never format-normalize
         // it; its plain-language message (below) names the likely cause instead.
         // An evaluated verdict (`failureMessage`) IS the diagnostic — its output
         // is evidence, not a machine format to parse.

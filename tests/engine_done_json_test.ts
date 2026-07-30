@@ -545,6 +545,61 @@ Deno.test("done --json: a SARIF-emitting check yields Tier-1 diagnostics with fi
   });
 });
 
+Deno.test("done --json: a JUnit-emitting test job yields Tier-1 diagnostics naming the failing test", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const junit = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<testsuites name="test run" tests="2" failures="1" errors="0" time="0.1">',
+      '    <testsuite name="./checks/upload_check.txt" tests="2" failures="1">',
+      '        <testcase name="keeps going" classname="./checks/upload_check.txt" time="0.01" line="4" col="6">',
+      "        </testcase>",
+      '        <testcase name="retries the upload" classname="./checks/upload_check.txt" time="0.02" line="9" col="6">',
+      '            <failure message="expected 2 retries, saw 1">expected 2 retries, saw 1</failure>',
+      "        </testcase>",
+      "    </testsuite>",
+      "</testsuites>",
+    ].join("\n");
+    await Deno.writeTextFile(join(dir, "report.xml"), junit);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        // The test job prints JUnit (as a real `--reporter=junit` run would), then fails.
+        'test = "cat report.xml; exit 1"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, false);
+    // The raw report was normalized into one located finding per failing test.
+    const diag = diagFor(obj, "test");
+    assert(
+      diag,
+      `expected a test diagnostic, got ${JSON.stringify(obj.diagnostics)}`,
+    );
+    assertEquals(diag.file, "checks/upload_check.txt");
+    assertEquals(diag.line, 9);
+    assertEquals(diag.col, 6);
+    assertEquals(diag.rule, "retries the upload");
+    assertEquals(diag.severity, "error");
+    assertStringIncludes(diag.message, "expected 2 retries");
+    // reproduce_cmd is still the gate job's own command.
+    assertEquals(diag.reproduce_cmd, "cat report.xml; exit 1");
+    assertFailedStepsHaveDiagnostics(obj);
+  });
+});
+
 Deno.test("done --json: empty SARIF falls back to a raw Tier-0 diagnostic", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

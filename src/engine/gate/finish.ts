@@ -8,7 +8,8 @@
  * The result is the universal {@link DiscernResult} envelope (ADR 0028) every verb
  * returns: each declared job or scope gate is a `steps[]` entry, a genuine failure
  * also yields a `diagnostics[]` entry (the command to reproduce it + its captured
- * output, or — for a SARIF-emitting tool — normalized file/line/rule findings), and
+ * output, or — for a tool emitting SARIF or JUnit XML — normalized
+ * file/line/rule findings), and
  * the gate's own `failed_stage`/`scopes_changed` ride in `data`. Human text and
  * `--json` are two renderings of that one object; {@link finishResult} returns it
  * unrendered for the MCP server. A job whose stage aborted before it ran →

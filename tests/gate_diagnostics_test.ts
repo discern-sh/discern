@@ -1,13 +1,15 @@
 /**
- * Tier-1 diagnostic normalization (ADR 0028): the SARIF auto-detector that turns a
- * failed gate command's machine output into structured {file,line,rule} findings.
- * Pure-unit here; the end-to-end wiring through `done --json` lives in
- * `engine_finish_json_test.ts`.
+ * Tier-1 diagnostic normalization (ADR 0028): the SARIF and JUnit XML
+ * auto-detectors that turn a failed gate command's machine output into
+ * structured {file,line,rule} findings. Pure-unit here; the end-to-end wiring
+ * through `done --json` lives in `engine_done_json_test.ts`.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import {
+  extractJunit,
   extractSarif,
+  junitToDiagnostics,
   normalizeDiagnostics,
   sarifToDiagnostics,
 } from "../src/engine/gate/diagnostics.ts";
@@ -110,4 +112,94 @@ Deno.test("normalizeDiagnostics: empty SARIF returns undefined so Tier-0 fallbac
     normalizeDiagnostics(emptySarif, "lint", "eslint --format sarif ."),
     undefined,
   );
+});
+
+// A report in the shape Deno's junit reporter emits: suite name and classname
+// carry the file path, line/col ride as attributes, the failure message is an
+// escaped attribute, and stderr noise surrounds the document.
+const JUNIT = `<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="test run" tests="3" failures="1" errors="1" time="0.4">
+    <testsuite name="./tests/upload_test.ts" tests="2" disabled="0" errors="0" failures="1">
+        <testcase name="retries once" classname="./tests/upload_test.ts" time="0.01" line="4" col="6">
+        </testcase>
+        <testcase name="maps a -&gt; b &amp; escapes &quot;quotes&quot;" classname="./tests/upload_test.ts" time="0.02" line="9" col="6">
+            <failure message="Uncaught AssertionError: Values are not equal: one is not two">AssertionError: Values are not equal
+    at file:///tests/upload_test.ts:9:35</failure>
+        </testcase>
+    </testsuite>
+    <testsuite name="com.example.parser" tests="1" disabled="0" errors="1" failures="0">
+        <testcase name="parses" classname="com.example.ParserTest" time="0.10">
+            <error><![CDATA[java.lang.IllegalStateException: boom <unexpected>]]></error>
+        </testcase>
+    </testsuite>
+</testsuites>`;
+
+Deno.test("extractJunit: recognizes a JUnit report, even with runner noise around it", () => {
+  assert(extractJunit(JUNIT) !== undefined, "pure JUnit should be detected");
+  const noisy =
+    `Check file:///tests/upload_test.ts\n${JUNIT}\nerror: Test failed\n`;
+  const sliced = extractJunit(noisy);
+  assert(sliced !== undefined, "JUnit embedded in noise should be detected");
+  assert(
+    sliced.startsWith("<testsuites") && sliced.endsWith("</testsuites>"),
+    "the slice should span exactly the XML document",
+  );
+});
+
+Deno.test("extractJunit: does NOT fire on plain text or tagless mentions", () => {
+  assertEquals(extractJunit("3 tests failed, see above"), undefined);
+  assertEquals(
+    extractJunit("the testsuite keyword alone, with no XML element"),
+    undefined,
+  );
+  // An open tag with no close tag is rejected rather than half-read.
+  assertEquals(extractJunit('<testsuite name="x">'), undefined);
+});
+
+Deno.test("junitToDiagnostics: one diagnostic per failing case, with file/line/col/rule", () => {
+  const xml = extractJunit(JUNIT);
+  assert(xml !== undefined, "fixture should be detected as JUnit");
+  const diags = junitToDiagnostics(xml, "test", "deno task test");
+  assert(diags !== undefined, "failing cases should produce diagnostics");
+  assertEquals(diags.length, 2);
+
+  const [failed, errored] = diags;
+  assert(failed !== undefined && errored !== undefined, "expected two");
+
+  assertEquals(failed.tool, "test");
+  assertEquals(failed.reproduce_cmd, "deno task test");
+  assertEquals(failed.severity, "error");
+  // The passing sibling case contributed nothing; the failing case's identity
+  // is fully attributed, with entities decoded and the `./` prefix dropped.
+  assertEquals(failed.file, "tests/upload_test.ts");
+  assertEquals(failed.line, 9);
+  assertEquals(failed.col, 6);
+  assertEquals(failed.rule, 'maps a -> b & escapes "quotes"');
+  assert(failed.message.includes("one is not two"));
+
+  // The errored case: dotted classname is a language identifier, not a path,
+  // and its suite name isn't path-like either — so no file is invented; the
+  // CDATA body supplies the message when the message attribute is absent.
+  assertEquals(errored.file, undefined);
+  assertEquals(errored.rule, "parses");
+  assert(errored.message.includes("boom <unexpected>"));
+});
+
+Deno.test("junitToDiagnostics: an all-green report returns undefined so Tier-0 fallback survives", () => {
+  const green = `<testsuites tests="1" failures="0" errors="0">
+    <testsuite name="./tests/ok_test.ts" tests="1" failures="0">
+        <testcase name="passes" classname="./tests/ok_test.ts" time="0.01"></testcase>
+    </testsuite>
+</testsuites>`;
+  assertEquals(junitToDiagnostics(green, "test", "deno task test"), undefined);
+  assertEquals(
+    normalizeDiagnostics(green, "test", "deno task test"),
+    undefined,
+  );
+});
+
+Deno.test("normalizeDiagnostics: JUnit output routes through the JUnit tier", () => {
+  const diags = normalizeDiagnostics(JUNIT, "test", "deno task test");
+  assert(diags !== undefined, "JUnit should normalize");
+  assertEquals(diags.length, 2);
 });

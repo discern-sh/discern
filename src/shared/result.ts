@@ -470,7 +470,7 @@ export function normalizeCapturedOutput(s: string): string {
  * Normalize then cap a captured string to {@link CAPTURE_CAP}, keeping the head AND
  * tail when it overflows (a compiler lists the first error early; a runner prints
  * its summary at the end). Applied at the diagnostic boundary, not at capture, so
- * structured normalization (SARIF) still sees the full output. Cuts are snapped off
+ * structured normalization (SARIF, JUnit XML) still sees the full output. Cuts are snapped off
  * UTF-16 surrogate boundaries so a multi-byte char is never split into a lone
  * surrogate.
  */

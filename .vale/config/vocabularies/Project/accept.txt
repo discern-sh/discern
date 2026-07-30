@@ -106,6 +106,7 @@ jq
 JSDoc
 jsr
 Junie
+JUnit
 knowably
 Laravel
 lcov
