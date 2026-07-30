@@ -140,9 +140,13 @@ Deno.test("every provider's human setup advice has provider-specific documentati
       `${name}: human setup advice declares no documentation topics`,
     );
     const doc = docs.find((candidate) =>
-      extractTitle(candidate.text) === `${provider.label} integration`
+      extractTitle(candidate.text) === advice.documentationTitle
     );
-    assert(doc !== undefined, `no integration doc found for "${name}"`);
+    assert(
+      doc !== undefined,
+      `no provider-specific setup doc titled "${advice.documentationTitle}" ` +
+        `found for "${name}"`,
+    );
     for (const topic of advice.documentationTopics) {
       assertStringIncludes(
         doc.text,

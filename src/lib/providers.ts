@@ -274,6 +274,8 @@ export interface HumanSetupAdvice {
   readonly handoff: string;
   /** Vendor UI terms that must stay off generic agent-facing surfaces. */
   readonly humanOnlyTopics: readonly string[];
+  /** H1 title of the provider-specific map page that owns the explanation. */
+  readonly documentationTitle: string;
   readonly documentationTopics: readonly string[];
 }
 
@@ -1586,6 +1588,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "Cursor Settings",
         "Worktree option",
       ],
+      documentationTitle: "Cursor worktrees without edit prompts",
       documentationTopics: [
         "External File Protection",
         "Cursor Settings",
