@@ -454,7 +454,7 @@
     scale = 1000
     # Rebaselined after completed private planning archives were removed: the alert
     # count stayed 4,774 while the measured corpus shrank to 435,702 words.
-    limit = 10.95
+    limit = 10.88
     run = "deno task prose \"${map.dir}\""
     inputs = [
       "${map.dir}**",
@@ -500,7 +500,7 @@
   # arithmetic: milliseconds, so it measures in every gate run.
   [standards.plain_reading_grade]
     direction = "down"
-    limit = 13.8
+    limit = 13.45
     margin = 0.2
     run = "deno run scripts/plain_reading_grade.ts"
     inputs = [
@@ -549,7 +549,7 @@
   [standards.guidance]
     metric = "guidance_words"
     direction = "down"
-    limit = 881
+    limit = 880
     run = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
     inputs = ["templates/guidance/**"]
 
