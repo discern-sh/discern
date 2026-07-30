@@ -1938,13 +1938,6 @@ export function buildInstructions(): string {
     "capturing a gain with pin.",
     "- When the branch is behind `{{main_branch}}`, bring `{{main_branch}}` " +
     "in with discern_update.",
-    "- Wait for a sibling branch to go green, its work to land, or the trunk " +
-    "to move with discern_await. Make one call and let it use the longest safe " +
-    "bound; do not shorten it for progress updates. If it answers not met, " +
-    "continue with data.resume until the condition holds, the user stops, or " +
-    "the task no longer needs it. An ok:false refusal has no continuation; " +
-    "follow its recovery hint.",
-    "",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
     ),

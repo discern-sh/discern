@@ -25,7 +25,7 @@ Pass one condition per call:
 | `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry              |
 | `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself      |
 
-Every verdict comes from authoritative state. The logbook only wakes the wait. It never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
+Verdicts come from authoritative state. The logbook wakes the wait but never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
 Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk receipt note. Without one, it refuses.
 
@@ -45,7 +45,7 @@ The condition returns immediately when it holds. A longer bound does not delay s
 
 An explicit smaller MCP timeout remains exact. Discern caps a larger request at the transport-safe limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
 
-Every result reports the effective bound in `data.timeout_seconds` and its source in `data.timeout_basis`. The policy and vendor evidence live in [ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md).
+The effective bound and source are `data.timeout_seconds` and `data.timeout_basis`. A separate decision records the vendor evidence ([ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md)).
 
 ## Continue without a gap
 
@@ -65,7 +65,7 @@ discern await --landed agent/upload-retry
 
 ## Compose the dependency
 
-The landing model's pull axis ([ADR 0110](../_adr/0110-the-landing-model.md)) makes `await` the coordination half of multi-wave work. Resolve the sibling's exact branch from `discern start` or `discern status`. Human-friendly names gain a collision-resistant suffix.
+The landing model's pull axis makes `await` the coordination half of multi-wave work ([ADR 0110](../_adr/0110-the-landing-model.md)). Resolve the sibling's exact branch from `discern start` or `discern status`. Human-friendly names gain a collision-resistant suffix.
 
 If the dependent already has a worktree, wait there:
 
