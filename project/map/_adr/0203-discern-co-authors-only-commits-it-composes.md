@@ -8,6 +8,8 @@
 
 > **Exact-transition amendment (2026-07-28):** Every commit spawn receives a unique reflog action and forces the local branch reflog on. The boundary uses that action to identify the exact commit Git created, then requires that commit to be the direct child of the branch and HEAD it proved before the spawn. A staged-index commit must still equal its proven tree; a pathspec commit must change only its declared paths. Rejection compare-and-swaps only that identified commit back to the parent Git observed. A hook or concurrent process that has already advanced the branch is never rolled back. Git's partial-commit index is separate from the real index, so an out-of-scope path a hook staged is restored using the exact blob in the rejected commit only while the real entry still matches both its pre-spawn value and the parent; existing or concurrent staged bytes win. If the exact commit cannot be identified or inspected after Git reports success, discern does not guess at a rollback and tells the operator to inspect the branch.
 
+> **Identity amendment (2026-07-30):** The trailer identity below is now `discern <done@discern.sh>`. Pre-launch review rejected the `discern-bot` name and `bot@discern.sh` address: "bot" reads as an AI-assistant persona, which discern is not. The replacement carries no persona — the name is the product, and the address pairs with it to spell the terminal verb, `discern done`. `bot@discern.sh` remains a verified alias on the machine account, so trailers stamped before the rename keep their attribution. The commit boundary, `DISCERN_NO_ATTRIBUTION`, and all other semantics below are unchanged.
+
 **Status**: accepted
 
 ## Context

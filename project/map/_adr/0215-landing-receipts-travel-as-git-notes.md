@@ -1,5 +1,7 @@
 # ADR 0215: Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport
 
+> **Identity amendment (2026-07-30; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The notes author identity is now `discern <done@discern.sh>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
+
 **Status**: accepted
 
 ## Context
