@@ -449,9 +449,9 @@
     direction = "down"
     per = { words = "${map.dir}**" }
     scale = 1000
-    # Rebaselined after completed private planning archives were removed: the alert
-    # count stayed 4,774 while the measured corpus shrank to 435,702 words.
-    limit = 10.95
+    # Owner-authorized correction for the staged-corpus measurement: the former
+    # denominator counted private prose and frontmatter that Vale never inspected.
+    limit = 15.59
     run = "deno task prose \"${map.dir}\""
     inputs = [
       "${map.dir}**",
