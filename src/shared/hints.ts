@@ -1246,21 +1246,29 @@ export const HINTS = {
 
   /** The composition move once a sibling proves green (the pull axis: build on
    * any ref below the trunk). */
-  "await-green-met": defineHint<{ branch: string }>({
+  "await-green-met": defineHint<{
+    branch: string;
+    tip: string;
+    callerHasWorktree: boolean;
+  }>({
     id: "await-green-met",
     category: "next-step",
     audience: "all",
     when: "`await --green` finds the awaited branch's receipt honored.",
     family: "await-met",
-    example: { branch: "agent/upload-retry" },
-    template: ({ branch }): string =>
+    example: {
+      branch: "agent/upload-retry",
+      tip: "abc1234def567890",
+      callerHasWorktree: true,
+    },
+    template: ({ branch, tip, callerHasWorktree }): string =>
       `\`${branch}\` is green — its worktree holds an honored receipt. ` +
-      `Build on it with ${
-        discernCommand("update", flag("from", branch))
-      } from your ` +
-      `worktree, or ${
-        discernCommand("start", flag("from", branch))
-      } for a fresh one.`,
+      (callerHasWorktree
+        ? `Build on it with ${discernCommand("update", flag("from", tip))}. ` +
+          "The immutable commit remains valid if acceptance deletes the branch."
+        : `Create your worktree from it with ${
+          discernCommand("start", flag("from", tip))
+        }. The immutable commit remains valid if acceptance deletes the branch.`),
   }),
 
   /** The integration move once awaited work reaches the trunk. */
@@ -1268,41 +1276,54 @@ export const HINTS = {
     branch: string;
     trunk: string;
     overlapTotal: number;
+    callerHasWorktree: boolean;
   }>({
     id: "await-landed-met",
     category: "next-step",
     audience: "all",
     when: "`await` finds the awaited work reachable from the trunk.",
     family: "await-met",
-    example: { branch: "agent/upload-retry", trunk: "main", overlapTotal: 2 },
-    template: ({ branch, trunk, overlapTotal }): string =>
-      `The work from \`${branch}\` landed on \`${trunk}\` — run ` +
-      `${CMD.update} to bring it beneath this branch.` +
-      (overlapTotal > 0
-        ? ` ${overlapTotal} incoming file${
-          overlapTotal === 1 ? " overlaps" : "s overlap"
-        } your own changes — re-read them after updating.`
-        : ""),
+    example: {
+      branch: "agent/upload-retry",
+      trunk: "main",
+      overlapTotal: 2,
+      callerHasWorktree: true,
+    },
+    template: (
+      { branch, trunk, overlapTotal, callerHasWorktree },
+    ): string =>
+      `The work from \`${branch}\` landed on \`${trunk}\` — ` +
+      (callerHasWorktree
+        ? `run ${CMD.update} to bring it beneath this branch.` +
+          (overlapTotal > 0
+            ? ` ${overlapTotal} incoming file${
+              overlapTotal === 1 ? " overlaps" : "s overlap"
+            } your own changes — re-read them after updating.`
+            : "")
+        : `create your worktree from the current trunk with ${CMD.start}.`),
   }),
 
   "await-trunk-moved-met": defineHint<{
     trunk: string;
     overlapTotal: number;
+    callerHasWorktree: boolean;
   }>({
     id: "await-trunk-moved-met",
     category: "next-step",
     audience: "all",
     when: "`await --trunk-moved` sees the trunk ref advance.",
     family: "await-met",
-    example: { trunk: "main", overlapTotal: 0 },
-    template: ({ trunk, overlapTotal }): string =>
-      `\`${trunk}\` moved while you waited — run ${CMD.update} to bring ` +
-      `the latest beneath this branch.` +
-      (overlapTotal > 0
-        ? ` ${overlapTotal} incoming file${
-          overlapTotal === 1 ? " overlaps" : "s overlap"
-        } your own changes — re-read them after updating.`
-        : ""),
+    example: { trunk: "main", overlapTotal: 0, callerHasWorktree: true },
+    template: ({ trunk, overlapTotal, callerHasWorktree }): string =>
+      `\`${trunk}\` moved while you waited — ` +
+      (callerHasWorktree
+        ? `run ${CMD.update} to bring the latest beneath this branch.` +
+          (overlapTotal > 0
+            ? ` ${overlapTotal} incoming file${
+              overlapTotal === 1 ? " overlaps" : "s overlap"
+            } your own changes — re-read them after updating.`
+            : "")
+        : `create your worktree from the current trunk with ${CMD.start}.`),
   }),
 
   /** The timeout answer: not a failure, one useful next wait bound. */
@@ -1317,28 +1338,18 @@ export const HINTS = {
     when: "`await` times out before its condition holds.",
     example: {
       summary: "`agent/upload-retry` has no honored receipt yet",
-      seconds: 180,
+      seconds: 45,
       command: discernCommand(
         "await",
-        flag("green", "agent/upload-retry"),
-        flag("timeout", "180"),
+        flag("resume", "v1.opaque-continuation"),
+        flag("timeout", "45"),
       ),
     },
     template: ({ summary, seconds, command }): string =>
-      `Not yet: ${summary}. Keep watching with another wait of about ` +
-      `${seconds}s: ${command}.`,
-  }),
-
-  /** Point-of-use explanation when a fallback replaces priced advice. */
-  "await-timing-degraded": defineHint({
-    id: "await-timing-degraded",
-    category: "notice",
-    audience: "all",
-    when: "`await` times out while the logbook is off.",
-    example: undefined,
-    template: (): string =>
-      "The next wait uses a fallback because the logbook is off, so no " +
-      "duration evidence exists to price it.",
+      `Not yet: ${summary}. Continue this same watch once for up to ` +
+      `${seconds}s: ${command}. It returns as soon as the condition holds. ` +
+      "If it is still not met, use the next --resume command; do not restart " +
+      "the condition or stop after a fixed number of retries.",
   }),
 
   /** The honest refusal when `--green` is asked about a branch no checkout
@@ -1376,8 +1387,7 @@ export const HINTS = {
         return `\`${branch}\`'s tip is already reachable from \`${trunk}\` — ` +
           `${
             discernCommand("await", flag("landed", branch))
-          } answers immediately, and ${CMD.update} brings \`${trunk}\` ` +
-          `beneath your branch.`;
+          } answers immediately and chooses the right next step for your location.`;
       }
       return `Check ${CMD.status} from the main checkout; to wait for the ` +
         `work to reach \`${trunk}\` use ${
@@ -1395,10 +1405,10 @@ export const HINTS = {
     when: "`await` is asked to watch a branch that does not exist.",
     example: { branch: "agent/upload-retry", trunk: "main" },
     template: ({ branch, trunk }): string =>
-      `Branch \`${branch}\` was not found. It may not have started yet — or ` +
-      `its work may already have landed (acceptance deletes a landed ` +
-      `branch). Check ${CMD.status} from the main checkout; if it ` +
-      `landed, ${CMD.update} brings \`${trunk}\` beneath your branch.`,
+      `Branch \`${branch}\` was not found, and no accepted receipt identifies ` +
+      `it on \`${trunk}\`. It may not have started yet. Check ${CMD.status} ` +
+      "and use the exact branch returned when it starts; never guess " +
+      "a generated suffix.",
   }),
 
   "patterns-logbook-empty": defineHint({

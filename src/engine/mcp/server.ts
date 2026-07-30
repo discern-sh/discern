@@ -50,6 +50,11 @@ import {
   resolveMcpClientInfo,
 } from "../logbook/agent_signals.ts";
 import {
+  AWAIT_LONG_CALL_SECONDS,
+  AWAIT_STRICT_CALL_SECONDS,
+  type AwaitCallProfile,
+} from "../../shared/mcp_timeout_policy.ts";
+import {
   type AcceptData,
   AcceptOutputSchema,
   AwaitOutputSchema,
@@ -197,6 +202,11 @@ interface ReaimContext {
   readonly heldRootMissing: boolean;
 }
 
+/** Per-invocation protocol context available to handlers but not user input. */
+interface McpToolContext {
+  readonly awaitCallProfile: AwaitCallProfile;
+}
+
 /** A tool: its advertised schema + metadata plus the handler that runs the verb.
  * The SDK converts {@link inputSchema}/{@link outputSchema} (Zod raw shapes, the
  * former registered closed via {@link strictInput}, the latter the per-verb schema
@@ -256,6 +266,7 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
     root: string,
     args: ToolArgs<TShape>,
     signal: AbortSignal,
+    context: McpToolContext,
   ): Promise<DiscernResult>;
 }
 
@@ -635,18 +646,24 @@ export const TOOLS: McpTool[] = orderTools([
       "green `discern_done` on its current clean HEAD (the work landing on " +
       "`{{main_branch}}` also satisfies it, since only a validated tree " +
       "lands); `landed` (a branch name) waits until that branch's work — its " +
-      "tip at call start — is reachable from `{{main_branch}}`; `trunk_moved` " +
+      "latest observed tip after it has work — is reachable from `{{main_branch}}`; `trunk_moved` " +
       "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
-      "ancestry and the gate receipt, never in recorded history. If the bound " +
-      "expires, the result stays ok with data.met false and " +
-      "data.retry_after_seconds pricing another wait. When repository history " +
-      "supplies that number, data.running names the underlying action, branch, " +
-      "median, P90, and sample count. Omit `timeout` to let active work and " +
-      "observed durations choose this call's bound; pass it to set an exact " +
-      "caller limit. The condition still returns the call as soon as it holds. " +
-      "On success the hints name the " +
-      "follow-up (`discern_update`, or update from the green branch to " +
-      "compose below the trunk).",
+      "ancestry, gate receipts, and landed receipt notes, never in recorded " +
+      "activity. If the bound expires, the result stays ok with data.met false. " +
+      "Pass data.resume by itself on the next call: it preserves the original " +
+      "branch transition or trunk baseline, so a condition crossed between calls is " +
+      "not lost. Keep following returned continuations until the condition " +
+      "holds, the user stops the watch, or the task no longer needs it; do not " +
+      "impose a retry-count limit. An ok:false refusal has no continuation: " +
+      "follow its recovery hint. " +
+      `Omit timeout to hold one call for up to ${AWAIT_LONG_CALL_SECONDS}s on ` +
+      "a known configurable client, or " +
+      `${AWAIT_STRICT_CALL_SECONDS}s on a strict or unknown client. A larger ` +
+      "request is sliced to that transport-safe bound and reported in " +
+      "data.requested_timeout_seconds. The condition returns as soon as it holds. " +
+      "On success the hint chooses `discern_start` from the main checkout or " +
+      "`discern_update` from an existing worktree, including the green " +
+      "result's immutable commit as `from` when composing below the trunk.",
     inputSchema: {
       green: z.string().optional().describe(
         "Branch whose worktree must hold an honored gate receipt (e.g. an " +
@@ -654,26 +671,41 @@ export const TOOLS: McpTool[] = orderTools([
           "the wait.",
       ),
       landed: z.string().optional().describe(
-        "Branch whose work must become reachable from the trunk. The tip is " +
-          "pinned at call start, so the answer survives the branch's " +
-          "deletion when it lands.",
+        "Branch whose work must become reachable from the trunk. The latest " +
+          "observed tip and landing transition survive the branch's deletion.",
       ),
       trunk_moved: z.boolean().optional().describe(
         "Wait until the trunk ref moves from its position at call start.",
       ),
+      resume: z.string().optional().describe(
+        "Opaque continuation returned by a previous not-met wait. Pass it by " +
+          "itself instead of green, landed, or trunk_moved so the original " +
+          "branch transition or trunk baseline survives between calls.",
+      ),
       timeout: z.number().optional().describe(
-        'Seconds before answering "not yet". Omit to use active work and ' +
-          "this repository's observed P90 verb durations; 0 checks once.",
+        'Seconds before answering "not yet". Omit for the longest reliable ' +
+          "bound this MCP client supports; a larger request is sliced " +
+          "losslessly and 0 checks once.",
       ),
       ...PATH_PARAM,
     },
-    run: (root, args, signal) =>
-      awaitResult(root, {
-        ...(args.green !== undefined ? { green: args.green } : {}),
-        ...(args.landed !== undefined ? { landed: args.landed } : {}),
-        ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
-        ...(args.timeout !== undefined ? { timeoutSeconds: args.timeout } : {}),
-      }, signal),
+    run: (root, args, signal, context) =>
+      awaitResult(
+        root,
+        {
+          ...(args.green !== undefined ? { green: args.green } : {}),
+          ...(args.landed !== undefined ? { landed: args.landed } : {}),
+          ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
+          ...(args.resume !== undefined ? { resume: args.resume } : {}),
+          ...(args.timeout !== undefined
+            ? { timeoutSeconds: args.timeout }
+            : {}),
+        },
+        signal,
+        {
+          callProfile: context.awaitCallProfile,
+        },
+      ),
   }),
   defineTool({
     name: "discern_patterns",
@@ -1373,12 +1405,14 @@ async function runVerb(
   root: string,
   args: Record<string, unknown>,
   signal?: AbortSignal,
+  awaitCallProfile: AwaitCallProfile = "unknown-client",
 ): Promise<DiscernResult> {
   try {
     return await tool.run(
       root,
       args,
       signal ?? new AbortController().signal,
+      { awaitCallProfile },
     );
   } catch (e) {
     return {
@@ -1454,6 +1488,7 @@ async function dispatchToolCall(
   args: Record<string, unknown>,
   signal?: AbortSignal,
   mcpClient?: RecordedMcpClient,
+  awaitCallProfile: AwaitCallProfile = "unknown-client",
 ): Promise<PendingToolCall> {
   // The explicit `path` override wins over the working root for this one call; any dir
   // inside a worktree resolves to its root, a non-project path → undefined → refusal.
@@ -1495,7 +1530,13 @@ async function dispatchToolCall(
     // (the TOOLS-table single source of truth) — no per-name special case here.
     if (tool.rootIndependent === true) {
       return {
-        result: await runVerb(tool, Deno.cwd(), args, signal),
+        result: await runVerb(
+          tool,
+          Deno.cwd(),
+          args,
+          signal,
+          awaitCallProfile,
+        ),
         recording: undefined,
       };
     }
@@ -1528,7 +1569,13 @@ async function dispatchToolCall(
       recording,
     };
   }
-  const result = await runVerb(tool, root, args, signal);
+  const result = await runVerb(
+    tool,
+    root,
+    args,
+    signal,
+    awaitCallProfile,
+  );
   // Data-driven re-aim (ADR 0062): after a non-preview lifecycle call, move the
   // working root per the tool's own effect-aware hook (start → the new worktree it
   // created; accept → the main checkout it landed in). A `path` override is normally a
@@ -1563,6 +1610,7 @@ export async function runTool(
   resolveInstalledVersion: () => Promise<string | undefined> =
     defaultInstalledVersion,
   mcpClient?: RecordedMcpClient,
+  awaitCallProfile: AwaitCallProfile = "unknown-client",
 ): Promise<ToolResult> {
   // Drain state left by CLI-only output in this long-lived process before this
   // call starts. The final boundary drains again after observing this result.
@@ -1579,6 +1627,7 @@ export async function runTool(
     args,
     signal,
     mcpClient,
+    awaitCallProfile,
   );
   return await completeToolCall(tool, args, pending, stale);
 }
@@ -1890,7 +1939,11 @@ export function buildInstructions(): string {
     "- When the branch is behind `{{main_branch}}`, bring `{{main_branch}}` " +
     "in with discern_update.",
     "- Wait for a sibling branch to go green, its work to land, or the trunk " +
-    "to move with discern_await.",
+    "to move with discern_await. Make one call and let it use the longest safe " +
+    "bound; do not shorten it for progress updates. If it answers not met, " +
+    "continue with data.resume until the condition holds, the user stops, or " +
+    "the task no longer needs it. An ok:false refusal has no continuation; " +
+    "follow its recovery hint.",
     "",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
@@ -1908,7 +1961,9 @@ export function buildInstructions(): string {
  * `connect` starts the transport; the server then runs until stdin closes (the
  * transport's `onclose`), at which point this resolves and the process exits.
  */
-export async function runMcpServer(): Promise<number> {
+export async function runMcpServer(
+  awaitCallProfile: AwaitCallProfile = "unknown-client",
+): Promise<number> {
   const spawnRoot = await findRoot();
   const cfg = await resolveServerConfig(spawnRoot);
   // The server's logical cwd, made explicit: seeded from the spawn root, then
@@ -1973,6 +2028,7 @@ export async function runMcpServer(): Promise<number> {
           callSignal(extra),
           installedVersion,
           mcpClient,
+          awaitCallProfile,
         );
       },
     );

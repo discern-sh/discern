@@ -8937,11 +8937,14 @@
                   "type": "string",
                   "enum": [
                     "explicit",
-                    "running",
-                    "no-prior",
-                    "idle",
-                    "logbook-off"
+                    "cli",
+                    "long-client",
+                    "strict-client",
+                    "unknown-client"
                   ]
+                },
+                "requested_timeout_seconds": {
+                  "type": "number"
                 },
                 "observed": {
                   "type": "object",
@@ -8991,6 +8994,9 @@
                     }
                   }
                 },
+                "resume": {
+                  "type": "string"
+                },
                 "retry_after_seconds": {
                   "type": "integer",
                   "minimum": -9007199254740991,
@@ -8999,50 +9005,11 @@
                 "retry_basis": {
                   "type": "string",
                   "enum": [
-                    "running",
-                    "no-prior",
-                    "idle",
-                    "logbook-off"
-                  ]
-                },
-                "running": {
-                  "type": "object",
-                  "properties": {
-                    "verb": {
-                      "type": "string"
-                    },
-                    "branch": {
-                      "type": "string"
-                    },
-                    "started": {
-                      "type": "string"
-                    },
-                    "elapsed_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "typical_duration_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "p90_duration_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "duration_samples": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    }
-                  },
-                  "required": [
-                    "verb",
-                    "branch",
-                    "started",
-                    "elapsed_ms"
+                    "explicit",
+                    "cli",
+                    "long-client",
+                    "strict-client",
+                    "unknown-client"
                   ]
                 }
               },

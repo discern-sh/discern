@@ -33,6 +33,10 @@ import {
   guidancePathForNative,
 } from "../shared/agent_catalogue.ts";
 import {
+  mcpServerArgsForNativeAgent,
+  NATIVE_MCP_TIMEOUT_POLICY,
+} from "../shared/mcp_timeout_policy.ts";
+import {
   ARTIFACT_PROVENANCE_SOURCES,
   COMMENT_INCAPABLE_ARTIFACT,
   commentCapableNonContextArtifact,
@@ -727,7 +731,6 @@ const CODEX_ENV_SETUP_SCRIPT = "discern worktree ensure";
 const CODEX_ENV_CLEANUP_SCRIPT = "discern worktree teardown";
 const CODEX_PROJECT_DOC_MAX_BYTES = 65536;
 const CODEX_MCP_STARTUP_TIMEOUT_SEC = 30;
-const CODEX_MCP_TOOL_TIMEOUT_SEC = 3600;
 const CODEX_CONFIG_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
   ARTIFACT_PROVENANCE_SOURCES.codexConfig,
 );
@@ -784,6 +787,7 @@ async function registerStdioMcpJson(
   root: string,
   configFile: string,
   server: McpServerSpec,
+  timeoutSeconds?: number,
 ): Promise<McpWireResult> {
   const path = join(root, configFile);
   const doc = await readJsonObject(path);
@@ -793,6 +797,7 @@ async function registerStdioMcpJson(
     type: "stdio",
     command: server.command,
     args: [...server.args],
+    ...(timeoutSeconds !== undefined ? { timeout: timeoutSeconds * 1000 } : {}),
   };
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
@@ -815,7 +820,15 @@ async function registerClaudeCodeMcp(
 ): Promise<McpWireResult> {
   // 1. .mcp.json — the project-scoped server definition (a local stdio command),
   //    via the shared writer (the file Copilot co-owns).
-  const mcp = await registerStdioMcpJson(root, MCP_JSON_FILE, server);
+  const mcp = await registerStdioMcpJson(
+    root,
+    MCP_JSON_FILE,
+    {
+      ...server,
+      args: mcpServerArgsForNativeAgent("claude_code", server.args),
+    },
+    NATIVE_MCP_TIMEOUT_POLICY.claude_code.configured_seconds,
+  );
   const written = [...mcp.written];
 
   // 2. .claude/settings.json — pre-approve the project-scoped server by name,
@@ -852,7 +865,11 @@ async function registerGeminiMcp(
   const settings = await readJsonObject(path);
   const servers = isObject(settings.mcpServers) ? settings.mcpServers : {};
   const firstInstall = !(server.name in servers);
-  const desired = { command: server.command, args: [...server.args] };
+  const desired = {
+    command: server.command,
+    args: mcpServerArgsForNativeAgent("gemini", server.args),
+    timeout: NATIVE_MCP_TIMEOUT_POLICY.gemini.configured_seconds * 1000,
+  };
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
   }
@@ -984,13 +1001,16 @@ async function registerCodexProjectConfig(
       firstInstall = !editor.hasSection(section);
       editor.setNumber(
         `${section}.tool_timeout_sec`,
-        CODEX_MCP_TOOL_TIMEOUT_SEC,
+        NATIVE_MCP_TIMEOUT_POLICY.codex.configured_seconds,
       );
       editor.setNumber(
         `${section}.startup_timeout_sec`,
         CODEX_MCP_STARTUP_TIMEOUT_SEC,
       );
-      editor.setStringArray(`${section}.args`, [...server.args]);
+      editor.setStringArray(
+        `${section}.args`,
+        mcpServerArgsForNativeAgent("codex", server.args),
+      );
       editor.setString(`${section}.command`, server.command);
       editor.deleteKey(`${section}.cwd`);
     },
@@ -1180,7 +1200,10 @@ async function registerCursorMcp(
   root: string,
   server: McpServerSpec,
 ): Promise<McpWireResult> {
-  return await registerStdioMcpJson(root, CURSOR_MCP_FILE, server);
+  return await registerStdioMcpJson(root, CURSOR_MCP_FILE, {
+    ...server,
+    args: mcpServerArgsForNativeAgent("cursor", server.args),
+  });
 }
 
 /**
@@ -1197,7 +1220,15 @@ async function registerCopilotMcp(
   root: string,
   server: McpServerSpec,
 ): Promise<McpWireResult> {
-  return await registerStdioMcpJson(root, MCP_JSON_FILE, server);
+  return await registerStdioMcpJson(
+    root,
+    MCP_JSON_FILE,
+    {
+      ...server,
+      args: mcpServerArgsForNativeAgent("copilot", server.args),
+    },
+    NATIVE_MCP_TIMEOUT_POLICY.copilot.configured_seconds,
+  );
 }
 
 // ── the registry ────────────────────────────────────────────────────────────

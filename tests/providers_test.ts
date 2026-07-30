@@ -32,6 +32,13 @@ import { parse as parseToml } from "@std/toml";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import {
+  MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+  MCP_LONG_TOOL_CALLS_FLAG,
+  MCP_STRICT_TOOL_CALLS_FLAG,
+  mcpServerArgsForNativeAgent,
+  NATIVE_MCP_TIMEOUT_POLICY,
+} from "../src/shared/mcp_timeout_policy.ts";
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -42,6 +49,33 @@ Deno.test("the registry is total: every known agent has a complete provider", ()
     assert(p.guidanceFile.path.endsWith(".md"), `${name}: odd guidance file`);
   }
   assertEquals(Object.keys(PROVIDERS).length, AGENT_NAMES.length);
+});
+
+Deno.test("every native provider declares an MCP timeout capability", () => {
+  assertEquals(
+    Object.keys(NATIVE_MCP_TIMEOUT_POLICY).sort(),
+    [...AGENT_NAMES].sort(),
+  );
+  for (const name of AGENT_NAMES) {
+    const policy = NATIVE_MCP_TIMEOUT_POLICY[name];
+    assert(policy.await_call_seconds > 0, `${name}: no safe await bound`);
+    if (policy.capability === "configurable") {
+      assertEquals(
+        policy.configured_seconds,
+        MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+      );
+      assert(
+        policy.await_call_seconds < policy.configured_seconds,
+        `${name}: await needs delivery headroom below its configured timeout`,
+      );
+    }
+    assertEquals(mcpServerArgsForNativeAgent(name, ["mcp"]), [
+      "mcp",
+      policy.capability === "configurable"
+        ? MCP_LONG_TOOL_CALLS_FLAG
+        : MCP_STRICT_TOOL_CALLS_FLAG,
+    ]);
+  }
 });
 
 Deno.test("every known agent declares a skills directory (all SKILL.md-format)", () => {
@@ -225,7 +259,8 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
     assertEquals(mcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+      timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
     const settings = JSON.parse(
       await Deno.readTextFile(join(dir, ".claude/settings.json")),
@@ -331,7 +366,8 @@ Deno.test("wireProviderMcp wires Gemini: mcpServers.discern into .gemini/setting
     // Gemini infers stdio from `command` — no `type` field (unlike Claude's .mcp.json).
     assertEquals(settings.mcpServers.discern, {
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+      timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
     // Gemini wires only its own file — never Claude's .mcp.json.
     await assertAbsent(join(dir, ".mcp.json"));
@@ -407,10 +443,16 @@ Deno.test("wireProviderMcp wires Codex project config: MCP, headroom, and siblin
     ]);
     assertEquals(parsed.mcp_servers.other?.command, "other-tool"); // preserved
     assertEquals(parsed.mcp_servers.discern?.command, "discern"); // added
-    assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals(parsed.mcp_servers.discern?.args, [
+      "mcp",
+      MCP_LONG_TOOL_CALLS_FLAG,
+    ]);
     assertEquals("cwd" in (parsed.mcp_servers.discern ?? {}), false);
     assertEquals(parsed.mcp_servers.discern?.startup_timeout_sec, 30);
-    assertEquals(parsed.mcp_servers.discern?.tool_timeout_sec, 3600);
+    assertEquals(
+      parsed.mcp_servers.discern?.tool_timeout_sec,
+      MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+    );
 
     // Idempotent: a second wire is a clean no-op (byte-identical TOML).
     const second = await wireProviderMcp(dir, ["codex"]);
@@ -444,7 +486,10 @@ Deno.test("wireProviderMcp Codex removes a stale MCP cwd override", async () => 
       };
     };
     assertEquals(parsed.mcp_servers.discern?.command, "discern");
-    assertEquals(parsed.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals(parsed.mcp_servers.discern?.args, [
+      "mcp",
+      MCP_LONG_TOOL_CALLS_FLAG,
+    ]);
     assertEquals("cwd" in (parsed.mcp_servers.discern ?? {}), false);
   });
 });
@@ -712,7 +757,7 @@ Deno.test("wireProviderMcp wires Cursor: type:stdio mcpServers.discern into .cur
     assertEquals(mcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_STRICT_TOOL_CALLS_FLAG],
     });
     // Cursor wires only its own file — never Claude's .mcp.json or settings.
     await assertAbsent(join(dir, ".mcp.json"));
@@ -763,7 +808,8 @@ Deno.test("wireProviderMcp wires Copilot: into .mcp.json with NO enabledMcpjsonS
     assertEquals(mcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+      timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
     // Copilot gates via folder trust, NOT enabledMcpjsonServers — so it never writes
     // Claude's settings file (unlike registerClaudeCodeMcp).
@@ -796,7 +842,8 @@ Deno.test("Copilot co-owns Claude's .mcp.json: one byte-identical entry, order-i
       assertEquals(mcp.mcpServers.discern, {
         type: "stdio",
         command: "discern",
-        args: ["mcp"],
+        args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+        timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
       });
       // Claude (in either order) still pre-approves the server; Copilot adds no
       // second registration.

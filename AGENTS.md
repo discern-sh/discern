@@ -19,15 +19,16 @@ discern compiles your guidance sources (`project/guidance.md`) into the agent fi
 
 ## Isolated worktree workflow
 
-discern keeps each task in its own **linked git worktree** so parallel work doesn't collide. It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.
+discern keeps each task in a **linked git worktree** so parallel work doesn't collide. It provisions per-worktree **resources**; read one with `discern identity --resource <name>`.
 
-- **`discern_start`** — from the main checkout, create your isolated worktree (branch prefix `agent/`, forked from `main`) and re-root into the returned path: cd in, or start a session there. Can't change your working root? Prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Already in a worktree? Stay there.
-- **`discern_update`** brings `main` into your branch when behind and reports upstream overlap. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
+- **`discern_start`** — from the main checkout, create your worktree (branch prefix `agent/`, forked from `main`) and re-root into its returned path. Otherwise prefix shell commands with `cd <path> &&` and pass `path` to discern tools. Already in a worktree? Stay there.
+- **`discern_update`** brings `main` into your branch and reports overlap. Call it directly; it checks its own preconditions. To build on unlanded work, `start` and `update` take `from` — work composes below the trunk.
+- **`discern_await`** watches a sibling or the trunk in one longest-safe call and returns as soon as the condition holds. Do not shorten it for progress reports. After "not yet", follow `--resume` until the condition holds, the user stops, or the task no longer needs it; never impose a retry count. An `ok: false` refusal has no continuation: follow its recovery hint. Met hints choose `start` from main or `update` from a worktree.
 - **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. After a green `discern done`, follow its authority-aware hint: either report the one-line receipt and stop, or land under the verified grant. Landing fast-forwards `main` and removes the worktree and branch.
 
-While iterating, use `discern_prepare`, `discern_test`, or a targeted project command, and commit each logical step — acceptance lands your branch history as-is. When the final tree is ready, commit it first, then run `discern_done` once on the clean HEAD — acceptance honors that receipt; a later commit invalidates it.
+Iterate with `discern_prepare`, `discern_test`, or targeted commands, and commit logical steps. Commit the final tree before `discern_done`; a later commit invalidates its receipt.
 
-**Never edit a worktree from outside it without one of those moves, and never start work in one you didn't create.** A clean tree doesn't mean it's free; the ones `discern_status` lists are other efforts in flight, not a pool to claim from.
+**Never edit a worktree from outside it or use one you didn't create.** A clean tree is not free; `discern_status` lists other efforts in flight.
 
 ## Quality standards
 

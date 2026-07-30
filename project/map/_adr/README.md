@@ -224,6 +224,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0228 — The feature canon carries a plain-language register](0228-the-feature-canon-carries-a-plain-language-register.md)
 - [0229 — Practice stats are counted, local, and never comparative](0229-practice-stats-are-counted-local-and-never-comparative.md)
 - [0231 — Prose density shares one versioned corpus](0231-prose-density-shares-one-versioned-corpus.md)
+- [0232 — `await` continuations spend the transport budget](0232-await-continuations-spend-the-transport-budget.md)
 
 <!-- END GENERATED: current ADR records -->
 

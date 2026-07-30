@@ -2301,12 +2301,26 @@ export async function commitIsMerged(
   commit: string,
   mainBranch: string,
 ): Promise<boolean> {
+  return await commitIsAncestorOf(
+    repoRoot,
+    commit,
+    `refs/heads/${mainBranch}`,
+  );
+}
+
+/** Whether one commit is an ancestor of an arbitrary descendant ref. */
+export async function commitIsAncestorOf(
+  repoRoot: string,
+  commit: string,
+  descendant: string,
+): Promise<boolean> {
   return commit !== "" &&
+    descendant !== "" &&
     (await git([
       "merge-base",
       "--is-ancestor",
       commit,
-      `refs/heads/${mainBranch}`,
+      descendant,
     ], repoRoot)).success;
 }
 

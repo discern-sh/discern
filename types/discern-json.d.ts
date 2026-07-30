@@ -2772,7 +2772,13 @@ export type DiscernAwaitResult = {
     met: boolean;
     waited_ms: number;
     timeout_seconds: number;
-    timeout_basis: "explicit" | "running" | "no-prior" | "idle" | "logbook-off";
+    timeout_basis:
+      | "explicit"
+      | "cli"
+      | "long-client"
+      | "strict-client"
+      | "unknown-client";
+    requested_timeout_seconds?: number;
     observed: {
       receipt_status?:
         | "honored"
@@ -2791,17 +2797,14 @@ export type DiscernAwaitResult = {
       incoming_overlap?: Array<string>;
       overlap_total?: number;
     };
+    resume?: string;
     retry_after_seconds?: number;
-    retry_basis?: "running" | "no-prior" | "idle" | "logbook-off";
-    running?: {
-      verb: string;
-      branch: string;
-      started: string;
-      elapsed_ms: number;
-      typical_duration_ms?: number;
-      p90_duration_ms?: number;
-      duration_samples?: number;
-    };
+    retry_basis?:
+      | "explicit"
+      | "cli"
+      | "long-client"
+      | "strict-client"
+      | "unknown-client";
   } | {
     issues: Array<{
       path: string;

@@ -11,71 +11,87 @@ aliases:
 
 # Awaiting the fleet
 
-_One bounded call answers "is the work I depend on ready?" — and says when to ask again if not._
+_Hold one call for the work you need. If the transport must return first, continue the same watch without losing what happened between calls._
 
-A dependent task used to poll `discern status` on a guessed interval or wait for a human relay. `discern await` replaces the loop: it blocks until a fleet condition holds, then reports what it observed and the next step.
+`discern await` replaces guessed `discern status` polling and human relays. It blocks until a fleet condition holds, then reports the observation and next step.
 
 ## The three conditions
 
 Pass one condition per call:
 
-| Condition           | Holds when                                                                           | Grounded in          |
-| ------------------- | ------------------------------------------------------------------------------------ | -------------------- |
-| `--green <branch>`  | The branch's worktree holds an honored gate receipt (a watched landing also counts). | The gate receipt     |
-| `--landed <branch>` | The branch's work — its tip at call start — is reachable from the trunk.             | Git ancestry         |
-| `--trunk-moved`     | The trunk ref differs from its position at call start.                               | The trunk ref itself |
+| Condition           | Holds when                                                                                                | Grounded in               |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------- |
+| `--green <branch>`  | The worktree holds an honored gate receipt, or a landed receipt note proves acceptance.                   | Gate and landing receipts |
+| `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry              |
+| `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself      |
 
-Every verdict comes from authoritative state: a git ancestry read or a receipt inspection. The logbook receives one append per verb completion anywhere in the fleet. It only wakes the wait early and prices the retry advice. Recorded history never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
+Every verdict comes from authoritative state. The logbook only wakes the wait. It never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md), [ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
-`--landed` pins the tip sha at call start, so it remains answerable after acceptance deletes the branch. A missing branch is a refusal that names both readings: not started yet, or landed and cleaned up.
+Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk receipt note. Without one, it refuses.
 
-Use `--green` for work in flight and `--landed` for arrival. A post-landing `--landed` call answers immediately. `--green` does not treat a freshly forked branch's trivially reachable tip as proof.
+Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as proof. If that branch commits and lands between evaluations, its durable receipt note identifies the validated work after cleanup.
 
-`--green` also refuses when no checkout holds the branch at call start. A gate receipt is per-worktree state and dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage can never present one again. The refusal points at the nearest containing branch and at `--landed` for the literal arrival question.
+`--green` refuses when no checkout holds the branch at call start. Its per-worktree gate receipt dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
 
-## Timing out is an answer
+## Spend one call
 
-A supplied `--timeout` is an exact bound. Omit it and `await` chooses a bound from this repository's logbook:
+Omit `timeout` and let discern use the longest reliable call for the configured surface:
 
-- Active work with completed samples uses the verb's observed P90 duration minus elapsed time, with a 30-second floor. The condition still returns early.
-- Active work with no completed sample gets a 600-second first-run bound.
-- No active work gets 300 seconds. Turning the logbook off uses the labelled fallback.
+- The CLI and known configurable Model Context Protocol (MCP) clients use 3,300 seconds — 55 minutes.
+- Cursor's fixed-limit MCP server and an undeclared MCP client use 45 seconds.
+- Configurable clients receive a one-hour MCP tool timeout, leaving five minutes of delivery and cancellation headroom around the 55-minute wait.
 
-Timing sees concurrent branch actions separately and ignores the `await` invocation, which cannot complete its own condition. An underlying `done` can therefore price the call even though `await` began later. Among actions with duration evidence, the longest estimated remainder sets the bound.
+The condition returns immediately when it holds. A longer bound does not delay success, so do not split a supported long call into heartbeat-sized calls for progress reporting. Client cancellation still ends it promptly.
 
-Every result reports the bound in `data.timeout_seconds` and its source in `data.timeout_basis`. On expiry, the envelope remains `ok: true` with `data.met: false`, the authoritative state, and a priced `data.retry_after_seconds`. That field gives the length of another wait, so invoke the returned command immediately. `data.running` names the action, branch, and elapsed time. With samples, it adds the median, P90, and count.
+An explicit smaller MCP timeout remains exact. Discern caps a larger request at the transport-safe limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
 
-The command-line interface (CLI) exits `0` when the condition holds, `1` on a refusal, and `124` on "not yet", so this composes in a shell:
+Every result reports the effective bound in `data.timeout_seconds` and its source in `data.timeout_basis`. The policy and vendor evidence live in [ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md).
 
-```sh
-discern await --landed agent/upload-retry && discern update
-```
+## Continue without a gap
 
-CLI and Model Context Protocol (MCP) use the same evidence-priced default ([ADR 0227](../_adr/0227-await-bounds-follow-repository-evidence.md)). A caller with a tighter request budget can pass its own bound. `--timeout 0` checks once and answers immediately.
-
-## Compose below the trunk
-
-The landing model's pull axis ([ADR 0110](../_adr/0110-the-landing-model.md)) makes `await` the coordination half of multi-wave delegation. A dependent brief reads: wait for the sibling to go green, then build on its unlanded branch —
+A timed-out call returns a usable continuation. Its envelope carries `ok: true`, `data.met: false`, the authoritative observation, and an opaque `data.resume` token. The hint returns the next call:
 
 ```sh
-discern await --green agent/upload-retry
-discern update --from agent/upload-retry
+discern await --resume <token> --timeout 45
 ```
 
-— and when the condition fires, the result's hint names that exact follow-up: `update --from <branch>` after a green receipt, plain `discern update` after a landing or a trunk move. A met landing also previews what the update would bring in: how far behind this worktree sits and which of its own files the incoming work touched — the hot zone to re-read.
+Pass the token by itself, without another condition flag. It restores the branch's latest observed tip and landing transition, or the original trunk baseline. A change in the round-trip gap can still satisfy the watch. If the result is still not met, follow its next `--resume` command. Do not restart the condition or stop after an arbitrary retry count. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency. An `ok: false` refusal carries no continuation. Follow its recovery hint or resolve the blocker.
 
-The wait itself is visible fleet activity: `await` is a begin-recorded verb, so while it holds, the blocked branch's fleet row in `discern status` reads `running: await`. That compact row answers what the branch is doing now. In a timed-out result, `data.running` answers a different question: which underlying action priced the wait. It can therefore report `done` while status reports `await`.
+The CLI exits `0` when met, `1` on refusal, and `124` on "not yet":
+
+```sh
+discern await --landed agent/upload-retry
+```
+
+## Compose the dependency
+
+The landing model's pull axis ([ADR 0110](../_adr/0110-the-landing-model.md)) makes `await` the coordination half of multi-wave work. Resolve the sibling's exact branch from `discern start` or `discern status`. Human-friendly names gain a collision-resistant suffix.
+
+If the dependent already has a worktree, wait there:
+
+```sh
+discern await --green agent/upload-retry-a1b2c3
+```
+
+If the dependent has no worktree yet, wait from the main checkout:
+
+```sh
+discern await --green agent/upload-retry-a1b2c3
+```
+
+Follow the returned met hint. A live green receipt uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk instead. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews the incoming hot zone.
 
 ## Where it lives in code
 
-| Responsibility                            | Source                                                                  |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| Conditions, wait loop, and timing advice  | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)       |
-| Timing floors and evidence-free fallbacks | [`src/engine/await/defaults.ts`](../../../src/engine/await/defaults.ts) |
-| Behavioural coverage                      | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)     |
+| Responsibility                         | Source                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| Conditions, continuations, and waiting | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)               |
+| Provider timeout capabilities          | [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts) |
+| Behavioral coverage                    | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)             |
 
 ## Current state and gotchas
 
-- `await` blocks only its own caller. It gates nothing, holds no locks, and keeps no state beyond its process.
-- With `[project].logbook = false` every condition still works through the polling fallback; only the retry advice degrades, and the result says so.
-- A client can still cancel an MCP request before discern's chosen bound. The server cannot raise a caller-owned request budget; pass `timeout` when that client needs a shorter slice.
+- `await` blocks only its caller. It gates nothing, holds no locks, and writes no state.
+- The logbook can be off; polling still evaluates every condition.
+- Provider timeout changes take effect after `discern refresh` rewrites the MCP entry and the client restarts it.
+- A failed landing-receipt-note write can make a green landing hidden entirely inside a retry gap unprovable. `await` stays not met instead of inferring from an unrelated trunk move.

@@ -41,6 +41,7 @@ import {
 } from "./result.ts";
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
+import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -501,31 +502,22 @@ export const AWAIT_CONDITIONS = ["green", "landed", "trunk-moved"] as const;
 /** One `await` condition ({@link AWAIT_CONDITIONS}). */
 export type AwaitConditionKind = (typeof AWAIT_CONDITIONS)[number];
 
-/** Why a not-met `await` suggested the retry delay it did: `running` — the
- * awaited work is in flight and a duration prior bounds the remainder;
- * `no-prior` — work is in flight but no completed sample prices its verb;
- * `idle` — nothing is in flight, so a longer backoff; `logbook-off` — the
- * logbook is disabled, so no timing evidence exists and the delay is a flat
- * default. */
+/** Why one `await` call uses its reported bound: an exact caller request, the
+ * long CLI allowance, a known configurable MCP client, a known strict client,
+ * or the conservative unknown-client fallback. */
 export const AWAIT_RETRY_BASES = [
-  "running",
-  "no-prior",
-  "idle",
-  "logbook-off",
+  "explicit",
+  ...AWAIT_CALL_PROFILES,
 ] as const;
 
-/** Why this call used its reported timeout: an exact caller request, or the
- * same repository evidence vocabulary that prices a follow-up wait. */
-export const AWAIT_TIMEOUT_BASES = [
-  "explicit",
-  ...AWAIT_RETRY_BASES,
-] as const;
+/** The current call and its continuation share one bound vocabulary. */
+export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
 
 /** What one `await` evaluation observed — always authoritative state (a git
  * ancestry read, a receipt inspection), never logbook history. Per-condition:
  * `green` carries the sibling receipt's status ({@link GateReceiptCheckSchema}
  * statuses, plus `no-worktree` when no checkout holds the branch) and the
- * sibling `worktree` path; `landed`/`green` carry the pinned `tip` sha and
+ * sibling `worktree` path; `landed`/`green` carry the latest observed `tip` sha and
  * whether it `landed`; `trunk-moved` carries the trunk sha at call start and
  * now. When a met condition means `discern update` has work to bring in,
  * `behind`/`incoming_overlap`/`overlap_total` preview it (the same hot-zone
@@ -550,27 +542,13 @@ const awaitObservedSchema = z.strictObject({
   overlap_total: z.number().int().optional(),
 });
 
-/** The in-flight work that priced an `await` bound — advisory logbook evidence,
- * never part of the condition itself. `branch` identifies the selected action
- * even when `--trunk-moved` considers the whole fleet; the median remains the
- * compact "typical" reading while P90 is the conservative upper-bound input. */
-const awaitRunningSchema = z.strictObject({
-  verb: z.string(),
-  branch: z.string(),
-  started: z.string(),
-  elapsed_ms: z.number().int(),
-  typical_duration_ms: z.number().int().optional(),
-  p90_duration_ms: z.number().int().optional(),
-  duration_samples: z.number().int().optional(),
-});
-
 /** `await` — one blocking wait on a fleet condition. `met` is the verdict this
  * call ends on (a timeout is `met: false` with `ok: true` — "not yet" is an
  * answer, not a failure); `observed` is the authoritative state behind it;
- * `timeout_seconds` + `timeout_basis` name the bound this call used;
- * `retry_after_seconds` + `retry_basis` price another bounded wait, with
- * `running` carrying the in-flight evidence when repository history supplied
- * the number. */
+ * `timeout_seconds` + `timeout_basis` name the transport-safe bound this call
+ * used; `requested_timeout_seconds` records a larger caller request when that
+ * request had to be capped; `resume` preserves the original pins across calls;
+ * `retry_after_seconds` + `retry_basis` give the next lossless call's bound. */
 export const AwaitDataSchema = z.strictObject({
   condition: z.enum(AWAIT_CONDITIONS),
   branch: z.string().optional(),
@@ -579,10 +557,11 @@ export const AwaitDataSchema = z.strictObject({
   waited_ms: z.number().int(),
   timeout_seconds: z.number(),
   timeout_basis: z.enum(AWAIT_TIMEOUT_BASES),
+  requested_timeout_seconds: z.number().optional(),
   observed: awaitObservedSchema,
+  resume: z.string().optional(),
   retry_after_seconds: z.number().int().optional(),
   retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),
-  running: awaitRunningSchema.optional(),
 });
 export type AwaitData = z.infer<typeof AwaitDataSchema>;
 

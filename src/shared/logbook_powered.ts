@@ -52,13 +52,6 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     readers: ["src/engine/status/status.ts"],
   },
   {
-    key: "await-retry-pricing",
-    phrase:
-      "wait bounds in `discern await` from active work and observed P90 durations",
-    surface: "`discern await` with an omitted timeout or a not-yet answer",
-    readers: ["src/engine/await/await.ts"],
-  },
-  {
     key: "epoch-pin-trajectory",
     phrase: "config-change attribution and each standard's limit history",
     surface: "`discern patterns` trajectory findings",

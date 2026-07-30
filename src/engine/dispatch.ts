@@ -53,6 +53,11 @@ import { reportUnknownCommand } from "./unknown_command.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { recordedExit } from "./logbook/cli.ts";
 import { runCommandGroup } from "../shared/command_group.ts";
+import {
+  AWAIT_LONG_CALL_SECONDS,
+  MCP_LONG_TOOL_CALLS_FLAG,
+  MCP_STRICT_TOOL_CALLS_FLAG,
+} from "../shared/mcp_timeout_policy.ts";
 
 export { reportUnknownCommand } from "./unknown_command.ts";
 export {
@@ -322,11 +327,26 @@ export function attachEngineCommands(
     .description(
       "The stdio MCP server, exposing the verbs to an agent as tools. You don't usually need to run this; agents should connect automatically.",
     )
-    .action(recordedExit("mcp", async () => {
+    .option(
+      MCP_LONG_TOOL_CALLS_FLAG,
+      "Use the configured long-call MCP transport profile.",
+      { hidden: true },
+    )
+    .option(
+      MCP_STRICT_TOOL_CALLS_FLAG,
+      "Use the fixed short-call MCP transport profile.",
+      { hidden: true },
+    )
+    .action(recordedExit("mcp", async (o) => {
       // The server resolves the project root itself and reports a missing one
       // per tool-call, so it need not requireRoot up front.
       const { runMcpServer } = await import("./mcp/server.ts");
-      return await runMcpServer();
+      const profile = o.strictToolCalls === true
+        ? "strict-client"
+        : o.longToolCalls === true
+        ? "long-client"
+        : "unknown-client";
+      return await runMcpServer(profile);
     }));
 
   root
@@ -490,7 +510,8 @@ export function attachEngineCommands(
       "Block until a fleet condition holds: a sibling branch is green (its " +
         "worktree holds an honored gate receipt), a branch's work has landed " +
         "on the trunk, or the trunk has moved. Read-only; timing out is not " +
-        "an error — the result says what was observed and when to call again.",
+        "an error — the result carries a continuation that preserves the " +
+        "original condition across calls.",
     )
     .option(
       "--json",
@@ -502,15 +523,19 @@ export function attachEngineCommands(
     )
     .option(
       "--landed <branch:string>",
-      "Wait until this branch's work (its tip at call start) is reachable from the trunk.",
+      "Wait until this branch has work and its latest observed tip reaches the trunk.",
     )
     .option(
       "--trunk-moved",
       "Wait until the trunk ref moves from its position at call start.",
     )
     .option(
+      "--resume <token:string>",
+      "Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.",
+    )
+    .option(
       "--timeout <seconds:number>",
-      'Seconds before answering "not yet". Omit to use active work and this repository\'s observed P90 verb durations; 0 checks once.',
+      `Seconds before answering "not yet". Omit to wait once for up to ${AWAIT_LONG_CALL_SECONDS}s; the condition returns early, and 0 checks once.`,
     )
     .action(recordedExit("await", async (o) => {
       const { runAwait } = await import("./await/await.ts");
@@ -519,6 +544,7 @@ export function attachEngineCommands(
         ...(o.green !== undefined ? { green: o.green } : {}),
         ...(o.landed !== undefined ? { landed: o.landed } : {}),
         ...(o.trunkMoved === true ? { trunkMoved: true } : {}),
+        ...(o.resume !== undefined ? { resume: o.resume } : {}),
         ...(o.timeout !== undefined ? { timeoutSeconds: o.timeout } : {}),
       });
     }));

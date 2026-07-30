@@ -27,7 +27,6 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - the practice report (`discern patterns`) — behavior, gate-fit, funnel, and trajectory findings over accumulated runs
 - each worktree's last action and work in flight — the fleet survey's `last_action` and `running` columns
 - fleet activity times that include verb runs — a long test run no longer reads as dormancy
-- wait bounds in `discern await` from active work and observed P90 durations
 - config-change attribution and each standard's limit history — the `config-change` and `pin` events
 - advisory findings on `status`, the `done` receipt, and `improvement`
 - wait estimates when concurrent test runs queue

@@ -179,17 +179,18 @@ Usage: `discern update [options]`
 
 ### `discern await`
 
-Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Read-only; timing out is not an error — the result says what was observed and when to call again.
+Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Read-only; timing out is not an error — the result carries a continuation that preserves the original condition across calls.
 
 Usage: `discern await [options]`
 
-| Option                | Description                                                                                                                   |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                                  |
-| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).                                |
-| `--landed <branch>`   | Wait until this branch's work (its tip at call start) is reachable from the trunk.                                            |
-| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                               |
-| `--timeout <seconds>` | Seconds before answering "not yet". Omit to use active work and this repository's observed P90 verb durations; 0 checks once. |
+| Option                | Description                                                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                           |
+| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).                         |
+| `--landed <branch>`   | Wait until this branch has work and its latest observed tip reaches the trunk.                                         |
+| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                        |
+| `--resume <token>`    | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                   |
+| `--timeout <seconds>` | Seconds before answering "not yet". Omit to wait once for up to 3300s; the condition returns early, and 0 checks once. |
 
 ### `discern accept`
 
