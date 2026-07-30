@@ -6,6 +6,9 @@
  * documenting it fails the gate, driven off the registry so a new member
  * auto-enrols (ADR 0051).
  *
+ * Structure: the subtree contains exactly one leaf per provider, keeping every
+ * vendor-specific instruction on that provider's integration page.
+ *
  * Signposting: a reuse-canonical (IDE-first) agent reads `AGENTS.md` natively
  * and may run without its terminal-agent binary on PATH. Its integration doc
  * must explain either the provider-declared IDE installation signals setup can
@@ -14,7 +17,7 @@
  * marker both update the documentation obligation automatically.
  */
 
-import { assert, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { providerFor } from "../src/lib/providers.ts";
@@ -50,11 +53,21 @@ async function integrationDocs(): Promise<
   return docs;
 }
 
-Deno.test("every supported agent provider has an integration doc", async () => {
+Deno.test("every supported agent provider has exactly one integration doc", async () => {
   // The tie is the page's own title: every integration doc opens with
   // `# <label> integration`, and `label` comes from the provider registry — so
   // the check follows a provider rename and a new provider auto-enrols.
   const docs = await integrationDocs();
+  const expectedTitles = AGENT_NAMES.map((name) => {
+    const label = providerFor(name)?.label;
+    assert(label !== undefined, `no provider registered for "${name}"`);
+    return `${label} integration`;
+  });
+  assertEquals(
+    docs.map((doc) => extractTitle(doc.text)).sort(),
+    expectedTitles.toSorted(),
+    `${REPO_AUTHORED_PATHS.mapRel}/60-agent-integrations must contain one page per provider`,
+  );
   for (const name of AGENT_NAMES) {
     const label = providerFor(name)?.label;
     assert(label !== undefined, `no provider registered for "${name}"`);

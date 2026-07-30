@@ -1,16 +1,19 @@
 ---
 title: Cursor
-description: How discern wires shared guidance and skills, MCP, hooks, and workspace trust for Cursor.
+description: How discern wires guidance, skills, MCP, hooks, trust, and worktrees for Cursor.
 order: 40
 aliases:
   - Cursor
   - Cursor CLI
   - cursor-agent
+  - Cursor External File Protection
+  - Cursor Worktree option
+  - Cursor external edit approvals
 ---
 
 # Cursor integration
 
-discern's Cursor integration is project-local and registry-driven. It writes, co-manages, or relies on the files below when `[project].agents` includes Cursor:
+When `[project].agents` includes Cursor, discern uses these project-local files:
 
 | File                 | Role                                       | Ownership                       |
 | -------------------- | ------------------------------------------ | ------------------------------- |
@@ -19,11 +22,11 @@ discern's Cursor integration is project-local and registry-driven. It writes, co
 | `.cursor/mcp.json`   | Project Model Context Protocol server      | Shared, tracked                 |
 | `.cursor/hooks.json` | Session-start hook                         | Shared, tracked                 |
 
-Cursor is not in `DEFAULT_AGENTS`. A fresh setup adds it when Cursor installation evidence is present. Explicit `[project].agents` remains the fallback.
+Cursor is not in `DEFAULT_AGENTS`. Setup adds it only when installation evidence is present.
 
 ## Using the IDE
 
-`discern setup` detects Cursor from the separate [`cursor-agent` terminal agent](https://cursor.com/docs/cli/installation), the editor's `cursor` shell command, or a conventional application location declared for the host operating system. A portable AppImage can live anywhere, so a nonstandard install may still need explicit configuration.
+`discern setup` detects the separate [`cursor-agent` terminal agent](https://cursor.com/docs/cli/installation), the editor's `cursor` shell command, or a conventional host-specific application location. Portable AppImages can live anywhere, so nonstandard installs may need explicit configuration.
 
 Add `cursor` under `[project].agents`, then run `discern refresh`:
 
@@ -32,19 +35,38 @@ Add `cursor` under `[project].agents`, then run `discern refresh`:
 agents = ["cursor"]
 ```
 
-If the project already lists other agents, include `cursor` in that same array.
-
 ## Worktrees
 
-`discern setup done` reports the Cursor setting needed for uninterrupted Local sessions but never changes it. Read [Cursor worktrees without edit prompts](cursor-worktrees.md) for the External File Protection setting, Cursor's native Worktree option, the `[worktree].root` alternative, and the session teardown behavior.
+### Local sessions
+
+A Local Cursor session stays rooted at its open checkout. A default `discern start` worktree is a sibling, outside that workspace. **External File Protection** can then pause each write for human approval after the agent requests it. The agent never sees that UI pause.
+
+For uninterrupted edits, turn off External File Protection under **Cursor Settings → Agents → Auto-Run**. This user-wide setting lets Cursor's built-in file tools write outside any open workspace. `discern setup done` reports the choice but never changes it. Cursor's [agent security guide](https://cursor.com/docs/agent/security) covers the setting. [`.cursor/cli.json` permissions](https://cursor.com/docs/cli/reference/permissions) apply only to the terminal agent.
+
+### Cursor's Worktree option
+
+To keep External File Protection enabled, select Cursor's native [**Worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor creates the checkout and launches the agent inside it. The `sessionStart` hook readies it for discern's normal workflow.
+
+Acceptance removes the running session's checkout. Cursor shows the landing response, then the session ends and its transcript cannot accept another message. Start a new session for follow-up work.
+
+### Project-local discern worktrees
+
+You can instead set `[worktree].root` to keep discern-created worktrees inside the open project:
+
+```toml
+[worktree]
+root = ".worktrees"
+```
+
+Add `/.worktrees/` to the root `.gitignore`. This layout keeps External File Protection enabled. The sibling default avoids nesting checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
 ## Guidance and skills
 
-Cursor reads `AGENTS.md` natively at the repository root, so discern models it as reuse-canonical. It does not emit a Cursor-specific guidance file and does not write an import pointer. Cursor reads the same canonical `AGENTS.md` emitted by the canonical provider, normally Codex, and imported by Claude Code / Gemini.
+Cursor reads the root `AGENTS.md` natively, so discern reuses the canonical file instead of emitting a Cursor-specific copy or import pointer. Codex normally emits that file. Claude Code and Gemini import it too.
 
 discern generates `AGENTS.md` from its built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
-Cursor also reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share the same directory.
+Cursor also reads `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
 
 ## Model Context Protocol configuration
 
@@ -62,7 +84,7 @@ Cursor also reads the cross-tool Agent Skills directory `.agents/skills/`. disce
 }
 ```
 
-Cursor requires the explicit `type: "stdio"` field, so it uses the same JSON MCP entry shape as Claude Code and GitHub Copilot, but in Cursor's own `.cursor/mcp.json` file.
+Cursor requires `type: "stdio"`. Its entry matches Claude Code and GitHub Copilot's shape but lives in `.cursor/mcp.json`.
 
 ## `.cursor/hooks.json`
 
@@ -81,15 +103,13 @@ The discern-owned Cursor hook seed is:
 }
 ```
 
-`discern refresh` re-seeds this hook idempotently and preserves unrelated Cursor hook groups. The hook keeps a Cursor session re-ready when opened or resumed inside a discern worktree.
+`discern refresh` re-seeds this hook idempotently and preserves unrelated groups. It re-readies sessions opened or resumed inside a discern worktree.
 
 discern does not set Cursor sandbox options, static command permission lists, model settings, or approval defaults. Those remain user or project choices.
 
 ## Runtime behavior and gotchas
 
 Cursor workspace trust gates committed `.cursor/` config. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
-
-Worktree creation and teardown differ between Local sessions and Cursor's native environment. The [Cursor worktrees guide](cursor-worktrees.md) covers both paths.
 
 Cursor's skill-loading behavior has changed during the CLI beta. The product supports `.agents/skills/`, but when diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 

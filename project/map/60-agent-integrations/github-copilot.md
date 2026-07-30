@@ -1,7 +1,7 @@
 ---
 title: GitHub Copilot
 description: How discern wires shared guidance and skills, MCP, hooks, and folder trust for GitHub Copilot.
-order: 60
+order: 50
 aliases:
   - GitHub Copilot
   - Copilot

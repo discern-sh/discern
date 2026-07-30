@@ -1607,7 +1607,7 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "Cursor Settings",
         "Worktree option",
       ],
-      documentationTitle: "Cursor worktrees without edit prompts",
+      documentationTitle: "Cursor integration",
       documentationTopics: [
         "External File Protection",
         "Cursor Settings",
