@@ -219,6 +219,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0223 — Conversation consent survives an unreadable committed landing policy](0223-conversation-consent-survives-an-unreadable-landing-policy.md)
 - [0224 — Trend comparability is setup equality, and analysis skips setup-era events](0224-trend-comparability-is-setup-equality.md)
 - [0225 — Contained-worktree reclaim is offer-only and keeps the branch ref](0225-contained-worktree-reclaim-is-offer-only.md)
+- [0226 — The feature canon carries a plain-language register](0226-the-feature-canon-carries-a-plain-language-register.md)
 
 <!-- END GENERATED: current ADR records -->
 
