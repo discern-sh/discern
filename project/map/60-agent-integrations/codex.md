@@ -39,7 +39,7 @@ writable_roots = ["../../<repo>.worktrees"]
 
 [mcp_servers.discern]
 command = "discern"
-args = ["mcp"]
+args = ["mcp", "--long-tool-calls"]
 startup_timeout_sec = 30
 tool_timeout_sec = 3600
 ```
@@ -50,7 +50,7 @@ tool_timeout_sec = 3600
 
 When `discern refresh` runs from inside an existing linked worktree, discern asks Git for the main checkout and computes the writable root from that main checkout instead of from the transient worktree directory. This keeps a worktree-local refresh from rewriting the tracked config to `../../<worktree-id>.worktrees`.
 
-discern does not set an MCP `cwd`; Codex starts the project-scoped server from the project root by default, and overriding that can detach the server from the project's `discern.toml`. The startup timeout gives slower local starts a little room, and the tool timeout is long enough for `discern_done`, `discern_test`, and standards.
+discern does not set an MCP `cwd`; Codex starts the project-scoped server from the project root by default, and overriding that can detach the server from the project's `discern.toml`. The startup timeout gives slower local starts a little room. Codex's [per-tool timeout](https://developers.openai.com/codex/config-reference) defaults to 60 seconds, so discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned resume token.
 
 discern does not set `sandbox_mode`, `approval_policy`, `approvals_reviewer`, model settings, network access, `required = true`, MCP tool lists, or tool approval modes. Those are user or project security choices, and several would make the CLI fallback or future discern tools more brittle.
 

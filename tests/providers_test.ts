@@ -33,6 +33,7 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import {
+  CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
   MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
   MCP_LONG_TOOL_CALLS_FLAG,
   MCP_STRICT_TOOL_CALLS_FLAG,
@@ -67,6 +68,15 @@ Deno.test("every native provider declares an MCP timeout capability", () => {
       assert(
         policy.await_call_seconds < policy.configured_seconds,
         `${name}: await needs delivery headroom below its configured timeout`,
+      );
+    } else {
+      assertEquals(
+        policy.strictest_surface_seconds,
+        CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
+      );
+      assert(
+        policy.await_call_seconds < policy.strictest_surface_seconds,
+        `${name}: await needs delivery headroom below its strictest client surface`,
       );
     }
     assertEquals(mcpServerArgsForNativeAgent(name, ["mcp"]), [

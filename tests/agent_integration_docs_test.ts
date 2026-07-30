@@ -20,9 +20,13 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
-import { providerFor } from "../src/lib/providers.ts";
+import { providerFor, wiredMcp } from "../src/lib/providers.ts";
 import { extractTitle } from "../src/lib/docs.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
+import {
+  mcpServerArgsForNativeAgent,
+  NATIVE_MCP_TIMEOUT_POLICY,
+} from "../src/shared/mcp_timeout_policy.ts";
 
 /** The IDE-first agents (read the canonical file, emit no vendor file). */
 function reuseCanonicalAgents(): readonly string[] {
@@ -172,4 +176,55 @@ Deno.test("every provider's human setup advice has provider-specific documentati
     advisedProviders > 0,
     "expected at least one provider to declare human setup advice",
   );
+});
+
+Deno.test("every wired provider's integration doc carries its MCP call profile", async () => {
+  const docs = await integrationDocs();
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider registered for "${name}"`);
+    const mcp = wiredMcp(provider);
+    if (mcp === undefined) {
+      continue;
+    }
+    const doc = docs.find((candidate) =>
+      extractTitle(candidate.text) === `${provider.label} integration`
+    );
+    assert(doc !== undefined, `no integration doc found for "${name}"`);
+
+    const args = mcpServerArgsForNativeAgent(name, ["mcp"]);
+    const profileFlag = args[1];
+    assert(
+      profileFlag !== undefined,
+      `${name}: MCP policy produced no server profile flag`,
+    );
+    assertStringIncludes(
+      doc.text,
+      profileFlag,
+      `${doc.file}: generated MCP example omits ${name}'s call profile`,
+    );
+
+    const policy = NATIVE_MCP_TIMEOUT_POLICY[name];
+    if (policy.capability === "configurable") {
+      const configuredLiteral = mcp.configFile.endsWith(".toml")
+        ? `tool_timeout_sec = ${policy.configured_seconds}`
+        : `"timeout": ${policy.configured_seconds * 1000}`;
+      assertStringIncludes(
+        doc.text,
+        configuredLiteral,
+        `${doc.file}: generated MCP example omits ${name}'s configured timeout`,
+      );
+    } else {
+      assertStringIncludes(
+        doc.text,
+        `${policy.strictest_surface_seconds}-second`,
+        `${doc.file}: surface-dependent profile omits its shortest client bound`,
+      );
+      assertStringIncludes(
+        doc.text,
+        `${policy.await_call_seconds}-second`,
+        `${doc.file}: surface-dependent profile omits its await call bound`,
+      );
+    }
+  }
 });

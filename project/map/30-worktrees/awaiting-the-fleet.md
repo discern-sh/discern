@@ -38,7 +38,7 @@ Use `--green` for work in flight and `--landed` when only arrival matters. `--gr
 Omit `timeout` and let discern use the longest reliable call for the configured surface:
 
 - The CLI and known configurable Model Context Protocol (MCP) clients use 3,300 seconds — 55 minutes.
-- Cursor's fixed-limit MCP server and an undeclared MCP client use 45 seconds.
+- Cursor's shared IDE-and-CLI MCP entry and an undeclared MCP client use 45 seconds. The Cursor CLI/ACP path stops at 60 seconds, so the shared entry uses that shortest verified surface.
 - Configurable clients receive a one-hour MCP tool timeout, leaving five minutes of delivery and cancellation headroom around the 55-minute wait.
 
 The condition returns immediately when it holds. A longer bound does not delay success, so do not split a supported long call into heartbeat-sized calls for progress reporting. Client cancellation still ends it promptly.

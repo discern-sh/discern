@@ -3,14 +3,16 @@
  *
  * The configured clients get one hour. `await` spends at most 55 minutes of
  * that budget, leaving five minutes for request delivery and cancellation.
- * Cursor's CLI/ACP surface currently has a fixed 60-second tool-call limit, so
- * Cursor and unknown clients use lossless 45-second continuation slices.
+ * Cursor's project config is shared by client surfaces with different limits.
+ * Its CLI/ACP path currently stops tool calls at 60 seconds, so the generated
+ * Cursor server and unknown clients use lossless 45-second continuation slices.
  */
 
 import type { NativeAgentName } from "./agent_catalogue.ts";
 
 export const MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS = 3_600;
 export const AWAIT_LONG_CALL_SECONDS = 3_300;
+export const CURSOR_CLI_TOOL_TIMEOUT_SECONDS = 60;
 export const AWAIT_STRICT_CALL_SECONDS = 45;
 export const MCP_LONG_TOOL_CALLS_FLAG = "--long-tool-calls";
 export const MCP_STRICT_TOOL_CALLS_FLAG = "--strict-tool-calls";
@@ -22,7 +24,13 @@ export type NativeMcpTimeoutPolicy =
     readonly await_call_seconds: number;
   }
   | {
-    readonly capability: "fixed";
+    /**
+     * One provider config feeds client surfaces with different bounds. The
+     * generated entry must honor the shortest verified surface because the
+     * server cannot rely on advisory client identity to select a longer call.
+     */
+    readonly capability: "surface-dependent";
+    readonly strictest_surface_seconds: number;
     readonly await_call_seconds: number;
   };
 
@@ -44,7 +52,8 @@ export const NATIVE_MCP_TIMEOUT_POLICY = {
     await_call_seconds: AWAIT_LONG_CALL_SECONDS,
   },
   cursor: {
-    capability: "fixed",
+    capability: "surface-dependent",
+    strictest_surface_seconds: CURSOR_CLI_TOOL_TIMEOUT_SECONDS,
     await_call_seconds: AWAIT_STRICT_CALL_SECONDS,
   },
   copilot: {

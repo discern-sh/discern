@@ -334,7 +334,7 @@ export function attachEngineCommands(
     )
     .option(
       MCP_STRICT_TOOL_CALLS_FLAG,
-      "Use the fixed short-call MCP transport profile.",
+      "Use the strict short-call MCP transport profile.",
       { hidden: true },
     )
     .action(recordedExit("mcp", async (o) => {

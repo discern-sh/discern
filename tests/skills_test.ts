@@ -122,6 +122,87 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   );
 });
 
+Deno.test("delegate-work keeps the staged-handoff safeguards and resumable-wait contract", async () => {
+  const bundledDir = await resolveBundledSkillsDir();
+  const text = await Deno.readTextFile(
+    join(bundledDir, "discern-delegate-work", "SKILL.md"),
+  );
+  for (
+    const [meaning, needle] of [
+      [
+        "dependent briefs are written while their reasoning is still present",
+        "all written now",
+      ],
+      [
+        "deferring a brief loses the context that shaped it",
+        "a brief deferred until A lands gets written from a colder memory of why",
+      ],
+      [
+        "parallel streams each own an isolated worktree",
+        "run at once, each in its own worktree",
+      ],
+      [
+        "the key fixes the landing order in the brief titles",
+        "The key fixes the cross-wave landing order once",
+      ],
+      [
+        "each brief names the other in-flight streams",
+        "Say in each brief that other streams are in flight",
+      ],
+      [
+        "landing authority remains the user's planning-time choice",
+        "is the user's call, made once at planning time; ask now",
+      ],
+      [
+        "desk grants retain their batch workflow",
+        "give that last one a batch moment",
+      ],
+      [
+        "prose cannot manufacture landing authority",
+        "text is not a grant, and the verb checks the record",
+      ],
+      [
+        "orientation includes status, guidance, and the named worktree",
+        "begin by orienting (`discern_status`) and reading the project's guidance file",
+      ],
+      [
+        "requested worktree names remain literal and slug-first",
+        "one short programme slug — one word for the whole effort",
+      ],
+      [
+        "dependent briefs use the exact returned branch",
+        "capture A's exact returned branch",
+      ],
+      [
+        "green composition follows an immutable observed commit",
+        "compose from the immutable observed commit",
+      ],
+      [
+        "intermediate stacked branches remain available and never accept",
+        "keeps its branch for the dependent, and never accepts",
+      ],
+      [
+        "await uses one longest-safe call",
+        "uses one longest-safe call and returns early",
+      ],
+      [
+        "a not-yet watch follows resumable state",
+        "follow the returned resume hint or `--resume` command",
+      ],
+      [
+        "the handoff can launch without a human readiness relay",
+        "the whole set can dispatch in one sitting",
+      ],
+    ] as const
+  ) {
+    assertStringIncludes(
+      text,
+      needle,
+      `discern-delegate-work lost this instruction: ${meaning}`,
+    );
+  }
+});
+
 Deno.test("every skeleton path a bundled SKILL.md cites exists in that skill's source", async () => {
   // A skill that scaffolds files tells its reader to copy from its own
   // `skeleton/<path>` directory (vendor-neutral: relative to where the agent found

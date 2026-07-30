@@ -43,13 +43,16 @@ Claude Code does not read the cross-tool `.agents/skills/` directory. discern th
     "discern": {
       "type": "stdio",
       "command": "discern",
-      "args": ["mcp"]
+      "args": ["mcp", "--long-tool-calls"],
+      "timeout": 3600000
     }
   }
 }
 ```
 
 The same `.mcp.json` file can also be used by GitHub Copilot. Claude Code and Copilot share one writer for this entry, so the `discern` server is byte-identical whichever provider wires it first.
+
+The one-hour client timeout gives `discern_await` a 55-minute call, with five minutes left for delivery and cancellation. A condition that becomes true returns immediately. A longer watch continues from the returned resume token. Claude Code's own [`MCP_TOOL_TIMEOUT`](https://code.claude.com/docs/en/env-vars) defaults to about 28 hours; the value above is discern's shared Claude-and-Copilot transport budget, not a Claude Code maximum.
 
 ## `.claude/settings.json`
 
