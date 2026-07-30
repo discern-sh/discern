@@ -1677,6 +1677,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  * of: claimed by an entry's guards, or recorded here.
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
+  "tests/control_byte_guard_test.ts":
+    "sweeps authored text for raw control bytes that read as binary to POSIX tools; a bytes rule, not a member set",
   "tests/adr_vocab_guard_test.ts":
     "sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set",
   "tests/engine_tree_drift_test.ts":

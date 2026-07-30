@@ -766,6 +766,7 @@ Recorded strays the convention sweeps accept. Each subsection names the record t
 
 Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_GUARDS`.
 
+- `tests/control_byte_guard_test.ts` — sweeps authored text for raw control bytes that read as binary to POSIX tools; a bytes rule, not a member set
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
