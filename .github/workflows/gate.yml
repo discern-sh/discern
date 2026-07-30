@@ -1,9 +1,9 @@
 name: gate
 
 # Run the repo's own quality gate — the same `discern done` developers run —
-# on every push to main and every pull request. The trailing `git diff
-# --exit-code` turns the auto-fixing `fix` stage (deno fmt) into a hard check: CI
-# fixes nothing, it only verifies the committed tree is already clean.
+# on every push to main and every pull request. Ubuntu covers private
+# development; native macOS joins routine CI once the repository is public.
+# The release workflow runs the macOS gate before every publication.
 #
 # The engine is TS-native (in the binary), so there is no committed shell engine
 # or shell recipe matrix. The standalone remote installer remains POSIX shell and
@@ -18,7 +18,8 @@ on:
 permissions:
   contents: read
 
-# A newer commit supersedes an in-flight run...
+# A newer commit supersedes an in-flight run. Remote gates are long enough that
+# finishing an obsolete tree would spend almost a second run's worth of minutes.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -57,6 +58,9 @@ jobs:
 
   macos:
     name: macOS gate
+    # Private development already carries local macOS gate receipts. Keep the
+    # hosted lane for public changes; releases repeat it before publication.
+    if: github.event.repository.private == false
     runs-on: macos-15
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -66,18 +70,8 @@ jobs:
           deno-version: v2.x
           cache: true
 
-      - name: Install Vale and sync its styles
-        run: |
-          VALE_VERSION="$(<.vale-version)"
-          curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_macOS_arm64.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin vale
-          vale sync
-
-      - name: Run the gate (discern done, via the dev binary)
-        run: deno task dev done
-
-      - name: Assert a clean tree (the fix stage must change nothing in CI)
-        run: git diff --exit-code
+      - name: Run the native macOS gate
+        uses: ./.github/actions/macos-gate
 
   standards:
     # Hold the metric standards (coverage, …). They run the whole suite under

@@ -1,7 +1,8 @@
 name: release
 
 # Build the per-platform `discern` binaries and attach them to the GitHub
-# Release whenever a v* tag is pushed.
+# Release whenever a v* tag is pushed. One native macOS row runs the full gate
+# before compilation, so publication never relies only on routine CI.
 
 on:
   push:
@@ -61,6 +62,20 @@ jobs:
           deno-version: v2.x
           # Cache the Deno install and module cache (keyed off deno.lock).
           cache: true
+
+      # The release target registry selects one existing native row for this
+      # gate, avoiding a separate macOS runner while preserving release proof.
+      - name: Fetch main for the release gate
+        if: ${{ matrix.gateBeforeBuild }}
+        run: >-
+          git fetch --no-tags --depth=1 origin
+          +refs/heads/main:refs/remotes/origin/main
+
+      - name: Run the full gate on native macOS
+        if: ${{ matrix.gateBeforeBuild }}
+        uses: ./.github/actions/macos-gate
+        env:
+          DISCERN_TRUNK: origin/main
 
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}

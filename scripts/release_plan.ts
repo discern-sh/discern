@@ -4,6 +4,7 @@ import { KIT_VERSION } from "../src/lib/version.ts";
 import { BUILD_TARGETS, type BuildTarget } from "./build_targets.ts";
 
 export interface ReleaseMatrixRow {
+  gateBeforeBuild: boolean;
   os: string;
   output: string;
   target: string;
@@ -30,6 +31,7 @@ export function releasePlan(
     version,
     matrix: {
       include: targets.map((target) => ({
+        gateBeforeBuild: target.gateBeforeBuild === true,
         target: target.triple,
         output: target.output,
         os: target.runner,
