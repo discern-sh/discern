@@ -71,6 +71,7 @@ const LOGBOOK_READER_MODULES = [
   "src/engine/logbook/detectors.ts",
   "src/engine/logbook/cohorts.ts",
   "src/engine/logbook/read.ts",
+  "src/engine/logbook/brag.ts",
 ] as const;
 
 /** Schema members a reader deliberately does not consume, each with its

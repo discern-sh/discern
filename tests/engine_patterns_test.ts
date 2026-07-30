@@ -11,7 +11,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -33,6 +38,9 @@ import { HINTS } from "../src/shared/hints.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
+  BRAG_EMPTY_MESSAGE,
+  BRAG_PROVENANCE,
+  BRAG_SECTIONS,
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
@@ -148,6 +156,66 @@ async function seedLogbook(dir: string): Promise<void> {
         measured: 85,
       }),
     ].join("\n") + "\n",
+  );
+}
+
+/** Seed two complete start→green→accept arcs plus one pin: enough history to
+ * put a number in every brag section. Hours are chosen so the check time and
+ * both cycle durations land on round, assertable values. */
+async function seedBragLogbook(dir: string): Promise<void> {
+  const events: Record<string, unknown>[] = [];
+  const add = (hour: number, over: Record<string, unknown>): void => {
+    events.push({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 1, hour)).toISOString(),
+      kind: "verb",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: { session: "cli:brag", json: true, tty: false, ci: false },
+      head: `head-${hour}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 1_000,
+      epoch: "e1",
+      ...over,
+    });
+  };
+  add(0, { verb: "start", branch: "main", target: "agent/b1" });
+  add(1, {
+    verb: "done",
+    branch: "agent/b1",
+    outcome: "failed",
+    failed_stage: "check/test",
+    duration_ms: 3_600_000,
+  });
+  add(2, { verb: "done", branch: "agent/b1", duration_ms: 3_600_000 });
+  add(3, {
+    verb: "accept",
+    branch: "agent/b1",
+    change: { files: 2, insertions: 120, deletions: 30, commits: 3 },
+  });
+  add(4, { verb: "start", branch: "main", target: "agent/b2" });
+  add(5, { verb: "done", branch: "agent/b2", duration_ms: 3_600_000 });
+  add(6, {
+    verb: "accept",
+    branch: "agent/b2",
+    change: { files: 1, insertions: 10, deletions: 0, commits: 1 },
+  });
+  events.push({
+    schema: 1,
+    at: new Date(Date.UTC(2026, 6, 1, 7)).toISOString(),
+    kind: "pin",
+    branch: "agent/b2",
+    standard: "coverage",
+    from: 80,
+    to: 85,
+    measured: 85,
+  });
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
   );
 }
 
@@ -598,6 +666,127 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     );
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
+  });
+});
+
+Deno.test("patterns --brag: the wire and the card carry the same counted feats", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Recording off keeps the seeded stream the whole stream — the harness's
+    // own patterns runs would otherwise join the counts (the report still
+    // reads existing history either way).
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    await seedBragLogbook(dir);
+
+    // Without the flag, the payload stays lean: no brag key at all.
+    const plain = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(plain.code, 0, plain.output);
+    const plainData =
+      PatternsOutputSchema.parse(JSON.parse(plain.stdout)).data as PatternsData;
+    assert(!("brag" in plainData), "brag is computed only when asked for");
+
+    const json = await runAgent(dir, ["patterns", "--brag", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assertEquals(parsed.ok, true);
+    const brag = (parsed.data as PatternsData).brag;
+    assert(brag !== undefined, "the flag must carry data.brag");
+    assertEquals(brag.landings, {
+      count: 2,
+      branches: 2,
+      insertions: 130,
+      deletions: 30,
+      files: 3,
+      commits: 4,
+      biggest: { branch: "agent/b1", lines: 150, files: 2, day: "2026-07-01" },
+      best_day: { day: "2026-07-01", landings: 2 },
+      longest_daily_streak: 1,
+    });
+    assertEquals(brag.gate, {
+      runs: 3,
+      greens: 2,
+      first_try_green_branches: 1,
+      gated_branches: 2,
+      longest_green_streak: 2,
+      current_green_streak: 2,
+      check_hours: 3,
+    });
+    assertEquals(brag.cycles, {
+      completed: 2,
+      median_hours: 2.5,
+      fastest_hours: 2,
+    });
+    assertEquals(brag.ratchet, { pins: 1, standards: 1 });
+    assertEquals(brag.breadth.branches, 3);
+    assertEquals(brag.breadth.busiest_day, {
+      day: "2026-07-01",
+      branches: 3,
+    });
+
+    const human = await runAgent(dir, ["patterns", "--brag"], {
+      env: { COLUMNS: "100", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    const card = normalized(human.output);
+    assertStringIncludes(card, "discern patterns --brag");
+    assertStringIncludes(card, BRAG_PROVENANCE);
+    for (const label of Object.values(BRAG_SECTIONS)) {
+      assertStringIncludes(card, label);
+    }
+    assertStringIncludes(
+      card,
+      "2 landings on 2 branches · +130 −30 across 3 files · 4 commits",
+    );
+    assertStringIncludes(
+      card,
+      "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
+    );
+    assertStringIncludes(
+      card,
+      "3 `done` runs · 2 green (67%) · longest green streak 2 · current 2",
+    );
+    assertStringIncludes(card, "first-try green on 1 of 2 branches");
+    assertStringIncludes(
+      card,
+      "3h of checks run (`done` · `prepare` · `test`)",
+    );
+    assertStringIncludes(
+      card,
+      "2 start-to-accept cycles · median 2.5h · fastest 2h",
+    );
+    assertStringIncludes(
+      card,
+      "1 limit tightened across 1 standard. Loosening fails the gate.",
+    );
+    assertStringIncludes(card, "3 branches driven · active 1 of 1 day");
+    assert(
+      !card.includes(PATTERNS_ATTENTION_HEADING),
+      "the card replaces the detector report, never interleaves it",
+    );
+  });
+});
+
+Deno.test("patterns --brag: an empty logbook renders the empty state, and the wire carries zeros", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+
+    const human = await runAgent(dir, ["patterns", "--brag"], {
+      env: { COLUMNS: "100", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(normalized(human.output), BRAG_EMPTY_MESSAGE);
+
+    const json = await runAgent(dir, ["patterns", "--brag", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const brag = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
+      .data as PatternsData).brag;
+    assert(brag !== undefined);
+    assertEquals(brag.landings.count, 0);
+    assertEquals(brag.gate.runs, 0);
+    assertEquals(brag.cycles, undefined);
   });
 });
 
