@@ -202,9 +202,19 @@ function decodeXmlEntities(text: string): string {
   );
 }
 
-/** Unwrap CDATA sections, whose contents are literal text, before entity decoding. */
-function stripCdata(text: string): string {
-  return text.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+/** Decode ordinary XML text while preserving each CDATA section literally. */
+function decodeXmlText(text: string): string {
+  let decoded = "";
+  let cursor = 0;
+  for (const match of text.matchAll(/<!\[CDATA\[([\s\S]*?)\]\]>/g)) {
+    if (match.index === undefined) {
+      continue;
+    }
+    decoded += decodeXmlEntities(text.slice(cursor, match.index));
+    decoded += match[1] ?? "";
+    cursor = match.index + match[0].length;
+  }
+  return decoded + decodeXmlEntities(text.slice(cursor));
 }
 
 /** Parse one XML open tag's attributes into a name → decoded-value map. */
@@ -296,9 +306,7 @@ export function junitToDiagnostics(
     const failureBody = failure[3];
     const message = nonBlank(failureAttrs.get("message")) ??
       nonBlank(
-        failureBody === undefined
-          ? undefined
-          : decodeXmlEntities(stripCdata(failureBody)),
+        failureBody === undefined ? undefined : decodeXmlText(failureBody),
       ) ?? "(no message)";
     const diag: Diagnostic = {
       tool,

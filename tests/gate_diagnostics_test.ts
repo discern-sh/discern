@@ -185,6 +185,20 @@ Deno.test("junitToDiagnostics: one diagnostic per failing case, with file/line/c
   assert(errored.message.includes("boom <unexpected>"));
 });
 
+Deno.test("junitToDiagnostics: decodes XML text without decoding literal CDATA", () => {
+  const mixed = `<testsuite name="./tests/mixed_test.ts">
+    <testcase name="keeps literal entities">
+      <failure>outside &lt;decoded&gt; <![CDATA[inside &lt;literal&gt;]]> &amp; tail</failure>
+    </testcase>
+  </testsuite>`;
+  const diags = junitToDiagnostics(mixed, "test", "deno task test");
+  assert(diags !== undefined, "the failing case should produce a diagnostic");
+  assertEquals(
+    diags[0]?.message,
+    "outside <decoded> inside &lt;literal&gt; & tail",
+  );
+});
+
 Deno.test("junitToDiagnostics: an all-green report returns undefined so Tier-0 fallback survives", () => {
   const green = `<testsuites tests="1" failures="0" errors="0">
     <testsuite name="./tests/ok_test.ts" tests="1" failures="0">
