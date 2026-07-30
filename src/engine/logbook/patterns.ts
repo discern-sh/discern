@@ -11,9 +11,9 @@
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * `--json`, and the MCP tool are three renderings of the same object.
  * {@link patternsResult} is the unrendered core the MCP server calls;
- * {@link runPatterns} is the CLI. `--brag` asks the same read for bragging
- * rights (`brag.ts` computes them; `data.brag` carries them) and swaps the
- * human report for the card.
+ * {@link runPatterns} is the CLI. `--stats` asks the same read for the
+ * practice's stats (`stats.ts` computes them; `data.stats` carries them) and
+ * swaps the human report for the card.
  *
  * Advisory only, structurally: the result is always `ok` once the logbook is
  * readable — findings are advice, never failures — and nothing in the gate
@@ -32,11 +32,11 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   type PatternFindingTone,
-  type PatternsBrag,
   type PatternsData,
   type PatternsFinding,
   type PatternsPopulation,
   type PatternsResetData,
+  type PatternsStats,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
@@ -61,7 +61,7 @@ import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
-import { computeBrag } from "./brag.ts";
+import { computeStats } from "./stats.ts";
 import {
   buildStreamFacts,
   inclusiveSpanDays,
@@ -112,8 +112,8 @@ function noRepository(verb: string): DiscernResult<never> {
 
 /** Options accepted by {@link patternsResult}. */
 export interface PatternsResultOptions {
-  /** Also compute bragging rights (`data.brag`) from the same stream. */
-  brag?: boolean;
+  /** Also compute practice stats (`data.stats`) from the same stream. */
+  stats?: boolean;
 }
 
 /**
@@ -121,8 +121,8 @@ export interface PatternsResultOptions {
  * the core the MCP server renders. Reads the whole logbook tolerantly (torn
  * and foreign lines are skipped and counted), runs every registry detector
  * with its evidence threshold applied, and reports the ranked findings plus
- * every detector's status. When asked, `data.brag` joins with bragging
- * rights read from the same stream (`brag.ts`). An empty or absent logbook
+ * every detector's status. When asked, `data.stats` joins with the practice's
+ * stats read from the same stream (`stats.ts`). An empty or absent logbook
  * is a first-class state with a helpful hint, not an error.
  */
 export async function patternsResult(
@@ -173,7 +173,7 @@ export async function patternsResult(
       threshold: r.detector.threshold,
       findings: r.findings.length,
     })),
-    ...(opts.brag === true ? { brag: computeBrag(facts) } : {}),
+    ...(opts.stats === true ? { stats: computeStats(facts) } : {}),
   };
 
   const hints: FiredHint[] = [];
@@ -626,19 +626,19 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   renderClosingAccount(out, data, width);
 }
 
-// ── bragging rights ─────────────────────────────────────────────────────────
+// ── practice stats ─────────────────────────────────────────────────────────
 
-/** The empty-state line for a brag card with no analyzed runs behind it. */
-export const BRAG_EMPTY_MESSAGE =
-  "Nothing to brag about yet: the logbook holds no analyzed runs. Check back after some use.";
+/** The empty-state line for a stats card with no analyzed runs behind it. */
+export const STATS_EMPTY_MESSAGE =
+  "No stats yet: the logbook holds no analyzed runs. Check back after some use.";
 
 /** The card's provenance line — where every number comes from, and how far
  * it travels. */
-export const BRAG_PROVENANCE =
+export const STATS_PROVENANCE =
   "Counted from this repository's local logbook. Nothing leaves the machine.";
 
-/** Section labels for the brag card, in render order. */
-export const BRAG_SECTIONS = {
+/** Section labels for the stats card, in render order. */
+export const STATS_SECTIONS = {
   accepted: "Accepted",
   gate: "The gate",
   pace: "Pace",
@@ -653,11 +653,11 @@ function percent(part: number, whole: number): string {
 
 /** Meter cells on a proportion row — wide enough to read, narrow enough to
  * leave the count and its denominator room on an 80-column card. */
-export const BRAG_METER_WIDTH = 18;
+export const STATS_METER_WIDTH = 18;
 
 /** A proportion row: a green-filled meter, then the counts it summarizes. */
 function meterRow(c: Palette, fraction: number, text: string): string {
-  const cells = meter(fraction, BRAG_METER_WIDTH);
+  const cells = meter(fraction, STATS_METER_WIDTH);
   return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
 }
 
@@ -670,15 +670,15 @@ function cadenceLabel(unit: string, daysPerPoint: number): string {
 }
 
 /** A section heading's cadence sparkline, when the series has a shape. */
-interface BragSpark {
+interface StatsSpark {
   series: readonly number[];
   label: string;
 }
 
-function bragSpark(
+function statsSpark(
   series: readonly number[] | undefined,
   label: string,
-): BragSpark | undefined {
+): StatsSpark | undefined {
   return series !== undefined && series.length > 1 &&
       series.some((value) => value > 0)
     ? { series, label }
@@ -686,9 +686,9 @@ function bragSpark(
 }
 
 /** "12 days (2026-07-18 → 2026-07-29) · 1,670 analyzed runs · 61 branches" */
-function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
+function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
   const parts: string[] = [];
-  const breadth = brag.breadth;
+  const breadth = stats.breadth;
   if (
     breadth.first_day !== undefined && breadth.last_day !== undefined &&
     breadth.span_days > 0
@@ -709,9 +709,10 @@ function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
 /** The accepted section: changes accepted and their recorded scale. A single
  * accepted change keeps the card quiet about "biggest" and "best day" — with
  * one member, both would restate the change itself. Records read in yellow;
- * the acceptance streak reads in green. */
-function bragAcceptedRows(
-  accepted: PatternsBrag["accepted"],
+ * the acceptance streak reads in green; added and removed lines read
+ * git-style, green and red. */
+function statsAcceptedRows(
+  accepted: PatternsStats["accepted"],
   c: Palette,
 ): string[] {
   if (accepted.count === 0) {
@@ -727,9 +728,11 @@ function bragAcceptedRows(
       ? round1(accepted.insertions / accepted.deletions)
       : undefined;
     rows.push(
-      `+${formatHumanNumber(accepted.insertions)} −${
+      `${c.green}+${
+        formatHumanNumber(accepted.insertions)
+      }${c.reset} ${c.red}−${
         formatHumanNumber(accepted.deletions)
-      } across ${plural(accepted.files, "file")}${
+      }${c.reset} across ${plural(accepted.files, "file")}${
         ratio !== undefined
           ? ` · ${formatHumanNumber(ratio)} ${
             ratio === 1 ? "line" : "lines"
@@ -777,7 +780,7 @@ function bragAcceptedRows(
 /** The gate section: the green share and first-try share as meter rows with
  * their denominators, red runs reframed as the gate's saves, then streaks
  * and check time. Streaks of one stay off the card. */
-function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
+function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
   if (gate.runs === 0) {
     return ["No `done` runs yet."];
   }
@@ -853,9 +856,9 @@ function everyLabel(hours: number): string {
  * are both on record, so the cycle count can sit below the accepted count.
  * Empty before the first measured cycle on a one-day span. The fastest cycle
  * is a record, so it reads in yellow. */
-function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
+function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
   const rows: string[] = [];
-  const cycles = brag.cycles;
+  const cycles = stats.cycles;
   if (cycles !== undefined) {
     rows.push(
       meterRow(
@@ -888,11 +891,11 @@ function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
       );
     }
   }
-  const accepted = brag.accepted;
-  if (accepted.count > 1 && brag.breadth.span_days > 1) {
+  const accepted = stats.accepted;
+  if (accepted.count > 1 && stats.breadth.span_days > 1) {
     rows.push(
       `one change accepted every ${
-        everyLabel((brag.breadth.span_days * 24) / accepted.count)
+        everyLabel((stats.breadth.span_days * 24) / accepted.count)
       } across the span`,
     );
   }
@@ -901,8 +904,8 @@ function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
 
 /** The breadth section: branches driven, active days, the busiest day, and
  * the peak overlap — the most changes in flight at one instant. */
-function bragBreadthRows(
-  breadth: PatternsBrag["breadth"],
+function statsBreadthRows(
+  breadth: PatternsStats["breadth"],
   c: Palette,
 ): string[] {
   const busiest = breadth.busiest_day;
@@ -931,8 +934,8 @@ function bragBreadthRows(
 /** The standards section: the pin ratchet and the most improved standard,
  * percent-normalized against its first reading so different scales read
  * like-for-like. */
-function bragStandardsRows(
-  ratchet: PatternsBrag["ratchet"],
+function statsStandardsRows(
+  ratchet: PatternsStats["ratchet"],
   c: Palette,
 ): string[] {
   const rows: string[] = [];
@@ -948,7 +951,7 @@ function bragStandardsRows(
     rows.push(
       `most improved: \`${improved.standard}\` ${
         formatHumanNumber(improved.from)
-      } → ${formatHumanNumber(improved.to)} (${c.yellow}${
+      } → ${formatHumanNumber(improved.to)} (${c.green}${
         formatHumanNumber(improved.better_percent)
       }% better${c.reset})`,
     );
@@ -960,8 +963,8 @@ function bragStandardsRows(
  * shares, each with its own usage sparkline. The cohort seam's honesty rules
  * hold here: below-minimum identities are counted but never listed, and the
  * unattributed share is always stated. */
-function bragAgentsRows(
-  agents: PatternsBrag["agents"],
+function statsAgentsRows(
+  agents: PatternsStats["agents"],
   c: Palette,
 ): string[] {
   const below = agents.below_minimum;
@@ -1000,12 +1003,12 @@ function bragAgentsRows(
 /** One card section: a bold label — carrying its cyan cadence sparkline when
  * the span has one — then its wrapped stat rows, then a blank line so the
  * groups read apart. */
-function bragSection(
+function statsSection(
   out: Out,
   width: number,
   label: string,
   rows: readonly string[],
-  spark?: BragSpark | undefined,
+  spark?: StatsSpark | undefined,
 ): void {
   const c = out.c;
   const tail = spark === undefined
@@ -1020,59 +1023,59 @@ function bragSection(
   out.raw("\n");
 }
 
-/** Render the bragging-rights card: the practice's countable feats, each
+/** Render the practice-stats card: the practice's countable feats, each
  * with its denominator beside it, from the same analysis population the
  * detectors read. The detector report looks for what needs attention; this
  * card counts what went well. Color is meaning, never decoration: green for
  * gate greens and streaks, yellow for records, cyan for cadence sparklines. */
-function renderBragReport(
+function renderStatsReport(
   out: Out,
   data: PatternsData,
-  brag: PatternsBrag,
+  stats: PatternsStats,
   slug: string,
 ): void {
   const c = out.c;
   const width = terminalWidth();
-  out.heading(`discern patterns --brag${slug ? ` · ${slug}` : ""}`);
+  out.heading(`discern patterns --stats${slug ? ` · ${slug}` : ""}`);
   if (data.population.analyzed === 0) {
-    writeWrapped(out, "  ", BRAG_EMPTY_MESSAGE, width);
+    writeWrapped(out, "  ", STATS_EMPTY_MESSAGE, width);
     return;
   }
   const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
-  writeWrapped(out, "  ", bragHeaderLine(data, brag), width, dim);
-  writeWrapped(out, "  ", BRAG_PROVENANCE, width, dim);
+  writeWrapped(out, "  ", statsHeaderLine(data, stats), width, dim);
+  writeWrapped(out, "  ", STATS_PROVENANCE, width, dim);
   out.raw("\n");
-  const daysPerPoint = brag.series_days_per_point ?? 1;
-  bragSection(
+  const daysPerPoint = stats.series_days_per_point ?? 1;
+  statsSection(
     out,
     width,
-    BRAG_SECTIONS.accepted,
-    bragAcceptedRows(brag.accepted, c),
-    bragSpark(brag.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
+    STATS_SECTIONS.accepted,
+    statsAcceptedRows(stats.accepted, c),
+    statsSpark(stats.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
   );
-  bragSection(
+  statsSection(
     out,
     width,
-    BRAG_SECTIONS.gate,
-    bragGateRows(brag.gate, c),
-    bragSpark(
-      brag.gate.greens_per_day,
+    STATS_SECTIONS.gate,
+    statsGateRows(stats.gate, c),
+    statsSpark(
+      stats.gate.greens_per_day,
       cadenceLabel("green runs", daysPerPoint),
     ),
   );
-  const pace = bragPaceRows(brag, c);
+  const pace = statsPaceRows(stats, c);
   if (pace.length > 0) {
-    bragSection(out, width, BRAG_SECTIONS.pace, pace);
+    statsSection(out, width, STATS_SECTIONS.pace, pace);
   }
-  const standards = bragStandardsRows(brag.ratchet, c);
+  const standards = statsStandardsRows(stats.ratchet, c);
   if (standards.length > 0) {
     // The trend can honestly fall, so unlike the count sparks it shows
     // whenever it moves at all.
-    const trend = brag.ratchet.trend;
-    bragSection(
+    const trend = stats.ratchet.trend;
+    statsSection(
       out,
       width,
-      BRAG_SECTIONS.standards,
+      STATS_SECTIONS.standards,
       standards,
       trend !== undefined && trend.length > 1 &&
         trend.some((value) => value !== 0)
@@ -1083,25 +1086,25 @@ function renderBragReport(
         : undefined,
     );
   }
-  if (brag.agents.identities.length > 0 || brag.agents.detected > 0) {
-    bragSection(
+  if (stats.agents.identities.length > 0 || stats.agents.detected > 0) {
+    statsSection(
       out,
       width,
-      BRAG_SECTIONS.agents,
-      bragAgentsRows(brag.agents, c),
-      bragSpark(
-        brag.agents.per_day,
+      STATS_SECTIONS.agents,
+      statsAgentsRows(stats.agents, c),
+      statsSpark(
+        stats.agents.per_day,
         cadenceLabel("agent runs", daysPerPoint),
       ),
     );
   }
-  bragSection(
+  statsSection(
     out,
     width,
-    BRAG_SECTIONS.breadth,
-    bragBreadthRows(brag.breadth, c),
-    bragSpark(
-      brag.breadth.branches_per_day,
+    STATS_SECTIONS.breadth,
+    statsBreadthRows(stats.breadth, c),
+    statsSpark(
+      stats.breadth.branches_per_day,
       daysPerPoint <= 1
         ? "branches active per day"
         : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
@@ -1110,7 +1113,7 @@ function renderBragReport(
   writeWrapped(
     out,
     "  ",
-    "Data: `discern patterns --brag --json`.",
+    "Data: `discern patterns --stats --json`.",
     width,
     dim,
   );
@@ -1119,9 +1122,9 @@ function renderBragReport(
 /** Options accepted by the patterns CLI. */
 export interface RunPatternsOptions {
   json: boolean;
-  /** Render the bragging-rights card (and carry `data.brag`) instead of the
+  /** Render the practice-stats card (and carry `data.stats`) instead of the
    * detector report. */
-  brag: boolean;
+  stats: boolean;
 }
 
 /** Run `discern patterns`. Returns a process exit code — 0 whenever the
@@ -1130,7 +1133,7 @@ export async function runPatterns(
   root: string,
   opts: RunPatternsOptions,
 ): Promise<number> {
-  const result = await patternsResult(root, { brag: opts.brag });
+  const result = await patternsResult(root, { stats: opts.stats });
   observeResult(result);
   if (opts.json) {
     emitResult(result);
@@ -1142,9 +1145,9 @@ export async function runPatterns(
     return 1;
   }
   const config = await loadConfig(root);
-  const brag = result.data.brag;
-  if (brag !== undefined) {
-    renderBragReport(out, result.data, brag, config.project.slug);
+  const stats = result.data.stats;
+  if (stats !== undefined) {
+    renderStatsReport(out, result.data, stats, config.project.slug);
   } else {
     renderReport(out, result.data, config.project.slug);
   }

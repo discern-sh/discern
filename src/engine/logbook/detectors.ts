@@ -219,8 +219,8 @@ function bySession(events: VerbEvent[]): VerbEvent[][] {
   return [...groups.values()];
 }
 
-/** The longest run of consecutive matching items. Shared with the brag
- * reader (`brag.ts`). */
+/** The longest run of consecutive matching items. Shared with the stats
+ * reader (`stats.ts`). */
 export function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
   let best = 0;
   let run = 0;
@@ -232,7 +232,7 @@ export function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
 }
 
 /** The median of a non-empty list (mean of the middle two when even). Shared
- * with the brag reader (`brag.ts`). */
+ * with the stats reader (`stats.ts`). */
 export function median(xs: number[]): number {
   const sorted = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
@@ -244,13 +244,13 @@ export function median(xs: number[]): number {
   return (lo + hi) / 2;
 }
 
-/** Round to one decimal place. Shared with the brag reader (`brag.ts`). */
+/** Round to one decimal place. Shared with the stats reader (`stats.ts`). */
 export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** The calendar day of an ISO timestamp ("2026-07-20"). Shared with the brag
- * reader (`brag.ts`). */
+/** The calendar day of an ISO timestamp ("2026-07-20"). Shared with the stats
+ * reader (`stats.ts`). */
 export function day(at: string): string {
   return at.slice(0, 10);
 }
@@ -262,7 +262,7 @@ function daysBetween(a: string, b: string): number {
 
 /** Inclusive UTC calendar days spanned by two ISO timestamps ("23:59 to
  * 00:01" is 2 days), or undefined when either fails to parse. Shared by the
- * report header (`patterns.ts`) and the brag reader (`brag.ts`). */
+ * report header (`patterns.ts`) and the stats reader (`stats.ts`). */
 export function inclusiveSpanDays(
   first: string,
   last: string,

@@ -1,5 +1,5 @@
 /**
- * The `--brag` reader — bragging rights, computed from the logbook. Where the
+ * The `--stats` reader — practice stats, computed from the logbook. Where the
  * detector registry (`detectors.ts`) looks for what needs attention, this
  * module counts what went well: accepted changes and their scale, green-gate
  * streaks, completed cycles, the standards ratchet and its measured trend,
@@ -25,7 +25,7 @@
 
 import {
   PATTERNS_SERIES_MAX_POINTS,
-  type PatternsBrag,
+  type PatternsStats,
 } from "../../shared/patterns_vocabulary.ts";
 import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
@@ -163,12 +163,12 @@ function peakDay(
   return peak;
 }
 
-/** Accepted changes and their recorded scale ({@link PatternsBrag},
+/** Accepted changes and their recorded scale ({@link PatternsStats},
  * `accepted`). */
-function acceptedFeats(accepted: VerbEvent[]): PatternsBrag["accepted"] {
+function acceptedFeats(accepted: VerbEvent[]): PatternsStats["accepted"] {
   const sums = { insertions: 0, deletions: 0, files: 0, commits: 0 };
   let cleanups = 0;
-  let biggest: NonNullable<PatternsBrag["accepted"]["biggest"]> | undefined;
+  let biggest: NonNullable<PatternsStats["accepted"]["biggest"]> | undefined;
   for (const e of accepted) {
     if (e.change === undefined) {
       continue;
@@ -206,8 +206,8 @@ function acceptedFeats(accepted: VerbEvent[]): PatternsBrag["accepted"] {
   };
 }
 
-/** Gate runs, streaks, and check time ({@link PatternsBrag}, `gate`). */
-function gateFeats(facts: StreamFacts): PatternsBrag["gate"] {
+/** Gate runs, streaks, and check time ({@link PatternsStats}, `gate`). */
+function gateFeats(facts: StreamFacts): PatternsStats["gate"] {
   const dones = facts.verbs.filter((e) => e.verb === "done");
   const green = (e: VerbEvent): boolean => e.outcome === "ok";
   let current = 0;
@@ -241,11 +241,11 @@ function gateFeats(facts: StreamFacts): PatternsBrag["gate"] {
 
 /** Completed start-to-accept cycles, matched exactly the way the funnel
  * detector matches them: an `ok` start's created branch to the first later
- * `ok` accept on it ({@link PatternsBrag}, `cycles`). */
+ * `ok` accept on it ({@link PatternsStats}, `cycles`). */
 function cycleFeats(
   facts: StreamFacts,
   accepted: VerbEvent[],
-): PatternsBrag["cycles"] {
+): PatternsStats["cycles"] {
   const starts = facts.verbs.filter((e) =>
     e.verb === "start" && e.outcome === "ok" && e.target !== undefined
   );
@@ -324,7 +324,7 @@ function trendEligible(track: StandardTrack): boolean {
 }
 
 /** The average improvement across all eligible standards per series point
- * ({@link PatternsBrag}, `ratchet.trend`). Each standard contributes its
+ * ({@link PatternsStats}, `ratchet.trend`). Each standard contributes its
  * day's last reading, carried forward through unmeasured days; before its
  * first reading it contributes nothing. Days before any reading average to
  * zero — no measured improvement yet, honestly stated. */
@@ -379,11 +379,11 @@ function ratchetTrend(
 }
 
 /** The standard whose last reading improved the most against its first,
- * percent-normalized ({@link PatternsBrag}, `ratchet.most_improved`).
+ * percent-normalized ({@link PatternsStats}, `ratchet.most_improved`).
  * Absent when nothing improved. */
 function mostImproved(
   tracks: readonly StandardTrack[],
-): PatternsBrag["ratchet"]["most_improved"] {
+): PatternsStats["ratchet"]["most_improved"] {
   let best:
     | { standard: string; from: number; to: number; raw: number }
     | undefined;
@@ -406,14 +406,14 @@ function mostImproved(
   };
 }
 
-/** The most change branches in flight at one instant ({@link PatternsBrag},
+/** The most change branches in flight at one instant ({@link PatternsStats},
  * `breadth.peak_in_flight`). A branch is in flight from its first analyzed
  * event to its last: a pause inside that window (an overnight break) stays
  * in flight, and after its last event the branch stops counting — so an
  * abandoned effort never inflates the peak. The trunk is not a change. */
 function peakInFlight(
   facts: StreamFacts,
-): PatternsBrag["breadth"]["peak_in_flight"] {
+): PatternsStats["breadth"]["peak_in_flight"] {
   const windows = new Map<string, { from: string; to: string }>();
   for (const e of facts.verbs) {
     if (e.branch === null || e.branch === facts.trunk) {
@@ -442,7 +442,7 @@ function peakInFlight(
   // when another opens still overlaps it for that instant.
   bounds.sort((a, b) => a.at.localeCompare(b.at) || b.delta - a.delta);
   let open = 0;
-  let peak: NonNullable<PatternsBrag["breadth"]["peak_in_flight"]> = {
+  let peak: NonNullable<PatternsStats["breadth"]["peak_in_flight"]> = {
     branches: 0,
     day: "",
   };
@@ -455,7 +455,7 @@ function peakInFlight(
   return peak;
 }
 
-/** Attributed agent identities and their runs ({@link PatternsBrag},
+/** Attributed agent identities and their runs ({@link PatternsStats},
  * `agents`), segmented through the cohort seam (`cohorts.ts`) so the same
  * honesty rules apply here as in every detector: identities below the
  * reporting minimums are counted but never listed, and the unattributed
@@ -464,7 +464,7 @@ function agentFeats(
   facts: StreamFacts,
   span: SeriesSpan | undefined,
   fold: (daily: number[]) => number[],
-): PatternsBrag["agents"] {
+): PatternsStats["agents"] {
   const split = splitByCohort(facts.verbs, (e) => [e]);
   const identities = split.speaking.slice(0, 10).map((cohort) => {
     const dones = cohort.units.filter((e) => e.verb === "done");
@@ -499,8 +499,8 @@ function agentFeats(
 }
 
 /** Branches driven, active days, and the busiest day
- * ({@link PatternsBrag}, `breadth`). */
-function breadthFeats(facts: StreamFacts): PatternsBrag["breadth"] {
+ * ({@link PatternsStats}, `breadth`). */
+function breadthFeats(facts: StreamFacts): PatternsStats["breadth"] {
   const activeDays = new Set(facts.verbs.map((e) => day(e.at)));
   const branchesByDay = new Map<string, Set<string>>();
   for (const e of facts.verbs) {
@@ -536,9 +536,9 @@ function breadthFeats(facts: StreamFacts): PatternsBrag["breadth"] {
   };
 }
 
-/** Compute bragging rights from the pre-digested stream. Pure, and total over
+/** Compute practice stats from the pre-digested stream. Pure, and total over
  * any stream: an empty logbook produces a card of zeros, not an error. */
-export function computeBrag(facts: StreamFacts): PatternsBrag {
+export function computeStats(facts: StreamFacts): PatternsStats {
   const accepted = facts.verbs.filter((e) =>
     e.verb === "accept" && e.outcome === "ok"
   );

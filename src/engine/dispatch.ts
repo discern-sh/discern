@@ -532,17 +532,17 @@ export function attachEngineCommands(
       "Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).",
     )
     .option(
-      "--brag",
-      "Report bragging rights instead: changes accepted, green streaks, cycle times, " +
+      "--stats",
+      "Report practice stats instead: changes accepted, green streaks, cycle times, " +
         "standards trends, and agent cohorts, counted from the same local evidence. " +
-        "With --json, the counts join the result as data.brag.",
+        "With --json, the counts join the result as data.stats.",
     )
     .action(
       recordedExit("patterns", async (o) => {
         const { runPatterns } = await import("./logbook/patterns.ts");
         return await runPatterns(
           await requireRoot("patterns", o.json ?? false),
-          { json: o.json ?? false, brag: o.brag ?? false },
+          { json: o.json ?? false, stats: o.stats ?? false },
         );
       }),
     )

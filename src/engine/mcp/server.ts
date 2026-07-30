@@ -704,14 +704,14 @@ export const TOOLS: McpTool[] = orderTools([
       "git history for files that change together; patterns reads discern's " +
       "own run history. An empty logbook is a normal state with a helpful " +
       "message. The reset action (`discern patterns reset`, CLI only) " +
-      "deletes the recorded history. Pass brag: true when the owner asks for " +
-      "their stats: data.brag adds bragging rights — changes accepted, green " +
+      "deletes the recorded history. Pass stats: true when the owner asks for " +
+      "their stats: data.stats adds practice stats — changes accepted, green " +
       "streaks, cycle times, standards trends, agent cohorts — counted from " +
       "the same local evidence, for the owner to share, never for steering " +
       "work.",
     inputSchema: {
-      brag: z.boolean().optional().describe(
-        "Also compute data.brag — bragging rights: changes accepted and " +
+      stats: z.boolean().optional().describe(
+        "Also compute data.stats — practice stats: changes accepted and " +
           "their scale, green-gate streaks, start-to-accept cycle times, " +
           "standards trends, agent cohorts, and breadth, as plain counts. " +
           "For the owner's own use; nothing is compared to anyone else's " +
@@ -719,7 +719,7 @@ export const TOOLS: McpTool[] = orderTools([
       ),
       ...PATH_PARAM,
     },
-    run: (root, args) => patternsResult(root, { brag: args.brag === true }),
+    run: (root, args) => patternsResult(root, { stats: args.stats === true }),
   }),
   defineTool({
     name: "discern_improvement",

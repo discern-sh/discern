@@ -38,15 +38,15 @@ import { HINTS } from "../src/shared/hints.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
-  BRAG_EMPTY_MESSAGE,
-  BRAG_PROVENANCE,
-  BRAG_SECTIONS,
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
   PATTERNS_TONE_GLYPHS,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
+  STATS_EMPTY_MESSAGE,
+  STATS_PROVENANCE,
+  STATS_SECTIONS,
 } from "../src/engine/logbook/patterns.ts";
 import {
   DETECTORS,
@@ -160,12 +160,12 @@ async function seedLogbook(dir: string): Promise<void> {
 }
 
 /** Seed two complete start→green→accept arcs plus one pin: enough history to
- * put a number in every brag section. Hours are chosen so the check time and
+ * put a number in every stats section. Hours are chosen so the check time and
  * both cycle durations land on round, assertable values; every event carries
  * an invocation-scoped identity signal so the agents section speaks, and the
  * green `done` runs carry standard readings so the ratchet's most-improved
  * reading has a trajectory to read. */
-async function seedBragLogbook(dir: string): Promise<void> {
+async function seedStatsLogbook(dir: string): Promise<void> {
   const events: Record<string, unknown>[] = [];
   const add = (hour: number, over: Record<string, unknown>): void => {
     events.push({
@@ -175,7 +175,7 @@ async function seedBragLogbook(dir: string): Promise<void> {
       surface: "cli",
       writer: "9.9.9",
       driver: {
-        session: "cli:brag",
+        session: "cli:stats",
         json: true,
         tty: false,
         ci: false,
@@ -692,7 +692,7 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
   });
 });
 
-Deno.test("patterns --brag: the wire and the card carry the same counted feats", async () => {
+Deno.test("patterns --stats: the wire and the card carry the same counted feats", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // Recording off keeps the seeded stream the whole stream — the harness's
@@ -700,22 +700,22 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     // reads existing history either way).
     await writeConfig(dir, "[project]\nlogbook = false\n");
     await gitInit(dir);
-    await seedBragLogbook(dir);
+    await seedStatsLogbook(dir);
 
-    // Without the flag, the payload stays lean: no brag key at all.
+    // Without the flag, the payload stays lean: no stats key at all.
     const plain = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(plain.code, 0, plain.output);
     const plainData = PatternsOutputSchema.parse(JSON.parse(plain.stdout))
       .data as PatternsData;
-    assert(!("brag" in plainData), "brag is computed only when asked for");
+    assert(!("stats" in plainData), "stats is computed only when asked for");
 
-    const json = await runAgent(dir, ["patterns", "--brag", "--json"]);
+    const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
     const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
     assertEquals(parsed.ok, true);
-    const brag = (parsed.data as PatternsData).brag;
-    assert(brag !== undefined, "the flag must carry data.brag");
-    assertEquals(brag.accepted, {
+    const stats = (parsed.data as PatternsData).stats;
+    assert(stats !== undefined, "the flag must carry data.stats");
+    assertEquals(stats.accepted, {
       count: 2,
       branches: 2,
       insertions: 130,
@@ -727,7 +727,7 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       best_day: { day: "2026-07-01", accepted: 2 },
       longest_streak: 1,
     });
-    assertEquals(brag.gate, {
+    assertEquals(stats.gate, {
       runs: 3,
       greens: 2,
       first_try_green_branches: 1,
@@ -736,14 +736,14 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       current_green_streak: 2,
       check_hours: 3,
     });
-    assertEquals(brag.cycles, {
+    assertEquals(stats.cycles, {
       started: 2,
       completed: 2,
       under_day: 2,
       median_hours: 2.5,
       fastest_hours: 2,
     });
-    assertEquals(brag.ratchet, {
+    assertEquals(stats.ratchet, {
       pins: 1,
       standards: 1,
       most_improved: {
@@ -753,7 +753,7 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
         better_percent: 5,
       },
     });
-    assertEquals(brag.agents, {
+    assertEquals(stats.agents, {
       detected: 1,
       identities: [{
         agent: "claude",
@@ -764,30 +764,30 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       }],
       unattributed_runs: 0,
     });
-    assertEquals(brag.breadth.branches, 3);
-    assertEquals(brag.breadth.busiest_day, {
+    assertEquals(stats.breadth.branches, 3);
+    assertEquals(stats.breadth.busiest_day, {
       day: "2026-07-01",
       branches: 3,
     });
     assertEquals(
-      brag.breadth.peak_in_flight,
+      stats.breadth.peak_in_flight,
       { branches: 1, day: "2026-07-01" },
       "sequential arcs never overlap",
     );
     assertEquals(
-      brag.series_days_per_point,
+      stats.series_days_per_point,
       undefined,
       "a one-day span carries no cadence series",
     );
 
-    const human = await runAgent(dir, ["patterns", "--brag"], {
+    const human = await runAgent(dir, ["patterns", "--stats"], {
       env: { COLUMNS: "100", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
     const card = normalized(human.output);
-    assertStringIncludes(card, "discern patterns --brag");
-    assertStringIncludes(card, BRAG_PROVENANCE);
-    for (const label of Object.values(BRAG_SECTIONS)) {
+    assertStringIncludes(card, "discern patterns --stats");
+    assertStringIncludes(card, STATS_PROVENANCE);
+    for (const label of Object.values(STATS_SECTIONS)) {
       assertStringIncludes(card, label);
     }
     assertStringIncludes(
@@ -846,27 +846,27 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
   });
 });
 
-Deno.test("patterns --brag: an empty logbook renders the empty state, and the wire carries zeros", async () => {
+Deno.test("patterns --stats: an empty logbook renders the empty state, and the wire carries zeros", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, "[project]\nlogbook = false\n");
     await gitInit(dir);
 
-    const human = await runAgent(dir, ["patterns", "--brag"], {
+    const human = await runAgent(dir, ["patterns", "--stats"], {
       env: { COLUMNS: "100", NO_COLOR: "1" },
     });
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(normalized(human.output), BRAG_EMPTY_MESSAGE);
+    assertStringIncludes(normalized(human.output), STATS_EMPTY_MESSAGE);
 
-    const json = await runAgent(dir, ["patterns", "--brag", "--json"]);
+    const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
     assertEquals(json.code, 0, json.output);
-    const brag = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
-      .data as PatternsData).brag;
-    assert(brag !== undefined);
-    assertEquals(brag.accepted.count, 0);
-    assertEquals(brag.gate.runs, 0);
-    assertEquals(brag.cycles, undefined);
-    assertEquals(brag.agents.detected, 0);
+    const stats = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
+      .data as PatternsData).stats;
+    assert(stats !== undefined);
+    assertEquals(stats.accepted.count, 0);
+    assertEquals(stats.gate.runs, 0);
+    assertEquals(stats.cycles, undefined);
+    assertEquals(stats.agents.detected, 0);
   });
 });
 

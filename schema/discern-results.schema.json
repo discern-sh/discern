@@ -9575,7 +9575,7 @@
                     ]
                   }
                 },
-                "brag": {
+                "stats": {
                   "type": "object",
                   "properties": {
                     "series_days_per_point": {

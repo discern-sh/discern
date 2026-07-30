@@ -138,7 +138,7 @@ const patternsPopulationSchema = z.strictObject({
 /** The scored driver population of one report. */
 export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
 
-/** The `--brag` payload — bragging rights: the practice's countable feats,
+/** The `--stats` payload — practice stats: the practice's countable feats,
  * read from the same analysis population as the detectors (CI runs, previews,
  * and setup-era events excluded). Counts and durations only, all local
  * evidence; nothing is scored and nothing is compared to anyone else's
@@ -148,7 +148,7 @@ export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
  * zero-filled, one point per run of `series_days_per_point` whole days —
  * 1 until the span outgrows the wire cap. They appear once the span holds
  * at least 2 days. */
-export const PatternsBragSchema = z.strictObject({
+export const PatternsStatsSchema = z.strictObject({
   /** Whole days each cadence-series point covers (the last point may cover
    * fewer). Present exactly when any series is. */
   series_days_per_point: z.number().int().optional(),
@@ -288,20 +288,20 @@ export const PatternsBragSchema = z.strictObject({
     }).optional(),
   }),
 });
-/** The `--brag` payload. */
-export type PatternsBrag = z.infer<typeof PatternsBragSchema>;
+/** The `--stats` payload. */
+export type PatternsStats = z.infer<typeof PatternsStatsSchema>;
 
 /** `patterns` — the logbook read back as findings: `findings` ranked by
  * evidence strength, `detectors` reporting every registry member (fired,
  * quiet, or insufficient evidence), the `logbook` counts behind them, and the
- * scored driver `population`. `brag` joins when the invocation asked for
- * bragging rights ({@link PatternsBragSchema}). */
+ * scored driver `population`. `stats` joins when the invocation asked for
+ * practice stats ({@link PatternsStatsSchema}). */
 export const PatternsDataSchema = z.strictObject({
   logbook: patternsLogbookSchema,
   population: patternsPopulationSchema,
   findings: z.array(PatternsFindingSchema),
   detectors: z.array(patternsDetectorSchema),
-  brag: PatternsBragSchema.optional(),
+  stats: PatternsStatsSchema.optional(),
 });
 export type PatternsData = z.infer<typeof PatternsDataSchema>;
 

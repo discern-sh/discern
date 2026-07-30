@@ -2938,7 +2938,7 @@ export type DiscernPatternsResult = {
       threshold: number;
       findings: number;
     }>;
-    brag?: {
+    stats?: {
       series_days_per_point?: number;
       accepted: {
         count: number;

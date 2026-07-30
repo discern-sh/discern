@@ -1061,21 +1061,21 @@ export {
   DETECTOR_SCOPES,
   DETECTOR_STATUSES,
   DETECTOR_TIERS,
-  PatternsBragSchema,
   PatternsDataSchema,
   PatternsFindingSchema,
   PatternsResetDataSchema,
+  PatternsStatsSchema,
 } from "./patterns_vocabulary.ts";
 export type {
   DetectorFamily,
   DetectorScope,
   DetectorStatus,
   DetectorTier,
-  PatternsBrag,
   PatternsData,
   PatternsDetector,
   PatternsFinding,
   PatternsResetData,
+  PatternsStats,
 } from "./patterns_vocabulary.ts";
 import {
   PatternsDataSchema,

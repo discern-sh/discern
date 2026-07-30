@@ -222,7 +222,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0226 — Setup separates installation evidence from terminal launchers](0226-setup-separates-installation-evidence-from-terminal-launchers.md)
 - [0227 — `await` bounds follow repository evidence](0227-await-bounds-follow-repository-evidence.md)
 - [0228 — The feature canon carries a plain-language register](0228-the-feature-canon-carries-a-plain-language-register.md)
-- [0229 — Bragging rights are counted, local, and never comparative](0229-bragging-rights-are-counted-local-and-never-comparative.md)
+- [0229 — Practice stats are counted, local, and never comparative](0229-practice-stats-are-counted-local-and-never-comparative.md)
 
 <!-- END GENERATED: current ADR records -->
 
