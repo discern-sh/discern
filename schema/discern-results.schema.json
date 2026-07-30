@@ -9574,6 +9574,244 @@
                       "findings"
                     ]
                   }
+                },
+                "brag": {
+                  "type": "object",
+                  "properties": {
+                    "landings": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "insertions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "deletions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "files": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "commits": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "biggest": {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "lines": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "files": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "day": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "files",
+                            "day"
+                          ]
+                        },
+                        "best_day": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "landings": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "landings"
+                          ]
+                        },
+                        "longest_daily_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "branches",
+                        "insertions",
+                        "deletions",
+                        "files",
+                        "commits",
+                        "longest_daily_streak"
+                      ]
+                    },
+                    "gate": {
+                      "type": "object",
+                      "properties": {
+                        "runs": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "greens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "first_try_green_branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gated_branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "longest_green_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "current_green_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "check_hours": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "runs",
+                        "greens",
+                        "first_try_green_branches",
+                        "gated_branches",
+                        "longest_green_streak",
+                        "current_green_streak",
+                        "check_hours"
+                      ]
+                    },
+                    "cycles": {
+                      "type": "object",
+                      "properties": {
+                        "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "median_hours": {
+                          "type": "number"
+                        },
+                        "fastest_hours": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "completed",
+                        "median_hours",
+                        "fastest_hours"
+                      ]
+                    },
+                    "ratchet": {
+                      "type": "object",
+                      "properties": {
+                        "pins": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "standards": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "pins",
+                        "standards"
+                      ]
+                    },
+                    "breadth": {
+                      "type": "object",
+                      "properties": {
+                        "branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "active_days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "span_days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "first_day": {
+                          "type": "string"
+                        },
+                        "last_day": {
+                          "type": "string"
+                        },
+                        "busiest_day": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "branches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "branches"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "branches",
+                        "active_days",
+                        "span_days"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "landings",
+                    "gate",
+                    "ratchet",
+                    "breadth"
+                  ]
                 }
               },
               "required": [

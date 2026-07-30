@@ -2938,6 +2938,56 @@ export type DiscernPatternsResult = {
       threshold: number;
       findings: number;
     }>;
+    brag?: {
+      landings: {
+        count: number;
+        branches: number;
+        insertions: number;
+        deletions: number;
+        files: number;
+        commits: number;
+        biggest?: {
+          branch?: string;
+          lines: number;
+          files: number;
+          day: string;
+        };
+        best_day?: {
+          day: string;
+          landings: number;
+        };
+        longest_daily_streak: number;
+      };
+      gate: {
+        runs: number;
+        greens: number;
+        first_try_green_branches: number;
+        gated_branches: number;
+        longest_green_streak: number;
+        current_green_streak: number;
+        check_hours: number;
+      };
+      cycles?: {
+        completed: number;
+        median_hours: number;
+        fastest_hours: number;
+      };
+      ratchet: {
+        pins: number;
+        standards: number;
+      };
+      breadth: {
+        branches: number;
+        active_days: number;
+        span_days: number;
+        first_day?: string;
+        last_day?: string;
+        busiest_day?: {
+          day: string;
+          branches: number;
+        };
+      };
+    };
   } | {
     issues: Array<{
       path: string;
