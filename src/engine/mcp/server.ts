@@ -705,15 +705,17 @@ export const TOOLS: McpTool[] = orderTools([
       "own run history. An empty logbook is a normal state with a helpful " +
       "message. The reset action (`discern patterns reset`, CLI only) " +
       "deletes the recorded history. Pass brag: true when the owner asks for " +
-      "their stats: data.brag adds bragging rights — changes shipped, green " +
-      "streaks, cycle times, tightened limits — counted from the same local " +
-      "evidence, for the owner to share, never for steering work.",
+      "their stats: data.brag adds bragging rights — changes accepted, green " +
+      "streaks, cycle times, standards trends, agent cohorts — counted from " +
+      "the same local evidence, for the owner to share, never for steering " +
+      "work.",
     inputSchema: {
       brag: z.boolean().optional().describe(
-        "Also compute data.brag — bragging rights: changes shipped and their " +
-          "scale, green-gate streaks, start-to-accept cycle times, " +
-          "tightened limits, and breadth, as plain counts. For the owner's " +
-          "own use; nothing is compared to anyone else's numbers.",
+        "Also compute data.brag — bragging rights: changes accepted and " +
+          "their scale, green-gate streaks, start-to-accept cycle times, " +
+          "standards trends, agent cohorts, and breadth, as plain counts. " +
+          "For the owner's own use; nothing is compared to anyone else's " +
+          "numbers.",
       ),
       ...PATH_PARAM,
     },

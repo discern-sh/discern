@@ -533,9 +533,9 @@ export function attachEngineCommands(
     )
     .option(
       "--brag",
-      "Report bragging rights instead: changes shipped, green streaks, cycle times, and " +
-        "tightened limits, counted from the same local evidence. With --json, " +
-        "the counts join the result as data.brag.",
+      "Report bragging rights instead: changes accepted, green streaks, cycle times, " +
+        "standards trends, and agent cohorts, counted from the same local evidence. " +
+        "With --json, the counts join the result as data.brag.",
     )
     .action(
       recordedExit("patterns", async (o) => {

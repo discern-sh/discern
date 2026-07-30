@@ -9583,7 +9583,7 @@
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
                     },
-                    "shipped": {
+                    "accepted": {
                       "type": "object",
                       "properties": {
                         "count": {
@@ -9662,7 +9662,7 @@
                             "day": {
                               "type": "string"
                             },
-                            "shipped": {
+                            "accepted": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
@@ -9670,7 +9670,7 @@
                           },
                           "required": [
                             "day",
-                            "shipped"
+                            "accepted"
                           ]
                         },
                         "longest_streak": {
@@ -9791,11 +9791,135 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "trend": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "most_improved": {
+                          "type": "object",
+                          "properties": {
+                            "standard": {
+                              "type": "string"
+                            },
+                            "from": {
+                              "type": "number"
+                            },
+                            "to": {
+                              "type": "number"
+                            },
+                            "better_percent": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "standard",
+                            "from",
+                            "to",
+                            "better_percent"
+                          ]
                         }
                       },
                       "required": [
                         "pins",
                         "standards"
+                      ]
+                    },
+                    "agents": {
+                      "type": "object",
+                      "properties": {
+                        "detected": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "identities": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "runs": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "done_runs": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "greens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "per_day": {
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "agent",
+                              "label",
+                              "runs",
+                              "done_runs",
+                              "greens"
+                            ]
+                          }
+                        },
+                        "below_minimum": {
+                          "type": "object",
+                          "properties": {
+                            "agents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "runs": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "agents",
+                            "runs"
+                          ]
+                        },
+                        "unattributed_runs": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "detected",
+                        "identities",
+                        "unattributed_runs"
                       ]
                     },
                     "breadth": {
@@ -9847,6 +9971,23 @@
                             "minimum": -9007199254740991,
                             "maximum": 9007199254740991
                           }
+                        },
+                        "peak_in_flight": {
+                          "type": "object",
+                          "properties": {
+                            "branches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "day": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "branches",
+                            "day"
+                          ]
                         }
                       },
                       "required": [
@@ -9857,9 +9998,10 @@
                     }
                   },
                   "required": [
-                    "shipped",
+                    "accepted",
                     "gate",
                     "ratchet",
+                    "agents",
                     "breadth"
                   ]
                 }

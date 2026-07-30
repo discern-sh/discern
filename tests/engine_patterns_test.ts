@@ -161,7 +161,10 @@ async function seedLogbook(dir: string): Promise<void> {
 
 /** Seed two complete start→green→accept arcs plus one pin: enough history to
  * put a number in every brag section. Hours are chosen so the check time and
- * both cycle durations land on round, assertable values. */
+ * both cycle durations land on round, assertable values; every event carries
+ * an invocation-scoped identity signal so the agents section speaks, and the
+ * green `done` runs carry standard readings so the ratchet's most-improved
+ * reading has a trajectory to read. */
 async function seedBragLogbook(dir: string): Promise<void> {
   const events: Record<string, unknown>[] = [];
   const add = (hour: number, over: Record<string, unknown>): void => {
@@ -171,7 +174,17 @@ async function seedBragLogbook(dir: string): Promise<void> {
       kind: "verb",
       surface: "cli",
       writer: "9.9.9",
-      driver: { session: "cli:brag", json: true, tty: false, ci: false },
+      driver: {
+        session: "cli:brag",
+        json: true,
+        tty: false,
+        ci: false,
+        agent_signals: [{
+          agent: "claude",
+          source: "process-environment",
+          markers: ["CLAUDECODE"],
+        }],
+      },
       head: `head-${hour}`,
       clean: true,
       outcome: "ok",
@@ -188,14 +201,24 @@ async function seedBragLogbook(dir: string): Promise<void> {
     failed_stage: "check/test",
     duration_ms: 3_600_000,
   });
-  add(2, { verb: "done", branch: "agent/b1", duration_ms: 3_600_000 });
+  add(2, {
+    verb: "done",
+    branch: "agent/b1",
+    duration_ms: 3_600_000,
+    standards: [{ name: "coverage", direction: "up", limit: 80, value: 80 }],
+  });
   add(3, {
     verb: "accept",
     branch: "agent/b1",
     change: { files: 2, insertions: 120, deletions: 30, commits: 3 },
   });
   add(4, { verb: "start", branch: "main", target: "agent/b2" });
-  add(5, { verb: "done", branch: "agent/b2", duration_ms: 3_600_000 });
+  add(5, {
+    verb: "done",
+    branch: "agent/b2",
+    duration_ms: 3_600_000,
+    standards: [{ name: "coverage", direction: "up", limit: 80, value: 84 }],
+  });
   add(6, {
     verb: "accept",
     branch: "agent/b2",
@@ -692,7 +715,7 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     assertEquals(parsed.ok, true);
     const brag = (parsed.data as PatternsData).brag;
     assert(brag !== undefined, "the flag must carry data.brag");
-    assertEquals(brag.shipped, {
+    assertEquals(brag.accepted, {
       count: 2,
       branches: 2,
       insertions: 130,
@@ -701,7 +724,7 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       commits: 4,
       cleanups: 0,
       biggest: { branch: "agent/b1", lines: 150, files: 2, day: "2026-07-01" },
-      best_day: { day: "2026-07-01", shipped: 2 },
+      best_day: { day: "2026-07-01", accepted: 2 },
       longest_streak: 1,
     });
     assertEquals(brag.gate, {
@@ -720,12 +743,37 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       median_hours: 2.5,
       fastest_hours: 2,
     });
-    assertEquals(brag.ratchet, { pins: 1, standards: 1 });
+    assertEquals(brag.ratchet, {
+      pins: 1,
+      standards: 1,
+      most_improved: {
+        standard: "coverage",
+        from: 80,
+        to: 84,
+        better_percent: 5,
+      },
+    });
+    assertEquals(brag.agents, {
+      detected: 1,
+      identities: [{
+        agent: "claude",
+        label: "Claude Code",
+        runs: 7,
+        done_runs: 3,
+        greens: 2,
+      }],
+      unattributed_runs: 0,
+    });
     assertEquals(brag.breadth.branches, 3);
     assertEquals(brag.breadth.busiest_day, {
       day: "2026-07-01",
       branches: 3,
     });
+    assertEquals(
+      brag.breadth.peak_in_flight,
+      { branches: 1, day: "2026-07-01" },
+      "sequential arcs never overlap",
+    );
     assertEquals(
       brag.series_days_per_point,
       undefined,
@@ -742,7 +790,10 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     for (const label of Object.values(BRAG_SECTIONS)) {
       assertStringIncludes(card, label);
     }
-    assertStringIncludes(card, "2 changes shipped from 2 branches · 4 commits");
+    assertStringIncludes(
+      card,
+      "2 changes accepted from 2 branches · 4 commits",
+    );
     assertStringIncludes(
       card,
       "+130 −30 across 3 files · 4.3 lines added per line removed",
@@ -751,12 +802,13 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
       card,
       "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
     );
-    assertStringIncludes(card, "best day: 2026-07-01 · 2 shipped");
+    assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
     assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
     assertStringIncludes(card, "1 of 2 branches green first try (50%)");
-    assertStringIncludes(
-      card,
-      "1 red run stopped at the gate · it never shipped",
+    assertStringIncludes(card, "1 red run stopped at the gate");
+    assert(
+      !card.includes("never shipped") && !card.includes("shipped"),
+      "the card speaks in accepted, not shipped",
     );
     assertStringIncludes(
       card,
@@ -764,16 +816,29 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     );
     assertStringIncludes(card, "█", "the proportion meters render");
     assertStringIncludes(card, "░");
-    assertStringIncludes(card, "2 of 2 starts went on to ship (100%)");
+    assertStringIncludes(card, "2 of 2 starts were accepted (100%)");
     assertStringIncludes(
       card,
-      "2 start-to-accept cycles · median 2.5h · fastest 2h · 2 inside a day",
+      "start-to-accept across 2 measured cycles · median 2.5h · fastest 2h · 2 inside a day",
     );
     assertStringIncludes(
       card,
       "1 limit tightened across 1 standard. Loosening fails the gate.",
     );
+    assertStringIncludes(
+      card,
+      "most improved: `coverage` 80 → 84 (5% better)",
+    );
+    assertStringIncludes(card, "1 agent identity");
+    assertStringIncludes(
+      card,
+      "Claude Code · 7 runs · 2 of 3 `done` runs green (67%)",
+    );
     assertStringIncludes(card, "3 branches driven · active 1 of 1 day");
+    assert(
+      !card.includes("in flight at once"),
+      "a peak of one stays off the card",
+    );
     assert(
       !card.includes(PATTERNS_ATTENTION_HEADING),
       "the card replaces the detector report, never interleaves it",
@@ -798,9 +863,10 @@ Deno.test("patterns --brag: an empty logbook renders the empty state, and the wi
     const brag = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
       .data as PatternsData).brag;
     assert(brag !== undefined);
-    assertEquals(brag.shipped.count, 0);
+    assertEquals(brag.accepted.count, 0);
     assertEquals(brag.gate.runs, 0);
     assertEquals(brag.cycles, undefined);
+    assertEquals(brag.agents.detected, 0);
   });
 });
 

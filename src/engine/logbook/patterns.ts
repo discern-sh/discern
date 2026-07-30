@@ -639,10 +639,11 @@ export const BRAG_PROVENANCE =
 
 /** Section labels for the brag card, in render order. */
 export const BRAG_SECTIONS = {
-  shipped: "Shipped",
+  accepted: "Accepted",
   gate: "The gate",
   pace: "Pace",
   standards: "Standards",
+  agents: "Agents",
   breadth: "Breadth",
 } as const;
 
@@ -660,7 +661,7 @@ function meterRow(c: Palette, fraction: number, text: string): string {
   return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
 }
 
-/** Cadence label beside a sparkline — "shipped per day", or the folded form
+/** Cadence label beside a sparkline — "accepted per day", or the folded form
  * once the span outgrew the wire cap. */
 function cadenceLabel(unit: string, daysPerPoint: number): string {
   return daysPerPoint <= 1
@@ -705,30 +706,30 @@ function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
   return parts.join(" · ");
 }
 
-/** The shipped section: changes shipped and their recorded scale. A single
- * shipped change keeps the card quiet about "biggest" and "best day" — with
+/** The accepted section: changes accepted and their recorded scale. A single
+ * accepted change keeps the card quiet about "biggest" and "best day" — with
  * one member, both would restate the change itself. Records read in yellow;
- * the shipping streak reads in green. */
-function bragShippedRows(
-  shipped: PatternsBrag["shipped"],
+ * the acceptance streak reads in green. */
+function bragAcceptedRows(
+  accepted: PatternsBrag["accepted"],
   c: Palette,
 ): string[] {
-  if (shipped.count === 0) {
-    return ["Nothing shipped yet."];
+  if (accepted.count === 0) {
+    return ["Nothing accepted yet."];
   }
   const rows = [
-    `${c.bold}${plural(shipped.count, "change")} shipped${c.reset} from ${
-      plural(shipped.branches, "branch", "branches")
-    }${shipped.commits > 0 ? ` · ${plural(shipped.commits, "commit")}` : ""}`,
+    `${c.bold}${plural(accepted.count, "change")} accepted${c.reset} from ${
+      plural(accepted.branches, "branch", "branches")
+    }${accepted.commits > 0 ? ` · ${plural(accepted.commits, "commit")}` : ""}`,
   ];
-  if (shipped.insertions + shipped.deletions > 0) {
-    const ratio = shipped.deletions > 0
-      ? round1(shipped.insertions / shipped.deletions)
+  if (accepted.insertions + accepted.deletions > 0) {
+    const ratio = accepted.deletions > 0
+      ? round1(accepted.insertions / accepted.deletions)
       : undefined;
     rows.push(
-      `+${formatHumanNumber(shipped.insertions)} −${
-        formatHumanNumber(shipped.deletions)
-      } across ${plural(shipped.files, "file")}${
+      `+${formatHumanNumber(accepted.insertions)} −${
+        formatHumanNumber(accepted.deletions)
+      } across ${plural(accepted.files, "file")}${
         ratio !== undefined
           ? ` · ${formatHumanNumber(ratio)} ${
             ratio === 1 ? "line" : "lines"
@@ -737,15 +738,15 @@ function bragShippedRows(
       }`,
     );
   }
-  if (shipped.cleanups > 0) {
+  if (accepted.cleanups > 0) {
     rows.push(
-      `${formatHumanNumber(shipped.cleanups)} of ${
-        formatHumanNumber(shipped.count)
+      `${formatHumanNumber(accepted.cleanups)} of ${
+        formatHumanNumber(accepted.count)
       } removed more lines than they added`,
     );
   }
-  if (shipped.count > 1) {
-    const biggest = shipped.biggest;
+  if (accepted.count > 1) {
+    const biggest = accepted.biggest;
     if (biggest !== undefined) {
       rows.push(
         `biggest: ${
@@ -755,15 +756,15 @@ function bragShippedRows(
         } (${biggest.day})`,
       );
     }
-    const best = shipped.best_day;
+    const best = accepted.best_day;
     if (best !== undefined) {
       rows.push(
         `best day: ${best.day} · ${c.yellow}${
-          formatHumanNumber(best.shipped)
-        } shipped${c.reset}${
-          shipped.longest_streak > 1
+          formatHumanNumber(best.accepted)
+        } accepted${c.reset}${
+          accepted.longest_streak > 1
             ? ` · longest streak ${c.green}${
-              plural(shipped.longest_streak, "day")
+              plural(accepted.longest_streak, "day")
             }${c.reset}`
             : ""
         }`,
@@ -807,9 +808,7 @@ function bragGateRows(gate: PatternsBrag["gate"], c: Palette): string[] {
   const reds = gate.runs - gate.greens;
   if (reds > 0) {
     rows.push(
-      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate · ${
-        reds === 1 ? "it never shipped" : "none of them shipped"
-      }`,
+      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate`,
     );
   }
   const tail: string[] = [];
@@ -848,10 +847,12 @@ function everyLabel(hours: number): string {
     : `${plural(round1(hours / 24), "day")}`;
 }
 
-/** The pace section: how many starts went on to ship (a meter row), the
- * completed cycles with their times, and the span-wide shipping cadence.
- * Empty before the first completed cycle on a one-day span. The fastest
- * cycle is a record, so it reads in yellow. */
+/** The pace section: how many starts were accepted (a meter row), the
+ * measured start-to-accept cycles with their times, and the span-wide
+ * acceptance cadence. A cycle is measured only when its `start` and `accept`
+ * are both on record, so the cycle count can sit below the accepted count.
+ * Empty before the first measured cycle on a one-day span. The fastest cycle
+ * is a record, so it reads in yellow. */
 function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
   const rows: string[] = [];
   const cycles = brag.cycles;
@@ -862,16 +863,20 @@ function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
         cycles.completed / cycles.started,
         `${c.green}${formatHumanNumber(cycles.completed)}${c.reset} of ${
           plural(cycles.started, "start")
-        } went on to ship (${percent(cycles.completed, cycles.started)})`,
+        } were accepted (${percent(cycles.completed, cycles.started)})`,
       ),
     );
     if (cycles.completed === 1) {
       rows.push(
-        `1 start-to-accept cycle · ${formatHumanNumber(cycles.fastest_hours)}h`,
+        `1 measured start-to-accept cycle · ${
+          formatHumanNumber(cycles.fastest_hours)
+        }h`,
       );
     } else {
       rows.push(
-        `${plural(cycles.completed, "start-to-accept cycle")} · median ${
+        `start-to-accept across ${
+          plural(cycles.completed, "measured cycle")
+        } · median ${
           formatHumanNumber(cycles.median_hours)
         }h · fastest ${c.yellow}${
           formatHumanNumber(cycles.fastest_hours)
@@ -883,32 +888,113 @@ function bragPaceRows(brag: PatternsBrag, c: Palette): string[] {
       );
     }
   }
-  const shipped = brag.shipped;
-  if (shipped.count > 1 && brag.breadth.span_days > 1) {
+  const accepted = brag.accepted;
+  if (accepted.count > 1 && brag.breadth.span_days > 1) {
     rows.push(
-      `a change shipped every ${
-        everyLabel((brag.breadth.span_days * 24) / shipped.count)
+      `one change accepted every ${
+        everyLabel((brag.breadth.span_days * 24) / accepted.count)
       } across the span`,
     );
   }
   return rows;
 }
 
-/** The breadth section: branches driven, active days, the busiest day. */
-function bragBreadthRow(
+/** The breadth section: branches driven, active days, the busiest day, and
+ * the peak overlap — the most changes in flight at one instant. */
+function bragBreadthRows(
   breadth: PatternsBrag["breadth"],
   c: Palette,
-): string {
+): string[] {
   const busiest = breadth.busiest_day;
-  return `${plural(breadth.branches, "branch", "branches")} driven · active ${
-    formatHumanNumber(breadth.active_days)
-  } of ${plural(breadth.span_days, "day")}${
-    busiest !== undefined && busiest.branches > 1
-      ? ` · busiest day ${c.yellow}${
-        plural(busiest.branches, "branch", "branches")
-      }${c.reset} (${busiest.day})`
-      : ""
-  }`;
+  const rows = [
+    `${plural(breadth.branches, "branch", "branches")} driven · active ${
+      formatHumanNumber(breadth.active_days)
+    } of ${plural(breadth.span_days, "day")}${
+      busiest !== undefined && busiest.branches > 1
+        ? ` · busiest day ${c.yellow}${
+          plural(busiest.branches, "branch", "branches")
+        }${c.reset} (${busiest.day})`
+        : ""
+    }`,
+  ];
+  const peak = breadth.peak_in_flight;
+  if (peak !== undefined && peak.branches > 1) {
+    rows.push(
+      `up to ${c.yellow}${
+        plural(peak.branches, "change")
+      } in flight at once${c.reset} (${peak.day})`,
+    );
+  }
+  return rows;
+}
+
+/** The standards section: the pin ratchet and the most improved standard,
+ * percent-normalized against its first reading so different scales read
+ * like-for-like. */
+function bragStandardsRows(
+  ratchet: PatternsBrag["ratchet"],
+  c: Palette,
+): string[] {
+  const rows: string[] = [];
+  if (ratchet.pins > 0) {
+    rows.push(
+      `${plural(ratchet.pins, "limit")} tightened across ${
+        plural(ratchet.standards, "standard")
+      }. Loosening fails the gate.`,
+    );
+  }
+  const improved = ratchet.most_improved;
+  if (improved !== undefined) {
+    rows.push(
+      `most improved: \`${improved.standard}\` ${
+        formatHumanNumber(improved.from)
+      } → ${formatHumanNumber(improved.to)} (${c.yellow}${
+        formatHumanNumber(improved.better_percent)
+      }% better${c.reset})`,
+    );
+  }
+  return rows;
+}
+
+/** The agents section: attributed identities with their runs and green-gate
+ * shares, each with its own usage sparkline. The cohort seam's honesty rules
+ * hold here: below-minimum identities are counted but never listed, and the
+ * unattributed share is always stated. */
+function bragAgentsRows(
+  agents: PatternsBrag["agents"],
+  c: Palette,
+): string[] {
+  const below = agents.below_minimum;
+  const rows = [
+    `${plural(agents.detected, "agent identity", "agent identities")}${
+      agents.unattributed_runs > 0
+        ? ` · ${formatHumanNumber(agents.unattributed_runs)} runs unattributed`
+        : ""
+    }`,
+  ];
+  for (const identity of agents.identities) {
+    const spark = identity.per_day !== undefined && identity.per_day.length > 1
+      ? `${c.cyan}${sparkline(identity.per_day)}${c.reset} `
+      : "";
+    const share = identity.done_runs > 0
+      ? `${c.green}${formatHumanNumber(identity.greens)}${c.reset} of ${
+        plural(identity.done_runs, "`done` run")
+      } green (${percent(identity.greens, identity.done_runs)})`
+      : "no `done` runs";
+    rows.push(
+      `${spark}${c.bold}${identity.label}${c.reset} · ${
+        plural(identity.runs, "run")
+      } · ${share}`,
+    );
+  }
+  if (below !== undefined) {
+    rows.push(
+      `${
+        plural(below.agents, "more identity", "more identities")
+      } below the reporting minimums · ${plural(below.runs, "run")}`,
+    );
+  }
+  return rows;
 }
 
 /** One card section: a bold label — carrying its cyan cadence sparkline when
@@ -960,9 +1046,9 @@ function renderBragReport(
   bragSection(
     out,
     width,
-    BRAG_SECTIONS.shipped,
-    bragShippedRows(brag.shipped, c),
-    bragSpark(brag.shipped.per_day, cadenceLabel("shipped", daysPerPoint)),
+    BRAG_SECTIONS.accepted,
+    bragAcceptedRows(brag.accepted, c),
+    bragSpark(brag.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
   );
   bragSection(
     out,
@@ -978,18 +1064,42 @@ function renderBragReport(
   if (pace.length > 0) {
     bragSection(out, width, BRAG_SECTIONS.pace, pace);
   }
-  if (brag.ratchet.pins > 0) {
-    bragSection(out, width, BRAG_SECTIONS.standards, [
-      `${plural(brag.ratchet.pins, "limit")} tightened across ${
-        plural(brag.ratchet.standards, "standard")
-      }. Loosening fails the gate.`,
-    ]);
+  const standards = bragStandardsRows(brag.ratchet, c);
+  if (standards.length > 0) {
+    // The trend can honestly fall, so unlike the count sparks it shows
+    // whenever it moves at all.
+    const trend = brag.ratchet.trend;
+    bragSection(
+      out,
+      width,
+      BRAG_SECTIONS.standards,
+      standards,
+      trend !== undefined && trend.length > 1 &&
+        trend.some((value) => value !== 0)
+        ? {
+          series: trend,
+          label: cadenceLabel("average improvement", daysPerPoint),
+        }
+        : undefined,
+    );
+  }
+  if (brag.agents.identities.length > 0 || brag.agents.detected > 0) {
+    bragSection(
+      out,
+      width,
+      BRAG_SECTIONS.agents,
+      bragAgentsRows(brag.agents, c),
+      bragSpark(
+        brag.agents.per_day,
+        cadenceLabel("agent runs", daysPerPoint),
+      ),
+    );
   }
   bragSection(
     out,
     width,
     BRAG_SECTIONS.breadth,
-    [bragBreadthRow(brag.breadth, c)],
+    bragBreadthRows(brag.breadth, c),
     bragSpark(
       brag.breadth.branches_per_day,
       daysPerPoint <= 1

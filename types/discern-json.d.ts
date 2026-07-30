@@ -2940,7 +2940,7 @@ export type DiscernPatternsResult = {
     }>;
     brag?: {
       series_days_per_point?: number;
-      shipped: {
+      accepted: {
         count: number;
         branches: number;
         insertions: number;
@@ -2957,7 +2957,7 @@ export type DiscernPatternsResult = {
         };
         best_day?: {
           day: string;
-          shipped: number;
+          accepted: number;
         };
         longest_streak: number;
       };
@@ -2981,6 +2981,30 @@ export type DiscernPatternsResult = {
       ratchet: {
         pins: number;
         standards: number;
+        trend?: Array<number>;
+        most_improved?: {
+          standard: string;
+          from: number;
+          to: number;
+          better_percent: number;
+        };
+      };
+      agents: {
+        detected: number;
+        per_day?: Array<number>;
+        identities: Array<{
+          agent: string;
+          label: string;
+          runs: number;
+          done_runs: number;
+          greens: number;
+          per_day?: Array<number>;
+        }>;
+        below_minimum?: {
+          agents: number;
+          runs: number;
+        };
+        unattributed_runs: number;
       };
       breadth: {
         branches: number;
@@ -2993,6 +3017,10 @@ export type DiscernPatternsResult = {
           branches: number;
         };
         branches_per_day?: Array<number>;
+        peak_in_flight?: {
+          branches: number;
+          day: string;
+        };
       };
     };
   } | {

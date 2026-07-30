@@ -1,8 +1,9 @@
 /**
  * The `--brag` reader — bragging rights, computed from the logbook. Where the
  * detector registry (`detectors.ts`) looks for what needs attention, this
- * module counts what went well: changes shipped and their scale, green-gate
- * streaks, completed cycles, tightened limits, and how wide the practice ran.
+ * module counts what went well: accepted changes and their scale, green-gate
+ * streaks, completed cycles, the standards ratchet and its measured trend,
+ * the attributed agent cohorts, and how wide the practice ran.
  *
  * Rules of the surface:
  *
@@ -28,6 +29,7 @@ import {
 } from "../../shared/patterns_vocabulary.ts";
 import type { PinEvent, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
+import { driverKind, splitByCohort } from "./cohorts.ts";
 import {
   day,
   inclusiveSpanDays,
@@ -161,13 +163,13 @@ function peakDay(
   return peak;
 }
 
-/** Shipped changes and their recorded scale ({@link PatternsBrag},
- * `shipped`). */
-function shippedFeats(shipped: VerbEvent[]): PatternsBrag["shipped"] {
+/** Accepted changes and their recorded scale ({@link PatternsBrag},
+ * `accepted`). */
+function acceptedFeats(accepted: VerbEvent[]): PatternsBrag["accepted"] {
   const sums = { insertions: 0, deletions: 0, files: 0, commits: 0 };
   let cleanups = 0;
-  let biggest: NonNullable<PatternsBrag["shipped"]["biggest"]> | undefined;
-  for (const e of shipped) {
+  let biggest: NonNullable<PatternsBrag["accepted"]["biggest"]> | undefined;
+  for (const e of accepted) {
     if (e.change === undefined) {
       continue;
     }
@@ -188,18 +190,18 @@ function shippedFeats(shipped: VerbEvent[]): PatternsBrag["shipped"] {
       };
     }
   }
-  const best = peakDay(shipped);
+  const best = peakDay(accepted);
   return {
-    count: shipped.length,
-    branches: byBranch(shipped).size,
+    count: accepted.length,
+    branches: byBranch(accepted).size,
     ...sums,
     cleanups,
     ...(biggest !== undefined ? { biggest } : {}),
     ...(best !== undefined
-      ? { best_day: { day: best.day, shipped: best.count } }
+      ? { best_day: { day: best.day, accepted: best.count } }
       : {}),
     longest_streak: longestDailyStreak(
-      new Set(shipped.map((e) => day(e.at))),
+      new Set(accepted.map((e) => day(e.at))),
     ),
   };
 }
@@ -242,14 +244,14 @@ function gateFeats(facts: StreamFacts): PatternsBrag["gate"] {
  * `ok` accept on it ({@link PatternsBrag}, `cycles`). */
 function cycleFeats(
   facts: StreamFacts,
-  shipped: VerbEvent[],
+  accepted: VerbEvent[],
 ): PatternsBrag["cycles"] {
   const starts = facts.verbs.filter((e) =>
     e.verb === "start" && e.outcome === "ok" && e.target !== undefined
   );
   const cycles: number[] = [];
   for (const start of starts) {
-    const accept = shipped.find((a) =>
+    const accept = accepted.find((a) =>
       a.branch === start.target && a.at > start.at
     );
     if (accept !== undefined) {
@@ -265,6 +267,235 @@ function cycleFeats(
       fastest_hours: round1(Math.min(...cycles)),
     }
     : undefined;
+}
+
+/** One standard's recorded readings in stream order, with the direction that
+ * orients "better". Standards recorded without a direction can't be oriented
+ * and are set aside. */
+interface StandardTrack {
+  name: string;
+  direction: "up" | "down";
+  readings: { at: string; value: number }[];
+}
+
+function standardTracks(facts: StreamFacts): StandardTrack[] {
+  const byName = new Map<
+    string,
+    { direction?: "up" | "down"; readings: { at: string; value: number }[] }
+  >();
+  for (const e of facts.verbs) {
+    for (const s of e.standards ?? []) {
+      if (s.value === undefined) {
+        continue;
+      }
+      const track = byName.get(s.name) ?? { readings: [] };
+      if (s.direction === "up" || s.direction === "down") {
+        track.direction = s.direction;
+      }
+      track.readings.push({ at: e.at, value: s.value });
+      byName.set(s.name, track);
+    }
+  }
+  return [...byName.entries()]
+    .flatMap(([name, t]) =>
+      t.direction !== undefined
+        ? [{ name, direction: t.direction, readings: t.readings }]
+        : []
+    )
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Percent improvement of one reading against the standard's first recorded
+ * value, direction-adjusted so better is always positive — the normalization
+ * that makes standards on different scales comparable. */
+function improvementPercent(
+  direction: "up" | "down",
+  first: number,
+  value: number,
+): number {
+  const delta = direction === "down" ? first - value : value - first;
+  return (delta / Math.abs(first)) * 100;
+}
+
+/** A track qualifies for trend arithmetic once it holds two readings and a
+ * non-zero first value (percent-of-first needs a denominator). */
+function trendEligible(track: StandardTrack): boolean {
+  return track.readings.length >= 2 && (track.readings[0]?.value ?? 0) !== 0;
+}
+
+/** The average improvement across all eligible standards per series point
+ * ({@link PatternsBrag}, `ratchet.trend`). Each standard contributes its
+ * day's last reading, carried forward through unmeasured days; before its
+ * first reading it contributes nothing. Days before any reading average to
+ * zero — no measured improvement yet, honestly stated. */
+function ratchetTrend(
+  tracks: readonly StandardTrack[],
+  span: SeriesSpan | undefined,
+): number[] | undefined {
+  if (span === undefined) {
+    return undefined;
+  }
+  const eligible = tracks.filter(trendEligible);
+  if (eligible.length === 0) {
+    return undefined;
+  }
+  const perStandard = eligible.map((t) => {
+    const first = t.readings[0];
+    const byDay = new Array<number | undefined>(span.spanDays).fill(undefined);
+    for (const r of t.readings) {
+      const index = epochDay(day(r.at)) - span.firstDay;
+      if (index >= 0 && index < byDay.length) {
+        byDay[index] = r.value;
+      }
+    }
+    let carried: number | undefined;
+    return byDay.map((value) => {
+      if (value !== undefined) {
+        carried = value;
+      }
+      return carried === undefined || first === undefined
+        ? undefined
+        : improvementPercent(t.direction, first.value, carried);
+    });
+  });
+  const dailyAverage = Array.from({ length: span.spanDays }, (_, index) => {
+    const present = perStandard
+      .map((series) => series[index])
+      .filter((value): value is number => value !== undefined);
+    return present.length === 0
+      ? 0
+      : present.reduce((a, b) => a + b, 0) / present.length;
+  });
+  const points: number[] = [];
+  for (
+    let start = 0;
+    start < dailyAverage.length;
+    start += span.daysPerPoint
+  ) {
+    const chunk = dailyAverage.slice(start, start + span.daysPerPoint);
+    points.push(round1(chunk.reduce((a, b) => a + b, 0) / chunk.length));
+  }
+  return points;
+}
+
+/** The standard whose last reading improved the most against its first,
+ * percent-normalized ({@link PatternsBrag}, `ratchet.most_improved`).
+ * Absent when nothing improved. */
+function mostImproved(
+  tracks: readonly StandardTrack[],
+): PatternsBrag["ratchet"]["most_improved"] {
+  let best:
+    | { standard: string; from: number; to: number; raw: number }
+    | undefined;
+  for (const t of tracks.filter(trendEligible)) {
+    const first = t.readings[0];
+    const last = t.readings[t.readings.length - 1];
+    if (first === undefined || last === undefined) {
+      continue;
+    }
+    const raw = improvementPercent(t.direction, first.value, last.value);
+    if (raw > 0 && (best === undefined || raw > best.raw)) {
+      best = { standard: t.name, from: first.value, to: last.value, raw };
+    }
+  }
+  return best === undefined ? undefined : {
+    standard: best.standard,
+    from: best.from,
+    to: best.to,
+    better_percent: round1(best.raw),
+  };
+}
+
+/** The most change branches in flight at one instant ({@link PatternsBrag},
+ * `breadth.peak_in_flight`). A branch is in flight from its first analyzed
+ * event to its last: a pause inside that window (an overnight break) stays
+ * in flight, and after its last event the branch stops counting — so an
+ * abandoned effort never inflates the peak. The trunk is not a change. */
+function peakInFlight(
+  facts: StreamFacts,
+): PatternsBrag["breadth"]["peak_in_flight"] {
+  const windows = new Map<string, { from: string; to: string }>();
+  for (const e of facts.verbs) {
+    if (e.branch === null || e.branch === facts.trunk) {
+      continue;
+    }
+    const window = windows.get(e.branch);
+    if (window === undefined) {
+      windows.set(e.branch, { from: e.at, to: e.at });
+    } else {
+      if (e.at < window.from) {
+        window.from = e.at;
+      }
+      if (e.at > window.to) {
+        window.to = e.at;
+      }
+    }
+  }
+  if (windows.size === 0) {
+    return undefined;
+  }
+  const bounds: { at: string; delta: 1 | -1 }[] = [];
+  for (const window of windows.values()) {
+    bounds.push({ at: window.from, delta: 1 }, { at: window.to, delta: -1 });
+  }
+  // Opens sort before closes at the same instant: a branch closing exactly
+  // when another opens still overlaps it for that instant.
+  bounds.sort((a, b) => a.at.localeCompare(b.at) || b.delta - a.delta);
+  let open = 0;
+  let peak: NonNullable<PatternsBrag["breadth"]["peak_in_flight"]> = {
+    branches: 0,
+    day: "",
+  };
+  for (const bound of bounds) {
+    open += bound.delta;
+    if (open > peak.branches) {
+      peak = { branches: open, day: day(bound.at) };
+    }
+  }
+  return peak;
+}
+
+/** Attributed agent identities and their runs ({@link PatternsBrag},
+ * `agents`), segmented through the cohort seam (`cohorts.ts`) so the same
+ * honesty rules apply here as in every detector: identities below the
+ * reporting minimums are counted but never listed, and the unattributed
+ * share is always stated. */
+function agentFeats(
+  facts: StreamFacts,
+  span: SeriesSpan | undefined,
+  fold: (daily: number[]) => number[],
+): PatternsBrag["agents"] {
+  const split = splitByCohort(facts.verbs, (e) => [e]);
+  const identities = split.speaking.slice(0, 10).map((cohort) => {
+    const dones = cohort.units.filter((e) => e.verb === "done");
+    return {
+      agent: cohort.agent,
+      label: cohort.label,
+      runs: cohort.runs,
+      done_runs: dones.length,
+      greens: dones.filter((e) => e.outcome === "ok").length,
+      ...(span !== undefined
+        ? { per_day: fold(dailyTotals(cohort.units, span)) }
+        : {}),
+    };
+  });
+  const agentDriven = facts.verbs.filter((e) => driverKind(e) === "agent");
+  return {
+    detected: split.speaking.length + split.belowMinimum.length,
+    ...(span !== undefined
+      ? { per_day: fold(dailyTotals(agentDriven, span)) }
+      : {}),
+    identities,
+    ...(split.belowMinimum.length > 0
+      ? {
+        below_minimum: {
+          agents: split.belowMinimum.length,
+          runs: split.belowMinimum.reduce((sum, c) => sum + c.runs, 0),
+        },
+      }
+      : {}),
+    unattributed_runs: split.unattributedRuns,
+  };
 }
 
 /** Branches driven, active days, and the busiest day
@@ -308,11 +539,11 @@ function breadthFeats(facts: StreamFacts): PatternsBrag["breadth"] {
 /** Compute bragging rights from the pre-digested stream. Pure, and total over
  * any stream: an empty logbook produces a card of zeros, not an error. */
 export function computeBrag(facts: StreamFacts): PatternsBrag {
-  const shipped = facts.verbs.filter((e) =>
+  const accepted = facts.verbs.filter((e) =>
     e.verb === "accept" && e.outcome === "ok"
   );
   const pins = facts.events.filter((e): e is PinEvent => e.kind === "pin");
-  const cycles = cycleFeats(facts, shipped);
+  const cycles = cycleFeats(facts, accepted);
   const span = seriesSpan(facts.verbs);
   const sum = (a: number, b: number): number => a + b;
   const fold = (daily: number[]): number[] =>
@@ -320,12 +551,16 @@ export function computeBrag(facts: StreamFacts): PatternsBrag {
   const greens = facts.verbs.filter((e) =>
     e.verb === "done" && e.outcome === "ok"
   );
+  const tracks = standardTracks(facts);
+  const trend = ratchetTrend(tracks, span);
+  const improved = mostImproved(tracks);
+  const peak = peakInFlight(facts);
   return {
     ...(span !== undefined ? { series_days_per_point: span.daysPerPoint } : {}),
-    shipped: {
-      ...shippedFeats(shipped),
+    accepted: {
+      ...acceptedFeats(accepted),
       ...(span !== undefined
-        ? { per_day: fold(dailyTotals(shipped, span)) }
+        ? { per_day: fold(dailyTotals(accepted, span)) }
         : {}),
     },
     gate: {
@@ -338,7 +573,10 @@ export function computeBrag(facts: StreamFacts): PatternsBrag {
     ratchet: {
       pins: pins.length,
       standards: new Set(pins.map((p) => p.standard)).size,
+      ...(trend !== undefined ? { trend } : {}),
+      ...(improved !== undefined ? { most_improved: improved } : {}),
     },
+    agents: agentFeats(facts, span, fold),
     breadth: {
       ...breadthFeats(facts),
       ...(span !== undefined
@@ -350,6 +588,7 @@ export function computeBrag(facts: StreamFacts): PatternsBrag {
           ),
         }
         : {}),
+      ...(peak !== undefined ? { peak_in_flight: peak } : {}),
     },
   };
 }

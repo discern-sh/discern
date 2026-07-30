@@ -604,10 +604,10 @@ Report the patterns in this project's discern use, read from the local logbook o
 
 Usage: `discern patterns [options]`
 
-| Option   | Description                                                                                                                                                                                    |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json` | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                          |
-| `--brag` | Report bragging rights instead: changes shipped, green streaks, cycle times, and tightened limits, counted from the same local evidence. With --json, the counts join the result as data.brag. |
+| Option   | Description                                                                                                                                                                                                    |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json` | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                                          |
+| `--brag` | Report bragging rights instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.brag. |
 
 #### `discern patterns reset`
 

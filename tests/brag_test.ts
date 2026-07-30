@@ -1,7 +1,7 @@
 /**
  * Brag-reader unit tests — {@link computeBrag} driven over synthetic streams,
  * proving every number on the card is the plain count it claims to be:
- * changes shipped and their recorded scale, gate streaks in stream order,
+ * accepted changes and their recorded scale, gate streaks in stream order,
  * first-try greens per branch, start-to-accept cycles matched the way the
  * funnel detector matches them, the pin ratchet, and breadth. The reader shares the
  * detectors' analysis population, so CI runs, previews, and setup-era events
@@ -73,7 +73,7 @@ function brag(events: LogbookEvent[]): PatternsBrag {
   return computeBrag(buildStreamFacts(events, "main"));
 }
 
-Deno.test("brag: shipped counts successful accepts and sums their recorded scale", () => {
+Deno.test("brag: accepted counts successful accepts and sums their recorded scale", () => {
   const b = brag(run([
     {
       verb: "accept",
@@ -82,16 +82,16 @@ Deno.test("brag: shipped counts successful accepts and sums their recorded scale
     },
     // An accept recorded without a change scale still counts, adding zero.
     { verb: "accept", branch: "agent/b" },
-    // A red accept never ships.
+    // A red accept is never an accepted change.
     { verb: "accept", branch: "agent/c", outcome: "failed" },
   ]));
-  assertEquals(b.shipped.count, 2);
-  assertEquals(b.shipped.branches, 2);
-  assertEquals(b.shipped.insertions, 100);
-  assertEquals(b.shipped.deletions, 20);
-  assertEquals(b.shipped.files, 3);
-  assertEquals(b.shipped.commits, 2);
-  assertEquals(b.shipped.biggest, {
+  assertEquals(b.accepted.count, 2);
+  assertEquals(b.accepted.branches, 2);
+  assertEquals(b.accepted.insertions, 100);
+  assertEquals(b.accepted.deletions, 20);
+  assertEquals(b.accepted.files, 3);
+  assertEquals(b.accepted.commits, 2);
+  assertEquals(b.accepted.biggest, {
     branch: "agent/a",
     lines: 120,
     files: 3,
@@ -99,7 +99,7 @@ Deno.test("brag: shipped counts successful accepts and sums their recorded scale
   });
 });
 
-Deno.test("brag: cleanups count shipped changes that removed more lines than they added", () => {
+Deno.test("brag: cleanups count accepted changes that removed more lines than they added", () => {
   const b = brag(run([
     {
       verb: "accept",
@@ -118,10 +118,10 @@ Deno.test("brag: cleanups count shipped changes that removed more lines than the
       change: { files: 1, insertions: 7, deletions: 7, commits: 1 },
     },
   ]));
-  assertEquals(b.shipped.cleanups, 1);
+  assertEquals(b.accepted.cleanups, 1);
 });
 
-Deno.test("brag: the biggest shipped change is by changed lines, and a branch-less event carries no branch", () => {
+Deno.test("brag: the biggest accepted change is by changed lines, and a branch-less event carries no branch", () => {
   const b = brag(run([
     {
       verb: "accept",
@@ -134,16 +134,16 @@ Deno.test("brag: the biggest shipped change is by changed lines, and a branch-le
       change: { files: 9, insertions: 400, deletions: 100, commits: 4 },
     },
   ]));
-  assertEquals(b.shipped.count, 2);
-  assertEquals(b.shipped.branches, 1, "a null branch never mints a branch");
-  assertEquals(b.shipped.biggest, {
+  assertEquals(b.accepted.count, 2);
+  assertEquals(b.accepted.branches, 1, "a null branch never mints a branch");
+  assertEquals(b.accepted.biggest, {
     lines: 500,
     files: 9,
     day: "2026-07-01",
   });
 });
 
-Deno.test("brag: the best day and the shipping streak read UTC calendar days, ties to the earliest", () => {
+Deno.test("brag: the best day and the acceptance streak read UTC calendar days, ties to the earliest", () => {
   const accept = (hours: number): Partial<VerbEvent> => ({
     verb: "accept",
     at: t(hours),
@@ -155,8 +155,8 @@ Deno.test("brag: the best day and the shipping streak read UTC calendar days, ti
     accept(26), // 2026-07-02 × 2 — a tie the earliest day wins
     accept(73), // 2026-07-04 — the gap ends the streak
   ]));
-  assertEquals(b.shipped.best_day, { day: "2026-07-01", shipped: 2 });
-  assertEquals(b.shipped.longest_streak, 2);
+  assertEquals(b.accepted.best_day, { day: "2026-07-01", accepted: 2 });
+  assertEquals(b.accepted.longest_streak, 2);
 });
 
 Deno.test("brag: gate streaks run in stream order and the current streak reads from the tail", () => {
@@ -276,7 +276,7 @@ Deno.test("brag: cadence series cover the span's calendar days, zero-filled", ()
     },
   ]));
   assertEquals(b.series_days_per_point, 1);
-  assertEquals(b.shipped.per_day, [2, 0, 1]);
+  assertEquals(b.accepted.per_day, [2, 0, 1]);
   assertEquals(b.gate.greens_per_day, [1, 0, 0], "a red day is not a green");
   assertEquals(b.breadth.branches_per_day, [1, 0, 1]);
 });
@@ -284,7 +284,7 @@ Deno.test("brag: cadence series cover the span's calendar days, zero-filled", ()
 Deno.test("brag: a one-day span carries no cadence series", () => {
   const b = brag(run([{ verb: "accept" }, { verb: "done" }]));
   assertEquals(b.series_days_per_point, undefined);
-  assertEquals(b.shipped.per_day, undefined);
+  assertEquals(b.accepted.per_day, undefined);
   assertEquals(b.gate.greens_per_day, undefined);
   assertEquals(b.breadth.branches_per_day, undefined);
 });
@@ -297,8 +297,8 @@ Deno.test("brag: a span past the wire cap folds whole days per point — sums fo
     { verb: "done", branch: "agent/x", at: t(24 * 47) },
   ]));
   assertEquals(b.series_days_per_point, 2);
-  assertEquals(b.shipped.per_day?.length, 24);
-  assertEquals(b.shipped.per_day?.[0], 2, "a point sums its days' ships");
+  assertEquals(b.accepted.per_day?.length, 24);
+  assertEquals(b.accepted.per_day?.[0], 2, "a point sums its days' ships");
   assertEquals(
     b.breadth.branches_per_day?.[0],
     1,
@@ -315,14 +315,14 @@ Deno.test("brag: CI runs, previews, and setup-era events never reach a feat", ()
     { verb: "accept", dry_run: true },
     { verb: "done", branch: SETUP_BRANCH },
   ]));
-  assertEquals(b.shipped.count, 0);
+  assertEquals(b.accepted.count, 0);
   assertEquals(b.gate.runs, 0);
   assertEquals(b.breadth.branches, 0);
 });
 
 Deno.test("brag: an empty stream produces a card of zeros, not an error", () => {
   const b = brag([]);
-  assertEquals(b.shipped, {
+  assertEquals(b.accepted, {
     count: 0,
     branches: 0,
     insertions: 0,
@@ -343,10 +343,177 @@ Deno.test("brag: an empty stream produces a card of zeros, not an error", () => 
   });
   assertEquals(b.cycles, undefined);
   assertEquals(b.ratchet, { pins: 0, standards: 0 });
+  assertEquals(b.agents, {
+    detected: 0,
+    identities: [],
+    unattributed_runs: 0,
+  });
   assertEquals(b.breadth, {
     branches: 0,
     active_days: 0,
     span_days: 0,
   });
   assert(!("busiest_day" in b.breadth));
+  assert(!("peak_in_flight" in b.breadth));
+});
+
+Deno.test("brag: peak in flight counts overlapping branch windows, pauses included", () => {
+  const b = brag(run([
+    { branch: "agent/a", at: t(0) },
+    // b's whole life falls inside a's overnight pause — still 2 in flight.
+    { branch: "agent/b", at: t(10) },
+    { branch: "agent/a", at: t(30) },
+  ]));
+  assertEquals(b.breadth.peak_in_flight, { branches: 2, day: "2026-07-01" });
+});
+
+Deno.test("brag: a branch stops counting toward the peak after its last event", () => {
+  const b = brag(run([
+    { branch: "agent/abandoned", at: t(0) },
+    { branch: "agent/abandoned", at: t(1) },
+    // Opens 4h after the abandoned branch's last event: never concurrent.
+    { branch: "agent/later", at: t(5) },
+    { branch: "agent/later", at: t(6) },
+  ]));
+  assertEquals(b.breadth.peak_in_flight?.branches, 1);
+});
+
+Deno.test("brag: the trunk is not a change, and same-instant handover still overlaps", () => {
+  const trunkOnly = brag(run([
+    { branch: "main", verb: "status" },
+    { branch: "main", verb: "status", at: t(1) },
+  ]));
+  assertEquals(trunkOnly.breadth.peak_in_flight, undefined);
+
+  const handover = brag(run([
+    { branch: "agent/first", at: t(0) },
+    // Both branches carry an event at the same instant: 2 in flight.
+    { branch: "agent/first", at: t(2) },
+    { branch: "agent/second", at: t(2) },
+    { branch: "agent/second", at: t(3) },
+  ]));
+  assertEquals(handover.breadth.peak_in_flight?.branches, 2);
+});
+
+/** A verb event carrying standard readings, as the gate records them. */
+function measured(
+  over: Partial<VerbEvent>,
+  readings: { name: string; direction: string; value: number }[],
+): Partial<VerbEvent> {
+  return {
+    ...over,
+    standards: readings.map((r) => ({ ...r, limit: r.value })),
+  };
+}
+
+Deno.test("brag: the most improved standard is percent-normalized, so scales compare like-for-like", () => {
+  const b = brag(run([
+    measured({ at: t(0) }, [
+      { name: "big_ceiling", direction: "down", value: 1_000_000 },
+      { name: "small_ceiling", direction: "down", value: 10 },
+    ]),
+    measured({ at: t(1) }, [
+      // −100,000 lines is a 10% improvement…
+      { name: "big_ceiling", direction: "down", value: 900_000 },
+      // …but −2 from 10 is 20%: the small standard wins like-for-like.
+      { name: "small_ceiling", direction: "down", value: 8 },
+    ]),
+  ]));
+  assertEquals(b.ratchet.most_improved, {
+    standard: "small_ceiling",
+    from: 10,
+    to: 8,
+    better_percent: 20,
+  });
+});
+
+Deno.test("brag: improvement is direction-adjusted — a rising floor and a falling ceiling both read positive", () => {
+  const b = brag(run([
+    measured({ at: t(0) }, [
+      { name: "ceiling", direction: "down", value: 100 },
+      { name: "floor", direction: "up", value: 50 },
+    ]),
+    measured({ at: t(1) }, [
+      { name: "ceiling", direction: "down", value: 90 },
+      { name: "floor", direction: "up", value: 60 },
+    ]),
+  ]));
+  assertEquals(b.ratchet.most_improved?.standard, "floor");
+  assertEquals(b.ratchet.most_improved?.better_percent, 20);
+});
+
+Deno.test("brag: a standard that only worsened is never most improved, and a zero first reading is set aside", () => {
+  const b = brag(run([
+    measured({ at: t(0) }, [
+      { name: "worsening", direction: "down", value: 100 },
+      { name: "zero_start", direction: "up", value: 0 },
+    ]),
+    measured({ at: t(1) }, [
+      { name: "worsening", direction: "down", value: 120 },
+      { name: "zero_start", direction: "up", value: 5 },
+    ]),
+  ]));
+  assertEquals(b.ratchet.most_improved, undefined);
+});
+
+Deno.test("brag: the ratchet trend averages per-day improvement, carrying unmeasured days forward", () => {
+  const b = brag(run([
+    measured({ at: t(0) }, [
+      { name: "ceiling", direction: "down", value: 100 },
+    ]),
+    // Day 1 goes unmeasured: the day-0 reading carries forward at 0%.
+    measured({ at: t(49) }, [
+      { name: "ceiling", direction: "down", value: 90 },
+    ]),
+  ]));
+  assertEquals(b.ratchet.trend, [0, 0, 10]);
+});
+
+/** An invocation-scoped identity signal naming one agent. */
+function signals(agent: string): NonNullable<VerbEvent["driver"]> {
+  return {
+    session: `cli:${agent}`,
+    json: true,
+    tty: false,
+    ci: false,
+    agent_signals: [{ agent, source: "process-environment", markers: ["X"] }],
+  };
+}
+
+Deno.test("brag: agents ride the cohort seam — below-minimum identities are counted, never listed", () => {
+  const b = brag(run([
+    // Six attributed runs clear the reporting minimums…
+    { driver: signals("claude") },
+    { driver: signals("claude") },
+    { driver: signals("claude"), outcome: "failed", failed_stage: "check" },
+    { driver: signals("claude") },
+    { driver: signals("claude"), verb: "status" },
+    { driver: signals("claude"), verb: "status" },
+    // …one run does not…
+    { driver: signals("codex") },
+    // …and a signal-less run stays unattributed.
+    { verb: "status" },
+  ]));
+  assertEquals(b.agents.detected, 2);
+  assertEquals(b.agents.identities.length, 1);
+  const [claude] = b.agents.identities;
+  assertEquals(claude?.agent, "claude");
+  assertEquals(claude?.runs, 6);
+  assertEquals(claude?.done_runs, 4);
+  assertEquals(claude?.greens, 3);
+  assertEquals(b.agents.below_minimum, { agents: 1, runs: 1 });
+  assertEquals(b.agents.unattributed_runs, 1);
+});
+
+Deno.test("brag: each listed identity carries its own usage series across the span", () => {
+  const b = brag(run([
+    { driver: signals("claude"), at: t(0) },
+    { driver: signals("claude"), at: t(1) },
+    { driver: signals("claude"), at: t(2) },
+    { driver: signals("claude"), at: t(3) },
+    // Day 1 is quiet for this identity; day 2 holds its fifth run.
+    { driver: signals("claude"), at: t(49) },
+  ]));
+  assertEquals(b.agents.identities[0]?.per_day, [4, 0, 1]);
+  assertEquals(b.agents.per_day, [4, 0, 1]);
 });

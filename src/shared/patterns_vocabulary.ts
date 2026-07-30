@@ -152,23 +152,23 @@ export const PatternsBragSchema = z.strictObject({
   /** Whole days each cadence-series point covers (the last point may cover
    * fewer). Present exactly when any series is. */
   series_days_per_point: z.number().int().optional(),
-  /** Successful `accept` runs — changes shipped to the trunk. Sums read from
-   * each shipped change's recorded scale; a change recorded without one
-   * still counts, contributing zero to the sums. */
-  shipped: z.strictObject({
+  /** Successful `accept` runs — accepted changes. Sums read from each
+   * accepted change's recorded scale; a change recorded without one still
+   * counts, contributing zero to the sums. */
+  accepted: z.strictObject({
     count: z.number().int(),
     branches: z.number().int(),
     insertions: z.number().int(),
     deletions: z.number().int(),
     files: z.number().int(),
     commits: z.number().int(),
-    /** Shipped changes whose recorded scale removed more lines than it
+    /** Accepted changes whose recorded scale removed more lines than it
      * added. */
     cleanups: z.number().int(),
-    /** Changes shipped per series point across the span. */
+    /** Changes accepted per series point across the span. */
     per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
       .optional(),
-    /** The largest single shipped change by changed lines, when any carried
+    /** The largest single accepted change by changed lines, when any carried
      * a change scale. `branch` is absent when the event recorded none. */
     biggest: z.strictObject({
       branch: z.string().optional(),
@@ -176,13 +176,13 @@ export const PatternsBragSchema = z.strictObject({
       files: z.number().int(),
       day: z.string(),
     }).optional(),
-    /** The UTC day with the most changes shipped (earliest such day on a
+    /** The UTC day with the most accepted changes (earliest such day on a
      * tie). */
     best_day: z.strictObject({
       day: z.string(),
-      shipped: z.number().int(),
+      accepted: z.number().int(),
     }).optional(),
-    /** Longest run of consecutive UTC days each shipping at least one
+    /** Longest run of consecutive UTC days each with at least one accepted
      * change. */
     longest_streak: z.number().int(),
   }),
@@ -213,11 +213,54 @@ export const PatternsBragSchema = z.strictObject({
     median_hours: z.number(),
     fastest_hours: z.number(),
   }).optional(),
-  /** The standards ratchet, read from pin events: limits tightened, and how
-   * many distinct standards they cover. */
+  /** The standards ratchet, read from pin events and the standard readings
+   * recorded on gate runs: limits tightened, how many distinct standards
+   * they cover, and how the measured values moved. */
   ratchet: z.strictObject({
     pins: z.number().int(),
     standards: z.number().int(),
+    /** Average improvement across all measured standards per series point,
+     * as a percent of each standard's first recorded reading — direction-
+     * adjusted so better is always positive, which is what makes standards
+     * on different scales comparable. Present once the span holds a series
+     * and at least one standard was read twice. */
+    trend: z.array(z.number()).max(PATTERNS_SERIES_MAX_POINTS).optional(),
+    /** The standard whose reading improved the most against its first
+     * recorded value, percent-normalized the same way. Absent when no
+     * standard improved. */
+    most_improved: z.strictObject({
+      standard: z.string(),
+      from: z.number(),
+      to: z.number(),
+      better_percent: z.number(),
+    }).optional(),
+  }),
+  /** Attributed agent identities and their runs, segmented through the same
+   * cohort seam the detectors use: identities below the reporting minimums
+   * are counted but never listed, and the unattributed share is always
+   * stated. Listed identities carry the most runs first. */
+  agents: z.strictObject({
+    detected: z.number().int(),
+    /** Agent-driven runs per series point across the span. */
+    per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
+      .optional(),
+    identities: z.array(z.strictObject({
+      agent: z.string(),
+      label: z.string(),
+      runs: z.number().int(),
+      done_runs: z.number().int(),
+      greens: z.number().int(),
+      /** This identity's runs per series point across the span. */
+      per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
+        .optional(),
+    })).max(10),
+    /** Identities whose runs sit below the cohort reporting minimums —
+     * counted here, never listed. Absent when none. */
+    below_minimum: z.strictObject({
+      agents: z.number().int(),
+      runs: z.number().int(),
+    }).optional(),
+    unattributed_runs: z.number().int(),
   }),
   /** How wide the practice ran: distinct branches driven, days with at least
    * one analyzed run against the span, and the day most branches were active. */
@@ -235,6 +278,14 @@ export const PatternsBragSchema = z.strictObject({
      * covering several days keeps its peak day. */
     branches_per_day: z.array(z.number().int()).max(PATTERNS_SERIES_MAX_POINTS)
       .optional(),
+    /** The most change branches in flight at one instant: each branch counts
+     * from its first analyzed event to its last (a pause inside that window
+     * stays in flight; after its last event a branch stops counting), and
+     * the trunk is not a change. Absent before the first change branch. */
+    peak_in_flight: z.strictObject({
+      branches: z.number().int(),
+      day: z.string(),
+    }).optional(),
   }),
 });
 /** The `--brag` payload. */
