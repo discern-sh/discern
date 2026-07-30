@@ -2,6 +2,8 @@
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `graduate` → `accept`, `docs` → `map` where it names the command, config, or tree, the retired product-category wording → `discern`, the gate, or the bar; the decision and reasoning are unchanged.
 
+> **Corpus amendment ([ADR 0231](0231-prose-density-shares-one-versioned-corpus.md)):** the prose rate now emits its denominator from the exact versioned corpus Vale inspects. Frontmatter and `_private` contribute to neither side of the ratio; the corrected unit sets a new baseline once at 15.59 alerts per 1,000 linted words.
+
 **Status**: accepted. **Extends [ADR 0003](0003-named-metric-standards.md)** (named metric standards) — the standard mechanism is unchanged; this adds an optional denominator so the _measured value_ can be a rate.
 
 ## Context
