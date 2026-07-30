@@ -9,12 +9,14 @@
  * Two auto-enrolling sweeps over closed sets:
  *
  * 1. Every {@link FAILED_STAGES} remedy claiming generic code-fix work — the
- *    diagnostic core's signature, "fix the reported problems" — must name
- *    `discern prepare`, and must name its re-run verb (`discern done`)
- *    rather than the verb-generic "the current discern command": only `done`
- *    fires stage remedies. One-shot mechanical remedies (refresh, renumber,
- *    grant access) name their concrete action instead of that signature and
- *    stay exempt — after a one-shot fix, re-running the gate directly IS the
+ *    diagnostic cores' signature, "fix the … in the diagnostics" — must name
+ *    a narrow iteration (`discern prepare`, `discern test`, or the
+ *    diagnostic's own reproduce command for stages no narrower verb
+ *    re-checks), and must name its re-run verb (`discern done`) rather than
+ *    the verb-generic "the current discern command": only `done` fires stage
+ *    remedies. One-shot mechanical remedies (refresh, renumber, grant
+ *    access) name their concrete action instead of that signature and stay
+ *    exempt — after a one-shot fix, re-running the gate directly IS the
  *    next step.
  * 2. Every `done-rerun`-family hint telling the agent to fix a failure must
  *    name a fast-loop verb alongside its `discern done` re-run.
@@ -28,14 +30,16 @@ import { assert, assertEquals } from "@std/assert";
 import { FAILED_STAGES } from "../src/shared/result.ts";
 import { gateFailureRemedy, HINTS } from "../src/shared/hints.ts";
 
-/** The diagnostic core's claim that the fix is open-ended code work. */
-const CODE_FIX_SIGNATURE = /fix the reported problems/iu;
+/** The diagnostic cores' claim that the fix is open-ended code work. */
+const CODE_FIX_SIGNATURE = /fix the (?:problems|failing tests) in the diagnostics/iu;
 
 /** A rerun hint's claim that a failure needs fixing before the re-run. */
 const FIX_THE_FAILURE = /fix the failure/iu;
 
-/** A named fast-loop verb — the routing the red-gate moment must carry. */
-const FAST_LOOP = /`discern (?:prepare|test)`/u;
+/** A named narrow iteration — a fast-loop verb, or the per-diagnostic
+ * reproduce command for stages (build, scope gates) no narrower verb
+ * re-checks. Either routing spares the agent a full-gate attempt per fix. */
+const FAST_LOOP = /`discern (?:prepare|test)`|reproduce command/u;
 
 Deno.test("code-fix stage remedies route iteration through the fast loop", () => {
   const failures: string[] = [];
