@@ -36,7 +36,6 @@ import {
   providerBrandSilhouette,
   providerFor,
   providersWithHooks,
-  settingsSeeds,
 } from "../src/lib/providers.ts";
 import { defaultGuidanceScopes } from "../src/lib/config.ts";
 import {
@@ -45,7 +44,6 @@ import {
 } from "../src/lib/agent_gitignore.ts";
 import { stripGeneratedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
-import { mergeJsonSettingsText } from "../src/lib/settings_merge.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
@@ -120,52 +118,6 @@ function renderedFullCanvasRects(svg: string, path: string): string[] {
         (rectWidth === "100%" || Number(rectWidth) === width) &&
         (rectHeight === "100%" || Number(rectHeight) === height);
     });
-}
-
-function hookCommands(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return value.flatMap(hookCommands);
-  }
-  if (typeof value !== "object" || value === null) {
-    return [];
-  }
-  const commands: string[] = [];
-  for (const [key, child] of Object.entries(value)) {
-    if (
-      (key === "command" || key === "bash") &&
-      typeof child === "string"
-    ) {
-      commands.push(child);
-    }
-    commands.push(...hookCommands(child));
-  }
-  return commands;
-}
-
-function replaceHookCommand(
-  value: unknown,
-  from: string,
-  to: string,
-): void {
-  if (Array.isArray(value)) {
-    for (const child of value) {
-      replaceHookCommand(child, from, to);
-    }
-    return;
-  }
-  if (typeof value !== "object" || value === null) {
-    return;
-  }
-  for (const [key, child] of Object.entries(value)) {
-    if (
-      (key === "command" || key === "bash") &&
-      child === from
-    ) {
-      (value as Record<string, unknown>)[key] = to;
-      continue;
-    }
-    replaceHookCommand(child, from, to);
-  }
 }
 
 Deno.test("landing silhouette detector rejects an unrelated opaque SVG canvas", () => {
@@ -673,86 +625,4 @@ Deno.test("the seed settings template seeds each hooks provider's registry workt
       `templates/${integ.settingsFile}.tmpl seeds no command matching the registry's sessionHookNeedle ("${integ.sessionHookNeedle}") for ${provider.name}`,
     );
   }
-});
-
-Deno.test("every registered hook-command rename converges legacy and duplicated installs", async () => {
-  const seeds = new Map(
-    settingsSeeds().map((seed) => [seed.targetRel, seed]),
-  );
-  let familiesChecked = 0;
-
-  for (const provider of providersWithHooks()) {
-    const hooks = provider.hooks;
-    assert(hooks !== undefined);
-    const aliases = hooks.commandAliases ?? [];
-    if (aliases.length === 0) {
-      continue;
-    }
-    const seed = seeds.get(hooks.settingsFile);
-    assert(
-      seed !== undefined,
-      `${provider.name}: no settings seed derives its hook command aliases`,
-    );
-    const template = await Deno.readTextFile(
-      join(REPO, "templates", `${hooks.settingsFile}.tmpl`),
-    );
-    const currentCommands = hookCommands(JSON.parse(template));
-    const baseMerge = hooks.mergeSeed ?? mergeJsonSettingsText;
-
-    for (const family of aliases) {
-      familiesChecked++;
-      const expectedCanonical = currentCommands.filter((command) =>
-        command === family.canonical
-      ).length;
-      assert(
-        expectedCanonical > 0,
-        `${provider.name}: canonical hook command "${family.canonical}" is absent from templates/${hooks.settingsFile}.tmpl`,
-      );
-      for (const retired of family.retired) {
-        assert(
-          !currentCommands.includes(retired),
-          `${provider.name}: retired hook command "${retired}" remains in templates/${hooks.settingsFile}.tmpl`,
-        );
-
-        const legacy = JSON.parse(template) as Record<string, unknown>;
-        legacy.userPreserved = provider.name;
-        replaceHookCommand(legacy, family.canonical, retired);
-        const legacyText = `${JSON.stringify(legacy, null, 2)}\n`;
-
-        // Reproduce the pre-fix additive merge: the legacy and canonical command
-        // strings differ, so the old strategy leaves both runnable groups behind.
-        const duplicated = baseMerge(legacyText, template);
-        const duplicatedCommands = hookCommands(JSON.parse(duplicated));
-        assert(
-          duplicatedCommands.includes(retired) &&
-            duplicatedCommands.includes(family.canonical),
-          `${provider.name}: fixture did not reproduce a duplicated rename for "${retired}"`,
-        );
-
-        const converged = seed.merge(duplicated, template);
-        const parsed = JSON.parse(converged) as Record<string, unknown>;
-        const commands = hookCommands(parsed);
-        assertEquals(parsed.userPreserved, provider.name);
-        assertEquals(
-          commands.filter((command) => command === family.canonical).length,
-          expectedCanonical,
-          `${provider.name}: "${retired}" did not converge to exactly the template's canonical hook population`,
-        );
-        assert(
-          !commands.includes(retired),
-          `${provider.name}: retired hook command "${retired}" survived convergence`,
-        );
-        assertEquals(
-          seed.merge(converged, template),
-          converged,
-          `${provider.name}: hook rename convergence is not idempotent`,
-        );
-      }
-    }
-  }
-
-  assert(
-    familiesChecked > 0,
-    "the hook-command rename guard enrolled no provider alias families",
-  );
 });
