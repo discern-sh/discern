@@ -16,8 +16,7 @@ import {
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { resolveTemplatesDir } from "./paths.ts";
-import { type Provider, providerFor } from "./providers.ts";
-import { mergeJsonSettingsText } from "./settings_merge.ts";
+import { hookSettingsMerge, type Provider, providerFor } from "./providers.ts";
 
 export type ProviderHookDriftReason = "missing" | "stale" | "unreadable";
 
@@ -93,7 +92,7 @@ async function desiredHookText(
   const rel = hooks.settingsFile;
   const template = await Deno.readTextFile(join(templatesDir, `${rel}.tmpl`));
   const existing = await readTextIfExists(join(root, rel));
-  const merge = hooks.mergeSeed ?? mergeJsonSettingsText;
+  const merge = hookSettingsMerge(hooks);
   return { rel, existing, desired: merge(existing, template) };
 }
 

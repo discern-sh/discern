@@ -149,6 +149,17 @@ export type SettingsSeedMerge = (
   incomingText: string,
 ) => string;
 
+/**
+ * One canonical managed hook command and every retired spelling that refresh
+ * should converge into it. The provider registry owns these declarations: a
+ * command rename remains recognizable after the seed template moves on, without
+ * teaching the generic JSON merge any discern-specific command strings.
+ */
+export interface HookCommandAlias {
+  readonly canonical: string;
+  readonly retired: readonly string[];
+}
+
 function parseJsonSettingsText(text: string, label: string): unknown {
   try {
     return JSON.parse(text);
@@ -216,6 +227,253 @@ export function mergeJsonSettingsDedupingGroups(
     }
   }
   return `${JSON.stringify(merged, null, 2)}\n`;
+}
+
+type HookCommandKey = "command" | "bash";
+
+interface HookCommandReference {
+  readonly object: JsonObject;
+  readonly key: HookCommandKey;
+}
+
+/** Every command-bearing field supported across the JSON hook providers. */
+function hookCommandReferences(group: unknown): HookCommandReference[] {
+  if (!isObject(group)) {
+    return [];
+  }
+  const references: HookCommandReference[] = [];
+  const collect = (object: JsonObject): void => {
+    for (const key of ["command", "bash"] as const) {
+      if (typeof object[key] === "string") {
+        references.push({ object, key });
+      }
+    }
+  };
+  collect(group);
+  if (Array.isArray(group.hooks)) {
+    for (const hook of group.hooks) {
+      if (isObject(hook)) {
+        collect(hook);
+      }
+    }
+  }
+  return references;
+}
+
+/** Every command string carried by one supported JSON hook-group shape. */
+export function hookGroupCommands(group: unknown): string[] {
+  return hookCommandReferences(group).flatMap((reference) => {
+    const command = reference.object[reference.key];
+    return typeof command === "string" ? [command] : [];
+  });
+}
+
+/** Order-insensitive command multiset identity for one hook group. */
+function hookCommandSignature(group: unknown): string {
+  return JSON.stringify(hookGroupCommands(group).sort());
+}
+
+function commandAliasLookup(
+  aliases: readonly HookCommandAlias[],
+): {
+  aliasToCanonical: ReadonlyMap<string, string>;
+  canonical: ReadonlySet<string>;
+} {
+  const aliasToCanonical = new Map<string, string>();
+  const canonical = new Set<string>();
+  for (const family of aliases) {
+    if (family.canonical.trim().length === 0) {
+      throw new Error(
+        "a managed hook command alias family has no canonical command",
+      );
+    }
+    if (canonical.has(family.canonical)) {
+      throw new Error(
+        `managed hook command aliases declare ${family.canonical} more than once`,
+      );
+    }
+    canonical.add(family.canonical);
+    for (const retired of family.retired) {
+      if (retired.trim().length === 0) {
+        throw new Error(
+          `managed hook command aliases for ${family.canonical} contain an empty retired command`,
+        );
+      }
+      if (retired === family.canonical) {
+        throw new Error(
+          `managed hook command ${family.canonical} cannot retire itself`,
+        );
+      }
+      const previous = aliasToCanonical.get(retired);
+      if (previous !== undefined) {
+        throw new Error(
+          `retired hook command ${retired} maps to both ${previous} and ${family.canonical}`,
+        );
+      }
+      aliasToCanonical.set(retired, family.canonical);
+    }
+  }
+  for (const command of canonical) {
+    if (aliasToCanonical.has(command)) {
+      throw new Error(
+        `managed hook command ${command} cannot be both canonical and retired`,
+      );
+    }
+  }
+  return { aliasToCanonical, canonical };
+}
+
+/** Rewrite exact retired command fields in place; user command text is untouched. */
+function rewriteRetiredHookCommands(
+  group: unknown,
+  aliasToCanonical: ReadonlyMap<string, string>,
+): boolean {
+  let changed = false;
+  for (const reference of hookCommandReferences(group)) {
+    const command = reference.object[reference.key];
+    if (typeof command !== "string") {
+      continue;
+    }
+    const replacement = aliasToCanonical.get(command);
+    if (replacement !== undefined) {
+      reference.object[reference.key] = replacement;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+/**
+ * Converge renamed managed hooks before the ordinary additive merge:
+ *
+ * - every exact retired command becomes its canonical spelling in any supported
+ *   JSON hook shape;
+ * - a pure managed group matching the current seed replaces its legacy copy;
+ * - legacy + canonical (or repeated canonical) copies collapse to one current
+ *   seed group;
+ * - unrelated and mixed user groups stay in place.
+ *
+ * The incoming seed supplies the current group shape. Alias declarations only
+ * identify command identity; they do not duplicate the template's event or JSON
+ * structure.
+ */
+function reconcileHookCommandAliases(
+  existing: unknown,
+  incoming: unknown,
+  aliasToCanonical: ReadonlyMap<string, string>,
+  canonicalCommands: ReadonlySet<string>,
+): unknown {
+  if (!isObject(existing)) {
+    return existing;
+  }
+  const existingHooks = existing[HOOK_EVENTS_KEY];
+  const incomingHooks = isObject(incoming)
+    ? incoming[HOOK_EVENTS_KEY]
+    : undefined;
+  if (!isObject(existingHooks)) {
+    return existing;
+  }
+
+  const changedByEvent = new Map<string, boolean[]>();
+  for (const [event, groups] of Object.entries(existingHooks)) {
+    if (!Array.isArray(groups)) {
+      continue;
+    }
+    changedByEvent.set(
+      event,
+      groups.map((group) =>
+        rewriteRetiredHookCommands(group, aliasToCanonical)
+      ),
+    );
+  }
+  if (!isObject(incomingHooks)) {
+    return existing;
+  }
+
+  for (const [event, incomingGroups] of Object.entries(incomingHooks)) {
+    const existingGroups = existingHooks[event];
+    if (!Array.isArray(existingGroups) || !Array.isArray(incomingGroups)) {
+      continue;
+    }
+    const changed = changedByEvent.get(event) ??
+      existingGroups.map(() => false);
+    const replacements = new Map<number, unknown>();
+    const removals = new Set<number>();
+    const claimed = new Set<number>();
+
+    for (const incomingGroup of incomingGroups) {
+      const incomingCommands = hookGroupCommands(incomingGroup);
+      if (
+        incomingCommands.length === 0 ||
+        !incomingCommands.some((command) => canonicalCommands.has(command))
+      ) {
+        continue;
+      }
+      const signature = hookCommandSignature(incomingGroup);
+      const matches: number[] = [];
+      for (let index = 0; index < existingGroups.length; index++) {
+        if (
+          !claimed.has(index) &&
+          hookCommandSignature(existingGroups[index]) === signature
+        ) {
+          matches.push(index);
+        }
+      }
+      const first = matches[0];
+      if (
+        first === undefined ||
+        (matches.length === 1 && changed[first] !== true)
+      ) {
+        continue;
+      }
+      replacements.set(first, incomingGroup);
+      claimed.add(first);
+      for (const duplicate of matches.slice(1)) {
+        removals.add(duplicate);
+        claimed.add(duplicate);
+      }
+    }
+
+    existingHooks[event] = existingGroups.flatMap((group, index) => {
+      if (removals.has(index)) {
+        return [];
+      }
+      return [replacements.get(index) ?? group];
+    });
+  }
+  return existing;
+}
+
+/**
+ * Decorate any JSON settings merge with provider-declared managed-command
+ * aliases. A provider opts in beside its hook declaration; setup, refresh,
+ * upgrade, status, and doctor then share the same convergence automatically.
+ */
+export function jsonSettingsMergeWithHookCommandAliases(
+  aliases: readonly HookCommandAlias[],
+  baseMerge: SettingsSeedMerge = mergeJsonSettingsText,
+): SettingsSeedMerge {
+  const { aliasToCanonical, canonical } = commandAliasLookup(aliases);
+  return (
+    existingText: string | undefined,
+    incomingText: string,
+  ): string => {
+    if (existingText === undefined) {
+      return baseMerge(existingText, incomingText);
+    }
+    const existing = parseJsonSettingsText(existingText, "existing");
+    const incoming = parseJsonSettingsText(incomingText, "incoming");
+    const reconciled = reconcileHookCommandAliases(
+      existing,
+      incoming,
+      aliasToCanonical,
+      canonical,
+    );
+    return baseMerge(
+      `${JSON.stringify(reconciled, null, 2)}\n`,
+      incomingText,
+    );
+  };
 }
 
 /**

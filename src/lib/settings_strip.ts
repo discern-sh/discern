@@ -20,6 +20,7 @@
  */
 
 import { DISCERN_MCP_SERVER } from "./providers.ts";
+import { hookGroupCommands } from "./settings_merge.ts";
 
 /** A JSON object map. */
 type JsonObject = Record<string, unknown>;
@@ -46,35 +47,6 @@ function canonical(value: unknown): unknown {
 
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
-}
-
-/**
- * Every command string a hook group carries — whether nested under
- * `hooks[].command`/`hooks[].bash` or at the group level (`command`/`bash`) —
- * covering the shapes discern's providers write across vendors (Claude's nested
- * `command`, Cursor's group-level `command`, Copilot's group-level `bash`).
- */
-function hookGroupCommands(group: unknown): string[] {
-  const out: string[] = [];
-  if (!isObject(group)) {
-    return out;
-  }
-  const pushIfString = (v: unknown): void => {
-    if (typeof v === "string") {
-      out.push(v);
-    }
-  };
-  pushIfString(group.command);
-  pushIfString(group.bash);
-  if (Array.isArray(group.hooks)) {
-    for (const hook of group.hooks) {
-      if (isObject(hook)) {
-        pushIfString(hook.command);
-        pushIfString(hook.bash);
-      }
-    }
-  }
-  return out;
 }
 
 /** A command that invokes the discern binary (`discern …`), so word-boundary
