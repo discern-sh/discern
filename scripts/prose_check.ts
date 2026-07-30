@@ -18,6 +18,7 @@ import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import { restoreStagePaths, stageProseInput } from "./prose_lib.ts";
+import { runVale } from "./vale_lib.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 
@@ -44,7 +45,7 @@ try {
   const targets: string[] = [];
   const unstaged: string[] = [];
   for (const file of fileArgs) {
-    const staged = join(stage, relative(resolve(docsDir), resolve(file)));
+    const staged = join(stage.dir, relative(resolve(docsDir), resolve(file)));
     try {
       await Deno.stat(staged);
       targets.push(staged);
@@ -59,24 +60,20 @@ try {
     );
     code = 2;
   } else {
-    const run = await new Deno.Command("vale", {
-      args: [
-        "--minAlertLevel",
-        minLevel,
-        ...(targets.length > 0 ? targets : [stage]),
-      ],
-      stdout: "piped",
-      stderr: "piped",
-    }).output();
+    const run = await runVale(repoRoot, [
+      "--minAlertLevel",
+      minLevel,
+      ...(targets.length > 0 ? targets : [stage.dir]),
+    ]);
     const decoder = new TextDecoder();
     const stdout = restoreStagePaths(
       decoder.decode(run.stdout),
-      stage,
+      stage.dir,
       docsDir,
     );
     const stderr = restoreStagePaths(
       decoder.decode(run.stderr),
-      stage,
+      stage.dir,
       docsDir,
     );
     if (stdout) console.log(stdout.trimEnd());
@@ -85,6 +82,6 @@ try {
   }
 } finally {
   // Deno.exit skips finally blocks, so teardown precedes the exit below.
-  await Deno.remove(stage, { recursive: true }).catch(() => {});
+  await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
 }
 Deno.exit(code);
