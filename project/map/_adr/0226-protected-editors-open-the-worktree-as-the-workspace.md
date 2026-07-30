@@ -1,4 +1,4 @@
-# ADR 0224: Protected editors open the worktree as the workspace
+# ADR 0226: Protected editors open the worktree as the workspace
 
 **Status**: accepted; extends the isolated-worktree workflow in [ADR 0052](0052-worktree-sibling-placement.md), preserves the vendor-security boundary in [ADR 0193](0193-discern-does-not-enforce-the-vendor-security-boundary.md), and adds a provider handoff to [ADR 0031](0031-typed-provider-integration.md)
 

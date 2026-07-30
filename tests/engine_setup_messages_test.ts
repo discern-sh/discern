@@ -72,7 +72,16 @@ Deno.test("consentMessage carries the relay licence, the verbatim model question
   assertStringIncludes(msg, "one root file (`discern.toml`)");
   assertStringIncludes(msg, "one visible `discern/` folder");
   assertStringIncludes(msg, "map of your codebase");
+  assertStringIncludes(
+    msg,
+    "agent-maintained account of how the codebase fits together",
+  );
+  assertStringIncludes(msg, "author the project's map and guidance");
   assertStringIncludes(msg, "the files your coding tools require");
+  assert(
+    !msg.includes("author the project's docs and guidance"),
+    "the setup plan must name the map rather than teach docs as its synonym",
+  );
   assert(!msg.includes("Nothing else in your repo is touched"));
   // The undo is NAMED, not alluded to: the branch mid-setup, `discern uninstall` after.
   assertStringIncludes(msg, "discern uninstall");

@@ -5,8 +5,10 @@
  * Standing grants are read from the trunk's committed config at a pinned commit,
  * never from the branch. Scope membership routes through the gate's matcher.
  * Effort grants come from the desk-owned Git-admin marker. Every uncertainty
- * fails toward a conversation, and a malformed committed policy also blocks an
- * apply until the trunk is repaired.
+ * fails toward a conversation: a committed policy this engine cannot read
+ * blocks every recorded source, while current-conversation consent — which
+ * never rests on that record — still lands and carries the defect as warning
+ * evidence.
  */
 
 import { parse as parseToml } from "@std/toml";
@@ -37,6 +39,9 @@ export interface LandingAuthorityFacts {
   readonly grantedScopes: readonly string[];
   readonly definedScopes: readonly string[];
   readonly warnings?: readonly string[];
+  /** Defect in the committed policy record. Blocks the recorded sources
+   * (standing and effort grants); conversation consent never rests on the
+   * record, so acceptance still honors it and reports the defect. */
   readonly blockingReason?: string;
   readonly trunkCommit?: string;
   readonly headCommit?: string;

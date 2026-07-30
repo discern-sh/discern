@@ -1,7 +1,7 @@
 /**
  * Engine tests for the `setup done` flow and its follow-through: the gate
  * proof, the worktree probe, the completion-marker commits, pre-existing
- * agent-file migration, agent detection, the laid docs, branch isolation, and
+ * agent-file migration, agent detection, the laid map, branch isolation, and
  * the setup brief's teaching. Split from `engine_setup_test.ts` so
  * `deno test --parallel` (which distributes per FILE) can spread these serial
  * setup runs across workers.
@@ -1318,7 +1318,7 @@ Deno.test("the brief teaches transparency-not-interrogation (narrate + atomic co
   assertStringIncludes(brief, "You are not done until all of these are true");
 });
 
-Deno.test("the brief reframes Step 0 as a relayed model question, states WHY docs, and resolves five-beats vs volume to one rule (ADR 0077)", async () => {
+Deno.test("the brief reframes Step 0 as a relayed model question, explains the map, and resolves five-beats vs volume to one rule (ADR 0077)", async () => {
   const brief = await Deno.readTextFile(
     join(REAL_TEMPLATES, "setup", "instructions.md"),
   );
@@ -1333,11 +1333,34 @@ Deno.test("the brief reframes Step 0 as a relayed model question, states WHY doc
     "Step 0's self-assessment framing must not return — it is now a relayed question",
   );
 
-  // WHY documentation: the docs/guidance are the single source of truth that every
-  // future agent session and discern itself read from — load-bearing infrastructure,
-  // not prose for human readers. Stated before authoring AND in the closing summary.
+  // WHY the map matters: the map/guidance are the source of truth that every
+  // future agent session and discern itself read from, and the map gives people
+  // an audit of what those agents understand. Stated before authoring and again
+  // in the closing summary.
   assertStringIncludes(brief, "single source of truth");
-  assertStringIncludes(brief, "not prose for human readers");
+  assertStringIncludes(brief, "audit what future agents understand");
+  assertStringIncludes(brief, "map and guidance");
+  assertStringIncludes(brief, "what the map is for");
+
+  // The brief is the canonical agent-facing setup script. A new step anywhere in
+  // it auto-enrols in this check, while the separate `docs/` reassurance stays in
+  // the consent message that owns that distinction.
+  const ambiguousDocNouns = [...brief.matchAll(/\bdocs?\b/gi)].map((hit) =>
+    hit[0]
+  );
+  assertEquals(
+    ambiguousDocNouns,
+    [],
+    `the setup brief names the agent-maintained tree as the map: ${
+      ambiguousDocNouns.join(", ")
+    }`,
+  );
+  assertEquals(
+    [..."A later setup step authors the docs.".matchAll(/\bdocs?\b/gi)].map(
+      (hit) => hit[0],
+    ),
+    ["docs"],
+  );
 
   // The five-beats/volume tension resolves to ONE rule: the full five beats only for
   // genuine additions/forks; the obvious jobs batch into one recommendation.

@@ -21,7 +21,7 @@ discern compiles your guidance sources (`project/guidance.md`) into the agent fi
 
 discern keeps each task in its own **linked git worktree** so parallel work doesn't collide. It provisions per-worktree external **resources**; read one with `discern identity --resource <name>`.
 
-- **`discern_start`** — from main, create an isolated worktree (branch prefix `agent/`, forked from `main`), then re-root to its path. If a client cannot re-root but permits writes there, prefix shell commands with `cd <path> &&` and pass `path` to discern tools. If it approval-gates external edits, open the worktree as its workspace. Inside one? Stay.
+- **`discern_start`** — from the main checkout, create your isolated worktree (branch prefix `agent/`, forked from `main`) and re-root into the returned path: cd in, or start a session there. Can't change your working root? Prefix every shell command with `cd <path> &&` and pass `path` to every discern tool. Already in a worktree? Stay there.
 - **`discern_update`** brings `main` into your branch when behind and reports upstream overlap. Idempotent — call it directly instead of pre-checking with git or hand-merging; it performs its own preconditions and gives the exact next step if it refuses. To build on unlanded work instead, `start` and `update` both take `from` (any ref) — work composes below the trunk; only `accept` lands on it.
 - **`discern_accept`** lands only with explicit consent from this conversation or machine-verified authority from a recorded grant. After a green `discern done`, follow its authority-aware hint: either report the one-line receipt and stop, or land under the verified grant. Landing fast-forwards `main` and removes the worktree and branch.
 

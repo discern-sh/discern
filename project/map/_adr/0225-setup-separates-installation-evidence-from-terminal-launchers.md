@@ -1,4 +1,4 @@
-# ADR 0223: Setup separates installation evidence from terminal launchers
+# ADR 0225: Setup separates installation evidence from terminal launchers
 
 **Status**: accepted; amends [ADR 0069](0069-agent-auto-detect-at-setup.md), preserves the identity boundary in [ADR 0166](0166-agent-identity-is-advisory-logbook-evidence.md), and extends the typed provider registry in [ADR 0031](0031-typed-provider-integration.md)
 

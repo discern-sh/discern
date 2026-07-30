@@ -697,8 +697,9 @@ export const TOOLS: McpTool[] = orderTools([
       "strength — each carries plain counts, a scope, and a recommended " +
       "next step; data.detectors reports every detector including the ones " +
       "with insufficient evidence, so a young logbook reads as young, never " +
-      "as healthy. Trends compare only within one config epoch and release; " +
-      "across a boundary they name what moved instead of blending. Strictly " +
+      "as healthy. Trends compare only runs sharing one config epoch and " +
+      "release — matched by equality, so runs from other setups interleaved " +
+      "through the stream are named and excluded, never blended in. Strictly " +
       "ADVISORY: findings never block and never gate — standards remain the " +
       "only enforcement surface. Distinct from discern_coupling, which mines " +
       "git history for files that change together; patterns reads discern's " +
