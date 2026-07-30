@@ -54,7 +54,7 @@ The selected row offers only actions that fit its observed state:
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
 
-Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation states what is kept (the branch ref) and what is destroyed (the checkout and its per-worktree state, gate receipt included), and the core re-validates the predicate before touching anything.
+Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, gate receipt included). The core re-validates the predicate before touching anything.
 
 Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 

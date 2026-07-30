@@ -64,7 +64,7 @@ From the main checkout, `discern worktree drop <id|path>` removes an abandoned w
 
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
 
-Prune also reports **contained** worktrees — spent `start --from` stages whose commits already travel inside a live sibling branch. The default apply never touches them; [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) covers the predicate, the `--contained` opt-in, and the kept branch refs.
+Prune also reports **contained** worktrees — spent `start --from` stages whose commits already travel inside a live sibling branch. The default apply never touches them. [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) covers the predicate, the `--contained` opt-in, and the kept branch refs.
 
 ## Where it lives in code
 
