@@ -13,16 +13,23 @@
  * the test itself holds the only slot while both engine runs start, so overlap
  * is guaranteed by construction; enrolment failures surface as job markers
  * appearing while the slot is still held; and after release the semaphore
- * itself forces the strict start/end ordering the asserts require. Whichever
- * run probes second while the other holds the slot fires the queued hint, so
- * "at least one envelope carries it" holds in every interleaving.
+ * itself forces the strict start/end ordering the asserts require. The queued
+ * notice is proven at the unit level, where the held slot stays held until the
+ * hint is observed — an engine run's first probe after release can land on an
+ * already-free slot on a loaded machine, so no envelope-level assert may
+ * demand the notice without reintroducing a race.
  */
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
-import { groupNeedsTestSlot } from "../src/engine/gate/test_slots.ts";
+import {
+  buildTestRunSlots,
+  groupNeedsTestSlot,
+} from "../src/engine/gate/test_slots.ts";
 import type { JobGroup } from "../src/engine/gate/plan.ts";
+import { makeOut } from "../src/engine/output.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -48,12 +55,10 @@ function parseEnvelope(stdout: string, context: string): SlotEnvelope {
   }
 }
 
-function hintsOf(envelope: SlotEnvelope): string[] {
-  return envelope.hints ?? [];
-}
-
+/** Whether a run narrated the queued notice — asserted ABSENT where a probe
+ * must never wait; presence is only ever asserted at the unit level. */
 function hasQueuedHint(envelope: SlotEnvelope): boolean {
-  return hintsOf(envelope).some((h) => h.includes(QUEUED_TEXT));
+  return (envelope.hints ?? []).some((h) => h.includes(QUEUED_TEXT));
 }
 
 /** Poll a predicate to true within a bound; a miss names what never happened. */
@@ -294,9 +299,48 @@ Deno.test("test slots: groupNeedsTestSlot derives from the jobs, not the verb", 
   );
 });
 
+Deno.test("test slots: a queued acquire fires the wait notice, then resolves when the slot frees", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    // Deterministic by construction: the only slot stays held until the wait
+    // notice is OBSERVED, so the first probe cannot land on a free slot.
+    const release = await holdSlot(dir);
+    try {
+      const slots = buildTestRunSlots(dir, await loadConfig(dir));
+      assert(slots !== undefined, "cap=1 must build a slot surface");
+      assertEquals(slots.cap, 1);
+      const pending = slots.acquire(makeOut(false, { quiet: true }));
+      await pollUntil(
+        "the queued notice",
+        () => slots.waits.some((h) => h.text.includes(QUEUED_TEXT)),
+      );
+      release();
+      const hold = await pending;
+      assert(hold !== undefined, "acquire resolves once the slot frees");
+      hold.release();
+    } finally {
+      release();
+    }
+  });
+});
+
 // ── enrolment and scheduling, black-box through the engine ──────────────────
 
-Deno.test("gate slots: cap=1 serializes two concurrent test runs, begins before the wait, and the loser says it queued", async () => {
+Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins before the wait", async () => {
   await withTempDir(async (dir) => {
     const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
     try {
@@ -350,15 +394,9 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs, begins before 
         assertEquals(envelopeA.ok, true);
         assertEquals(envelopeB.ok, true);
         assertSerialized(await logLines(logPath));
-        // Whichever run probed second did so while the other held the slot,
-        // so at least one envelope must carry the queued notice.
-        assert(
-          hasQueuedHint(envelopeA) || hasQueuedHint(envelopeB),
-          `expected a "${QUEUED_TEXT}" hint in one of:\n` +
-            `${hintsOf(envelopeA).join("\n")}\n${
-              hintsOf(envelopeB).join("\n")
-            }`,
-        );
+        // No queued-notice assert here: after release, a run's first probe can
+        // land on a free slot on a loaded machine. The notice's determinism is
+        // the unit test's job, where the hold outlives the observation.
       } finally {
         release();
       }
@@ -569,14 +607,12 @@ Deno.test("gate slots: standards' measurement pass enrols like a test run", asyn
         const envelopeB = parseEnvelope(b.stdout, "standards B");
         assertEquals(a.code, 0, a.output);
         assertEquals(b.code, 0, b.output);
+        assertEquals(envelopeA.ok, true);
+        assertEquals(envelopeB.ok, true);
         assertSerialized(await logLines(logPath));
-        assert(
-          hasQueuedHint(envelopeA) || hasQueuedHint(envelopeB),
-          `expected a "${QUEUED_TEXT}" hint in one of:\n` +
-            `${hintsOf(envelopeA).join("\n")}\n${
-              hintsOf(envelopeB).join("\n")
-            }`,
-        );
+        // No queued-notice assert here: after release, a run's first probe can
+        // land on a free slot on a loaded machine. The notice's determinism is
+        // the unit test's job, where the hold outlives the observation.
       } finally {
         release();
       }
