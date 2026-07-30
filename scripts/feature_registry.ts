@@ -465,7 +465,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Work on the fix starts at the cause, and nothing needs re-running to see what went wrong.",
           agent:
-            "When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view lost lines. Discern marks a failure that a listed tidying tool might fix, and a piece of work that claimed success while printing error-like lines produces a tip naming those lines.",
+            "When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view lost lines. Discern marks a failure that a listed tidying tool might fix, and a piece of work that claimed success while printing error-like lines produces an advice note naming those lines.",
         },
       },
       {
@@ -505,7 +505,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The person in charge reviews a verified claim that names the exact work it vouches for.",
           agent:
-            "A change saved while the check was running can never earn the proof: Discern pins the exact state before the first piece of work runs and checks it again at the moment of stamping. When a passing run cannot record a proof because unsaved edits remain, the refusal names the blocking files — and at the moment of claiming done, a tip reminds the coding agent that a passing check is necessary but not sufficient: try the real result, pass on the proof, and wait.",
+            "A change saved while the check was running can never earn the proof: Discern pins the exact state before the first piece of work runs and checks it again at the moment of stamping. When a passing run cannot record a proof because unsaved edits remain, the refusal names the blocking files — and at the moment of claiming done, an advice note reminds the coding agent that a passing check is necessary but not sufficient: try the real result, pass on the proof, and wait.",
         },
       },
       {
@@ -866,7 +866,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The person in charge steers several pieces of work without opening each copy, and two tasks touching the same file are named before either becomes shared.",
           agent:
-            "Each row is someone else's work in progress, and a tip states the ownership rule: a clean copy is not a free workspace. The broken mark shows which copy never finished setting up, so workable and unworkable neighbours are clear at a glance.",
+            "Each row is someone else's work in progress, and an advice note states the ownership rule: a clean copy is not a free workspace. The broken mark shows which copy never finished setting up, so workable and unworkable neighbours are clear at a glance.",
         },
       },
       {
@@ -1103,7 +1103,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "A small, carefully chosen built-in set",
           what:
-            "The built-in guides teach Discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even the most capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular Discern instruction ships as a registered tip shown at that moment.",
+            "The built-in guides teach Discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even the most capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular Discern instruction ships as a registered advice note shown at that moment.",
           why:
             "Every guide's description takes up part of every session's limited reading space, so the collection stays small and each member earns its keep.",
         },
@@ -1378,7 +1378,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Signal without new ways to fail — a piece of advice can be wrong without stopping anyone.",
       agent:
-        "Advice arrives inside results the coding agent is already reading, as a list of tips on the same result package. There is no second channel to watch and no document to remember to re-open.",
+        "Advice arrives inside results the coding agent is already reading, as a list of advice notes on the same result package. There is no second channel to watch and no document to remember to re-open.",
     },
     surfaces: ["config:coupling"],
     children: [
@@ -1404,7 +1404,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Getting one's bearings is one cheap, read-only call, for coding agents and people alike.",
           agent:
-            "The tips steer by location: on the main shared copy, the tips point the coding agent at `discern start` before it edits anything, and edits appearing on the main copy while the tools aim at a separate copy trip a safety rail. When clean, saved work holds an honoured proof, the result serves the ready-for-review moment with the proof to pass on.",
+            "The advice notes steer by location: on the main shared copy, they point the coding agent at `discern start` before it edits anything, and edits appearing on the main copy while the tools aim at a separate copy trip a safety rail. When clean, saved work holds an honoured proof, the result serves the ready-for-review moment with the proof to pass on.",
         },
         surfaces: ["verb:status"],
       },
@@ -1430,7 +1430,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Files that usually change together",
           what:
-            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].in_gate` surfaces its findings as tips at the end of the final check.",
+            "`discern coupling` reads the project's own saved history for files that habitually change together: what the current change is missing, one file's usual partners, or the shared history of two files. It needs no setup and adjusts itself to the project, and `[coupling].in_gate` surfaces its findings as advice notes at the end of the final check.",
           why:
             "The companion file everyone forgets is named while the change is still open.",
         },
@@ -1464,7 +1464,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The activity record",
           what:
-            "With recording on and readable settings, every instruction run — typed, or made through the coding-agent connection — adds one line of basic facts to a private record kept in the version history's housekeeping area (the `.git` folder) and shared by the project's working copies. Lines carry timings, outcomes, names, and which tips appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
+            "With recording on and readable settings, every instruction run — typed, or made through the coding-agent connection — adds one line of basic facts to a private record kept in the version history's housekeeping area (the `.git` folder) and shared by the project's working copies. Lines carry timings, outcomes, names, and which advice notes appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
           agent:
@@ -1497,13 +1497,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "A hint is delivered inside the result of the verb that made it relevant, at the moment it applies. `audience` marks entries whose instruction only an agent can execute: every envelope carries them, and interactive human rendering alone drops them, through one registry projection every renderer uses.",
         plain: {
-          title: "Registered tips",
+          title: "Registered advice notes",
           what:
-            "Every piece of advice Discern can give is an entry in one master list — an identifying name, a subject, an intended reader, a family, and a fill-in-the-blanks message — with an inventory page made from the list, instruction names inside the advice matched to the real instruction list, and the names of tips that appeared recorded in the activity record.",
+            "Every piece of advice Discern can give is an entry in one master list — an identifying name, a subject, an intended reader, a family, and a fill-in-the-blanks message — with an inventory page made from the list, instruction names inside the advice matched to the real instruction list, and the names of advice notes that appeared recorded in the activity record.",
           why:
             "Advice stays current mechanically, and whether advice gets followed is measurable.",
           agent:
-            "A tip arrives inside the result of the instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
+            "An advice note arrives inside the result of the instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
         },
       },
     ],
@@ -1754,7 +1754,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "One consistent result package",
           what:
-            "Every instruction returns one structured result — whether it succeeded, a message, suggested steps, useful facts, tips, and failure details — and `--json` writes it in a widely understood tool-readable form. The person-facing view draws from the same package, so no way of using Discern carries wording another lacks.",
+            "Every instruction returns one structured result — whether it succeeded, a message, suggested steps, useful facts, advice notes, and failure details — and `--json` writes it in a widely understood tool-readable form. The person-facing view draws from the same package, so no way of using Discern carries wording another lacks.",
           agent:
             "Advice about how to behave travels as one complete passage of writing in the tool-readable result, not split across little boxes — split-up instructions weaken when a result is later summarised, and one passage reaches the coding agent at the same full strength a person would read.",
         },
@@ -1806,7 +1806,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Coding agents built for this connection call well-described tools — and the typed commands and the tools can never disagree, because each instruction has one shared core.",
           agent:
-            "After `discern_start`, a tip walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and Discern refuses an undeclared input — a mistyped setting fails loudly instead of vanishing without a trace.",
+            "After `discern_start`, an advice note walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and Discern refuses an undeclared input — a mistyped setting fails loudly instead of vanishing without a trace.",
         },
       },
       {
@@ -1896,7 +1896,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The coding agent is the main user",
           what:
-            "People install Discern and review its proof-of-completion summaries; a coding agent reads nearly every other surface — the instructions, the tools, the tips, the compiled instruction text — and the design aims at that reader.",
+            "People install Discern and review its proof-of-completion summaries; a coding agent reads nearly every other surface — the instructions, the tools, the advice notes, the compiled instruction text — and the design aims at that reader.",
           why:
             "Coding agents take the intended path by default, whether they notice the steering or not.",
           agent:
@@ -2022,7 +2022,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Master lists cannot disagree with their uses",
           what:
-            "Checks tie every official fixed list — instructions, tools, kinds of work, kinds of coding agent, settings, terms, tips, features — to everything that depends on it, and they fail the final check when a member arrives without its counterparts.",
+            "Checks tie every official fixed list — instructions, tools, kinds of work, kinds of coding agent, settings, terms, advice notes, features — to everything that depends on it, and they fail the final check when a member arrives without its counterparts.",
           why: "The system cannot disagree with itself and still pass.",
         },
         children: [
@@ -2266,7 +2266,7 @@ export const PLAIN_GENERAL_JARGON: Readonly<
     plain: "coding agent",
     match: String.raw`\b(?<!coding )(?<!coding-)agents?\b`,
   },
-  "hint": { plain: "tip", match: String.raw`\bhints?\b` },
+  "hint": { plain: "an advice note", match: String.raw`\bhints?\b` },
   "commit": {
     plain: "a saved change",
     match: String.raw`\bcommit(?:s|ted|ting)?\b`,
@@ -2655,11 +2655,11 @@ const PLAIN_SET_TITLES: Readonly<Record<SurfaceSet, string>> = {
   agent: "Kind of coding agent",
 };
 
-/** The plain register calls a cited hint a tip: `(tip: …)` / `(tips: …)`. */
-function plainTipRefs(node: FeatureNode): string {
+/** The plain register calls a cited hint an advice note: `(advice note: …)`. */
+function plainAdviceNoteRefs(node: FeatureNode): string {
   const cited = node.hints ?? [];
   if (cited.length === 0) return "";
-  const label = cited.length === 1 ? "tip" : "tips";
+  const label = cited.length === 1 ? "advice note" : "advice notes";
   return ` (${label}: ${cited.map((h) => `\`${h}\``).join(", ")})`;
 }
 
@@ -2667,7 +2667,7 @@ function plainTipRefs(node: FeatureNode): string {
 function plainAgentSegment(node: FeatureNode, separator: string): string {
   if (node.plain.agent === undefined) return "";
   return `${separator}**Coding agent:** _${node.plain.agent}_${
-    plainTipRefs(node)
+    plainAdviceNoteRefs(node)
   }`;
 }
 
@@ -2746,7 +2746,7 @@ function renderPlainAgentsEyeView(): string[] {
  * {@link renderFeatureCanonDoc}, retold entirely from each node's `plain`
  * account for a non-technical reader (ADR 0228). One tree, two pages: this
  * renderer owns the plain chrome — headings, the **Coding agent:** marker,
- * tips for hints, and translated fixed-list titles — and nothing here is
+ * advice notes for hints, and translated fixed-list titles — and nothing here is
  * authored anywhere but the registry.
  */
 export function renderFeatureCanonPlainDoc(): string {

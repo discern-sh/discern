@@ -237,7 +237,7 @@ Deno.test("the rendered plain page carries the banner, every node, and the cover
   }
 });
 
-Deno.test("plain agent accounts render marked as Coding agent, benefits marked, tips cited", () => {
+Deno.test("plain agent accounts render marked as Coding agent, benefits marked, advice notes cited", () => {
   const doc = renderFeatureCanonPlainDoc();
   const carriers = agentExperienceNodes();
   if (carriers.length > 0) {
@@ -253,9 +253,9 @@ Deno.test("plain agent accounts render marked as Coding agent, benefits marked, 
         `plain agent account renders unmarked: ${node.id}`,
       );
     }
-    // Hints render in the plain register as tips, singular and plural.
-    assertStringIncludes(doc, "(tip: `");
-    assertStringIncludes(doc, "(tips: `");
+    // Hints render in the plain register as advice notes, singular and plural.
+    assertStringIncludes(doc, "(advice note: `");
+    assertStringIncludes(doc, "(advice notes: `");
   }
   for (
     const { node } of allFeatureNodes().filter(({ node }) =>
