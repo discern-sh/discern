@@ -218,7 +218,7 @@ async function waitDecoration(
     const inFlight = rest > 0
       ? `${shown.join(", ")}, and ${rest} more`
       : shown.join(", ");
-    const typicalMs = activity.typicalDurationMs.get(first.verb);
+    const typicalMs = activity.durationPriors.get(first.verb)?.medianMs;
     return {
       inFlight,
       typical: typicalMs === undefined ? undefined : compactDuration(typicalMs),

@@ -1276,8 +1276,7 @@ export const HINTS = {
         : ""),
   }),
 
-  /** The timeout answer: not a failure, an appointment — one call, one number,
-   * no guessing at sleep intervals. */
+  /** The timeout answer: not a failure, one useful next wait bound. */
   "await-not-yet": defineHint<{
     summary: string;
     seconds: number;
@@ -1297,8 +1296,8 @@ export const HINTS = {
       ),
     },
     template: ({ summary, seconds, command }): string =>
-      `Not yet: ${summary}. Call again in about ${seconds}s — ` +
-      `e.g. ${command}.`,
+      `Not yet: ${summary}. Keep watching with another wait of about ` +
+      `${seconds}s: ${command}.`,
   }),
 
   /** Point-of-use honesty when the flat default replaces priced advice. */
@@ -1309,8 +1308,8 @@ export const HINTS = {
     when: "`await` times out with the logbook disabled.",
     example: undefined,
     template: (): string =>
-      "The retry delay is a flat default — the logbook is off, so no " +
-      "duration evidence exists to price the wait.",
+      "The next wait uses a fallback because the logbook is off, so no " +
+      "duration evidence exists to price it.",
   }),
 
   /** The honest refusal when `--green` is asked about a branch no checkout

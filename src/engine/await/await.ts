@@ -71,25 +71,20 @@ import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 
 import {
-  AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS,
   AWAIT_POLL_INTERVAL_MS,
   AWAIT_TIMEOUT_EXIT_CODE,
+  AWAIT_TIMING_IDLE_SECONDS,
+  AWAIT_TIMING_MIN_SECONDS,
+  AWAIT_TIMING_NO_PRIOR_SECONDS,
 } from "./defaults.ts";
 
 export {
-  AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS,
-  AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS,
   AWAIT_POLL_INTERVAL_MS,
   AWAIT_TIMEOUT_EXIT_CODE,
+  AWAIT_TIMING_IDLE_SECONDS,
+  AWAIT_TIMING_MIN_SECONDS,
+  AWAIT_TIMING_NO_PRIOR_SECONDS,
 } from "./defaults.ts";
-
-/** Floor for priced retry advice, and the suggestion once in-flight work runs
- * past its typical duration (completion is imminent or the prior is off). */
-const AWAIT_RETRY_MIN_SECONDS = 30;
-/** Retry suggestion when work is in flight but no prior prices its verb. */
-const AWAIT_RETRY_NO_PRIOR_SECONDS = 60;
-/** Retry suggestion when nothing relevant is in flight — the long backoff. */
-const AWAIT_RETRY_IDLE_SECONDS = 300;
 
 /** Cap on the overlap preview a met condition attaches — matches the bounded
  * hot-zone read `status` reports, enough to name the files worth re-reading. */
@@ -103,8 +98,8 @@ export interface AwaitOptions {
   landed?: string;
   /** Wait for the trunk ref to move from its position at call start. */
   trunkMoved?: boolean;
-  /** Seconds before answering "not yet" ({@link AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS};
-   * 0 evaluates once and answers immediately). */
+  /** Seconds before answering "not yet". Omit for an evidence-priced bound;
+   * 0 evaluates once and answers immediately. */
   timeoutSeconds?: number;
   /** Test seam: the polling fallback cadence ({@link AWAIT_POLL_INTERVAL_MS}). */
   pollIntervalMs?: number;
@@ -119,8 +114,8 @@ interface Evaluation {
   via?: "receipt" | "landed" | "trunk";
 }
 
-/** The advisory retry pricing for a "not yet" answer. */
-interface RetryAdvice {
+/** One advisory time bound, used for an omitted timeout and retry advice. */
+interface TimingAdvice {
   seconds: number;
   basis: NonNullable<AwaitData["retry_basis"]>;
   running?: AwaitData["running"];
@@ -258,21 +253,21 @@ async function updatePreview(
 }
 
 /**
- * Price the retry for a "not yet" answer from the logbook's advisory evidence:
- * in-flight work on the awaited branch (any branch, for `--trunk-moved`) with
- * a duration prior suggests the remainder of its typical run; in-flight work
- * without a prior gets a short check-back; a quiet fleet gets the long
- * backoff; a disabled logbook gets the flat default, honestly labelled.
+ * Price a wait from advisory logbook evidence. Every concurrent begin remains
+ * available here even though status presents only the newest one. A prior-backed
+ * action wins over an unpriced action; among equally evidenced work, the longest
+ * credible remainder is the useful upper bound because the authoritative
+ * condition still returns the call early.
  */
-async function retryAdvice(
+async function timingAdvice(
   commonGitDir: string | undefined,
   logbookEnabled: boolean,
   epochFingerprint: string,
   branch: string | undefined,
   nowMs: number,
-): Promise<RetryAdvice> {
+): Promise<TimingAdvice> {
   if (!logbookEnabled || commonGitDir === undefined) {
-    return { seconds: AWAIT_RETRY_IDLE_SECONDS, basis: "logbook-off" };
+    return { seconds: AWAIT_TIMING_IDLE_SECONDS, basis: "logbook-off" };
   }
   const activity = await readFleetLogbookActivity(
     commonGitDir,
@@ -280,43 +275,62 @@ async function retryAdvice(
     nowMs,
   );
   const candidates = branch !== undefined
-    ? [activity.byBranch.get(branch)]
-    : [...activity.byBranch.values()];
-  let best: RetryAdvice | undefined;
-  for (const entry of candidates) {
-    const running = entry?.running;
-    if (running === undefined) {
-      continue;
-    }
-    const started = Date.parse(running.started);
-    if (Number.isNaN(started)) {
-      continue;
-    }
-    const elapsed = Math.max(0, nowMs - started);
-    const typical = activity.typicalDurationMs.get(running.verb);
-    const seconds = typical === undefined
-      ? AWAIT_RETRY_NO_PRIOR_SECONDS
-      : Math.max(
-        AWAIT_RETRY_MIN_SECONDS,
-        Math.ceil((typical - elapsed) / 1000),
-      );
-    const advice: RetryAdvice = {
-      seconds,
-      basis: typical === undefined ? "no-prior" : "running",
-      running: {
-        verb: running.verb,
-        started: running.started,
-        elapsed_ms: Math.round(elapsed),
-        ...(typical === undefined
-          ? {}
-          : { typical_duration_ms: Math.round(typical) }),
-      },
-    };
-    if (best === undefined || advice.seconds < best.seconds) {
-      best = advice;
+    ? [[branch, activity.byBranch.get(branch)] as const]
+    : [...activity.byBranch.entries()];
+  let bestPrior: TimingAdvice | undefined;
+  let bestUnpriced: TimingAdvice | undefined;
+  for (const [candidateBranch, entry] of candidates) {
+    for (const running of entry?.inFlight ?? []) {
+      // `await` is begin-recorded for fleet visibility. It cannot make the
+      // condition it watches become true, so its own duration is never timing
+      // evidence for another wait.
+      if (running.verb === "await") {
+        continue;
+      }
+      const started = Date.parse(running.started);
+      if (Number.isNaN(started)) {
+        continue;
+      }
+      const elapsed = Math.max(0, nowMs - started);
+      const prior = activity.durationPriors.get(running.verb);
+      const seconds = prior === undefined
+        ? AWAIT_TIMING_NO_PRIOR_SECONDS
+        : Math.max(
+          AWAIT_TIMING_MIN_SECONDS,
+          Math.ceil((prior.p90Ms - elapsed) / 1000),
+        );
+      const advice: TimingAdvice = {
+        seconds,
+        basis: prior === undefined ? "no-prior" : "running",
+        running: {
+          verb: running.verb,
+          branch: candidateBranch,
+          started: running.started,
+          elapsed_ms: Math.round(elapsed),
+          ...(prior === undefined ? {} : {
+            typical_duration_ms: prior.medianMs,
+            p90_duration_ms: prior.p90Ms,
+            duration_samples: prior.samples,
+          }),
+        },
+      };
+      if (prior === undefined) {
+        if (
+          bestUnpriced === undefined ||
+          advice.seconds > bestUnpriced.seconds
+        ) {
+          bestUnpriced = advice;
+        }
+      } else if (
+        bestPrior === undefined ||
+        advice.seconds > bestPrior.seconds
+      ) {
+        bestPrior = advice;
+      }
     }
   }
-  return best ?? { seconds: AWAIT_RETRY_IDLE_SECONDS, basis: "idle" };
+  return bestPrior ?? bestUnpriced ??
+    { seconds: AWAIT_TIMING_IDLE_SECONDS, basis: "idle" };
 }
 
 /** The exact call that re-asks this question, for the "not yet" hint. */
@@ -378,9 +392,10 @@ export async function awaitResult(
       failureRecoveryHintTexts("await"),
     );
   }
-  const timeoutSeconds = opts.timeoutSeconds ??
-    AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS;
-  if (!Number.isFinite(timeoutSeconds) || timeoutSeconds < 0) {
+  if (
+    opts.timeoutSeconds !== undefined &&
+    (!Number.isFinite(opts.timeoutSeconds) || opts.timeoutSeconds < 0)
+  ) {
     return refusal(
       "invalid_arguments",
       "--timeout must be a non-negative number of seconds.",
@@ -447,6 +462,20 @@ export async function awaitResult(
       );
     }
   }
+  const epochFingerprint = configEpoch(cfg).fingerprint;
+  const initialTiming = opts.timeoutSeconds === undefined
+    ? await timingAdvice(
+      commonGitDir,
+      cfg.project.logbook,
+      epochFingerprint,
+      branch,
+      Date.now(),
+    )
+    : undefined;
+  const timeoutSeconds = opts.timeoutSeconds ?? initialTiming?.seconds ??
+    AWAIT_TIMING_IDLE_SECONDS;
+  const timeoutBasis: NonNullable<AwaitData["timeout_basis"]> =
+    initialTiming?.basis ?? "explicit";
   const trunkStart = await resolveCommitRef(root, `refs/heads/${trunk}`);
   // `green`'s landed-satisfies-it rule is TRANSITION-based: only a tip this
   // call observed unreachable and later reachable counts as a landing. A tip
@@ -494,6 +523,7 @@ export async function awaitResult(
     met: outcome === "met",
     waited_ms: waitedMs,
     timeout_seconds: timeoutSeconds,
+    timeout_basis: timeoutBasis,
     observed: last.observed,
   };
 
@@ -519,10 +549,10 @@ export async function awaitResult(
     };
   }
 
-  const advice = await retryAdvice(
+  const advice = await timingAdvice(
     commonGitDir,
     cfg.project.logbook,
-    configEpoch(cfg).fingerprint,
+    epochFingerprint,
     branch,
     Date.now(),
   );

@@ -94,7 +94,6 @@ import { CATEGORY_NAMES } from "../improve/rules.ts";
 import { impactResult } from "../scopes/scopes.ts";
 import { couplingResult } from "../coupling/coupling.ts";
 import { awaitResult } from "../await/await.ts";
-import { AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS } from "../await/defaults.ts";
 import { patternsResult } from "../logbook/patterns.ts";
 import { statusResult } from "../status/status.ts";
 import { refreshResult } from "../guidelines.ts";
@@ -640,12 +639,11 @@ export const TOOLS: McpTool[] = orderTools([
       "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
       "ancestry and the gate receipt, never in recorded history. Timing out " +
       "is NOT an error: the result reports data.met false with " +
-      "data.retry_after_seconds — priced from the fleet's typical verb " +
-      "durations when work is in flight — saying when to call again, so " +
-      "bounded calls compose into an arbitrarily long watch. `timeout` " +
-      `defaults to ${AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS}s here, conservative ` +
-      "enough for strict MCP client budgets; raise it only when your " +
-      "client's tool-call budget allows. On success the hints name the " +
+      "data.retry_after_seconds, pricing another bounded wait from this " +
+      "repository's observed verb durations. Omit `timeout` to let the same " +
+      "evidence choose this call's bound; pass it to set an exact caller " +
+      "limit. The condition still returns the call as soon as it holds. On " +
+      "success the hints name the " +
       "follow-up (`discern_update`, or update from the green branch to " +
       "compose below the trunk).",
     inputSchema: {
@@ -663,8 +661,8 @@ export const TOOLS: McpTool[] = orderTools([
         "Wait until the trunk ref moves from its position at call start.",
       ),
       timeout: z.number().optional().describe(
-        'Seconds before answering "not yet" with retry advice ' +
-          `(default ${AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS}; 0 checks once).`,
+        'Seconds before answering "not yet". Omit to choose a bound from ' +
+          "this repository's observed verb durations; 0 checks once.",
       ),
       ...PATH_PARAM,
     },
@@ -673,7 +671,7 @@ export const TOOLS: McpTool[] = orderTools([
         ...(args.green !== undefined ? { green: args.green } : {}),
         ...(args.landed !== undefined ? { landed: args.landed } : {}),
         ...(args.trunk_moved === true ? { trunkMoved: true } : {}),
-        timeoutSeconds: args.timeout ?? AWAIT_MCP_DEFAULT_TIMEOUT_SECONDS,
+        ...(args.timeout !== undefined ? { timeoutSeconds: args.timeout } : {}),
       }, signal),
   }),
   defineTool({

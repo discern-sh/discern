@@ -59,7 +59,6 @@ export {
   KNOWN_INSTALLER_VERBS,
   KNOWN_VERBS,
 } from "../shared/verbs.ts";
-import { AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS } from "./await/defaults.ts";
 
 // Verb BODIES load at dispatch time (`await import(…)` inside each action),
 // never at registration: every invocation — `--help` included — builds the
@@ -509,7 +508,7 @@ export function attachEngineCommands(
     )
     .option(
       "--timeout <seconds:number>",
-      `Seconds before answering "not yet" with retry advice (default ${AWAIT_CLI_DEFAULT_TIMEOUT_SECONDS}; 0 checks once).`,
+      'Seconds before answering "not yet". Omit to choose a bound from this repository\'s observed verb durations; 0 checks once.',
     )
     .action(recordedExit("await", async (o) => {
       const { runAwait } = await import("./await/await.ts");

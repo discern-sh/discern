@@ -42,9 +42,22 @@ export interface InFlightAction {
   started: string;
 }
 
+/** One verb's project-wide duration evidence from the bounded event tail. */
+export interface DurationPrior {
+  /** Median completion time, used where "typical" is the user-facing fact. */
+  medianMs: number;
+  /** Nearest-rank 90th percentile, used for an upper-bound wait. */
+  p90Ms: number;
+  /** Completed invocations behind both readings. */
+  samples: number;
+}
+
 /** Logbook-derived activity for one branch. */
 export interface BranchLogbookActivity {
   lastAction?: LastCompletedAction;
+  /** Every fresh unmatched begin, oldest first. Consumers choose their view. */
+  inFlight?: InFlightAction[];
+  /** The newest in-flight action, retained as the compact fleet-row view. */
   running?: InFlightAction;
   /** The newest attributed event of any kind, including an unmatched begin. */
   lastEventAt?: string;
@@ -53,7 +66,7 @@ export interface BranchLogbookActivity {
 /** The fleet activity read: branch facts plus project-wide duration priors. */
 export interface FleetLogbookActivity {
   byBranch: Map<string, BranchLogbookActivity>;
-  typicalDurationMs: Map<string, number>;
+  durationPriors: Map<string, DurationPrior>;
 }
 
 /** One whole logbook, read tolerantly. */
@@ -90,8 +103,10 @@ export function byBranch<T extends { branch: string | null }>(
   return groups;
 }
 
-/** Median duration, rounded for the integer-millisecond wire contract. */
-function medianDuration(events: readonly VerbEvent[]): number | undefined {
+/** Median and P90 duration, rounded for the integer-millisecond wire contract. */
+function durationPrior(
+  events: readonly VerbEvent[],
+): DurationPrior | undefined {
   if (events.length === 0) {
     return undefined;
   }
@@ -101,21 +116,28 @@ function medianDuration(events: readonly VerbEvent[]): number | undefined {
   if (high === undefined) {
     return undefined;
   }
-  if (values.length % 2 === 1) {
-    return Math.round(high);
-  }
   const low = values[middle - 1];
-  return low === undefined ? Math.round(high) : Math.round((low + high) / 2);
+  const median = values.length % 2 === 1 || low === undefined
+    ? high
+    : (low + high) / 2;
+  const p90Index = Math.max(0, Math.ceil(values.length * 0.9) - 1);
+  const p90 = values[p90Index];
+  if (p90 === undefined) {
+    return undefined;
+  }
+  return {
+    medianMs: Math.round(median),
+    p90Ms: Math.round(p90),
+    samples: values.length,
+  };
 }
 
 /** The staleness horizon for one verb's unmatched begin event. */
-function runningStaleAfter(typicalDurationMs: number | undefined): number {
-  return typicalDurationMs === undefined
-    ? RUNNING_STALE_WITHOUT_PRIOR_MS
-    : Math.max(
-      RUNNING_STALE_MIN_MS,
-      typicalDurationMs * RUNNING_STALE_MULTIPLIER,
-    );
+function runningStaleAfter(prior: DurationPrior | undefined): number {
+  return prior === undefined ? RUNNING_STALE_WITHOUT_PRIOR_MS : Math.max(
+    RUNNING_STALE_MIN_MS,
+    prior.medianMs * RUNNING_STALE_MULTIPLIER,
+  );
 }
 
 type BranchEvent = Exclude<LogbookEvent, { kind: "prune" }>;
@@ -145,12 +167,12 @@ export function deriveFleetLogbookActivity(
     }
   }
 
-  const typicalDurationMs = new Map<string, number>();
+  const durationPriors = new Map<string, DurationPrior>();
   for (const [verb, samples] of completionsByVerb) {
     const current = samples.filter((event) => event.epoch === currentEpoch);
-    const median = medianDuration(current.length > 0 ? current : samples);
-    if (median !== undefined) {
-      typicalDurationMs.set(verb, median);
+    const prior = durationPrior(current.length > 0 ? current : samples);
+    if (prior !== undefined) {
+      durationPriors.set(verb, prior);
     }
   }
 
@@ -189,7 +211,7 @@ export function deriveFleetLogbookActivity(
       }
     }
 
-    const running = branchEvents
+    const inFlight = branchEvents
       .filter((event): event is BeginEvent =>
         event.kind === "begin" && !finishedInvocations.has(event.invocation)
       )
@@ -199,20 +221,22 @@ export function deriveFleetLogbookActivity(
           return false;
         }
         const age = Math.max(0, nowMs - started);
-        return age <= runningStaleAfter(typicalDurationMs.get(event.verb));
+        return age <= runningStaleAfter(durationPriors.get(event.verb));
       })
       .sort((a, b) => a.at.localeCompare(b.at))
-      .at(-1);
+      .map((event): InFlightAction => ({
+        verb: event.verb,
+        started: event.at,
+      }));
+    const running = inFlight.at(-1);
     if (running !== undefined) {
-      branchActivity.running = {
-        verb: running.verb,
-        started: running.at,
-      };
+      branchActivity.inFlight = inFlight;
+      branchActivity.running = running;
     }
     activity.set(branch, branchActivity);
   }
 
-  return { byBranch: activity, typicalDurationMs };
+  return { byBranch: activity, durationPriors };
 }
 
 /** Read and derive the bounded activity tail used by `status` fleet rows. */

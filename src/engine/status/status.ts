@@ -133,6 +133,7 @@ import {
 import { configEpoch } from "../logbook/epoch.ts";
 import {
   type BranchLogbookActivity,
+  type DurationPrior,
   type FleetLogbookActivity,
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
@@ -407,7 +408,7 @@ export async function statusResult(
         return applyLogbookActivity(
           entry,
           logbookActivity?.byBranch.get(row.branch),
-          logbookActivity?.typicalDurationMs,
+          logbookActivity?.durationPriors,
           nowMs,
         );
       }),
@@ -718,7 +719,7 @@ function latestActivity(
 function applyLogbookActivity(
   entry: StatusFleetEntry,
   activity: BranchLogbookActivity | undefined,
-  typicalDurationMs: ReadonlyMap<string, number> | undefined,
+  durationPriors: ReadonlyMap<string, DurationPrior> | undefined,
   nowMs: number,
 ): StatusFleetEntry {
   if (activity === undefined) {
@@ -740,7 +741,7 @@ function applyLogbookActivity(
   }
   if (activity.running !== undefined) {
     const startedMs = Date.parse(activity.running.started);
-    const typical = typicalDurationMs?.get(activity.running.verb);
+    const typical = durationPriors?.get(activity.running.verb)?.medianMs;
     entry.running = {
       verb: activity.running.verb,
       started: activity.running.started,
