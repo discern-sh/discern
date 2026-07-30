@@ -121,6 +121,18 @@ function isBlank(line: string): boolean {
   return line.trim() === "";
 }
 
+/** A ruled banner's authored content, independent of TOML hierarchy layout. */
+function bannerContent(text: string): string {
+  return text.split("\n").map((line) => line.trimStart()).join("\n");
+}
+
+/** Render canonical banner prose at the indentation its current config owns. */
+function bannerAtIndent(text: string, indent: string): string[] {
+  return text.split("\n").map((line) =>
+    isBlank(line) ? "" : `${indent}${line.trimStart()}`
+  );
+}
+
 /** Active scalar/array key paths from the rendered template, skipping records. */
 function fixedTemplateKeyPaths(
   node: unknown,
@@ -238,13 +250,15 @@ function reconcileManagedBanners(
     if (canonical === undefined) {
       continue; // the current template documents no banner for this family
     }
-    if (lines.slice(span.start, span.end + 1).join("\n") === canonical) {
+    const current = lines.slice(span.start, span.end + 1).join("\n");
+    if (bannerContent(current) === bannerContent(canonical)) {
       continue; // already current
     }
+    const indent = lines[span.start]?.match(/^\s*/u)?.[0] ?? "";
     lines.splice(
       span.start,
       span.end - span.start + 1,
-      ...canonical.split("\n"),
+      ...bannerAtIndent(canonical, indent),
     );
     refreshed.push(span.start);
   }

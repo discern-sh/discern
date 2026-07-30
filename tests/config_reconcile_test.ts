@@ -2,11 +2,13 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   reconcileConfigTextWithTemplate,
+  RECORD_CONFIG_PATHS,
   renderConfigTemplateForConfig,
 } from "../src/lib/config_reconcile.ts";
 import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { formatTomlText } from "../src/lib/tidy_format.ts";
 
 async function renderedTemplate(): Promise<string> {
   const template = await Deno.readTextFile(
@@ -309,6 +311,97 @@ Deno.test("banner reconciliation leaves a current banner untouched", () => {
 
   assertEquals(result.operations, []);
   assertEquals(result.text, config);
+});
+
+function futureRecordMemberFixture(
+  family: (typeof RECORD_CONFIG_PATHS)[number],
+  stale: boolean,
+): { template: string; config: string } {
+  const bannerIndent = "  ".repeat(family.split(".").length - 1);
+  const currentBanner = [
+    `${bannerIndent}${RULE}`,
+    `${bannerIndent}# [${family}] — current family documentation.`,
+    `${bannerIndent}# Current detail.`,
+    `${bannerIndent}${RULE}`,
+  ].join("\n");
+  const staleBanner = [
+    `${bannerIndent}${RULE}`,
+    `${bannerIndent}# [${family}] — stale family documentation.`,
+    `${bannerIndent}${RULE}`,
+  ].join("\n");
+  return {
+    template: [
+      currentBanner,
+      "",
+      `${bannerIndent}# [${family}.example]`,
+    ].join("\n"),
+    config: [
+      stale ? staleBanner : currentBanner,
+      "",
+      `[${family}.future_member]`,
+      'project_value = "kept"',
+    ].join("\n"),
+  };
+}
+
+Deno.test("managed record banners stay current after formatting a future member at every family depth", async () => {
+  // The class: a managed banner's prose is current even when the formatter
+  // changes its indentation to sit beside a real named member. Drive every
+  // record family from reconciliation's own enrollment source, and give each an
+  // unrelated future member so neither production entry names nor today's
+  // family depths define the guard.
+  const drifted: string[] = [];
+  for (const family of RECORD_CONFIG_PATHS) {
+    const { template, config } = futureRecordMemberFixture(family, false);
+    const formatted = await formatTomlText("discern.toml", config);
+    const result = reconcileConfigTextWithTemplate(formatted, template);
+
+    if (result.operations.some((operation) => operation.kind === "banner")) {
+      drifted.push(family);
+    } else {
+      assertEquals(result.text, formatted);
+    }
+  }
+  assertEquals(
+    drifted,
+    [],
+    "managed record families gained false banner drift after canonical formatting",
+  );
+});
+
+Deno.test("managed record banner refreshes converge through the formatter for every family", async () => {
+  const nonConvergent: string[] = [];
+  for (const family of RECORD_CONFIG_PATHS) {
+    const { template, config } = futureRecordMemberFixture(family, true);
+    const formatted = await formatTomlText("discern.toml", config);
+    const refreshed = reconcileConfigTextWithTemplate(formatted, template);
+    assertEquals(
+      refreshed.operations.filter((operation) => operation.kind === "banner"),
+      [{ kind: "banner", path: family }],
+    );
+    assertStringIncludes(refreshed.text, "# Current detail.");
+    assertStringIncludes(refreshed.text, 'project_value = "kept"');
+
+    const formattedRefresh = await formatTomlText(
+      "discern.toml",
+      refreshed.text,
+    );
+    const again = reconcileConfigTextWithTemplate(
+      formattedRefresh,
+      template,
+    );
+    if (
+      again.operations.some((operation) => operation.kind === "banner") ||
+      again.text !== formattedRefresh
+    ) {
+      nonConvergent.push(family);
+    }
+  }
+  assertEquals(
+    nonConvergent,
+    [],
+    "managed record banner refreshes did not converge through canonical formatting",
+  );
 });
 
 Deno.test("banner reconciliation never half-matches a hand-mangled banner", () => {
