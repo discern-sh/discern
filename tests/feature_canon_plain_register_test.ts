@@ -1,5 +1,5 @@
 /**
- * PLAIN-REGISTER guard for the feature canon (ADR 0226) — the vocabulary
+ * PLAIN-REGISTER guard for the feature canon (ADR 0228) — the vocabulary
  * discipline applied to the canon's plain-language axis.
  *
  * Two contracts hold the register:

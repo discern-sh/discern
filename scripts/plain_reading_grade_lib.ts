@@ -1,6 +1,6 @@
 /**
  * Reading-grade measurement for the feature canon's plain-language register
- * (ADR 0226): a deterministic Flesch–Kincaid grade over every node's plain
+ * (ADR 0228): a deterministic Flesch–Kincaid grade over every node's plain
  * prose, feeding the `plain_reading_grade` standard. The plain canon exists
  * for non-technical readers; this number is the guard that the register
  * stays plain as it grows — a ceiling that may only fall.

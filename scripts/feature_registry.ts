@@ -36,7 +36,7 @@ import { GLOSSARY, phrasePatternSource } from "./glossary_registry.ts";
 /**
  * The plain-language reading of one node — the same feature retold for a
  * non-technical owner, in the register the plain canon page renders (ADR
- * 0226). The register's rules: NAMES ARE QUOTED, CONCEPTS ARE TRANSLATED.
+ * 0228). The register's rules: NAMES ARE QUOTED, CONCEPTS ARE TRANSLATED.
  * Command names, config keys, and file names stay verbatim in code spans;
  * every concept around them is translated per {@link PLAIN_LEXICON} (one
  * plain phrase per term, used identically everywhere). Say "coding agent",
@@ -2090,7 +2090,7 @@ export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> =
   {};
 
 /**
- * How one term reads in the plain register (ADR 0226): either translated
+ * How one term reads in the plain register (ADR 0228): either translated
  * (`plain`, the one phrase used identically everywhere) or kept (`keep`, with
  * the reason it is already plain English). Translated entries are policed out
  * of every node's plain strings by the register guard
@@ -2744,7 +2744,7 @@ function renderPlainAgentsEyeView(): string[] {
 /**
  * Render the plain-language canon page: the same tree as
  * {@link renderFeatureCanonDoc}, retold entirely from each node's `plain`
- * account for a non-technical reader (ADR 0226). One tree, two pages: this
+ * account for a non-technical reader (ADR 0228). One tree, two pages: this
  * renderer owns the plain chrome — headings, the **Coding agent:** marker,
  * tips for hints, and translated fixed-list titles — and nothing here is
  * authored anywhere but the registry.

@@ -1,4 +1,4 @@
-# ADR 0226: The feature canon carries a plain-language register
+# ADR 0228: The feature canon carries a plain-language register
 
 **Status**: accepted. Extends the feature registry ([ADR 0175](0175-the-feature-canon-compiles-from-a-feature-registry.md)) and the agent-experience axis ([ADR 0179](0179-the-feature-canon-carries-an-agent-experience-axis.md)).
 
