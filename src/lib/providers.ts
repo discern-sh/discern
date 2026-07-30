@@ -23,8 +23,6 @@ import {
 import { runGit } from "../shared/subprocess.ts";
 import { resolveWorktreeRoot } from "./paths.ts";
 import {
-  type HookCommandAlias,
-  jsonSettingsMergeWithHookCommandAliases,
   mergeJsonSettingsDedupingGroups,
   mergeJsonSettingsText,
   type SettingsSeedMerge,
@@ -340,13 +338,6 @@ export interface HooksIntegration {
   readonly worktreeEventKeys: readonly string[];
   /** A substring identifying a SessionStart hook that drives the worktree flow. */
   readonly sessionHookNeedle: string;
-  /**
-   * Canonical managed commands and their retired spellings. When a hook command
-   * is renamed, refresh recognizes its retired owned group instead of appending
-   * a second managed command. The declaration lives with the provider so every
-   * settings writer and currency check shares the same history.
-   */
-  readonly commandAliases?: readonly HookCommandAlias[];
   /**
    * How this provider's seed template merges into an existing settings file. Absent
    * ⇒ the default JSON deep-merge ({@link mergeJsonSettingsText}), which every
@@ -1279,16 +1270,6 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       writtenArtifact: COMMENT_INCAPABLE_ARTIFACT,
       worktreeEventKeys: ["WorktreeCreate", "WorktreeRemove"],
       sessionHookNeedle: "worktree",
-      commandAliases: [
-        {
-          canonical: "discern worktree hook create",
-          retired: ["discern worktree create"],
-        },
-        {
-          canonical: "discern worktree hook remove",
-          retired: ["discern worktree remove"],
-        },
-      ],
     },
     // discern pre-approves the MCP server by name in .claude/settings.json
     // (enabledMcpjsonServers), so no separate trust/approval prompt gates it.
@@ -1715,18 +1696,6 @@ export function providersWithHooks(): Provider[] {
   return Object.values(PROVIDERS).filter((p) => p.hooks !== undefined);
 }
 
-/** The complete merge strategy for one hooks integration. Command-alias
- * convergence wraps the provider's format strategy, so setup, refresh, status,
- * doctor, and upgrade cannot disagree about a renamed managed hook. */
-export function hookSettingsMerge(
-  hooks: HooksIntegration,
-): SettingsSeedMerge {
-  const base = hooks.mergeSeed ?? mergeJsonSettingsText;
-  return hooks.commandAliases === undefined
-    ? base
-    : jsonSettingsMergeWithHookCommandAliases(hooks.commandAliases, base);
-}
-
 /**
  * The settings SEED for every hooks provider — its settings file plus the merge
  * strategy (the provider's own `mergeSeed`, or the default JSON deep-merge). The
@@ -1740,7 +1709,7 @@ export function settingsSeeds(): SettingsSeed[] {
     p.hooks !== undefined
       ? [{
         targetRel: p.hooks.settingsFile,
-        merge: hookSettingsMerge(p.hooks),
+        merge: p.hooks.mergeSeed ?? mergeJsonSettingsText,
       }]
       : []
   );
