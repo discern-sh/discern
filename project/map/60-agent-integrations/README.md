@@ -10,7 +10,7 @@ aliases:
 
 _Provider-specific files, trust gates, and daily gotchas for each coding agent discern knows how to wire._
 
-discern keeps coding-agent identity in one shared catalogue: [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The total provider registry in [`src/lib/providers.ts`](../../../src/lib/providers.ts) then describes every native integration. It names the instruction file, skills directory, Model Context Protocol (MCP) config target, hooks, trust gate, interactive CLI actions, brand assets, and any app-managed worktree lifecycle file. Signal-only catalogue entries can appear as advisory logbook evidence but never become setup choices. `discern setup`, `discern refresh`, and `discern upgrade` use the provider registry to re-establish integration artifacts. [The desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
+discern keeps coding-agent identity in one shared catalogue: [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts). Entries with a native provider name form the supported set below. The total provider registry in [`src/lib/providers.ts`](../../../src/lib/providers.ts) then describes every native integration. It names the instruction file, skills directory, Model Context Protocol (MCP) config target, hooks, and trust gate. It also holds installation evidence, human setup advice, interactive CLI actions, brand assets, and any app-managed worktree lifecycle file. Signal-only catalogue entries can appear as advisory logbook evidence but never become setup choices. `discern setup`, `discern refresh`, and `discern upgrade` use the provider registry to re-establish integration artifacts. [The desk](../30-worktrees/the-desk.md) uses its CLI declarations to open a configured, PATH-available agent in the selected worktree.
 
 Each native provider also declares a compact mark and horizontal logo lockup with first-party provenance. The parity guard checks the directory in both directions, so missing and unregistered SVGs fail. Every file is a self-contained vector. The site needs no vendor asset host.
 
@@ -27,5 +27,5 @@ The identity catalogue supplies the supported set, and the total provider regist
 | [Claude Code](claude-code.md)       | `CLAUDE.md`, Claude Skills, MCP, hooks, and permission defaults. |
 | [Codex](codex.md)                   | `AGENTS.md`, MCP, hooks, app worktrees, and narrow Git rules.    |
 | [Gemini](gemini.md)                 | `GEMINI.md`, shared Skills, MCP, hooks, and workspace trust.     |
-| [Cursor](cursor.md)                 | `AGENTS.md`, shared Skills, MCP, hooks, and IDE-only setup.      |
+| [Cursor](cursor.md)                 | `AGENTS.md`, MCP, hooks, IDE setup, and worktree choices.        |
 | [GitHub Copilot](github-copilot.md) | `AGENTS.md`, shared Skills, MCP, hooks, and folder trust.        |

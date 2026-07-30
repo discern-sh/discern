@@ -612,7 +612,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "agent-autodetect",
         title: "Detection at setup",
         what:
-          "A fresh install resolves its default agent set by detecting the agents present on `PATH`, and a wider identity catalogue recognizes the agent driving a session as advisory logbook evidence.",
+          "A fresh install resolves its default agent set from each provider's declared installation evidence: terminal launchers, editor commands, and conventional application locations. The desk still offers only terminal agents it can launch from `PATH`, while a separate identity catalogue recognizes the agent driving a session as advisory logbook evidence.",
       },
     ],
   },

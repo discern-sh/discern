@@ -1475,7 +1475,7 @@ Rendered example:
 - Category: `guardrail`
 - Audience: `agent`
 - Family: `start-result`
-- Emitting context: `start` runs through the Model Context Protocol and the client must re-root before editing.
+- Emitting context: `start` runs through the Model Context Protocol and the connected agent must re-root before editing.
 
 Rendered example:
 

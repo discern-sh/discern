@@ -105,9 +105,11 @@ export function reactivationHandoff(
  * nothing discern wired for it loads at session start (a reuse-canonical agent with no
  * MCP, hooks, or project rules needs no restart, so it is never told to). The step names
  * exactly what was wired (the live `mcp` server, session `hooks`, and/or provider
- * project rules) and appends the one-time `trust` action when the vendor gates committed
- * config behind one — derived from {@link Provider}, so a NEW vendor's reactivation
- * follows from its declaration automatically, with no hand-maintained list.
+ * project rules), appends the one-time `trust` action when the vendor gates committed
+ * config behind one, and prepends provider-declared human setup advice when a vendor UI
+ * needs a choice discern cannot make. Everything derives from {@link Provider}, so a
+ * NEW vendor's reactivation follows from its declaration automatically, with no
+ * hand-maintained list.
  * `engine_setup_reactivation`
  * ties this to the PROVIDERS registry (ADR 0051/0075): a vendor whose reactivation does
  * not follow from its wiring red-lights there.
@@ -129,9 +131,14 @@ export function reactivationStep(provider: Provider): string | undefined {
   const base = `start a fresh session to load the discern ${
     loads.join(" and ")
   }`;
-  return provider.trust.required
+  const reactivation = provider.trust.required
     ? `${base}, then ${provider.trust.hint}`
     : base;
+  return provider.humanSetupAdvice === undefined
+    ? reactivation
+    : `${provider.humanSetupAdvice.handoff}${
+      /[.!?]$/.test(provider.humanSetupAdvice.handoff) ? "" : "."
+    } Then ${reactivation}`;
 }
 
 // ── the per-agent integration surfaces ──────────────────────────────────────
@@ -220,6 +227,56 @@ export interface AgentCliAction {
  * known agent also requires an explicit account of how the desk enters it. */
 export interface AgentCliIntegration {
   readonly actions: readonly AgentCliAction[];
+}
+
+/** Host platforms whose conventional application locations setup can probe. */
+export type SetupPresenceOs = "darwin" | "linux" | "windows";
+
+/**
+ * One filesystem location that proves a provider's editor is installed even when
+ * its terminal-agent binary is absent from `PATH`. Absolute markers cover
+ * machine-wide installs; environment-relative markers cover per-user installs
+ * without baking a home directory into the registry.
+ */
+export type SetupFilesystemMarker =
+  | {
+    readonly os: SetupPresenceOs;
+    readonly path: string;
+    readonly baseEnv?: never;
+    readonly segments?: never;
+  }
+  | {
+    readonly os: SetupPresenceOs;
+    readonly path?: never;
+    readonly baseEnv: string;
+    readonly segments: readonly string[];
+  };
+
+/**
+ * Setup-only installation evidence beyond a provider's terminal-agent
+ * {@link Provider.binaries}. Every provider declares this account explicitly so
+ * another IDE surface cannot inherit a CLI-only assumption.
+ */
+export interface SetupPresence {
+  /** Editor shell commands or other high-confidence executables on `PATH`. */
+  readonly additionalPathBinaries: readonly string[];
+  /** Conventional application locations, matched when any one exists. */
+  readonly filesystemMarkers: readonly SetupFilesystemMarker[];
+}
+
+/**
+ * Human-facing setup advice for a provider UI choice that the running agent
+ * cannot observe or make. `setup done` relays the handoff; generic agent
+ * guidance and runtime hints must never consume it. Documentation topics keep
+ * the full explanation enrolled when another provider declares similar advice.
+ */
+export interface HumanSetupAdvice {
+  readonly handoff: string;
+  /** Vendor UI terms that must stay off generic agent-facing surfaces. */
+  readonly humanOnlyTopics: readonly string[];
+  /** H1 title of the provider-specific map page that owns the explanation. */
+  readonly documentationTitle: string;
+  readonly documentationTopics: readonly string[];
 }
 
 /**
@@ -433,15 +490,18 @@ export interface Provider {
    * native provider cannot compile until both logo forms are accounted for. */
   readonly brand: ProviderBrand;
   /**
-   * The CLI executable name(s) this agent ships as, for PATH auto-detection at
-   * setup and live desk availability (see {@link detectAgentsOnPath}). Semantics are **match-any**: the agent
-   * is "present" when ANY listed binary resolves on PATH — a vendor that ships
-   * under several names (e.g. `cursor-agent` AND `agent`) lists them all, which is
-   * why this is a list. Non-empty for every provider (the parity guard enforces it);
-   * detection iterates `AGENT_NAMES` × these, so a new vendor extends auto-detect for
-   * free.
+   * The terminal-agent executable name(s) this agent ships. The desk uses these
+   * for live launch availability, and fresh setup treats them as one installation
+   * signal. Semantics are **match-any**: the agent is present when ANY listed
+   * binary resolves on PATH. Non-empty for every provider (the parity guard
+   * enforces it).
    */
   readonly binaries: readonly string[];
+  /**
+   * Setup-time installation evidence that does not double as a terminal-agent
+   * launcher. Required so every provider accounts for IDE-only installations.
+   */
+  readonly setupPresence: SetupPresence;
   /** Interactive terminal entry points exposed by `discern desk`. The first
    * detected binary is combined with these argv declarations and launched with
    * the selected worktree as cwd. */
@@ -476,6 +536,8 @@ export interface Provider {
    * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
    */
   readonly trust: TrustGate;
+  /** Human-facing provider setup that discern reports but never applies. */
+  readonly humanSetupAdvice?: HumanSetupAdvice;
   /**
    * Project-relative directory this agent discovers SKILL.md skills in; discern
    * materializes the effective skill set into it. Absent → no skills target for
@@ -1172,6 +1234,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       },
     },
     binaries: ["claude"],
+    setupPresence: {
+      additionalPathBinaries: [],
+      filesystemMarkers: [],
+    },
     cli: {
       actions: [
         { kind: "open", label: "Open in Claude Code", args: [] },
@@ -1246,6 +1312,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
         "OpenAI's public kit has no Codex-specific asset, so Codex uses the OpenAI vendor mark and wordmark.",
     },
     binaries: ["codex"],
+    setupPresence: {
+      additionalPathBinaries: [],
+      filesystemMarkers: [],
+    },
     cli: {
       actions: [
         { kind: "open", label: "Open in Codex", args: [] },
@@ -1334,6 +1404,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       },
     },
     binaries: ["gemini"],
+    setupPresence: {
+      additionalPathBinaries: [],
+      filesystemMarkers: [],
+    },
     cli: {
       actions: [
         { kind: "open", label: "Open in Gemini", args: [] },
@@ -1414,6 +1488,38 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     // `cursor-agent` is the high-confidence CLI signal. The generic `agent` alias is
     // deliberately NOT a setup-detection signal: unrelated tools commonly use it.
     binaries: ["cursor-agent"],
+    // The IDE ships separately from cursor-agent. Its `cursor` shell command and
+    // conventional application locations are installation evidence for setup, but
+    // neither is a terminal-agent launcher for the desk.
+    setupPresence: {
+      additionalPathBinaries: ["cursor"],
+      filesystemMarkers: [
+        { os: "darwin", path: "/Applications/Cursor.app" },
+        {
+          os: "darwin",
+          baseEnv: "HOME",
+          segments: ["Applications", "Cursor.app"],
+        },
+        {
+          os: "windows",
+          baseEnv: "LOCALAPPDATA",
+          segments: ["Programs", "Cursor", "Cursor.exe"],
+        },
+        {
+          os: "windows",
+          baseEnv: "ProgramFiles",
+          segments: ["Cursor", "Cursor.exe"],
+        },
+        { os: "linux", path: "/usr/bin/cursor" },
+        { os: "linux", path: "/usr/share/cursor/cursor" },
+        { os: "linux", path: "/opt/cursor/AppRun" },
+        {
+          os: "linux",
+          baseEnv: "HOME",
+          segments: ["Applications", "Cursor.AppImage"],
+        },
+      ],
+    },
     cli: {
       actions: [
         { kind: "open", label: "Open in Cursor", args: [] },
@@ -1474,6 +1580,24 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
     },
+    humanSetupAdvice: {
+      handoff:
+        "Turn off External File Protection under Cursor Settings → Agents → Auto-Run for uninterrupted edits from Local sessions into discern-created sibling worktrees. This user-wide setting lets Cursor's built-in file tools write outside the open workspace. To keep it enabled, start the session with Cursor's Worktree option.",
+      humanOnlyTopics: [
+        "External File Protection",
+        "Cursor Settings",
+        "Worktree option",
+      ],
+      documentationTitle: "Cursor integration",
+      documentationTopics: [
+        "External File Protection",
+        "Cursor Settings",
+        "user-wide",
+        "Worktree option",
+        "`[worktree].root`",
+        "session ends",
+      ],
+    },
   },
   copilot: {
     name: "copilot",
@@ -1493,6 +1617,10 @@ export const PROVIDERS: Record<AgentName, Provider> = {
     },
     // The Copilot CLI ships as `copilot` — NOT `gh copilot` (the deprecated extension).
     binaries: ["copilot"],
+    setupPresence: {
+      additionalPathBinaries: [],
+      filesystemMarkers: [],
+    },
     cli: {
       actions: [
         { kind: "open", label: "Open in GitHub Copilot", args: [] },

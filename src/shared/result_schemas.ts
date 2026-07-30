@@ -1281,7 +1281,8 @@ export const SetupAssuranceSchema = z.strictObject({
 
 /** The provider-aware reactivation handoff — mirrors `reactivationHandoff()`'s return
  * (`src/lib/providers.ts`): the summary plus one derived step per configured agent that
- * wired something loading at session start. */
+ * wired something loading at session start, including any human-only setup advice that
+ * must precede the fresh session. */
 export const ReactivationSchema = z.strictObject({
   summary: z.string(),
   per_agent: z.array(
