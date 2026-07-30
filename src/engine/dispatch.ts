@@ -508,7 +508,7 @@ export function attachEngineCommands(
     )
     .option(
       "--timeout <seconds:number>",
-      'Seconds before answering "not yet". Omit to choose a bound from this repository\'s observed verb durations; 0 checks once.',
+      'Seconds before answering "not yet". Omit to use active work and this repository\'s observed P90 verb durations; 0 checks once.',
     )
     .action(recordedExit("await", async (o) => {
       const { runAwait } = await import("./await/await.ts");

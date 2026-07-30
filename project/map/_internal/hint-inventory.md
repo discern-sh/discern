@@ -161,7 +161,7 @@ The work from `agent/upload-retry` landed on `main` — run `discern update` to 
 Rendered example:
 
 ```text
-Not yet: `agent/upload-retry` has no honored receipt yet. Call again in about 180s — e.g. `discern await --green agent/upload-retry --timeout 180`.
+Not yet: `agent/upload-retry` has no honored receipt yet. Keep watching with another wait of about 180s: `discern await --green agent/upload-retry --timeout 180`.
 ```
 
 ## `await-timing-degraded`
@@ -169,12 +169,12 @@ Not yet: `agent/upload-retry` has no honored receipt yet. Call again in about 18
 - Category: `notice`
 - Audience: `all`
 - Family: —
-- Emitting context: `await` times out with the logbook disabled.
+- Emitting context: `await` times out while the logbook is off.
 
 Rendered example:
 
 ```text
-The retry delay is a flat default — the logbook is off, so no duration evidence exists to price the wait.
+The next wait uses a fallback because the logbook is off, so no duration evidence exists to price it.
 ```
 
 ## `await-trunk-moved-met`

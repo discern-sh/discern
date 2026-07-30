@@ -20,7 +20,7 @@
  *
  * Timing out is NOT a failure: the envelope stays `ok: true` with `met: false`
  * and a `retry_after_seconds` priced from the fleet's duration priors — the
- * caller is told when to come back, never left guessing. The CLI still exits
+ * caller learns how long another bounded wait should run. The CLI still exits
  * {@link AWAIT_TIMEOUT_EXIT_CODE} on "not yet" so `discern await … && discern
  * update` composes in a shell, without the envelope calling the wait a defect.
  *

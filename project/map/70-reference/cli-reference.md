@@ -183,13 +183,13 @@ Block until a fleet condition holds: a sibling branch is green (its worktree hol
 
 Usage: `discern await [options]`
 
-| Option                | Description                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------- |
-| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                   |
-| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it). |
-| `--landed <branch>`   | Wait until this branch's work (its tip at call start) is reachable from the trunk.             |
-| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                |
-| `--timeout <seconds>` | Seconds before answering "not yet" with retry advice (default 100; 0 checks once).             |
+| Option                | Description                                                                                                                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                                  |
+| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).                                |
+| `--landed <branch>`   | Wait until this branch's work (its tip at call start) is reachable from the trunk.                                            |
+| `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                               |
+| `--timeout <seconds>` | Seconds before answering "not yet". Omit to use active work and this repository's observed P90 verb durations; 0 checks once. |
 
 ### `discern accept`
 

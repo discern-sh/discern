@@ -12,7 +12,7 @@
  *  - timing out is NOT a failure: `ok` stays true, `met` is false, and
  *    `retry_after_seconds` is priced from the logbook's duration priors —
  *    in-flight work with a prior suggests the remainder, a quiet fleet the
- *    long backoff, a disabled logbook the labelled flat default;
+ *    long backoff, a disabled logbook the labelled fallback;
  *  - the CLI exits 0 on met, 124 on "not yet", 1 on a refusal, and dies
  *    promptly on SIGINT with nothing left behind.
  */
@@ -449,6 +449,28 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
       Math.abs((automatic.data?.timeout_seconds ?? 0) - seconds) <= 1,
       "the omitted timeout uses the same live duration evidence",
     );
+
+    // `await` records its own begin for status visibility, but a passive wait
+    // cannot complete the condition it watches or price another wait.
+    await addWorktree(dir, "waiting-only");
+    await appendLogbookLines(dir, [{
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: new Date().toISOString(),
+      kind: "begin",
+      invocation: "self-wait",
+      verb: "await",
+      surface: "mcp",
+      driver: {},
+      branch: "agent/waiting-only",
+      head: null,
+      epoch: null,
+    }]);
+    const selfOnly = await awaitResult(dir, {
+      green: "agent/waiting-only",
+      timeoutSeconds: 0,
+    });
+    assertEquals(selfOnly.data?.retry_basis, "idle");
+    assertEquals(selfOnly.data?.running, undefined);
 
     // A first invocation has no history to price it. Active work receives a
     // generous first-run bound rather than being mistaken for an idle fleet.

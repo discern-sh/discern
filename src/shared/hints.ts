@@ -1300,12 +1300,12 @@ export const HINTS = {
       `${seconds}s: ${command}.`,
   }),
 
-  /** Point-of-use honesty when the flat default replaces priced advice. */
+  /** Point-of-use explanation when a fallback replaces priced advice. */
   "await-timing-degraded": defineHint({
     id: "await-timing-degraded",
     category: "notice",
     audience: "all",
-    when: "`await` times out with the logbook disabled.",
+    when: "`await` times out while the logbook is off.",
     example: undefined,
     template: (): string =>
       "The next wait uses a fallback because the logbook is off, so no " +

@@ -8933,6 +8933,16 @@
                 "timeout_seconds": {
                   "type": "number"
                 },
+                "timeout_basis": {
+                  "type": "string",
+                  "enum": [
+                    "explicit",
+                    "running",
+                    "no-prior",
+                    "idle",
+                    "logbook-off"
+                  ]
+                },
                 "observed": {
                   "type": "object",
                   "properties": {
@@ -9001,6 +9011,9 @@
                     "verb": {
                       "type": "string"
                     },
+                    "branch": {
+                      "type": "string"
+                    },
                     "started": {
                       "type": "string"
                     },
@@ -9013,10 +9026,21 @@
                       "type": "integer",
                       "minimum": -9007199254740991,
                       "maximum": 9007199254740991
+                    },
+                    "p90_duration_ms": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "duration_samples": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
                     "verb",
+                    "branch",
                     "started",
                     "elapsed_ms"
                   ]
@@ -9028,6 +9052,7 @@
                 "met",
                 "waited_ms",
                 "timeout_seconds",
+                "timeout_basis",
                 "observed"
               ]
             },

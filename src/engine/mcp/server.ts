@@ -637,13 +637,14 @@ export const TOOLS: McpTool[] = orderTools([
       "lands); `landed` (a branch name) waits until that branch's work — its " +
       "tip at call start — is reachable from `{{main_branch}}`; `trunk_moved` " +
       "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
-      "ancestry and the gate receipt, never in recorded history. Timing out " +
-      "is NOT an error: the result reports data.met false with " +
-      "data.retry_after_seconds, pricing another bounded wait from this " +
-      "repository's observed verb durations. Omit `timeout` to let the same " +
-      "evidence choose this call's bound; pass it to set an exact caller " +
-      "limit. The condition still returns the call as soon as it holds. On " +
-      "success the hints name the " +
+      "ancestry and the gate receipt, never in recorded history. If the bound " +
+      "expires, the result stays ok with data.met false and " +
+      "data.retry_after_seconds pricing another wait. When repository history " +
+      "supplies that number, data.running names the underlying action, branch, " +
+      "median, P90, and sample count. Omit `timeout` to let active work and " +
+      "observed durations choose this call's bound; pass it to set an exact " +
+      "caller limit. The condition still returns the call as soon as it holds. " +
+      "On success the hints name the " +
       "follow-up (`discern_update`, or update from the green branch to " +
       "compose below the trunk).",
     inputSchema: {
@@ -661,8 +662,8 @@ export const TOOLS: McpTool[] = orderTools([
         "Wait until the trunk ref moves from its position at call start.",
       ),
       timeout: z.number().optional().describe(
-        'Seconds before answering "not yet". Omit to choose a bound from ' +
-          "this repository's observed verb durations; 0 checks once.",
+        'Seconds before answering "not yet". Omit to use active work and ' +
+          "this repository's observed P90 verb durations; 0 checks once.",
       ),
       ...PATH_PARAM,
     },
