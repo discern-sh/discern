@@ -337,24 +337,93 @@ export function junitToDiagnostics(
   return out.length > 0 ? out : undefined;
 }
 
+/** A recognized format can carry no findings; that still stops format probing. */
+interface DiagnosticFormatMatch {
+  diagnostics: Diagnostic[] | undefined;
+}
+
+/** One auto-detected machine format and the parser that owns it. */
+interface DiagnosticFormat {
+  id: string;
+  label: string;
+  normalize: (
+    output: string,
+    tool: string,
+    reproduceCmd: string,
+  ) => DiagnosticFormatMatch | undefined;
+}
+
+/** Recognize and normalize SARIF, preserving an empty recognized report. */
+function normalizeSarif(
+  output: string,
+  tool: string,
+  reproduceCmd: string,
+): DiagnosticFormatMatch | undefined {
+  const sarif = extractSarif(output);
+  return sarif === undefined
+    ? undefined
+    : { diagnostics: sarifToDiagnostics(sarif, tool, reproduceCmd) };
+}
+
+/** Recognize and normalize JUnit XML, preserving an empty recognized report. */
+function normalizeJunit(
+  output: string,
+  tool: string,
+  reproduceCmd: string,
+): DiagnosticFormatMatch | undefined {
+  const junit = extractJunit(output);
+  return junit === undefined
+    ? undefined
+    : { diagnostics: junitToDiagnostics(junit, tool, reproduceCmd) };
+}
+
+/**
+ * The machine formats diagnostic normalization recognizes, in detection order.
+ * Parsing, setup guidance, improvement coaching, and documentation enrollment
+ * all derive from or are checked against this registry.
+ */
+export const DIAGNOSTIC_FORMATS = [
+  {
+    id: "sarif",
+    label: "SARIF",
+    normalize: normalizeSarif,
+  },
+  {
+    id: "junit-xml",
+    label: "JUnit XML",
+    normalize: normalizeJunit,
+  },
+] as const satisfies readonly DiagnosticFormat[];
+
+/** Format the supported diagnostic-format labels as an English list. */
+export function diagnosticFormatList(
+  conjunction: "and" | "or" = "and",
+): string {
+  const labels = DIAGNOSTIC_FORMATS.map((format) => format.label);
+  if (labels.length < 2) {
+    return labels[0] ?? "";
+  }
+  if (labels.length === 2) {
+    return `${labels[0]} ${conjunction} ${labels[1]}`;
+  }
+  return `${labels.slice(0, -1).join(", ")}, ${conjunction} ${labels.at(-1)}`;
+}
+
 /**
  * Normalize a failed job's captured output into structured diagnostics, or
  * undefined when no known format is recognized (the caller then keeps the Tier-0
- * raw-output diagnostic). Currently recognizes SARIF and JUnit XML; declared
- * text formats are the next slice.
+ * raw-output diagnostic). Declared text formats are a separate future slice.
  */
 export function normalizeDiagnostics(
   output: string,
   tool: string,
   reproduceCmd: string,
 ): Diagnostic[] | undefined {
-  const sarif = extractSarif(output);
-  if (sarif !== undefined) {
-    return sarifToDiagnostics(sarif, tool, reproduceCmd);
-  }
-  const junit = extractJunit(output);
-  if (junit !== undefined) {
-    return junitToDiagnostics(junit, tool, reproduceCmd);
+  for (const format of DIAGNOSTIC_FORMATS) {
+    const match = format.normalize(output, tool, reproduceCmd);
+    if (match !== undefined) {
+      return match.diagnostics;
+    }
   }
   return undefined;
 }

@@ -35,6 +35,7 @@ import {
   type DiscernConfig,
 } from "../src/shared/config_schema.ts";
 import { normalizeMapDir } from "../src/shared/map_path.ts";
+import { DIAGNOSTIC_FORMATS } from "../src/engine/gate/diagnostics.ts";
 
 const BRIEF = join(REAL_TEMPLATES, "setup", "instructions.md");
 
@@ -120,6 +121,23 @@ Deno.test("setup step <n> --json carries the structured spine AND the prose guid
 
     // Faithfulness (ADR 0041): the real serialized output validates against the schema.
     SetupStepOutputSchema.parse(res);
+  });
+});
+
+Deno.test("setup step 2 renders every supported diagnostic format", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: false });
+    const r = await runAgent(dir, ["setup", "step", "2", "--json"]);
+    assertEquals(r.code, 0, r.output);
+
+    const guidance = JSON.parse(r.stdout).data.guidance as string;
+    assert(
+      !guidance.includes("{{diagnostic_formats}}"),
+      "setup must replace the diagnostic-format token",
+    );
+    for (const format of DIAGNOSTIC_FORMATS) {
+      assertStringIncludes(guidance, format.label);
+    }
   });
 });
 

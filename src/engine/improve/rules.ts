@@ -15,11 +15,16 @@
 import { join } from "@std/path";
 import { toCommandList } from "../../shared/config_schema.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
-import { isKnownJob, type KnownJob } from "../../shared/capabilities.ts";
+import {
+  isKnownJob,
+  jobStage,
+  type KnownJob,
+} from "../../shared/capabilities.ts";
 import { resolveGuidanceSources, resolveSkillsDir } from "../../lib/paths.ts";
 import { allGuidanceFilePaths } from "../../lib/providers.ts";
 import { normalizeMapDir } from "../../shared/map_path.ts";
 import { SOURCE_PATHS } from "../../shared/paths_registry.ts";
+import { diagnosticFormatList } from "../gate/diagnostics.ts";
 import type {
   Category,
   DeterministicRule,
@@ -200,6 +205,30 @@ function excerpt(text: string, max = 240): string {
   return flat.length <= max ? flat : `${flat.slice(0, max)}…`;
 }
 
+/** The configured check/test commands whose output can become diagnostics. */
+function diagnosticJobExcerpt(
+  ctx: ImprovementContext,
+): { source: string; excerpt: string } | undefined {
+  const commands: string[] = [];
+  for (const [name, job] of Object.entries(ctx.config.jobs)) {
+    const stage = jobStage(name) ??
+      (typeof job === "object" && job !== null && !Array.isArray(job) &&
+          "stage" in job
+        ? job.stage
+        : undefined);
+    if ((stage !== "check" && stage !== "test") || name === "smoke") {
+      continue;
+    }
+    for (const command of toCommandList(job)) {
+      commands.push(`${name}: ${command}`);
+    }
+  }
+  return commands.length === 0 ? undefined : {
+    source: "the configured check and test jobs",
+    excerpt: excerpt(commands.join(" | "), 600),
+  };
+}
+
 // ── the categories ──────────────────────────────────────────────────────────
 
 /** Quality gate — is `discern done` actually checking anything? Core. */
@@ -307,6 +336,23 @@ const GATE: Category = {
           }
           : undefined;
       },
+    },
+    {
+      kind: "subjective",
+      id: "gate.structured-diagnostics",
+      title: "Structured output reaches diagnostics",
+      ask:
+        "Inspect the reporter and output options for the configured check and test " +
+        "jobs below. Where a tool can emit a format discern recognizes " +
+        `(${diagnosticFormatList()}), does its command ` +
+        "request that format in captured stdout or stderr while preserving a failing " +
+        "exit status? A report written only to a file does not reach discern's " +
+        "structured normalization.",
+      teach:
+        "On a failed job, discern turns recognized machine output into one diagnostic " +
+        "per finding or failing test. Prefer a supported reporter the tool already " +
+        "offers. Unrecognized output remains available as one raw diagnostic.",
+      against: diagnosticJobExcerpt,
     },
   ],
 };

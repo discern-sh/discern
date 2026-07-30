@@ -479,6 +479,34 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       async () => [...(await import("../src/shared/capabilities.ts")).STAGES],
   },
   {
+    id: "diagnostic-formats",
+    title: "Diagnostic formats",
+    what:
+      "The machine formats failed-job normalization auto-detects, in detection order; setup and improvement prose derive from the registry, while an enrolment guard holds the public docs to it.",
+    source: {
+      kind: "module",
+      module: "src/engine/gate/diagnostics.ts",
+      exportName: "DIAGNOSTIC_FORMATS",
+    },
+    guards: [
+      "tests/gate_diagnostics_test.ts",
+      "tests/diagnostic_formats_enrolment_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "SARIF and JUnit XML are external report standards, explained where users configure job output",
+      },
+      featureCanon: { nodeId: "diagnostics" },
+    },
+    members: async () =>
+      (await import("../src/engine/gate/diagnostics.ts")).DIAGNOSTIC_FORMATS
+        .map(
+          (format) => format.id,
+        ),
+  },
+  {
     id: "step-kinds",
     title: "Step kinds",
     what:

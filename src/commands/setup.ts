@@ -59,6 +59,7 @@ import {
   guidanceRefreshErrors,
   guidanceRefreshSucceeded,
 } from "../engine/guidelines.ts";
+import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
 import {
   agentFileOwnershipPatterns,
   type GuidanceOwnershipPattern,
@@ -1034,9 +1035,12 @@ interface SetupPathContext {
   guidanceRel: string;
 }
 
-/** Render the configured source paths into setup's agent-facing path references.
- * The brief has no config key (ADR 0102), so its token renders the registry
- * default directly rather than riding {@link SetupPathContext}. */
+/**
+ * Render configured paths and canonical diagnostic formats into setup's
+ * agent-facing brief. The brief has no config key (ADR 0102), so its token
+ * renders the registry default directly rather than riding
+ * {@link SetupPathContext}.
+ */
 function renderSetupPaths(
   instructions: string,
   paths: SetupPathContext,
@@ -1045,7 +1049,8 @@ function renderSetupPaths(
     .replaceAll("{{map_dir}}", normalizeMapDir(paths.mapDir))
     .replaceAll("{{todo_path}}", paths.todoRel)
     .replaceAll("{{guidance_path}}", paths.guidanceRel)
-    .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath);
+    .replaceAll("{{brief_path}}", SOURCE_PATHS.brief.defaultPath)
+    .replaceAll("{{diagnostic_formats}}", diagnosticFormatList());
 }
 
 async function gitTopLevel(start: string): Promise<string | undefined> {

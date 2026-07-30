@@ -329,9 +329,21 @@ Deno.test("improvement --json: reviews carry the cited material", async () => {
       "the review should quote the guidance to judge",
     );
 
+    const structured = cat(payload, "gate").reviews.find(
+      (rv) => rv.id === "gate.structured-diagnostics",
+    );
+    assert(structured !== undefined, "expected the structured-output review");
+    assertEquals(
+      structured.against?.source,
+      "the configured check and test jobs",
+    );
+    assertStringIncludes(structured.against?.excerpt ?? "", "lint:");
+    assertStringIncludes(structured.against?.excerpt ?? "", "test:");
+
     for (
       const [category, id] of [
         ["gate", "gate.test-depth"],
+        ["gate", "gate.structured-diagnostics"],
         ["setup", "setup.failure-memory"],
         ["map", "map.navigation"],
         ["standards", "standards.normalize"],

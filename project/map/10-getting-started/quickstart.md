@@ -36,6 +36,8 @@ Answer in plain language — "yes, go ahead; set up Claude Code and Codex." The 
 
 Setup then happens as ordinary file edits on a separate `discern-setup` branch, so your `main` is untouched until you land it. The format job already contains `discern tidy` for discern-owned Markdown and the root config; the agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first map pages under that live gate. From that point on, every agent you configured reads the same compiled instructions and runs the same commands.
 
+During setup, configure tools to emit SARIF or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
+
 ## 3. Let setup prove itself
 
 When the scaffold is ready, the agent runs `discern setup done`. discern refreshes the generated files, runs `discern doctor`, runs the full gate, and then runs the gate _again_ in a throwaway worktree copy — so a project that would break in an isolated workspace can't complete setup ([ADR 0090](../_adr/0090-setup-proves-worktree-viability.md)).
