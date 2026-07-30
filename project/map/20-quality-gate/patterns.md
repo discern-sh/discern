@@ -10,6 +10,9 @@ aliases:
   - logbook reader
   - agent cohorts
   - guidance parity
+  - bragging rights
+  - brag
+  - vanity metrics
 ---
 
 # Practice patterns
@@ -36,6 +39,18 @@ The closing account names clear and young detectors. `--json` keeps findings ran
 `patterns` remains the complete reader. Every detector runs here, including batch detectors that need longitudinal history. Inline detectors can also meet you on the working command their scope names: branch findings appear after a qualifying green receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 An empty logbook is a normal state: the report says so and suggests checking back. A repository that never recorded (or opted out with `[project].logbook = false`) still gets a readable answer.
+
+## Bragging rights
+
+```sh
+discern patterns --brag
+```
+
+The same logbook, read for what went well: landings and their scale, green-gate streaks, first-try greens, start-to-accept cycle times, tightened limits, and how wide the practice ran. The card replaces the detector report; `--json` carries the counts as `data.brag`, and over MCP `discern_patterns` takes `brag: true`.
+
+Every number is a plain count or duration from the same analysis population the detectors read, with its denominator beside it where one exists. Nothing is scored and nothing is compared: the logbook never leaves the machine, so there is no corpus to rank against. The card is yours to share, and every number on it can be re-derived from the checkout: a brag that survives an audit.
+
+A single landing keeps `biggest` and `best day` off the card, since either would restate the landing itself, and streaks of one stay quiet.
 
 ## What the detectors watch
 
@@ -89,20 +104,22 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 ## Where it lives in code
 
-| Concern                                  | Source                                                                 |
-| ---------------------------------------- | ---------------------------------------------------------------------- |
-| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
-| Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
-| The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
-| Shared terminal wrapping and alignment   | [`text.ts`](../../../src/lib/text.ts)                                  |
-| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
-| Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
-| Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
-| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
-| Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
-| Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
-| Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
-| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
+| Concern                                   | Source                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------- |
+| The detector registry and every detector  | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
+| Driver scoring and the cohort seam        | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
+| The verb core, rendering, and the reset   | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
+| The bragging-rights computation           | [`brag.ts`](../../../src/engine/logbook/brag.ts)                       |
+| Shared terminal wrapping and alignment    | [`text.ts`](../../../src/lib/text.ts)                                  |
+| The tolerant stream reader                | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
+| Scope and tier routing                    | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
+| Bounded working-command reader            | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
+| Wire vocabulary and data schemas          | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
+| Registry-driven fixtures and behavior     | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Brag counts proven from synthetic streams | [`brag_test.ts`](../../../tests/brag_test.ts)                          |
+| Cohort-seam rules at their home           | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
+| Routing and outcome guards                | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
+| Black-box CLI coverage                    | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
 
 ## Current state & gotchas
 
