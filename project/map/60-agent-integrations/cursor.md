@@ -39,15 +39,15 @@ agents = ["cursor"]
 
 ### Local sessions
 
-A Local Cursor session stays rooted at its open checkout. A default `discern start` worktree is a sibling, outside that workspace. **External File Protection** can then pause each write for human approval after the agent requests it. The agent never sees that UI pause.
+A Local session stays rooted at its checkout. `discern start` creates a sibling outside that workspace. **External File Protection** can then pause each write for human approval after the agent requests it. The agent never sees the UI pause.
 
-For uninterrupted edits, turn off External File Protection under **Cursor Settings → Agents → Auto-Run**. This user-wide setting lets Cursor's built-in file tools write outside any open workspace. `discern setup done` reports the choice but never changes it. Cursor's [agent security guide](https://cursor.com/docs/agent/security) covers the setting. [`.cursor/cli.json` permissions](https://cursor.com/docs/cli/reference/permissions) apply only to the terminal agent.
+Turn off External File Protection under **Cursor Settings → Agents → Auto-Run**. This user-wide setting lets Cursor's file tools write outside the open workspace. `discern setup done` reports the choice but never changes it. Cursor's [agent security guide](https://cursor.com/docs/agent/security) covers the setting. [`.cursor/cli.json` permissions](https://cursor.com/docs/cli/reference/permissions) apply only to the terminal agent.
 
 ### Cursor's Worktree option
 
-To keep External File Protection enabled, select Cursor's native [**Worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor creates the checkout and launches the agent inside it. The `sessionStart` hook readies it for discern's normal workflow.
+To keep External File Protection enabled, select Cursor's native [**Worktree option**](https://cursor.com/docs/configuration/worktrees) when starting the session. Cursor launches the agent inside its checkout. The `sessionStart` hook readies it for discern's normal workflow.
 
-Acceptance removes the running session's checkout. Cursor shows the landing response, then the session ends and its transcript cannot accept another message. Start a new session for follow-up work.
+Acceptance removes that checkout. Cursor shows the landing response, then the session ends. Its transcript accepts no follow-up, so start a new session.
 
 ### Project-local discern worktrees
 
@@ -58,7 +58,7 @@ You can instead set `[worktree].root` to keep discern-created worktrees inside t
 root = ".worktrees"
 ```
 
-Add `/.worktrees/` to the root `.gitignore`. This layout keeps External File Protection enabled. The sibling default avoids nesting checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
+Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
 ## Guidance and skills
 
