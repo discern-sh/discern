@@ -55,6 +55,43 @@ Deno.test("runParallel: all jobs succeed; empty command is a no-op", async () =>
   assert(s.text().includes("── a ─ ok"), s.text());
 });
 
+Deno.test("runParallel: observer sees starts up front and settlements in real completion order", async () => {
+  const dir = await Deno.makeTempDir({ prefix: "discern-job-observer-" });
+  try {
+    const events: string[] = [];
+    const result = await runParallel([
+      {
+        label: "slow",
+        command: "while [ ! -f release ]; do sleep 0.01; done; sleep 0.1",
+      },
+      { label: "fast", command: ": > release" },
+    ], {
+      cwd: dir,
+      stream: false,
+      failFast: true,
+      color: false,
+      quiet: true,
+      observer: {
+        started: (job): void => {
+          events.push(`started:${job.label}`);
+        },
+        settled: (job): void => {
+          events.push(`settled:${job.label}`);
+        },
+      },
+    });
+
+    assertEquals(result.ok, true);
+    assertEquals(events.slice(0, 2), ["started:slow", "started:fast"]);
+    assert(
+      events.indexOf("settled:fast") < events.indexOf("settled:slow"),
+      events.join(", "),
+    );
+  } finally {
+    await Deno.remove(dir, { recursive: true });
+  }
+});
+
 Deno.test("runParallel: every job executes in its required cwd", async () => {
   const dir = await Deno.makeTempDir({ prefix: "discern-job-cwd-" });
   try {

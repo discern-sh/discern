@@ -22,6 +22,15 @@ import type { Job, JobResult, StageRunResult } from "./types.ts";
 import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 
+/**
+ * Lifecycle events for one scheduler run. The live `done` TTY table observes
+ * these events; scheduling and the returned results remain the authority.
+ */
+export interface JobRunObserver {
+  started(job: Job): void;
+  settled(result: JobResult): void;
+}
+
 /** How a stage run presents and schedules its jobs. */
 export interface RunOptions {
   /** Resolved project root in which every configured job executes. */
@@ -48,13 +57,15 @@ export interface RunOptions {
   /** Sink for human output (banners + buffered job output). Default: stderr. */
   write?: (chunk: Uint8Array) => void;
   /**
-   * Suppress ALL output — banners AND job output — under `--json`, where the
-   * result envelope is the entire program output (ADR 0030). Jobs still run and a
-   * genuine failure's output is still captured for its diagnostic; only the live
-   * writing is withheld. Forces buffered capture so `spawnJob` cannot stream-write
-   * either.
+   * Suppress runner output — banners AND job output — when another projection
+   * owns the surface. Under `--json`, the result envelope is the entire program
+   * output (ADR 0030); the live `done` table observes lifecycle events instead.
+   * Jobs still run and a genuine failure's output remains captured for its
+   * diagnostic. Forces buffered capture so `spawnJob` cannot stream-write either.
    */
   quiet?: boolean;
+  /** Optional lifecycle observer for an interactive progress projection. */
+  observer?: JobRunObserver;
 }
 
 const ENCODER = new TextEncoder();
@@ -178,16 +189,21 @@ export async function runParallel(
   const release = trackRun(controller);
   try {
     const settled = await Promise.all(
-      jobs.map((job) =>
-        spawnJob(job, spawnOptions(job, opts, controller.signal, stream, write))
+      jobs.map((job) => {
+        opts.observer?.started(job);
+        return spawnJob(
+          job,
+          spawnOptions(job, opts, controller.signal, stream, write),
+        )
           .then(async (s) => {
             const result = await evaluateResult(job, s.result);
             if (opts.failFast && result.code !== 0) {
               controller.abort();
             }
+            opts.observer?.settled(result);
             return { ...s, result };
-          })
-      ),
+          });
+      }),
     );
     if (!quiet) {
       for (const s of settled) {
@@ -234,11 +250,13 @@ export async function runSerial(
         ok = false;
         break;
       }
+      opts.observer?.started(job);
       const s = await spawnJob(
         job,
         spawnOptions(job, opts, controller.signal, stream, write),
       );
       const result = await evaluateResult(job, s.result);
+      opts.observer?.settled(result);
       if (!quiet) {
         write(banner(result, opts.color));
         if (!stream && s.output.length > 0) {
