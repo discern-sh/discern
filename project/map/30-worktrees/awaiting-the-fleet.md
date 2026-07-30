@@ -31,6 +31,8 @@ Every verdict comes from authoritative state: a git ancestry read or a receipt i
 
 Choose by question: `--green` watches work in flight; `--landed` asks whether it arrived. A call started after the landing answers immediately under `--landed`, while `--green` refuses to treat a freshly forked branch's trivially-reachable tip as proof of anything.
 
+`--green` also refuses when no checkout holds the branch at call start. A gate receipt is per-worktree state and dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) train stage can never present one again. The refusal points at the nearest containing branch (the correct await target all along) and at `--landed` for the literal arrival question.
+
 ## Timing out is an answer
 
 A wait that outlives its `--timeout` returns `ok: true` with `data.met: false`, the observed state, and `data.retry_after_seconds` — priced from the fleet's typical verb durations when the awaited branch has work in flight (a dependency one minute into a typical four-minute gate suggests a three-minute retry), a longer backoff when the fleet is quiet, and a labelled flat default when the logbook is off. Bounded calls compose into an arbitrarily long watch.

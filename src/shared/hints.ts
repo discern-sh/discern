@@ -1313,6 +1313,51 @@ export const HINTS = {
       "duration evidence exists to price the wait.",
   }),
 
+  /** The honest refusal when `--green` is asked about a branch no checkout
+   * holds: the receipt lives in per-worktree state, destroyed with the
+   * checkout (a reclaimed contained worktree is the usual shape), so the
+   * condition can never become true — the pointer names the target that can
+   * answer instead. */
+  "await-green-no-worktree": defineHint<{
+    branch: string;
+    trunk: string;
+    containing: string | undefined;
+    reachable: boolean;
+  }>({
+    id: "await-green-no-worktree",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`await --green` names a branch whose checkout is gone at call start.",
+    example: {
+      branch: "agent/upload-retry",
+      trunk: "main",
+      containing: "agent/upload-retry-stage-2",
+      reachable: false,
+    },
+    template: ({ branch, trunk, containing, reachable }): string => {
+      if (containing !== undefined) {
+        return `\`${branch}\`'s committed work is contained in ` +
+          `\`${containing}\` — await that stage instead: ${
+            discernCommand("await", flag("green", containing))
+          }. For the literal arrival question, ${
+            discernCommand("await", flag("landed", branch))
+          } answers against \`${trunk}\`.`;
+      }
+      if (reachable) {
+        return `\`${branch}\`'s tip is already reachable from \`${trunk}\` — ` +
+          `${
+            discernCommand("await", flag("landed", branch))
+          } answers immediately, and ${CMD.update} brings \`${trunk}\` ` +
+          `beneath your branch.`;
+      }
+      return `Check ${CMD.status} from the main checkout; to wait for the ` +
+        `work to reach \`${trunk}\` use ${
+          discernCommand("await", flag("landed", branch))
+        }.`;
+    },
+  }),
+
   /** The honest refusal when the awaited branch does not resolve at call
    * start — there is no tip left to pin and watch. */
   "await-branch-missing": defineHint<{ branch: string; trunk: string }>({

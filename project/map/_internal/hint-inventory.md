@@ -125,6 +125,19 @@ Rendered example:
 `agent/upload-retry` is green — its worktree holds an honored receipt. Build on it with `discern update --from agent/upload-retry` from your worktree, or `discern start --from agent/upload-retry` for a fresh one.
 ```
 
+## `await-green-no-worktree`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: `await --green` names a branch whose checkout is gone at call start.
+
+Rendered example:
+
+```text
+`agent/upload-retry`'s committed work is contained in `agent/upload-retry-stage-2` — await that stage instead: `discern await --green agent/upload-retry-stage-2`. For the literal arrival question, `discern await --landed agent/upload-retry` answers against `main`.
+```
+
 ## `await-landed-met`
 
 - Category: `next-step`

@@ -80,6 +80,12 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     surface: "the queued-tests notice under `[gate].concurrent_test_runs`",
     readers: ["src/engine/gate/test_slots.ts"],
   },
+  {
+    key: "contained-idle-check",
+    phrase: "the in-flight check on the contained-worktree offer",
+    surface: "`worktree prune`, the fleet survey, and the desk",
+    readers: ["src/engine/worktree/lifecycle.ts"],
+  },
 ];
 
 /**

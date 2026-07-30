@@ -30,6 +30,7 @@ import {
   MAIN_TS,
   runAgent,
   scaffoldEngine,
+  worktreePath,
 } from "./engine_helpers.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
 import { AWAIT_TIMEOUT_EXIT_CODE } from "../src/engine/await/defaults.ts";
@@ -191,14 +192,59 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
       "a green sibling hints update --from",
     );
 
-    // A branch with NO worktree reports that state honestly — and a freshly
-    // forked branch (tip trivially reachable from the trunk) never reads as
-    // met: vacuous reachability is not a landing.
+    // A branch with NO worktree refuses honestly at call start: a receipt is
+    // per-worktree state and can only be recorded inside a checkout, so the
+    // condition can never become true — waiting would be dishonest. The
+    // pointer routes to the question that CAN be answered.
     await git(dir, "branch", "solo");
     const solo = await awaitResult(dir, { green: "solo", timeoutSeconds: 0 });
-    assert(solo.ok);
-    assertEquals(solo.data?.met, false);
-    assertEquals(solo.data?.observed.receipt_status, "no-worktree");
+    assertEquals(solo.ok, false);
+    assert("error" in solo && solo.error === "not_found");
+    assert(
+      solo.message?.includes("No checkout holds branch") === true,
+      solo.message,
+    );
+    assert(
+      solo.hints?.some((h) => h.includes("--landed solo")) === true,
+      "the refusal points at the literal arrival question",
+    );
+  });
+});
+
+Deno.test("await --green on a reclaimed stage points at the containing branch", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The reclaimed-train shape: stage 1's branch survives while its checkout
+    // is gone, and stage 2 (forked from it, one commit ahead) carries all of
+    // its work. The correct await target was always the containing branch.
+    const stage1 = await addWorktree(dir, "stage1");
+    await commitFile(stage1, "one.txt", "one", "stage 1 work");
+    const stage2 = worktreePath(dir, "stage2");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      stage2,
+      "-b",
+      "agent/stage2",
+      "agent/stage1",
+    );
+    await commitFile(stage2, "two.txt", "two", "stage 2 work");
+    await git(dir, "worktree", "remove", "--force", stage1);
+
+    const refused = await awaitResult(dir, {
+      green: "agent/stage1",
+      timeoutSeconds: 0,
+    });
+    assertEquals(refused.ok, false);
+    assert("error" in refused && refused.error === "not_found");
+    assert(
+      refused.hints?.some((h) => h.includes("--green agent/stage2")) === true,
+      `the refusal must point at the containing branch\n${
+        JSON.stringify(refused.hints)
+      }`,
+    );
   });
 });
 

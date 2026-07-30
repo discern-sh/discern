@@ -196,6 +196,17 @@ const ACTION_CASES: ReadonlyArray<{
     expect: ["accept", "revoke_grant", "jump", "inspect", "drop"],
   },
   {
+    name:
+      "contained (work travels inside a live branch) → reclaim offered after update",
+    entry: entry({ ahead: 2, behind: 1, contained_in: "agent/next-stage" }),
+    expect: ["accept", "grant", "update", "reclaim", "jump", "inspect", "drop"],
+  },
+  {
+    name: "contained but broken → still drop only (state unknowable)",
+    entry: entry({ broken: true, contained_in: "agent/next-stage" }),
+    expect: ["drop"],
+  },
+  {
     name: "broken with scripts and agents present → still drop only",
     entry: entry({ broken: true }),
     scripts: [{ name: "unsafe" }],
@@ -400,5 +411,14 @@ Deno.test("rowSummary: states lead with the decision a person needs", () => {
   assertEquals(
     rowSummary(entry({}), false, NOW),
     "No changes · now",
+  );
+  assertEquals(
+    rowSummary(
+      entry({ ahead: 2, contained_in: "agent/next-stage" }),
+      false,
+      NOW,
+    ),
+    "Awaiting gate · Contained in agent/next-stage · 2 ahead · now",
+    "a contained row names its containing branch",
   );
 });

@@ -15,9 +15,10 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { join } from "@std/path";
+import { fromFileUrl, join } from "@std/path";
 import { applyPlan, buildPlan } from "../src/lib/fs_plan.ts";
 import {
+  hookSettingsMerge,
   type HooksIntegration,
   type SettingsSeed,
   settingsSeeds,
@@ -29,16 +30,24 @@ import {
 import { COMMENT_INCAPABLE_ARTIFACT } from "../src/shared/file_ownership.ts";
 import { readTarget, testTokens, withTempDir } from "./helpers.ts";
 
-Deno.test("settingsSeeds(): the registry yields Claude's settings file with the default JSON strategy", () => {
+const REPO = fromFileUrl(new URL("../", import.meta.url));
+
+Deno.test("settingsSeeds(): Claude's alias-aware strategy keeps current seeds byte-identical", async () => {
   const seeds = settingsSeeds();
   const claude = seeds.find((s) => s.targetRel === ".claude/settings.json");
   assert(
     claude !== undefined,
     "Claude's settings seed must come from the registry",
   );
-  // Claude declares no custom mergeSeed, so it gets the default JSON deep-merge —
-  // the strategy that keeps its seeded output byte-identical.
-  assertEquals(claude.merge, mergeJsonSettingsText);
+  const template = await Deno.readTextFile(
+    join(REPO, "templates/.claude/settings.json.tmpl"),
+  );
+  // Alias convergence decorates Claude's default JSON merge, but a fresh/current
+  // settings file retains the default strategy's exact bytes.
+  assertEquals(
+    claude.merge(undefined, template),
+    mergeJsonSettingsText(undefined, template),
+  );
 });
 
 Deno.test("mergeJsonSettingsText: byte-identical to the JSON deep-merge it lifts", () => {
@@ -76,7 +85,7 @@ const ACME_HOOKS: HooksIntegration = {
  * agent. Injecting it into buildPlan models "the registry now has this provider". */
 const ACME_SEED: SettingsSeed = {
   targetRel: ACME_HOOKS.settingsFile,
-  merge: ACME_HOOKS.mergeSeed ?? mergeJsonSettingsText,
+  merge: hookSettingsMerge(ACME_HOOKS),
 };
 
 /** Lay a one-file templates tree holding the synthetic provider's settings seed. */

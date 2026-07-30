@@ -64,6 +64,7 @@ import {
   worktreePathForBranch,
 } from "../worktree/git.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
+import { nearestContainingBranch } from "../worktree/containment.ts";
 import { readFleetLogbookActivity } from "../logbook/read.ts";
 import { configEpoch } from "../logbook/epoch.ts";
 import { logbookDir } from "../logbook/store.ts";
@@ -420,6 +421,31 @@ export async function awaitResult(
       );
     }
     tip = await resolveCommitRef(root, `refs/heads/${branch}`);
+  }
+  // `green` needs a checkout for the receipt to ever be recorded in: it lives
+  // in per-worktree state and dies with the worktree (a contained checkout
+  // reclaimed by `worktree prune --contained` is the usual shape). A branch
+  // with no worktree at call start therefore cannot meet the condition —
+  // waiting would be dishonest, so refuse and point at the target that can
+  // answer: the containing branch when one exists, else `--landed`.
+  if (condition === "green" && branch !== undefined && tip !== undefined) {
+    if (await worktreePathForBranch(root, branch) === undefined) {
+      const containing = await nearestContainingBranch(root, branch, trunk);
+      return refusal(
+        "not_found",
+        `No checkout holds branch \`${branch}\` — its worktree was reclaimed ` +
+          `or removed, and a gate receipt can only be recorded inside one, so ` +
+          `\`--green ${branch}\` can never be met.`,
+        hintTexts([
+          fire(HINTS["await-green-no-worktree"], {
+            branch,
+            trunk,
+            containing,
+            reachable: await commitIsMerged(root, tip, trunk),
+          }),
+        ]),
+      );
+    }
   }
   const trunkStart = await resolveCommitRef(root, `refs/heads/${trunk}`);
   // `green`'s landed-satisfies-it rule is TRANSITION-based: only a tip this

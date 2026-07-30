@@ -1931,7 +1931,7 @@ function delay(ms: number): Promise<void> {
 }
 
 /** One worktree record parsed from `git worktree list --porcelain`. */
-interface WorktreeRecord {
+export interface WorktreeRecord {
   path: string;
   /** The checked-out commit SHA, when `git worktree list --porcelain` reports it. */
   head: string;
@@ -1942,7 +1942,7 @@ interface WorktreeRecord {
 }
 
 /** Parse `git worktree list --porcelain` into records. */
-function parseWorktreeList(porcelain: string): WorktreeRecord[] {
+export function parseWorktreeList(porcelain: string): WorktreeRecord[] {
   const records: WorktreeRecord[] = [];
   let cur: WorktreeRecord | undefined;
   const flush = (): void => {

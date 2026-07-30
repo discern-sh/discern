@@ -161,6 +161,7 @@ function scriptedRuntime(
     accept: () => {},
     update: () => {},
     drop: () => {},
+    reclaim: () => {},
     git: () => ({ success: true, stdout: "", stderr: "" }),
     interactive: () => 0,
     detectAgents: () => [],
@@ -911,6 +912,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const dropData = statusData([main, abandoned]);
   const dropChoices = [abandoned.path, "drop", QUIT];
   const dropCalls: Array<{ dryRun?: boolean; force?: boolean }> = [];
+  const dropTargets: string[] = [];
   let dropPauses = 0;
   assertEquals(
     await runDesk(
@@ -919,7 +921,8 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
         status: () => ({ ok: true, data: dropData }),
         select: () => dropChoices.shift() ?? QUIT,
         input: () => abandoned.branch,
-        drop: (_ctx, _target, opts) => {
+        drop: (_ctx, target, opts) => {
+          dropTargets.push(target);
           dropCalls.push(opts);
           if (!(opts.dryRun ?? false) && !(opts.force ?? false)) {
             throw new WorktreeGitError("unlanded work would be discarded");
@@ -933,9 +936,18 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     0,
   );
   assertEquals(dropCalls, [{ dryRun: true }, {}, { force: true }]);
+  assertEquals(dropTargets, [
+    abandoned.path,
+    abandoned.path,
+    abandoned.path,
+  ]);
   assertEquals(dropPauses, 1);
   assertStringIncludes(joined(dropOutput), "unlanded work would be discarded");
   assertStringIncludes(joined(dropOutput), "--force");
+  assertStringIncludes(
+    joined(dropOutput),
+    `discern worktree drop ${abandoned.path}`,
+  );
 
   const refusalOutput = transcript();
   const refusalChoices = [effort.path, "accept", BACK, QUIT];
@@ -952,4 +964,79 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     0,
   );
   assertStringIncludes(joined(refusalOutput), "identity is unavailable");
+});
+
+Deno.test("desk reclaims a contained checkout only through its explicit confirmation", async () => {
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const spent = fleetEntry("agent/stage-a", "/worktrees/stage-a", {
+    ahead: 1,
+    contained_in: "agent/stage-b",
+  });
+  const data = statusData([main, spent]);
+
+  // Declined: the confirmation names the specific worktree, what is kept (the
+  // branch ref), where the work travels, and the receipt consequence — and a
+  // "no" runs nothing.
+  const declinedOutput = transcript();
+  const declinedChoices = [spent.path, "reclaim", BACK, QUIT];
+  const declinedReclaims: string[] = [];
+  const confirmMessages: string[] = [];
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(declinedOutput, {
+        status: () => ({ ok: true, data }),
+        select: () => declinedChoices.shift() ?? QUIT,
+        confirm: (message) => {
+          confirmMessages.push(message);
+          return false;
+        },
+        reclaim: (_ctx, target) => {
+          declinedReclaims.push(target);
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(
+    declinedReclaims,
+    [],
+    "declining the confirmation must reclaim nothing",
+  );
+  const message = confirmMessages.join("\n");
+  assertStringIncludes(message, "stage-a");
+  assertStringIncludes(message, "agent/stage-a");
+  assertStringIncludes(message, "KEPT");
+  assertStringIncludes(message, "agent/stage-b");
+  assertStringIncludes(message, "gate receipt included");
+
+  // Confirmed: the validated core runs against the selected worktree, and the
+  // action menu offered the reclaim with its containing branch named.
+  const output = transcript();
+  const choices = [spent.path, "reclaim", QUIT];
+  const reclaims: string[] = [];
+  let pauses = 0;
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(output, {
+        status: () => ({ ok: true, data }),
+        select: () => choices.shift() ?? QUIT,
+        confirm: () => true,
+        reclaim: (_ctx, target) => {
+          reclaims.push(target);
+        },
+        pause: () => {
+          pauses++;
+        },
+      }),
+    ),
+    0,
+  );
+  // The core receives the ABSOLUTE selected path — two roots can hold
+  // same-named worktree directories, and the reclaim must hit exactly the
+  // row the confirmation named.
+  assertEquals(reclaims, ["/worktrees/stage-a"]);
+  assertEquals(pauses, 1);
+  assertStringIncludes(joined(output), "Branch agent/stage-a kept");
 });
