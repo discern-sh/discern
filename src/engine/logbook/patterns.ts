@@ -11,7 +11,9 @@
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * `--json`, and the MCP tool are three renderings of the same object.
  * {@link patternsResult} is the unrendered core the MCP server calls;
- * {@link runPatterns} is the CLI.
+ * {@link runPatterns} is the CLI. `--brag` asks the same read for bragging
+ * rights (`brag.ts` computes them; `data.brag` carries them) and swaps the
+ * human report for the card.
  *
  * Advisory only, structurally: the result is always `ok` once the logbook is
  * readable — findings are advice, never failures — and nothing in the gate
@@ -30,6 +32,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   type PatternFindingTone,
+  type PatternsBrag,
   type PatternsData,
   type PatternsFinding,
   type PatternsPopulation,
@@ -57,8 +60,10 @@ import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
+import { computeBrag } from "./brag.ts";
 import {
   buildStreamFacts,
+  inclusiveSpanDays,
   runDetectors,
   type StreamFacts,
   TRAJECTORY_BOUNDARY_ATTRIBUTION,
@@ -103,16 +108,24 @@ function noRepository(verb: string): DiscernResult<never> {
   };
 }
 
+/** Options accepted by {@link patternsResult}. */
+export interface PatternsResultOptions {
+  /** Also compute bragging rights (`data.brag`) from the same stream. */
+  brag?: boolean;
+}
+
 /**
  * Compute the `patterns` {@link DiscernResult} without printing or exiting —
  * the core the MCP server renders. Reads the whole logbook tolerantly (torn
  * and foreign lines are skipped and counted), runs every registry detector
  * with its evidence threshold applied, and reports the ranked findings plus
- * every detector's status. An empty or absent logbook is a first-class state
- * with a helpful hint, not an error.
+ * every detector's status. When asked, `data.brag` joins with bragging
+ * rights read from the same stream (`brag.ts`). An empty or absent logbook
+ * is a first-class state with a helpful hint, not an error.
  */
 export async function patternsResult(
   root: string,
+  opts: PatternsResultOptions = {},
 ): Promise<DiscernResult<PatternsData>> {
   const config = await loadConfig(root);
   const commonGitDir = await resolveCommonGitDir(root);
@@ -158,6 +171,7 @@ export async function patternsResult(
       threshold: r.detector.threshold,
       findings: r.findings.length,
     })),
+    ...(opts.brag === true ? { brag: computeBrag(facts) } : {}),
   };
 
   const hints: FiredHint[] = [];
@@ -226,7 +240,6 @@ export const PATTERNS_TRAJECTORY_CAVEAT =
 export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
-const DAY_MS = 86_400_000;
 const PIN_COMMAND = "`discern standards --pin`";
 
 function plural(
@@ -235,30 +248,6 @@ function plural(
   pluralForm = `${singular}s`,
 ): string {
   return `${formatHumanNumber(value)} ${value === 1 ? singular : pluralForm}`;
-}
-
-export function inclusiveSpanDays(
-  first: string,
-  last: string,
-): number | undefined {
-  const start = Date.parse(first);
-  const end = Date.parse(last);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return undefined;
-  }
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  const startDay = Date.UTC(
-    startDate.getUTCFullYear(),
-    startDate.getUTCMonth(),
-    startDate.getUTCDate(),
-  );
-  const endDay = Date.UTC(
-    endDate.getUTCFullYear(),
-    endDate.getUTCMonth(),
-    endDate.getUTCDate(),
-  );
-  return Math.floor(Math.abs(endDay - startDay) / DAY_MS) + 1;
 }
 
 /** "7 days (2026-07-20 → 2026-07-26) · 2,851 events · 73 branches" */
@@ -635,9 +624,236 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   renderClosingAccount(out, data, width);
 }
 
+// ── bragging rights ─────────────────────────────────────────────────────────
+
+/** The empty-state line for a brag card with no analyzed runs behind it. */
+export const BRAG_EMPTY_MESSAGE =
+  "Nothing to brag about yet: the logbook holds no analyzed runs. Check back after some use.";
+
+/** The card's provenance line — where every number comes from, and how far
+ * it travels. */
+export const BRAG_PROVENANCE =
+  "Counted from this repository's local logbook. Nothing leaves the machine.";
+
+/** Section labels for the brag card, in render order. */
+export const BRAG_SECTIONS = {
+  shipped: "Shipped",
+  gate: "The gate",
+  pace: "Pace",
+  standards: "Standards",
+  breadth: "Breadth",
+} as const;
+
+function percent(part: number, whole: number): string {
+  return `${Math.round((part / whole) * 100)}%`;
+}
+
+/** "12 days (2026-07-18 → 2026-07-29) · 1,670 analyzed runs · 61 branches" */
+function bragHeaderLine(data: PatternsData, brag: PatternsBrag): string {
+  const parts: string[] = [];
+  const breadth = brag.breadth;
+  if (
+    breadth.first_day !== undefined && breadth.last_day !== undefined &&
+    breadth.span_days > 0
+  ) {
+    parts.push(
+      `${
+        plural(breadth.span_days, "day")
+      } (${breadth.first_day} → ${breadth.last_day})`,
+    );
+  }
+  parts.push(
+    plural(data.population.analyzed, "analyzed run"),
+    plural(breadth.branches, "branch", "branches"),
+  );
+  return parts.join(" · ");
+}
+
+/** The shipped section: landings and their recorded scale. A single landing
+ * keeps the card quiet about "biggest" and "best day" — with one member,
+ * both would restate the landing itself. */
+function bragShippedRows(landings: PatternsBrag["landings"]): string[] {
+  if (landings.count === 0) {
+    return ["No landings yet."];
+  }
+  const scale = landings.insertions + landings.deletions > 0
+    ? ` · +${formatHumanNumber(landings.insertions)} −${
+      formatHumanNumber(landings.deletions)
+    } across ${plural(landings.files, "file")} · ${
+      plural(landings.commits, "commit")
+    }`
+    : "";
+  const rows = [
+    `${plural(landings.count, "landing")} on ${
+      plural(landings.branches, "branch", "branches")
+    }${scale}`,
+  ];
+  if (landings.count > 1) {
+    const biggest = landings.biggest;
+    if (biggest !== undefined) {
+      rows.push(
+        `biggest: ${
+          biggest.branch !== undefined ? `\`${biggest.branch}\` · ` : ""
+        }${plural(biggest.lines, "changed line")} · ${
+          plural(biggest.files, "file")
+        } (${biggest.day})`,
+      );
+    }
+    const best = landings.best_day;
+    if (best !== undefined) {
+      rows.push(
+        `best day: ${best.day} · ${plural(best.landings, "landing")}${
+          landings.longest_daily_streak > 1
+            ? ` · longest daily run ${
+              plural(landings.longest_daily_streak, "day")
+            }`
+            : ""
+        }`,
+      );
+    }
+  }
+  return rows;
+}
+
+/** The gate section: runs, green share, streaks, and check time. Streaks of
+ * one stay off the card. */
+function bragGateRows(gate: PatternsBrag["gate"]): string[] {
+  if (gate.runs === 0) {
+    return ["No `done` runs yet."];
+  }
+  const rows = [
+    `${plural(gate.runs, "`done` run")} · ${
+      formatHumanNumber(gate.greens)
+    } green (${percent(gate.greens, gate.runs)})` +
+    (gate.longest_green_streak > 1
+      ? ` · longest green streak ${
+        formatHumanNumber(gate.longest_green_streak)
+      }`
+      : "") +
+    (gate.current_green_streak > 1
+      ? ` · current ${formatHumanNumber(gate.current_green_streak)}`
+      : ""),
+  ];
+  const parts: string[] = [];
+  if (gate.gated_branches > 0) {
+    parts.push(
+      `first-try green on ${
+        formatHumanNumber(gate.first_try_green_branches)
+      } of ${plural(gate.gated_branches, "branch", "branches")}`,
+    );
+  }
+  if (gate.check_hours > 0) {
+    parts.push(
+      `${
+        formatHumanNumber(gate.check_hours)
+      }h of checks run (\`done\` · \`prepare\` · \`test\`)`,
+    );
+  }
+  if (parts.length > 0) {
+    rows.push(parts.join(" · "));
+  }
+  return rows;
+}
+
+/** The pace section's one row, or nothing before the first completed cycle. */
+function bragPaceRow(cycles: PatternsBrag["cycles"]): string | undefined {
+  if (cycles === undefined) {
+    return undefined;
+  }
+  if (cycles.completed === 1) {
+    return `1 start-to-accept cycle · ${
+      formatHumanNumber(cycles.fastest_hours)
+    }h`;
+  }
+  return `${plural(cycles.completed, "start-to-accept cycle")} · median ${
+    formatHumanNumber(cycles.median_hours)
+  }h · fastest ${formatHumanNumber(cycles.fastest_hours)}h`;
+}
+
+/** The breadth section: branches driven, active days, the busiest day. */
+function bragBreadthRow(breadth: PatternsBrag["breadth"]): string {
+  const busiest = breadth.busiest_day;
+  return `${plural(breadth.branches, "branch", "branches")} driven · active ${
+    formatHumanNumber(breadth.active_days)
+  } of ${plural(breadth.span_days, "day")}${
+    busiest !== undefined && busiest.branches > 1
+      ? ` · busiest day ${
+        plural(busiest.branches, "branch", "branches")
+      } (${busiest.day})`
+      : ""
+  }`;
+}
+
+function bragSection(
+  out: Out,
+  width: number,
+  label: string,
+  rows: readonly string[],
+): void {
+  out.raw(`  ${out.c.bold}${label}${out.c.reset}\n`);
+  for (const row of rows) {
+    writeWrapped(out, "    ", row, width);
+  }
+}
+
+/** Render the bragging-rights card: the practice's countable feats, each
+ * with its denominator beside it, from the same analysis population the
+ * detectors read. The detector report looks for what needs attention; this
+ * card counts what went well. */
+function renderBragReport(
+  out: Out,
+  data: PatternsData,
+  brag: PatternsBrag,
+  slug: string,
+): void {
+  const c = out.c;
+  const width = terminalWidth();
+  out.heading(`discern patterns --brag${slug ? ` · ${slug}` : ""}`);
+  if (data.population.analyzed === 0) {
+    writeWrapped(out, "  ", BRAG_EMPTY_MESSAGE, width);
+    return;
+  }
+  const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
+  writeWrapped(out, "  ", bragHeaderLine(data, brag), width, dim);
+  writeWrapped(out, "  ", BRAG_PROVENANCE, width, dim);
+  out.raw("\n");
+  bragSection(
+    out,
+    width,
+    BRAG_SECTIONS.shipped,
+    bragShippedRows(brag.landings),
+  );
+  bragSection(out, width, BRAG_SECTIONS.gate, bragGateRows(brag.gate));
+  const pace = bragPaceRow(brag.cycles);
+  if (pace !== undefined) {
+    bragSection(out, width, BRAG_SECTIONS.pace, [pace]);
+  }
+  if (brag.ratchet.pins > 0) {
+    bragSection(out, width, BRAG_SECTIONS.standards, [
+      `${plural(brag.ratchet.pins, "limit")} tightened across ${
+        plural(brag.ratchet.standards, "standard")
+      }. Loosening fails the gate.`,
+    ]);
+  }
+  bragSection(out, width, BRAG_SECTIONS.breadth, [
+    bragBreadthRow(brag.breadth),
+  ]);
+  out.raw("\n");
+  writeWrapped(
+    out,
+    "  ",
+    "Data: `discern patterns --brag --json`.",
+    width,
+    dim,
+  );
+}
+
 /** Options accepted by the patterns CLI. */
 export interface RunPatternsOptions {
   json: boolean;
+  /** Render the bragging-rights card (and carry `data.brag`) instead of the
+   * detector report. */
+  brag: boolean;
 }
 
 /** Run `discern patterns`. Returns a process exit code — 0 whenever the
@@ -646,7 +862,7 @@ export async function runPatterns(
   root: string,
   opts: RunPatternsOptions,
 ): Promise<number> {
-  const result = await patternsResult(root);
+  const result = await patternsResult(root, { brag: opts.brag });
   observeResult(result);
   if (opts.json) {
     emitResult(result);
@@ -658,7 +874,12 @@ export async function runPatterns(
     return 1;
   }
   const config = await loadConfig(root);
-  renderReport(out, result.data, config.project.slug);
+  const brag = result.data.brag;
+  if (brag !== undefined) {
+    renderBragReport(out, result.data, brag, config.project.slug);
+  } else {
+    renderReport(out, result.data, config.project.slug);
+  }
   return 0;
 }
 

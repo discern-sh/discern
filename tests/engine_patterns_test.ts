@@ -33,7 +33,6 @@ import { HINTS } from "../src/shared/hints.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
-  inclusiveSpanDays,
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
@@ -41,7 +40,10 @@ import {
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
 } from "../src/engine/logbook/patterns.ts";
-import { DETECTORS } from "../src/engine/logbook/detectors.ts";
+import {
+  DETECTORS,
+  inclusiveSpanDays,
+} from "../src/engine/logbook/detectors.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */

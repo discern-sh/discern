@@ -138,15 +138,91 @@ const patternsPopulationSchema = z.strictObject({
 /** The scored driver population of one report. */
 export type PatternsPopulation = z.infer<typeof patternsPopulationSchema>;
 
+/** The `--brag` payload — bragging rights: the practice's countable feats,
+ * read from the same analysis population as the detectors (CI runs, previews,
+ * and setup-era events excluded). Counts and durations only, all local
+ * evidence; nothing is scored and nothing is compared to anyone else's
+ * numbers. Present exactly when the invocation asked for it. */
+export const PatternsBragSchema = z.strictObject({
+  /** Successful `accept` runs — work that landed on the trunk. Sums read from
+   * each landing's recorded change scale; a landing recorded without one
+   * still counts, contributing zero to the sums. */
+  landings: z.strictObject({
+    count: z.number().int(),
+    branches: z.number().int(),
+    insertions: z.number().int(),
+    deletions: z.number().int(),
+    files: z.number().int(),
+    commits: z.number().int(),
+    /** The largest single landing by changed lines, when any landing carried
+     * a change scale. `branch` is absent when the event recorded none. */
+    biggest: z.strictObject({
+      branch: z.string().optional(),
+      lines: z.number().int(),
+      files: z.number().int(),
+      day: z.string(),
+    }).optional(),
+    /** The UTC day with the most landings (earliest such day on a tie). */
+    best_day: z.strictObject({
+      day: z.string(),
+      landings: z.number().int(),
+    }).optional(),
+    /** Longest run of consecutive UTC days each holding a landing. */
+    longest_daily_streak: z.number().int(),
+  }),
+  /** `done` runs — the full gate. Streaks count consecutive `done` runs in
+   * stream order across all branches; `check_hours` sums wall-clock time
+   * across `done`, `prepare`, and `test` runs. */
+  gate: z.strictObject({
+    runs: z.number().int(),
+    greens: z.number().int(),
+    first_try_green_branches: z.number().int(),
+    gated_branches: z.number().int(),
+    longest_green_streak: z.number().int(),
+    current_green_streak: z.number().int(),
+    check_hours: z.number(),
+  }),
+  /** Completed start-to-accept cycles, matched the same way the funnel
+   * detector matches them. Present once at least one cycle completed. */
+  cycles: z.strictObject({
+    completed: z.number().int(),
+    median_hours: z.number(),
+    fastest_hours: z.number(),
+  }).optional(),
+  /** The standards ratchet, read from pin events: limits tightened, and how
+   * many distinct standards they cover. */
+  ratchet: z.strictObject({
+    pins: z.number().int(),
+    standards: z.number().int(),
+  }),
+  /** How wide the practice ran: distinct branches driven, days with at least
+   * one analyzed run against the span, and the day most branches were active. */
+  breadth: z.strictObject({
+    branches: z.number().int(),
+    active_days: z.number().int(),
+    span_days: z.number().int(),
+    first_day: z.string().optional(),
+    last_day: z.string().optional(),
+    busiest_day: z.strictObject({
+      day: z.string(),
+      branches: z.number().int(),
+    }).optional(),
+  }),
+});
+/** The `--brag` payload. */
+export type PatternsBrag = z.infer<typeof PatternsBragSchema>;
+
 /** `patterns` — the logbook read back as findings: `findings` ranked by
  * evidence strength, `detectors` reporting every registry member (fired,
  * quiet, or insufficient evidence), the `logbook` counts behind them, and the
- * scored driver `population`. */
+ * scored driver `population`. `brag` joins when the invocation asked for
+ * bragging rights ({@link PatternsBragSchema}). */
 export const PatternsDataSchema = z.strictObject({
   logbook: patternsLogbookSchema,
   population: patternsPopulationSchema,
   findings: z.array(PatternsFindingSchema),
   detectors: z.array(patternsDetectorSchema),
+  brag: PatternsBragSchema.optional(),
 });
 export type PatternsData = z.infer<typeof PatternsDataSchema>;
 

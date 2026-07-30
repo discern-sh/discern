@@ -219,8 +219,9 @@ function bySession(events: VerbEvent[]): VerbEvent[][] {
   return [...groups.values()];
 }
 
-/** The longest run of consecutive matching items. */
-function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
+/** The longest run of consecutive matching items. Shared with the brag
+ * reader (`brag.ts`). */
+export function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
   let best = 0;
   let run = 0;
   for (const x of xs) {
@@ -230,8 +231,9 @@ function longestStreak<T>(xs: T[], pred: (x: T) => boolean): number {
   return best;
 }
 
-/** The median of a non-empty list (mean of the middle two when even). */
-function median(xs: number[]): number {
+/** The median of a non-empty list (mean of the middle two when even). Shared
+ * with the brag reader (`brag.ts`). */
+export function median(xs: number[]): number {
   const sorted = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   const hi = sorted[mid] ?? 0;
@@ -242,19 +244,47 @@ function median(xs: number[]): number {
   return (lo + hi) / 2;
 }
 
-/** Round to one decimal place. */
-function round1(n: number): number {
+/** Round to one decimal place. Shared with the brag reader (`brag.ts`). */
+export function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/** The calendar day of an ISO timestamp ("2026-07-20"). */
-function day(at: string): string {
+/** The calendar day of an ISO timestamp ("2026-07-20"). Shared with the brag
+ * reader (`brag.ts`). */
+export function day(at: string): string {
   return at.slice(0, 10);
 }
 
 /** Whole days between two ISO timestamps. */
 function daysBetween(a: string, b: string): number {
   return Math.round(Math.abs(Date.parse(b) - Date.parse(a)) / 86_400_000);
+}
+
+/** Inclusive UTC calendar days spanned by two ISO timestamps ("23:59 to
+ * 00:01" is 2 days), or undefined when either fails to parse. Shared by the
+ * report header (`patterns.ts`) and the brag reader (`brag.ts`). */
+export function inclusiveSpanDays(
+  first: string,
+  last: string,
+): number | undefined {
+  const start = Date.parse(first);
+  const end = Date.parse(last);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return undefined;
+  }
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const startDay = Date.UTC(
+    startDate.getUTCFullYear(),
+    startDate.getUTCMonth(),
+    startDate.getUTCDate(),
+  );
+  const endDay = Date.UTC(
+    endDate.getUTCFullYear(),
+    endDate.getUTCMonth(),
+    endDate.getUTCDate(),
+  );
+  return Math.floor(Math.abs(endDay - startDay) / 86_400_000) + 1;
 }
 
 /** A red gate outcome whose failure reached the tests (the flake dimension). */

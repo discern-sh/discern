@@ -531,12 +531,18 @@ export function attachEngineCommands(
       "--json",
       "Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).",
     )
+    .option(
+      "--brag",
+      "Report bragging rights instead: landings, green streaks, cycle times, and " +
+        "tightened limits, counted from the same local evidence. With --json, " +
+        "the counts join the result as data.brag.",
+    )
     .action(
       recordedExit("patterns", async (o) => {
         const { runPatterns } = await import("./logbook/patterns.ts");
         return await runPatterns(
           await requireRoot("patterns", o.json ?? false),
-          { json: o.json ?? false },
+          { json: o.json ?? false, brag: o.brag ?? false },
         );
       }),
     )
