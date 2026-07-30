@@ -98,7 +98,7 @@ The Claude Code settings seed includes the worktree hooks and a conservative per
 }
 ```
 
-`discern refresh` deep-merges this file. Hook groups append with de-duplication, permission arrays are merged, and existing unrelated settings are preserved. `enabledMcpjsonServers` pre-approves the project `.mcp.json` server by name, so Claude Code does not need a separate folder-trust step for discern's MCP server.
+`discern refresh` deep-merges this file, replacing retired discern hook commands and collapsing duplicates. It merges permission arrays, preserves unrelated settings, and pre-approves the project `.mcp.json` server through `enabledMcpjsonServers`; Claude Code needs no separate folder-trust step for discern's MCP server.
 
 ## Runtime behavior and gotchas
 
