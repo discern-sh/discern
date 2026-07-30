@@ -155,6 +155,13 @@ import {
   worktreeGitKey,
   worktreeSetupComplete,
 } from "./git.ts";
+import {
+  type ContainedWorktree,
+  containmentIdleCheck,
+  scanContainedWorktrees,
+} from "./containment.ts";
+import { readFleetLogbookActivity } from "../logbook/read.ts";
+import { configEpoch } from "../logbook/epoch.ts";
 
 // worktree setup recompiles the agent guidance as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -3757,6 +3764,10 @@ export interface WorktreePruneOptions {
   dryRun?: boolean;
   /** Emit a machine-readable (plan, results) object on stdout. */
   json?: boolean;
+  /** The explicit opt-in to reclaim CONTAINED worktrees — checkouts whose
+   * committed work is fully contained in another live branch. Off, the group
+   * is only reported. The branch ref is never deleted on this path. */
+  contained?: boolean;
   /**
    * Extra directories the orphan sweep should scan beyond the git-derived
    * parents of registered worktrees — the configured worktree root, so a
@@ -3778,6 +3789,7 @@ export interface WorktreePruneOptions {
 async function buildPrunePlan(
   ctx: LifecycleContext,
   extraScanDirs?: string[],
+  reclaimContained = false,
 ): Promise<PrunePlan> {
   const gitScan = await scanGitWorktreesForPrune({
     includeDetached: true,
@@ -3793,7 +3805,35 @@ async function buildPrunePlan(
     orphanScan,
     resourceReclaims: resources.reclaimable,
     resourceReclaimsKept: resources.kept,
+    contained: await pruneContainedScan(ctx),
+    reclaimContained,
   };
+}
+
+/**
+ * The contained-worktree half of the prune scan: read the fleet, derive the
+ * idle check (the logbook's begin/finish pairing when it is on; the
+ * git-derived quiet period when it is off), and return the facts. Read-only —
+ * the offer's evidence, never an act.
+ */
+async function pruneContainedScan(
+  ctx: LifecycleContext,
+): Promise<ContainedWorktree[]> {
+  const nowMs = Date.now();
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  const activity = ctx.config.project.logbook && commonGitDir !== undefined
+    ? await readFleetLogbookActivity(
+      commonGitDir,
+      configEpoch(ctx.config).fingerprint,
+      nowMs,
+    )
+    : undefined;
+  const currentPath = await Deno.realPath(ctx.root).catch(() => ctx.root);
+  return await scanContainedWorktrees(ctx.root, {
+    mainBranch: ctx.config.repository.trunk,
+    currentPath,
+    idle: containmentIdleCheck(activity, nowMs),
+  });
 }
 
 /**
@@ -3835,7 +3875,11 @@ export async function worktreePrune(
 ): Promise<void> {
   await assertOpSide("worktree-prune", ctx.cwd);
   const json = opts.json ?? false;
-  const plan = await buildPrunePlan(ctx, opts.extraScanDirs);
+  const plan = await buildPrunePlan(
+    ctx,
+    opts.extraScanDirs,
+    opts.contained ?? false,
+  );
   const enginePlan = prunePlanToEngine(plan);
 
   // Dry-run: scan read-only and render the plan; touch nothing.
@@ -3887,6 +3931,31 @@ export async function worktreePrune(
     plan.resourceReclaimsKept,
   );
 
+  // The contained group: reclaim only under the explicit opt-in; otherwise the
+  // offer stays visible — named candidates, evidence, and the way to act.
+  let reclaim: ContainedReclaimResult = {
+    reclaimed: [],
+    skipped: [],
+    failed: false,
+  };
+  if (plan.reclaimContained && plan.contained.length > 0) {
+    ctx.log.heading("Reclaiming contained worktrees (branch refs kept)…");
+    reclaim = await reclaimContainedWorktrees(ctx, plan.contained);
+  } else if (plan.contained.length > 0) {
+    ctx.log.heading("Contained worktrees (kept)…");
+    for (const c of plan.contained) {
+      ctx.log.line(
+        `KEEP   ${c.path} (branch ${c.branch} is contained in ${c.containingBranch}, ` +
+          `+${c.containerAhead} ahead)`,
+      );
+    }
+    ctx.log.info(
+      "These checkouts' committed work travels inside a live branch. Reclaim " +
+        "them with `discern worktree prune --contained` — the branch refs are " +
+        "kept; each checkout and its per-worktree state are destroyed.",
+    );
+  }
+
   if (
     plan.gitScan.staleMetadata.length > 0 && plan.orphanScan.kept.length === 0
   ) {
@@ -3902,7 +3971,7 @@ export async function worktreePrune(
       "Skipped stale worktree metadata pruning because an orphaned worktree directory was kept.",
     );
   }
-  if (prune.failed || sweep.failed || gc.failed) {
+  if (prune.failed || sweep.failed || gc.failed || reclaim.failed) {
     throw new WorktreeGitError(
       "One or more worktree cleanups failed. Review the failed steps above, fix " +
         "their reported causes, then re-run `discern worktree prune`.",
@@ -3912,12 +3981,102 @@ export async function worktreePrune(
 
   emitOrRenderWorktreeResult(
     ctx,
-    appliedResult("worktree prune", pruneResults(prune, sweep, gc)),
+    appliedResult(
+      "worktree prune",
+      pruneResults(prune, sweep, gc, plan, reclaim),
+    ),
     json,
   );
 }
 
-/** Map the real prune/sweep/GC outcomes to `--json` step results. */
+/** The outcome of the contained-worktree reclaim pass. */
+interface ContainedReclaimResult {
+  /** Checkouts reclaimed — each branch ref kept, resources torn down. */
+  reclaimed: ContainedWorktree[];
+  /** Planned candidates skipped because live state changed since the plan. */
+  skipped: { fact: ContainedWorktree; reason: string }[];
+  /** Whether any reclaim failed (as opposed to being safely skipped). */
+  failed: boolean;
+}
+
+/**
+ * Reclaim the planned contained worktrees: tear down each checkout's external
+ * resources through the same lifecycle path acceptance uses (never a raw
+ * removal), then remove the checkout and its registration. The branch ref is
+ * NEVER deleted here — it stays as the recovery guarantee, and self-cleans
+ * through the ordinary landed-branch prune once the train finally lands.
+ *
+ * Apply re-validates every candidate against LIVE state first (the same
+ * discipline as the stale-worktree removal's re-check): the plan may have
+ * waited at a confirmation prompt while an agent re-entered the worktree, so
+ * a candidate that is no longer contained — new commits, a dirty tree, fresh
+ * activity — is skipped, never force-reclaimed.
+ */
+async function reclaimContainedWorktrees(
+  ctx: LifecycleContext,
+  planned: ContainedWorktree[],
+): Promise<ContainedReclaimResult> {
+  const result: ContainedReclaimResult = {
+    reclaimed: [],
+    skipped: [],
+    failed: false,
+  };
+  if (planned.length === 0) {
+    return result;
+  }
+  const fresh = await pruneContainedScan(ctx);
+  const liveByPath = new Map(fresh.map((f) => [f.path, f]));
+  const commonGitDir = await resolveCommonGitDir(ctx.cwd);
+  for (const fact of planned) {
+    const live = liveByPath.get(fact.path);
+    const reason = live === undefined
+      ? "no longer contained, clean, and idle"
+      : live.branch !== fact.branch
+      ? `now on branch ${live.branch}, planned as ${fact.branch}`
+      : live.tip !== fact.tip
+      ? "the branch tip moved since the plan was built"
+      : undefined;
+    if (reason !== undefined) {
+      ctx.log.warn(
+        `Skipped ${fact.path}: candidate changed since the plan was built (${reason}).`,
+      );
+      result.skipped.push({ fact, reason });
+      continue;
+    }
+    ctx.log.line(
+      `Reclaiming ${fact.path} (branch ${fact.branch} kept; contained in ${fact.containingBranch})...`,
+    );
+    try {
+      // Resources first, from inside the target so `@dir@` destroys resolve; a
+      // configless checkout falls back to the main context. Best-effort — a
+      // teardown hiccup never strands the reclaim; the prune GC is the backstop.
+      const gitKey = await worktreeGitKey(fact.path);
+      const entries = commonGitDir !== undefined && gitKey !== undefined
+        ? await entriesForWorktree(commonGitDir, gitKey)
+        : [];
+      if (entries.length > 0) {
+        const teardownCtx = await lifecycleContext(
+          fact.path,
+          ctx.log,
+          fact.path,
+        ).catch(() => ctx);
+        await destroyResources(teardownCtx, entries);
+      }
+      await removeWorktreeSafely(fact.path, ctx.root);
+      result.reclaimed.push(fact);
+    } catch (e) {
+      ctx.log.error(
+        `Reclaim failed for ${fact.path}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+      result.failed = true;
+    }
+  }
+  return result;
+}
+
+/** Map the real prune/sweep/GC/reclaim outcomes to `--json` step results. */
 function pruneResults(
   prune: {
     removed: string[];
@@ -3926,6 +4085,8 @@ function pruneResults(
   },
   sweep: { removed: string[] },
   gc: GcResult,
+  plan: PrunePlan,
+  reclaim: ContainedReclaimResult,
 ): StepResult[] {
   const step = (
     kind: StepResult["step"]["kind"],
@@ -3936,6 +4097,41 @@ function pruneResults(
     step: { kind, label, disposition: "run", note, group },
     outcome: "ok",
   });
+  // The contained group is always REPORTED: reclaimed rows under the opt-in,
+  // and every kept row as an explicit skip — the offer stays visible in the
+  // machine result exactly as it does in the human output.
+  const contained: StepResult[] = plan.reclaimContained
+    ? [
+      ...reclaim.reclaimed.map((c) =>
+        step(
+          "git",
+          c.path,
+          `reclaimed contained checkout; kept branch ${c.branch}`,
+          "Contained worktrees",
+        )
+      ),
+      ...reclaim.skipped.map(({ fact, reason }): StepResult => ({
+        step: {
+          kind: "git",
+          label: fact.path,
+          disposition: "skip",
+          note: reason,
+          group: "Contained worktrees",
+        },
+        outcome: "skipped",
+      })),
+    ]
+    : plan.contained.map((c): StepResult => ({
+      step: {
+        kind: "git",
+        label: c.path,
+        disposition: "skip",
+        note: `contained in ${c.containingBranch} — reclaim with --contained ` +
+          `(branch ref kept)`,
+        group: "Contained worktrees",
+      },
+      outcome: "skipped",
+    }));
   return [
     ...prune.removed.map((w) =>
       step("git", w, "removed stale worktree", "Worktrees")
@@ -3952,6 +4148,7 @@ function pruneResults(
     ...gc.reclaimed.map((r) =>
       step("resource-destroy", r, "reclaimed orphaned resource", "Resources")
     ),
+    ...contained,
   ];
 }
 

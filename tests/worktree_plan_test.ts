@@ -233,6 +233,8 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     },
     resourceReclaims: [],
     resourceReclaimsKept: 0,
+    contained: [],
+    reclaimContained: false,
   };
   assert(prunePlanIsEmpty(empty));
   assertEquals(prunePlanToEngine(empty).steps.length, 0);
@@ -262,6 +264,15 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
     },
     resourceReclaims: items(entry({ resource_identity: "app-z-db" })),
     resourceReclaimsKept: 1,
+    contained: [{
+      path: "/repo/.wt/spent",
+      branch: "agent/spent",
+      tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      containingBranch: "agent/next",
+      containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      containerAhead: 2,
+    }],
+    reclaimContained: false,
   };
   assert(!prunePlanIsEmpty(full));
   const enginePlan = prunePlanToEngine(full);
@@ -275,7 +286,71 @@ Deno.test("prunePlanToEngine + prunePlanIsEmpty: groups reclaims; empty is empty
       "Orphan directories",
       "Kept orphan directories",
       "Resources",
+      "Contained worktrees",
     ]),
   );
   assert(enginePlan.details.some((d) => d.includes("Stale metadata: 1 entry")));
+});
+
+Deno.test("prunePlanToEngine: the contained group is offer-only by default and runs only under the opt-in", () => {
+  const base = {
+    gitScan: {
+      repoRoot: "/repo",
+      mainBranch: "main",
+      worktreesToRemove: [],
+      branchesToDelete: [],
+      staleMetadata: [],
+      worktreeLines: [],
+      branchLines: [],
+    },
+    orphanScan: {
+      mainRepo: "/repo",
+      mainBranch: "main",
+      removable: [],
+      kept: [],
+    },
+    resourceReclaims: [],
+    resourceReclaimsKept: 0,
+    contained: [{
+      path: "/repo/.wt/spent",
+      branch: "agent/spent",
+      tip: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      containingBranch: "agent/next",
+      containingTip: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      containerAhead: 3,
+    }],
+  };
+
+  // Without the opt-in: visible, skipped, and NOT a change (the plan is empty
+  // in the "would touch anything" sense — nothing to confirm or apply).
+  const offered = { ...base, reclaimContained: false };
+  assert(prunePlanIsEmpty(offered), "an offer alone must not read as a change");
+  const offeredPlan = prunePlanToEngine(offered);
+  const offeredStep = offeredPlan.steps.find(
+    (s) => s.group === "Contained worktrees",
+  );
+  assertEquals(offeredStep?.disposition, "skip");
+  assert(offeredStep?.note?.includes("agent/next") === true);
+  assert(offeredStep?.note?.includes("--contained") === true);
+  assert(
+    offeredPlan.details.some((d) => d.includes("branch refs are always kept")),
+  );
+
+  // Under the opt-in: the same candidate becomes a real step, and the details
+  // name exactly what is kept and what is destroyed.
+  const reclaiming = { ...base, reclaimContained: true };
+  assert(!prunePlanIsEmpty(reclaiming));
+  const reclaimingPlan = prunePlanToEngine(reclaiming);
+  const reclaimingStep = reclaimingPlan.steps.find(
+    (s) => s.group === "Contained worktrees",
+  );
+  assertEquals(reclaimingStep?.disposition, "run");
+  assert(reclaimingStep?.note?.includes("keep branch agent/spent") === true);
+  assert(
+    reclaimingPlan.details.some(
+      (d) =>
+        d.includes("branch refs kept") && d.includes("gate receipt included"),
+    ),
+    "the reclaim confirmation must name what is kept and what is destroyed",
+  );
 });

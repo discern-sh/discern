@@ -949,6 +949,11 @@ export function attachEngineCommands(
         )
         .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
         .option(
+          "--contained",
+          "Also reclaim contained worktrees — checkouts whose committed work is " +
+            "fully contained in another live branch. Branch refs are always kept.",
+        )
+        .option(
           "--dry-run",
           "Report what would be removed/reclaimed without acting.",
         )
@@ -964,6 +969,7 @@ export function attachEngineCommands(
                 assumeYes: o.yes ?? false,
                 dryRun: o.dryRun ?? false,
                 json,
+                contained: o.contained ?? false,
                 // The engine sweeps git-derived worktree parents on its own; the
                 // configured root (a location convention the engine does not know)
                 // is passed so a FULLY-orphaned root is still reclaimed (ADR 0052).

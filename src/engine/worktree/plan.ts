@@ -15,6 +15,7 @@ import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
+import type { ContainedWorktree } from "./containment.ts";
 
 // ── teardown ────────────────────────────────────────────────────────────────
 
@@ -425,6 +426,14 @@ export interface PrunePlan {
   resourceReclaims: LedgerItem[];
   /** Orphaned resource ledger entries kept as live, guarded, or opted out. */
   resourceReclaimsKept: number;
+  /** Contained worktrees — spent early stages of a `start --from` train whose
+   * commits travel inside a live descendant branch. Always REPORTED when found;
+   * reclaimed (checkout + per-worktree state destroyed, branch ref kept) only
+   * under the explicit `reclaimContained` opt-in. */
+  contained: ContainedWorktree[];
+  /** Whether this run's explicit opt-in covers reclaiming the contained group.
+   * Without it the group renders as skipped — the offer, never the act. */
+  reclaimContained: boolean;
 }
 
 function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
@@ -491,18 +500,45 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       group: "Resources",
     });
   }
+  for (const c of plan.contained) {
+    steps.push({
+      kind: "git",
+      label: c.path,
+      disposition: plan.reclaimContained ? "run" : "skip",
+      note: plan.reclaimContained
+        ? `reclaim checkout; keep branch ${c.branch} (contained in ${c.containingBranch})`
+        : `contained in ${c.containingBranch} (${c.tip.slice(0, 12)} carried ` +
+          `+${c.containerAhead} ahead) — pass --contained to reclaim the ` +
+          `checkout; the branch ref is kept`,
+      group: "Contained worktrees",
+    });
+  }
   const staleCount = plan.gitScan.staleMetadata.length;
   const details = staleCount === 0 ? [] : [
     `Stale metadata: ${staleCount} entr${staleCount === 1 ? "y" : "ies"}`,
   ];
+  if (plan.contained.length > 0) {
+    const n = plan.contained.length;
+    details.push(
+      plan.reclaimContained
+        ? `Contained (reclaiming): ${n} checkout${n === 1 ? "" : "s"} — ` +
+          `branch refs kept; each checkout and its per-worktree state ` +
+          `(gate receipt included) destroyed`
+        : `Contained (kept): ${n} checkout${n === 1 ? "" : "s"} whose ` +
+          `commits travel inside a live branch — reclaim with --contained; ` +
+          `branch refs are always kept`,
+    );
+  }
   return { title: "Prune plan", details, steps };
 }
 
-/** True when a prune plan would change nothing (every scan came back empty). */
+/** True when a prune plan would change nothing. A contained group counts only
+ * under the reclaim opt-in — without it the group is a report, not a change. */
 export function prunePlanIsEmpty(plan: PrunePlan): boolean {
   return plan.gitScan.worktreesToRemove.length === 0 &&
     pruneBranchesToDelete(plan.gitScan).length === 0 &&
     plan.gitScan.staleMetadata.length === 0 &&
     plan.orphanScan.removable.length === 0 &&
-    plan.resourceReclaims.length === 0;
+    plan.resourceReclaims.length === 0 &&
+    !(plan.reclaimContained && plan.contained.length > 0);
 }
