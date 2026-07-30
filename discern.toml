@@ -582,7 +582,7 @@
     direction = "up"
     per = "public_doc_words"
     scale = 10000
-    limit = 11.68
+    limit = 11.66
     # Deepening an existing page is legitimate growth: at the current corpus size
     # the margin keeps roughly a thousand words of room for it before a new leaf
     # is due, and re-pins leave the same headroom.
