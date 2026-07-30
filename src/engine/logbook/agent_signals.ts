@@ -17,6 +17,7 @@ import {
   type AgentIdentityDefinition,
   type AgentSignalSource,
 } from "../../shared/agent_catalogue.ts";
+import { classifyMcpClient } from "./agent_identity.ts";
 
 /** Request metadata key used by the MCP 2026-07-28 protocol shape. */
 export const MCP_CLIENT_INFO_META_KEY = "io.modelcontextprotocol/clientInfo";
@@ -133,28 +134,6 @@ function matchEnvironmentRule(
   return [...allOf, ...presentAny];
 }
 
-/** Normalize protocol display names for lookup, not for storage. */
-function normalizeMcpAlias(value: string): string {
-  return value.trim().toLowerCase().replace(/[\s_]+/g, "-");
-}
-
-/** The aliases one catalogue entry owns, with derived values deduplicated. */
-function mcpAliases(identity: AgentIdentityDefinition): string[] {
-  const values = [
-    identity.id,
-    identity.label,
-    identity.nativeName,
-    ...(identity.mcpAliases ?? []),
-  ];
-  return [
-    ...new Set(
-      values.filter((v): v is string => v !== undefined).map(
-        normalizeMcpAlias,
-      ),
-    ),
-  ];
-}
-
 /** Add or merge a signal while preserving catalogue and marker order. */
 function addSignal(
   signals: AgentSignal[],
@@ -205,11 +184,7 @@ export async function detectAgentSignals(
     ? aiAgentValue
     : undefined;
   let aiAgentRecognized = false;
-  const normalizedMcpNames = options.mcpClient === undefined
-    ? []
-    : [options.mcpClient.name, options.mcpClient.title]
-      .filter((v): v is string => v !== undefined)
-      .map(normalizeMcpAlias);
+  const mcpSignals = classifyMcpClient(options.mcpClient);
 
   for (const catalogueEntry of AGENT_CATALOGUE) {
     const identity: AgentIdentityDefinition = catalogueEntry;
@@ -236,22 +211,9 @@ export async function detectAgentSignals(
       addSignal(signals, agent, "process-environment", environmentMarkers);
     }
 
-    const aliases = mcpAliases(identity);
-    if (
-      agent !== "custom" &&
-      normalizedMcpNames.length > 0 &&
-      normalizedMcpNames.some((name) => aliases.includes(name))
-    ) {
-      const markers = [
-        aliases.includes(normalizedMcpNames[0] ?? "")
-          ? "clientInfo.name"
-          : undefined,
-        normalizedMcpNames[1] !== undefined &&
-          aliases.includes(normalizedMcpNames[1])
-          ? "clientInfo.title"
-          : undefined,
-      ].filter((marker): marker is string => marker !== undefined);
-      addSignal(signals, agent, "mcp-client", markers);
+    const mcpSignal = mcpSignals.find((signal) => signal.agent === agent);
+    if (mcpSignal !== undefined) {
+      addSignal(signals, agent, "mcp-client", mcpSignal.markers);
     }
 
     for (const path of identity.hostFiles ?? []) {

@@ -65,6 +65,7 @@ import {
   driverKind,
   splitByCohort,
 } from "./cohorts.ts";
+import { effectiveAgentSignals } from "./agent_identity.ts";
 import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
 import { byBranch } from "./read.ts";
 
@@ -1486,17 +1487,16 @@ const identityGap: Detector = {
     // Identity evidence is about the corpus, not behaviour pathology, so the
     // population is every analyzed run that carries any of it.
     const bearing = facts.verbs.filter((e) =>
-      (e.driver?.agent_signals ?? []).length > 0 ||
+      effectiveAgentSignals(e).length > 0 ||
       e.driver?.mcp_client !== undefined
     );
     const unknownClients = new Map<string, number>();
     let undeclared = 0;
     for (const e of bearing) {
-      const signals = e.driver?.agent_signals ?? [];
+      const signals = effectiveAgentSignals(e);
       const client = e.driver?.mcp_client;
-      // A client declaration with no matching mcp-client signal means the
-      // recorder's catalogue didn't recognize it — the raw name was retained
-      // exactly so a reader could say so.
+      // A client declaration with no effective mcp-client signal means the
+      // current catalogue cannot recognize it. The raw name remains visible.
       if (
         client !== undefined && !signals.some((s) => s.source === "mcp-client")
       ) {

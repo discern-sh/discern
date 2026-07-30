@@ -15,6 +15,10 @@ import {
   agentLabel,
 } from "../src/shared/agent_catalogue.ts";
 import {
+  classifyMcpClient,
+  effectiveAgentSignals,
+} from "../src/engine/logbook/agent_identity.ts";
+import {
   detectAgentSignals,
   MCP_CLIENT_INFO_FIELD_LIMIT,
   MCP_CLIENT_INFO_META_KEY,
@@ -27,6 +31,32 @@ import { fakeEnv } from "./helpers.ts";
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 const NO_HOST_MARKERS = (_path: string): Promise<boolean> =>
   Promise.resolve(false);
+
+/** Architectural owners of the persisted identity field: its schema, the two
+ * recorders, its vocabulary comment, and the one effective reader view. */
+const RAW_IDENTITY_FIELD_OWNERS = new Set([
+  "src/engine/logbook/agent_identity.ts",
+  "src/engine/logbook/cli.ts",
+  "src/engine/logbook/schema.ts",
+  "src/engine/mcp/server.ts",
+  "src/shared/agent_catalogue.ts",
+]);
+
+/** Production files that bypass the canonical effective identity view. */
+function rawIdentityBypasses(
+  sources: Iterable<readonly [string, string]>,
+): string[] {
+  const bypasses: string[] = [];
+  for (const [path, source] of sources) {
+    if (
+      source.includes("agent_signals") &&
+      !RAW_IDENTITY_FIELD_OWNERS.has(path)
+    ) {
+      bypasses.push(path);
+    }
+  }
+  return bypasses.sort();
+}
 
 interface EnvironmentCase {
   readonly agent: AgentIdentity;
@@ -179,6 +209,35 @@ Deno.test("agent detection is imported only by the two logbook recording chokepo
   );
 });
 
+Deno.test("stored identity evidence is read only through the canonical effective view", async () => {
+  const sources: [string, string][] = [];
+  for await (
+    const entry of walk(join(REPO, "src"), {
+      includeDirs: false,
+      exts: [".ts"],
+    })
+  ) {
+    sources.push([
+      relative(REPO, entry.path),
+      await Deno.readTextFile(entry.path),
+    ]);
+  }
+  assertEquals(
+    rawIdentityBypasses(sources),
+    [],
+    "a production reader must call effectiveAgentSignals instead of reading " +
+      "the release-time stored field",
+  );
+  assertEquals(
+    rawIdentityBypasses([[
+      "src/engine/logbook/unrelated_report.ts",
+      "const { agent_signals: clues } = event.driver;",
+    ]]),
+    ["src/engine/logbook/unrelated_report.ts"],
+    "an independently named future reader must auto-enrol in the guard",
+  );
+});
+
 Deno.test("agent signals: every environment marker family identifies its catalogue agent", async () => {
   for (const testCase of ENVIRONMENT_CASES) {
     const signals = await detectAgentSignals({
@@ -320,37 +379,47 @@ Deno.test("agent signals: all sources coexist and Devin stays visibly ambient", 
   );
 });
 
-Deno.test("agent signals: MCP aliases cover every named catalogue identity and title can classify independently", async () => {
+Deno.test("agent signals: every catalogue MCP name auto-enrols at record time and historical read time", async () => {
   for (const identity of AGENT_CATALOGUE) {
     if (identity.id === "custom") {
       continue;
     }
-    const signals = await detectAgentSignals({
-      env: fakeEnv(),
-      mcpClient: { name: identity.id, version: "1" },
-      pathExists: NO_HOST_MARKERS,
-    });
-    assert(
-      signals.some((signal) =>
-        signal.agent === identity.id && signal.source === "mcp-client" &&
-        signal.markers.includes("clientInfo.name")
-      ),
-      `${identity.id}: canonical MCP name must classify through the catalogue`,
-    );
-    if ("mcpAliases" in identity) {
-      for (const alias of identity.mcpAliases) {
-        const aliased = await detectAgentSignals({
-          env: fakeEnv(),
-          mcpClient: { name: alias, version: "1" },
-          pathExists: NO_HOST_MARKERS,
-        });
-        assert(
-          aliased.some((signal) =>
-            signal.agent === identity.id && signal.source === "mcp-client"
-          ),
-          `${identity.id}: MCP alias ${alias} did not classify`,
-        );
-      }
+    const names = new Set([
+      identity.id,
+      identity.label,
+      ...("nativeName" in identity ? [identity.nativeName] : []),
+      ...("mcpAliases" in identity ? identity.mcpAliases : []),
+    ]);
+    for (const name of names) {
+      const client = { name, version: "1" };
+      const classified = classifyMcpClient(client);
+      assert(
+        classified.some((signal) =>
+          signal.agent === identity.id &&
+          signal.markers.includes("clientInfo.name")
+        ),
+        `${identity.id}: catalogue MCP name ${name} did not classify`,
+      );
+      const recorded = await detectAgentSignals({
+        env: fakeEnv(),
+        mcpClient: client,
+        pathExists: NO_HOST_MARKERS,
+      });
+      assert(
+        recorded.some((signal) =>
+          signal.agent === identity.id && signal.source === "mcp-client"
+        ),
+        `${identity.id}: catalogue MCP name ${name} missed record time`,
+      );
+      const historical = effectiveAgentSignals({
+        driver: { mcp_client: client },
+      });
+      assert(
+        historical.some((signal) =>
+          signal.agent === identity.id && signal.source === "mcp-client"
+        ),
+        `${identity.id}: catalogue MCP name ${name} missed historical read time`,
+      );
     }
   }
 
@@ -368,6 +437,90 @@ Deno.test("agent signals: MCP aliases cover every named catalogue identity and t
       agent: "copilot",
       source: "mcp-client",
       markers: ["clientInfo.title"],
+    }],
+  );
+});
+
+Deno.test("effective identity: current MCP interpretation replaces stale derived evidence without losing independent sources", () => {
+  const driver = {
+    agent_signals: [
+      {
+        agent: "codex",
+        source: "mcp-client" as const,
+        markers: ["clientInfo.title"],
+      },
+      {
+        agent: "cursor",
+        source: "process-environment" as const,
+        markers: ["CURSOR_AGENT"],
+      },
+      {
+        agent: "cursor",
+        source: "process-environment" as const,
+        markers: ["AI_AGENT", "CURSOR_AGENT"],
+      },
+    ],
+    mcp_client: { name: "cursor-vscode", version: "1" },
+  };
+  const before = structuredClone(driver);
+  assertEquals(effectiveAgentSignals({ driver }), [
+    {
+      agent: "cursor",
+      source: "process-environment",
+      markers: ["CURSOR_AGENT", "AI_AGENT"],
+    },
+    {
+      agent: "cursor",
+      source: "mcp-client",
+      markers: ["clientInfo.name"],
+    },
+  ]);
+  assertEquals(
+    driver,
+    before,
+    "the effective view must never mutate the event",
+  );
+});
+
+Deno.test("effective identity: a writer's MCP signal remains when the current catalogue has no interpretation", () => {
+  assertEquals(
+    effectiveAgentSignals({
+      driver: {
+        agent_signals: [{
+          agent: "future-agent",
+          source: "mcp-client",
+          markers: ["clientInfo.name"],
+        }],
+        mcp_client: { name: "future-client", version: "1" },
+      },
+    }),
+    [{
+      agent: "future-agent",
+      source: "mcp-client",
+      markers: ["clientInfo.name"],
+    }],
+  );
+  assertEquals(
+    effectiveAgentSignals({
+      driver: {
+        mcp_client: { name: "mystery-agent", version: "1" },
+      },
+    }),
+    [],
+  );
+});
+
+Deno.test("agent signals: Cursor's name-only MCP identifier classifies as Cursor", async () => {
+  assertEquals(
+    await detectAgentSignals({
+      env: fakeEnv(),
+      mcpClient: { name: "cursor-vscode", version: "1" },
+      pathExists: NO_HOST_MARKERS,
+    }),
+    [{
+      agent: "cursor",
+      source: "mcp-client",
+      markers: ["clientInfo.name"],
     }],
   );
 });

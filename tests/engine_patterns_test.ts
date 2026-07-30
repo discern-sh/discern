@@ -159,6 +159,48 @@ async function seedLogbook(dir: string): Promise<void> {
   );
 }
 
+/** Seed historical MCP events whose writer retained raw metadata but had no
+ * catalogue match to store. Five Cursor calls must become attributable under
+ * current catalogue knowledge; the genuinely unknown client must stay loud. */
+async function seedHistoricalMcpIdentityLogbook(dir: string): Promise<string> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  const path = join(logDir, "2026-06.jsonl");
+  await Deno.mkdir(logDir, { recursive: true });
+  const events = [
+    ...Array.from({ length: 5 }, (_, index) => ({
+      name: "cursor-vscode",
+      index,
+    })),
+    ...Array.from({ length: 3 }, (_, index) => ({
+      name: "mystery-agent",
+      index: index + 5,
+    })),
+  ].map(({ name, index }) => ({
+    schema: 1,
+    at: new Date(Date.UTC(2026, 5, 1, index)).toISOString(),
+    kind: "verb",
+    verb: "status",
+    surface: "mcp",
+    writer: "0.0.old",
+    driver: {
+      session: "mcp:historical",
+      json: false,
+      tty: false,
+      ci: false,
+      mcp_client: { name, version: "1" },
+    },
+    branch: "agent/historical",
+    head: "abc1234",
+    clean: true,
+    outcome: "ok",
+    duration_ms: 100,
+    epoch: "e1",
+  }));
+  const raw = `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+  await Deno.writeTextFile(path, raw);
+  return path;
+}
+
 /** Seed two complete start→green→accept arcs plus one pin: enough history to
  * put a number in every stats section. Hours are chosen so the check time and
  * both cycle durations land on round, assertable values; every event carries
@@ -689,6 +731,37 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     );
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
+  });
+});
+
+Deno.test("patterns: current catalogue knowledge reinterprets historical raw MCP identity without rewriting it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    const path = await seedHistoricalMcpIdentityLogbook(dir);
+    const before = await Deno.readTextFile(path);
+
+    const result = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(result.stdout));
+    const data = parsed.data as PatternsData;
+    assertEquals(data.population.identities, [
+      { agent: "cursor", label: "Cursor", runs: 5 },
+    ]);
+    const gaps = data.findings.filter((finding) =>
+      finding.detector === "identity-gap"
+    );
+    assertEquals(gaps.map((finding) => finding.subject), ["mystery-agent"]);
+    assert(
+      !gaps.some((finding) => finding.subject === "cursor-vscode"),
+      "the five historical Cursor calls must leave the anonymous cohort",
+    );
+    assertEquals(
+      await Deno.readTextFile(path),
+      before,
+      "read-time reinterpretation must not migrate or rewrite logbook lines",
+    );
   });
 });
 

@@ -658,8 +658,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
         arguments: {},
         _meta: {
           [MCP_CLIENT_INFO_META_KEY]: {
-            name: "codex-mcp-client",
-            title: "Codex",
+            name: "cursor-vscode",
             version: "2.0.0",
           },
         },
@@ -770,15 +769,15 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "the live MCP status call must be recorded",
     );
     assertEquals(statusEvent.driver?.mcp_client, {
-      name: "codex-mcp-client",
-      title: "Codex",
+      name: "cursor-vscode",
       version: "2.0.0",
     });
     assert(
       statusEvent.driver?.agent_signals?.some((signal) =>
-        signal.agent === "codex" && signal.source === "mcp-client"
+        signal.agent === "cursor" && signal.source === "mcp-client" &&
+        signal.markers.includes("clientInfo.name")
       ) === true,
-      "per-request clientInfo must override initialized clientInfo and normalize through the catalogue",
+      "the name-only Cursor client must override initialized clientInfo and classify through the catalogue",
     );
     const impactEvent = recordedEvents.find((event) => event.verb === "impact");
     assert(

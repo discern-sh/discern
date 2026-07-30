@@ -25,14 +25,13 @@ import {
   agentLabel,
 } from "../../shared/agent_catalogue.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
+import {
+  type EffectiveAgentSignal,
+  effectiveAgentSignals,
+} from "./agent_identity.ts";
 import type { VerbEvent } from "./schema.ts";
 
 // ── driver scoring ──────────────────────────────────────────────────────────
-
-/** One recorded identity-evidence bundle, as the schema admits it. */
-type AgentSignalFact = NonNullable<
-  NonNullable<VerbEvent["driver"]>["agent_signals"]
->[number];
 
 /**
  * The invocation-scoped identity signals one event carries. Ambient evidence
@@ -40,8 +39,8 @@ type AgentSignalFact = NonNullable<
  * scoring: persistent host state can corroborate a reading a human makes, but
  * it never drives one here — it would attribute every run on that host.
  */
-function invocationSignals(e: VerbEvent): AgentSignalFact[] {
-  return (e.driver?.agent_signals ?? []).filter(
+function invocationSignals(e: VerbEvent): EffectiveAgentSignal[] {
+  return effectiveAgentSignals(e).filter(
     (s) => AGENT_SIGNAL_SOURCE_LIFETIMES[s.source] === "invocation",
   );
 }
@@ -256,9 +255,9 @@ export function denominatorClause(split: CohortSplit<unknown>): string {
  * absence, never an error.
  */
 export interface ClientVersionEras {
-  /** Display name for the dominant client (catalogue label when the recorder
-   * recognized it, the raw declared name otherwise); undefined when the
-   * stream carries no client declarations. */
+  /** Display name for the dominant client (the current effective catalogue
+   * label when one identity matches, the raw declared name otherwise);
+   * undefined when the stream carries no client declarations. */
   label: string | undefined;
   /** Each recorded version change: when, from, to. */
   boundaries: { at: string; from: string; to: string }[];
@@ -311,13 +310,17 @@ export function dominantClientEras(
     if (client === undefined || client.name !== dominant) {
       continue;
     }
-    // The recorder's own recognition names the identity when it can — the
-    // stored mcp-client signal — so the label needs no second alias table.
-    const recognized = (e.driver?.agent_signals ?? []).find(
-      (s) => s.source === "mcp-client",
+    // Current catalogue interpretation names the identity when exactly one
+    // match exists. Conflicting matches keep the raw client label rather than
+    // electing a winner.
+    const recognized = new Set(
+      effectiveAgentSignals(e)
+        .filter((signal) => signal.source === "mcp-client")
+        .map((signal) => signal.agent),
     );
-    if (recognized !== undefined) {
-      label = agentLabel(recognized.agent);
+    const [recognizedAgent] = recognized;
+    if (recognized.size === 1 && recognizedAgent !== undefined) {
+      label = agentLabel(recognizedAgent);
     }
     if (firstVersion === undefined) {
       firstVersion = client.version;

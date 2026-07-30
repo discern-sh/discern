@@ -67,6 +67,7 @@ import { REPO_ROOT } from "./repo_authored_paths.ts";
  * event kinds and raw driver signals. This deliberately observes the existing
  * seam; readers do not register themselves with a framework for the test. */
 const LOGBOOK_READER_MODULES = [
+  "src/engine/logbook/agent_identity.ts",
   "src/engine/logbook/patterns.ts",
   "src/engine/logbook/detectors.ts",
   "src/engine/logbook/cohorts.ts",
@@ -1828,6 +1829,21 @@ Deno.test("patterns driver attribution: one identity names the driver; disagreem
   });
   assertEquals(driverAgent(ambientOnly), undefined);
   assertEquals(driverAgent(verb({})), undefined);
+});
+
+Deno.test("patterns identity gap: current catalogue knowledge repairs retained raw MCP metadata", () => {
+  const events = run(
+    Array.from({ length: 5 }, () => unknownMcpClient("cursor-vscode")),
+  );
+  const gap = DETECTORS.find((detector) => detector.id === "identity-gap");
+  assert(gap !== undefined);
+  const outcome = runDetector(gap, buildStreamFacts(events, "main"));
+  assertEquals(outcome.considered, 5);
+  assertEquals(
+    outcome.findings,
+    [],
+    "recognized historical raw metadata must not remain an identity gap",
+  );
 });
 
 Deno.test("patterns driver scoring: a signalled interactive-looking run re-enters the analysis population", () => {

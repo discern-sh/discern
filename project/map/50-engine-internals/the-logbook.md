@@ -22,6 +22,14 @@ The substrate's constraints:
 - **Local, forever.** An architectural test walks the subsystem's module graph and fails on any network API, so the trust claim is held by the gate rather than by intent.
 - **Recording never interferes.** A write failure of any kind degrades to silence; the verb's own result and exit code are untouched.
 
+## Agent identity over time
+
+MCP events keep the bounded client declaration in `driver.mcp_client` and the writing release's catalogue-derived signal in `driver.agent_signals`.
+
+[`agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts) owns the classifier used by recorders and readers. The read-time view preserves non-MCP evidence, classifies raw MCP metadata through the current catalogue, and merges equivalent pairs. A current match replaces stored MCP signals derived from the same declaration. With no current match, stored MCP evidence remains. Independent sources that disagree leave attribution unresolved.
+
+The view never rewrites JSON Lines. Adding an exact catalogue name improves new and historical events on the next `patterns` run. Unknown clients remain visible. A guard confines stored-signal reads to the schema, recorders, and this view.
+
 ## Finding routing
 
 [`routing.ts`](../../../src/engine/logbook/routing.ts) is the single policy seam. Every detector finding reaches `patterns`. An inline detector also reaches one working command according to its scope: `branch` to `done`, `session` to `status`, and `project` to `improvement`. Batch detectors have no working route.
@@ -66,7 +74,7 @@ Each surface records at one point after it has a project. MCP dispatch opens the
 
 CLI uses `recordedExit`, the shared action wrapper, which owns `Deno.exit`, timing, and completion recording. Both surfaces open the recorder with the verb, driver evidence, and flags known at invocation. From the canonical verb vocabulary, the recorder classifies effectful calls, automatically appends their begin, and reuses its id at completion. A parity test enrolls every effectful top-level CLI verb. Result envelopes reach the recorder through the `emitResult` and gate seams; verbs without one (`identity`, `script`) still record a minimal completion.
 
-Each interceptor also contributes what only its surface can see. The CLI wrapper gathers the parent-process session hint, the `--json`/terminal/CI signals, and the flag names on the command line. Both interceptors ask the logbook-only identity detector for every matching process or host marker. The recorder keeps marker names and drops environment values. The MCP recording point also stamps a per-server-instance session id, captures the call's argument names, and retains bounded `clientInfo`. Request `_meta` takes priority, with the initialized client as fallback. The detector maps known MCP names separately. The raw declaration therefore remains available when client-name mappings improve later. Flag capture keeps names only, pattern-restricted, and skips the `script` namespace because its arguments belong to the child. A successful `docs` or `map` page payload carries its canonical target beside the content; the recorder lifts the target by payload shape and drops the content. The one-slot target seam remains the fallback for human-only reads and failed lookups. Gate fields, standard readings, pins, a start's `from`, an update's counts, and acceptance consent and landing state also lift from `data` by shape rather than by verb name. The landing fields reuse the public result schema's Zod shape. A renamed verb therefore keeps recording correctly.
+Each interceptor also contributes what only its surface can see. The CLI wrapper gathers the parent-process session hint, the `--json`/terminal/CI signals, and the flag names on the command line. Both interceptors ask the logbook-only identity detector for every matching process or host marker. The recorder keeps marker names and drops environment values. The MCP recording point also stamps a per-server-instance session id, captures the call's argument names, and retains bounded `clientInfo`. Request `_meta` takes priority, with the initialized client as fallback. The recorder and readers pass that declaration through the same catalogue classifier. Flag capture keeps names only, pattern-restricted, and skips the `script` namespace because its arguments belong to the child. A successful `docs` or `map` page payload carries its canonical target beside the content; the recorder lifts the target by payload shape and drops the content. The one-slot target seam remains the fallback for human-only reads and failed lookups. Gate fields, standard readings, pins, a start's `from`, an update's counts, and acceptance consent and landing state also lift from `data` by shape rather than by verb name. The landing fields reuse the public result schema's Zod shape. A renamed verb therefore keeps recording correctly.
 
 Context (branch, commit, config, toggle) is gathered from invocation, so `accept` reads its branch before removing the worktree. Completion waits for the concurrent begin append to preserve pair order. Both paths absorb write failures. With unreadable config, nothing is recorded.
 
@@ -78,6 +86,7 @@ Context (branch, commit, config, toggle) is gathered from invocation, so `accept
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                     |
 | Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                   |
+| MCP classifier + effective view | [`src/engine/logbook/agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts)     |
 | Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)       |
 | Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                       |
 | Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                       |
