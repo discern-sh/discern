@@ -21,11 +21,11 @@ discern patterns --brag
 
 | Section   | Counts                                                                                                                                                    |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Shipped   | Landings and the branches they landed from; inserted and deleted lines, files, and commits; the biggest landing; the best day; the longest daily run.      |
-| The gate  | `done` runs and greens, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`.  |
-| Pace      | Completed start-to-accept cycles, with the median and fastest times.                                                                                       |
-| Standards | Limits tightened, and how many standards they cover.                                                                                                       |
-| Breadth   | Branches driven, active days against the span, and the day the most branches were active at once.                                                          |
+| Shipped   | Landings and the branches they landed from; inserted and deleted lines, files, and commits; the biggest landing; the best day; the longest daily run.     |
+| The gate  | `done` runs and greens, the longest and current green streaks, first-try greens per branch, and hours of checks run across `done`, `prepare`, and `test`. |
+| Pace      | Completed start-to-accept cycles, with the median and fastest times.                                                                                      |
+| Standards | Limits tightened, and how many standards they cover.                                                                                                      |
+| Breadth   | Branches driven, active days against the span, and the day the most branches were active at once.                                                         |
 
 A landing is a successful `accept`, and its scale reads from the recorded change counts. Streaks count consecutive `done` runs in stream order. A cycle matches a `start`'s created branch to the first later `accept` on it, the same way the [funnel detector](patterns.md#what-the-detectors-watch) matches them.
 

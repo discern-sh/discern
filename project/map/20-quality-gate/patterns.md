@@ -91,20 +91,20 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 ## Where it lives in code
 
-| Concern                                   | Source                                                                 |
-| ----------------------------------------- | ---------------------------------------------------------------------- |
-| The detector registry and every detector  | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
-| Driver scoring and the cohort seam        | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
-| The verb core, rendering, and the reset   | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
-| Shared terminal wrapping and alignment    | [`text.ts`](../../../src/lib/text.ts)                                  |
-| The tolerant stream reader                | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
-| Scope and tier routing                    | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
-| Bounded working-command reader            | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
-| Wire vocabulary and data schemas          | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
-| Registry-driven fixtures and behavior     | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
-| Cohort-seam rules at their home           | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
-| Routing and outcome guards                | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
-| Black-box CLI coverage                    | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
+| Concern                                  | Source                                                                 |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| The detector registry and every detector | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)             |
+| Driver scoring and the cohort seam       | [`cohorts.ts`](../../../src/engine/logbook/cohorts.ts)                 |
+| The verb core, rendering, and the reset  | [`patterns.ts`](../../../src/engine/logbook/patterns.ts)               |
+| Shared terminal wrapping and alignment   | [`text.ts`](../../../src/lib/text.ts)                                  |
+| The tolerant stream reader               | [`read.ts`](../../../src/engine/logbook/read.ts)                       |
+| Scope and tier routing                   | [`routing.ts`](../../../src/engine/logbook/routing.ts)                 |
+| Bounded working-command reader           | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)               |
+| Wire vocabulary and data schemas         | [`patterns_vocabulary.ts`](../../../src/shared/patterns_vocabulary.ts) |
+| Registry-driven fixtures and behavior    | [`patterns_test.ts`](../../../tests/patterns_test.ts)                  |
+| Cohort-seam rules at their home          | [`cohorts_test.ts`](../../../tests/cohorts_test.ts)                    |
+| Routing and outcome guards               | [`logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)    |
+| Black-box CLI coverage                   | [`engine_patterns_test.ts`](../../../tests/engine_patterns_test.ts)    |
 
 ## Current state & gotchas
 
