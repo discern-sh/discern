@@ -31,6 +31,7 @@
 import { join } from "@std/path";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
+import { GLOSSARY, phrasePatternSource } from "./glossary_registry.ts";
 
 /**
  * The plain-language reading of one node — the same feature retold for a
@@ -293,7 +294,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               why:
                 "The final quality check can never wait forever for a trial runner that keeps watching for changes, or for a stuck preview server.",
               agent:
-                "An instruction that quietly left a background service running is treated as a failure even when the instruction itself claimed success — a hidden background service cannot buy a false pass.",
+                "An instruction that left a background service running behind it is treated as a failure even when the instruction itself claimed success — a hidden background service cannot buy a false pass.",
             },
           },
           {
@@ -349,7 +350,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Consistent tidying of Discern's own files",
           what:
-            "`discern tidy [md|toml]` tidies the project guide, the to-do list, the instruction text for coding agents, and the root `discern.toml` settings file, using tidiers carried inside the program — no internet connection needed. Bare `discern tidy` covers both kinds of file, and a file that cannot be understood is left entirely alone. Drawn diagrams in those files must keep their columns lined up; one marked `freeform` is exempt.",
+            "`discern tidy [md|toml]` tidies the project guide, the to-do list, the instruction text for coding agents, and the root `discern.toml` settings file, using tidying tools carried inside the program — no internet connection needed. Bare `discern tidy` covers both kinds of file, and a file that cannot be understood is left entirely alone. Drawn diagrams in those files must keep their columns lined up; one marked `freeform` is exempt.",
           why:
             "Writing maintained by coding agents, and settings edited often, stop collecting pointless layout churn — even when the project's own tools include no tidier.",
         },
@@ -465,7 +466,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Work on the fix starts at the cause; nothing needs re-running just to see what went wrong.",
           agent:
-            "When output is very long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view had to be cut. A failure that a listed tidying tool might fix is marked as such, and a piece of work that claimed success while printing error-like lines produces a tip naming those lines.",
+            "When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view had to be cut. A failure that a listed tidying tool might fix is marked as such, and a piece of work that claimed success while printing error-like lines produces a tip naming those lines.",
         },
       },
       {
@@ -519,9 +520,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
         hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
         plain: {
-          title: "Repeating the check on unchanged work is deliberate",
+          title: "A repeat check on unchanged work must be confirmed",
           what:
-            "Each completed `discern done` records exactly what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. Asked to run again on identical work, `done` refuses without touching anything; `discern done --confirmed` runs it anyway as a deliberate, recorded probe. Any change to the files runs as normal, and so does `--dry-run`.",
+            "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. Asked to run again on identical work, `done` refuses without touching anything; `discern done --confirmed` runs it anyway as a recorded probe. Any change to the files runs as normal, and so does `--dry-run`.",
           why:
             "Unchanged work should expect an unchanged verdict. Repeating a pass spends the full running time on an answer `discern status` already shows, and retrying a failure until it passes teaches that a failure is negotiable.",
           agent:
@@ -555,7 +556,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Minimums and maximums",
           what:
-            '`direction = "up"` protects a minimum, which may only rise — such as the share of the program covered by trials. `direction = "down"` protects a maximum, which may only fall — such as a size allowance. The comparison is against the main shared version\'s limit, so a task cannot quietly weaken a rule.',
+            '`direction = "up"` protects a minimum, which may only rise — such as the share of the program covered by trials. `direction = "down"` protects a maximum, which may only fall — such as a size allowance. The comparison is against the main shared version\'s limit, so a task cannot weaken a rule.',
         },
       },
       {
@@ -819,7 +820,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A crashed session cannot leave forgotten information stores running forever.",
           agent:
-            "Removal instructions are completed and frozen when a service is created, because once the copy is gone there is nothing left to work the details out from — and a frozen instruction still carrying an unfilled placeholder is refused rather than half-run. Before each removal, the saved entry is checked against what is really on the computer, so coding agents working at the same time cannot clean up one another's live services.",
+            "Removal instructions are completed and frozen when a service is created, because once the copy is gone there is nothing left to work the details out from — and a frozen instruction still carrying an unfilled placeholder is refused rather than half-run. Before each removal, the saved entry is checked against what is really on the computer, so a coding agent can never reclaim live services that belong to a different task.",
         },
         surfaces: ["verb:worktree"],
       },
@@ -831,7 +832,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Passing private values into a new copy",
           what:
-            "`[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that the version history deliberately does not carry.",
+            "`[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that are kept out of the version history.",
         },
       },
       {
@@ -1103,7 +1104,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "A small, carefully chosen built-in set",
           what:
-            "The built-in guides teach Discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even a very capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular Discern instruction ships as a registered tip shown at that moment.",
+            "The built-in guides teach Discern's preferred way of working — their names begin with `discern-`, `discern skills list` shows them, and each must clear a bar: it must teach something even the most capable coding agent would not reliably do unasked. A method prompted by an ordinary request ships as a guide; advice tied to a particular Discern instruction ships as a registered tip shown at that moment.",
           why:
             "Every guide's description takes up part of every session's limited reading space, so the collection stays small and each member earns its keep.",
         },
@@ -1468,7 +1469,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
           agent:
-            "The kind of coding agent driving a session is recorded as non-binding evidence, so working habits can be read per kind of agent — with no code, no output, and no search words in the record.",
+            "The kind of coding agent driving a session is recorded as non-binding evidence, so working habits can be read per kind of coding agent — with no code, no output, and no search words in the record.",
         },
       },
       {
@@ -1503,7 +1504,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Advice stays current mechanically, and whether advice gets followed is measurable.",
           agent:
-            "A tip is delivered inside the result of the very instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
+            "A tip is delivered inside the result of the instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
         },
       },
     ],
@@ -1581,7 +1582,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A courier that only pastes still delivers a complete, warm, accurate conversation.",
           agent:
-            "The coding agent passes the message on instead of composing its own: authored writing survives the squeeze of a final answer, where stage directions would be flattened into a bare checklist.",
+            "The coding agent passes the message on instead of composing its own: authored writing survives the squeeze of a final answer, where behind-the-scenes directions would be flattened into a bare checklist.",
         },
       },
       {
@@ -1806,7 +1807,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Coding agents built for this connection call well-described tools — and the typed commands and the tools can never disagree, because each instruction has one shared core.",
           agent:
-            "After `discern_start`, a tip walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and an undeclared input is refused — a misspelt setting fails loudly instead of being silently dropped.",
+            "After `discern_start`, a tip walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and an undeclared input is refused — a mistyped setting fails loudly instead of being dropped without a trace.",
         },
       },
       {
@@ -1916,9 +1917,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Reading space is limited",
           what:
-            "Results are sized for how much a coding agent can hold in mind at once: very long failure output keeps its beginning and end with the full text in a named file, search returns at most five best-matching pages, compiled instructions list regions rather than every page, setup output appears only on failure, and activity-record lines carry basic facts only.",
+            "Results are sized for how much a coding agent can hold in mind at once: long failure output keeps its beginning and end with the full text in a named file, search returns at most five best-matching pages, compiled instructions list regions rather than every page, setup output appears only on failure, and activity-record lines carry basic facts only.",
           why:
-            "A coding agent's reading space is the scarcest resource at the table, and Discern spends it like money.",
+            "A coding agent's reading space is the scarcest thing at the table, and Discern spends it like money.",
           agent:
             "Bounded views with pointers to the rest: the coding agent reads what it needs and fetches the full text only when it chooses to.",
         },
@@ -2020,7 +2021,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "Every canonical set — verbs, tools, jobs, providers, config schema, terms, hints, features — is tied to its satellites by guards that fail the gate when a member is added without its counterparts.",
         why: "The system cannot disagree with itself and stay green.",
         plain: {
-          title: "Master lists cannot quietly disagree with their uses",
+          title: "Master lists cannot disagree with their uses",
           what:
             "Every official fixed list — instructions, tools, kinds of work, kinds of coding agent, settings, terms, tips, features — is tied to everything that depends on it by checks that fail the final check when a member is added without its counterparts.",
           why: "The system cannot disagree with itself and still pass.",
@@ -2088,6 +2089,300 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
  */
 export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> =
   {};
+
+/**
+ * How one term reads in the plain register (ADR 0226): either translated
+ * (`plain`, the one phrase used identically everywhere) or kept (`keep`, with
+ * the reason it is already plain English). Translated entries are policed out
+ * of every node's plain strings by the register guard
+ * (tests/feature_canon_plain_register_test.ts) — outside code spans, where
+ * names are always legal.
+ */
+export type PlainLexiconEntry =
+  | {
+    /** The plain phrase the register uses in place of the term. */
+    readonly plain: string;
+    /**
+     * How the register guard matches the term in plain prose. Omitted: the
+     * glossary entry's own match phrases (`matches ?? [term]`), word-bounded
+     * and case-insensitive. A regex source narrows or widens that (an
+     * inflection family, a plural-only ban for a term whose singular is
+     * ordinary English). `false`: the term reads as ordinary English too
+     * often to police mechanically — the translation still stands, and
+     * review owns it.
+     */
+    readonly match?: string | false;
+  }
+  | {
+    /** Why the term stays untranslated: it is already plain English. */
+    readonly keep: string;
+  };
+
+/**
+ * The plain lexicon — one plain-register rendering per glossary term, keyed
+ * by the term exactly as `GLOSSARY` spells it. The register guard holds the
+ * key set in bijection with the glossary, so a NEW term cannot enter the
+ * product's vocabulary without its plain-language rendering being decided in
+ * the same change. Beyond the guard, this table is the translation canon:
+ * site copy, tooltips, and future plain surfaces read it instead of
+ * re-deciding how a concept is said to a non-technical reader.
+ */
+export const PLAIN_LEXICON: Readonly<Record<string, PlainLexiconEntry>> = {
+  "Accept": { plain: "move finished work onto the main shared version" },
+  "Advisory": {
+    plain: "helpful advice that never blocks work",
+    match: String.raw`\badvisor(?:y|ies)\b`,
+  },
+  "discern version": { plain: "the version of the Discern program itself" },
+  "Gate job": {
+    plain: "a named piece of work in the final check",
+    match: String.raw`\bgate\s+jobs?\b`,
+  },
+  "Coupling": { plain: "files that usually change together" },
+  "Shared file": {
+    keep: "'shared' says exactly what it means; the register keeps the phrase",
+  },
+  "Agent file": {
+    plain: "a coding agent's instruction file",
+    match: String.raw`\bagent\s+files?\b`,
+  },
+  "Desk": {
+    keep:
+      "an everyday word for the person-in-charge's one-screen view; kept as the product says it",
+  },
+  "discern": {
+    keep:
+      "the product's name — a name, not jargon; the plain register capitalises it as Discern",
+  },
+  "Engine": {
+    plain: "the working core of the program",
+    match: String.raw`\bengines?\b`,
+  },
+  "File ownership": { keep: "ownership of files is everyday English" },
+  "Fleet": {
+    plain: "all the work in progress, viewed together",
+    match: String.raw`\bfleets?\b`,
+  },
+  "Gate": { plain: "the final quality check", match: String.raw`\bgates?\b` },
+  "Generated file": {
+    plain: "a file made automatically from a source the project owns",
+    match: String.raw`\bgenerated\s+files?\b`,
+  },
+  "Guidance source": {
+    plain: "the project's own instruction text for coding agents",
+    match: String.raw`\bguidance\s+sources?\b`,
+  },
+  "Installer": { keep: "an everyday computing word" },
+  "Landing authority": {
+    plain: "proof of permission to add work to the main shared version",
+    match: String.raw`\blanding\s+authorit(?:y|ies)\b`,
+  },
+  "Logbook": { plain: "the activity record", match: String.raw`\blogbooks?\b` },
+  "Map": { plain: "the project guide", match: String.raw`\bmaps?\b` },
+  "Migration": {
+    plain: "a numbered update step between settings versions",
+    match: String.raw`\bmigrations?\b`,
+  },
+  "Namespace": {
+    plain: "a clearly separated naming area",
+    match: String.raw`\bnamespaces?\b`,
+  },
+  "Patterns": { plain: "the recurring-behaviour report" },
+  "Placement is consent": {
+    plain: "putting a file somewhere is permission to write there",
+  },
+  "Preset": { plain: "a reusable starter collection of settings" },
+  "Project script": {
+    plain: "the project's own runnable instruction",
+    match: String.raw`\bproject\s+scripts?\b`,
+  },
+  "Receipt": {
+    plain: "the proof-of-completion summary",
+    match: String.raw`\breceipts?\b`,
+  },
+  "Receipt note": {
+    plain:
+      "a saved copy of the proof, attached to the project's shared history",
+    match: String.raw`\breceipt\s+notes?\b`,
+  },
+  "Schema version": {
+    plain: "the settings-format version number",
+    match: String.raw`\bschema\s+versions?\b`,
+  },
+  "Scope": {
+    plain: "a named area of the project",
+    match: String.raw`\bscopes?\b`,
+  },
+  "Skill": {
+    plain: "a reusable how-to guide",
+    match: String.raw`\bskills?\b`,
+  },
+  "Stage": {
+    plain: "a group in the final check's run order",
+    match: String.raw`\bstages?\b`,
+  },
+  "Standard": {
+    plain: "a quality rule",
+    // The singular is ordinary English ("the standard example"), so only the
+    // plural — the subsystem's name — is mechanically policed.
+    match: String.raw`\bstandards\b`,
+  },
+  "Trunk": {
+    plain: "the main shared version",
+    match: String.raw`\btrunks?\b`,
+  },
+  "Tidy": {
+    keep:
+      "discern's own plain-English verb name; the register uses tidy and tidying freely",
+  },
+  "Update": {
+    keep:
+      "an everyday word; the concept is explained in place and `discern update` stays quoted",
+  },
+  "Worktree": {
+    plain: "a separate working copy",
+    match: String.raw`\bworktrees?\b`,
+  },
+  "Worktree resource": {
+    plain: "a supporting service set up for one working copy",
+    match: String.raw`\bworktree\s+resources?\b`,
+  },
+  "Project-owned file": {
+    keep: "'project-owned' reads literally; the register uses it as-is",
+  },
+};
+
+/**
+ * General software jargon the plain register translates — vocabulary the
+ * glossary does not own (it is not discern's to define) but that agents
+ * editing the registry most naturally leak. Every entry is policed; a general
+ * word too ambiguous to police simply is not listed, and the table grows a
+ * row whenever the register needs a new translation. This is a ratchet, not a
+ * promise of completeness: review still owns the register's voice.
+ */
+export const PLAIN_GENERAL_JARGON: Readonly<
+  Record<string, { readonly plain: string; readonly match: string }>
+> = {
+  "agent": {
+    plain: "coding agent",
+    match: String.raw`\b(?<!coding )(?<!coding-)agents?\b`,
+  },
+  "hint": { plain: "tip", match: String.raw`\bhints?\b` },
+  "commit": {
+    plain: "a saved change",
+    match: String.raw`\bcommit(?:s|ted|ting)?\b`,
+  },
+  "branch": {
+    plain: "a task's own line of saved changes",
+    match: String.raw`\bbranch(?:es|ed|ing)?\b`,
+  },
+  "merge": {
+    plain: "joining changes together",
+    match: String.raw`\bmerg(?:e|es|ed|ing)\b`,
+  },
+  "repository": {
+    plain: "the project",
+    match: String.raw`\brepo(?:s|sitor(?:y|ies))?\b`,
+  },
+  "lint": {
+    plain: "a check for likely mistakes",
+    match: String.raw`\blint(?:s|er|ers|ed|ing)?\b`,
+  },
+  "database": {
+    plain: "an information store",
+    match: String.raw`\bdatabases?\b`,
+  },
+  "port": { plain: "a network number", match: String.raw`\bports?\b` },
+  "daemon": { plain: "a background service", match: String.raw`\bdaemons?\b` },
+  "resource": {
+    plain: "a supporting service",
+    match: String.raw`\bresources?\b`,
+  },
+  "idempotent": {
+    plain: "safe to repeat",
+    match: String.raw`\bidempoten(?:t|ce|cy)\b`,
+  },
+  "frontmatter": {
+    plain: "the small details at the top of a page",
+    match: String.raw`\bfrontmatter\b`,
+  },
+  "metadata": { plain: "basic facts", match: String.raw`\bmetadata\b` },
+  "parse": {
+    plain: "work out a file's special writing rules",
+    match: String.raw`\bpars(?:e|es|ed|ing|er|ers)\b`,
+  },
+  "codebase": {
+    plain: "the project's files",
+    match: String.raw`\bcodebases?\b`,
+  },
+  "glob": { plain: "a file-location pattern", match: String.raw`\bglobs?\b` },
+  "token": { plain: "a placeholder", match: String.raw`\btokens?\b` },
+  "flag": {
+    plain: "a mark — or, on a command, a choice",
+    match: String.raw`\bflags?\b`,
+  },
+  "CLI": {
+    plain: "the typed-command window",
+    match: String.raw`\bCLIs?\b`,
+  },
+  "config": { plain: "settings", match: String.raw`\bconfigs?\b` },
+  "runtime": {
+    plain: "the shared parts a program needs while it runs",
+    match: String.raw`\bruntimes?\b`,
+  },
+  "env": { plain: "private settings", match: String.raw`\benvs?\b` },
+};
+
+/** One policed plain-register matcher, derived from the lexicon tables. */
+export interface PlainPolicedTerm {
+  /** The lexicon key it enforces. */
+  name: string;
+  /** The compiled matcher, applied to code-span-stripped plain prose. */
+  matcher: RegExp;
+  /** The plain rendering to use instead. */
+  plain: string;
+}
+
+/**
+ * Every matcher the plain-register guard applies: translated glossary terms
+ * (default matcher derived from the glossary entry's own `matches` phrases)
+ * plus the general-jargon table. `keep` and `match: false` entries police
+ * nothing.
+ */
+export function plainPolicedTerms(): PlainPolicedTerm[] {
+  const out: PlainPolicedTerm[] = [];
+  for (const entry of GLOSSARY) {
+    const rendering = PLAIN_LEXICON[entry.term];
+    if (rendering === undefined || "keep" in rendering) continue;
+    if (rendering.match === false) continue;
+    const source = rendering.match ??
+      (entry.matches ?? [entry.term])
+        .map((phrase) => phrasePatternSource(phrase))
+        .join("|");
+    out.push({
+      name: entry.term,
+      matcher: new RegExp(source, "gi"),
+      plain: rendering.plain,
+    });
+  }
+  for (const [name, entry] of Object.entries(PLAIN_GENERAL_JARGON)) {
+    out.push({
+      name,
+      matcher: new RegExp(entry.match, "gi"),
+      plain: entry.plain,
+    });
+  }
+  return out;
+}
+
+/**
+ * Prose with inline code spans blanked — names are quoted in the plain
+ * register, so backticked command names, config keys, and file names are
+ * always legal and never scanned.
+ */
+export function stripCodeSpans(text: string): string {
+  return text.replace(/`[^`]*`/g, " ");
+}
 
 /** One flattened node with its position in the tree. */
 export interface FlattenedFeature {

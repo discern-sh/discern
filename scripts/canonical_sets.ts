@@ -1034,6 +1034,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: [
       "tests/feature_canon_codegen_test.ts",
       "tests/feature_canon_enrolment_test.ts",
+      "tests/feature_canon_plain_register_test.ts",
     ],
     artifacts: [
       {
