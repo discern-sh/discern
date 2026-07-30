@@ -165,7 +165,10 @@
   build = ["deno task codegen", "deno task site:build"]
   lint = "deno lint"
   typecheck = "deno check"
-  test = { run = "deno task test", timeout = 1200 }
+  # The junit reporter turns a red run into per-test Tier-1 diagnostics (file,
+  # line, test name) and attributable logbook classes; humans running the bare
+  # `deno task test` keep the pretty reporter.
+  test = { run = "deno task test --reporter=junit", timeout = 1200 }
   smoke = "deno task dev --version"
 
   # `prose` lints the map with Vale at the check stage — error-severity findings block
