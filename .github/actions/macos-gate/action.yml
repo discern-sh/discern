@@ -1,0 +1,21 @@
+name: Native macOS gate
+description: Run the repository gate on native macOS and verify a clean tree.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Vale and sync its styles
+      shell: bash
+      run: |
+        VALE_VERSION="$(<.vale-version)"
+        curl -sfL "https://github.com/vale-cli/vale/releases/download/v${VALE_VERSION}/vale_${VALE_VERSION}_macOS_arm64.tar.gz" \
+          | sudo tar -xz -C /usr/local/bin vale
+        vale sync
+
+    - name: Run the gate (discern done, via the dev binary)
+      shell: bash
+      run: deno task dev done
+
+    - name: Assert a clean tree (the fix stage must change nothing in CI)
+      shell: bash
+      run: git diff --exit-code

@@ -1,15 +1,21 @@
-/** The ordinary gate runs on Linux and macOS, and release Mac binaries are notarized. */
+/** Native macOS gates public changes and releases, whose Mac binaries are notarized. */
 
-import { assert, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { BUILD_TARGETS } from "../scripts/build_targets.ts";
 
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
+const MACOS_GATE_ACTION = new URL(
+  "../.github/actions/macos-gate/action.yml",
+  import.meta.url,
+);
 const ENTITLEMENTS = new URL(
   "../scripts/macos_release_entitlements.plist",
   import.meta.url,
 );
 const gateSource = await Deno.readTextFile(GATE);
 const releaseSource = await Deno.readTextFile(RELEASE);
+const macosGateActionSource = await Deno.readTextFile(MACOS_GATE_ACTION);
 const entitlementsSource = await Deno.readTextFile(ENTITLEMENTS);
 
 function job(source: string, name: string, next: string): string {
@@ -20,12 +26,67 @@ function job(source: string, name: string, next: string): string {
   return source.slice(start, end);
 }
 
-Deno.test("the ordinary gate runs in full on native macOS", () => {
+Deno.test("new commits cancel superseded gate runs on the same ref", () => {
+  assertStringIncludes(
+    gateSource,
+    "group: ${{ github.workflow }}-${{ github.ref }}",
+  );
+  assertStringIncludes(gateSource, "cancel-in-progress: true");
+});
+
+Deno.test("the ordinary native macOS gate starts when the repository is public", () => {
   const macos = job(gateSource, "macos", "standards");
+  assertStringIncludes(
+    macos,
+    "if: github.event.repository.private == false",
+  );
   assertStringIncludes(macos, "runs-on: macos-15");
-  assertStringIncludes(macos, "vale_${VALE_VERSION}_macOS_arm64.tar.gz");
-  assertStringIncludes(macos, "run: deno task dev done");
-  assertStringIncludes(macos, "run: git diff --exit-code");
+  assertStringIncludes(macos, "uses: ./.github/actions/macos-gate");
+});
+
+Deno.test("the shared native macOS action runs the full clean-tree gate", () => {
+  assertStringIncludes(
+    macosGateActionSource,
+    "vale_${VALE_VERSION}_macOS_arm64.tar.gz",
+  );
+  assertStringIncludes(macosGateActionSource, "run: deno task dev done");
+  assertStringIncludes(macosGateActionSource, "run: git diff --exit-code");
+});
+
+Deno.test("one native release row runs the full gate before compilation", () => {
+  assertEquals(
+    BUILD_TARGETS.filter((target) => target.gateBeforeBuild).map((target) => ({
+      runner: target.runner,
+      target: target.triple,
+    })),
+    [{
+      runner: "macos-15",
+      target: "aarch64-apple-darwin",
+    }],
+  );
+
+  const build = job(releaseSource, "build", "release");
+  const fetch = build.indexOf("- name: Fetch main for the release gate");
+  const gate = build.indexOf("- name: Run the full gate on native macOS");
+  const compile = build.indexOf("- name: Compile");
+  assert(fetch >= 0, "the release gate fetches its main baseline");
+  assert(gate > fetch, "the release gate follows its main fetch");
+  assert(compile > gate, "compilation waits for the release gate");
+
+  const releaseGate = build.slice(fetch, compile);
+  assertEquals(
+    [
+      ...releaseGate.matchAll(
+        /if: \$\{\{ matrix\.gateBeforeBuild \}\}/g,
+      ),
+    ].length,
+    2,
+  );
+  assertStringIncludes(
+    releaseGate,
+    "uses: ./.github/actions/macos-gate",
+  );
+  assertStringIncludes(releaseGate, "DISCERN_TRUNK: origin/main");
 });
 
 Deno.test("macOS release binaries are signed before smoke and notarized before checksum", () => {

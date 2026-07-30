@@ -34,7 +34,8 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
     assert(
       plan.matrix.include.some((row) =>
         row.target === target.triple && row.output === target.output &&
-        row.os === target.runner
+        row.os === target.runner &&
+        row.gateBeforeBuild === (target.gateBeforeBuild === true)
       ),
       `${target.triple} is absent from the release matrix`,
     );
@@ -48,6 +49,7 @@ Deno.test("every build target auto-enrols in the native release matrix", () => {
   assertEquals(
     releasePlan("v1.2.3", "1.2.3", [future]).matrix.include,
     [{
+      gateBeforeBuild: false,
       target: future.triple,
       output: future.output,
       os: future.runner,
