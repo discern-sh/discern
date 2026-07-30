@@ -31,7 +31,7 @@ The desk builds its rows from `discern status` and the recorded gate receipts. I
 | In flight       | Healthy, active, behind trunk, or awaiting gate.              |
 | Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
-Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree. A reclaimed stage's kept ref appears as a dim fact beside its live container instead — nothing to resume.
+Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree. A reclaimed stage's kept ref shows dimly beside its container instead.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 
@@ -54,7 +54,7 @@ The selected row offers only actions that fit its observed state:
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Drop passes the selected row's path to the core, so duplicate directory names in different roots cannot redirect it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
 
-Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, gate receipt included). The core re-validates the predicate before touching anything.
+Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, gate receipt included). The core re-validates the predicate before acting.
 
 Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 

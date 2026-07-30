@@ -31,7 +31,7 @@ Every verdict comes from authoritative state: a git ancestry read or a receipt i
 
 Use `--green` for work in flight and `--landed` for arrival. A post-landing `--landed` call answers immediately. `--green` does not treat a freshly forked branch's trivially reachable tip as proof.
 
-`--green` also refuses when no checkout holds the branch at call start. A gate receipt is per-worktree state and dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) train stage can never present one again. The refusal points at the nearest containing branch (the correct await target all along) and at `--landed` for the literal arrival question.
+`--green` also refuses when no checkout holds the branch at call start. A gate receipt is per-worktree state and dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) train stage can never present one again. The refusal points at the nearest containing branch and at `--landed` for the literal arrival question.
 
 ## Timing out is an answer
 
