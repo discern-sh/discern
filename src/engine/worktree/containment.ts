@@ -92,7 +92,7 @@ export function containmentIdleCheck(
  */
 export async function treeProvablyClean(path: string): Promise<boolean> {
   const run = await runGit(
-    ["status", "--porcelain", "--untracked-files=normal"],
+    ["status", "--porcelain", "-z", "--untracked-files=normal"],
     { cwd: path },
   );
   return run.success && run.stdout.trim() === "";
