@@ -513,8 +513,8 @@ async function interactiveDrilldown(
   out: Out,
   report: ImprovementReport,
 ): Promise<void> {
-  const ALL = " all";
-  const DONE = " done";
+  const ALL = "\u0000all";
+  const DONE = "\u0000done";
   for (;;) {
     const options = [
       ...report.categories.map((cat) => ({
