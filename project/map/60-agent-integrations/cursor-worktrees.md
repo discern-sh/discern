@@ -1,7 +1,7 @@
 ---
 title: Cursor worktrees
 description: How to use Cursor with discern worktrees without approving every file edit.
-order: 45
+order: 50
 aliases:
   - Cursor External File Protection
   - Cursor Worktree option
