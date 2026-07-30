@@ -7,14 +7,19 @@
  * edit to these golden strings.
  */
 
-import { assertEquals, assertStringIncludes } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   renderLandingReceiptLine,
   renderReceiptLine,
   renderReceiptMarkdown,
 } from "../src/engine/gate/receipt_render.ts";
+import {
+  renderDoneTtySummary,
+  renderDoneTtyTable,
+} from "../src/engine/gate/done_tty.ts";
 import { dimBlock, type StepResult } from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
+import { displayWidth } from "../src/lib/text.ts";
 import type {
   GateStandard,
   Receipt,
@@ -188,6 +193,66 @@ Deno.test("receipt render: a no-op gate is stated honestly", () => {
     md,
     "(no job is wired — nothing ran)",
   );
+});
+
+Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => {
+  const receipt: Receipt = {
+    ...FACTS,
+    line: renderReceiptLine(FACTS),
+    markdown: renderReceiptMarkdown(FACTS, STEPS),
+  };
+  const expected = [
+    "  JOB                 COMMAND                                    RESULT",
+    "  ──────────────────────────────────────────────────────────────────────────────",
+    "  format              deno fmt                                   ok · 1s",
+    "  ──────────────────────────────────────────────────────────────────────────────",
+    "  lint                deno lint                                  ok · <1s",
+    "  ──────────────────────────────────────────────────────────────────────────────",
+    "  test                deno task test                             ok · 41s",
+    "  ──────────────────────────────────────────────────────────────────────────────",
+    "  scope:web           scope unchanged                            skipped",
+    "  ──────────────────────────────────────────────────────────────────────────────",
+    "",
+    "  │  ",
+    "  │  Receipt: gate passed on agent/upload-retry @ abc1234def01 · 2 files +42",
+    "  │  −7 vs main · full receipt: discern status --verbose",
+    "  │  ",
+  ].join("\n");
+  assertEquals(
+    renderDoneTtySummary(STEPS, receipt, { width: 80, color: false }),
+    expected,
+  );
+});
+
+Deno.test("done TTY render: color paints success and the receipt without widening lines", () => {
+  const receipt: Receipt = {
+    ...FACTS,
+    line: renderReceiptLine(FACTS),
+    markdown: renderReceiptMarkdown(FACTS, STEPS),
+  };
+  const rendered = renderDoneTtySummary(STEPS, receipt, {
+    width: 80,
+    color: true,
+  });
+  assertStringIncludes(rendered, "\x1b[38;2;52;211;121mok");
+  assertStringIncludes(rendered, "\x1b[48;2;12;29;27m");
+  for (const line of rendered.split("\n")) {
+    assert(
+      displayWidth(line) <= 80,
+      `TTY line is ${displayWidth(line)} columns: ${line}`,
+    );
+  }
+});
+
+Deno.test("done TTY render: a narrow terminal stacks commands below each result", () => {
+  const rendered = renderDoneTtyTable(STEPS, {
+    width: 40,
+    color: false,
+  });
+  assertStringIncludes(rendered, "JOB / RESULT");
+  assertStringIncludes(rendered, "format  ok · 1s");
+  assertStringIncludes(rendered, "    deno fmt");
+  assertEquals(rendered.includes("\x1b["), false);
 });
 
 Deno.test("receipt line: fixed facts pin the exact sentence", () => {

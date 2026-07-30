@@ -193,7 +193,7 @@ export interface AlignedColumn<Row> {
 }
 
 /** Pad `text` to a visible width without counting its ANSI escape bytes. */
-function padDisplayEnd(text: string, width: number): string {
+export function padDisplayEnd(text: string, width: number): string {
   return `${text}${" ".repeat(Math.max(0, width - displayWidth(text)))}`;
 }
 
