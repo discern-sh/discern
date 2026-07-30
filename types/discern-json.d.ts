@@ -2772,6 +2772,7 @@ export type DiscernAwaitResult = {
     met: boolean;
     waited_ms: number;
     timeout_seconds: number;
+    timeout_basis: "explicit" | "running" | "no-prior" | "idle" | "logbook-off";
     observed: {
       receipt_status?:
         | "honored"
@@ -2794,9 +2795,12 @@ export type DiscernAwaitResult = {
     retry_basis?: "running" | "no-prior" | "idle" | "logbook-off";
     running?: {
       verb: string;
+      branch: string;
       started: string;
       elapsed_ms: number;
       typical_duration_ms?: number;
+      p90_duration_ms?: number;
+      duration_samples?: number;
     };
   } | {
     issues: Array<{
