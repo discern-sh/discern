@@ -682,8 +682,8 @@ Deno.test("patterns --brag: the wire and the card carry the same counted feats",
     // Without the flag, the payload stays lean: no brag key at all.
     const plain = await runAgent(dir, ["patterns", "--json"]);
     assertEquals(plain.code, 0, plain.output);
-    const plainData =
-      PatternsOutputSchema.parse(JSON.parse(plain.stdout)).data as PatternsData;
+    const plainData = PatternsOutputSchema.parse(JSON.parse(plain.stdout))
+      .data as PatternsData;
     assert(!("brag" in plainData), "brag is computed only when asked for");
 
     const json = await runAgent(dir, ["patterns", "--brag", "--json"]);

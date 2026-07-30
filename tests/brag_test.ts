@@ -51,7 +51,12 @@ function run(overrides: Partial<VerbEvent>[]): LogbookEvent[] {
 }
 
 /** A pin event tightening one standard's limit. */
-function pin(at: string, standard: string, from: number, to: number): LogbookEvent {
+function pin(
+  at: string,
+  standard: string,
+  from: number,
+  to: number,
+): LogbookEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
     at,
