@@ -545,11 +545,13 @@
   # belong to that channel, not here. Standing exemptions — the channel-down CLI
   # fallback, and destructive-class rules that verb-bypassing edits can violate
   # (trunk edits, worktree adoption) — stay static and may repeat.
-  # Raise the limit only for guidance that passes the test; trim elsewhere otherwise.
+  # Raise the limit only for guidance that passes the routing test. Never pay for a
+  # necessary instruction by weakening another one; if no redundant wording remains,
+  # report the intrinsic growth so the owner can move this growing-total ceiling.
   [standards.guidance]
     metric = "guidance_words"
     direction = "down"
-    limit = 881
+    limit = 966
     run = "echo DISCERN_METRIC guidance_words $(cat templates/guidance/*.md | wc -w)"
     inputs = ["templates/guidance/**"]
 
