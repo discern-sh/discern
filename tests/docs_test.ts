@@ -447,6 +447,78 @@ Deno.test("docs --adr surfaces ONLY the ADR tree, never _internal/_private", asy
   });
 });
 
+Deno.test("a target naming _adr/ is its own opt-in, on docs and map alike", async () => {
+  await withTempDir(async (dir) => {
+    const docs = await makeDocsFixture(dir);
+    const env = { DISCERN_DOCS_DIR: docs };
+
+    // The explicit subtree target resolves with no --adr flag: the caller
+    // already spelled the buried segment, and the records are public.
+    const explicit = await runCli(
+      ["docs", "_adr/0001-first", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(explicit.code, 0, explicit.stdout);
+    assertEquals(JSON.parse(explicit.stdout).data.doc.slug, "0001-first");
+
+    // The map verb — which has no --adr flag at all — honours the same form
+    // for the project's own decision records.
+    await Deno.mkdir(join(dir, "docs/_adr"), { recursive: true });
+    await Deno.writeTextFile(
+      join(dir, "docs/_adr/0007-example.md"),
+      "# ADR 0007: Example\n",
+    );
+    const viaMap = await runCli(["map", "_adr/0007-example", "--json"], dir);
+    assertEquals(viaMap.code, 0, viaMap.stdout);
+    assertEquals(JSON.parse(viaMap.stdout).data.doc.slug, "0007-example");
+
+    // The audience boundary holds: naming _internal or _private widens nothing.
+    for (
+      const [verb, target] of [
+        ["docs", "_internal/brief"],
+        ["docs", "_private/positioning"],
+        ["map", "_internal/brief"],
+      ] as const
+    ) {
+      const refused = await runCli([verb, target, "--json"], dir, env);
+      assertEquals(refused.code, 1, `${verb} ${target} must refuse`);
+      assertEquals(JSON.parse(refused.stdout).error, "not_found");
+    }
+
+    // A near-miss suggestion prints the canonical target, so retrying the
+    // suggestion verbatim resolves instead of refusing on the bare slug.
+    const nearMiss = await runCli(
+      ["docs", "--adr", "0001", "--json"],
+      dir,
+      env,
+    );
+    assertEquals(nearMiss.code, 1);
+    assertStringIncludes(
+      JSON.parse(nearMiss.stdout).message,
+      "_adr/0001-first",
+    );
+  });
+});
+
+Deno.test("installed docs with an explicit _adr target points to the public archive", async () => {
+  await withTempDir(async (dir) => {
+    const source = await makeDocsFixture(dir);
+    const staged = join(dir, "staged-docs");
+    await stageBundledDocs(source, staged);
+
+    const json = await runCli(
+      ["docs", "_adr/0001-first", "--json"],
+      dir,
+      { DISCERN_DOCS_DIR: staged },
+    );
+    assertEquals(json.code, 0);
+    const result = JSON.parse(json.stdout);
+    assertEquals(result.ok, true);
+    assertStringIncludes(result.message, "https://discern.sh/docs/decisions");
+  });
+});
+
 Deno.test("installed docs --adr points to the public decision archive", async () => {
   await withTempDir(async (dir) => {
     const source = await makeDocsFixture(dir);

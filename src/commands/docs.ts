@@ -154,15 +154,42 @@ function listScopes(scopes: readonly DocsExportScope[]): string {
 
 /**
  * The internal-subtree policy for a browse. In a source checkout, `docs --adr`
- * reveals the decision tree — and only that — never `_internal` / `_private`,
- * and never over MCP (the `docsResult` path passes nothing). Installed binaries
- * do not contain the tree and point readers to its public homes instead.
+ * reveals the decision tree — and only that — never `_internal` / `_private`.
+ * Installed binaries do not contain the tree and point readers to its public
+ * homes instead.
  */
 function internalScope(
   desc: DocsVerb,
   options: DocsOptions,
 ): boolean | readonly string[] {
   return desc.verb === "docs" && options.adr ? [DOCS_ADR_DOC_DIR] : false;
+}
+
+/**
+ * Whether a browse target explicitly names the decision-record subtree — an
+ * `_adr` segment in any target form the resolvers accept (`_adr`,
+ * `_adr/<slug>`, a `…/_adr/….md` path). Naming it IS the opt-in `--adr`
+ * spells, on every surface including MCP: the records are public (the site
+ * publishes them), only tucked out of the default browse, so a caller who
+ * already spells the buried segment is never refused for omitting the flag.
+ * `_internal` / `_private` carry a real audience boundary and are never
+ * widened this way.
+ */
+function targetNamesAdrSubtree(target: string | undefined): boolean {
+  return target !== undefined &&
+    target.split("/").some((seg) => seg === DOCS_ADR_DOC_DIR);
+}
+
+/** Widen an internal-subtree policy with the subtree the target names. */
+function widenInternalForTarget(
+  internal: boolean | readonly string[],
+  target: string | undefined,
+): boolean | readonly string[] {
+  if (internal === true || !targetNamesAdrSubtree(target)) {
+    return internal;
+  }
+  const list = internal === false ? [] : internal;
+  return list.includes(DOCS_ADR_DOC_DIR) ? list : [...list, DOCS_ADR_DOC_DIR];
 }
 
 /** Whether the resolved source tree actually carries the checkout-only records. */
@@ -320,10 +347,14 @@ async function indexData(
   };
 }
 
-/** Compact human-readable names for nearest-match guidance. */
+/** Compact names for nearest-match guidance. Each label leads with the
+ * canonical target so retrying the suggestion verbatim resolves — a bare slug
+ * would refuse for a buried entry (`_adr/…`) whose section is the opt-in. */
 function suggestionLabels(suggestions: readonly DocEntry[]): string[] {
   return suggestions.map((entry) =>
-    entry.slug === "README" ? entry.path : `${entry.slug} (${entry.path})`
+    entry.slug === "README"
+      ? entry.path
+      : `${canonicalDocTarget(entry)} (${entry.path})`
   );
 }
 
@@ -889,8 +920,9 @@ async function treeResult(
 ): Promise<DiscernResult<DocsData>> {
   const resolved = await desc.resolveDir(opts);
   if (
-    desc.verb === "docs" && opts.adr === true && resolved.kind === "ok" &&
-    !(await hasDecisionRecords(resolved.dir))
+    desc.verb === "docs" &&
+    (opts.adr === true || targetNamesAdrSubtree(opts.target)) &&
+    resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
   ) {
     return {
       ok: true,
@@ -898,16 +930,17 @@ async function treeResult(
       message: EXTERNAL_DECISIONS_MESSAGE,
     };
   }
+  const internal = widenInternalForTarget(opts.internal ?? false, opts.target);
   const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({
       cwd,
       dir: resolved.dir,
-      includeInternal: opts.internal,
+      includeInternal: internal,
     });
   const tree = discovered === undefined
     ? undefined
-    : verbTree(desc, discovered, opts.internal);
+    : verbTree(desc, discovered, internal);
   if (!tree) {
     return {
       ok: false,
@@ -1213,9 +1246,13 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
     return await exportDocs(desc, options, scope, log, cwd);
   }
 
-  // `docs --adr` widens discovery to the bundled ADR subtree; every other browse
-  // (and every `map` browse, and the MCP path) stays public-only.
-  const internal = internalScope(desc, options);
+  // `docs --adr` widens discovery to the bundled ADR subtree, and a target that
+  // itself names `_adr/…` widens the same way on every verb and surface; the
+  // remaining browses stay public-only.
+  const internal = widenInternalForTarget(
+    internalScope(desc, options),
+    options.target,
+  );
 
   if (options.search !== undefined && (options.raw || options.list)) {
     const conflicts = [
@@ -1246,8 +1283,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
 
   const resolved = await desc.resolveDir(options);
   if (
-    desc.verb === "docs" && options.adr === true && resolved.kind === "ok" &&
-    !(await hasDecisionRecords(resolved.dir))
+    desc.verb === "docs" &&
+    (options.adr === true || targetNamesAdrSubtree(options.target)) &&
+    resolved.kind === "ok" && !(await hasDecisionRecords(resolved.dir))
   ) {
     log.line(EXTERNAL_DECISIONS_MESSAGE);
     return 0;

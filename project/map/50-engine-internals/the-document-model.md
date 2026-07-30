@@ -40,7 +40,7 @@ Sibling reading order is README-first, then `DocEntry.order`. An explicit frontm
 
 Rendered surfaces strip the frontmatter block (its values travel as structured fields — `publish` when false, `order`, `aliases`, `cited_adrs`); RAW surfaces (`--raw`, the site's `.md` editions) return pristine bytes by contract. Inline ADR citation groups are stripped from human-rendered prose only (terminal and MCP `docs`, site HTML) and retained everywhere agents read ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)); the normalized citation form is gate-enforced by [`tests/adr_citation_form_test.ts`](../../../tests/adr_citation_form_test.ts). Both prose standards measure the body only: the word count strips frontmatter directly, and Vale lints a frontmatter-blanked staged mirror ([`scripts/prose_lib.ts`](../../../scripts/prose_lib.ts)).
 
-`docs --adr` has a source/install split. A source checkout resolves this repo's configured map and can browse `_adr/`; a customer binary contains no such directory and returns the public decisions-site and repository locations. MCP docs has no internal mode and serves the same staged public set through `docsResult`.
+`docs --adr` has a source/install split. A source checkout resolves this repo's configured map and can browse `_adr/`; a customer binary contains no such directory and returns the public decisions-site and repository locations. A target that itself names `_adr/…` is its own opt-in on every surface — both verbs and MCP resolve it without the flag, since the records are public and only tucked out of the default browse; `_internal` and `_private` keep their audience boundary regardless of target form. MCP docs otherwise serves the same staged public set through `docsResult`.
 
 ### Search projections
 
