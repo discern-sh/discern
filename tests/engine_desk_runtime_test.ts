@@ -954,3 +954,75 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   );
   assertStringIncludes(joined(refusalOutput), "identity is unavailable");
 });
+
+Deno.test("desk reclaims a contained checkout only through its explicit confirmation", async () => {
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const spent = fleetEntry("agent/stage-a", "/worktrees/stage-a", {
+    ahead: 1,
+    contained_in: "agent/stage-b",
+  });
+  const data = statusData([main, spent]);
+
+  // Declined: the confirmation names the specific worktree, what is kept (the
+  // branch ref), where the work travels, and the receipt consequence — and a
+  // "no" runs nothing.
+  const declinedOutput = transcript();
+  const declinedChoices = [spent.path, "reclaim", BACK, QUIT];
+  const declinedReclaims: string[] = [];
+  const confirmMessages: string[] = [];
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(declinedOutput, {
+        status: () => ({ ok: true, data }),
+        select: () => declinedChoices.shift() ?? QUIT,
+        confirm: (message) => {
+          confirmMessages.push(message);
+          return false;
+        },
+        reclaim: (_ctx, target) => {
+          declinedReclaims.push(target);
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(
+    declinedReclaims,
+    [],
+    "declining the confirmation must reclaim nothing",
+  );
+  const message = confirmMessages.join("\n");
+  assertStringIncludes(message, "stage-a");
+  assertStringIncludes(message, "agent/stage-a");
+  assertStringIncludes(message, "KEPT");
+  assertStringIncludes(message, "agent/stage-b");
+  assertStringIncludes(message, "gate receipt included");
+
+  // Confirmed: the validated core runs against the selected worktree, and the
+  // action menu offered the reclaim with its containing branch named.
+  const output = transcript();
+  const choices = [spent.path, "reclaim", QUIT];
+  const reclaims: string[] = [];
+  let pauses = 0;
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(output, {
+        status: () => ({ ok: true, data }),
+        select: () => choices.shift() ?? QUIT,
+        confirm: () => true,
+        reclaim: (_ctx, target) => {
+          reclaims.push(target);
+        },
+        pause: () => {
+          pauses++;
+        },
+      }),
+    ),
+    0,
+  );
+  assertEquals(reclaims, ["stage-a"]);
+  assertEquals(pauses, 1);
+  assertStringIncludes(joined(output), "Branch agent/stage-a kept");
+});
