@@ -31,7 +31,8 @@ import { FAILED_STAGES } from "../src/shared/result.ts";
 import { gateFailureRemedy, HINTS } from "../src/shared/hints.ts";
 
 /** The diagnostic cores' claim that the fix is open-ended code work. */
-const CODE_FIX_SIGNATURE = /fix the (?:problems|failing tests) in the diagnostics/iu;
+const CODE_FIX_SIGNATURE =
+  /fix the (?:problems|failing tests) in the diagnostics/iu;
 
 /** A rerun hint's claim that a failure needs fixing before the re-run. */
 const FIX_THE_FAILURE = /fix the failure/iu;
