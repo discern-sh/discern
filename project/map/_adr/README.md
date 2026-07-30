@@ -218,6 +218,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0222 — The frozen contract surface completes the vocabulary canon before the first tag](0222-frozen-contracts-complete-the-canon.md)
 - [0223 — Conversation consent survives an unreadable committed landing policy](0223-conversation-consent-survives-an-unreadable-landing-policy.md)
 - [0224 — Trend comparability is setup equality, and analysis skips setup-era events](0224-trend-comparability-is-setup-equality.md)
+- [0225 — Contained-worktree reclaim is offer-only and keeps the branch ref](0225-contained-worktree-reclaim-is-offer-only.md)
 
 <!-- END GENERATED: current ADR records -->
 

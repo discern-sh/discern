@@ -255,11 +255,12 @@ Sweep stale worktrees, fully-merged branches, and orphaned resources.
 
 Usage: `discern worktree prune [options]`
 
-| Option      | Description                                               |
-| ----------- | --------------------------------------------------------- |
-| `-y, --yes` | Non-interactive: skip the confirm prompt.                 |
-| `--dry-run` | Report what would be removed/reclaimed without acting.    |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout. |
+| Option        | Description                                                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `-y, --yes`   | Non-interactive: skip the confirm prompt.                                                                                                 |
+| `--contained` | Also reclaim contained worktrees — checkouts whose committed work is fully contained in another live branch. Branch refs are always kept. |
+| `--dry-run`   | Report what would be removed/reclaimed without acting.                                                                                    |
+| `--json`      | Emit the result as a JSON DiscernResult object on stdout.                                                                                 |
 
 ### `discern identity`
 

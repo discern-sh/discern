@@ -64,6 +64,8 @@ From the main checkout, `discern worktree drop <id|path>` removes an abandoned w
 
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
 
+Prune also reports **contained** worktrees, so a staged train tidies as it goes: a checkout is contained when its branch tip is a strict ancestor of another live branch's tip, its tree is clean, and it is idle — the spent early stage of a `start --from` chain, its commits already travelling inside the next stage. The report names the nearest containing branch with tip hashes and its lead. The default apply never touches the group; `discern worktree prune --contained` plus the ordinary confirmation reclaims the checkouts through the same resource teardown acceptance uses, and **always keeps the branch refs** — they are the recovery path (`discern start --from <branch>`) and self-clean through the ordinary prune once the train lands. Reclaiming destroys per-worktree state, the gate receipt included ([ADR 0225](../_adr/0225-contained-worktree-reclaim-is-offer-only.md)).
+
 ## Where it lives in code
 
 | Responsibility                | Source                                                                                                    |
@@ -73,6 +75,7 @@ After confirmation, `discern worktree prune` removes clean merged worktrees, sta
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
 | Receipt-note recording        | [`src/engine/gate/receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                           |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
+| Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
 

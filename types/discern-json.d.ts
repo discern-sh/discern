@@ -3318,6 +3318,7 @@ export type DiscernStatusResult = {
         elapsed_ms: number;
         typical_duration_ms?: number;
       };
+      contained_in?: string;
       git_unavailable?: boolean;
       id?: string;
       port?: number;

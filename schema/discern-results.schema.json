@@ -10875,6 +10875,9 @@
                           "elapsed_ms"
                         ]
                       },
+                      "contained_in": {
+                        "type": "string"
+                      },
                       "git_unavailable": {
                         "type": "boolean"
                       },

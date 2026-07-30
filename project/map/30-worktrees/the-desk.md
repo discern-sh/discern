@@ -45,6 +45,7 @@ The selected row offers only actions that fit its observed state:
 | Pre-authorize landing once green | Records one landing grant for this worktree in Git's administrative state.    |
 | Revoke landing pre-authorization | Removes that worktree's unconsumed effort grant.                              |
 | Update                           | Brings the trunk into the selected worktree.                                  |
+| Reclaim checkout                 | Removes a contained worktree's checkout; its branch ref is always kept.       |
 | Run script                       | Runs a discovered executable Project Script from that worktree.               |
 | Open with agent                  | Starts or continues a configured coding-agent CLI inside the worktree.        |
 | Open a shell                     | Starts `$SHELL` inside the worktree and returns to a refreshed desk on exit.  |
@@ -52,6 +53,8 @@ The selected row offers only actions that fit its observed state:
 | Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
 Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
+
+Reclaim appears only on a **contained** row — a spent `start --from` stage whose commits travel inside the live branch the row names ([ADR 0225](../_adr/0225-contained-worktree-reclaim-is-offer-only.md)). Its confirmation states what is kept (the branch ref) and what is destroyed (the checkout and its per-worktree state, gate receipt included); the core re-validates the containment predicate before touching anything, so a row that gained work since the survey refuses instead of reclaiming.
 
 Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 
