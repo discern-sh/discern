@@ -541,7 +541,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Quality rules",
       what:
-        "Named quality measurements the project keeps under `[standards]`: each states what to measure, which direction is better, and the current limit, and every run of the final check makes sure no limit has become weaker than the main shared version's.",
+        "Named quality measurements the project keeps under `[standards]`: each states what to measure, which direction is better, and the current limit. Every run of the final check makes sure no limit has become weaker than the main shared version's.",
       why:
         "Quality limits move in one direction only. A minimum may only rise, a maximum may only fall, and a change that weakens either one fails.",
     },
@@ -674,7 +674,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Several coding agents can work at the same time without interfering with one another — or with the copy the person in charge is using.",
       agent:
-        "The coding agent works in a copy it never has to think about: its identity, network number, private settings, and supporting services all stood ready before the session began, and nothing another coding agent does can reach them.",
+        "The coding agent works in a copy it never has to think about: its identity, network number, private settings, and supporting services all stood ready before the session began. Nothing another coding agent does can reach them.",
     },
     surfaces: ["config:worktree", "config:repository"],
     children: [
@@ -819,7 +819,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A crashed session cannot leave forgotten information stores running forever.",
           agent:
-            "Discern completes and freezes removal instructions at the moment it creates a service, because once the copy is gone nothing remains to work the details out from — and it refuses a frozen instruction still carrying an unfilled placeholder rather than half-run it. Before each removal, it compares the saved entry with the computer's real state, so a coding agent can never reclaim live services that belong to a different task.",
+            "Discern completes and freezes removal instructions at the moment it creates a service, because once the copy has vanished, nothing remains to work the details out from — and it refuses a frozen instruction still carrying an unfilled placeholder rather than half-run it. Before each removal, it compares the saved entry with the computer's real state, so a coding agent can never reclaim live services that belong to a different task.",
         },
         surfaces: ["verb:worktree"],
       },
@@ -921,7 +921,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       what:
         "Discern compiles one project-written set of instructions into the instruction file of every chosen coding agent. Its own built-in operating advice always comes first, so the project's words add to it rather than replace it.",
       why:
-        "Write the instructions once, and every coding agent — including one working on another computer — reads the same page.",
+        "Write the instructions once, and every coding agent (including one working on another computer) reads the same page.",
     },
     surfaces: ["config:guidance", "verb:refresh"],
     children: [
@@ -1043,7 +1043,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Automatic actions when a session starts",
           what:
-            "A supported coding agent runs `discern worktree ensure` when its session begins — safely making the working copy ready again, with a reminder while setup is unfinished — and hands working-copy creation and removal events straight to Discern, with no extra translator or home-made command text in between.",
+            "A supported coding agent runs `discern worktree ensure` when its session begins — safely making the working copy ready again, with a reminder while setup remains unfinished — and hands working-copy creation and removal events straight to Discern, with no extra translator and no home-made command text between them.",
           why:
             "A session starts ready, or says what is missing, before any work begins.",
         },
@@ -1072,7 +1072,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Reusable how-to guides",
       what:
-        "Focused, reusable instructions for recurring kinds of task, saved as `SKILL.md` files: Discern's bundled built-in guides plus any the project writes under `[skills].dir`, placed where each coding agent expects to find them.",
+        "Focused, reusable instructions for recurring kinds of task, saved as `SKILL.md` files. The set is Discern's bundled built-in guides plus any the project writes under `[skills].dir`, placed where each coding agent expects to find them.",
       why:
         "A method that took one hard session to learn becomes a single file every future session inherits.",
     },
@@ -1233,7 +1233,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Reading and searching the guide",
           what:
-            "`discern map` lists, searches, and displays the guide's pages in the typed-command window — including the alternative search names stored at the top of each page — and `--export` writes the public pages, everything, or a chosen selection into one file.",
+            "`discern map` lists, searches, and displays the guide's pages in the typed-command window, including the alternative search names stored at the top of each page. `--export` writes the public pages, everything, or a chosen selection into one file.",
         },
         surfaces: ["verb:map"],
       },
@@ -1249,7 +1249,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Finding the right page",
           what:
-            "A coding agent narrows in three steps: named regions, then a search, then the exact page. The compiled instructions list every top-level region by its exact destination, `search` accepts the ordinary words of the task at hand, and every result returns a short extract plus a destination that feeds straight back into the same tool. At most five pages come back, best match first, and search words are never written to the activity record.",
+            "A coding agent narrows in three steps: named regions, then a search, then the exact page. The compiled instructions list every top-level region by its exact destination, `search` accepts the ordinary words of the task at hand, and every result returns a short sample plus a destination that feeds straight back into the same tool. At most five pages come back, best match first, and search words are never written to the activity record.",
           why:
             "As the guide grows, the saved instruction files never churn, and no reading space is spent on a page before it is needed.",
           agent:
@@ -1268,7 +1268,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Checking that the guide still works",
           what:
-            "Every `discern done` examines the guide's substance before the work runs: links between pages and to their sections, examples containing `discern` against the real list of instructions and choices (the project's own instructions included), the small details at the top of each page against their agreed shape, published pages against the rule of who may read `_internal` and `_private` material, and mentions of how-to guides against the set actually in force.",
+            "Every `discern done` examines the guide's substance before the work runs. It checks that links between pages and to their sections resolve, and that examples containing `discern` match the real list of instructions and choices (the project's own instructions included). It also checks that the small details at the top of each page follow their agreed shape, that published pages respect the rule of who may read `_internal` and `_private` material, and that mentions of how-to guides match the set now in force.",
           why:
             "A renamed thing breaks the written guidance loudly, in the same change, instead of quietly a month later — and a withdrawn how-to guide cannot stay recommended by live text.",
           agent:
@@ -1293,9 +1293,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "`publish: false` in a page's frontmatter withholds it from every published surface, and underscore-prefixed trees (`_internal`, `_private`) never ship; decision records are the one semi-public exception, served by `discern docs --adr` and the site's history pages.",
         why: "One predicate answers what ships, everywhere it could ship.",
         plain: {
-          title: "Control over what is published",
+          title: "Control over what ships",
           what:
-            "Writing `publish: false` at the top of a page keeps it off every published surface, and folders whose names begin with an underscore (`_internal`, `_private`) never ship. Decision records are the one partly public exception, served by `discern docs --adr` and the site's history pages.",
+            "Writing `publish: false` at the top of a page keeps it off every published surface, and folders whose names begin with an underscore (`_internal`, `_private`) never ship. Decision records are a partly public exception, served by `discern docs --adr` and the site's history pages.",
           why: "One rule answers what ships, everywhere it could ship.",
         },
       },
@@ -1309,7 +1309,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Decision records",
           what:
-            "Records of significant design choices live under `_adr/`, numbered in one unbroken sequence, with a standard example and writing guide placed in every installation. `discern refresh` maintains the index in their `README`, the final check refuses an index that no longer matches the files, and references to the records take one removable form, hidden when a page is shown to an ordinary reader.",
+            "Records of significant design choices live under `_adr/`, numbered in one unbroken sequence, with a standard example and writing guide placed in every installation. `discern refresh` maintains the index in their `README`, the final check refuses an index that no longer matches the files, and references to the records take one removable form, hidden when an ordinary reader views the page.",
           why:
             "The reasons behind the code outlive the sessions that decided them — findable from one self-maintaining index, without internal numbering leaking into published writing.",
         },
@@ -1355,7 +1355,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "One agreed vocabulary",
           what:
-            "The glossary is made from a master list of terms: one meaning per term, every term usable as a search word, retired wordings kept out of current writing, and every member of a fixed list added the moment it exists.",
+            "The glossary comes from a master list of terms: one meaning per term, every term usable as a search word, retired wordings kept out of current writing, and every member of a fixed list added the moment it exists.",
           why: "Every page and every coding agent uses one name per idea.",
         },
       },
@@ -1378,7 +1378,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       why:
         "Signal without new ways to fail — a piece of advice can be wrong without stopping anyone.",
       agent:
-        "Advice arrives inside results the coding agent is already reading, as a list of tips on the same result package — no second channel to watch, and no document to remember to re-open.",
+        "Advice arrives inside results the coding agent is already reading, as a list of tips on the same result package. There is no second channel to watch and no document to remember to re-open.",
     },
     surfaces: ["config:coupling"],
     children: [
@@ -1400,11 +1400,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Current state",
           what:
-            "`discern status` reports what is true right now: where it was run, how the task compares with the main shared version, which checks would run, whether a proof-of-completion summary stands, the working copy's identity and supporting services, the project's quality rules, whether automatically made files are out of date, and suggested next steps — with the overview of all work in progress when run from the main copy.",
+            "`discern status` reports what is true right now: where it ran, how the task compares with the main shared version, which checks would run, whether a proof-of-completion summary stands, the working copy's identity and supporting services, the project's quality rules, whether automatically made files are out of date, and suggested next steps — with the overview of all work in progress when run from the main copy.",
           why:
             "Getting one's bearings is one cheap, read-only call, for coding agents and people alike.",
           agent:
-            "The tips steer by location: on the main shared copy, the coding agent is pointed at `discern start` before it edits anything, and edits appearing on the main copy while the tools aim at a separate copy trip a safety rail. When clean, saved work holds an honoured proof, the result serves the ready-for-review moment with the proof to pass on.",
+            "The tips steer by location: on the main shared copy, the tips point the coding agent at `discern start` before it edits anything, and edits appearing on the main copy while the tools aim at a separate copy trip a safety rail. When clean, saved work holds an honoured proof, the result serves the ready-for-review moment with the proof to pass on.",
         },
         surfaces: ["verb:status"],
       },
@@ -1499,11 +1499,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Registered tips",
           what:
-            "Every piece of advice Discern can give is an entry in one master list — an identifying name, a subject, an intended reader, a family, and a fill-in-the-blanks message — with an inventory page made from the list, instruction names inside the advice checked against the real instruction list, and the names of tips that appeared recorded in the activity record.",
+            "Every piece of advice Discern can give is an entry in one master list — an identifying name, a subject, an intended reader, a family, and a fill-in-the-blanks message — with an inventory page made from the list, instruction names inside the advice matched to the real instruction list, and the names of tips that appeared recorded in the activity record.",
           why:
             "Advice stays current mechanically, and whether advice gets followed is measurable.",
           agent:
-            "A tip is delivered inside the result of the instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
+            "A tip arrives inside the result of the instruction that made it relevant, at the moment it applies. The intended-reader field marks advice only a coding agent can act on: every result package carries it, and only the interactive person-facing view drops it, through one shared rule every display uses.",
         },
       },
     ],
@@ -1538,11 +1538,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Setup led by the coding agent",
           what:
-            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves changes are allowed, finds the project's main shared line of work (offering to begin version history in a bare folder), examines the project to fill in `[jobs]`, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
+            "`discern setup` is a staged, permission-first conversation the coding agent completes: it proves it may make changes, finds the project's main shared line of work (offering to begin version history in a bare folder), examines the project to fill in `[jobs]`, proves the project runs in a separate working copy, and completes the settings with `setup accept`. Every step serves a message ready to pass to the person in charge, starting from nothing requires `--confirmed`, and installing any extra software is its own permission moment.",
           why:
             "Tell your coding assistant to run setup and answer its questions; the assistant supplies the judgment, and every hard-to-undo step asks first.",
           agent:
-            "The read-only verify step surfaces the failure-prone facts — the project's real main shared line, whether a name for saved changes resolves — before anything is altered. A missing `--confirmed` is answered by re-serving the full permission moment with the instruction to continue, and completion is recorded last, after the proofs, so a resumed session never inherits a false done.",
+            "The read-only verify step surfaces the failure-prone facts — the project's real main shared line, whether a name for saved changes resolves — before anything changes. Discern answers a missing `--confirmed` by re-serving the full permission moment with the instruction to continue, and it records completion last, after the proofs, so a resumed session never inherits a false done.",
         },
         surfaces: ["verb:setup"],
       },
@@ -1562,7 +1562,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A half-installed project says so itself; nobody discovers it in the middle of other work.",
           agent:
-            "Progress is worked out from the project itself — which starter files still carry their fill-this-in marks, which pieces of work are wired — so a second session resumes where the first stopped, and deleting a mark cannot fake completion. An abandoned setup is routed back to resuming it, never to a fresh start that would overwrite the first session's work.",
+            "Discern works progress out from the project itself — which starter files still carry their fill-this-in marks, which pieces of work already connect — so a second session resumes where the first stopped, and deleting a mark cannot fake completion. Discern routes an abandoned setup back to resuming it, never to a fresh start that would overwrite the first session's work.",
         },
       },
       {
@@ -1581,7 +1581,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A courier that only pastes still delivers a complete, warm, accurate conversation.",
           agent:
-            "The coding agent passes the message on instead of composing its own: authored writing survives the squeeze of a final answer, where behind-the-scenes directions would be flattened into a bare checklist.",
+            "The coding agent passes the message on instead of composing its own: authored writing survives the squeeze of a final answer, where behind-the-scenes directions would flatten into a bare checklist.",
         },
       },
       {
@@ -1600,7 +1600,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Permission comes from evidence at the moment of action, never from a coding agent's memory of an earlier conversation.",
           agent:
-            "The same permission check feeds `start`, `status`, a passing `done`, and the moment work is added. A coding agent without cover is sent back to the conversation; one with recorded cover proceeds only after Discern verifies that cover against the exact files that changed.",
+            "The same permission check feeds `start`, `status`, a passing `done`, and the moment work joins the main shared version. Discern sends a coding agent without cover back to the conversation; one with recorded cover proceeds only after Discern verifies that cover on the exact files that changed.",
         },
         surfaces: ["config:acceptance"],
       },
@@ -1620,7 +1620,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "Facts before judgments, and a misconfigured installation names its own fix.",
           agent:
-            "Every remedy points at an instruction that can help from the state the reader is in: older settings are sent to `discern upgrade`, and settings newer than the program are not — because upgrade refuses that state, the fix it names is a newer Discern.",
+            "Every remedy points at an instruction that can help from the state the reader is in: older settings go to `discern upgrade`, and settings newer than the program do not — because upgrade refuses that state, the fix it names is a newer Discern.",
         },
         surfaces: ["verb:doctor"],
       },
@@ -1636,11 +1636,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Updating between versions",
           what:
-            "`discern upgrade` brings the project in line with the program that runs it: numbered, repeat-safe settings updates that are checked before the new format version is recorded, refusal of settings written by a newer Discern, and repair of the fixed parts of `discern.toml` and the marked Discern section of `.gitignore`. `--check` previews without touching anything.",
+            "`discern upgrade` brings the project in line with the program that runs it: numbered, repeat-safe settings updates that Discern checks before recording the new format version, refusal of settings written by a newer Discern, and repair of the fixed parts of `discern.toml` and the marked Discern section of `.gitignore`. `--check` previews without touching anything.",
           why:
             "Updating never means re-reading release notes; the program carries its own path forward and refuses to guess.",
           agent:
-            "The format version is recorded only after the updates check out and the shared parts agree, so an interrupted update leaves a coherent, re-runnable installation — never one marked current over half-changed settings.",
+            "Discern records the format version only after the updates check out and the shared parts agree, so an interrupted update leaves a coherent, re-runnable installation — never one marked current over half-changed settings.",
         },
         surfaces: ["verb:upgrade"],
       },
@@ -1654,7 +1654,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Who owns each file",
           what:
-            "Every file Discern touches is in one of three groups: project-owned (written once, then entirely yours), shared (`discern.toml` and the marked `.gitignore` section, where Discern owns only its marked parts), or made automatically (safe to replace, because the source is yours). Updates honour the groups, and what removal may take away comes from the same list.",
+            "Every file Discern touches is in one of three groups: project-owned (written once, then entirely yours), shared (`discern.toml` and the marked `.gitignore` section, where Discern owns only its marked parts), or made automatically (safe to replace, because the source is yours). Updates honour the groups, and what removal covers comes from the same list.",
           why:
             "What an update may touch is a lookup, never a judgment call — your files stay yours.",
         },
@@ -1667,7 +1667,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Putting a file somewhere is permission to write there",
           what:
-            "Discern and its coding agents write only where the chosen placement allows it: a file at its usual named location carries built-in permission, a setting you pointed elsewhere gives explicit permission for that place, and every other location is off-limits — enforced by a broad design test.",
+            "Discern and its coding agents write only where the chosen placement gives permission: a file at its usual named location carries built-in permission, a setting you pointed elsewhere gives explicit permission for that place, and every other location is off-limits — enforced by a broad design test.",
         },
         surfaces: ["config:scripts"],
       },
@@ -1709,7 +1709,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "`discern config` edits `discern.toml` while keeping its comments and layout — `set`, `set-job`, `set-scope`, and `set-standard` — and reads it back with `get`, `array`, `has`, `subsections`, and `keys`, so other instructions and coding agents never have to work out the file's special writing rules themselves.",
           agent:
-            "Every edit checks the whole resulting file before touching the disk, a renamed setting is refused with its successor named, and a value's kind comes from the agreed settings guide rather than from how the value happens to look — an automated edit cannot leave behind settings the next instruction rejects.",
+            "Every edit checks the complete resulting file before touching the disk. Discern refuses a renamed setting and names its successor, and a value's kind comes from the agreed settings guide rather than from how the value happens to look — an automated edit cannot leave behind settings the next instruction rejects.",
         },
         surfaces: ["verb:config"],
       },
@@ -1721,7 +1721,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Notices for bundled third-party work",
           what:
-            "`discern licenses` prints the required notices for other people's work carried inside Discern, produced from what the program actually includes rather than from a hand-kept list.",
+            "`discern licenses` prints the required notices for other people's work carried inside Discern, produced from what the program includes rather than from a hand-kept list.",
         },
         surfaces: ["verb:licenses"],
       },
@@ -1738,9 +1738,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Ways to use Discern and consistent results",
       what:
-        "Every instruction speaks to people and to tools alike: one consistent result package, a first-class connection for coding agents, and published exact descriptions of both the settings and the results.",
+        "Every instruction speaks to people and to tools alike. There is one consistent result package, a first-class connection for coding agents, and a published exact description of both the settings and the results.",
       why:
-        "Coding agents build against precise, agreed shapes, and what a person sees is a readable rendering of the same result the machine gets.",
+        "Coding agents build on precise, agreed shapes, and what a person sees is a readable rendering of the same result the machine gets.",
     },
     surfaces: ["verb:mcp"],
     children: [
@@ -1802,11 +1802,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The standard connection for coding agents",
           what:
-            "`discern mcp` offers the instructions as tools over the standard coding-agent connection (called `MCP`), built on the official kit: self-describing input shapes drawn from the same agreed result descriptions, strict checking of what is passed in, a remembered working location that `discern_start` re-aims at the new copy, and read-only access to the current state, the affected areas, the settings, the handbook, and the project guide.",
+            "`discern mcp` offers the instructions as tools over the standard coding-agent connection (called `MCP`), built on the official kit: self-describing input shapes drawn from the same agreed result descriptions, strict checking of every input, a remembered working location that `discern_start` re-aims at the new copy, and read-only access to the current state, the affected areas, the settings, the handbook, and the project guide.",
           why:
             "Coding agents built for this connection call well-described tools — and the typed commands and the tools can never disagree, because each instruction has one shared core.",
           agent:
-            "After `discern_start`, a tip walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and an undeclared input is refused — a mistyped setting fails loudly instead of being dropped without a trace.",
+            "After `discern_start`, a tip walks the coding agent through re-aiming its own file work while the tools re-aim themselves, and Discern refuses an undeclared input — a mistyped setting fails loudly instead of vanishing without a trace.",
         },
       },
       {
@@ -1817,7 +1817,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Published exact descriptions",
           what:
-            "The settings format and every instruction's result shape are published as exact, automatically made descriptions in two standard tool-readable forms (called JSON Schema and TypeScript declarations), remade by the normal preparation step and guarded against drift by the final check.",
+            "Discern publishes the settings format and every instruction's result shape as exact, automatically made descriptions in two standard tool-readable forms (called JSON Schema and TypeScript declarations), remade by the normal preparation step, with the final check catching any drift.",
         },
       },
       {
@@ -1847,11 +1847,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "A forgiving way to type instructions",
           what:
-            "A retired instruction name refuses with its successor named, familiar words from other tools suggest the official instruction, small grammatical differences are corrected, and an unknown word gets a did-you-mean built from the live instruction list.",
+            "A retired instruction name refuses with its successor named, familiar words from other tools suggest the official instruction, Discern corrects small grammatical differences, and an unknown word gets a did-you-mean built from the live instruction list.",
           why:
             "Changes in vocabulary never strand a person or a coding agent mid-habit.",
           agent:
-            "A table connects the words other tools taught — init, sync, land — to the official instruction, a project-specific instruction is only ever suggested with its `scripts` prefix, and the intended instruction is worked out before any routing decision, so where a choice is placed cannot sneak an instruction past a safety rule.",
+            "A table connects the words other tools taught — init, sync, land — to the official instruction, a project-specific instruction is only ever suggested with its `scripts` prefix, and Discern works out the intended instruction before any routing decision, so the position of a choice cannot sneak an instruction past a safety rule.",
         },
       },
       {
@@ -1862,7 +1862,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Clean behaviour in the command window",
           what:
-            "`--no-color` and the `NO_COLOR` setting are honoured, output sent to another tool drops decoration, `--plain` switches off questions and page-by-page viewing for unattended runs, and the page-by-page viewer respects the computer's `PAGER` choice.",
+            "Discern honours `--no-color` and the `NO_COLOR` setting, output sent to another tool drops decoration, `--plain` switches off questions and page-by-page viewing for unattended runs, and the page-by-page viewer respects the computer's `PAGER` choice.",
         },
       },
     ],
@@ -1878,7 +1878,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Basic promises",
       what:
-        "The properties the rest of the product stands on — each one a permanent design choice, not a setting.",
+        "The properties the rest of the product stands on — each one a permanent design choice.",
       why:
         "The promises hold everywhere because Discern builds them in: no optional major part, no half-installation, no second copy of anything.",
     },
@@ -1896,11 +1896,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The coding agent is the main user",
           what:
-            "People install Discern and review its proof-of-completion summaries; nearly every other surface — the instructions, the tools, the tips, the compiled instruction text — is read by a coding agent, and the design aims at that reader.",
+            "People install Discern and review its proof-of-completion summaries; a coding agent reads nearly every other surface — the instructions, the tools, the tips, the compiled instruction text — and the design aims at that reader.",
           why:
-            "The easy path is the one coding agents take by default, whether or not they notice the steering.",
+            "Coding agents take the intended path by default, whether they notice the steering or not.",
           agent:
-            "Messages arrive at the moment they apply, refusals carry the next instruction, and wasted work is designed out — none of it asks for the coding agent's attention in order to work.",
+            "Messages arrive at the moment they apply, refusals carry the next instruction, and wasted work never enters the design — none of it asks for the coding agent's attention to work.",
         },
       },
       {
@@ -1916,7 +1916,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Reading space is scarce",
           what:
-            "Results are sized for how much a coding agent can hold in mind at once: long failure output keeps its beginning and end with the full text in a named file, search returns at most five best-matching pages, compiled instructions list regions rather than every page, setup output appears only on failure, and activity-record lines carry basic facts only.",
+            "Discern sizes results for how much a coding agent can hold in mind at once: long failure output keeps its beginning and end with the full text in a named file, search returns at most five best-matching pages, compiled instructions list regions rather than every page, setup output appears only on failure, and activity-record lines carry basic facts only.",
           why:
             "A coding agent's reading space is the scarcest thing at the table, and Discern spends it like money.",
           agent:
@@ -1934,7 +1934,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "One complete, self-contained program",
           what:
-            "The installer and the working core are one program that needs nothing else installed; every instruction runs and exits, and the finished app never needs Discern in order to run.",
+            "The installer and the working core are one program that needs nothing else installed; every instruction runs and exits, and the finished app never needs Discern to run.",
           why:
             "Nothing to babysit: no always-on background service, no extra entry in the project's dependency list, no version mismatch between separate pieces.",
         },
@@ -1949,7 +1949,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Only one tracked settings file",
           what:
-            "A project's entire configuration is the root `discern.toml`; everything else is carried inside the program, pointed to by the settings, or made automatically.",
+            "A project's entire configuration is the root `discern.toml`; everything else ships inside the program, comes from a settings pointer, or regenerates automatically.",
           why: "Reviewing what Discern does to a project is reading one file.",
         },
       },
@@ -1963,7 +1963,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Works with any kind of project",
           what:
-            "Discern ships none of the project's own build tools: the final check, the named areas, the quality rules, and the supporting services run whatever instructions the project declares, in any language. Its built-in tidier covers only the Markdown and TOML files whose house style Discern itself defines.",
+            "Discern ships none of the project's own build tools: the final check, the named areas, the quality rules, and the supporting services run whatever instructions the project declares, in any language. Its built-in tidier covers only the writing and settings files whose house style Discern itself defines.",
           why:
             "One system serves the many-technology reality instead of belonging to one family.",
         },
@@ -2022,7 +2022,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Master lists cannot disagree with their uses",
           what:
-            "Every official fixed list — instructions, tools, kinds of work, kinds of coding agent, settings, terms, tips, features — is tied to everything that depends on it by checks that fail the final check when a member is added without its counterparts.",
+            "Checks tie every official fixed list — instructions, tools, kinds of work, kinds of coding agent, settings, terms, tips, features — to everything that depends on it, and they fail the final check when a member arrives without its counterparts.",
           why: "The system cannot disagree with itself and still pass.",
         },
         children: [
@@ -2038,7 +2038,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               what:
                 "A higher-level list records every official fixed list — its single home, the checks that protect it, the files made from it, and its place in the glossary and in this guide — and broad sweeps fail the final check when a protecting check or an automatically made file belongs to no declared list.",
               why:
-                "The list-keeping habit is itself a checked promise: a new fixed list cannot arrive without saying who guards it and where it is written up.",
+                "The list-keeping habit is itself a checked promise: a new fixed list cannot arrive without saying who guards it and where readers can find it.",
             },
           },
         ],
@@ -2051,7 +2051,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "The discern repository develops under its own gate, worktrees, standards, map, and logbook; a regression in the engine surfaces in discern's own `discern done`.",
         why: "The vendor feels every sharp edge before a user does.",
         plain: {
-          title: "Discern is built using Discern",
+          title: "Discern runs on itself",
           what:
             "The Discern project itself develops under its own final check, separate working copies, quality rules, project guide, and activity record; a fault in Discern surfaces in Discern's own `discern done`.",
           why: "The maker feels every sharp edge before a customer does.",
@@ -2069,11 +2069,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Clean even when interrupted",
           what:
-            "A stop request halts and clears away every piece of work Discern started — check work, working-copy setup and cleanup instructions, launched project-specific instructions — temporary output files are removed by age from one list, and supporting services left behind by vanished copies are reclaimed by the cleanup step.",
+            "A stop request halts and clears away every piece of work Discern started — check work, working-copy setup and cleanup instructions, launched project-specific instructions — one list removes temporary output files by age, and the cleanup step reclaims supporting services left behind by vanished copies.",
           why:
             "A stopped session leaves a machine you would still want to work on.",
           agent:
-            "Related work is started in groups so a stop reaches even the tasks that other tasks started, one shared stop-watcher waits for children to be cleared before reporting the usual stopped state, and readers of a task's output give up after a short grace period — an escaped background service holding its output open cannot stall the cancellation.",
+            "Discern starts related work in groups so a stop reaches even the tasks that other tasks started, and one shared stop-watcher waits until the children have gone before reporting the usual stopped state. Readers of a task's output give up after a short grace period, so an escaped background service holding its output open cannot stall the cancellation.",
         },
       },
     ],
@@ -2709,7 +2709,7 @@ function renderPlainCoverage(): string[] {
   lines.push("### Missing entries", "");
   if (absent.length === 0) {
     lines.push(
-      "- None. Every member of every fixed list is covered by a feature entry.",
+      "- None. A feature entry covers every member of every fixed list.",
       "",
     );
   } else {
@@ -2762,9 +2762,9 @@ export function renderFeatureCanonPlainDoc(): string {
     "",
     "# The complete feature guide",
     "",
-    "_Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide — or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin — instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._",
+    "_Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._",
     "",
-    `${FEATURE_CANON.length} main areas · ${flattened.length} detailed entries · ${benefits.length} statements of benefit${agentStat} · ${claims.length} claims about lists with a fixed membership. The top level gives the shortest account; the deepest level gives the fullest one.`,
+    `${FEATURE_CANON.length} main areas · ${flattened.length} detailed entries · ${benefits.length} statements of benefit${agentStat} · ${claims.length} claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.`,
     "",
     "## At a glance",
     "",
