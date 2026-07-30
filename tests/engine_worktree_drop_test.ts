@@ -57,6 +57,91 @@ Deno.test("worktree drop <path>: resolves the target by path too", async () => {
   });
 });
 
+Deno.test("worktree drop: refuses an ambiguous basename and requires a path", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Git permits linked worktrees in unrelated roots with the same directory
+    // basename. A bare `dup` names both registrations; neither fleet order nor
+    // the default worktree root may decide which checkout is destroyed.
+    const first = await addWorktree(dir, "dup");
+    const second = join(`${dir}.worktrees`, "alt", "dup");
+    await git(
+      dir,
+      "worktree",
+      "add",
+      second,
+      "-b",
+      "agent/alt-dup",
+    );
+    const firstPath = await Deno.realPath(first);
+    const secondPath = await Deno.realPath(second);
+
+    const refused = await runAgent(dir, ["worktree", "drop", "dup"]);
+    assertEquals(refused.code, 1, refused.output);
+    assertStringIncludes(
+      refused.output,
+      "`discern worktree drop` can't resolve 'dup'",
+    );
+    assertStringIncludes(refused.output, firstPath);
+    assertStringIncludes(refused.output, secondPath);
+    assertStringIncludes(refused.output, "Pass one of these paths");
+    assert(await exists(first), "the first candidate must survive");
+    assert(await exists(second), "the second candidate must survive");
+    assert(await branchExists(dir, "agent/dup"), refused.output);
+    assert(await branchExists(dir, "agent/alt-dup"), refused.output);
+
+    // The listed path selects one registration without touching its
+    // same-basename sibling.
+    const selected = await runAgent(dir, [
+      "worktree",
+      "drop",
+      secondPath,
+    ]);
+    assertEquals(selected.code, 0, selected.output);
+    assert(await exists(first), "the unselected candidate must survive");
+    assertEquals(await exists(second), false, selected.output);
+  });
+});
+
+Deno.test("worktree drop: refuses an id shared by different worktree paths", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // Recorded identity overrides can give differently named registrations the
+    // same worktree id. That is the same destructive first-match mechanism as
+    // a basename collision, reached through the other accepted alias source.
+    const first = await addWorktree(dir, "first-path");
+    const second = await addWorktree(dir, "second-path");
+    await Deno.writeTextFile(
+      join(first, ".env.local"),
+      "DISCERN_WORKTREE_ID=shared-id\n",
+    );
+    await Deno.writeTextFile(
+      join(second, ".env.local"),
+      "DISCERN_WORKTREE_ID=shared-id\n",
+    );
+    const firstPath = await Deno.realPath(first);
+    const secondPath = await Deno.realPath(second);
+
+    const refused = await runAgent(dir, [
+      "worktree",
+      "drop",
+      "shared-id",
+      "--force",
+    ]);
+    assertEquals(refused.code, 1, refused.output);
+    assertStringIncludes(
+      refused.output,
+      "`discern worktree drop` can't resolve 'shared-id'",
+    );
+    assertStringIncludes(refused.output, firstPath);
+    assertStringIncludes(refused.output, secondPath);
+    assert(await exists(first), "the first candidate must survive");
+    assert(await exists(second), "the second candidate must survive");
+  });
+});
+
 Deno.test("worktree drop: a DISCERN_WORKTREE_ID in the environment cannot redirect the match", async () => {
   await withTempDir(async (dir) => {
     // Two worktrees; the caller's environment carries an id override naming the

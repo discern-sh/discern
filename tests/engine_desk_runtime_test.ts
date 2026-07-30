@@ -912,6 +912,7 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
   const dropData = statusData([main, abandoned]);
   const dropChoices = [abandoned.path, "drop", QUIT];
   const dropCalls: Array<{ dryRun?: boolean; force?: boolean }> = [];
+  const dropTargets: string[] = [];
   let dropPauses = 0;
   assertEquals(
     await runDesk(
@@ -920,7 +921,8 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
         status: () => ({ ok: true, data: dropData }),
         select: () => dropChoices.shift() ?? QUIT,
         input: () => abandoned.branch,
-        drop: (_ctx, _target, opts) => {
+        drop: (_ctx, target, opts) => {
+          dropTargets.push(target);
           dropCalls.push(opts);
           if (!(opts.dryRun ?? false) && !(opts.force ?? false)) {
             throw new WorktreeGitError("unlanded work would be discarded");
@@ -934,9 +936,18 @@ Deno.test("desk lifecycle actions preview, confirm, apply, and contain refusals"
     0,
   );
   assertEquals(dropCalls, [{ dryRun: true }, {}, { force: true }]);
+  assertEquals(dropTargets, [
+    abandoned.path,
+    abandoned.path,
+    abandoned.path,
+  ]);
   assertEquals(dropPauses, 1);
   assertStringIncludes(joined(dropOutput), "unlanded work would be discarded");
   assertStringIncludes(joined(dropOutput), "--force");
+  assertStringIncludes(
+    joined(dropOutput),
+    `discern worktree drop ${abandoned.path}`,
+  );
 
   const refusalOutput = transcript();
   const refusalChoices = [effort.path, "accept", BACK, QUIT];
