@@ -33,7 +33,7 @@ import { isValidMapDir } from "../src/shared/map_path.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
-import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { readSetupMachineryCommitEvidence } from "../src/shared/setup_machinery_evidence.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
@@ -750,7 +750,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
       ".mcp.json",
       "discern.toml",
     ]);
-    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
     assertEquals(
       await gitOut(dir, "rev-parse", "HEAD^{tree}"),
       retryEvidence.evidence.indexTree,
@@ -863,7 +863,7 @@ async function assertRetryWasNotAttributed(
   assertEquals(
     await parsedCommitTrailers(dir),
     "",
-    `${context}: a changed retry must not receive ${DISCERN_BOT.trailer}`,
+    `${context}: a changed retry must not receive ${DISCERN_MACHINE.trailer}`,
   );
   assertEquals(
     (await readSetupMachineryCommitEvidence(dir)).status,

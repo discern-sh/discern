@@ -7,7 +7,7 @@
  * history. All writes are local; this module never fetches or pushes.
  */
 
-import { DISCERN_BOT } from "../../shared/brand.ts";
+import { DISCERN_MACHINE } from "../../shared/brand.ts";
 import {
   discernCommitAttributionEnabled,
   type EnvReader,
@@ -429,10 +429,10 @@ function notesIdentity(
     return undefined;
   }
   return {
-    GIT_AUTHOR_NAME: DISCERN_BOT.name,
-    GIT_AUTHOR_EMAIL: DISCERN_BOT.email,
-    GIT_COMMITTER_NAME: DISCERN_BOT.name,
-    GIT_COMMITTER_EMAIL: DISCERN_BOT.email,
+    GIT_AUTHOR_NAME: DISCERN_MACHINE.name,
+    GIT_AUTHOR_EMAIL: DISCERN_MACHINE.email,
+    GIT_COMMITTER_NAME: DISCERN_MACHINE.name,
+    GIT_COMMITTER_EMAIL: DISCERN_MACHINE.email,
   };
 }
 

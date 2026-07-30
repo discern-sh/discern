@@ -9,7 +9,7 @@
  * can require an exact staged path set and commit the index as-is.
  */
 
-import { DISCERN_BOT } from "./brand.ts";
+import { DISCERN_MACHINE } from "./brand.ts";
 import { discernCommitAttributionEnabled, type EnvReader } from "./env.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import {
@@ -432,7 +432,7 @@ export function discernCommitMessage(
     paragraphs.push(body);
   }
   if (discernCommitAttributionEnabled(env)) {
-    paragraphs.push(DISCERN_BOT.trailer);
+    paragraphs.push(DISCERN_MACHINE.trailer);
   }
   return paragraphs.join("\n\n");
 }
