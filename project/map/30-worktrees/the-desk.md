@@ -52,7 +52,7 @@ The selected row offers only actions that fit its observed state:
 | Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
 | Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
-Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
+Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Drop passes the selected row's path to the core, so duplicate directory names in different roots cannot redirect it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
 
 Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, gate receipt included). The core re-validates the predicate before touching anything.
 

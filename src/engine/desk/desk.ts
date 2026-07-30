@@ -712,14 +712,15 @@ async function dispatchAction(
       return true;
     }
     case "drop": {
-      echoCommand(out, `discern worktree drop ${target}`);
+      const dropTarget = row.entry.path;
+      echoCommand(out, `discern worktree drop ${shellWord(dropTarget)}`);
       const ctx = await runtime.lifecycle(root);
-      await runtime.drop(ctx, target, { dryRun: true });
+      await runtime.drop(ctx, dropTarget, { dryRun: true });
       if (!(await runtime.confirm(`Drop ${target}?`, false))) {
         return false;
       }
       try {
-        await runtime.drop(ctx, target, {});
+        await runtime.drop(ctx, dropTarget, {});
         await runtime.pause(out);
         return true;
       } catch (e) {
@@ -741,8 +742,11 @@ async function dispatchAction(
           out.info("Left untouched.");
           return false;
         }
-        echoCommand(out, `discern worktree drop ${target} --force`);
-        await runtime.drop(ctx, target, { force: true });
+        echoCommand(
+          out,
+          `discern worktree drop ${shellWord(dropTarget)} --force`,
+        );
+        await runtime.drop(ctx, dropTarget, { force: true });
         await runtime.pause(out);
         return true;
       }
