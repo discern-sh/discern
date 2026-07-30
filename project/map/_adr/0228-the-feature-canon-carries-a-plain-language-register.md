@@ -1,5 +1,7 @@
 # ADR 0228: The feature canon carries a plain-language register
 
+> **Vocabulary amendment ([ADR 0234](0234-tips-are-the-desks-human-advisory-channel.md)):** The plain register now renders a hint as "an advice note" — "tip" names the desk's human advisory channel. The decision and reasoning are otherwise unchanged.
+
 **Status**: accepted. Extends the feature registry ([ADR 0175](0175-the-feature-canon-compiles-from-a-feature-registry.md)) and the agent-experience axis ([ADR 0179](0179-the-feature-canon-carries-an-agent-experience-axis.md)).
 
 ## Context

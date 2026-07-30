@@ -226,6 +226,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0231 — Prose density shares one versioned corpus](0231-prose-density-shares-one-versioned-corpus.md)
 - [0232 — `await` continuations spend the transport budget](0232-await-continuations-spend-the-transport-budget.md)
 - [0233 — JUnit XML joins diagnostic auto-detection](0233-junit-xml-joins-diagnostic-auto-detection.md)
+- [0234 — Tips are the desk's human advisory channel](0234-tips-are-the-desks-human-advisory-channel.md)
 
 <!-- END GENERATED: current ADR records -->
 
