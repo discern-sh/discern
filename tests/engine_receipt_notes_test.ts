@@ -5,7 +5,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
@@ -153,10 +153,10 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     assertEquals(first.result.data?.receipt_note?.write.status, "recorded");
     assertEquals(await noteAt(dir, first.target), first.receipt);
     assertEquals(await notesIdentity(dir), [
-      DISCERN_BOT.name,
-      DISCERN_BOT.email,
-      DISCERN_BOT.name,
-      DISCERN_BOT.email,
+      DISCERN_MACHINE.name,
+      DISCERN_MACHINE.email,
+      DISCERN_MACHINE.name,
+      DISCERN_MACHINE.email,
     ]);
     assertLacksHint(first.result, HINTS["accept-publish-receipt-note"]);
     const firstNotesTip = await gitOut(dir, "rev-parse", RECEIPT_NOTES_REF);
@@ -167,10 +167,10 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     assertEquals(await noteAt(dir, first.target), first.receipt);
     assertEquals(await noteAt(dir, second.target), second.receipt);
     assertEquals(await notesIdentity(dir, firstNotesTip), [
-      DISCERN_BOT.name,
-      DISCERN_BOT.email,
-      DISCERN_BOT.name,
-      DISCERN_BOT.email,
+      DISCERN_MACHINE.name,
+      DISCERN_MACHINE.email,
+      DISCERN_MACHINE.name,
+      DISCERN_MACHINE.email,
     ]);
     assertEquals(await notesIdentity(dir), [
       "Engine Test",

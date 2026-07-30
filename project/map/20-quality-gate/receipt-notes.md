@@ -31,7 +31,7 @@ git notes --ref=discern show <commit>
 
 ## Authorship and failure
 
-The notes commit uses `discern-bot <bot@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The receipt still records.
+The notes commit uses `discern <done@discern.sh>` as author and committer. With `DISCERN_NO_ATTRIBUTION` set, it uses the repository's Git identity instead. The receipt still records.
 
 The note write and fetch-configuration reconciliation both fail open. `data.receipt_note.write` and `data.receipt_note.fetch` carry their status and any cause. A transport or recording problem cannot roll the trunk back or turn the completed landing red.
 
