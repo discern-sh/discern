@@ -4009,8 +4009,8 @@ interface ContainedReclaimResult {
  * Apply re-validates every candidate against LIVE state first (the same
  * discipline as the stale-worktree removal's re-check): the plan may have
  * waited at a confirmation prompt while an agent re-entered the worktree, so
- * a candidate that is no longer contained — new commits, a dirty tree, fresh
- * activity — is skipped, never force-reclaimed.
+ * a candidate that fails the predicate by then — new commits, a dirty tree,
+ * fresh activity — is skipped, never force-reclaimed.
  */
 async function reclaimContainedWorktrees(
   ctx: LifecycleContext,

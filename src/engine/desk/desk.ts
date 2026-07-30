@@ -684,7 +684,7 @@ async function dispatchAction(
       // worktree, what is kept (the branch ref — the work travels inside its
       // containing branch), and what is destroyed (the checkout and its
       // per-worktree state, gate receipt included, so a sibling's
-      // `await --green` on this branch can no longer resolve).
+      // `await --green` on this branch refuses afterwards).
       echoCommand(
         out,
         `discern worktree prune --contained  (reclaims ${target})`,

@@ -31,6 +31,7 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - config-change attribution and each standard's limit history — the `config-change` and `pin` events
 - advisory findings on `status`, the `done` receipt, and `improvement`
 - wait estimates when concurrent test runs queue
+- the in-flight check on the contained-worktree offer — a logbook-off install falls back to a one-hour quiet period
 
 ## Where findings appear
 

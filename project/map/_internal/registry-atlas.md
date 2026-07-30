@@ -41,7 +41,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
-| [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
+| [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 8       | —                | node `logbook`              |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 29      | "Patterns"       | node `patterns`             |
@@ -481,7 +481,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 The advisory capabilities that switch off with [project].logbook = false; every opt-out wording surface quotes each member's phrase verbatim.
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
-- Members: 7
+- Members: 8
 - Guards: `tests/logbook_powered_test.ts`
 - Glossary: not enrolled — opt-out wording behind the documented Logbook concept, not separate product vocabulary
 - Feature canon: described by the `logbook` node
