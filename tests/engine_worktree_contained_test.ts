@@ -663,3 +663,68 @@ Deno.test("await --green skips a ref-only container and points at a stage that c
     );
   });
 });
+
+// ── the aftermath: kept refs are a fact, never a nag ─────────────────────────
+
+Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned work", async () => {
+  await withTempDir(async (dir) => {
+    await chainFixture(dir);
+    const r = await runAgent(dir, [
+      "worktree",
+      "prune",
+      "--contained",
+      "--yes",
+    ]);
+    assertEquals(r.code, 0, r.output);
+
+    // Both spent stages are reclaimed; their refs ride inside the live tip.
+    const status = await runAgent(dir, ["status", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    const result = JSON.parse(status.stdout.trim()) as {
+      data: {
+        unlanded_branches?: string[];
+        contained_refs?: Array<{ branch: string; contained_in: string }>;
+      };
+      hints?: string[];
+    };
+    const refs = new Map(
+      (result.data.contained_refs ?? []).map((
+        r,
+      ) => [r.branch, r.contained_in]),
+    );
+    assertEquals(refs.get("agent/a"), "agent/c");
+    assertEquals(refs.get("agent/b"), "agent/c");
+    assertEquals(
+      result.data.unlanded_branches,
+      undefined,
+      "a contained ref must never read as abandoned work",
+    );
+    assert(
+      result.hints?.some((h) => h.includes("ride inside")) === true,
+      `the calm fact names the container\n${JSON.stringify(result.hints)}`,
+    );
+    assert(
+      result.hints?.every((h) => !h.includes("unlanded work with no")) === true,
+      "the resume-it warning must not fire for a deliberate reclaim",
+    );
+
+    // A genuinely dangling branch — unique commits, no container — still
+    // warns: the classification narrows the warning, never removes it.
+    await git(dir, "branch", "agent/ghost");
+    await git(dir, "switch", "-q", "agent/ghost");
+    await commitFile(dir, "ghost.txt", "unlanded\n", "ghost work");
+    await git(dir, "switch", "-q", "main");
+    const again = await runAgent(dir, ["status", "--json"]);
+    const split = JSON.parse(again.stdout.trim()) as {
+      data: {
+        unlanded_branches?: string[];
+        contained_refs?: Array<{ branch: string }>;
+      };
+    };
+    assertEquals(split.data.unlanded_branches, ["agent/ghost"]);
+    assertEquals(
+      (split.data.contained_refs ?? []).map((r) => r.branch).sort(),
+      ["agent/a", "agent/b"],
+    );
+  });
+});

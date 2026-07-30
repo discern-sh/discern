@@ -10816,6 +10816,24 @@
                     "type": "string"
                   }
                 },
+                "contained_refs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "branch": {
+                        "type": "string"
+                      },
+                      "contained_in": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "branch",
+                      "contained_in"
+                    ]
+                  }
+                },
                 "fleet": {
                   "type": "array",
                   "items": {

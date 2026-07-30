@@ -899,8 +899,17 @@ export const StatusDataSchema = z.strictObject({
   }).optional(),
   /** Local `<branch_prefix>*` branches holding unlanded work with NO worktree —
    * otherwise-invisible abandoned work (main-checkout view only; present when
-   * non-empty). */
+   * non-empty). A worktree-less ref whose tip is contained in a live branch is
+   * NOT abandoned and reports under `contained_refs` instead. */
   unlanded_branches: z.array(z.string()).optional(),
+  /** Worktree-less refs kept deliberately by the contained-worktree reclaim
+   * (main-checkout view only; present when non-empty): each tip is a strict
+   * ancestor of the named live branch, so the commits ride there until they
+   * land and the ref self-cleans through the ordinary prune. Informational —
+   * no action needed. */
+  contained_refs: z.array(
+    z.strictObject({ branch: z.string(), contained_in: z.string() }),
+  ).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
   /** Cross-worktree changed-file collisions (fleet view; present when
    * non-empty): pairs of fleet branches whose fork diffs touch the same

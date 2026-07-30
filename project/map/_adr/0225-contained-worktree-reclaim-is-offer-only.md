@@ -33,7 +33,7 @@ The explicit *no*s: no automatic or scheduled reclamation, and no configuration 
 
 - A long integration train tidies as it goes. The prune output names and evidences each spent stage, and one confirmed action reclaims them instead of letting checkouts accumulate until the final landing.
 - Reclaiming destroys the stage's gate receipt with its checkout, so a sibling's `await --green <stage>` can never succeed afterwards. The verb now refuses honestly at call start when no checkout holds the branch. It points at the nearest containing branch — the correct await target all along — with `--landed` for the literal arrival question.
-- Keeping refs means `status` shows unlanded `agent/*` branches with no worktree until the train lands. That is the honest state — the refs **are** the recovery path — and they self-clean through the existing prune on landing.
+- The kept refs outlive their checkouts until the train lands. `status` and the desk classify each one by containment and report it as a calm fact beside its live container — the abandoned-work warning and its resume hint stay reserved for refs with no live container. The refs self-clean through the existing prune on landing.
 - The offer costs ancestry reads per fleet survey. The fleet is small by construction, and the scan short-circuits on every disqualifying clause, so the cost stays trivial next to the per-row git snapshots the survey already pays for.
 - A reclaimed checkout cannot come back. Recovery is `start --from <branch>`, which provisions resources fresh. The confirmation carries that weight, which is exactly why no configuration can stand in for it.
 

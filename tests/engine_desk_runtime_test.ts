@@ -1040,3 +1040,38 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertEquals(pauses, 1);
   assertStringIncludes(joined(output), "Branch agent/stage-a kept");
 });
+
+Deno.test("desk renders a reclaimed stage ref as a dim fact, not a missing-worktree warning", async () => {
+  const main = fleetEntry("main", ROOT, { is_main: true, is_current: true });
+  const live = fleetEntry("agent/stage-c", "/worktrees/stage-c", { ahead: 3 });
+  const data: StatusData = {
+    ...statusData([main, live]),
+    contained_refs: [
+      { branch: "agent/stage-a", contained_in: "agent/stage-c" },
+    ],
+  };
+  const output = transcript();
+  assertEquals(
+    await runDesk(
+      {},
+      scriptedRuntime(output, {
+        status: () => ({ ok: true, data }),
+        select: () => QUIT,
+      }),
+    ),
+    0,
+  );
+  const text = joined(output);
+  assertStringIncludes(
+    text,
+    "agent/stage-a rides inside agent/stage-c until it lands",
+  );
+  assert(
+    !text.includes("has no worktree"),
+    `a contained ref must not raise the missing-worktree warning\n${text}`,
+  );
+  assert(
+    !text.includes("start --from"),
+    "no resume hint for a deliberately kept ref",
+  );
+});

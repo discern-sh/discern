@@ -3300,6 +3300,10 @@ export type DiscernStatusResult = {
       }>;
     };
     unlanded_branches?: Array<string>;
+    contained_refs?: Array<{
+      branch: string;
+      contained_in: string;
+    }>;
     fleet?: Array<{
       path: string;
       is_main: boolean;

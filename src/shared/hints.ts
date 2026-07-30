@@ -1035,6 +1035,35 @@ export const HINTS = {
       `worktree: ${boundedNameSummary(branches.length, branches)}.`,
   }),
 
+  /** The calm counterpart to the unlanded-branch warning: a reclaimed stage's
+   * kept ref is a deliberate state, not abandoned work — its commits ride
+   * inside the named live branch, and the ref self-cleans through the
+   * ordinary prune once that work lands. Nothing to resume, nothing to do. */
+  "status-contained-refs": defineHint<{
+    refs: ReadonlyArray<{ branch: string; contained_in: string }>;
+  }>({
+    id: "status-contained-refs",
+    category: "notice",
+    audience: "all",
+    when:
+      "A fleet survey finds reclaimed-stage refs riding inside live branches.",
+    example: {
+      refs: [{
+        branch: "agent/upload-retry",
+        contained_in: "agent/upload-retry-stage-2",
+      }],
+    },
+    template: ({ refs }): string => {
+      const first = refs[0];
+      const detail = refs.length === 1 && first !== undefined
+        ? `The reclaimed stage ref \`${first.branch}\` rides inside \`${first.contained_in}\``
+        : `${refs.length} reclaimed-stage refs ride inside live branches`;
+      return `${detail} until that work lands, then self-clean${
+        refs.length === 1 ? "s" : ""
+      } through the ordinary prune. Nothing to do.`;
+    },
+  }),
+
   /** Pair evidence when the files have never co-changed in the mined window. */
   "coupling-evidence-none": defineHint<{
     a: string;

@@ -463,6 +463,17 @@ function renderHeader(
       `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}\n`,
     );
   }
+  // Reclaimed-stage refs are a calm fact, not a warning: their commits ride
+  // inside the named live branch, and the refs self-clean through the
+  // ordinary prune once that work lands. One dim line, no action offered.
+  const containedRefs = data.contained_refs ?? [];
+  if (containedRefs.length > 0) {
+    const first = containedRefs[0];
+    const line = containedRefs.length === 1 && first !== undefined
+      ? `${first.branch} rides inside ${first.contained_in} until it lands`
+      : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
+    out.raw(`  ${out.c.dim}${line}.${out.c.reset}\n`);
+  }
 }
 
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */

@@ -1561,6 +1561,19 @@ Rendered example:
 Run `discern update` directly. This branch is 2 commits behind main, and the command is idempotent and checks its own git preconditions. Re-check 2 changed files after updating. They also changed upstream (src/main.ts, tests/main_test.ts). Run `discern done` before handing off or a user-requested landing.
 ```
 
+## `status-contained-refs`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: A fleet survey finds reclaimed-stage refs riding inside live branches.
+
+Rendered example:
+
+```text
+The reclaimed stage ref `agent/upload-retry` rides inside `agent/upload-retry-stage-2` until that work lands, then self-cleans through the ordinary prune. Nothing to do.
+```
+
 ## `status-dirty-fleet-members`
 
 - Category: `next-step`

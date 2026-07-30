@@ -106,6 +106,7 @@ import {
 } from "../worktree/identity.ts";
 import { readResourceSpecs, resourceEnvName } from "../worktree/resources.ts";
 import {
+  containedRefPointers,
   containmentIdleCheck,
   scanContainedWorktrees,
 } from "../worktree/containment.ts";
@@ -458,7 +459,14 @@ export async function statusResult(
   // Unlanded `<branch_prefix>*` branches with NO worktree — abandoned work that
   // would otherwise be invisible (its worktree is gone, prune keeps unmerged
   // branches, and nothing else lists it). Main-checkout (supervisor) view only.
+  // A ref whose tip is contained in a live branch is NOT abandoned: it is a
+  // spent train stage the reclaim kept deliberately, riding inside its
+  // container until landing — reported as a calm fact, never as work to
+  // resume.
   let unlandedBranches: string[] | undefined;
+  let containedRefs:
+    | Array<{ branch: string; contained_in: string }>
+    | undefined;
   if (location === "main") {
     const found = await unlandedPrefixBranches(
       root,
@@ -466,8 +474,18 @@ export async function statusResult(
       mainBranch,
     );
     if (found.length > 0) {
-      unlandedBranches = found;
-      data.unlanded_branches = found;
+      const containers = await containedRefPointers(root, found, mainBranch);
+      const dangling = found.filter((b) => !containers.has(b));
+      if (dangling.length > 0) {
+        unlandedBranches = dangling;
+        data.unlanded_branches = dangling;
+      }
+      if (containers.size > 0) {
+        containedRefs = [...containers.entries()].map((
+          [branch, contained_in],
+        ) => ({ branch, contained_in }));
+        data.contained_refs = containedRefs;
+      }
     }
   }
 
@@ -513,6 +531,7 @@ export async function statusResult(
     mergeWarning,
     divergence,
     unlandedBranches,
+    containedRefs,
     fleet,
     fleetCollisions: fleetCollisionPairs,
     adrCollisions,
@@ -783,8 +802,11 @@ interface HintContext {
   mergeWarning: FiredHint | undefined;
   /** The silent-divergence warning (pristine worktree, dirty main checkout). */
   divergence: FiredHint | undefined;
-  /** Unlanded `<branch_prefix>*` branches with no worktree (main view only). */
+  /** Genuinely dangling `<branch_prefix>*` branches with no worktree (main
+   * view only) — contained refs are excluded before this list is built. */
   unlandedBranches: string[] | undefined;
+  /** Reclaimed-stage refs riding inside live branches (main view only). */
+  containedRefs: Array<{ branch: string; contained_in: string }> | undefined;
   fleet: StatusFleetEntry[] | undefined;
   /** Cross-worktree changed-file collisions (fleet view; hint fodder — the
    * rows themselves ride `data.fleet_collisions`). */
@@ -1153,6 +1175,14 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         fire(HINTS["status-unlanded-branches"], {
           branches: ctx.unlandedBranches,
         }),
+      );
+    }
+    // Reclaimed-stage refs are a calm fact, never work to resume: their
+    // commits ride inside the named live branch and the ref self-cleans
+    // through the ordinary prune once that work lands.
+    if (ctx.containedRefs !== undefined && ctx.containedRefs.length > 0) {
+      hints.push(
+        fire(HINTS["status-contained-refs"], { refs: ctx.containedRefs }),
       );
     }
   }

@@ -262,25 +262,15 @@ export async function scanContainedWorktrees(
   return out;
 }
 
-/**
- * The nearest branch strictly containing `branch`'s tip AND holding a
- * registered checkout, or undefined — the pointer `await --green` uses when a
- * branch's own checkout is gone. Only a checkout can ever record a receipt,
- * so a ref-only container (another reclaimed stage) would be an equally
- * impossible target; the pointer skips past it to a stage that can answer.
- */
-export async function nearestContainingBranch(
+/** The nearest checkout-holding strict container of `tip`, from shared reads. */
+async function nearestHeldContainer(
   repoRoot: string,
+  tip: string,
   branch: string,
-  mainBranch?: string,
+  trunk: string,
+  tips: ReadonlyMap<string, string>,
+  held: ReadonlySet<string>,
 ): Promise<string | undefined> {
-  const trunk = integrationBranch(mainBranch);
-  const tips = await localBranchTips(repoRoot);
-  const held = await checkoutHoldingBranches(repoRoot);
-  const tip = tips.get(branch);
-  if (tip === undefined) {
-    return undefined;
-  }
   let nearest: { branch: string; ahead: number } | undefined;
   for (const [candidate, candidateTip] of tips) {
     if (candidate === branch || candidate === trunk || candidateTip === tip) {
@@ -301,4 +291,67 @@ export async function nearestContainingBranch(
     }
   }
   return nearest?.branch;
+}
+
+/**
+ * The nearest branch strictly containing `branch`'s tip AND holding a
+ * registered checkout, or undefined — the pointer `await --green` uses when a
+ * branch's own checkout is gone. Only a checkout can ever record a receipt,
+ * so a ref-only container (another reclaimed stage) would be an equally
+ * impossible target; the pointer skips past it to a stage that can answer.
+ */
+export async function nearestContainingBranch(
+  repoRoot: string,
+  branch: string,
+  mainBranch?: string,
+): Promise<string | undefined> {
+  const trunk = integrationBranch(mainBranch);
+  const tips = await localBranchTips(repoRoot);
+  const held = await checkoutHoldingBranches(repoRoot);
+  const tip = tips.get(branch);
+  if (tip === undefined) {
+    return undefined;
+  }
+  return await nearestHeldContainer(repoRoot, tip, branch, trunk, tips, held);
+}
+
+/**
+ * Classify worktree-less refs by containment: for each of `branches`, the
+ * nearest checkout-holding branch strictly containing its tip, when one
+ * exists. This is how the "unlanded branch with no worktree" surface tells a
+ * CONTAINED ref — a spent train stage kept deliberately by the reclaim, whose
+ * commits ride inside the named live branch until they land — from genuinely
+ * dangling abandoned work. A ref with no live container stays unclassified
+ * (dangling), which fails safe: it keeps the abandoned-work warning.
+ */
+export async function containedRefPointers(
+  repoRoot: string,
+  branches: readonly string[],
+  mainBranch?: string,
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (branches.length === 0) {
+    return out;
+  }
+  const trunk = integrationBranch(mainBranch);
+  const tips = await localBranchTips(repoRoot);
+  const held = await checkoutHoldingBranches(repoRoot);
+  for (const branch of branches) {
+    const tip = tips.get(branch);
+    if (tip === undefined) {
+      continue;
+    }
+    const container = await nearestHeldContainer(
+      repoRoot,
+      tip,
+      branch,
+      trunk,
+      tips,
+      held,
+    );
+    if (container !== undefined) {
+      out.set(branch, container);
+    }
+  }
+  return out;
 }
