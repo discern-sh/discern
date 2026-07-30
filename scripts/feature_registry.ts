@@ -148,11 +148,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "The final quality check",
       what:
-        "One instruction — `discern done` — runs every check the project says is required: the listed pieces of work in their proper order, any extra checks for the parts of the project the change touched, and every stated quality rule. Each piece has a name, and every failure includes the exact instruction that produced it.",
+        "One instruction, `discern done`, runs every check the project requires. It runs the listed pieces of work in their proper order, any extra checks for the parts of the project the change touched, and every stated quality rule. Each piece has a name, and every failure includes the exact instruction that produced it.",
       why:
-        "The project itself, not the coding agent, decides when the work is finished. It does not matter how confident the coding agent feels; the result of the check decides.",
+        "The project itself, not the coding agent, decides when the work counts as finished. However confident the coding agent feels, the result of the check decides.",
       agent:
-        "The coding agent can run the check as often as it needs without asking anyone to trust an old result. The answer is worked out afresh every time, and a failed result includes the instructions that make it pass.",
+        "The coding agent can run the check as often as it needs without asking anyone to trust an old result. Discern works the answer out afresh every time, and a failed result includes the instructions that make it pass.",
     },
     surfaces: ["verb:done", "config:jobs", "config:gate"],
     children: [
@@ -170,7 +170,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             `A project lists its instructions once, in the part of its settings called \`[jobs]\`. The familiar names ${
               codeList(Object.keys(KNOWN_JOBS), "and")
-            } automatically go in the right group; any additional named item is written under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
+            } automatically go in the right group; any additional named item goes under \`[jobs.<name>]\`, states its own group, and may add a \`provides\` label saying what it supplies.`,
           why:
             "Every person and every coding agent runs the same instructions, taken from the same file.",
         },
@@ -216,7 +216,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "`typecheck`",
               what:
-                "Checks, without changing any files, that every value in the program is used in a way its shape allows.",
+                "Checks, without changing any files, that the program uses every value in a way that fits its shape.",
             },
             surfaces: ["job:typecheck"],
           },
@@ -228,7 +228,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "`test`",
               what:
-                "Runs the project's full set of trials. A slow set can be given its own `timeout` time limit.",
+                "Runs the project's full set of trials. A slow set can take its own `timeout` time limit.",
             },
             surfaces: ["job:test"],
           },
@@ -290,11 +290,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "Time limits for each piece of work",
               what:
-                "`[gate].timeout` limits how long every instruction may run; an unusually slow one can carry its own `timeout`. An instruction that runs over is stopped, along with everything it started, and fails with an explanation in everyday language.",
+                "`[gate].timeout` limits how long every instruction may run; an unusually slow one can carry its own `timeout`. Discern stops an instruction that runs over, along with everything it started, and fails it with an explanation in everyday language.",
               why:
                 "The final quality check can never wait forever for a trial runner that keeps watching for changes, or for a stuck preview server.",
               agent:
-                "An instruction that left a background service running behind it is treated as a failure even when the instruction itself claimed success — a hidden background service cannot buy a false pass.",
+                "Discern treats an instruction that left a background service running behind it as a failure, even when the instruction itself claimed success — a hidden background service cannot buy a false pass.",
             },
           },
           {
@@ -333,7 +333,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "Catching changes left behind",
               what:
-                "`discern done` fails any group that changed files without those changes being saved into the project's history, instead of letting a tidying tool's rewrites sit unnoticed.",
+                "`discern done` fails any group that changed files but did not save those changes into the project's history, instead of letting a tidying tool's rewrites sit unnoticed.",
               why:
                 "The exact files the check passed are the files that get saved.",
             },
@@ -350,7 +350,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Consistent tidying of Discern's own files",
           what:
-            "`discern tidy [md|toml]` tidies the project guide, the to-do list, the instruction text for coding agents, and the root `discern.toml` settings file, using tidying tools carried inside the program — no internet connection needed. Bare `discern tidy` covers both kinds of file, and a file that cannot be understood is left entirely alone. Drawn diagrams in those files must keep their columns lined up; one marked `freeform` is exempt.",
+            "`discern tidy [md|toml]` tidies the project guide, the to-do list, the instruction text for coding agents, and the root `discern.toml` settings file, using tidying tools carried inside the program — no internet connection needed. Bare `discern tidy` covers both kinds of file, and Discern leaves a file it cannot make sense of entirely alone. Drawn diagrams in those files must keep their columns lined up; one marked `freeform` is exempt.",
           why:
             "Writing maintained by coding agents, and settings edited often, stop collecting pointless layout churn — even when the project's own tools include no tidier.",
         },
@@ -366,9 +366,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Checking the obvious before slow work begins",
           what:
-            "Before running anything, the final check confirms that the task's copy is up to date with the main shared version and that automatically made files still match their sources — and when either is not true, it names the one instruction that fixes it.",
+            "Before running anything, the final check confirms that the task's copy is up to date with the main shared version and that automatically made files still match their sources — and when either is not true, it names the instruction that fixes it.",
           why:
-            "A ten-minute set of trials never ends in a clashing-changes surprise that could have been named up front.",
+            "A ten-minute set of trials never ends in a clashing-changes surprise Discern could have named up front.",
         },
       },
       {
@@ -387,7 +387,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A denied permission costs a few tiny file actions up front instead of a whole thrown-away run at the end.",
           agent:
-            "The coding agent learns about a missing permission while trying again is still cheap: one re-run with stronger permission, and no half-recorded state to clean up. Inside Discern's own construction, a part that writes saved state cannot even be built without proof that this check ran.",
+            "The coding agent learns about a missing permission while trying again is still cheap: one re-run with stronger permission, and no half-recorded state to clean up. Inside Discern's own construction, a part that writes saved state will not even build without proof that this check ran.",
         },
       },
       {
@@ -416,9 +416,9 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "Choosing safety when a file is unknown",
               what:
-                "A file matching no named area counts as a real program change, so an unknown file causes more checking, never less.",
+                "A file matching no named area counts as a real program change, so an unknown file causes more checking.",
               why:
-                "A settings mistake errs toward checking too much, never too little.",
+                "A settings mistake errs toward checking too much.",
             },
           },
         ],
@@ -462,11 +462,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Clear and consistent failure reports",
           what:
-            "A failed piece of work reports the tool involved, the file and line when known, the message, and the exact instruction that reproduces the failure. Output too long to show whole is cleaned up and placed in a named file instead of flooding the result.",
+            "A failed piece of work reports the tool involved, the file and line when known, the message, and the exact instruction that reproduces the failure. Discern tidies output too long to show whole into a named file instead of flooding the result.",
           why:
-            "Work on the fix starts at the cause; nothing needs re-running just to see what went wrong.",
+            "Work on the fix starts at the cause, and nothing needs re-running to see what went wrong.",
           agent:
-            "When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view had to be cut. A failure that a listed tidying tool might fix is marked as such, and a piece of work that claimed success while printing error-like lines produces a tip naming those lines.",
+            "When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view lost lines. Discern marks a failure that a listed tidying tool might fix, and a piece of work that claimed success while printing error-like lines produces a tip naming those lines.",
         },
       },
       {
@@ -482,11 +482,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "A pointer to known traps",
           what:
-            "When a group of work fails, Discern points at the project's own record of easy-to-miss problems — as a ready-to-paste `discern map` fetch when that record lives in the project guide, or as the file's location otherwise. An entry there can also carry a small matching rule (which group failed, or what the failure's text looks like): a failure that matches brings the entry's own advice straight into the failure report, and the pointer appears only when nothing matched.",
+            "When a group of work fails, Discern points at the project's own record of known traps — as a ready-to-paste `discern map` fetch when that record lives in the project guide, or as the file's location otherwise. An entry there can also carry a small matching rule (which group failed, or what the failure's text looks like): a failure that matches brings the entry's own advice straight into the failure report, and the pointer appears only when nothing matched.",
           why:
             "A lesson learned the hard way reaches the coding agent at the exact moment it applies — and a matched trap needs no looking up at all.",
           agent:
-            "Matching compares the failed group and the failure's details against the record's entries in order; the first match wins, and the advice it carries still names where the full page lives. A malformed matching rule produces a warning naming its entry whenever the record is consulted, and a project that never adds matching rules keeps the plain pointer unchanged.",
+            "Matching compares the failed group and the failure's details with the record's entries, in order; the first match wins, and the advice it carries still names where the full page lives. A malformed matching rule produces a warning naming its entry whenever Discern consults the record, and a project that never adds matching rules keeps the plain pointer unchanged.",
         },
       },
       {
@@ -506,7 +506,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The person in charge reviews a verified claim that names the exact work it vouches for.",
           agent:
-            "A change saved while the check was running can never earn the proof: the exact state is pinned before the first piece of work runs and is checked again at the moment of stamping. When a passing run cannot record a proof because unsaved edits remain, the refusal names the blocking files — and just before done is claimed, a tip reminds the coding agent that a passing check is necessary but not sufficient: try the real result, pass on the proof, and wait.",
+            "A change saved while the check was running can never earn the proof: Discern pins the exact state before the first piece of work runs and checks it again at the moment of stamping. When a passing run cannot record a proof because unsaved edits remain, the refusal names the blocking files — and at the moment of claiming done, a tip reminds the coding agent that a passing check is necessary but not sufficient: try the real result, pass on the proof, and wait.",
         },
       },
       {
@@ -520,13 +520,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
         hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
         plain: {
-          title: "A repeat check on unchanged work must be confirmed",
+          title: "A repeat check on unchanged work is a recorded choice",
           what:
             "Each completed `discern done` records what it judged — the saved point plus a fingerprint of every unsaved edit — and the verdict, in the version history's housekeeping area. Asked to run again on identical work, `done` refuses without touching anything; `discern done --confirmed` runs it anyway as a recorded probe. Any change to the files runs as normal, and so does `--dry-run`.",
           why:
             "Unchanged work should expect an unchanged verdict. Repeating a pass spends the full running time on an answer `discern status` already shows, and retrying a failure until it passes teaches that a failure is negotiable.",
           agent:
-            "The refusal names the verdict that already stands and both ways forward: change the files, or confirm the probe. A confirmed re-run is noted in the activity record, where the recurring-behaviour report watches for it — so an unreliable trial suite surfaces as evidence, the detector names the exact work whose verdict flipped, and routine use of `--confirmed` is itself a finding.",
+            "The refusal names the verdict that already stands and both ways forward: change the files, or confirm the probe. A confirmed re-run lands in the activity record, where the recurring-behaviour report watches for it — so an unreliable trial suite surfaces as evidence, the detector names the exact work whose verdict flipped, and routine use of `--confirmed` is itself a finding.",
         },
       },
     ],
@@ -542,7 +542,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Quality rules",
       what:
-        "Named quality measurements the project keeps under `[standards]`: each states what is measured, which direction is better, and the current limit, and every run of the final check makes sure no limit has been weakened compared with the main shared version.",
+        "Named quality measurements the project keeps under `[standards]`: each states what to measure, which direction is better, and the current limit, and every run of the final check makes sure no limit has become weaker than the main shared version's.",
       why:
         "Quality limits move in one direction only. A minimum may only rise, a maximum may only fall, and a change that weakens either one fails.",
     },
@@ -556,7 +556,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Minimums and maximums",
           what:
-            '`direction = "up"` protects a minimum, which may only rise — such as the share of the program covered by trials. `direction = "down"` protects a maximum, which may only fall — such as a size allowance. The comparison is against the main shared version\'s limit, so a task cannot weaken a rule.',
+            '`direction = "up"` protects a minimum, which may only rise — such as the share of the program covered by trials. `direction = "down"` protects a maximum, which may only fall — such as a size allowance. The comparison uses the main shared version\'s limit, so a task cannot weaken a rule.',
         },
       },
       {
@@ -597,7 +597,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Leaving a little breathing room",
           what:
-            "`margin` is the spare room left when a limit is tightened to a newly measured value, for measurements that drift a little on unrelated changes.",
+            "`margin` is the spare room a pin leaves when tightening a limit to a newly measured value, for measurements that drift a little on unrelated changes.",
         },
       },
       {
@@ -640,7 +640,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Saving an improvement",
           what:
-            "`discern standards --pin` tightens each improved limit to the value just measured, and saves that change on its own, carrying the proof-of-completion summary across the save. It measures once: a passing check records the measurement, and the pin reuses it.",
+            "`discern standards --pin` tightens each improved limit to the newly measured value, and saves that change on its own, carrying the proof-of-completion summary across the save. It measures once: a passing check records the measurement, and the pin reuses it.",
           why:
             "Tightening is mechanical and provable; a hand-edited number cannot show whether it was a real gain or a quiet weakening.",
         },
@@ -671,11 +671,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Separate working copies",
       what:
-        "Every task gets its own separate, linked copy of the project with its own line of saved changes, started from the main shared version and prepared with its own network number, private settings, and any supporting services the project declares.",
+        "Every task gets its own separate, linked copy of the project with its own line of saved changes. The copy starts from the main shared version and comes prepared with its own network number, private settings, and any supporting services the project declares.",
       why:
         "Several coding agents can work at the same time without interfering with one another — or with the copy the person in charge is using.",
       agent:
-        "The coding agent works in a copy it never has to think about: its identity, network number, private settings, and supporting services were prepared before the session began, and nothing another coding agent does can reach them.",
+        "The coding agent works in a copy it never has to think about: its identity, network number, private settings, and supporting services all stood ready before the session began, and nothing another coding agent does can reach them.",
     },
     surfaces: ["config:worktree", "config:repository"],
     children: [
@@ -691,7 +691,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           what:
             "`discern start` makes the separate working copy from the main project copy — always starting from the main shared version, whatever the main copy happens to be showing — and returns the new copy's location. `--name` turns a supplied name into a safe one; leave it out for a random nickname.",
           agent:
-            "Whatever name the coding agent supplies is reduced to something safe, and a name that reduces to nothing falls back to a nickname with a note saying so — a purely cosmetic field can never stop the start. The suggested network number is checked against the other live copies and re-chosen rather than accepting a clash.",
+            "Discern reduces whatever name the coding agent supplies to something safe, and a name that reduces to nothing falls back to a nickname with a note saying so — a purely cosmetic field can never stop the start. Discern compares the suggested network number with the other live copies and re-chooses it rather than accepting a clash.",
         },
         surfaces: ["verb:start"],
       },
@@ -731,7 +731,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The move is agreed and all-or-nothing: the work the person in charge reviewed is the work that becomes shared, and nothing of the task is left behind.",
           agent:
-            "What is added is the exact saved point the final check approved; a task that moved during a slow run is refused rather than added untested. The main shared version moves forward before any cleanup begins, so losing a race with another task leaves this copy and its services untouched — the ordinary recovery is update, then the full check, then accept again.",
+            "What joins the main shared version is the exact saved point the final check approved; Discern refuses a task that moved during a slow run rather than adding it untested. The main shared version moves forward before any cleanup begins, so losing a race with another task leaves this copy and its services untouched — the ordinary recovery is update, then the full check, then accept again.",
         },
         surfaces: ["verb:accept"],
       },
@@ -778,11 +778,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Separate supporting services for each copy",
           what:
-            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `gc`. Services are created top to bottom and removed bottom to top, and placeholders written `@…@` are filled in with the copy's real identity.",
+            "`[worktree.resources.<name>]` declares an outside thing a working copy needs for itself — an information store, a stand-in device, an isolated packaged app — as a `create` instruction and a `destroy` instruction, with the optional choices `ensure`, `required`, `retries`, and `gc`. Discern creates services top to bottom, removes them bottom to top, and fills placeholders written `@…@` with the copy's real identity.",
           why:
             "Separation covers not just the project's files but everything those files use.",
           agent:
-            "A short-lived failure from an outside manager is tried again with growing pauses, and an empty instruction is a clean do-nothing.",
+            "Discern tries a short-lived failure from an outside manager again with growing pauses, and an empty instruction is a clean do-nothing.",
         },
       },
       {
@@ -798,7 +798,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Safe setup even when interrupted",
           what:
-            "The setup writes down what it intends before acting on it: a service's cleanup entry — its removal instruction already filled in — is saved before `create` runs, a ready marker records the moment the one-time steps finished, and a failure after the copy was registered discards the partial copy rather than leaving it looking usable.",
+            "The setup writes down what it intends before acting on it: it saves a service's cleanup entry, with its removal instruction already filled in, before `create` runs; a ready marker records the moment the one-time steps finished; and a failure after registering the copy discards the partial copy rather than leaving it looking usable.",
           why:
             "A crash leaves either a working copy or one that can be reclaimed — and a convincing-looking half-copy is thrown away at the moment of failure.",
           agent:
@@ -820,7 +820,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A crashed session cannot leave forgotten information stores running forever.",
           agent:
-            "Removal instructions are completed and frozen when a service is created, because once the copy is gone there is nothing left to work the details out from — and a frozen instruction still carrying an unfilled placeholder is refused rather than half-run. Before each removal, the saved entry is checked against what is really on the computer, so a coding agent can never reclaim live services that belong to a different task.",
+            "Discern completes and freezes removal instructions at the moment it creates a service, because once the copy is gone nothing remains to work the details out from — and it refuses a frozen instruction still carrying an unfilled placeholder rather than half-run it. Before each removal, it compares the saved entry with the computer's real state, so a coding agent can never reclaim live services that belong to a different task.",
         },
         surfaces: ["verb:worktree"],
       },
@@ -832,7 +832,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Passing private values into a new copy",
           what:
-            "`[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that are kept out of the version history.",
+            "`[worktree].inherit_env` copies named values from the main copy's private settings files into a new working copy's — the secrets a fresh copy needs that stay out of the version history.",
         },
       },
       {
@@ -845,7 +845,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Noticing changes outside the saved history",
           what:
-            "At setup, Discern fingerprints the files the version history ignores, and before the working copy is removed it reports the top-level ignored places that changed.",
+            "At setup, Discern fingerprints the files the version history ignores, and before removing the working copy it reports the top-level ignored places that changed.",
           why:
             "Work hiding outside the version history gets named before cleanup deletes it.",
         },
@@ -867,7 +867,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "The person in charge steers several pieces of work without opening each copy, and two tasks touching the same file are named before either becomes shared.",
           agent:
-            "Each row is someone else's work in progress, and a tip states the ownership rule: a clean copy is not a free workspace. The broken mark shows which copy never finished being made, so workable and unworkable neighbours are clear at a glance.",
+            "Each row is someone else's work in progress, and a tip states the ownership rule: a clean copy is not a free workspace. The broken mark shows which copy never finished setting up, so workable and unworkable neighbours are clear at a glance.",
         },
       },
       {
@@ -882,11 +882,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Waiting for a condition across the tasks",
           what:
-            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check (its copy holds an honoured proof-of-completion summary), a task's work has joined the main shared version, or the main shared version has moved. It is woken by new lines in the activity record and by movements in the version history, with a slow fallback re-check. Running out of time is an answer, not an error: the result reports what was observed, plus a suggested pause before asking again, worked out from how long this project's work usually takes.",
+            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check (its copy holds an honoured proof-of-completion summary), a task's work has joined the main shared version, or the main shared version has moved. New lines in the activity record and movements in the version history wake it, with a slow fallback re-check. Running out of time is an answer in itself: the result reports what the wait saw, plus a suggested pause before asking again, worked out from how long this project's work usually takes.",
           why:
             "A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person.",
           agent:
-            "The conditions are grounded in the version history and the proof itself — recorded activity only wakes the wait and sets the suggested pause, so the record stays advice. While the wait holds, the waiting task's own row in the overview says so. A met condition comes with a tip for the follow-up: bring in the main shared version, or build directly on the passing task's work.",
+            "The conditions rest on the version history and the proof itself — recorded activity only wakes the wait and sets the suggested pause, so the record stays advice. While the wait holds, the waiting task's own row in the overview says so. A met condition comes with a tip for the follow-up: bring in the main shared version, or build directly on the passing task's work.",
         },
         surfaces: ["verb:await"],
         hints: ["await-not-yet", "await-timing-degraded"],
@@ -901,7 +901,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The desk",
           what:
-            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, opens any of the recognised coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to be added once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts.",
+            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, opens any of the recognised coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts.",
           why:
             "The person in charge works from one screen, and every action on it is one keypress.",
         },
@@ -920,7 +920,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
     plain: {
       title: "Instructions for coding agents",
       what:
-        "One set of instructions, written by the project, is compiled into the instruction file of every chosen coding agent. Discern's own built-in operating advice always comes first, so the project's words add to it rather than replace it.",
+        "Discern compiles one project-written set of instructions into the instruction file of every chosen coding agent. Its own built-in operating advice always comes first, so the project's words add to it rather than replace it.",
       why:
         "Write the instructions once, and every coding agent — including one working on another computer — reads the same page.",
     },
@@ -936,7 +936,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Write once, produce every copy",
           what:
-            "`discern refresh` compiles Discern's built-in advice plus `[guidance].sources` into one finished instruction file per kind of coding agent. The finished files are saved with the project, and a finished file that no longer matches its sources fails the final check.",
+            "`discern refresh` compiles Discern's built-in advice plus `[guidance].sources` into one finished instruction file per kind of coding agent. The finished files live with the project, and a finished file that no longer matches its sources fails the final check.",
           why:
             "A freshly copied project hands every coding agent current instructions, and a stale copy cannot survive review.",
         },
@@ -950,7 +950,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Instructions that match this project",
           what:
-            "The built-in advice is shaped by the project's own settings, so a project with no separate supporting services or quality rules never hands its coding agents instructions about them.",
+            "The project's own settings shape the built-in advice, so a project with no separate supporting services or quality rules never hands its coding agents instructions about them.",
           why:
             "Coding agents read guidance about the project in front of them, nothing else.",
         },
@@ -1057,7 +1057,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Finding the installed coding agents at setup",
           what:
-            "A fresh installation chooses its starting set of coding agents by finding which supported programs are installed, and a wider recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.",
+            "A fresh installation chooses its starting set of coding agents by finding the supported programs present on the computer, and a wider recognition list identifies the coding agent driving a session — used only as non-binding evidence in the activity record.",
         },
       },
     ],
@@ -1089,7 +1089,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Putting the guides in place",
           what:
-            "`discern refresh` places the effective set into each coding agent's own guides folder, which the version history leaves out: built-in guides are copied, and project-written guides are linked to their originals so edits take effect immediately. A project guide with the same name replaces a built-in one, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project for customising.",
+            "`discern refresh` places the effective set into each coding agent's own guides folder, which the version history leaves out: it copies the built-in guides and links project-written guides to their originals, so edits take effect immediately. A project guide with the same name replaces a built-in one, `[skills].exclude` drops named ones, and `discern skills eject <name>` copies a built-in into the project for customising.",
           why:
             "The set is declared once and identical for every coding agent, and customising never creates a second diverging copy of the collection.",
         },
@@ -1117,7 +1117,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "Cure a bug",
               what:
-                "One careful bug method with three routes: prove the cause (make the failure happen and rule out wrong explanations before changing anything), cure the whole family (fix every occurrence and leave a permanent protection), and inspect existing protections for cover that protects less than it appears to.",
+                "One careful bug method with three routes: prove the cause (make the failure happen and rule out wrong explanations before changing anything), cure the family (fix every occurrence and leave a permanent protection), and inspect existing protections for cover that protects less than it appears to.",
             },
             surfaces: ["skill:discern-cure-a-bug"],
           },
@@ -1377,7 +1377,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       what:
         "Read-only surfaces that point at useful work and never block it: the final quality check and the quality rules are the only enforcement, and everything else reports.",
       why:
-        "Signal without new ways to fail — a piece of advice is allowed to be wrong without stopping anyone.",
+        "Signal without new ways to fail — a piece of advice can be wrong without stopping anyone.",
       agent:
         "Advice arrives inside results the coding agent is already reading, as a list of tips on the same result package — no second channel to watch, and no document to remember to re-open.",
     },
@@ -1465,11 +1465,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The activity record",
           what:
-            "With recording on and readable settings, every instruction run — typed, or made through the coding-agent connection — adds one line of basic facts to a private record kept in the version history's housekeeping area (the `.git` folder) and shared by the project's working copies. Lines carry timings, outcomes, names, and which tips appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines are removed by age, and `[project].logbook = false` stops all writes.",
+            "With recording on and readable settings, every instruction run — typed, or made through the coding-agent connection — adds one line of basic facts to a private record kept in the version history's housekeeping area (the `.git` folder) and shared by the project's working copies. Lines carry timings, outcomes, names, and which tips appeared — never code, and never printed output. The record never leaves the machine (a test in the final check keeps its code free of any internet route), old lines age out, and `[project].logbook = false` stops all writes.",
           why:
             "The way of working becomes measurable evidence, without anything leaving the building.",
           agent:
-            "The kind of coding agent driving a session is recorded as non-binding evidence, so working habits can be read per kind of coding agent — with no code, no output, and no search words in the record.",
+            "Discern records the kind of coding agent driving a session as non-binding evidence, so the record can show working habits per kind of coding agent — with no code, no output, and no search words in the record.",
         },
       },
       {
@@ -1557,7 +1557,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "Progress is derived from the tree itself (which scaffolded files still carry their markers, which jobs are wired), so a second session resumes where the first stopped and cannot fake completion by deleting a marker. An abandoned setup branch routes to resume rather than to a fresh scaffold that would overwrite the first session's work.",
         plain: {
-          title: "Clearly showing that setup is unfinished",
+          title: "Clearly showing unfinished setup",
           what:
             "An unfinished setup is a state tools can read, reported by `discern status` and by the automatic session-start action until the conversation completes.",
           why:
@@ -1595,7 +1595,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "The same resolver feeds `start`, `status`, green `done`, and the acceptance boundary. An uncovered agent is routed back into the conversation; a covered one proceeds only after discern verifies the recorded grant against the exact changed paths.",
         plain: {
-          title: "Permission is proved each time",
+          title: "Fresh proof of permission, every time",
           what:
             "Starting a fresh installation requires `--confirmed` in that same instruction. Adding finished work to the main shared version accepts either that fresh confirmation, or a permission the person in charge recorded earlier — on the main shared version, or at the desk; with neither, Discern refuses and changes nothing. Every successful addition records which permission allowed it.",
           why:
@@ -1881,7 +1881,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       what:
         "The properties the rest of the product stands on — each one a permanent design choice, not a setting.",
       why:
-        "The promises hold everywhere because they are built in: no optional major part, no half-installation, no second copy of anything.",
+        "The promises hold everywhere because Discern builds them in: no optional major part, no half-installation, no second copy of anything.",
     },
     children: [
       {
@@ -1915,7 +1915,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "Bounded views with pointers to the rest: the agent reads what it needs and fetches the full text only when it chooses to.",
         plain: {
-          title: "Reading space is limited",
+          title: "Reading space is scarce",
           what:
             "Results are sized for how much a coding agent can hold in mind at once: long failure output keeps its beginning and end with the full text in a named file, search returns at most five best-matching pages, compiled instructions list regions rather than every page, setup output appears only on failure, and activity-record lines carry basic facts only.",
           why:
@@ -2733,7 +2733,7 @@ function renderPlainAgentsEyeView(): string[] {
   ];
   for (const pillar of FEATURE_CANON) {
     const carriers = agentExperienceNodes([pillar]).map(({ node }) =>
-      node.id === pillar.id ? "the whole main area" : node.plain.title
+      node.id === pillar.id ? "the main area itself" : node.plain.title
     );
     if (carriers.length === 0) continue;
     lines.push(`- **${pillar.plain.title}** — ${carriers.join(" · ")}`);
