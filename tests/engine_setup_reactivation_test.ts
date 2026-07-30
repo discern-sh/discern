@@ -3,10 +3,10 @@
  * function that keeps the setup-completion handoff in step with every vendor's wiring.
  *
  * The reactivation guidance `discern setup done` prints is DERIVED from each provider's
- * setup surface — its live MCP server, session hooks, project rules, and one-time trust
- * gate. So a new vendor's reactivation behaviour follows from its declaration the moment
- * it lands in `PROVIDERS`, with no
- * hand-maintained list. This test ties that derivation back to the registry: it iterates
+ * setup surface — its live MCP server, session hooks, project rules, one-time trust gate,
+ * and human-facing setup advice. So a new vendor's reactivation behaviour follows from
+ * its declaration the moment it lands in `PROVIDERS`, with no hand-maintained list. This
+ * test ties that derivation back to the registry: it iterates
  * EVERY known agent (the `AGENT_NAMES` SSOT, which `agent_parity_test` pins to
  * `PROVIDERS`) and asserts the reactivation step is coherent with what the agent actually
  * wires.
@@ -37,6 +37,30 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
     const loadsAtSessionStart = provider.mcp.kind === "wired" ||
       provider.hooks !== undefined ||
       provider.projectRules !== undefined;
+    assert(
+      provider.humanSetupAdvice === undefined || loadsAtSessionStart,
+      `"${name}" declares human setup advice but has no session-start wiring whose ` +
+        "setup-done handoff can carry it",
+    );
+    if (provider.humanSetupAdvice !== undefined) {
+      assert(
+        provider.humanSetupAdvice.humanOnlyTopics.length > 0,
+        `"${name}" declares human setup advice without naming the human-only ` +
+          "topics generic agent guidance must exclude",
+      );
+      for (const topic of provider.humanSetupAdvice.humanOnlyTopics) {
+        assert(
+          provider.humanSetupAdvice.handoff.includes(topic),
+          `"${name}" marks "${topic}" as human-only, but its setup handoff does ` +
+            "not contain that topic",
+        );
+        assert(
+          provider.humanSetupAdvice.documentationTopics.includes(topic),
+          `"${name}" marks "${topic}" as human-only, but its provider ` +
+            "documentation does not require that topic",
+        );
+      }
+    }
 
     if (loadsAtSessionStart) {
       // It wires something that loads at session start → it MUST yield a reactivation
@@ -56,15 +80,15 @@ Deno.test("every provider's setup reactivation step follows from its wiring", ()
             `trust action — the wired config would stay inert with no explanation`,
         );
       }
-      if (provider.worktreeAccess !== undefined) {
+      if (provider.humanSetupAdvice !== undefined) {
         assert(
-          step.includes(provider.worktreeAccess.hint),
-          `"${name}" needs a provider-specific linked-worktree action, but its ` +
-            "setup-done handoff omits it",
+          step.includes(provider.humanSetupAdvice.handoff),
+          `"${name}" declares human-facing setup advice, but its setup-done ` +
+            "handoff omits it",
         );
         assert(
           !step.includes(".."),
-          `"${name}" setup handoff joins trust and worktree instructions with duplicate punctuation`,
+          `"${name}" setup handoff joins its instructions with duplicate punctuation`,
         );
       }
     } else {

@@ -61,21 +61,18 @@ Deno.test("renderAgentFiles: AGENTS.md is the full body; CLAUDE.md is the @AGENT
   }
 });
 
-Deno.test("renderAgentFiles: protected editors receive the safe worktree handoff", async () => {
+Deno.test("renderAgentFiles: Cursor configuration does not change the generic worktree instructions", async () => {
   const dir = await scaffold('["cursor"]');
   try {
     const files = await renderAgentFiles(dir);
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
+    assertStringIncludes(agents, "from the main checkout");
+    assertStringIncludes(agents, "create your isolated worktree");
+    assertStringIncludes(agents, "Can't change your working root?");
     assert(
-      /open[^.\n]{0,80}(worktree|returned path)[^.\n]{0,80}workspace/i.test(
-        agents,
-      ),
-      "compiled guidance must tell protected editors to open the worktree as their workspace",
-    );
-    assert(
-      /(approval|approve)[^.\n]{0,80}(edit|file)/i.test(agents),
-      "compiled guidance must explain why per-file edit approvals are not the fallback",
+      !/(external file protection|approval-gates external edits)/i.test(agents),
+      "compiled guidance must not condition an agent on Cursor's human-visible approval state",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

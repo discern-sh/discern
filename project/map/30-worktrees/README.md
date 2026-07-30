@@ -33,4 +33,3 @@ Treat every worktree as occupied, even when git reports it clean. [`discern stat
 |   100 | [Landing authority](landing-authority.md)              | See how conversation consent and recorded grants control landing.               |
 |   110 | [Interrupted landing recovery](acceptance-recovery.md) | Reconcile a journal without replaying authority or overwriting local data.      |
 |   120 | [Hand work back](hand-work-back.md)                    | Finish, report the receipt, wait for review, and accept after approval.         |
-|   130 | [Editor workspaces](editor-workspaces.md)              | Re-root protected editors without approving every external file edit.           |

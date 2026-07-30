@@ -323,6 +323,9 @@ export function completionMessage(ctx: CompletionContext): string {
     "",
     headline,
     "",
+    ...reactivation.per_agent.map((agent) =>
+      `  • ${agent.label}: ${agent.step}`
+    ),
     `  • ${coverageLine(assurance)}`,
     "  • Everything discern added is contained: `discern.toml` at the root and the `discern/` folder, plus the files your coding tools require — plain files you can read and audit any time. If you ever change your mind, `discern uninstall` takes the wiring back out and leaves your own content in place.",
     `  • ${landingLine(landing)}`,

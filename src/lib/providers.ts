@@ -106,9 +106,10 @@ export function reactivationHandoff(
  * MCP, hooks, or project rules needs no restart, so it is never told to). The step names
  * exactly what was wired (the live `mcp` server, session `hooks`, and/or provider
  * project rules), appends the one-time `trust` action when the vendor gates committed
- * config behind one, and includes a provider-declared worktree handoff when needed.
- * Everything derives from {@link Provider}, so a NEW vendor's reactivation follows
- * from its declaration automatically, with no hand-maintained list.
+ * config behind one, and prepends provider-declared human setup advice when a vendor UI
+ * needs a choice discern cannot make. Everything derives from {@link Provider}, so a
+ * NEW vendor's reactivation follows from its declaration automatically, with no
+ * hand-maintained list.
  * `engine_setup_reactivation`
  * ties this to the PROVIDERS registry (ADR 0051/0075): a vendor whose reactivation does
  * not follow from its wiring red-lights there.
@@ -133,11 +134,11 @@ export function reactivationStep(provider: Provider): string | undefined {
   const reactivation = provider.trust.required
     ? `${base}, then ${provider.trust.hint}`
     : base;
-  return provider.worktreeAccess === undefined
+  return provider.humanSetupAdvice === undefined
     ? reactivation
-    : `${reactivation}${
-      /[.!?]$/.test(reactivation) ? "" : "."
-    } ${provider.worktreeAccess.hint}`;
+    : `${provider.humanSetupAdvice.handoff}${
+      /[.!?]$/.test(provider.humanSetupAdvice.handoff) ? "" : "."
+    } Then ${reactivation}`;
 }
 
 // ── the per-agent integration surfaces ──────────────────────────────────────
@@ -264,11 +265,16 @@ export interface SetupPresence {
 }
 
 /**
- * A provider-specific action needed to edit discern-created sibling worktrees
- * without weakening the provider's file protections.
+ * Human-facing setup advice for a provider UI choice that the running agent
+ * cannot observe or make. `setup done` relays the handoff; generic agent
+ * guidance and runtime hints must never consume it. Documentation topics keep
+ * the full explanation enrolled when another provider declares similar advice.
  */
-export interface WorktreeAccess {
-  readonly hint: string;
+export interface HumanSetupAdvice {
+  readonly handoff: string;
+  /** Vendor UI terms that must stay off generic agent-facing surfaces. */
+  readonly humanOnlyTopics: readonly string[];
+  readonly documentationTopics: readonly string[];
 }
 
 /**
@@ -528,11 +534,8 @@ export interface Provider {
    * four non-Claude vendors gate committed config behind a trust). See {@link TrustGate}.
    */
   readonly trust: TrustGate;
-  /**
-   * A setup-completion instruction for providers that cannot safely receive a
-   * project-scoped allowlist for discern's sibling worktree root.
-   */
-  readonly worktreeAccess?: WorktreeAccess;
+  /** Human-facing provider setup that discern reports but never applies. */
+  readonly humanSetupAdvice?: HumanSetupAdvice;
   /**
    * Project-relative directory this agent discovers SKILL.md skills in; discern
    * materializes the effective skill set into it. Absent → no skills target for
@@ -1575,9 +1578,22 @@ export const PROVIDERS: Record<AgentName, Provider> = {
       hint:
         "trust the workspace, then approve the discern MCP server's tools on first use (bypass for headless: --approve-mcps).",
     },
-    worktreeAccess: {
-      hint:
-        "For each discern-created worktree, open the returned path as the Cursor workspace before editing. Cursor's External File Protection treats the sibling worktree as external while the window remains rooted at the main checkout, so it asks for file approvals.",
+    humanSetupAdvice: {
+      handoff:
+        "Turn off External File Protection under Cursor Settings → Agents → Auto-Run for uninterrupted edits from Local sessions into discern-created sibling worktrees. This user-wide setting lets Cursor's built-in file tools write outside the open workspace. To keep it enabled, start the session with Cursor's Worktree option.",
+      humanOnlyTopics: [
+        "External File Protection",
+        "Cursor Settings",
+        "Worktree option",
+      ],
+      documentationTopics: [
+        "External File Protection",
+        "Cursor Settings",
+        "user-wide",
+        "Worktree option",
+        "`[worktree].root`",
+        "session ends",
+      ],
     },
   },
   copilot: {

@@ -24,8 +24,11 @@ import {
   verbOf,
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
+import { providerFor } from "../src/lib/providers.ts";
 import { KIT_VERSION } from "../src/lib/version.ts";
+import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { OPERATING_POLICIES } from "../src/shared/operating_policies.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type LogbookEvent,
@@ -2508,41 +2511,63 @@ Deno.test("discern mcp: after discern_start, discern_status follows the re-aimed
   });
 });
 
-Deno.test("the re-root and fixed-root fallback is one safe pattern across every shipped surface", () => {
+Deno.test("generic worktree guidance stays within agent-observable state", () => {
   // An agent that cannot change its working root must read the SAME fallback —
   // prefix every shell command with `cd <path> &&`, and pass `path` to every
-  // discern tool — but an editor that protects external files must instead open
-  // the worktree as its workspace rather than approval-gate each edit. Hold all
-  // three to the full pattern at once, so none teaches the unsafe half alone.
+  // discern tool. A vendor UI may pause a tool call before execution without
+  // reporting that pause to the agent, so human-only approval state and editor
+  // actions cannot appear on these generic agent surfaces.
   const mcpHint = mcpStartHint("/wt/x");
   assertHasMcpHint(
     { hints: [mcpHint] },
     HINTS["start-mcp-re-root"],
     { path: "/wt/x" },
   );
+  const worktreePolicy = OPERATING_POLICIES.find((policy) =>
+    policy.id === "worktree-first"
+  );
+  assert(worktreePolicy !== undefined, "missing worktree-first policy");
+  assertStringIncludes(buildInstructions(), worktreePolicy.statement);
   const surfaces: Record<string, string> = {
     "worktree guidance template": Deno.readTextFileSync(
       new URL("../templates/guidance/worktrees.md", import.meta.url),
     ),
     "discern_start MCP hint": mcpHint,
+    "worktree-first operating policy": worktreePolicy.statement,
     "MCP server instructions": buildInstructions(),
   };
+  const humanOnlyTopics = AGENT_NAMES.flatMap((name) =>
+    providerFor(name)?.humanSetupAdvice?.humanOnlyTopics ?? []
+  );
+  assert(
+    humanOnlyTopics.length > 0,
+    "expected at least one provider-declared human-only setup topic",
+  );
   for (const [name, text] of Object.entries(surfaces)) {
     assert(/cd .*&&/.test(text), `${name} must teach the cd-prefix: ${text}`);
     assert(
       /pass\s+`?path/i.test(text),
       `${name} must say to pass \`path\` to every discern tool: ${text}`,
     );
-    assert(
-      /open[^.\n]{0,80}(worktree|returned path)[^.\n]{0,80}workspace/i.test(
-        text,
-      ),
-      `${name} must tell protected editors to open the worktree as their workspace: ${text}`,
-    );
-    assert(
-      /(approval|approve)[^.\n]{0,80}(edit|file)/i.test(text),
-      `${name} must explain why external edit approvals are not the fallback: ${text}`,
-    );
+    for (
+      const forbidden of [
+        /\bif (?:your|a|the) client\b/i,
+        /open[^.\n]{0,80}(?:worktree|returned path)[^.\n]{0,80}workspace/i,
+        /external file protection/i,
+        /(approval|approve)[^.\n]{0,80}(edit|file)/i,
+      ]
+    ) {
+      assert(
+        !forbidden.test(text),
+        `${name} conditions agent instructions on human-only editor state: ${text}`,
+      );
+    }
+    for (const topic of humanOnlyTopics) {
+      assert(
+        !text.toLowerCase().includes(topic.toLowerCase()),
+        `${name} includes provider-declared human-only setup topic "${topic}"`,
+      );
+    }
   }
 });
 

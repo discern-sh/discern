@@ -123,3 +123,36 @@ Deno.test("every reuse-canonical integration doc explains its IDE setup detectio
     }
   }
 });
+
+Deno.test("every provider's human setup advice has provider-specific documentation", async () => {
+  const docs = await integrationDocs();
+  let advisedProviders = 0;
+  for (const name of AGENT_NAMES) {
+    const provider = providerFor(name);
+    assert(provider !== undefined, `no provider registered for "${name}"`);
+    const advice = provider.humanSetupAdvice;
+    if (advice === undefined) {
+      continue;
+    }
+    advisedProviders++;
+    assert(
+      advice.documentationTopics.length > 0,
+      `${name}: human setup advice declares no documentation topics`,
+    );
+    const doc = docs.find((candidate) =>
+      extractTitle(candidate.text) === `${provider.label} integration`
+    );
+    assert(doc !== undefined, `no integration doc found for "${name}"`);
+    for (const topic of advice.documentationTopics) {
+      assertStringIncludes(
+        doc.text,
+        topic,
+        `${doc.file}: human setup advice requires documentation topic "${topic}"`,
+      );
+    }
+  }
+  assert(
+    advisedProviders > 0,
+    "expected at least one provider to declare human setup advice",
+  );
+});
