@@ -2,7 +2,7 @@
 
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
@@ -81,7 +81,7 @@ Deno.test("discern commit messages use an injectable non-empty opt-out", () => {
   const attributed = discernCommitMessage("Subject", "Body", fakeEnv());
   assertEquals(
     attributed,
-    `Subject\n\nBody\n\n${DISCERN_BOT.trailer}`,
+    `Subject\n\nBody\n\n${DISCERN_MACHINE.trailer}`,
   );
   assertEquals(
     discernCommitMessage(
@@ -97,7 +97,7 @@ Deno.test("discern commit messages use an injectable non-empty opt-out", () => {
       undefined,
       fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "" }),
     ),
-    `Subject\n\n${DISCERN_BOT.trailer}`,
+    `Subject\n\n${DISCERN_MACHINE.trailer}`,
   );
 });
 

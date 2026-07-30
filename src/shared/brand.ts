@@ -58,9 +58,9 @@ function coAuthorIdentity<
 }
 
 /** The identity attached to commits whose diffs discern composes. */
-export const DISCERN_BOT = coAuthorIdentity(
-  "discern-bot",
-  "bot@discern.sh",
+export const DISCERN_MACHINE = coAuthorIdentity(
+  DISCERN_NAME,
+  "done@discern.sh",
 );
 
 /**

@@ -12,7 +12,7 @@
  *  - timing out is NOT a failure: `ok` stays true, `met` is false, and
  *    `retry_after_seconds` is priced from the logbook's duration priors —
  *    in-flight work with a prior suggests the remainder, a quiet fleet the
- *    long backoff, a disabled logbook the labelled flat default;
+ *    long backoff, a disabled logbook the labelled fallback;
  *  - the CLI exits 0 on met, 124 on "not yet", 1 on a refusal, and dies
  *    promptly on SIGINT with nothing left behind.
  */
@@ -33,7 +33,11 @@ import {
   worktreePath,
 } from "./engine_helpers.ts";
 import { awaitResult } from "../src/engine/await/await.ts";
-import { AWAIT_TIMEOUT_EXIT_CODE } from "../src/engine/await/defaults.ts";
+import {
+  AWAIT_TIMEOUT_EXIT_CODE,
+  AWAIT_TIMING_IDLE_SECONDS,
+  AWAIT_TIMING_NO_PRIOR_SECONDS,
+} from "../src/engine/await/defaults.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
 
@@ -318,12 +322,30 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
       timeoutSeconds: 0,
     });
     assertEquals(idle.data?.retry_basis, "idle");
+    assertEquals(idle.data?.retry_after_seconds, AWAIT_TIMING_IDLE_SECONDS);
+    assertEquals(idle.data?.timeout_basis, "explicit");
 
-    // The dependency is mid-`done`, one minute into a typical four-minute run:
-    // the advice is the remainder, about three minutes.
+    const idleAbort = new AbortController();
+    idleAbort.abort();
+    const automaticIdle = await awaitResult(
+      dir,
+      { green: "agent/dep" },
+      idleAbort.signal,
+    );
+    assertEquals(automaticIdle.data?.timeout_basis, "idle");
+    assertEquals(
+      automaticIdle.data?.timeout_seconds,
+      AWAIT_TIMING_IDLE_SECONDS,
+    );
+
+    // The dependency is mid-`done`, one minute into a run whose observed median
+    // is four minutes and whose P90 upper bound is six minutes.
+    // Newer coordination calls share the branch but cannot hide that work from
+    // the timing consumer: all concurrent begins survive the fleet projection,
+    // and the longest credible remainder gives the wait its upper bound.
     const now = Date.now();
     const iso = (msAgo: number): string => new Date(now - msAgo).toISOString();
-    const completion = (msAgo: number): unknown => ({
+    const completion = (msAgo: number, durationMs: number): unknown => ({
       schema: LOGBOOK_SCHEMA_VERSION,
       at: iso(msAgo),
       kind: "verb",
@@ -333,13 +355,27 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
       head: null,
       clean: null,
       outcome: "ok",
-      duration_ms: 240_000,
+      duration_ms: durationMs,
       epoch: null,
     });
     await appendLogbookLines(dir, [
-      completion(3_600_000),
-      completion(1_800_000),
-      completion(900_000),
+      completion(3_600_000, 180_000),
+      completion(1_800_000, 240_000),
+      completion(900_000, 360_000),
+      {
+        schema: LOGBOOK_SCHEMA_VERSION,
+        at: iso(600_000),
+        kind: "verb",
+        invocation: "prior-await",
+        verb: "await",
+        surface: "mcp",
+        branch: "agent/dep",
+        head: null,
+        clean: null,
+        outcome: "ok",
+        duration_ms: 45_000,
+        epoch: null,
+      },
       {
         schema: LOGBOOK_SCHEMA_VERSION,
         at: iso(60_000),
@@ -352,6 +388,30 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
         head: null,
         epoch: null,
       },
+      {
+        schema: LOGBOOK_SCHEMA_VERSION,
+        at: iso(10_000),
+        kind: "begin",
+        invocation: "current-await",
+        verb: "await",
+        surface: "mcp",
+        driver: {},
+        branch: "agent/dep",
+        head: null,
+        epoch: null,
+      },
+      {
+        schema: LOGBOOK_SCHEMA_VERSION,
+        at: iso(5_000),
+        kind: "begin",
+        invocation: "future-sibling",
+        verb: "coordinate",
+        surface: "mcp",
+        driver: {},
+        branch: "agent/dep",
+        head: null,
+        epoch: null,
+      },
     ]);
     const running = await awaitResult(dir, {
       green: "agent/dep",
@@ -359,18 +419,88 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
     });
     assertEquals(running.data?.retry_basis, "running");
     assertEquals(running.data?.running?.verb, "done");
+    assertEquals(running.data?.running?.branch, "agent/dep");
     assertEquals(running.data?.running?.typical_duration_ms, 240_000);
+    assertEquals(running.data?.running?.p90_duration_ms, 360_000);
+    assertEquals(running.data?.running?.duration_samples, 3);
+    assertEquals(running.data?.timeout_basis, "explicit");
     const seconds = running.data?.retry_after_seconds ?? 0;
     assert(
-      seconds >= 150 && seconds <= 181,
-      `~3 minutes of the typical run remain, got ${seconds}s`,
+      seconds >= 297 && seconds <= 301,
+      `~5 minutes of the P90 run remain, got ${seconds}s`,
     );
     assert(
       running.hints?.some((h) => h.includes(`${seconds}`)) === true,
       "the not-yet hint names the delay",
     );
 
-    // With the logbook off the advice is a flat default, and a point-of-use
+    // With no explicit timeout, the same repository evidence prices the first
+    // bounded call. Abort immediately so the test observes the chosen bound
+    // without waiting for it.
+    const abort = new AbortController();
+    abort.abort();
+    const automatic = await awaitResult(
+      dir,
+      { green: "agent/dep" },
+      abort.signal,
+    );
+    assertEquals(automatic.data?.timeout_basis, "running");
+    assert(
+      Math.abs((automatic.data?.timeout_seconds ?? 0) - seconds) <= 1,
+      "the omitted timeout uses the same live duration evidence",
+    );
+
+    // `await` records its own begin for status visibility, but a passive wait
+    // cannot complete the condition it watches or price another wait.
+    await addWorktree(dir, "waiting-only");
+    await appendLogbookLines(dir, [{
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: new Date().toISOString(),
+      kind: "begin",
+      invocation: "self-wait",
+      verb: "await",
+      surface: "mcp",
+      driver: {},
+      branch: "agent/waiting-only",
+      head: null,
+      epoch: null,
+    }]);
+    const selfOnly = await awaitResult(dir, {
+      green: "agent/waiting-only",
+      timeoutSeconds: 0,
+    });
+    assertEquals(selfOnly.data?.retry_basis, "idle");
+    assertEquals(selfOnly.data?.running, undefined);
+
+    // A first invocation has no history to price it. Active work receives a
+    // generous first-run bound rather than being mistaken for an idle fleet.
+    await addWorktree(dir, "fresh");
+    await appendLogbookLines(dir, [{
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: new Date().toISOString(),
+      kind: "begin",
+      invocation: "first-compile",
+      verb: "compile",
+      surface: "cli",
+      driver: {},
+      branch: "agent/fresh",
+      head: null,
+      epoch: null,
+    }]);
+    const freshAbort = new AbortController();
+    freshAbort.abort();
+    const firstRun = await awaitResult(
+      dir,
+      { green: "agent/fresh" },
+      freshAbort.signal,
+    );
+    assertEquals(firstRun.data?.timeout_basis, "no-prior");
+    assertEquals(
+      firstRun.data?.timeout_seconds,
+      AWAIT_TIMING_NO_PRIOR_SECONDS,
+    );
+
+    // With the logbook off the advice is a fallback, and a point-of-use
     // line says why the timing evidence is absent.
     const configPath = join(dir, "discern.toml");
     const config = await Deno.readTextFile(configPath);
@@ -384,7 +514,7 @@ Deno.test("retry advice prices the wait from duration priors, and degrades hones
     });
     assertEquals(off.data?.retry_basis, "logbook-off");
     assert(
-      off.hints?.some((h) => h.includes("flat default")) === true,
+      off.hints?.some((h) => h.includes("fallback")) === true,
       "the degraded advice is labelled at the point of use",
     );
   });

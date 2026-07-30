@@ -417,8 +417,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
               title: "Choosing safety when a file is unknown",
               what:
                 "A file matching no named area counts as a real program change, so an unknown file causes more checking.",
-              why:
-                "A settings mistake errs toward checking too much.",
+              why: "A settings mistake errs toward checking too much.",
             },
           },
         ],
@@ -874,19 +873,19 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved — woken by logbook appends and git ref changes, re-checked on a slow polling fallback. A timeout is an answer, not an error: the result reports the observed state plus a retry delay priced from the fleet's typical verb durations.",
+          "`discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Logbook appends and git ref changes wake it, with a slow polling fallback. Omit the timeout and the repository's active work plus observed P90 verb durations price the bound. If the bound expires, the result returns observed state and a next-wait duration.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
-          "Conditions ground in git ancestry and the gate receipt — recorded history only wakes the wait and prices the retry, so the logbook stays advisory. While the verb holds, the blocked branch's own fleet row reads `running: await`. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it.",
+          "Conditions ground in git ancestry and the gate receipt; recorded history only wakes and prices the wait. Concurrent activity stays visible to timing, so status can show the branch `await` while the result names the underlying `done` and its duration evidence. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it.",
         plain: {
           title: "Waiting for a condition across the tasks",
           what:
-            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check (its copy holds an honoured proof-of-completion summary), a task's work has joined the main shared version, or the main shared version has moved. New lines in the activity record and movements in the version history wake it, with a slow fallback re-check. Running out of time is an answer in itself: the result reports what the wait saw, plus a suggested pause before asking again, worked out from how long this project's work usually takes.",
+            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check (its copy holds an honoured proof-of-completion summary), a task's work has joined the main shared version, or the main shared version has moved. New lines in the activity record and movements in the version history wake it, with a slow fallback re-check. Leave the time limit out, and Discern works one out from the work currently in flight and how long this project's work usually takes; if the time runs out, the result reports what the wait saw, plus a suggested next wait.",
           why:
             "A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person.",
           agent:
-            "The conditions rest on the version history and the proof itself — recorded activity only wakes the wait and sets the suggested pause, so the record stays advice. While the wait holds, the waiting task's own row in the overview says so. A met condition comes with a tip for the follow-up: bring in the main shared version, or build directly on the passing task's work.",
+            "The conditions rest on the version history and the proof itself; recorded activity only wakes the wait and sets its timing. Work happening at the same time stays visible to that timing, so the overview can show the task waiting while the result names the check it waited on and how long such checks usually run. A met condition comes with a tip for the follow-up: bring in the main shared version, or build directly on the passing task's work.",
         },
         surfaces: ["verb:await"],
         hints: ["await-not-yet", "await-timing-degraded"],

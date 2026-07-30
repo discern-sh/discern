@@ -32,6 +32,7 @@ import {
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
 import { MCP_CLIENT_INFO_META_KEY } from "../src/engine/logbook/agent_signals.ts";
+import { AWAIT_TIMING_IDLE_SECONDS } from "../src/engine/await/defaults.ts";
 import { withTempDir } from "./helpers.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import {
@@ -2755,6 +2756,36 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
     );
 
     assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: an omitted await timeout reaches the repository-priced policy", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "await-auto");
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_await");
+    assert(tool !== undefined);
+
+    const abort = new AbortController();
+    abort.abort();
+    const result = await runTool(
+      tool,
+      new WorkingRoot(dir),
+      { green: "agent/await-auto" },
+      abort.signal,
+      () => Promise.resolve(undefined),
+    );
+    assertEquals(result.isError, false, JSON.stringify(result));
+    const data = result.structuredContent.data as {
+      timeout_seconds?: unknown;
+      timeout_basis?: unknown;
+    } | undefined;
+    assertEquals(
+      data?.timeout_seconds,
+      AWAIT_TIMING_IDLE_SECONDS,
+    );
+    assertEquals(data?.timeout_basis, "idle");
   });
 });
 
