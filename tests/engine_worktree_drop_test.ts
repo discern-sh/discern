@@ -209,6 +209,36 @@ Deno.test("worktree drop: an unreadable worktree is a blocker, never a silent cl
   });
 });
 
+Deno.test("worktree drop: a failed status read blocks even with no other blocker", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "status-failed-drop");
+    await Deno.writeTextFile(join(wt, "wip.txt"), "unsaved\n");
+
+    // Leave rev-parse working while status alone fails. The branch has no
+    // unlanded commits, so this unreadable status is the only possible blocker.
+    const index = join(dir, ".git", "worktrees", basename(wt), "index");
+    await Deno.chmod(index, 0o000);
+    let refused;
+    try {
+      refused = await runAgent(dir, [
+        "worktree",
+        "drop",
+        "status-failed-drop",
+      ]);
+    } finally {
+      await Deno.chmod(index, 0o644).catch(() => undefined);
+    }
+
+    assertEquals(refused.code, 1, refused.output);
+    assertStringIncludes(refused.output, "could not be read");
+    assertEquals(
+      await exists(wt),
+      true,
+      "unknown cleanliness must require --force before removal",
+    );
+  });
+});
+
 Deno.test("worktree drop: an out-of-band-deleted checkout never silently deletes an unmerged branch", async () => {
   await withTempDir(async (dir) => {
     // The user rm -rf'd the checkout to free disk; the branch keeps unlanded

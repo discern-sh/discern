@@ -486,9 +486,8 @@ Deno.test("containment: a checkout whose status cannot be read is never offered"
   await withTempDir(async (dir) => {
     const { a } = await chainFixture(dir);
     // Make `git status` FAIL inside stage A while `rev-parse` still succeeds:
-    // an unreadable index. The fleet snapshot reads that failure as an empty
-    // entry list (clean), so only the scan's own provably-clean read stands
-    // between an unknowable tree and a forced removal.
+    // an unreadable index. Both the fleet snapshot and the destructive-edge
+    // revalidation must treat that state as unknown.
     const index = join(dir, ".git", "worktrees", basename(a), "index");
     await Deno.chmod(index, 0o000);
     try {
