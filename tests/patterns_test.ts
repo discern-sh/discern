@@ -24,7 +24,7 @@
  *    deliberately unread with a reason — exactly one of the two.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import {
   AGENT_SIGNAL_SOURCE_LIFETIMES,
@@ -1958,6 +1958,48 @@ Deno.test("patterns attribution: runs under another configuration are excluded a
     finding.observed.includes("2026-07-01"),
     `the attribution must date the current series: ${finding.observed}`,
   );
+});
+
+Deno.test("duration-creep: a red-to-green mix shift is not creep", () => {
+  // Early quick fail-fast reds beside late full green gates — the exact shape a
+  // working session produces. Only green runs measure the gate's length, so
+  // this must stay quiet; medianing both outcomes would read the mix as creep.
+  const events = run([
+    ...Array.from({ length: 8 }, () => redDone({ duration_ms: 5_000 })),
+    ...Array.from({ length: 8 }, () => ({
+      verb: "done",
+      duration_ms: 150_000,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    })),
+  ]);
+  const creep = detector("duration-creep");
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(
+    outcome.findings.length,
+    0,
+    "quick reds followed by full greens must not read as duration creep",
+  );
+  // The green-only series still fires when the greens themselves slow down.
+  const slowing = run([
+    ...Array.from({ length: 4 }, () => redDone({ duration_ms: 5_000 })),
+    ...Array.from({ length: 4 }, () => ({
+      verb: "done",
+      duration_ms: 60_000,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    })),
+    ...Array.from({ length: 4 }, () => ({
+      verb: "done",
+      duration_ms: 150_000,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    })),
+  ]);
+  const fired = runDetector(creep, buildStreamFacts(slowing, "main"));
+  assertEquals(
+    fired.findings.length,
+    1,
+    "greens slowing on an unchanged setup must still fire",
+  );
+  assertStringIncludes(fired.findings[0]?.observed ?? "", "green `done`");
 });
 
 Deno.test("patterns attribution: a release boundary is attributed, never blended", () => {

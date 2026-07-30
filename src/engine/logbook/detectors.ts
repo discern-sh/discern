@@ -1855,8 +1855,11 @@ const durationCreep: Detector = {
   next_step:
     "The gate got slower on an unchanged setup — find what grew (test count, build cache misses, an input set that widened) before the extra seconds tax every loop.",
   detect(facts): DetectorOutcome {
+    // Only green runs measure the gate's length: a red run's duration measures
+    // where it failed (a fail-fast check dies in seconds, a test failure in
+    // minutes), so mixing outcomes reads a red/green mix shift as creep.
     const { series, excluded } = comparableSeries(
-      facts.verbs.filter((e) => e.verb === "done"),
+      facts.verbs.filter((e) => e.verb === "done" && e.outcome === "ok"),
       facts.events,
     );
     const considered = series.length + (excluded?.runs ?? 0);
@@ -1885,7 +1888,7 @@ const durationCreep: Detector = {
         brief: `${formatHumanNumber(round1(durEarly))}s → ${
           formatHumanNumber(round1(durLate))
         }s median · ${formatHumanNumber(series.length)} runs`,
-        observed: `median \`done\` duration rose from ${
+        observed: `median green \`done\` duration rose from ${
           formatHumanNumber(round1(durEarly))
         }s to ${formatHumanNumber(round1(durLate))}s across ${
           formatHumanNumber(series.length)
