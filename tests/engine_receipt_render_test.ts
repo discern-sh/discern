@@ -14,12 +14,16 @@ import {
   renderReceiptMarkdown,
 } from "../src/engine/gate/receipt_render.ts";
 import {
+  createDoneTtyProgress,
+  renderDoneTtyProgressTable,
   renderDoneTtySummary,
   renderDoneTtyTable,
 } from "../src/engine/gate/done_tty.ts";
 import { dimBlock, type StepResult } from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
+import type { GatePlan } from "../src/engine/gate/plan.ts";
+import type { JobResult } from "../src/engine/jobs/types.ts";
 import type {
   GateStandard,
   Receipt,
@@ -27,6 +31,11 @@ import type {
 } from "../src/shared/result_schemas.ts";
 
 type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
+
+const SGR = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-9;]*m`,
+  "u",
+);
 
 const FACTS: ReceiptFacts = {
   branch: "agent/upload-retry",
@@ -83,6 +92,65 @@ const STEPS: StepResult[] = [
     durationS: 0,
   },
 ];
+
+const PLAN: GatePlan = {
+  groups: [
+    {
+      stage: "fix",
+      mode: "serial",
+      heading: "Applying fixers...",
+      display: "Fix",
+      jobs: [{
+        label: "format",
+        command: "deno fmt",
+        kind: "known",
+        reportStage: "fix",
+        willRun: true,
+      }],
+    },
+    {
+      stage: "check/test",
+      mode: "parallel",
+      heading: "Checking and testing...",
+      display: "Check & test",
+      jobs: [
+        {
+          label: "lint",
+          command: "deno lint",
+          kind: "known",
+          reportStage: "check",
+          willRun: true,
+        },
+        {
+          label: "test",
+          command: "deno task test",
+          kind: "known",
+          reportStage: "test",
+          willRun: true,
+        },
+      ],
+    },
+    {
+      stage: "scope_gates",
+      mode: "parallel",
+      heading: "Running gates for changed scopes...",
+      display: "Scope gates",
+      jobs: [{
+        label: "scope:web",
+        command: "deno task web",
+        kind: "scope-gate",
+        reportStage: "scope_gates",
+        willRun: false,
+      }],
+    },
+  ],
+  standardsLimitsCheck: true,
+  guidanceCheck: true,
+  skillsCheck: true,
+  mergeCheck: true,
+  trackedArtifactsCheck: true,
+  scopesChanged: [],
+};
 
 const HELD: GateStandard = {
   name: "coverage",
@@ -253,6 +321,71 @@ Deno.test("done TTY render: a narrow terminal stacks commands below each result"
   assertStringIncludes(rendered, "format  ok · 1s");
   assertStringIncludes(rendered, "    deno fmt");
   assertEquals(rendered.includes("\x1b["), false);
+});
+
+Deno.test("done TTY progress: planned rows move from pending through running to settled", () => {
+  const initial = renderDoneTtyProgressTable(
+    PLAN,
+    new Set(),
+    new Map(),
+    { width: 80, color: false },
+  );
+  assertStringIncludes(initial, "format");
+  assertStringIncludes(initial, "deno fmt");
+  assertStringIncludes(initial, "pending");
+  assertStringIncludes(initial, "scope:web");
+  assertStringIncludes(initial, "deno task web");
+  assertStringIncludes(initial, "skipped");
+
+  const result: JobResult = {
+    label: "format",
+    status: "ok",
+    code: 0,
+    durationS: 1,
+    outputLines: 0,
+    errorLikeLines: 0,
+  };
+  const updated = renderDoneTtyProgressTable(
+    PLAN,
+    new Set(["lint"]),
+    new Map([["format", result]]),
+    { width: 80, color: false },
+  );
+  assertStringIncludes(updated, "ok · 1s");
+  assertStringIncludes(updated, "running");
+  assertStringIncludes(updated, "test");
+  assertStringIncludes(updated, "pending");
+});
+
+Deno.test("done TTY progress: controller redraws in place and leaves no colour SGR in no-colour mode", async () => {
+  const writes: string[] = [];
+  const progress = createDoneTtyProgress(
+    (value) => writes.push(value),
+    { width: 80, color: false },
+  );
+  progress.start(PLAN);
+  assertStringIncludes(writes[0] ?? "", "format");
+  assertStringIncludes(writes[0] ?? "", "pending");
+
+  progress.started({ label: "format", command: "deno fmt" });
+  await Promise.resolve();
+  assertStringIncludes(writes[writes.length - 1] ?? "", "\x1b[");
+  assertStringIncludes(writes[writes.length - 1] ?? "", "running");
+
+  progress.settled({
+    label: "format",
+    status: "ok",
+    code: 0,
+    durationS: 1,
+    outputLines: 0,
+    errorLikeLines: 0,
+  });
+  await Promise.resolve();
+  assertStringIncludes(writes[writes.length - 1] ?? "", "ok · 1s");
+  assertEquals(SGR.test(writes.join("")), false);
+
+  progress.complete(STEPS);
+  assertStringIncludes(writes[writes.length - 1] ?? "", "scope unchanged");
 });
 
 Deno.test("receipt line: fixed facts pin the exact sentence", () => {

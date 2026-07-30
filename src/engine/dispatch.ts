@@ -43,6 +43,7 @@ import type {
   SkillsEjectData,
 } from "../shared/result_schemas.ts";
 import { Logger } from "../lib/log.ts";
+import { plainModeEnabled } from "../lib/prompts.ts";
 import { CATEGORY_NAMES } from "./improve/rules.ts";
 import type { LifecycleContext } from "./worktree/lifecycle.ts";
 import { colorEnabled } from "./output.ts";
@@ -243,6 +244,7 @@ export function attachEngineCommands(
           json: o.json ?? false,
           dryRun: o.dryRun ?? false,
           confirmed: o.confirmed ?? false,
+          plain: plainModeEnabled(),
         });
       }),
     );

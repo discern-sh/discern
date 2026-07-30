@@ -17,7 +17,7 @@ _A clean green gate records what ran and identifies the exact branch state ready
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
 
-At a TTY, `done` captures successful output behind one progress line, then renders executed steps in a width-aware `JOB` / `COMMAND` / `RESULT` table and highlights the line. `[gate].stream = true` keeps live output. Pipes get the page; `--no-color` removes ANSI escapes. Exceptional advisories appear above the table.
+On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 

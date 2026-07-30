@@ -57,7 +57,12 @@ import {
 } from "../../lib/map_integrity.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
-import { renderDoneTtySummary, renderDoneTtyTable } from "./done_tty.ts";
+import {
+  createDoneTtyProgress,
+  renderDoneTtyReceiptPanel,
+  renderDoneTtySummary,
+  renderDoneTtyTable,
+} from "./done_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
 import {
@@ -389,7 +394,7 @@ async function runGate(
   root: string,
   json: boolean,
   signal?: AbortSignal,
-  presentation: { compactTty?: boolean } = {},
+  presentation: { liveWidth?: number } = {},
 ): Promise<
   {
     result: DiscernResult<GateData>;
@@ -398,6 +403,7 @@ async function runGate(
     out: Out;
     changed: string[];
     gotchasTail: GotchasFailureTail | undefined;
+    liveTable: boolean;
   }
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
@@ -409,15 +415,29 @@ async function runGate(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
-  // A regular human run narrates jobs to stdout. The compact done TTY captures
-  // routine success output for its final table; explicit [gate].stream keeps the
-  // live path. --json silences both the runner and Out because the envelope is
-  // the entire output (ADR 0030). The shared run context is also the one
-  // `prepare`/`test` use.
-  const compactTty = presentation.compactTty === true && !cfg.gate.stream;
+  const compactTty = presentation.liveWidth !== undefined && !json &&
+    !cfg.gate.stream;
+  // A regular human run narrates jobs to stdout. The compact done TTY withholds
+  // routine logs while its table observes scheduler events; explicit
+  // [gate].stream keeps the command-output path. --json silences both the runner
+  // and Out because the envelope is the entire output (ADR 0030). The shared run
+  // context is also the one `prepare`/`test` use.
   const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
     quietHumanRun: compactTty,
   });
+  const progress = compactTty && presentation.liveWidth !== undefined
+    ? createDoneTtyProgress(out.raw, {
+      width: presentation.liveWidth,
+      color: out.color,
+    })
+    : undefined;
+  if (progress !== undefined) {
+    runOpts.observer = progress;
+    const plannedChanged = await classifyScopes(root, cfg);
+    progress.start(
+      buildGatePlan(cfg, plannedChanged, dryRunStandardJobs(cfg)),
+    );
+  }
   const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
 
   const results = new Map<string, JobResult>();
@@ -741,6 +761,8 @@ async function runGate(
   //    scopes (their gates serialize as skipped, like every other downstream step).
   const changed = await classifyScopes(root, cfg);
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
+  const plan = composeGatePlan(stageGroups, sgGroup, changed);
+  progress?.replacePlan(plan);
 
   // 4. Scope gates (only when the stage groups passed).
   if (failedStage === null && sgGroup !== undefined) {
@@ -770,7 +792,6 @@ async function runGate(
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
-  const plan = composeGatePlan(stageGroups, sgGroup, changed);
   const { result, firedHints: jobOutputHints } = await buildGateResultWithHints(
     plan,
     results,
@@ -1027,7 +1048,16 @@ async function runGate(
   } else {
     delete result.hints;
   }
-  return { result, failedStage, cfg, out, changed, gotchasTail };
+  progress?.complete(result.steps ?? []);
+  return {
+    result,
+    failedStage,
+    cfg,
+    out,
+    changed,
+    gotchasTail,
+    liveTable: progress !== undefined,
+  };
 }
 
 function gateReceiptHint(
@@ -1145,23 +1175,6 @@ function doneTtyReceiptHintTexts(
   return interactiveHintTexts(texts).filter((text) => !routineTexts.has(text));
 }
 
-const COMPACT_GATE_PROGRESS = "Running gate checks…";
-
-/** Hold one transient progress line while a compact TTY run captures job logs. */
-async function withCompactGateProgress<T>(
-  out: Out,
-  run: () => Promise<T>,
-): Promise<T> {
-  out.raw(`${out.c.dim}${COMPACT_GATE_PROGRESS}${out.c.reset}`);
-  try {
-    return await run();
-  } finally {
-    out.raw(
-      `\r${" ".repeat(COMPACT_GATE_PROGRESS.length)}\r`,
-    );
-  }
-}
-
 /**
  * Print the informational success tail (non-`--json`). A TTY gets the compact
  * job table and highlighted one-line receipt. A pipe keeps the stored Markdown
@@ -1172,6 +1185,7 @@ function printSuccessTail(
   out: Out,
   result: DiscernResult<GateData>,
   ttyWidth?: number,
+  tableAlreadyRendered = false,
 ): void {
   let unfilled = 0;
   for (const stage of STAGES) {
@@ -1193,18 +1207,21 @@ function printSuccessTail(
     for (const hint of doneTtyReceiptHintTexts(result.hints)) {
       out.info(hint);
     }
+    const options = {
+      width: ttyWidth,
+      color: out.color,
+    };
     out.raw(
       `\n${
-        renderDoneTtySummary(result.steps ?? [], receipt, {
-          width: ttyWidth,
-          color: out.color,
-        })
+        tableAlreadyRendered
+          ? renderDoneTtyReceiptPanel(receipt, options)
+          : renderDoneTtySummary(result.steps ?? [], receipt, options)
       }\n`,
     );
     return;
   }
 
-  if (ttyWidth !== undefined) {
+  if (ttyWidth !== undefined && !tableAlreadyRendered) {
     out.raw(
       `\n${
         renderDoneTtyTable(result.steps ?? [], {
@@ -1348,10 +1365,28 @@ function dryRunStandardJobs(
   return planStandardJobsFromConfig(buildStandardPlan(cfg).standards);
 }
 
+/** CI and `--plain` request a static transcript even when stdout is a TTY. */
+function staticOutputRequested(plain: boolean): boolean {
+  if (plain) {
+    return true;
+  }
+  try {
+    const marker = Deno.env.get("CI")?.trim().toLowerCase();
+    return marker !== undefined && marker !== "" && marker !== "false";
+  } catch {
+    return false;
+  }
+}
+
 /** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
-  opts: { json: boolean; dryRun?: boolean; confirmed?: boolean },
+  opts: {
+    json: boolean;
+    dryRun?: boolean;
+    confirmed?: boolean;
+    plain?: boolean;
+  },
 ): Promise<number> {
   if (opts.dryRun ?? false) {
     return await dryRunGate(root, opts.json);
@@ -1375,13 +1410,16 @@ export async function runFinish(
   }
   const tty = !opts.json && Deno.stdout.isTerminal();
   const ttyWidth = tty ? terminalWidth() : undefined;
-  const compactTty = tty && !(await loadConfig(root)).gate.stream;
+  const liveWidth = ttyWidth !== undefined &&
+      !staticOutputRequested(opts.plain ?? false)
+    ? ttyWidth
+    : undefined;
   const gateRun = (): ReturnType<typeof runGate> =>
-    runGate(root, opts.json, undefined, { compactTty });
-  const gate = compactTty
-    ? await withCompactGateProgress(makeOut(colorEnabled()), gateRun)
-    : await gateRun();
-  const { result, failedStage, cfg, out, gotchasTail } = gate;
+    runGate(root, opts.json, undefined, {
+      ...(liveWidth !== undefined ? { liveWidth } : {}),
+    });
+  const gate = await gateRun();
+  const { result, failedStage, cfg, out, gotchasTail, liveTable } = gate;
   observeResult(result); // the logbook recorder lifts step timings from it
   if (opts.json) {
     emitResult(result);
@@ -1403,6 +1441,7 @@ export async function runFinish(
     out,
     result,
     ttyWidth,
+    liveTable,
   );
   return 0;
 }

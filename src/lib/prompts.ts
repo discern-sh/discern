@@ -30,6 +30,11 @@ export function setPlainMode(enabled: boolean): void {
   plainMode = enabled;
 }
 
+/** Whether the global CLI requested static, non-interactive output. */
+export function plainModeEnabled(): boolean {
+  return plainMode;
+}
+
 /** Raw flag values passed to `setup` (all optional; undefined → ask/default). */
 export interface InitFlags {
   name?: string | undefined;
