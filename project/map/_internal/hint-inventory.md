@@ -447,7 +447,7 @@ Renumber the newer of the duplicated ADR records named by the diagnostics to the
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`.
 ```
 
 ## `gate-failure-check`
@@ -460,7 +460,7 @@ Run the reproduce command from each diagnostic and fix the reported problems. It
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+Fix the problems in the diagnostics — each carries the command to reproduce it — and iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
 ```
 
 ## `gate-failure-check-test`
@@ -473,7 +473,7 @@ Run the reproduce command from each diagnostic and fix the reported problems. It
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+Fix the problems in the diagnostics, iterating narrow: `discern prepare` re-runs the checks and `discern test` the tests. Re-run `discern done` only once both are green: every red `discern done` pays for the full gate.
 ```
 
 ## `gate-failure-fix`
@@ -486,7 +486,7 @@ Run the reproduce command from each diagnostic and fix the reported problems. It
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+Fix the problems in the diagnostics — each carries the command to reproduce it — and iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
 ```
 
 ## `gate-failure-gotcha-matched`
@@ -570,7 +570,7 @@ Run `discern update` to bring the trunk into this branch and re-materialize, the
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`. One or more scope gates failed.
+Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`. One or more scope gates failed.
 ```
 
 ## `gate-failure-skill-frontmatter`
@@ -622,7 +622,7 @@ Follow the standards diagnostics, then re-run the current discern command. Do no
 Rendered example:
 
 ```text
-Run the reproduce command from each diagnostic and fix the reported problems. Iterate with `discern prepare` (the fast fix-then-check loop) or `discern test`; when the tree is ready, re-run `discern done`.
+Fix the failing tests in the diagnostics — each carries the command to reproduce it — and iterate with `discern test`, which runs the tests alone. Re-run `discern done` only once `discern test` is green: every red `discern done` pays for the full gate.
 ```
 
 ## `gate-failure-tracked-artifacts`

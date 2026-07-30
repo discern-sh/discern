@@ -146,7 +146,14 @@ const MAIN_WORKTREE_FOLLOW_THROUGH = Object.freeze(
   } as const satisfies HintFollowThroughRule,
 );
 
-/** Every gate-failure remedy shares one declared outcome rule. */
+/**
+ * A gate-failure remedy that prescribes the prepare/test inner loop carries the
+ * family's declared outcome rule; a remedy prescribing another action (refresh,
+ * update, a reproduce command) declares none, so the follow-through detector
+ * never scores a hint against an action its text did not ask for. The parity
+ * guard in `tests/patterns_test.ts` derives the split from each entry's own
+ * rendered text, so a reworded remedy enrols or retires itself.
+ */
 function defineGateFailureRemedyHint<P = undefined>(
   def: HintDef<P> & { readonly family: "gate-failure-remedy" },
 ): HintDef<P> {
@@ -344,11 +351,31 @@ function restartSessionHint(leadIn: string): string {
   return `${leadIn} ${RESTART_SESSION_CORE}`;
 }
 
-/** Shared diagnostic loop for gate stages whose machine facts carry the detail. */
-const GATE_DIAGNOSTIC_REMEDY_CORE =
-  "Run the reproduce command from each diagnostic and fix the reported " +
-  `problems. Iterate with ${CMD.prepare} (the fast fix-then-check loop) ` +
-  `or ${CMD.test}; when the tree is ready, re-run ${CMD.done}.`;
+/** The check-stage remedy: prepare re-runs the fixers and checks in seconds. */
+const GATE_PREPARE_REMEDY_CORE =
+  "Fix the problems in the diagnostics — each carries the command to " +
+  `reproduce it — and iterate with ${CMD.prepare}, the fast fix-then-check ` +
+  `loop. Re-run ${CMD.done} only once ${CMD.prepare} is green: every red ` +
+  `${CMD.done} pays for the full gate, tests included.`;
+
+/** The test-stage remedy: iterate on the tests alone, not the whole gate. */
+const GATE_TEST_REMEDY_CORE =
+  "Fix the failing tests in the diagnostics — each carries the command to " +
+  `reproduce it — and iterate with ${CMD.test}, which runs the tests alone. ` +
+  `Re-run ${CMD.done} only once ${CMD.test} is green: every red ${CMD.done} ` +
+  `pays for the full gate.`;
+
+/** The combined-stage remedy names the narrow loop for each half. */
+const GATE_CHECK_TEST_REMEDY_CORE =
+  `Fix the problems in the diagnostics, iterating narrow: ${CMD.prepare} ` +
+  `re-runs the checks and ${CMD.test} the tests. Re-run ${CMD.done} only ` +
+  `once both are green: every red ${CMD.done} pays for the full gate.`;
+
+/** The remedy for stages no narrower loop re-checks (build, scope gates):
+ * the diagnostic's own reproduce command is the iteration. */
+const GATE_REPRODUCE_REMEDY_CORE =
+  "Fix the problems in the diagnostics and confirm with each diagnostic's " +
+  `reproduce command, then re-run ${CMD.done}.`;
 
 /** Maximum names rendered in one hint summary. */
 const HINT_NAME_CAP = 3;
@@ -1854,7 +1881,7 @@ export const HINTS = {
       `Fix the \`gotcha-match\` block in the gotchas entry "${entry}": ${problem}. Until it parses, the entry cannot match failures.`,
   }),
 
-  /** The diagnostic-driven remedy for a failed fix stage. */
+  /** The diagnostic-driven remedy for a failed fix stage, which prepare re-runs. */
   "gate-failure-fix": defineGateFailureRemedyHint({
     id: "gate-failure-fix",
     category: "next-step",
@@ -1862,18 +1889,19 @@ export const HINTS = {
     when: "The gate's fix stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string => GATE_PREPARE_REMEDY_CORE,
   }),
 
-  /** The diagnostic-driven remedy for a failed build stage. */
-  "gate-failure-build": defineGateFailureRemedyHint({
+  /** The build-stage remedy: prepare never builds, so the loop is the
+   * diagnostic's own reproduce command. */
+  "gate-failure-build": defineHint({
     id: "gate-failure-build",
     category: "next-step",
     audience: "all",
     when: "The gate's build stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string => GATE_REPRODUCE_REMEDY_CORE,
   }),
 
   /** The diagnostic-driven remedy for a standalone check-stage failure. */
@@ -1884,7 +1912,7 @@ export const HINTS = {
     when: "A standalone gate check fails.",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string => GATE_PREPARE_REMEDY_CORE,
   }),
 
   /** The diagnostic-driven remedy for a standalone test-stage failure. */
@@ -1895,7 +1923,7 @@ export const HINTS = {
     when: "A standalone test run fails.",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string => GATE_TEST_REMEDY_CORE,
   }),
 
   /** The diagnostic-driven remedy for the full gate's combined check/test stage. */
@@ -1906,11 +1934,12 @@ export const HINTS = {
     when: "The full gate's combined check and test stage fails.",
     family: "gate-failure-remedy",
     example: undefined,
-    template: (): string => GATE_DIAGNOSTIC_REMEDY_CORE,
+    template: (): string => GATE_CHECK_TEST_REMEDY_CORE,
   }),
 
-  /** The diagnostic-driven remedy for failed changed-scope checks. */
-  "gate-failure-scope-gates": defineGateFailureRemedyHint({
+  /** The changed-scope remedy: a scope gate's check runs only in the full
+   * gate, so the loop is the diagnostic's own reproduce command. */
+  "gate-failure-scope-gates": defineHint({
     id: "gate-failure-scope-gates",
     category: "next-step",
     audience: "all",
@@ -1918,11 +1947,11 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      `${GATE_DIAGNOSTIC_REMEDY_CORE} One or more scope gates failed.`,
+      `${GATE_REPRODUCE_REMEDY_CORE} One or more scope gates failed.`,
   }),
 
   /** A gate stage changed a committed-clean tracked file. */
-  "gate-failure-tree-drift": defineGateFailureRemedyHint({
+  "gate-failure-tree-drift": defineHint({
     id: "gate-failure-tree-drift",
     category: "next-step",
     audience: "all",
@@ -1934,7 +1963,7 @@ export const HINTS = {
   }),
 
   /** Discern-managed ignored output was committed to the repository. */
-  "gate-failure-tracked-artifacts": defineGateFailureRemedyHint({
+  "gate-failure-tracked-artifacts": defineHint({
     id: "gate-failure-tracked-artifacts",
     category: "next-step",
     audience: "all",
@@ -1946,7 +1975,7 @@ export const HINTS = {
   }),
 
   /** Compiled agent guidance differs from its authored sources. */
-  "gate-failure-guidance": defineGateFailureRemedyHint({
+  "gate-failure-guidance": defineHint({
     id: "gate-failure-guidance",
     category: "next-step",
     audience: "all",
@@ -1958,7 +1987,7 @@ export const HINTS = {
   }),
 
   /** Materialized skills differ from the effective authored set. */
-  "gate-failure-skills": defineGateFailureRemedyHint({
+  "gate-failure-skills": defineHint({
     id: "gate-failure-skills",
     category: "next-step",
     audience: "all",
@@ -1970,7 +1999,7 @@ export const HINTS = {
   }),
 
   /** An effective skill cannot be read by supported agent runtimes. */
-  "gate-failure-skill-frontmatter": defineGateFailureRemedyHint({
+  "gate-failure-skill-frontmatter": defineHint({
     id: "gate-failure-skill-frontmatter",
     category: "next-step",
     audience: "all",
@@ -1982,7 +2011,7 @@ export const HINTS = {
   }),
 
   /** Two ADR records claim the same number. */
-  "gate-failure-adr-numbers": defineGateFailureRemedyHint({
+  "gate-failure-adr-numbers": defineHint({
     id: "gate-failure-adr-numbers",
     category: "next-step",
     audience: "all",
@@ -1994,7 +2023,7 @@ export const HINTS = {
   }),
 
   /** The maintained ADR index drifted from (or cannot be derived from) the records. */
-  "gate-failure-adr-index": defineGateFailureRemedyHint({
+  "gate-failure-adr-index": defineHint({
     id: "gate-failure-adr-index",
     category: "next-step",
     audience: "all",
@@ -2007,7 +2036,7 @@ export const HINTS = {
   }),
 
   /** The map or a guidance source carries a reference readers cannot follow. */
-  "gate-failure-map-integrity": defineGateFailureRemedyHint({
+  "gate-failure-map-integrity": defineHint({
     id: "gate-failure-map-integrity",
     category: "next-step",
     audience: "all",
@@ -2020,7 +2049,7 @@ export const HINTS = {
   }),
 
   /** The worktree branch does not contain the current trunk. */
-  "gate-failure-merge": defineGateFailureRemedyHint({
+  "gate-failure-merge": defineHint({
     id: "gate-failure-merge",
     category: "next-step",
     audience: "all",
@@ -2032,7 +2061,7 @@ export const HINTS = {
   }),
 
   /** A branch attempted to weaken a standard held by the trunk. */
-  "gate-failure-standards": defineGateFailureRemedyHint({
+  "gate-failure-standards": defineHint({
     id: "gate-failure-standards",
     category: "next-step",
     audience: "all",
@@ -2044,7 +2073,7 @@ export const HINTS = {
   }),
 
   /** The gate cannot persist its Discern-owned state. */
-  "gate-failure-write-access": defineGateFailureRemedyHint({
+  "gate-failure-write-access": defineHint({
     id: "gate-failure-write-access",
     category: "next-step",
     audience: "all",

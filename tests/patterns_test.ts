@@ -59,6 +59,7 @@ import {
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 // ── writer/reader parity ───────────────────────────────────────────────────
@@ -1185,12 +1186,26 @@ Deno.test("hint follow-through: every declaring registry entry resolves followed
     hint.family === "gate-failure-remedy"
   );
   assert(gateRemedies.length > 0, "the gate-failure remedy family is empty");
+  // The outcome rule scores prepare/test usage, so an entry declares it exactly
+  // when its own rendered text prescribes that inner loop — derived from the
+  // template, never from a hand-kept id list, so a reworded remedy enrols or
+  // retires itself and the detector never scores an action a hint didn't ask for.
   for (const hint of gateRemedies) {
-    assert(
+    const rendered = renderCommandRefsCli(
+      (hint.template as (params: unknown) => string)(hint.example),
+    );
+    const prescribesInnerLoop = /`discern (?:prepare|test)`/.test(rendered);
+    assertEquals(
       hint.followThrough !== undefined,
-      `${hint.id}: every gate-failure remedy inherits the family outcome rule`,
+      prescribesInnerLoop,
+      `${hint.id}: a gate-failure remedy declares the outcome rule exactly ` +
+        `when its text prescribes the prepare/test inner loop`,
     );
   }
+  assert(
+    gateRemedies.some((hint) => hint.followThrough !== undefined),
+    "no gate-failure remedy prescribes the inner loop the outcome rule scores",
+  );
   for (
     const required of [
       "status-branch-behind",
