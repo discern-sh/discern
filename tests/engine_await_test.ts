@@ -4,15 +4,14 @@
  * exit-code and interruption contracts. The behaviour under test:
  *
  *  - each condition grounds in authoritative state: `--landed` in git ancestry
- *    (the tip pinned at call start, so the answer survives acceptance deleting
- *    the branch), `--green` in the sibling worktree's gate receipt (a landing
+ *    (the latest observed branch transition survives acceptance deleting the
+ *    branch), `--green` in the sibling worktree's gate receipt (a landing
  *    satisfies it too), `--trunk-moved` in the trunk ref against its at-start
  *    position;
  *  - the wait wakes on git-ref changes mid-hold, not just at the deadline;
  *  - timing out is NOT a failure: `ok` stays true, `met` is false, and
- *    `retry_after_seconds` is priced from the logbook's duration priors —
- *    in-flight work with a prior suggests the remainder, a quiet fleet the
- *    long backoff, a disabled logbook the labelled fallback;
+ *    a continuation preserves the original pins across calls; each caller
+ *    profile uses its longest reliable transport-safe bound;
  *  - the CLI exits 0 on met, 124 on "not yet", 1 on a refusal, and dies
  *    promptly on SIGINT with nothing left behind.
  */
@@ -32,14 +31,22 @@ import {
   scaffoldEngine,
   worktreePath,
 } from "./engine_helpers.ts";
-import { awaitResult } from "../src/engine/await/await.ts";
+import { type AwaitOptions, awaitResult } from "../src/engine/await/await.ts";
 import {
+  AWAIT_LONG_CALL_SECONDS,
+  AWAIT_STRICT_CALL_SECONDS,
   AWAIT_TIMEOUT_EXIT_CODE,
-  AWAIT_TIMING_IDLE_SECONDS,
-  AWAIT_TIMING_NO_PRIOR_SECONDS,
 } from "../src/engine/await/defaults.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import { LOGBOOK_SCHEMA_VERSION } from "../src/engine/logbook/schema.ts";
+import {
+  AWAIT_CONDITIONS,
+  type AwaitConditionKind,
+} from "../src/shared/result_schemas.ts";
+import {
+  AWAIT_CALL_PROFILES,
+  type AwaitCallProfile,
+} from "../src/shared/mcp_timeout_policy.ts";
+import { writeReceiptNote } from "../src/engine/gate/receipt_notes.ts";
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -66,22 +73,7 @@ async function writeHonoredReceipt(worktree: string): Promise<void> {
   await Deno.writeTextFile(path, `${head}\nline: gate green\n`);
 }
 
-/** Append raw logbook lines under the main checkout's common git dir. */
-async function appendLogbookLines(
-  dir: string,
-  lines: readonly unknown[],
-): Promise<void> {
-  const logDir = join(dir, ".git", "discern", "logbook");
-  await Deno.mkdir(logDir, { recursive: true });
-  const month = `${new Date().toISOString().slice(0, 7)}.jsonl`;
-  await Deno.writeTextFile(
-    join(logDir, month),
-    lines.map((l) => `${JSON.stringify(l)}\n`).join(""),
-    { append: true },
-  );
-}
-
-Deno.test("await --landed pins the tip at call start and survives the branch's deletion", async () => {
+Deno.test("await --landed tracks the branch tip and survives its deletion", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -104,7 +96,7 @@ Deno.test("await --landed pins the tip at call start and survives the branch's d
 
     // Mid-wait, the landing happens the way acceptance performs it: the
     // worktree is removed and the BRANCH DELETED before the sha reaches the
-    // trunk — only the pinned tip can still answer.
+    // trunk — only the last observed tip can still answer.
     const wait = awaitResult(dir, {
       landed: "agent/dep",
       timeoutSeconds: 10,
@@ -124,9 +116,53 @@ Deno.test("await --landed pins the tip at call start and survives the branch's d
       "the wake fires well before the deadline",
     );
     assert(
-      met.hints?.some((h) => h.includes("discern update")) === true,
-      "a met landing hints the update",
+      met.hints?.some((h) => h.includes("discern start")) === true,
+      "a main-rooted landing starts a fresh worktree",
     );
+  });
+});
+
+Deno.test("await --landed arms on branch work and follows its tip across continuations", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+
+    const empty = await awaitResult(dir, {
+      landed: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(
+      empty.data?.met,
+      false,
+      "a fresh branch at the trunk has not landed any work",
+    );
+    assertEquals(empty.data?.observed.landed, false);
+    const emptyResume = empty.data?.resume;
+    assert(typeof emptyResume === "string");
+
+    await commitFile(dep, "dep.txt", "work", "dep work");
+    const workTip = await gitOut(dep, "rev-parse", "HEAD");
+    const armed = await awaitResult(dir, {
+      resume: emptyResume,
+      timeoutSeconds: 0,
+    });
+    assertEquals(armed.data?.met, false);
+    assertEquals(armed.data?.observed.tip, workTip);
+    assertEquals(armed.data?.observed.landed, false);
+    const armedResume = armed.data?.resume;
+    assert(typeof armedResume === "string");
+
+    await commitFile(dep, "more.txt", "more", "more dep work");
+    const advancedTip = await gitOut(dep, "rev-parse", "HEAD");
+    await git(dir, "merge", "-q", "--ff-only", advancedTip);
+    const landed = await awaitResult(dir, {
+      resume: armedResume,
+      timeoutSeconds: 0,
+    });
+    assertEquals(landed.data?.met, true);
+    assertEquals(landed.data?.observed.tip, advancedTip);
+    assertEquals(landed.data?.observed.landed, true);
   });
 });
 
@@ -144,9 +180,17 @@ Deno.test("await --landed met from a sibling worktree previews what update would
       "dependent touches shared",
     );
 
+    const armed = await awaitResult(dependent, {
+      landed: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(armed.data?.met, false);
+    const resume = armed.data?.resume;
+    assert(typeof resume === "string");
+
     await git(dir, "merge", "-q", "agent/dep");
     const met = await awaitResult(dependent, {
-      landed: "agent/dep",
+      resume,
       timeoutSeconds: 0,
     });
     assert(met.ok);
@@ -160,6 +204,10 @@ Deno.test("await --landed met from a sibling worktree previews what update would
       met.hints?.some((h) => h.includes("overlap")) === true,
       "the hint carries the overlap count",
     );
+    assert(
+      met.hints?.some((h) => h.includes("discern update")) === true,
+      "a worktree-rooted landing updates that worktree",
+    );
   });
 });
 
@@ -169,6 +217,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     await gitInit(dir);
     const dep = await addWorktree(dir, "dep");
     await commitFile(dep, "dep.txt", "work", "dep work");
+    const depTip = await gitOut(dep, "rev-parse", "HEAD");
 
     // No receipt yet → not met, with the receipt state named.
     const missing = await awaitResult(dir, {
@@ -192,8 +241,30 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     assertEquals(green.data?.met, true);
     assertEquals(green.data?.observed.receipt_status, "honored");
     assert(
-      green.hints?.some((h) => h.includes("--from agent/dep")) === true,
-      "a green sibling hints update --from",
+      green.hints?.some((h) => h.includes(`discern start --from ${depTip}`)) ===
+        true,
+      "a main-rooted green wait starts from the immutable green tip",
+    );
+    assert(
+      green.hints?.every((hint) => !hint.includes("--from agent/dep")) === true,
+      "the follow-up does not race branch deletion",
+    );
+
+    const caller = await addWorktree(dir, "caller");
+    const greenFromWorktree = await awaitResult(caller, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(greenFromWorktree.data?.met, true);
+    assert(
+      greenFromWorktree.hints?.some((h) =>
+        h.includes(`discern update --from ${depTip}`)
+      ) === true,
+      "a worktree-rooted green wait composes the immutable green tip",
+    );
+    assert(
+      (greenFromWorktree.data?.observed.behind ?? 0) >= 1,
+      "the immutable green tip also drives the update preview",
     );
 
     // A branch with NO worktree refuses honestly at call start: a receipt is
@@ -275,9 +346,82 @@ Deno.test("await --green is satisfied by a landing it watched happen", async () 
     assertEquals(met.data?.observed.landed, true);
     assert((met.data?.waited_ms ?? Infinity) < 10_000);
     assert(
-      met.hints?.some((h) => h.includes("discern update")) === true,
-      "a landing hints the update",
+      met.hints?.some((h) => h.includes("discern start")) === true,
+      "a main-rooted green watch starts from the landed trunk",
     );
+  });
+});
+
+Deno.test("await does not mistake an abandoned branch reset for a landing", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+
+    const armed = await awaitResult(dir, {
+      landed: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    assertEquals(armed.data?.met, false);
+    const resume = armed.data?.resume;
+    assert(typeof resume === "string");
+
+    await git(dep, "reset", "--hard", "main");
+    const reset = await awaitResult(dir, {
+      resume,
+      timeoutSeconds: 0,
+    });
+    assertEquals(reset.data?.met, false);
+    assertEquals(reset.data?.observed.landed, false);
+  });
+});
+
+Deno.test("a fresh branch wait recovers accepted work after branch cleanup", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "dep");
+    await commitFile(dep, "dep.txt", "work", "dep work");
+    const tip = await gitOut(dep, "rev-parse", "HEAD");
+    await git(dir, "merge", "-q", "--ff-only", tip);
+    const receipt = await writeReceiptNote(dir, tip, {
+      branch: "agent/dep",
+      trunk: "main",
+      head: tip.slice(0, 12),
+      files_total: 1,
+      insertions: 1,
+      deletions: 0,
+      line: "gate green",
+      markdown: "gate green",
+    });
+    assertEquals(receipt.status, "recorded");
+    await git(dir, "worktree", "remove", "--force", dep);
+    await git(dir, "branch", "-D", "agent/dep");
+
+    for (
+      const options of [
+        { green: "agent/dep" },
+        { landed: "agent/dep" },
+      ] satisfies AwaitOptions[]
+    ) {
+      const recovered = await awaitResult(dir, {
+        ...options,
+        timeoutSeconds: 0,
+      });
+      assertEquals(recovered.data?.met, true);
+      assertEquals(recovered.data?.observed.tip, tip);
+      assert(
+        recovered.hints?.some((hint) => hint.includes("discern start")) ===
+          true,
+        "a main-rooted recovered landing starts a fresh worktree",
+      );
+      assert(
+        recovered.hints?.every((hint) => !hint.includes("discern update")) ===
+          true,
+        "a main-rooted wait never prescribes update",
+      );
+    }
   });
 });
 
@@ -307,216 +451,269 @@ Deno.test("await --trunk-moved wakes on the ref change, not the deadline", async
     assertEquals(met.data?.observed.trunk_start, start);
     assert(met.data?.observed.trunk_head !== start, "the head moved");
     assert((met.data?.waited_ms ?? Infinity) < 10_000);
+    assert(
+      met.hints?.some((hint) => hint.includes("discern start")) === true,
+      "a main-rooted trunk watch starts a fresh worktree",
+    );
+
+    const dependent = await addWorktree(dir, "dependent");
+    const worktreeWait = awaitResult(dependent, {
+      trunkMoved: true,
+      timeoutSeconds: 10,
+      pollIntervalMs: 100,
+    });
+    await delay(300);
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "move again",
+      "--no-gpg-sign",
+    );
+    const worktreeMet = await worktreeWait;
+    assertEquals(worktreeMet.data?.met, true);
+    assert(
+      worktreeMet.hints?.some((hint) => hint.includes("discern update")) ===
+        true,
+      "a worktree-rooted trunk watch updates that worktree",
+    );
   });
 });
 
-Deno.test("retry advice prices the wait from duration priors, and degrades honestly", async () => {
+Deno.test("every await condition resumes across the gap between bounded calls", async () => {
+  interface RetryGapFixture {
+    options: AwaitOptions;
+    crossGap: () => Promise<void>;
+  }
+  type RetryGapCase = (
+    dir: string,
+  ) => RetryGapFixture | Promise<RetryGapFixture>;
+
+  // `satisfies Record<AwaitConditionKind, …>` makes a new condition enroll in
+  // this guard at the same source of truth that enrolls the CLI and schema.
+  const cases = {
+    green: async (dir: string): Promise<RetryGapFixture> => {
+      const dep = await addWorktree(dir, "dep");
+      return {
+        options: { green: "agent/dep" },
+        crossGap: async (): Promise<void> => {
+          await commitFile(dep, "dep.txt", "work", "dep work");
+          const tip = await gitOut(dep, "rev-parse", "HEAD");
+          await git(dir, "worktree", "remove", "--force", dep);
+          await git(dir, "branch", "-D", "agent/dep");
+          await git(dir, "merge", "-q", "--ff-only", tip);
+          const receipt = await writeReceiptNote(dir, tip, {
+            branch: "agent/dep",
+            trunk: "main",
+            head: tip.slice(0, 12),
+            files_total: 1,
+            insertions: 1,
+            deletions: 0,
+            line: "gate green",
+            markdown: "gate green",
+          });
+          assert(
+            receipt.status === "recorded" ||
+              receipt.status === "already_present",
+            "the simulated acceptance must leave its durable receipt note",
+          );
+        },
+      };
+    },
+    landed: async (dir: string): Promise<RetryGapFixture> => {
+      const dep = await addWorktree(dir, "dep");
+      await commitFile(dep, "dep.txt", "work", "dep work");
+      const tip = await gitOut(dep, "rev-parse", "HEAD");
+      return {
+        options: { landed: "agent/dep" },
+        crossGap: async (): Promise<void> => {
+          await git(dir, "worktree", "remove", "--force", dep);
+          await git(dir, "branch", "-D", "agent/dep");
+          await git(dir, "merge", "-q", "--ff-only", tip);
+        },
+      };
+    },
+    "trunk-moved": (dir: string): RetryGapFixture => ({
+      options: { trunkMoved: true },
+      crossGap: async (): Promise<void> => {
+        await git(
+          dir,
+          "commit",
+          "-q",
+          "--allow-empty",
+          "-m",
+          "move trunk between calls",
+          "--no-gpg-sign",
+        );
+      },
+    }),
+  } satisfies Record<AwaitConditionKind, RetryGapCase>;
+
+  for (const condition of AWAIT_CONDITIONS) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      const fixture = await cases[condition](dir);
+      const first = await awaitResult(dir, {
+        ...fixture.options,
+        timeoutSeconds: 0,
+      });
+      assertEquals(first.data?.met, false);
+      const resume = (first.data as { resume?: unknown } | undefined)?.resume;
+      assert(
+        typeof resume === "string",
+        `${condition} must return an opaque continuation when not met`,
+      );
+
+      await fixture.crossGap();
+      const resumedOptions = {
+        resume,
+        timeoutSeconds: 0,
+      } as AwaitOptions & { resume: string };
+      const resumed = await awaitResult(dir, resumedOptions);
+      assert(resumed.ok, `${condition} continuation must remain valid`);
+      assertEquals(
+        resumed.data?.met,
+        true,
+        `${condition} must observe a condition crossed between calls`,
+      );
+    });
+  }
+});
+
+Deno.test("await continuation tokens are closed, versioned, and repository-bound", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "dep");
+    const first = await awaitResult(dir, {
+      green: "agent/dep",
+      timeoutSeconds: 0,
+    });
+    const resume = first.data?.resume;
+    assert(typeof resume === "string");
+
+    const mixed = await awaitResult(dir, {
+      green: "agent/dep",
+      resume,
+      timeoutSeconds: 0,
+    });
+    assertEquals(mixed.ok, false);
+    assertEquals(mixed.error, "invalid_arguments");
+
+    const malformed = await awaitResult(dir, {
+      resume: "v1.not-base64url-json",
+      timeoutSeconds: 0,
+    });
+    assertEquals(malformed.ok, false);
+    assertEquals(malformed.error, "invalid_arguments");
+
+    await withTempDir(async (other) => {
+      await scaffoldEngine(other);
+      await gitInit(other);
+      const foreign = await awaitResult(other, {
+        resume,
+        timeoutSeconds: 0,
+      });
+      assertEquals(foreign.ok, false);
+      assertEquals(foreign.error, "invalid_arguments");
+      assert(
+        foreign.message?.includes("different repository") === true,
+        "the refusal names the repository binding",
+      );
+    });
+  });
+});
+
+Deno.test("await uses the longest reliable call for every caller profile", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await addWorktree(dir, "dep");
 
-    // A quiet fleet: the long idle backoff.
-    const idle = await awaitResult(dir, {
-      green: "agent/dep",
-      timeoutSeconds: 0,
-    });
-    assertEquals(idle.data?.retry_basis, "idle");
-    assertEquals(idle.data?.retry_after_seconds, AWAIT_TIMING_IDLE_SECONDS);
-    assertEquals(idle.data?.timeout_basis, "explicit");
+    const expected = {
+      cli: AWAIT_LONG_CALL_SECONDS,
+      "long-client": AWAIT_LONG_CALL_SECONDS,
+      "strict-client": AWAIT_STRICT_CALL_SECONDS,
+      "unknown-client": AWAIT_STRICT_CALL_SECONDS,
+    } satisfies Record<AwaitCallProfile, number>;
 
-    const idleAbort = new AbortController();
-    idleAbort.abort();
-    const automaticIdle = await awaitResult(
+    for (const profile of AWAIT_CALL_PROFILES) {
+      const abort = new AbortController();
+      abort.abort();
+      const automatic = await awaitResult(
+        dir,
+        { green: "agent/dep" },
+        abort.signal,
+        { callProfile: profile },
+      );
+      assertEquals(automatic.data?.timeout_basis, profile);
+      assertEquals(automatic.data?.timeout_seconds, expected[profile]);
+      assertEquals(automatic.data?.retry_basis, profile);
+      assertEquals(automatic.data?.retry_after_seconds, expected[profile]);
+    }
+
+    // A strict client cannot honor a longer request. It receives a complete,
+    // resumable answer before the transport kills the call.
+    const cappedAbort = new AbortController();
+    cappedAbort.abort();
+    const capped = await awaitResult(
       dir,
-      { green: "agent/dep" },
-      idleAbort.signal,
+      { green: "agent/dep", timeoutSeconds: 300 },
+      cappedAbort.signal,
+      { callProfile: "strict-client" },
     );
-    assertEquals(automaticIdle.data?.timeout_basis, "idle");
-    assertEquals(
-      automaticIdle.data?.timeout_seconds,
-      AWAIT_TIMING_IDLE_SECONDS,
+    assertEquals(capped.data?.timeout_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assertEquals(capped.data?.timeout_basis, "strict-client");
+    assertEquals(capped.data?.requested_timeout_seconds, 300);
+    assertEquals(capped.data?.retry_after_seconds, AWAIT_STRICT_CALL_SECONDS);
+    assert(
+      capped.hints?.some((hint) =>
+        hint.includes("--resume") && !hint.includes("--green")
+      ) === true,
+      "the retry continues the original pins instead of starting a fresh wait",
     );
 
-    // The dependency is mid-`done`, one minute into a run whose observed median
-    // is four minutes and whose P90 upper bound is six minutes.
-    // Newer coordination calls share the branch but cannot hide that work from
-    // the timing consumer: all concurrent begins survive the fleet projection,
-    // and the longest credible remainder gives the wait its upper bound.
-    const now = Date.now();
-    const iso = (msAgo: number): string => new Date(now - msAgo).toISOString();
-    const completion = (msAgo: number, durationMs: number): unknown => ({
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: iso(msAgo),
-      kind: "verb",
-      verb: "done",
-      surface: "cli",
-      branch: "agent/dep",
-      head: null,
-      clean: null,
-      outcome: "ok",
-      duration_ms: durationMs,
-      epoch: null,
-    });
-    await appendLogbookLines(dir, [
-      completion(3_600_000, 180_000),
-      completion(1_800_000, 240_000),
-      completion(900_000, 360_000),
-      {
-        schema: LOGBOOK_SCHEMA_VERSION,
-        at: iso(600_000),
-        kind: "verb",
-        invocation: "prior-await",
-        verb: "await",
-        surface: "mcp",
-        branch: "agent/dep",
-        head: null,
-        clean: null,
-        outcome: "ok",
-        duration_ms: 45_000,
-        epoch: null,
-      },
-      {
-        schema: LOGBOOK_SCHEMA_VERSION,
-        at: iso(60_000),
-        kind: "begin",
-        invocation: "inv-live",
-        verb: "done",
-        surface: "cli",
-        driver: {},
-        branch: "agent/dep",
-        head: null,
-        epoch: null,
-      },
-      {
-        schema: LOGBOOK_SCHEMA_VERSION,
-        at: iso(10_000),
-        kind: "begin",
-        invocation: "current-await",
-        verb: "await",
-        surface: "mcp",
-        driver: {},
-        branch: "agent/dep",
-        head: null,
-        epoch: null,
-      },
-      {
-        schema: LOGBOOK_SCHEMA_VERSION,
-        at: iso(5_000),
-        kind: "begin",
-        invocation: "future-sibling",
-        verb: "coordinate",
-        surface: "mcp",
-        driver: {},
-        branch: "agent/dep",
-        head: null,
-        epoch: null,
-      },
-    ]);
-    const running = await awaitResult(dir, {
-      green: "agent/dep",
-      timeoutSeconds: 0,
-    });
-    assertEquals(running.data?.retry_basis, "running");
-    assertEquals(running.data?.running?.verb, "done");
-    assertEquals(running.data?.running?.branch, "agent/dep");
-    assertEquals(running.data?.running?.typical_duration_ms, 240_000);
-    assertEquals(running.data?.running?.p90_duration_ms, 360_000);
-    assertEquals(running.data?.running?.duration_samples, 3);
-    assertEquals(running.data?.timeout_basis, "explicit");
-    const seconds = running.data?.retry_after_seconds ?? 0;
-    assert(
-      seconds >= 297 && seconds <= 301,
-      `~5 minutes of the P90 run remain, got ${seconds}s`,
-    );
-    assert(
-      running.hints?.some((h) => h.includes(`${seconds}`)) === true,
-      "the not-yet hint names the delay",
-    );
-
-    // With no explicit timeout, the same repository evidence prices the first
-    // bounded call. Abort immediately so the test observes the chosen bound
-    // without waiting for it.
-    const abort = new AbortController();
-    abort.abort();
-    const automatic = await awaitResult(
+    // A short explicit bound remains caller-owned. A zero-second probe gets the
+    // profile maximum for its continuation rather than recommending zero again.
+    const explicitAbort = new AbortController();
+    explicitAbort.abort();
+    const explicit = await awaitResult(
       dir,
-      { green: "agent/dep" },
-      abort.signal,
+      { green: "agent/dep", timeoutSeconds: 30 },
+      explicitAbort.signal,
+      { callProfile: "long-client" },
     );
-    assertEquals(automatic.data?.timeout_basis, "running");
-    assert(
-      Math.abs((automatic.data?.timeout_seconds ?? 0) - seconds) <= 1,
-      "the omitted timeout uses the same live duration evidence",
-    );
+    assertEquals(explicit.data?.timeout_seconds, 30);
+    assertEquals(explicit.data?.timeout_basis, "explicit");
+    assertEquals(explicit.data?.retry_after_seconds, 30);
+    assertEquals(explicit.data?.retry_basis, "explicit");
 
-    // `await` records its own begin for status visibility, but a passive wait
-    // cannot complete the condition it watches or price another wait.
-    await addWorktree(dir, "waiting-only");
-    await appendLogbookLines(dir, [{
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: new Date().toISOString(),
-      kind: "begin",
-      invocation: "self-wait",
-      verb: "await",
-      surface: "mcp",
-      driver: {},
-      branch: "agent/waiting-only",
-      head: null,
-      epoch: null,
-    }]);
-    const selfOnly = await awaitResult(dir, {
-      green: "agent/waiting-only",
-      timeoutSeconds: 0,
-    });
-    assertEquals(selfOnly.data?.retry_basis, "idle");
-    assertEquals(selfOnly.data?.running, undefined);
-
-    // A first invocation has no history to price it. Active work receives a
-    // generous first-run bound rather than being mistaken for an idle fleet.
-    await addWorktree(dir, "fresh");
-    await appendLogbookLines(dir, [{
-      schema: LOGBOOK_SCHEMA_VERSION,
-      at: new Date().toISOString(),
-      kind: "begin",
-      invocation: "first-compile",
-      verb: "compile",
-      surface: "cli",
-      driver: {},
-      branch: "agent/fresh",
-      head: null,
-      epoch: null,
-    }]);
-    const freshAbort = new AbortController();
-    freshAbort.abort();
-    const firstRun = await awaitResult(
+    const probe = await awaitResult(
       dir,
-      { green: "agent/fresh" },
-      freshAbort.signal,
+      { green: "agent/dep", timeoutSeconds: 0 },
+      undefined,
+      { callProfile: "long-client" },
     );
-    assertEquals(firstRun.data?.timeout_basis, "no-prior");
-    assertEquals(
-      firstRun.data?.timeout_seconds,
-      AWAIT_TIMING_NO_PRIOR_SECONDS,
-    );
+    assertEquals(probe.data?.timeout_seconds, 0);
+    assertEquals(probe.data?.timeout_basis, "explicit");
+    assertEquals(probe.data?.retry_after_seconds, AWAIT_LONG_CALL_SECONDS);
+    assertEquals(probe.data?.retry_basis, "long-client");
 
-    // With the logbook off the advice is a fallback, and a point-of-use
-    // line says why the timing evidence is absent.
-    const configPath = join(dir, "discern.toml");
-    const config = await Deno.readTextFile(configPath);
-    await Deno.writeTextFile(
-      configPath,
-      config.replace("logbook = true", "logbook = false"),
+    // The direct CLI has no MCP transport deadline, so an explicit longer
+    // caller bound stays exact.
+    const cliAbort = new AbortController();
+    cliAbort.abort();
+    const cliExplicit = await awaitResult(
+      dir,
+      { green: "agent/dep", timeoutSeconds: 4_000 },
+      cliAbort.signal,
     );
-    const off = await awaitResult(dir, {
-      green: "agent/dep",
-      timeoutSeconds: 0,
-    });
-    assertEquals(off.data?.retry_basis, "logbook-off");
-    assert(
-      off.hints?.some((h) => h.includes("fallback")) === true,
-      "the degraded advice is labelled at the point of use",
-    );
+    assertEquals(cliExplicit.data?.timeout_seconds, 4_000);
+    assertEquals(cliExplicit.data?.timeout_basis, "explicit");
+    assertEquals(cliExplicit.data?.requested_timeout_seconds, undefined);
   });
 });
 
@@ -546,10 +743,10 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
 
     const dep = await addWorktree(dir, "dep");
     await commitFile(dep, "dep.txt", "work", "dep work");
-    await git(dir, "merge", "-q", "agent/dep");
+    await writeHonoredReceipt(dep);
     const met = await runAgent(dir, [
       "await",
-      "--landed",
+      "--green",
       "agent/dep",
       "--timeout",
       "0",

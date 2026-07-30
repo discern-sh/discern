@@ -65,6 +65,7 @@ export const AGENT_CATALOGUE = [
     nativeOrder: 3,
     guidancePath: "AGENTS.md",
     environment: [{ anyOf: ["CURSOR_AGENT"] }],
+    mcpAliases: ["cursor-vscode"],
   },
   {
     id: "claude",

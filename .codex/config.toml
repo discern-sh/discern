@@ -6,6 +6,6 @@ writable_roots = ["../../discern.worktrees"]
 
 [mcp_servers.discern]
 command = "discern"
-args = ["mcp"]
+args = ["mcp", "--long-tool-calls"]
 startup_timeout_sec = 30
 tool_timeout_sec = 3600

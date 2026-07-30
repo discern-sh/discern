@@ -155,6 +155,33 @@ export async function trackedMarkdownFiles(
 /** The tracked-Markdown universe of this checkout, enumerated once. */
 export const TRACKED_MD_FILES: string[] = await trackedMarkdownFiles();
 
+/**
+ * Extensions whose files hold genuine binary payloads — the only exemption
+ * from the text universe. Grounded in what the repo actually tracks (images
+ * and Wasm plugins); a new binary format must enrol here by name, so a stray
+ * binary landing under a text extension still fails byte-level guards.
+ */
+const BINARY_EXTENSIONS = [".png", ".wasm"];
+
+/**
+ * Every tracked or authored file that is text by contract — the whole
+ * enumeration minus {@link BINARY_EXTENSIONS} — for guards about bytes
+ * rather than language: any file here must stay readable by POSIX text
+ * tools. Enumerated like the other universes, so a new tree or format
+ * enrols the moment its first file exists.
+ */
+export async function authoredTextFiles(
+  root: string = REPO_ROOT,
+): Promise<string[]> {
+  const listed = await gitListedAuthoredFiles(root, []);
+  return listed.filter(
+    (rel) => !BINARY_EXTENSIONS.some((ext) => rel.endsWith(ext)),
+  );
+}
+
+/** The authored-text universe of this checkout, enumerated once. */
+export const AUTHORED_TEXT_FILES: string[] = await authoredTextFiles();
+
 /** Whether `rel` is the configured map subtree named by `segments`. */
 export function isRepoMapPath(rel: string, ...segments: string[]): boolean {
   const prefix = join(REPO_AUTHORED_PATHS.mapRel, ...segments);

@@ -65,6 +65,18 @@ export const OPERATING_POLICIES = [
     probes: [/discern_prepare/, /iterat/i],
   },
   {
+    id: "await-longest-safe",
+    statement:
+      "Wait for a sibling branch to go green, its work to land, or the trunk " +
+      "to move with discern_await. Make one call and let it use the longest " +
+      "safe bound; do not shorten it for progress updates. If it answers not " +
+      "met, continue with data.resume until the condition holds, the user " +
+      "stops, or the task no longer needs it. An ok:false refusal has no " +
+      "continuation; follow its recovery hint.",
+    surfaces: OPERATING_POLICY_SURFACES,
+    probes: [/discern_await/, /longest[ -]safe/i, /progress/, /resume/],
+  },
+  {
     id: "never-loosen",
     statement:
       "Quality standards — numbers that can never get worse — are enforced " +

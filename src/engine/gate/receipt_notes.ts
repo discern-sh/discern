@@ -561,16 +561,8 @@ async function noteContentFromTrackingRef(
   ref: string,
   commit: string,
 ): Promise<string | undefined> {
-  const tree = await runGit(
-    ["ls-tree", "-r", "-z", "--format=%(path)", ref],
-    { cwd: root },
-  );
-  if (!tree.success) {
-    return undefined;
-  }
-  const path = splitNulRecords(tree.stdout).find((candidate) =>
-    candidate.replaceAll("/", "") === commit
-  );
+  const paths = await notePathsFromRef(root, ref);
+  const path = paths.get(commit);
   if (path === undefined) {
     return undefined;
   }
@@ -578,16 +570,33 @@ async function noteContentFromTrackingRef(
   return blob.success ? blob.stdout : undefined;
 }
 
-/** Read the configured trunk tip's first valid receipt, preferring local truth. */
-export async function readLandedReceiptNote(
+/** Object id → tree path for every note carried by one notes ref. */
+async function notePathsFromRef(
   root: string,
-  trunk: string,
-): Promise<LandedReceiptNote | undefined> {
-  const tip = await runGit(
-    ["rev-parse", "--verify", `refs/heads/${trunk}^{commit}`],
+  ref: string,
+): Promise<Map<string, string>> {
+  const tree = await runGit(
+    ["ls-tree", "-r", "-z", "--format=%(path)", ref],
     { cwd: root },
   );
-  const commit = tip.success ? tip.stdout.trim() : "";
+  if (!tree.success) {
+    return new Map();
+  }
+  const paths = new Map<string, string>();
+  for (const path of splitNulRecords(tree.stdout)) {
+    const object = path.replaceAll("/", "");
+    if (/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/u.test(object)) {
+      paths.set(object, path);
+    }
+  }
+  return paths;
+}
+
+/** Read one commit's first valid receipt, preferring local truth. */
+export async function readReceiptNoteAt(
+  root: string,
+  commit: string,
+): Promise<LandedReceiptNote | undefined> {
   if (commit === "") {
     return undefined;
   }
@@ -603,9 +612,110 @@ export async function readLandedReceiptNote(
       continue;
     }
     const receipt = parseReceiptNote(content);
-    if (receipt !== undefined) {
+    if (
+      receipt !== undefined &&
+      /^[0-9a-f]{7,64}$/u.test(receipt.head) &&
+      commit.startsWith(receipt.head)
+    ) {
       return { commit, ref, receipt };
     }
   }
   return undefined;
+}
+
+/**
+ * Find a validated landing for `branch` on the trunk ancestry added after
+ * `sinceCommit`. This is the durable bridge across an `await` continuation gap:
+ * acceptance writes the receipt note before deleting the worktree and branch.
+ */
+export async function findLandedReceiptNoteForBranch(
+  root: string,
+  branch: string,
+  trunk: string,
+  sinceCommit: string,
+): Promise<LandedReceiptNote | undefined> {
+  const commits = await runGit(
+    [
+      "rev-list",
+      "--reverse",
+      `${sinceCommit}..refs/heads/${trunk}`,
+    ],
+    { cwd: root },
+  );
+  if (!commits.success) {
+    return undefined;
+  }
+  for (
+    const commit of commits.stdout.split(/\r?\n/).filter((value) =>
+      value !== ""
+    )
+  ) {
+    const landed = await readReceiptNoteAt(root, commit);
+    if (
+      landed?.receipt.branch === branch &&
+      landed.receipt.trunk === trunk
+    ) {
+      return landed;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Find the newest accepted landing for a branch after acceptance deleted its
+ * ref. Notes narrow the candidate set first; one trunk walk then orders and
+ * ancestry-checks them without probing every commit for a note.
+ */
+export async function findLatestLandedReceiptNoteForBranch(
+  root: string,
+  branch: string,
+  trunk: string,
+): Promise<LandedReceiptNote | undefined> {
+  const targets = new Set<string>();
+  for (const ref of [RECEIPT_NOTES_REF, ...await receiptTrackingRefs(root)]) {
+    for (const target of (await notePathsFromRef(root, ref)).keys()) {
+      targets.add(target);
+    }
+  }
+  if (targets.size === 0) {
+    return undefined;
+  }
+  const ancestry = await runGit(
+    ["rev-list", `refs/heads/${trunk}`],
+    { cwd: root },
+  );
+  if (!ancestry.success) {
+    return undefined;
+  }
+  for (
+    const commit of ancestry.stdout.split(/\r?\n/).filter((value) =>
+      value !== ""
+    )
+  ) {
+    if (!targets.has(commit)) {
+      continue;
+    }
+    const landed = await readReceiptNoteAt(root, commit);
+    if (
+      landed?.receipt.branch === branch &&
+      landed.receipt.trunk === trunk
+    ) {
+      return landed;
+    }
+  }
+  return undefined;
+}
+
+/** Read the configured trunk tip's first valid receipt, preferring local truth. */
+export async function readLandedReceiptNote(
+  root: string,
+  trunk: string,
+): Promise<LandedReceiptNote | undefined> {
+  const tip = await runGit(
+    ["rev-parse", "--verify", `refs/heads/${trunk}^{commit}`],
+    { cwd: root },
+  );
+  return tip.success
+    ? await readReceiptNoteAt(root, tip.stdout.trim())
+    : undefined;
 }

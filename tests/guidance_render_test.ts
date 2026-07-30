@@ -414,6 +414,56 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
       ),
       "a green finish still needs one verified source of landing authority",
     );
+    for (
+      const [meaning, needle] of [
+        [
+          "start explains how to move the agent into the returned checkout",
+          "re-root into the returned path: cd in, or start a session there",
+        ],
+        [
+          "the no-re-root fallback applies to every shell command and discern tool",
+          "Prefix every shell command with `cd <path> &&` and pass `path` to every discern tool",
+        ],
+        [
+          "update replaces pre-checks and hand merges",
+          "call it directly instead of pre-checking with git or hand-merging",
+        ],
+        [
+          "from accepts an arbitrary ref and composes below the trunk",
+          "`from` (any ref) — work composes below the trunk",
+        ],
+        [
+          "await spends the transport budget instead of narrating progress",
+          "one longest-safe call and returns early when its condition holds. Never shorten the call to send progress reports",
+        ],
+        [
+          "await continuations have no fixed retry count",
+          "Repeat with no fixed retry limit until the condition holds",
+        ],
+        [
+          "a refusal follows recovery instead of continuing",
+          "An `ok: false` refusal has no continuation: do not resume it; follow its recovery hint",
+        ],
+        [
+          "atomic history survives acceptance",
+          "commit each logical step — acceptance lands your branch history as-is",
+        ],
+        [
+          "the gate receipt belongs to the final clean commit",
+          "run `discern_done` once on the clean HEAD — acceptance honors that receipt",
+        ],
+        [
+          "another clean worktree remains somebody else's line of work",
+          "other efforts in flight, not a pool to claim from",
+        ],
+      ] as const
+    ) {
+      assertStringIncludes(
+        bareBody,
+        needle,
+        `worktree guidance lost this operational safeguard: ${meaning}`,
+      );
+    }
   } finally {
     await Deno.remove(bare, { recursive: true });
     await Deno.remove(rich, { recursive: true });

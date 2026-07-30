@@ -4,7 +4,8 @@
       "type": "stdio",
       "command": "discern",
       "args": [
-        "mcp"
+        "mcp",
+        "--strict-tool-calls"
       ]
     }
   }

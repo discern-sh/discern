@@ -37,6 +37,8 @@ The closing account names clear and young detectors. `--json` keeps findings ran
 
 An empty logbook is a normal state: the report says so and suggests checking back. A repository that never recorded (or opted out with `[project].logbook = false`) still gets a readable answer.
 
+`discern patterns --stats` reads the same logbook for what went well and renders [practice stats](practice-stats.md) instead of the detector report: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, as one shareable card of plain counts.
+
 ## What the detectors watch
 
 A registry of named detectors runs over the event stream, grouped by family:

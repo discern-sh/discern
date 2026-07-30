@@ -1,4 +1,4 @@
-# ADR 0229: JUnit XML joins diagnostic auto-detection
+# ADR 0233: JUnit XML joins diagnostic auto-detection
 
 **Status**: accepted. Extends [ADR 0028](0028-result-envelope-and-diagnostics.md)'s Tier-1 normalization and follows [ADR 0083](0083-normalize-and-offload-diagnostic-output.md)'s offload boundary; the declared text-format slice stays future work.
 

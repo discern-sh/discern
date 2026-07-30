@@ -11,7 +11,9 @@
  * Like every verb it computes one {@link DiscernResult}; the human report, the
  * `--json`, and the MCP tool are three renderings of the same object.
  * {@link patternsResult} is the unrendered core the MCP server calls;
- * {@link runPatterns} is the CLI.
+ * {@link runPatterns} is the CLI. `--stats` asks the same read for the
+ * practice's stats (`stats.ts` computes them; `data.stats` carries them) and
+ * swaps the human report for the card.
  *
  * Advisory only, structurally: the result is always `ok` once the logbook is
  * readable — findings are advice, never failures — and nothing in the gate
@@ -34,6 +36,7 @@ import {
   type PatternsFinding,
   type PatternsPopulation,
   type PatternsResetData,
+  type PatternsStats,
 } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
@@ -47,6 +50,7 @@ import {
 } from "../../shared/hints.ts";
 import {
   displayWidth,
+  meter,
   renderAlignedTable,
   sparkline,
   terminalWidth,
@@ -57,8 +61,11 @@ import { resolveCommonGitDir } from "../worktree/git.ts";
 import { readLogbookStream } from "./read.ts";
 import { listLogbookFiles, logbookDir, removeLogbook } from "./store.ts";
 import { driverAgent, driverKind } from "./cohorts.ts";
+import { computeStats } from "./stats.ts";
 import {
   buildStreamFacts,
+  inclusiveSpanDays,
+  round1,
   runDetectors,
   type StreamFacts,
   TRAJECTORY_BOUNDARY_ATTRIBUTION,
@@ -103,16 +110,24 @@ function noRepository(verb: string): DiscernResult<never> {
   };
 }
 
+/** Options accepted by {@link patternsResult}. */
+export interface PatternsResultOptions {
+  /** Also compute practice stats (`data.stats`) from the same stream. */
+  stats?: boolean;
+}
+
 /**
  * Compute the `patterns` {@link DiscernResult} without printing or exiting —
  * the core the MCP server renders. Reads the whole logbook tolerantly (torn
  * and foreign lines are skipped and counted), runs every registry detector
  * with its evidence threshold applied, and reports the ranked findings plus
- * every detector's status. An empty or absent logbook is a first-class state
- * with a helpful hint, not an error.
+ * every detector's status. When asked, `data.stats` joins with the practice's
+ * stats read from the same stream (`stats.ts`). An empty or absent logbook
+ * is a first-class state with a helpful hint, not an error.
  */
 export async function patternsResult(
   root: string,
+  opts: PatternsResultOptions = {},
 ): Promise<DiscernResult<PatternsData>> {
   const config = await loadConfig(root);
   const commonGitDir = await resolveCommonGitDir(root);
@@ -158,6 +173,7 @@ export async function patternsResult(
       threshold: r.detector.threshold,
       findings: r.findings.length,
     })),
+    ...(opts.stats === true ? { stats: computeStats(facts) } : {}),
   };
 
   const hints: FiredHint[] = [];
@@ -226,7 +242,6 @@ export const PATTERNS_TRAJECTORY_CAVEAT =
 export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
-const DAY_MS = 86_400_000;
 const PIN_COMMAND = "`discern standards --pin`";
 
 function plural(
@@ -235,30 +250,6 @@ function plural(
   pluralForm = `${singular}s`,
 ): string {
   return `${formatHumanNumber(value)} ${value === 1 ? singular : pluralForm}`;
-}
-
-export function inclusiveSpanDays(
-  first: string,
-  last: string,
-): number | undefined {
-  const start = Date.parse(first);
-  const end = Date.parse(last);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) {
-    return undefined;
-  }
-  const startDate = new Date(start);
-  const endDate = new Date(end);
-  const startDay = Date.UTC(
-    startDate.getUTCFullYear(),
-    startDate.getUTCMonth(),
-    startDate.getUTCDate(),
-  );
-  const endDay = Date.UTC(
-    endDate.getUTCFullYear(),
-    endDate.getUTCMonth(),
-    endDate.getUTCDate(),
-  );
-  return Math.floor(Math.abs(endDay - startDay) / DAY_MS) + 1;
 }
 
 /** "7 days (2026-07-20 → 2026-07-26) · 2,851 events · 73 branches" */
@@ -635,9 +626,505 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
   renderClosingAccount(out, data, width);
 }
 
+// ── practice stats ─────────────────────────────────────────────────────────
+
+/** The empty-state line for a stats card with no analyzed runs behind it. */
+export const STATS_EMPTY_MESSAGE =
+  "No stats yet: the logbook holds no analyzed runs. Check back after some use.";
+
+/** The card's provenance line — where every number comes from, and how far
+ * it travels. */
+export const STATS_PROVENANCE =
+  "Counted from this repository's local logbook. Nothing leaves the machine.";
+
+/** Section labels for the stats card, in render order. */
+export const STATS_SECTIONS = {
+  accepted: "Accepted",
+  gate: "The gate",
+  pace: "Pace",
+  standards: "Standards",
+  agents: "Agents",
+  breadth: "Breadth",
+} as const;
+
+function percent(part: number, whole: number): string {
+  return `${Math.round((part / whole) * 100)}%`;
+}
+
+/** Meter cells on a proportion row — wide enough to read, narrow enough to
+ * leave the count and its denominator room on an 80-column card. */
+export const STATS_METER_WIDTH = 18;
+
+/** A proportion row: a green-filled meter, then the counts it summarizes. */
+function meterRow(c: Palette, fraction: number, text: string): string {
+  const cells = meter(fraction, STATS_METER_WIDTH);
+  return `${c.green}${cells.filled}${c.reset}${c.dim}${cells.track}${c.reset} ${text}`;
+}
+
+/** Cadence label beside a sparkline — "accepted per day", or the folded form
+ * once the span outgrew the wire cap. */
+function cadenceLabel(unit: string, daysPerPoint: number): string {
+  return daysPerPoint <= 1
+    ? `${unit} per day`
+    : `${unit} per ${formatHumanNumber(daysPerPoint)} days`;
+}
+
+/** A section heading's cadence sparkline, when the series has a shape. */
+interface StatsSpark {
+  series: readonly number[];
+  label: string;
+}
+
+function statsSpark(
+  series: readonly number[] | undefined,
+  label: string,
+): StatsSpark | undefined {
+  return series !== undefined && series.length > 1 &&
+      series.some((value) => value > 0)
+    ? { series, label }
+    : undefined;
+}
+
+/** "12 days (2026-07-18 → 2026-07-29) · 1,670 analyzed runs · 61 branches" */
+function statsHeaderLine(data: PatternsData, stats: PatternsStats): string {
+  const parts: string[] = [];
+  const breadth = stats.breadth;
+  if (
+    breadth.first_day !== undefined && breadth.last_day !== undefined &&
+    breadth.span_days > 0
+  ) {
+    parts.push(
+      `${
+        plural(breadth.span_days, "day")
+      } (${breadth.first_day} → ${breadth.last_day})`,
+    );
+  }
+  parts.push(
+    plural(data.population.analyzed, "analyzed run"),
+    plural(breadth.branches, "branch", "branches"),
+  );
+  return parts.join(" · ");
+}
+
+/** The accepted section: changes accepted and their recorded scale. A single
+ * accepted change keeps the card quiet about "biggest" and "best day" — with
+ * one member, both would restate the change itself. Records read in yellow;
+ * the acceptance streak reads in green; added and removed lines read
+ * git-style, green and red. */
+function statsAcceptedRows(
+  accepted: PatternsStats["accepted"],
+  c: Palette,
+): string[] {
+  if (accepted.count === 0) {
+    return ["Nothing accepted yet."];
+  }
+  const rows = [
+    `${c.bold}${plural(accepted.count, "change")} accepted${c.reset} from ${
+      plural(accepted.branches, "branch", "branches")
+    }${accepted.commits > 0 ? ` · ${plural(accepted.commits, "commit")}` : ""}`,
+  ];
+  if (accepted.insertions + accepted.deletions > 0) {
+    const ratio = accepted.deletions > 0
+      ? round1(accepted.insertions / accepted.deletions)
+      : undefined;
+    rows.push(
+      `${c.green}+${
+        formatHumanNumber(accepted.insertions)
+      }${c.reset} ${c.red}−${
+        formatHumanNumber(accepted.deletions)
+      }${c.reset} across ${plural(accepted.files, "file")}${
+        ratio !== undefined
+          ? ` · ${formatHumanNumber(ratio)} ${
+            ratio === 1 ? "line" : "lines"
+          } added per line removed`
+          : ""
+      }`,
+    );
+  }
+  if (accepted.cleanups > 0) {
+    rows.push(
+      `${formatHumanNumber(accepted.cleanups)} of ${
+        formatHumanNumber(accepted.count)
+      } removed more lines than they added`,
+    );
+  }
+  if (accepted.count > 1) {
+    const biggest = accepted.biggest;
+    if (biggest !== undefined) {
+      rows.push(
+        `biggest: ${
+          biggest.branch !== undefined ? `\`${biggest.branch}\` · ` : ""
+        }${c.yellow}${plural(biggest.lines, "changed line")}${c.reset} · ${
+          plural(biggest.files, "file")
+        } (${biggest.day})`,
+      );
+    }
+    const best = accepted.best_day;
+    if (best !== undefined) {
+      rows.push(
+        `best day: ${best.day} · ${c.yellow}${
+          formatHumanNumber(best.accepted)
+        } accepted${c.reset}${
+          accepted.longest_streak > 1
+            ? ` · longest streak ${c.green}${
+              plural(accepted.longest_streak, "day")
+            }${c.reset}`
+            : ""
+        }`,
+      );
+    }
+  }
+  return rows;
+}
+
+/** The gate section: the green share and first-try share as meter rows with
+ * their denominators, red runs reframed as the gate's saves, then streaks
+ * and check time. Streaks of one stay off the card. */
+function statsGateRows(gate: PatternsStats["gate"], c: Palette): string[] {
+  if (gate.runs === 0) {
+    return ["No `done` runs yet."];
+  }
+  const rows = [
+    meterRow(
+      c,
+      gate.greens / gate.runs,
+      `${c.green}${formatHumanNumber(gate.greens)}${c.reset} of ${
+        plural(gate.runs, "`done` run")
+      } green (${percent(gate.greens, gate.runs)})`,
+    ),
+  ];
+  if (gate.gated_branches > 0) {
+    rows.push(
+      meterRow(
+        c,
+        gate.first_try_green_branches / gate.gated_branches,
+        `${c.green}${
+          formatHumanNumber(gate.first_try_green_branches)
+        }${c.reset} of ${
+          plural(gate.gated_branches, "branch", "branches")
+        } green first try (${
+          percent(gate.first_try_green_branches, gate.gated_branches)
+        })`,
+      ),
+    );
+  }
+  const reds = gate.runs - gate.greens;
+  if (reds > 0) {
+    rows.push(
+      `${c.red}${plural(reds, "red run")}${c.reset} stopped at the gate`,
+    );
+  }
+  const tail: string[] = [];
+  if (gate.longest_green_streak > 1) {
+    tail.push(
+      `longest green streak ${c.green}${
+        formatHumanNumber(gate.longest_green_streak)
+      }${c.reset}`,
+    );
+  }
+  if (gate.current_green_streak > 1) {
+    tail.push(
+      `current ${c.green}${
+        formatHumanNumber(gate.current_green_streak)
+      }${c.reset}`,
+    );
+  }
+  if (gate.check_hours > 0) {
+    tail.push(
+      `${
+        formatHumanNumber(gate.check_hours)
+      }h of checks run (\`done\` · \`prepare\` · \`test\`)`,
+    );
+  }
+  if (tail.length > 0) {
+    rows.push(tail.join(" · "));
+  }
+  return rows;
+}
+
+/** An every-N interval in hours, shifting to days once hours stop reading
+ * well. */
+function everyLabel(hours: number): string {
+  return hours < 48
+    ? `${formatHumanNumber(round1(hours))}h`
+    : `${plural(round1(hours / 24), "day")}`;
+}
+
+/** The pace section: how many starts were accepted (a meter row), the
+ * measured start-to-accept cycles with their times, and the span-wide
+ * acceptance cadence. A cycle is measured only when its `start` and `accept`
+ * are both on record, so the cycle count can sit below the accepted count.
+ * Empty before the first measured cycle on a one-day span. The fastest cycle
+ * is a record, so it reads in yellow. */
+function statsPaceRows(stats: PatternsStats, c: Palette): string[] {
+  const rows: string[] = [];
+  const cycles = stats.cycles;
+  if (cycles !== undefined) {
+    rows.push(
+      meterRow(
+        c,
+        cycles.completed / cycles.started,
+        `${c.green}${formatHumanNumber(cycles.completed)}${c.reset} of ${
+          plural(cycles.started, "start")
+        } were accepted (${percent(cycles.completed, cycles.started)})`,
+      ),
+    );
+    if (cycles.completed === 1) {
+      rows.push(
+        `1 measured start-to-accept cycle · ${
+          formatHumanNumber(cycles.fastest_hours)
+        }h`,
+      );
+    } else {
+      rows.push(
+        `start-to-accept across ${
+          plural(cycles.completed, "measured cycle")
+        } · median ${
+          formatHumanNumber(cycles.median_hours)
+        }h · fastest ${c.yellow}${
+          formatHumanNumber(cycles.fastest_hours)
+        }h${c.reset}${
+          cycles.under_day > 0
+            ? ` · ${formatHumanNumber(cycles.under_day)} inside a day`
+            : ""
+        }`,
+      );
+    }
+  }
+  const accepted = stats.accepted;
+  if (accepted.count > 1 && stats.breadth.span_days > 1) {
+    rows.push(
+      `one change accepted every ${
+        everyLabel((stats.breadth.span_days * 24) / accepted.count)
+      } across the span`,
+    );
+  }
+  return rows;
+}
+
+/** The breadth section: branches driven, active days, the busiest day, and
+ * the peak overlap — the most changes in flight at one instant. */
+function statsBreadthRows(
+  breadth: PatternsStats["breadth"],
+  c: Palette,
+): string[] {
+  const busiest = breadth.busiest_day;
+  const rows = [
+    `${plural(breadth.branches, "branch", "branches")} driven · active ${
+      formatHumanNumber(breadth.active_days)
+    } of ${plural(breadth.span_days, "day")}${
+      busiest !== undefined && busiest.branches > 1
+        ? ` · busiest day ${c.yellow}${
+          plural(busiest.branches, "branch", "branches")
+        }${c.reset} (${busiest.day})`
+        : ""
+    }`,
+  ];
+  const peak = breadth.peak_in_flight;
+  if (peak !== undefined && peak.branches > 1) {
+    rows.push(
+      `up to ${c.yellow}${
+        plural(peak.branches, "change")
+      } in flight at once${c.reset} (${peak.day})`,
+    );
+  }
+  return rows;
+}
+
+/** The standards section: the pin ratchet and the most improved standard,
+ * percent-normalized against its first reading so different scales read
+ * like-for-like. */
+function statsStandardsRows(
+  ratchet: PatternsStats["ratchet"],
+  c: Palette,
+): string[] {
+  const rows: string[] = [];
+  if (ratchet.pins > 0) {
+    rows.push(
+      `${plural(ratchet.pins, "limit")} tightened across ${
+        plural(ratchet.standards, "standard")
+      }. Loosening fails the gate.`,
+    );
+  }
+  const improved = ratchet.most_improved;
+  if (improved !== undefined) {
+    rows.push(
+      `most improved: \`${improved.standard}\` ${
+        formatHumanNumber(improved.from)
+      } → ${formatHumanNumber(improved.to)} (${c.green}${
+        formatHumanNumber(improved.better_percent)
+      }% better${c.reset})`,
+    );
+  }
+  return rows;
+}
+
+/** The agents section: attributed identities with their runs and green-gate
+ * shares, each with its own usage sparkline. The cohort seam's honesty rules
+ * hold here: below-minimum identities are counted but never listed, and the
+ * unattributed share is always stated. */
+function statsAgentsRows(
+  agents: PatternsStats["agents"],
+  c: Palette,
+): string[] {
+  const below = agents.below_minimum;
+  const rows = [
+    `${plural(agents.detected, "agent identity", "agent identities")}${
+      agents.unattributed_runs > 0
+        ? ` · ${formatHumanNumber(agents.unattributed_runs)} runs unattributed`
+        : ""
+    }`,
+  ];
+  for (const identity of agents.identities) {
+    const spark = identity.per_day !== undefined && identity.per_day.length > 1
+      ? `${c.cyan}${sparkline(identity.per_day)}${c.reset} `
+      : "";
+    const share = identity.done_runs > 0
+      ? `${c.green}${formatHumanNumber(identity.greens)}${c.reset} of ${
+        plural(identity.done_runs, "`done` run")
+      } green (${percent(identity.greens, identity.done_runs)})`
+      : "no `done` runs";
+    rows.push(
+      `${spark}${c.bold}${identity.label}${c.reset} · ${
+        plural(identity.runs, "run")
+      } · ${share}`,
+    );
+  }
+  if (below !== undefined) {
+    rows.push(
+      `${
+        plural(below.agents, "more identity", "more identities")
+      } below the reporting minimums · ${plural(below.runs, "run")}`,
+    );
+  }
+  return rows;
+}
+
+/** One card section: a bold label — carrying its cyan cadence sparkline when
+ * the span has one — then its wrapped stat rows, then a blank line so the
+ * groups read apart. */
+function statsSection(
+  out: Out,
+  width: number,
+  label: string,
+  rows: readonly string[],
+  spark?: StatsSpark | undefined,
+): void {
+  const c = out.c;
+  const tail = spark === undefined
+    ? ""
+    : `  ${c.cyan}${
+      sparkline(spark.series)
+    }${c.reset} ${c.dim}${spark.label}${c.reset}`;
+  out.raw(`  ${c.bold}${label}${c.reset}${tail}\n`);
+  for (const row of rows) {
+    writeWrapped(out, "    ", row, width);
+  }
+  out.raw("\n");
+}
+
+/** Render the practice-stats card: the practice's countable feats, each
+ * with its denominator beside it, from the same analysis population the
+ * detectors read. The detector report looks for what needs attention; this
+ * card counts what went well. Color is meaning, never decoration: green for
+ * gate greens and streaks, yellow for records, cyan for cadence sparklines. */
+function renderStatsReport(
+  out: Out,
+  data: PatternsData,
+  stats: PatternsStats,
+  slug: string,
+): void {
+  const c = out.c;
+  const width = terminalWidth();
+  out.heading(`discern patterns --stats${slug ? ` · ${slug}` : ""}`);
+  if (data.population.analyzed === 0) {
+    writeWrapped(out, "  ", STATS_EMPTY_MESSAGE, width);
+    return;
+  }
+  const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
+  writeWrapped(out, "  ", statsHeaderLine(data, stats), width, dim);
+  writeWrapped(out, "  ", STATS_PROVENANCE, width, dim);
+  out.raw("\n");
+  const daysPerPoint = stats.series_days_per_point ?? 1;
+  statsSection(
+    out,
+    width,
+    STATS_SECTIONS.accepted,
+    statsAcceptedRows(stats.accepted, c),
+    statsSpark(stats.accepted.per_day, cadenceLabel("accepted", daysPerPoint)),
+  );
+  statsSection(
+    out,
+    width,
+    STATS_SECTIONS.gate,
+    statsGateRows(stats.gate, c),
+    statsSpark(
+      stats.gate.greens_per_day,
+      cadenceLabel("green runs", daysPerPoint),
+    ),
+  );
+  const pace = statsPaceRows(stats, c);
+  if (pace.length > 0) {
+    statsSection(out, width, STATS_SECTIONS.pace, pace);
+  }
+  const standards = statsStandardsRows(stats.ratchet, c);
+  if (standards.length > 0) {
+    // The trend can honestly fall, so unlike the count sparks it shows
+    // whenever it moves at all.
+    const trend = stats.ratchet.trend;
+    statsSection(
+      out,
+      width,
+      STATS_SECTIONS.standards,
+      standards,
+      trend !== undefined && trend.length > 1 &&
+        trend.some((value) => value !== 0)
+        ? {
+          series: trend,
+          label: cadenceLabel("average improvement", daysPerPoint),
+        }
+        : undefined,
+    );
+  }
+  if (stats.agents.identities.length > 0 || stats.agents.detected > 0) {
+    statsSection(
+      out,
+      width,
+      STATS_SECTIONS.agents,
+      statsAgentsRows(stats.agents, c),
+      statsSpark(
+        stats.agents.per_day,
+        cadenceLabel("agent runs", daysPerPoint),
+      ),
+    );
+  }
+  statsSection(
+    out,
+    width,
+    STATS_SECTIONS.breadth,
+    statsBreadthRows(stats.breadth, c),
+    statsSpark(
+      stats.breadth.branches_per_day,
+      daysPerPoint <= 1
+        ? "branches active per day"
+        : `peak branches per ${formatHumanNumber(daysPerPoint)} days`,
+    ),
+  );
+  writeWrapped(
+    out,
+    "  ",
+    "Data: `discern patterns --stats --json`.",
+    width,
+    dim,
+  );
+}
+
 /** Options accepted by the patterns CLI. */
 export interface RunPatternsOptions {
   json: boolean;
+  /** Render the practice-stats card (and carry `data.stats`) instead of the
+   * detector report. */
+  stats: boolean;
 }
 
 /** Run `discern patterns`. Returns a process exit code — 0 whenever the
@@ -646,7 +1133,7 @@ export async function runPatterns(
   root: string,
   opts: RunPatternsOptions,
 ): Promise<number> {
-  const result = await patternsResult(root);
+  const result = await patternsResult(root, { stats: opts.stats });
   observeResult(result);
   if (opts.json) {
     emitResult(result);
@@ -658,7 +1145,12 @@ export async function runPatterns(
     return 1;
   }
   const config = await loadConfig(root);
-  renderReport(out, result.data, config.project.slug);
+  const stats = result.data.stats;
+  if (stats !== undefined) {
+    renderStatsReport(out, result.data, stats, config.project.slug);
+  } else {
+    renderReport(out, result.data, config.project.slug);
+  }
   return 0;
 }
 

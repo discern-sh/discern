@@ -4,8 +4,10 @@
       "type": "stdio",
       "command": "discern",
       "args": [
-        "mcp"
-      ]
+        "mcp",
+        "--long-tool-calls"
+      ],
+      "timeout": 3600000
     }
   }
 }

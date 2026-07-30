@@ -19,6 +19,11 @@ import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
+import {
+  MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+  MCP_LONG_TOOL_CALLS_FLAG,
+  MCP_STRICT_TOOL_CALLS_FLAG,
+} from "../src/shared/mcp_timeout_policy.ts";
 
 Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
@@ -66,7 +71,8 @@ Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP reg
     );
     assertEquals(merged.mcpServers.discern, {
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+      timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
     assertEquals(merged.telemetry, { enabled: false }); // user key preserved
 
@@ -127,10 +133,16 @@ Deno.test("Codex: refresh wires .codex/config.toml (MCP) and co-manages environm
       `../../${basename(dir)}.worktrees`,
     ]);
     assertEquals(cfg.mcp_servers.discern?.command, "discern");
-    assertEquals(cfg.mcp_servers.discern?.args, ["mcp"]);
+    assertEquals(cfg.mcp_servers.discern?.args, [
+      "mcp",
+      MCP_LONG_TOOL_CALLS_FLAG,
+    ]);
     assertEquals("cwd" in (cfg.mcp_servers.discern ?? {}), false);
     assertEquals(cfg.mcp_servers.discern?.startup_timeout_sec, 30);
-    assertEquals(cfg.mcp_servers.discern?.tool_timeout_sec, 3600);
+    assertEquals(
+      cfg.mcp_servers.discern?.tool_timeout_sec,
+      MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS,
+    );
 
     // The app's environment.toml carries discern's setup + cleanup scripts AND the
     // top-level version/name Codex's schema requires (so a from-scratch file validates).
@@ -285,7 +297,7 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     assertEquals(cursorMcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_STRICT_TOOL_CALLS_FLAG],
     });
     const sharedMcp = JSON.parse(
       await Deno.readTextFile(join(dir, ".mcp.json")),
@@ -293,7 +305,8 @@ Deno.test("Cursor + Copilot: scaffold seeds each SessionStart hook; refresh wire
     assertEquals(sharedMcp.mcpServers.discern, {
       type: "stdio",
       command: "discern",
-      args: ["mcp"],
+      args: ["mcp", MCP_LONG_TOOL_CALLS_FLAG],
+      timeout: MCP_CONFIGURED_TOOL_TIMEOUT_SECONDS * 1000,
     });
     // Claude is not a configured agent here, so no Claude file is seeded at all — an
     // unconfigured agent leaves no inert dotfiles behind (the per-agent seed filter).

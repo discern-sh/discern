@@ -873,22 +873,22 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Logbook appends and git ref changes wake it, with a slow polling fallback. Omit the timeout and the repository's active work plus observed P90 verb durations price the bound. If the bound expires, the result returns observed state and a next-wait duration.",
+          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed receipt notes, and gate receipts decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, an opaque continuation preserves the branch transition or trunk baseline across the next call.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
-          "Conditions ground in git ancestry and the gate receipt; recorded history only wakes and prices the wait. Concurrent activity stays visible to timing, so status can show the branch `await` while the result names the underlying `done` and its duration evidence. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it.",
+          "Use one call at its longest safe bound instead of slicing it for progress. If it returns not met, follow the returned continuation until the condition holds or the user stops the watch; never restart the condition or impose a retry-count limit. Follow the met hint: it chooses start or update for the caller's location and uses an immutable green commit when composing below the trunk.",
         plain: {
           title: "Waiting for a condition across the tasks",
           what:
-            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check (its copy holds an honoured proof-of-completion summary), a task's work has joined the main shared version, or the main shared version has moved. New lines in the activity record and movements in the version history wake it, with a slow fallback re-check. Leave the time limit out, and Discern works one out from the work currently in flight and how long this project's work usually takes; if the time runs out, the result reports what the wait saw, plus a suggested next wait.",
+            "`discern await` waits until a chosen thing becomes true: a sibling task has passed the final check, a task's work has joined the main shared version, or the main shared version has moved. It uses the longest reliable request the connected tool supports. If that request must return first, a continuation keeps the original question intact so a change between requests is not missed.",
           why:
             "A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person.",
           agent:
-            "The conditions rest on the version history and the proof itself; recorded activity only wakes the wait and sets its timing. Work happening at the same time stays visible to that timing, so the overview can show the task waiting while the result names the check it waited on and how long such checks usually run. A met condition comes with a tip for the follow-up: bring in the main shared version, or build directly on the passing task's work.",
+            "Let one request use its full safe time instead of shortening it for updates. When it returns before the condition, use its continuation until the condition holds or the person stops the watch. A met condition comes with the right follow-up: bring in the main shared version, add the passing task beneath an existing copy, or create a fresh copy from it.",
         },
         surfaces: ["verb:await"],
-        hints: ["await-not-yet", "await-timing-degraded"],
+        hints: ["await-not-yet"],
       },
       {
         id: "desk",
@@ -1475,13 +1475,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "patterns",
         title: "Patterns",
         what:
-          "`discern patterns` mines the logbook with a registry of named detectors across behavior loops, gate fit, funnel flow, and standard trajectories — done-thrash, refusal loops, ignored update advice, abandoned worktrees, duration creep, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence threshold it reports insufficient evidence, and `patterns reset` deletes the recorded history.",
+          "`discern patterns` mines the logbook with a registry of named detectors across behavior loops, gate fit, funnel flow, and standard trajectories — done-thrash, refusal loops, ignored update advice, abandoned worktrees, duration creep, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence threshold it reports insufficient evidence, and `patterns reset` deletes the recorded history. `patterns --stats` reads the same logbook for what went well — changes accepted and their scale, green-gate streaks, start-to-accept cycle times, standards trends, attributed agent cohorts — and reports practice stats in the same plain counts, for the owner to share; nothing is scored or compared.",
         why:
           "Recurring workflow failures surface as counted findings instead of anecdotes.",
         plain: {
           title: "Recurring patterns in the practice",
           what:
-            "`discern patterns` reads the activity record with a master list of named detectors — repeated checks without progress, refusal loops, ignored update advice, abandoned working copies, runs that keep getting slower, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence bar it says there is not enough evidence, and `patterns reset` deletes the recorded history.",
+            "`discern patterns` reads the activity record with a master list of named detectors — repeated checks without progress, refusal loops, ignored update advice, abandoned working copies, runs that keep getting slower, and their kin — each finding stated in plain counts with a next step. Below a detector's evidence bar it says there is not enough evidence, and `patterns reset` deletes the recorded history. `patterns --stats` reads the same activity record for what went well — finished changes moved onto the main shared version, unbroken runs of passing final checks, task turnaround times, tightened quality rules and how their numbers moved, and which coding agents drove the runs — and answers in the same plain counts, for the person in charge to share; nothing is scored or compared.",
           why:
             "Recurring workflow failures surface as counted findings instead of anecdotes.",
         },

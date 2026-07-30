@@ -78,13 +78,29 @@ Cursor also reads `.agents/skills/`. discern materializes bundled skills there a
     "discern": {
       "type": "stdio",
       "command": "discern",
-      "args": ["mcp"]
+      "args": ["mcp", "--strict-tool-calls"]
     }
   }
 }
 ```
 
 Cursor requires `type: "stdio"`. Its entry matches Claude Code and GitHub Copilot's shape but lives in `.cursor/mcp.json`.
+
+### Logbook identity
+
+Cursor declares `cursor-vscode`. The catalogue recognizes that exact name and has no `cursor-*` prefix rule. New name-only calls carry a Cursor `mcp-client` signal.
+
+Readers also classify retained raw metadata, so `discern patterns` attributes old `cursor-vscode` events without rewriting them. Unknown names stay in the identity-gap finding.
+
+Setup detection remains separate: it checks `cursor-agent`, the editor command, and known application paths. MCP identity is advisory and selects no setup, timeout, gate path, or landing authority.
+
+### MCP tool-call duration
+
+Cursor does not use one MCP timeout across all of its surfaces. In the Cursor Agent CLI (`agent` / `cursor-agent`) and `agent acp`, each `tools/call` currently has an effective 60-second wall-clock limit. Cursor invokes the MCP TypeScript SDK without overriding its 60-second default, so `notifications/progress` do not renew the timer. Cursor exposes no supported per-server setting for changing this limit. [Cursor support confirms the CLI and ACP behavior](https://forum.cursor.com/t/agent-acp-mcp-tools-call-times-out-at-60s-with-no-way-to-configure-it/163925/5).
+
+The editor's IDE Agent follows a different path. Cursor support reports its timeout as around 60 minutes, but Cursor publishes no precise maximum. The Agents Window and cloud-agent limits remain unverified.
+
+The IDE and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. A not-yet result carries a continuation token and exact `--resume` command that preserve the original watch. Continue it until the condition holds, the user stops the watch, or the task no longer needs the dependency.
 
 ## `.cursor/hooks.json`
 

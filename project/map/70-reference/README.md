@@ -32,3 +32,4 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Files & ownership](artifact-ownership.md)                                | See what discern writes, who owns it, how git treats it, and removal rules.        |
 | [The logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.      |
 | [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, env values, identity selectors, and tokens. |
+| [MCP call duration](mcp-call-duration.md)                                 | Compare safe tool-call bounds and resumable waits across coding agents.            |

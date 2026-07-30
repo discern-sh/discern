@@ -1,11 +1,12 @@
 /**
- * The standards denominators measure PROSE, never metadata: the public-doc
- * word count and Vale's staged input both exclude frontmatter, and the Vale
- * stage mirrors `.vale.ini`'s `_private` exclusion (staged paths no longer
- * match the config glob, so the skip must be re-applied at staging).
+ * The prose standards measure PROSE, never metadata: each denominator comes
+ * from the exact corpus its numerator reads. Vale's staged input excludes
+ * frontmatter and every `_private` subtree, so neither may contribute words to
+ * the alert-density denominator.
  */
 
 import { join } from "@std/path";
+import { parse as parseToml } from "@std/toml";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   blankFrontmatter,
@@ -42,37 +43,72 @@ Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
   await withTempDir(async (dir) => {
     const map = join(dir, "map");
     await Deno.mkdir(join(map, "_private"), { recursive: true });
-    await Deno.mkdir(join(map, "10-tier"), { recursive: true });
+    await Deno.mkdir(join(map, "10-tier", "_private"), { recursive: true });
     await Deno.writeTextFile(join(map, "10-tier/page.md"), FRONTMATTERED);
     await Deno.writeTextFile(
       join(map, "_private/notes.md"),
-      "# Unshipped notes\n",
+      `# Unshipped notes\n\n${"private ".repeat(100)}`,
+    );
+    await Deno.writeTextFile(
+      join(map, "10-tier/_private/notes.md"),
+      `# Nested private notes\n\n${"private ".repeat(100)}`,
     );
 
     const stage = await stageProseInput(map);
     try {
-      const staged = await Deno.readTextFile(join(stage, "10-tier/page.md"));
+      const staged = await Deno.readTextFile(
+        join(stage.dir, "10-tier/page.md"),
+      );
       assert(!staged.includes("Meta words"));
       assertStringIncludes(staged, "Seven words of actual prose");
+      // "# Doc" + "Seven words of actual prose live here." = 8 words.
+      // Neither frontmatter nor either private subtree contributes.
+      assertEquals(stage.words, 8);
 
-      let sawPrivate = false;
-      try {
-        await Deno.stat(join(stage, "_private/notes.md"));
-        sawPrivate = true;
-      } catch {
-        // absent, as required
+      for (
+        const privatePath of [
+          "_private/notes.md",
+          "10-tier/_private/notes.md",
+        ]
+      ) {
+        let sawPrivate = false;
+        try {
+          await Deno.stat(join(stage.dir, privatePath));
+          sawPrivate = true;
+        } catch {
+          // absent, as required
+        }
+        assertEquals(sawPrivate, false, `${privatePath} never reaches Vale`);
       }
-      assertEquals(sawPrivate, false, "_private never reaches Vale's input");
 
       // Diagnostics map back to the real tree.
       assertEquals(
-        restoreStagePaths(`${stage}/10-tier/page.md:3:1 alert`, stage, map),
+        restoreStagePaths(
+          `${stage.dir}/10-tier/page.md:3:1 alert`,
+          stage.dir,
+          map,
+        ),
         `${map}/10-tier/page.md:3:1 alert`,
       );
     } finally {
-      await Deno.remove(stage, { recursive: true });
+      await Deno.remove(stage.dir, { recursive: true });
     }
   });
+});
+
+Deno.test("the prose standard divides by its staged-corpus word metric", async () => {
+  const config = parseToml(
+    await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
+  ) as {
+    standards?: {
+      prose?: {
+        per?: unknown;
+        scale?: unknown;
+      };
+    };
+  };
+  assertEquals(config.standards?.prose?.per, "prose_words");
+  assertEquals(config.standards?.prose?.scale, 1000);
 });
 
 Deno.test("the public-doc word count excludes frontmatter", async () => {

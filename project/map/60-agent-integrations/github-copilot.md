@@ -50,13 +50,16 @@ Copilot also reads the cross-tool Agent Skills directory `.agents/skills/`. disc
     "discern": {
       "type": "stdio",
       "command": "discern",
-      "args": ["mcp"]
+      "args": ["mcp", "--long-tool-calls"],
+      "timeout": 3600000
     }
   }
 }
 ```
 
 Copilot and Claude Code co-own this file. Both providers write the same byte-identical `discern` entry through one shared writer, so whichever provider runs second sees the entry already correct and writes nothing.
+
+Copilot's [MCP server configuration](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference#mcp-server-configuration) accepts a tool-call timeout in milliseconds but publishes no default or maximum. discern sets one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned resume token.
 
 discern does not write `.github/mcp.json` for Copilot because the Copilot CLI does not use that file for this project's MCP server. It also does not write Claude Code's `enabledMcpjsonServers` pre-approval key for Copilot; Copilot uses folder trust instead.
 

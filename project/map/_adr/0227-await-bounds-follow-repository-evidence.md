@@ -1,6 +1,6 @@
 # ADR 0227: `await` bounds follow repository evidence
 
-**Status**: accepted. Supersedes the timeout and retry policy in [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md); preserves its conditions, authoritative-state boundary, exit codes, and read-only execution model. Builds on [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md)'s paired begin events and duration priors.
+**Status**: superseded by [ADR 0232](0232-await-continuations-spend-the-transport-budget.md). This was the intermediate replacement for the timeout and retry policy in [ADR 0213](0213-await-blocks-on-authoritative-fleet-conditions.md).
 
 ## Context
 

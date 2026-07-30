@@ -51,7 +51,7 @@ function code(s: string): string {
 
 /** A page duration from whole-second job timing: a run that rounds to zero says
  * `<1s` — it ran and was timed, just fast — and anything longer says `Ns`. */
-function fmtDuration(durationS: number): string {
+export function fmtDuration(durationS: number): string {
   return durationS > 0 ? `${durationS}s` : "<1s";
 }
 

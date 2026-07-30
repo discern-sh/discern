@@ -140,12 +140,13 @@ export async function runJobGroups(
  * and the {@link Out} for its narration, derived once from the resolved project root,
  * config, and JSON flag. The root is carried as the runner's required cwd: a nested
  * CLI invocation or long-lived MCP server must never leak its process cwd into the
- * project's commands. Human runs stream banners + job output to stdout;
- * `--json`/MCP runs go quiet — the result envelope is the entire output (ADR 0030),
- * so the runner and the Out are silenced while jobs still run and a failure's output
- * is still captured for its diagnostic. An optional `signal` rides into the
- * RunOptions so an external caller (an MCP client cancelling its request, the
- * server shutting down) can tree-kill the in-flight jobs.
+ * project's commands. Human runs normally stream banners + job output to stdout.
+ * A compact presentation may quiet that runner while retaining the human
+ * {@link Out} for its final summary. `--json`/MCP quiet both — the result envelope
+ * is the entire output (ADR 0030) — while a failure's output remains captured for
+ * its diagnostic. An optional `signal` rides into the RunOptions so an external
+ * caller (an MCP client cancelling its request, the server shutting down) can
+ * tree-kill the in-flight jobs.
  *
  * `slots` is the run's fleet test-run cap ([gate].concurrent_test_runs) —
  * undefined when uncapped (the default). Building it here is what enrols every
@@ -157,8 +158,10 @@ export function gateRunContext(
   cfg: DiscernConfig,
   json: boolean,
   signal?: AbortSignal,
+  presentation: { quietHumanRun?: boolean } = {},
 ): { runOpts: RunOptions; out: Out; slots: TestRunSlots | undefined } {
   const color = colorEnabled();
+  const quietRun = json || (presentation.quietHumanRun ?? false);
   return {
     runOpts: {
       cwd: root,
@@ -168,7 +171,7 @@ export function gateRunContext(
       ...(signal !== undefined ? { signal } : {}),
       color,
       write: byteWriter("stdout"),
-      quiet: json,
+      quiet: quietRun,
     },
     out: makeOut(color, { quiet: json }),
     slots: buildTestRunSlots(root, cfg),

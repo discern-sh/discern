@@ -2772,7 +2772,13 @@ export type DiscernAwaitResult = {
     met: boolean;
     waited_ms: number;
     timeout_seconds: number;
-    timeout_basis: "explicit" | "running" | "no-prior" | "idle" | "logbook-off";
+    timeout_basis:
+      | "explicit"
+      | "cli"
+      | "long-client"
+      | "strict-client"
+      | "unknown-client";
+    requested_timeout_seconds?: number;
     observed: {
       receipt_status?:
         | "honored"
@@ -2791,17 +2797,14 @@ export type DiscernAwaitResult = {
       incoming_overlap?: Array<string>;
       overlap_total?: number;
     };
+    resume?: string;
     retry_after_seconds?: number;
-    retry_basis?: "running" | "no-prior" | "idle" | "logbook-off";
-    running?: {
-      verb: string;
-      branch: string;
-      started: string;
-      elapsed_ms: number;
-      typical_duration_ms?: number;
-      p90_duration_ms?: number;
-      duration_samples?: number;
-    };
+    retry_basis?:
+      | "explicit"
+      | "cli"
+      | "long-client"
+      | "strict-client"
+      | "unknown-client";
   } | {
     issues: Array<{
       path: string;
@@ -2938,6 +2941,91 @@ export type DiscernPatternsResult = {
       threshold: number;
       findings: number;
     }>;
+    stats?: {
+      series_days_per_point?: number;
+      accepted: {
+        count: number;
+        branches: number;
+        insertions: number;
+        deletions: number;
+        files: number;
+        commits: number;
+        cleanups: number;
+        per_day?: Array<number>;
+        biggest?: {
+          branch?: string;
+          lines: number;
+          files: number;
+          day: string;
+        };
+        best_day?: {
+          day: string;
+          accepted: number;
+        };
+        longest_streak: number;
+      };
+      gate: {
+        runs: number;
+        greens: number;
+        first_try_green_branches: number;
+        gated_branches: number;
+        longest_green_streak: number;
+        current_green_streak: number;
+        check_hours: number;
+        greens_per_day?: Array<number>;
+      };
+      cycles?: {
+        started: number;
+        completed: number;
+        under_day: number;
+        median_hours: number;
+        fastest_hours: number;
+      };
+      ratchet: {
+        pins: number;
+        standards: number;
+        trend?: Array<number>;
+        most_improved?: {
+          standard: string;
+          from: number;
+          to: number;
+          better_percent: number;
+        };
+      };
+      agents: {
+        detected: number;
+        per_day?: Array<number>;
+        identities: Array<{
+          agent: string;
+          label: string;
+          runs: number;
+          done_runs: number;
+          greens: number;
+          per_day?: Array<number>;
+        }>;
+        below_minimum?: {
+          agents: number;
+          runs: number;
+        };
+        unattributed_runs: number;
+      };
+      breadth: {
+        branches: number;
+        active_days: number;
+        span_days: number;
+        first_day?: string;
+        last_day?: string;
+        busiest_day?: {
+          day: string;
+          branches: number;
+        };
+        branches_per_day?: Array<number>;
+        peak_in_flight?: {
+          branches: number;
+          day: string;
+        };
+      };
+    };
   } | {
     issues: Array<{
       path: string;

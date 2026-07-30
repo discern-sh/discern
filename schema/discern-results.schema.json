@@ -8937,11 +8937,14 @@
                   "type": "string",
                   "enum": [
                     "explicit",
-                    "running",
-                    "no-prior",
-                    "idle",
-                    "logbook-off"
+                    "cli",
+                    "long-client",
+                    "strict-client",
+                    "unknown-client"
                   ]
+                },
+                "requested_timeout_seconds": {
+                  "type": "number"
                 },
                 "observed": {
                   "type": "object",
@@ -8991,6 +8994,9 @@
                     }
                   }
                 },
+                "resume": {
+                  "type": "string"
+                },
                 "retry_after_seconds": {
                   "type": "integer",
                   "minimum": -9007199254740991,
@@ -8999,50 +9005,11 @@
                 "retry_basis": {
                   "type": "string",
                   "enum": [
-                    "running",
-                    "no-prior",
-                    "idle",
-                    "logbook-off"
-                  ]
-                },
-                "running": {
-                  "type": "object",
-                  "properties": {
-                    "verb": {
-                      "type": "string"
-                    },
-                    "branch": {
-                      "type": "string"
-                    },
-                    "started": {
-                      "type": "string"
-                    },
-                    "elapsed_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "typical_duration_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "p90_duration_ms": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    },
-                    "duration_samples": {
-                      "type": "integer",
-                      "minimum": -9007199254740991,
-                      "maximum": 9007199254740991
-                    }
-                  },
-                  "required": [
-                    "verb",
-                    "branch",
-                    "started",
-                    "elapsed_ms"
+                    "explicit",
+                    "cli",
+                    "long-client",
+                    "strict-client",
+                    "unknown-client"
                   ]
                 }
               },
@@ -9574,6 +9541,436 @@
                       "findings"
                     ]
                   }
+                },
+                "stats": {
+                  "type": "object",
+                  "properties": {
+                    "series_days_per_point": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "accepted": {
+                      "type": "object",
+                      "properties": {
+                        "count": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "insertions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "deletions": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "files": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "commits": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "cleanups": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "biggest": {
+                          "type": "object",
+                          "properties": {
+                            "branch": {
+                              "type": "string"
+                            },
+                            "lines": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "files": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "day": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "lines",
+                            "files",
+                            "day"
+                          ]
+                        },
+                        "best_day": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "accepted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "accepted"
+                          ]
+                        },
+                        "longest_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "count",
+                        "branches",
+                        "insertions",
+                        "deletions",
+                        "files",
+                        "commits",
+                        "cleanups",
+                        "longest_streak"
+                      ]
+                    },
+                    "gate": {
+                      "type": "object",
+                      "properties": {
+                        "runs": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "greens": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "first_try_green_branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "gated_branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "longest_green_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "current_green_streak": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "check_hours": {
+                          "type": "number"
+                        },
+                        "greens_per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        }
+                      },
+                      "required": [
+                        "runs",
+                        "greens",
+                        "first_try_green_branches",
+                        "gated_branches",
+                        "longest_green_streak",
+                        "current_green_streak",
+                        "check_hours"
+                      ]
+                    },
+                    "cycles": {
+                      "type": "object",
+                      "properties": {
+                        "started": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "completed": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "under_day": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "median_hours": {
+                          "type": "number"
+                        },
+                        "fastest_hours": {
+                          "type": "number"
+                        }
+                      },
+                      "required": [
+                        "started",
+                        "completed",
+                        "under_day",
+                        "median_hours",
+                        "fastest_hours"
+                      ]
+                    },
+                    "ratchet": {
+                      "type": "object",
+                      "properties": {
+                        "pins": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "standards": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "trend": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "number"
+                          }
+                        },
+                        "most_improved": {
+                          "type": "object",
+                          "properties": {
+                            "standard": {
+                              "type": "string"
+                            },
+                            "from": {
+                              "type": "number"
+                            },
+                            "to": {
+                              "type": "number"
+                            },
+                            "better_percent": {
+                              "type": "number"
+                            }
+                          },
+                          "required": [
+                            "standard",
+                            "from",
+                            "to",
+                            "better_percent"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "pins",
+                        "standards"
+                      ]
+                    },
+                    "agents": {
+                      "type": "object",
+                      "properties": {
+                        "detected": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "identities": {
+                          "maxItems": 10,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "agent": {
+                                "type": "string"
+                              },
+                              "label": {
+                                "type": "string"
+                              },
+                              "runs": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "done_runs": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "greens": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "per_day": {
+                                "maxItems": 24,
+                                "type": "array",
+                                "items": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              }
+                            },
+                            "required": [
+                              "agent",
+                              "label",
+                              "runs",
+                              "done_runs",
+                              "greens"
+                            ]
+                          }
+                        },
+                        "below_minimum": {
+                          "type": "object",
+                          "properties": {
+                            "agents": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "runs": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "agents",
+                            "runs"
+                          ]
+                        },
+                        "unattributed_runs": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "detected",
+                        "identities",
+                        "unattributed_runs"
+                      ]
+                    },
+                    "breadth": {
+                      "type": "object",
+                      "properties": {
+                        "branches": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "active_days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "span_days": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "first_day": {
+                          "type": "string"
+                        },
+                        "last_day": {
+                          "type": "string"
+                        },
+                        "busiest_day": {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "branches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "day",
+                            "branches"
+                          ]
+                        },
+                        "branches_per_day": {
+                          "maxItems": 24,
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "peak_in_flight": {
+                          "type": "object",
+                          "properties": {
+                            "branches": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "day": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "branches",
+                            "day"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "branches",
+                        "active_days",
+                        "span_days"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "accepted",
+                    "gate",
+                    "ratchet",
+                    "agents",
+                    "breadth"
+                  ]
                 }
               },
               "required": [

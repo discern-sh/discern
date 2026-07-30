@@ -1012,10 +1012,18 @@ Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", a
     expectFaithful("await", green, "await green met");
     assert(green.ok && green.data?.met === true);
 
-    // Met via landing: the overlap-preview fields validate too.
+    // Met via landing: retain the transition across the merge, and validate
+    // the overlap-preview fields too.
+    const landingWatch = await awaitResult(dir, {
+      landed: "agent/await-dep",
+      timeoutSeconds: 0,
+    });
+    assert(landingWatch.ok && landingWatch.data?.met === false);
+    const resume = landingWatch.data?.resume;
+    assert(typeof resume === "string");
     await git(dir, "merge", "-q", "agent/await-dep");
     const landed = await awaitResult(dir, {
-      landed: "agent/await-dep",
+      resume,
       timeoutSeconds: 0,
     });
     expectFaithful("await", landed, "await landed met");

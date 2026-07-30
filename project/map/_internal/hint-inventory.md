@@ -109,7 +109,7 @@ Run `discern refresh` to restore discern-managed artifacts. The ADR index is out
 Rendered example:
 
 ```text
-Branch `agent/upload-retry` was not found. It may not have started yet — or its work may already have landed (acceptance deletes a landed branch). Check `discern status` from the main checkout; if it landed, `discern update` brings `main` beneath your branch.
+Branch `agent/upload-retry` was not found, and no accepted receipt identifies it on `main`. It may not have started yet. Check `discern status` and use the exact branch returned when it starts; never guess a generated suffix.
 ```
 
 ## `await-green-met`
@@ -122,7 +122,7 @@ Branch `agent/upload-retry` was not found. It may not have started yet — or it
 Rendered example:
 
 ```text
-`agent/upload-retry` is green — its worktree holds an honored receipt. Build on it with `discern update --from agent/upload-retry` from your worktree, or `discern start --from agent/upload-retry` for a fresh one.
+`agent/upload-retry` is green — its worktree holds an honored receipt. Build on it with `discern update --from abc1234def567890`. The immutable commit remains valid if acceptance deletes the branch.
 ```
 
 ## `await-green-no-worktree`
@@ -161,20 +161,7 @@ The work from `agent/upload-retry` landed on `main` — run `discern update` to 
 Rendered example:
 
 ```text
-Not yet: `agent/upload-retry` has no honored receipt yet. Keep watching with another wait of about 180s: `discern await --green agent/upload-retry --timeout 180`.
-```
-
-## `await-timing-degraded`
-
-- Category: `notice`
-- Audience: `all`
-- Family: —
-- Emitting context: `await` times out while the logbook is off.
-
-Rendered example:
-
-```text
-The next wait uses a fallback because the logbook is off, so no duration evidence exists to price it.
+Not yet: `agent/upload-retry` has no honored receipt yet. Continue this same watch once for up to 45s: `discern await --resume v1.opaque-continuation --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
 ```
 
 ## `await-trunk-moved-met`

@@ -15,15 +15,17 @@
  * advisory backlog (every severity) so the number shrinks over time rather than
  * merely not regressing past zero.
  *
- * Usage: `deno task prose <map-dir>` (the `[standards.prose]` run command).
- * Prints a human
- * breakdown to stderr for context, then the metric line to stdout.
+ * The command emits the alert numerator and staged-corpus word denominator,
+ * keeping private prose and metadata out of both sides of the density. Usage:
+ * `deno task prose <map-dir>` (the `[standards.prose]` run command). Prints a
+ * human breakdown to stderr for context, then the metric lines to stdout.
  */
 
 import { dirname, fromFileUrl } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import { stageProseInput } from "./prose_lib.ts";
+import { runVale } from "./vale_lib.ts";
 
 interface Alert {
   Severity: string;
@@ -38,12 +40,13 @@ const docsDir = Deno.args[0] ??
 // Measure PROSE, not metadata: Vale reads a staged mirror with frontmatter
 // blanked (scripts/prose_lib.ts) so a metadata block never counts as an alert.
 const stage = await stageProseInput(docsDir);
-const run = await new Deno.Command("vale", {
-  args: ["--output=JSON", stage],
-  stdout: "piped",
-  stderr: "piped",
-}).output();
-await Deno.remove(stage, { recursive: true }).catch(() => {});
+const run = await (async (): Promise<Deno.CommandOutput> => {
+  try {
+    return await runVale(repoRoot, ["--output=JSON", stage.dir]);
+  } finally {
+    await Deno.remove(stage.dir, { recursive: true }).catch(() => {});
+  }
+})();
 
 const stdout = new TextDecoder().decode(run.stdout);
 let report: Record<string, Alert[]>;
@@ -73,6 +76,7 @@ for (const alerts of Object.values(report)) {
 const total = errors + warnings + suggestions;
 
 console.error(
-  `${docsDir} prose alerts: ${total} (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
+  `${docsDir} prose: ${total} alerts across ${stage.words} words (${errors} error, ${warnings} warning, ${suggestions} suggestion)`,
 );
 console.log(`DISCERN_METRIC prose ${total}`);
+console.log(`DISCERN_METRIC prose_words ${stage.words}`);

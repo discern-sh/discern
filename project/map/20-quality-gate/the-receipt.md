@@ -15,13 +15,13 @@ _A clean green gate records what ran and identifies the exact branch state ready
 `discern done` emits a structured receipt when the run passes on a clean, committed branch that is ahead of trunk. It renders in two forms from that one object ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md), [ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)):
 
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
-- **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `done` prints it; `status --verbose` reprints an honored receipt. Terminals dim it beside the narration. Git owns commit and per-file lists; `Inspect:` names the command.
+- **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
+
+On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
-After a qualifying receipt, `done` can print one `Logbook:` advisory line. It counts the branch findings that cleared the unsolicited-presentation bar, states the strongest observation, and points to `discern patterns` for the evidence and next steps. The detector needs 1 qualifying event beyond its normal threshold before this line appears. A red run, an unfinished setup, a disabled logbook, or a branch with no qualifying finding gets no line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
-
-That advisory travels in the result envelope's `hints[]`. It does not enter the stored receipt, change `ok`, or affect whether `accept` honors the receipt.
+A qualifying receipt may carry one `Logbook:` advisory from `hints[]` after a detector clears its unsolicited-presentation margin. `discern patterns` holds the evidence and next step. The advisory does not change the stored receipt, `ok`, or acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## When a receipt is recorded
 
@@ -42,7 +42,7 @@ discern stores the validated commit, structured receipt, and both renderings in 
 
 | Surface          | What it does with the receipt                                                                                                                                                                                                                  |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`   | Prints the page on a qualifying green run, returns `data.receipt` (`line` + `markdown`), then prints at most 1 branch finding.                                                                                                                 |
+| `discern done`   | Prints the job table and line at a TTY, or the page when piped; returns `data.receipt` (`line` + `markdown`) and may print at most 1 branch finding beside it.                                                                                 |
 | `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored object, page, and line when honored. It also reads a landed trunk-tip receipt from the local or fetched notes ref as `data.landed_receipt`.              |
 | `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the page in `data.receipt` and derives `data.receipt_line` by appending the recorded consent source. After the fast-forward, it records the structured receipt as a Git note. |
 
@@ -65,6 +65,7 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
 | Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
+| `done` TTY projection          | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
 | Gate integration               | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
 | Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
 

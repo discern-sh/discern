@@ -19,6 +19,9 @@ import {
 import { runGit } from "../src/shared/subprocess.ts";
 import {
   canonicalReceiptNote,
+  findLandedReceiptNoteForBranch,
+  findLatestLandedReceiptNoteForBranch,
+  readReceiptNoteAt,
   RECEIPT_NOTES_REF,
   writeReceiptNote,
 } from "../src/engine/gate/receipt_notes.ts";
@@ -574,6 +577,157 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
     markdown: `### Receipt for ${branch}`,
   };
 }
+
+Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const baseline = await gitOut(dir, "rev-parse", "HEAD");
+
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Land wanted branch",
+      "--no-gpg-sign",
+    );
+    const wantedCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const wantedReceipt = syntheticReceipt(wantedCommit, "agent/wanted");
+    assertEquals(
+      (await writeReceiptNote(dir, wantedCommit, wantedReceipt)).status,
+      "recorded",
+    );
+
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Land other branch",
+      "--no-gpg-sign",
+    );
+    const otherCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const otherReceipt = syntheticReceipt(otherCommit, "agent/other");
+    assertEquals(
+      (await writeReceiptNote(dir, otherCommit, otherReceipt)).status,
+      "recorded",
+    );
+
+    assertEquals(await readReceiptNoteAt(dir, wantedCommit), {
+      commit: wantedCommit,
+      ref: RECEIPT_NOTES_REF,
+      receipt: wantedReceipt,
+    });
+    assertEquals(
+      await findLandedReceiptNoteForBranch(
+        dir,
+        "agent/wanted",
+        "main",
+        baseline,
+      ),
+      {
+        commit: wantedCommit,
+        ref: RECEIPT_NOTES_REF,
+        receipt: wantedReceipt,
+      },
+    );
+    assertEquals(
+      await findLandedReceiptNoteForBranch(
+        dir,
+        "agent/wanted",
+        "main",
+        wantedCommit,
+      ),
+      undefined,
+      "the range excludes landings at or before the continuation baseline",
+    );
+    assertEquals(
+      await findLandedReceiptNoteForBranch(
+        dir,
+        "agent/missing",
+        "main",
+        baseline,
+      ),
+      undefined,
+      "an unrelated receipt cannot satisfy the watched branch",
+    );
+    assertEquals(
+      await findLatestLandedReceiptNoteForBranch(
+        dir,
+        "agent/wanted",
+        "main",
+      ),
+      {
+        commit: wantedCommit,
+        ref: RECEIPT_NOTES_REF,
+        receipt: wantedReceipt,
+      },
+      "the newest matching receipt wins even when another branch landed later",
+    );
+    assertEquals(
+      await findLatestLandedReceiptNoteForBranch(
+        dir,
+        "agent/missing",
+        "main",
+      ),
+      undefined,
+    );
+
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Malformed note",
+      "--no-gpg-sign",
+    );
+    const malformedCommit = await gitOut(dir, "rev-parse", "HEAD");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      "not a receipt",
+      malformedCommit,
+    );
+    assertEquals(await readReceiptNoteAt(dir, malformedCommit), undefined);
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "--force",
+      "-m",
+      canonicalReceiptNote({ ...wantedReceipt, head: "" }),
+      malformedCommit,
+    );
+    assertEquals(
+      await readReceiptNoteAt(dir, malformedCommit),
+      undefined,
+      "an empty receipt head cannot authenticate the commit carrying the note",
+    );
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "--force",
+      "-m",
+      canonicalReceiptNote(wantedReceipt),
+      malformedCommit,
+    );
+    assertEquals(
+      await readReceiptNoteAt(dir, malformedCommit),
+      undefined,
+      "a valid receipt attached to the wrong commit is not landing evidence",
+    );
+  });
+});
 
 Deno.test("receipt-note recording merges fetched divergence and fails open on a conflicting note", async () => {
   await withTempDir(async (dir) => {

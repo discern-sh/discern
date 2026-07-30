@@ -11,7 +11,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { dirname, join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeConfig,
+} from "./engine_helpers.ts";
 import {
   GIT_ADMIN_STATE,
   GIT_ADMIN_STATE_KEYS,
@@ -33,15 +38,20 @@ import { HINTS } from "../src/shared/hints.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
-  inclusiveSpanDays,
   PATTERNS_ATTENTION_HEADING,
   PATTERNS_ATTENTION_LIMIT,
   PATTERNS_FAMILY_SECTIONS,
   PATTERNS_TONE_GLYPHS,
   PATTERNS_TRAJECTORY_CAVEAT,
   patternsResult,
+  STATS_EMPTY_MESSAGE,
+  STATS_PROVENANCE,
+  STATS_SECTIONS,
 } from "../src/engine/logbook/patterns.ts";
-import { DETECTORS } from "../src/engine/logbook/detectors.ts";
+import {
+  DETECTORS,
+  inclusiveSpanDays,
+} from "../src/engine/logbook/detectors.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
@@ -146,6 +156,131 @@ async function seedLogbook(dir: string): Promise<void> {
         measured: 85,
       }),
     ].join("\n") + "\n",
+  );
+}
+
+/** Seed historical MCP events whose writer retained raw metadata but had no
+ * catalogue match to store. Five Cursor calls must become attributable under
+ * current catalogue knowledge; the genuinely unknown client must stay loud. */
+async function seedHistoricalMcpIdentityLogbook(dir: string): Promise<string> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  const path = join(logDir, "2026-06.jsonl");
+  await Deno.mkdir(logDir, { recursive: true });
+  const events = [
+    ...Array.from({ length: 5 }, (_, index) => ({
+      name: "cursor-vscode",
+      index,
+    })),
+    ...Array.from({ length: 3 }, (_, index) => ({
+      name: "mystery-agent",
+      index: index + 5,
+    })),
+  ].map(({ name, index }) => ({
+    schema: 1,
+    at: new Date(Date.UTC(2026, 5, 1, index)).toISOString(),
+    kind: "verb",
+    verb: "status",
+    surface: "mcp",
+    writer: "0.0.old",
+    driver: {
+      session: "mcp:historical",
+      json: false,
+      tty: false,
+      ci: false,
+      mcp_client: { name, version: "1" },
+    },
+    branch: "agent/historical",
+    head: "abc1234",
+    clean: true,
+    outcome: "ok",
+    duration_ms: 100,
+    epoch: "e1",
+  }));
+  const raw = `${events.map((event) => JSON.stringify(event)).join("\n")}\n`;
+  await Deno.writeTextFile(path, raw);
+  return path;
+}
+
+/** Seed two complete start→green→accept arcs plus one pin: enough history to
+ * put a number in every stats section. Hours are chosen so the check time and
+ * both cycle durations land on round, assertable values; every event carries
+ * an invocation-scoped identity signal so the agents section speaks, and the
+ * green `done` runs carry standard readings so the ratchet's most-improved
+ * reading has a trajectory to read. */
+async function seedStatsLogbook(dir: string): Promise<void> {
+  const events: Record<string, unknown>[] = [];
+  const add = (hour: number, over: Record<string, unknown>): void => {
+    events.push({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 1, hour)).toISOString(),
+      kind: "verb",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: {
+        session: "cli:stats",
+        json: true,
+        tty: false,
+        ci: false,
+        agent_signals: [{
+          agent: "claude",
+          source: "process-environment",
+          markers: ["CLAUDECODE"],
+        }],
+      },
+      head: `head-${hour}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 1_000,
+      epoch: "e1",
+      ...over,
+    });
+  };
+  add(0, { verb: "start", branch: "main", target: "agent/b1" });
+  add(1, {
+    verb: "done",
+    branch: "agent/b1",
+    outcome: "failed",
+    failed_stage: "check/test",
+    duration_ms: 3_600_000,
+  });
+  add(2, {
+    verb: "done",
+    branch: "agent/b1",
+    duration_ms: 3_600_000,
+    standards: [{ name: "coverage", direction: "up", limit: 80, value: 80 }],
+  });
+  add(3, {
+    verb: "accept",
+    branch: "agent/b1",
+    change: { files: 2, insertions: 120, deletions: 30, commits: 3 },
+  });
+  add(4, { verb: "start", branch: "main", target: "agent/b2" });
+  add(5, {
+    verb: "done",
+    branch: "agent/b2",
+    duration_ms: 3_600_000,
+    standards: [{ name: "coverage", direction: "up", limit: 80, value: 84 }],
+  });
+  add(6, {
+    verb: "accept",
+    branch: "agent/b2",
+    change: { files: 1, insertions: 10, deletions: 0, commits: 1 },
+  });
+  events.push({
+    schema: 1,
+    at: new Date(Date.UTC(2026, 6, 1, 7)).toISOString(),
+    kind: "pin",
+    branch: "agent/b2",
+    standard: "coverage",
+    from: 80,
+    to: 85,
+    measured: 85,
+  });
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
   );
 }
 
@@ -596,6 +731,215 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     );
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
+  });
+});
+
+Deno.test("patterns: current catalogue knowledge reinterprets historical raw MCP identity without rewriting it", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    const path = await seedHistoricalMcpIdentityLogbook(dir);
+    const before = await Deno.readTextFile(path);
+
+    const result = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(result.stdout));
+    const data = parsed.data as PatternsData;
+    assertEquals(data.population.identities, [
+      { agent: "cursor", label: "Cursor", runs: 5 },
+    ]);
+    const gaps = data.findings.filter((finding) =>
+      finding.detector === "identity-gap"
+    );
+    assertEquals(gaps.map((finding) => finding.subject), ["mystery-agent"]);
+    assert(
+      !gaps.some((finding) => finding.subject === "cursor-vscode"),
+      "the five historical Cursor calls must leave the anonymous cohort",
+    );
+    assertEquals(
+      await Deno.readTextFile(path),
+      before,
+      "read-time reinterpretation must not migrate or rewrite logbook lines",
+    );
+  });
+});
+
+Deno.test("patterns --stats: the wire and the card carry the same counted feats", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Recording off keeps the seeded stream the whole stream — the harness's
+    // own patterns runs would otherwise join the counts (the report still
+    // reads existing history either way).
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+    await seedStatsLogbook(dir);
+
+    // Without the flag, the payload stays lean: no stats key at all.
+    const plain = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(plain.code, 0, plain.output);
+    const plainData = PatternsOutputSchema.parse(JSON.parse(plain.stdout))
+      .data as PatternsData;
+    assert(!("stats" in plainData), "stats is computed only when asked for");
+
+    const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assertEquals(parsed.ok, true);
+    const stats = (parsed.data as PatternsData).stats;
+    assert(stats !== undefined, "the flag must carry data.stats");
+    assertEquals(stats.accepted, {
+      count: 2,
+      branches: 2,
+      insertions: 130,
+      deletions: 30,
+      files: 3,
+      commits: 4,
+      cleanups: 0,
+      biggest: { branch: "agent/b1", lines: 150, files: 2, day: "2026-07-01" },
+      best_day: { day: "2026-07-01", accepted: 2 },
+      longest_streak: 1,
+    });
+    assertEquals(stats.gate, {
+      runs: 3,
+      greens: 2,
+      first_try_green_branches: 1,
+      gated_branches: 2,
+      longest_green_streak: 2,
+      current_green_streak: 2,
+      check_hours: 3,
+    });
+    assertEquals(stats.cycles, {
+      started: 2,
+      completed: 2,
+      under_day: 2,
+      median_hours: 2.5,
+      fastest_hours: 2,
+    });
+    assertEquals(stats.ratchet, {
+      pins: 1,
+      standards: 1,
+      most_improved: {
+        standard: "coverage",
+        from: 80,
+        to: 84,
+        better_percent: 5,
+      },
+    });
+    assertEquals(stats.agents, {
+      detected: 1,
+      identities: [{
+        agent: "claude",
+        label: "Claude Code",
+        runs: 7,
+        done_runs: 3,
+        greens: 2,
+      }],
+      unattributed_runs: 0,
+    });
+    assertEquals(stats.breadth.branches, 3);
+    assertEquals(stats.breadth.busiest_day, {
+      day: "2026-07-01",
+      branches: 3,
+    });
+    assertEquals(
+      stats.breadth.peak_in_flight,
+      { branches: 1, day: "2026-07-01" },
+      "sequential arcs never overlap",
+    );
+    assertEquals(
+      stats.series_days_per_point,
+      undefined,
+      "a one-day span carries no cadence series",
+    );
+
+    const human = await runAgent(dir, ["patterns", "--stats"], {
+      env: { COLUMNS: "100", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    const card = normalized(human.output);
+    assertStringIncludes(card, "discern patterns --stats");
+    assertStringIncludes(card, STATS_PROVENANCE);
+    for (const label of Object.values(STATS_SECTIONS)) {
+      assertStringIncludes(card, label);
+    }
+    assertStringIncludes(
+      card,
+      "2 changes accepted from 2 branches · 4 commits",
+    );
+    assertStringIncludes(
+      card,
+      "+130 −30 across 3 files · 4.3 lines added per line removed",
+    );
+    assertStringIncludes(
+      card,
+      "biggest: `agent/b1` · 150 changed lines · 2 files (2026-07-01)",
+    );
+    assertStringIncludes(card, "best day: 2026-07-01 · 2 accepted");
+    assertStringIncludes(card, "2 of 3 `done` runs green (67%)");
+    assertStringIncludes(card, "1 of 2 branches green first try (50%)");
+    assertStringIncludes(card, "1 red run stopped at the gate");
+    assert(
+      !card.includes("never shipped") && !card.includes("shipped"),
+      "the card speaks in accepted, not shipped",
+    );
+    assertStringIncludes(
+      card,
+      "longest green streak 2 · current 2 · 3h of checks run (`done` · `prepare` · `test`)",
+    );
+    assertStringIncludes(card, "█", "the proportion meters render");
+    assertStringIncludes(card, "░");
+    assertStringIncludes(card, "2 of 2 starts were accepted (100%)");
+    assertStringIncludes(
+      card,
+      "start-to-accept across 2 measured cycles · median 2.5h · fastest 2h · 2 inside a day",
+    );
+    assertStringIncludes(
+      card,
+      "1 limit tightened across 1 standard. Loosening fails the gate.",
+    );
+    assertStringIncludes(
+      card,
+      "most improved: `coverage` 80 → 84 (5% better)",
+    );
+    assertStringIncludes(card, "1 agent identity");
+    assertStringIncludes(
+      card,
+      "Claude Code · 7 runs · 2 of 3 `done` runs green (67%)",
+    );
+    assertStringIncludes(card, "3 branches driven · active 1 of 1 day");
+    assert(
+      !card.includes("in flight at once"),
+      "a peak of one stays off the card",
+    );
+    assert(
+      !card.includes(PATTERNS_ATTENTION_HEADING),
+      "the card replaces the detector report, never interleaves it",
+    );
+  });
+});
+
+Deno.test("patterns --stats: an empty logbook renders the empty state, and the wire carries zeros", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, "[project]\nlogbook = false\n");
+    await gitInit(dir);
+
+    const human = await runAgent(dir, ["patterns", "--stats"], {
+      env: { COLUMNS: "100", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(normalized(human.output), STATS_EMPTY_MESSAGE);
+
+    const json = await runAgent(dir, ["patterns", "--stats", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const stats = (PatternsOutputSchema.parse(JSON.parse(json.stdout))
+      .data as PatternsData).stats;
+    assert(stats !== undefined);
+    assertEquals(stats.accepted.count, 0);
+    assertEquals(stats.gate.runs, 0);
+    assertEquals(stats.cycles, undefined);
+    assertEquals(stats.agents.detected, 0);
   });
 });
 

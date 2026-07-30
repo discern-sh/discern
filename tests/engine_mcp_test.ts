@@ -35,7 +35,10 @@ import {
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
 import { MCP_CLIENT_INFO_META_KEY } from "../src/engine/logbook/agent_signals.ts";
-import { AWAIT_TIMING_IDLE_SECONDS } from "../src/engine/await/defaults.ts";
+import {
+  AWAIT_LONG_CALL_SECONDS,
+  AWAIT_STRICT_CALL_SECONDS,
+} from "../src/engine/await/defaults.ts";
 import { withTempDir } from "./helpers.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
 import {
@@ -655,8 +658,7 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
         arguments: {},
         _meta: {
           [MCP_CLIENT_INFO_META_KEY]: {
-            name: "codex-mcp-client",
-            title: "Codex",
+            name: "cursor-vscode",
             version: "2.0.0",
           },
         },
@@ -767,15 +769,15 @@ Deno.test("discern mcp: initialize, tools/list, and tools/call render DiscernRes
       "the live MCP status call must be recorded",
     );
     assertEquals(statusEvent.driver?.mcp_client, {
-      name: "codex-mcp-client",
-      title: "Codex",
+      name: "cursor-vscode",
       version: "2.0.0",
     });
     assert(
       statusEvent.driver?.agent_signals?.some((signal) =>
-        signal.agent === "codex" && signal.source === "mcp-client"
+        signal.agent === "cursor" && signal.source === "mcp-client" &&
+        signal.markers.includes("clientInfo.name")
       ) === true,
-      "per-request clientInfo must override initialized clientInfo and normalize through the catalogue",
+      "the name-only Cursor client must override initialized clientInfo and classify through the catalogue",
     );
     const impactEvent = recordedEvents.find((event) => event.verb === "impact");
     assert(
@@ -2793,7 +2795,7 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
   });
 });
 
-Deno.test("discern mcp: an omitted await timeout reaches the repository-priced policy", async () => {
+Deno.test("discern mcp: await bounds follow the server's configured transport profile", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -2801,25 +2803,46 @@ Deno.test("discern mcp: an omitted await timeout reaches the repository-priced p
     const tool = TOOLS.find((candidate) => candidate.name === "discern_await");
     assert(tool !== undefined);
 
-    const abort = new AbortController();
-    abort.abort();
-    const result = await runTool(
-      tool,
-      new WorkingRoot(dir),
-      { green: "agent/await-auto" },
-      abort.signal,
-      () => Promise.resolve(undefined),
-    );
-    assertEquals(result.isError, false, JSON.stringify(result));
-    const data = result.structuredContent.data as {
-      timeout_seconds?: unknown;
-      timeout_basis?: unknown;
-    } | undefined;
-    assertEquals(
-      data?.timeout_seconds,
-      AWAIT_TIMING_IDLE_SECONDS,
-    );
-    assertEquals(data?.timeout_basis, "idle");
+    const cases = [
+      {
+        client: { name: "codex-mcp-client", version: "1" },
+        profile: "unknown-client",
+        seconds: AWAIT_STRICT_CALL_SECONDS,
+        basis: "unknown-client",
+      },
+      {
+        client: undefined,
+        profile: "strict-client",
+        seconds: AWAIT_STRICT_CALL_SECONDS,
+        basis: "strict-client",
+      },
+      {
+        client: undefined,
+        profile: "long-client",
+        seconds: AWAIT_LONG_CALL_SECONDS,
+        basis: "long-client",
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const abort = new AbortController();
+      abort.abort();
+      const result = await runTool(
+        tool,
+        new WorkingRoot(dir),
+        { green: "agent/await-auto" },
+        abort.signal,
+        () => Promise.resolve(undefined),
+        fixture.client,
+        fixture.profile,
+      );
+      assertEquals(result.isError, false, JSON.stringify(result));
+      const data = result.structuredContent.data as {
+        timeout_seconds?: unknown;
+        timeout_basis?: unknown;
+      } | undefined;
+      assertEquals(data?.timeout_seconds, fixture.seconds);
+      assertEquals(data?.timeout_basis, fixture.basis);
+    }
   });
 });
 

@@ -1,6 +1,8 @@
 import { assertEquals, assertThrows } from "@std/assert";
 import {
   displayWidth,
+  meter,
+  padDisplayEnd,
   renderAlignedTable,
   sparkline,
   terminalWidth,
@@ -22,12 +24,36 @@ Deno.test("displayWidth measures ANSI, combining, wide, and emoji graphemes", ()
   assertEquals(displayWidth(`${ESC}[31m界${ESC}[0m`), 2);
 });
 
+Deno.test("padDisplayEnd pads visible columns without counting ANSI bytes", () => {
+  const styled = `${ESC}[32mok${ESC}[0m`;
+  assertEquals(padDisplayEnd(styled, 5), `${styled}   `);
+  assertEquals(displayWidth(padDisplayEnd("界", 4)), 4);
+  assertEquals(padDisplayEnd("long", 2), "long");
+});
+
 Deno.test("sparkline scales flat, endpoint, and negative series", () => {
   assertEquals(sparkline([]), "");
   assertEquals(sparkline([7]), "▁");
   assertEquals(sparkline([7, 7, 7]), "▁▁▁");
   assertEquals(sparkline([-10, 10]), "▁█");
   assertEquals(sparkline([-10, -5, 0]), "▁▅█");
+});
+
+Deno.test("meter splits a clamped proportion into filled cells and track", () => {
+  assertEquals(meter(0, 10), { filled: "", track: "░░░░░░░░░░" });
+  assertEquals(meter(1, 10), { filled: "██████████", track: "" });
+  assertEquals(meter(0.5, 10), { filled: "█████", track: "░░░░░" });
+  assertEquals(meter(-3, 10), { filled: "", track: "░░░░░░░░░░" });
+  assertEquals(meter(7, 10), { filled: "██████████", track: "" });
+});
+
+Deno.test("meter never renders barely as none or almost as all", () => {
+  assertEquals(meter(0.01, 10).filled, "█");
+  assertEquals(meter(0.99, 10).filled, "█████████");
+});
+
+Deno.test("meter refuses a non-finite fraction", () => {
+  assertThrows(() => meter(Number.NaN, 10), TypeError, "finite");
 });
 
 Deno.test("sparkline refuses non-finite values", () => {

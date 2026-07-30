@@ -27,6 +27,7 @@ import {
   comparative,
   denominatorClause,
   dominantClientEras,
+  driverAgent,
   splitByCohort,
 } from "../src/engine/logbook/cohorts.ts";
 import {
@@ -321,4 +322,91 @@ Deno.test("cohort eras: an unrecognized dominant client keeps its raw declared n
   ]);
   assertEquals(eras.label, "mystery-agent");
   assertEquals(eras.boundaries, [{ at: t(1), from: "7.0.0", to: "7.1.0" }]);
+});
+
+Deno.test("cohort seam: retained raw MCP metadata gains current catalogue attribution", () => {
+  const events = [
+    mcpRun("cursor-vscode", "6.4.0", t(0)),
+    mcpRun("cursor-vscode", "6.5.0", t(1)),
+  ];
+  assertEquals(
+    driverAgent(events[0] as VerbEvent),
+    "cursor",
+    "historical raw metadata must join the current Cursor cohort",
+  );
+  const split = eventUnits(events);
+  assertEquals(split.belowMinimum.map((cohort) => cohort.agent), ["cursor"]);
+  assertEquals(split.unattributedRuns, 0);
+
+  const eras = dominantClientEras(events);
+  assertEquals(eras.label, "Cursor");
+  assertEquals(eras.boundaries, [
+    { at: t(1), from: "6.4.0", to: "6.5.0" },
+  ]);
+});
+
+Deno.test("cohort seam: current MCP knowledge replaces stale MCP derivation but not independent disagreement", () => {
+  const staleMcp = mcpRun(
+    "cursor-vscode",
+    "6.4.0",
+    t(0),
+    "codex",
+  );
+  assertEquals(
+    driverAgent(staleMcp),
+    "cursor",
+    "current catalogue knowledge wins when both signals derive from one raw MCP declaration",
+  );
+
+  const independentConflict = verb({
+    at: t(1),
+    surface: "mcp",
+    driver: {
+      session: "mcp:1",
+      json: false,
+      tty: false,
+      ci: false,
+      agent_signals: [{
+        agent: "codex",
+        source: "process-environment",
+        markers: ["CODEX_THREAD_ID"],
+      }],
+      mcp_client: { name: "cursor-vscode", version: "6.4.0" },
+    },
+  });
+  assertEquals(
+    driverAgent(independentConflict),
+    undefined,
+    "independent process and MCP sources that name different agents must remain unresolved",
+  );
+
+  const corroborated = verb({
+    at: t(2),
+    surface: "mcp",
+    driver: {
+      session: "mcp:1",
+      json: false,
+      tty: false,
+      ci: false,
+      agent_signals: [
+        {
+          agent: "cursor",
+          source: "process-environment",
+          markers: ["CURSOR_AGENT"],
+        },
+        {
+          agent: "cursor",
+          source: "mcp-client",
+          markers: ["clientInfo.name"],
+        },
+      ],
+      mcp_client: { name: "cursor-vscode", version: "6.4.0" },
+    },
+  });
+  assertEquals(driverAgent(corroborated), "cursor");
+  assertEquals(
+    driverAgent(corroborated),
+    "cursor",
+    "equivalent independent evidence must be stable across repeated reads",
+  );
 });

@@ -27,7 +27,6 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - the practice report (`discern patterns`) — behavior, gate-fit, funnel, and trajectory findings over accumulated runs
 - each worktree's last action and work in flight — the fleet survey's `last_action` and `running` columns
 - fleet activity times that include verb runs — a long test run no longer reads as dormancy
-- wait bounds in `discern await` from active work and observed P90 durations
 - config-change attribution and each standard's limit history — the `config-change` and `pin` events
 - advisory findings on `status`, the `done` receipt, and `improvement`
 - wait estimates when concurrent test runs queue
@@ -82,7 +81,7 @@ Each line carries a schema version. Readers skip unknown lines, and fields only 
 
 ### Possible agent identity signals
 
-`driver.agent_signals` is an optional list of evidence. It supplies no detected-agent verdict. Each item has an `agent`, a `source`, and the marker names that matched. Items can appear together; their order is not a ranking.
+`driver.agent_signals` is an optional list of evidence derived when the event is recorded. It supplies no detected-agent verdict. Each item has an `agent`, a `source`, and the marker names that matched. Items can appear together. Their order is not a ranking.
 
 The source explains the marker's lifetime:
 
@@ -90,7 +89,11 @@ The source explains the marker's lifetime:
 - `mcp-client` means the MCP client's declared name or title matched a known client name.
 - `host-filesystem` is ambient machine state. The current `/opt/.devin` marker can persist after Devin's installation, so it does not mean Devin drove that invocation.
 
-For an MCP call, `driver.mcp_client` also retains the client's declared `name`, optional `title`, and `version`, each capped at 256 characters. MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent or inherited, and clients can fake them. discern records them for cautious interpretation. They never change output, guidance, setup, or gate behavior.
+For an MCP call, `driver.mcp_client` retains the declared `name`, optional `title`, and `version`, capped at 256 characters each. Readers classify it through the current catalogue. A newly recognized name attributes old and new events on the next read without changing stored lines. Unknown clients remain visible.
+
+The read-time view preserves non-MCP evidence and merges duplicate agent/source pairs. A current MCP match replaces stored MCP evidence from the same declaration. Without a current match, stored MCP evidence remains. Independent sources that disagree leave the run unattributed.
+
+MCP describes the client implementation. An editor, extension, or proxy may sit between discern and the coding agent. These signals can be absent, inherited, or faked. They never change output, guidance, setup, gate behavior, or landing authority.
 
 ## It never leaves the machine
 

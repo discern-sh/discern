@@ -5,24 +5,26 @@
  *
  * Three conditions, one per call:
  *  - `--green <branch>` — the branch's worktree holds an honored gate receipt
- *    (or this call watched its work land, which implies the receipt held);
+ *    (or a durable receipt note proves its work landed);
  *  - `--landed <branch>` — the branch's work is reachable from the trunk. The
- *    tip sha is pinned at call start, because acceptance deletes the branch as
- *    it lands — the sha outlives the ref;
+ *    freshest observed tip follows the live branch, then outlives the ref when
+ *    acceptance deletes it;
  *  - `--trunk-moved` — the trunk ref differs from its position at call start.
  *
  * The architectural line (the logbook's advisory-only constitution): every
  * condition grounds in AUTHORITATIVE state — git ancestry for "landed", the
  * gate receipt for "green" — while the logbook serves only as a wake signal
- * (every verb completion anywhere in the fleet is one append to one file) and
- * as advisory retry timing. History never decides truth, and `await` gates
- * nothing: it blocks only its own caller, at the caller's request.
+ * (every verb completion anywhere in the fleet is one append to one file).
+ * History never decides truth, and `await` gates nothing: it blocks only its
+ * own caller, at the caller's request.
  *
  * Timing out is NOT a failure: the envelope stays `ok: true` with `met: false`
- * and a `retry_after_seconds` priced from the fleet's duration priors — the
- * caller learns how long another bounded wait should run. The CLI still exits
- * {@link AWAIT_TIMEOUT_EXIT_CODE} on "not yet" so `discern await … && discern
- * update` composes in a shell, without the envelope calling the wait a defect.
+ * and carries an opaque continuation plus the longest reliable next-call
+ * bound. The continuation keeps the branch's latest observed tip and landing
+ * transition, or the original trunk baseline, across transport slices. The
+ * CLI still exits {@link AWAIT_TIMEOUT_EXIT_CODE} on
+ * "not yet" so `discern await … && discern update` composes in a shell,
+ * without the envelope calling the wait a defect.
  *
  * Read-only and stateless: no plan/apply (there is no effect to plan), no
  * locks, no daemon — the verb holds nothing beyond its own process. It IS
@@ -31,11 +33,13 @@
  */
 
 import { join } from "@std/path";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
-import type {
-  AwaitConditionKind,
-  AwaitData,
+import {
+  AWAIT_CONDITIONS,
+  type AwaitConditionKind,
+  type AwaitData,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
@@ -53,6 +57,7 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import {
+  commitIsAncestorOf,
   commitIsMerged,
   incomingOverlap,
   integrationBranch,
@@ -64,26 +69,26 @@ import {
   worktreePathForBranch,
 } from "../worktree/git.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
+import {
+  findLandedReceiptNoteForBranch,
+  findLatestLandedReceiptNoteForBranch,
+  type LandedReceiptNote,
+} from "../gate/receipt_notes.ts";
 import { nearestContainingBranch } from "../worktree/containment.ts";
-import { readFleetLogbookActivity } from "../logbook/read.ts";
-import { configEpoch } from "../logbook/epoch.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
-
 import {
-  AWAIT_POLL_INTERVAL_MS,
-  AWAIT_TIMEOUT_EXIT_CODE,
-  AWAIT_TIMING_IDLE_SECONDS,
-  AWAIT_TIMING_MIN_SECONDS,
-  AWAIT_TIMING_NO_PRIOR_SECONDS,
-} from "./defaults.ts";
+  AWAIT_CALL_SECONDS,
+  type AwaitCallProfile,
+} from "../../shared/mcp_timeout_policy.ts";
+
+import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
 
 export {
+  AWAIT_LONG_CALL_SECONDS,
   AWAIT_POLL_INTERVAL_MS,
+  AWAIT_STRICT_CALL_SECONDS,
   AWAIT_TIMEOUT_EXIT_CODE,
-  AWAIT_TIMING_IDLE_SECONDS,
-  AWAIT_TIMING_MIN_SECONDS,
-  AWAIT_TIMING_NO_PRIOR_SECONDS,
 } from "./defaults.ts";
 
 /** Cap on the overlap preview a met condition attaches — matches the bounded
@@ -98,11 +103,143 @@ export interface AwaitOptions {
   landed?: string;
   /** Wait for the trunk ref to move from its position at call start. */
   trunkMoved?: boolean;
-  /** Seconds before answering "not yet". Omit for an evidence-priced bound;
-   * 0 evaluates once and answers immediately. */
+  /** Continue a previous not-met wait without resetting its pinned state.
+   * Mutually exclusive with the three condition options. */
+  resume?: string;
+  /** Seconds before answering "not yet". Omit for the caller profile's longest
+   * safe bound; 0 evaluates once and answers immediately. */
   timeoutSeconds?: number;
   /** Test seam: the polling fallback cadence ({@link AWAIT_POLL_INTERVAL_MS}). */
   pollIntervalMs?: number;
+}
+
+/** Surface context that selects a transport-safe duration for one call. */
+export interface AwaitExecutionContext {
+  callProfile: AwaitCallProfile;
+}
+
+/** Versioned, self-contained state for continuing one bounded wait. The common
+ * Git directory binds it to this repository while still allowing any sibling
+ * worktree to resume it. It is opaque at the command boundary, not secret. */
+interface AwaitResumePayload {
+  version: 1;
+  repository: string;
+  condition: AwaitConditionKind;
+  branch?: string;
+  trunk: string;
+  tip?: string;
+  trunk_start: string;
+  branch_ever_unreachable?: boolean;
+}
+
+const AWAIT_RESUME_PREFIX = "v1.";
+const AWAIT_RESUME_TOKEN_MAX_LENGTH = 16_384;
+const AWAIT_RESUME_KEYS = new Set([
+  "version",
+  "repository",
+  "condition",
+  "branch",
+  "trunk",
+  "tip",
+  "trunk_start",
+  "branch_ever_unreachable",
+]);
+
+function isAwaitCondition(value: unknown): value is AwaitConditionKind {
+  return AWAIT_CONDITIONS.some((condition) => condition === value);
+}
+
+function encodeResumeToken(payload: AwaitResumePayload): string {
+  const bytes = new TextEncoder().encode(JSON.stringify(payload));
+  const encoded = encodeBase64(bytes)
+    .replaceAll("+", "-")
+    .replaceAll("/", "_")
+    .replace(/=+$/u, "");
+  return `${AWAIT_RESUME_PREFIX}${encoded}`;
+}
+
+function decodeResumeToken(token: string): AwaitResumePayload | undefined {
+  if (
+    token.length > AWAIT_RESUME_TOKEN_MAX_LENGTH ||
+    !token.startsWith(AWAIT_RESUME_PREFIX)
+  ) {
+    return undefined;
+  }
+  const encoded = token.slice(AWAIT_RESUME_PREFIX.length);
+  if (encoded === "" || !/^[A-Za-z0-9_-]+$/u.test(encoded)) {
+    return undefined;
+  }
+  const remainder = encoded.length % 4;
+  if (remainder === 1) {
+    return undefined;
+  }
+  const padded = encoded.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - remainder) % 4);
+  let decoded: unknown;
+  try {
+    const json = new TextDecoder("utf-8", { fatal: true }).decode(
+      decodeBase64(padded),
+    );
+    decoded = JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+  if (
+    typeof decoded !== "object" ||
+    decoded === null ||
+    Array.isArray(decoded)
+  ) {
+    return undefined;
+  }
+  const value = decoded as Record<string, unknown>;
+  if (Object.keys(value).some((key) => !AWAIT_RESUME_KEYS.has(key))) {
+    return undefined;
+  }
+  if (
+    value.version !== 1 ||
+    typeof value.repository !== "string" ||
+    value.repository === "" ||
+    !isAwaitCondition(value.condition) ||
+    typeof value.trunk !== "string" ||
+    value.trunk === "" ||
+    typeof value.trunk_start !== "string" ||
+    value.trunk_start === ""
+  ) {
+    return undefined;
+  }
+  const branch = value.branch;
+  const tip = value.tip;
+  const branchEverUnreachable = value.branch_ever_unreachable;
+  if (value.condition === "trunk-moved") {
+    if (
+      branch !== undefined ||
+      tip !== undefined ||
+      branchEverUnreachable !== undefined
+    ) {
+      return undefined;
+    }
+  } else if (
+    typeof branch !== "string" ||
+    branch === "" ||
+    typeof tip !== "string" ||
+    tip === ""
+  ) {
+    return undefined;
+  } else if (typeof branchEverUnreachable !== "boolean") {
+    return undefined;
+  }
+  return {
+    version: 1,
+    repository: value.repository,
+    condition: value.condition,
+    ...(typeof branch === "string" ? { branch } : {}),
+    trunk: value.trunk,
+    ...(typeof tip === "string" ? { tip } : {}),
+    trunk_start: value.trunk_start,
+    ...(typeof branchEverUnreachable === "boolean"
+      ? { branch_ever_unreachable: branchEverUnreachable }
+      : {}),
+  };
 }
 
 /** One condition evaluation: the verdict now, and the state behind it. */
@@ -112,13 +249,6 @@ interface Evaluation {
   /** How the condition was satisfied — landing satisfies `green` too, and the
    * next-step hint differs (`update` vs `update --from`). */
   via?: "receipt" | "landed" | "trunk";
-}
-
-/** One advisory time bound, used for an omitted timeout and retry advice. */
-interface TimingAdvice {
-  seconds: number;
-  basis: NonNullable<AwaitData["retry_basis"]>;
-  running?: AwaitData["running"];
 }
 
 function refusal(
@@ -237,7 +367,7 @@ async function updatePreview(
     if (await worktreeGitKey(root) === undefined) {
       return {};
     }
-    const merged = await refMergedState(root, `refs/heads/${sourceRef}`);
+    const merged = await refMergedState(root, sourceRef);
     if (merged.already) {
       return { behind: 0 };
     }
@@ -252,99 +382,69 @@ async function updatePreview(
   }
 }
 
-/**
- * Price a wait from advisory logbook evidence. Every concurrent begin remains
- * available here even though status presents only the newest one. A prior-backed
- * action wins over an unpriced action; among equally evidenced work, the longest
- * credible remainder is the useful upper bound because the authoritative
- * condition still returns the call early.
- */
-async function timingAdvice(
-  commonGitDir: string | undefined,
-  logbookEnabled: boolean,
-  epochFingerprint: string,
-  branch: string | undefined,
-  nowMs: number,
-): Promise<TimingAdvice> {
-  if (!logbookEnabled || commonGitDir === undefined) {
-    return { seconds: AWAIT_TIMING_IDLE_SECONDS, basis: "logbook-off" };
-  }
-  const activity = await readFleetLogbookActivity(
-    commonGitDir,
-    epochFingerprint,
-    nowMs,
-  );
-  const candidates = branch !== undefined
-    ? [[branch, activity.byBranch.get(branch)] as const]
-    : [...activity.byBranch.entries()];
-  let bestPrior: TimingAdvice | undefined;
-  let bestUnpriced: TimingAdvice | undefined;
-  for (const [candidateBranch, entry] of candidates) {
-    for (const running of entry?.inFlight ?? []) {
-      // `await` is begin-recorded for fleet visibility. It cannot make the
-      // condition it watches become true, so its own duration is never timing
-      // evidence for another wait.
-      if (running.verb === "await") {
-        continue;
-      }
-      const started = Date.parse(running.started);
-      if (Number.isNaN(started)) {
-        continue;
-      }
-      const elapsed = Math.max(0, nowMs - started);
-      const prior = activity.durationPriors.get(running.verb);
-      const seconds = prior === undefined
-        ? AWAIT_TIMING_NO_PRIOR_SECONDS
-        : Math.max(
-          AWAIT_TIMING_MIN_SECONDS,
-          Math.ceil((prior.p90Ms - elapsed) / 1000),
-        );
-      const advice: TimingAdvice = {
-        seconds,
-        basis: prior === undefined ? "no-prior" : "running",
-        running: {
-          verb: running.verb,
-          branch: candidateBranch,
-          started: running.started,
-          elapsed_ms: Math.round(elapsed),
-          ...(prior === undefined ? {} : {
-            typical_duration_ms: prior.medianMs,
-            p90_duration_ms: prior.p90Ms,
-            duration_samples: prior.samples,
-          }),
-        },
-      };
-      if (prior === undefined) {
-        if (
-          bestUnpriced === undefined ||
-          advice.seconds > bestUnpriced.seconds
-        ) {
-          bestUnpriced = advice;
-        }
-      } else if (
-        bestPrior === undefined ||
-        advice.seconds > bestPrior.seconds
-      ) {
-        bestPrior = advice;
-      }
-    }
-  }
-  return bestPrior ?? bestUnpriced ??
-    { seconds: AWAIT_TIMING_IDLE_SECONDS, basis: "idle" };
+interface AwaitTiming {
+  timeoutSeconds: number;
+  timeoutBasis: NonNullable<AwaitData["timeout_basis"]>;
+  requestedTimeoutSeconds?: number;
+  retrySeconds: number;
+  retryBasis: NonNullable<AwaitData["retry_basis"]>;
 }
 
-/** The exact call that re-asks this question, for the "not yet" hint. */
+/**
+ * Choose the longest reliable call for this surface. A condition returns early,
+ * so repository duration estimates cannot improve on the transport-safe maximum;
+ * shorter evidence-priced calls only add round trips. An explicit CLI bound is
+ * uncapped. MCP bounds above the known profile are sliced, with the continuation
+ * preserving the original question.
+ */
+function awaitTiming(
+  requested: number | undefined,
+  profile: AwaitCallProfile,
+): AwaitTiming {
+  const profileSeconds = AWAIT_CALL_SECONDS[profile];
+  if (requested === undefined) {
+    return {
+      timeoutSeconds: profileSeconds,
+      timeoutBasis: profile,
+      retrySeconds: profileSeconds,
+      retryBasis: profile,
+    };
+  }
+  if (requested === 0) {
+    return {
+      timeoutSeconds: 0,
+      timeoutBasis: "explicit",
+      retrySeconds: profileSeconds,
+      retryBasis: profile,
+    };
+  }
+  if (profile === "cli" || requested <= profileSeconds) {
+    return {
+      timeoutSeconds: requested,
+      timeoutBasis: "explicit",
+      retrySeconds: Math.max(1, Math.ceil(requested)),
+      retryBasis: "explicit",
+    };
+  }
+  return {
+    timeoutSeconds: profileSeconds,
+    timeoutBasis: profile,
+    requestedTimeoutSeconds: requested,
+    retrySeconds: profileSeconds,
+    retryBasis: profile,
+  };
+}
+
+/** The exact call that continues this question without resetting its pins. */
 function retryCommand(
-  condition: AwaitConditionKind,
-  branch: string | undefined,
+  resume: string,
   seconds: number,
 ): CommandRef {
-  const conditionArg = condition === "green"
-    ? flag("green", `${branch}`)
-    : condition === "landed"
-    ? flag("landed", `${branch}`)
-    : flag("trunk-moved");
-  return discernCommand("await", conditionArg, flag("timeout", `${seconds}`));
+  return discernCommand(
+    "await",
+    flag("resume", resume),
+    flag("timeout", `${seconds}`),
+  );
 }
 
 /** The one-line "what is still untrue" for the "not yet" hint. */
@@ -378,17 +478,20 @@ export async function awaitResult(
   root: string,
   opts: AwaitOptions = {},
   signal?: AbortSignal,
+  context: AwaitExecutionContext = { callProfile: "cli" },
 ): Promise<DiscernResult<AwaitData>> {
   const picked: AwaitConditionKind[] = [
     ...(opts.green !== undefined ? ["green" as const] : []),
     ...(opts.landed !== undefined ? ["landed" as const] : []),
     ...(opts.trunkMoved === true ? ["trunk-moved" as const] : []),
   ];
-  const condition = picked[0];
-  if (condition === undefined || picked.length > 1) {
+  if (
+    (opts.resume === undefined && picked.length !== 1) ||
+    (opts.resume !== undefined && picked.length !== 0)
+  ) {
     return refusal(
       "invalid_arguments",
-      "Pass exactly one condition: --green <branch>, --landed <branch>, or --trunk-moved.",
+      "Pass exactly one condition (--green <branch>, --landed <branch>, or --trunk-moved), or pass --resume by itself.",
       failureRecoveryHintTexts("await"),
     );
   }
@@ -420,22 +523,66 @@ export async function awaitResult(
       failureRecoveryHintTexts("await"),
     );
   }
+  const callerHasWorktree = await worktreeGitKey(root) !== undefined;
 
-  // Pin the at-start state. For a branch condition the tip sha is the pin:
-  // acceptance deletes a landed branch, and the sha stays answerable when the
-  // ref is gone. A branch already missing at call start is an honest refusal —
-  // there is nothing left to pin, and guessing would report someone else's sha.
-  const branch = condition === "green" ? opts.green : opts.landed;
+  const resumed = opts.resume === undefined
+    ? undefined
+    : decodeResumeToken(opts.resume);
+  if (opts.resume !== undefined && resumed === undefined) {
+    return refusal(
+      "invalid_arguments",
+      "The --resume token is invalid or was written by an incompatible discern version.",
+      failureRecoveryHintTexts("await"),
+    );
+  }
+  if (
+    resumed !== undefined &&
+    (resumed.repository !== commonGitDir || resumed.trunk !== trunk)
+  ) {
+    return refusal(
+      "invalid_arguments",
+      "The --resume token belongs to a different repository or trunk branch.",
+      failureRecoveryHintTexts("await"),
+    );
+  }
+  const condition = resumed?.condition ?? picked[0];
+  if (condition === undefined) {
+    return refusal(
+      "invalid_arguments",
+      "Pass one await condition or a continuation token.",
+      failureRecoveryHintTexts("await"),
+    );
+  }
+
+  // A fresh branch condition seeds the branch state. Evaluations follow its
+  // tip while the ref lives; a continuation restores the last observation
+  // after acceptance may have deleted that ref.
+  const branch = resumed?.branch ??
+    (condition === "green" ? opts.green : opts.landed);
   let tip: string | undefined;
-  if (branch !== undefined) {
-    if (!(await localBranchExists(root, branch))) {
-      return refusal(
-        "not_found",
-        `Branch \`${branch}\` was not found in this repository.`,
-        hintTexts([fire(HINTS["await-branch-missing"], { branch, trunk })]),
+  let recoveredLanding: LandedReceiptNote | undefined;
+  if (resumed !== undefined) {
+    tip = resumed.tip;
+  } else if (branch !== undefined) {
+    try {
+      tip = await resolveCommitRef(root, `refs/heads/${branch}`);
+    } catch {
+      // Acceptance can remove the ref between the caller choosing it and this
+      // first read. Its durable note is the only branch-bound recovery.
+      recoveredLanding = await findLatestLandedReceiptNoteForBranch(
+        root,
+        branch,
+        trunk,
       );
+      if (recoveredLanding === undefined) {
+        return refusal(
+          "not_found",
+          `Branch \`${branch}\` was not found in this repository, and no accepted receipt identifies its work on \`${trunk}\`.`,
+          hintTexts([fire(HINTS["await-branch-missing"], { branch, trunk })]),
+        );
+      }
+      tip = recoveredLanding.commit;
     }
-    tip = await resolveCommitRef(root, `refs/heads/${branch}`);
   }
   // `green` needs a checkout for the receipt to ever be recorded in: it lives
   // in per-worktree state and dies with the worktree (a contained checkout
@@ -443,7 +590,13 @@ export async function awaitResult(
   // with no worktree at call start therefore cannot meet the condition —
   // waiting would be dishonest, so refuse and point at the target that can
   // answer: the containing branch when one exists, else `--landed`.
-  if (condition === "green" && branch !== undefined && tip !== undefined) {
+  if (
+    resumed === undefined &&
+    recoveredLanding === undefined &&
+    condition === "green" &&
+    branch !== undefined &&
+    tip !== undefined
+  ) {
     if (await worktreePathForBranch(root, branch) === undefined) {
       const containing = await nearestContainingBranch(root, branch, trunk);
       return refusal(
@@ -462,31 +615,21 @@ export async function awaitResult(
       );
     }
   }
-  const epochFingerprint = configEpoch(cfg).fingerprint;
-  const initialTiming = opts.timeoutSeconds === undefined
-    ? await timingAdvice(
-      commonGitDir,
-      cfg.project.logbook,
-      epochFingerprint,
-      branch,
-      Date.now(),
-    )
-    : undefined;
-  const timeoutSeconds = opts.timeoutSeconds ?? initialTiming?.seconds ??
-    AWAIT_TIMING_IDLE_SECONDS;
-  const timeoutBasis: NonNullable<AwaitData["timeout_basis"]> =
-    initialTiming?.basis ?? "explicit";
-  const trunkStart = await resolveCommitRef(root, `refs/heads/${trunk}`);
-  // `green`'s landed-satisfies-it rule is TRANSITION-based: only a tip this
-  // call observed unreachable and later reachable counts as a landing. A tip
-  // reachable from the very start proves nothing — a freshly forked branch's
-  // tip is trivially an ancestor of the trunk, and answering "green" before
-  // the sibling has committed anything is the exact false positive a
-  // wave-dispatched dependent cannot afford.
-  const greenState = condition === "green" && tip !== undefined
+  const timing = awaitTiming(opts.timeoutSeconds, context.callProfile);
+  const timeoutSeconds = timing.timeoutSeconds;
+  const timeoutBasis = timing.timeoutBasis;
+  const trunkStart = resumed?.trunk_start ??
+    await resolveCommitRef(root, `refs/heads/${trunk}`);
+  // A branch landing is TRANSITION-based: only work observed unreachable and
+  // later reachable counts without a receipt note. A freshly forked branch's
+  // tip already belongs to the trunk, so it cannot release a dependent before
+  // the branch commits any work. The state follows later branch tips and
+  // survives continuation boundaries.
+  const branchState = condition !== "trunk-moved" && tip !== undefined
     ? {
       tip,
-      everUnreachable: !(await commitIsMerged(root, tip, trunk)),
+      everUnreachable: resumed?.branch_ever_unreachable ??
+        !(await commitIsMerged(root, tip, trunk)),
     }
     : undefined;
 
@@ -497,7 +640,8 @@ export async function awaitResult(
       tip,
       trunk,
       trunkStart,
-      greenState,
+      branchState,
+      recoveredLanding,
     });
     return last.met;
   };
@@ -507,6 +651,7 @@ export async function awaitResult(
     evaluate,
     await existingPaths([
       join(commonGitDir, "refs", "heads"),
+      join(commonGitDir, "refs", "notes"),
       join(commonGitDir, "packed-refs"),
       ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
     ]),
@@ -524,23 +669,42 @@ export async function awaitResult(
     waited_ms: waitedMs,
     timeout_seconds: timeoutSeconds,
     timeout_basis: timeoutBasis,
+    ...(timing.requestedTimeoutSeconds !== undefined
+      ? { requested_timeout_seconds: timing.requestedTimeoutSeconds }
+      : {}),
     observed: last.observed,
   };
 
   if (outcome === "met") {
-    const source = last.via === "receipt" && branch !== undefined
-      ? branch
-      : trunk;
+    const greenSource = last.via === "receipt"
+      ? last.observed.tip ?? branchState?.tip
+      : undefined;
+    const source = greenSource !== undefined ? greenSource : trunk;
     const observed = {
       ...last.observed,
       ...(await updatePreview(root, source)),
     };
     const overlapTotal = observed.overlap_total ?? 0;
-    const hint = last.via === "receipt" && branch !== undefined
-      ? fire(HINTS["await-green-met"], { branch })
+    const hint = last.via === "receipt" &&
+        branch !== undefined &&
+        greenSource !== undefined
+      ? fire(HINTS["await-green-met"], {
+        branch,
+        tip: greenSource,
+        callerHasWorktree,
+      })
       : last.via === "landed" && branch !== undefined
-      ? fire(HINTS["await-landed-met"], { branch, trunk, overlapTotal })
-      : fire(HINTS["await-trunk-moved-met"], { trunk, overlapTotal });
+      ? fire(HINTS["await-landed-met"], {
+        branch,
+        trunk,
+        overlapTotal,
+        callerHasWorktree,
+      })
+      : fire(HINTS["await-trunk-moved-met"], {
+        trunk,
+        overlapTotal,
+        callerHasWorktree,
+      });
     return {
       ok: true,
       verb: "await",
@@ -549,41 +713,43 @@ export async function awaitResult(
     };
   }
 
-  const advice = await timingAdvice(
-    commonGitDir,
-    cfg.project.logbook,
-    epochFingerprint,
-    branch,
-    Date.now(),
-  );
+  const continuationTip = branchState?.tip ?? tip;
+  const resume = encodeResumeToken({
+    version: 1,
+    repository: commonGitDir,
+    condition,
+    ...(branch !== undefined ? { branch } : {}),
+    trunk,
+    ...(continuationTip !== undefined ? { tip: continuationTip } : {}),
+    trunk_start: trunkStart,
+    ...(branchState !== undefined
+      ? { branch_ever_unreachable: branchState.everUnreachable }
+      : {}),
+  });
   const hints: FiredHint[] = [
     fire(HINTS["await-not-yet"], {
       summary: notYetSummary(condition, branch, trunk, last.observed),
-      seconds: advice.seconds,
-      command: retryCommand(condition, branch, advice.seconds),
+      seconds: timing.retrySeconds,
+      command: retryCommand(resume, timing.retrySeconds),
     }),
-    ...(advice.basis === "logbook-off"
-      ? [fire(HINTS["await-timing-degraded"])]
-      : []),
   ];
   return {
     ok: true,
     verb: "await",
     data: {
       ...base,
-      retry_after_seconds: advice.seconds,
-      retry_basis: advice.basis,
-      ...(advice.running !== undefined ? { running: advice.running } : {}),
+      resume,
+      retry_after_seconds: timing.retrySeconds,
+      retry_basis: timing.retryBasis,
     },
     hints: hintTexts(hints),
   };
 }
 
-/** `green`'s cross-evaluation memory: the freshest tip observed while the ref
- * lived (mid-wait commits move it, and acceptance then deletes the ref), and
- * whether any evaluation saw that work unreachable from the trunk — the arming
- * half of the landing transition. */
-interface GreenState {
+/** A branch condition's cross-evaluation memory: the freshest tip observed
+ * while the ref lived, and whether any evaluation saw that work unreachable
+ * from the trunk — the arming half of a landing transition. */
+interface BranchState {
   tip: string;
   everUnreachable: boolean;
 }
@@ -597,10 +763,18 @@ async function evaluateCondition(
     tip: string | undefined;
     trunk: string;
     trunkStart: string;
-    greenState: GreenState | undefined;
+    branchState: BranchState | undefined;
+    recoveredLanding: LandedReceiptNote | undefined;
   },
 ): Promise<Evaluation> {
-  const { branch, tip, trunk, trunkStart, greenState } = pins;
+  const {
+    branch,
+    tip,
+    trunk,
+    trunkStart,
+    branchState,
+    recoveredLanding,
+  } = pins;
   if (condition === "trunk-moved") {
     let head: string | undefined;
     try {
@@ -620,24 +794,61 @@ async function evaluateCondition(
   if (branch === undefined || tip === undefined) {
     return { met: false, observed: {} };
   }
-  if (condition === "landed") {
-    const landed = await commitIsMerged(root, tip, trunk);
-    return { met: landed, observed: { tip, landed }, via: "landed" };
+  if (recoveredLanding !== undefined) {
+    return {
+      met: true,
+      observed: { landed: true, tip: recoveredLanding.commit },
+      via: "landed",
+    };
   }
-  // green: the receipt is the truth. A landing observed MID-WAIT satisfies it
-  // too — only a validated tree crosses to the trunk, and the whole
-  // green-to-landed window can fit between two wakes — but only as a
-  // transition this call witnessed (unreachable, then reachable). A tip
-  // reachable from the start proves nothing: a freshly forked branch is
-  // trivially an ancestor of the trunk, and a wave-dispatched dependent must
-  // keep waiting for the sibling's actual work.
-  const state = greenState ?? { tip, everUnreachable: false };
+  const state = branchState ?? { tip, everUnreachable: false };
   try {
-    state.tip = await resolveCommitRef(root, `refs/heads/${branch}`);
+    const liveTip = await resolveCommitRef(root, `refs/heads/${branch}`);
+    if (liveTip !== state.tip) {
+      // Carry an armed transition only while the replacement tip still
+      // contains the work that armed it. A force-reset to the trunk abandons
+      // that work; reachability of the replacement is not a landing.
+      state.everUnreachable = state.everUnreachable &&
+        await commitIsAncestorOf(root, state.tip, liveTip);
+      state.tip = liveTip;
+    }
   } catch {
     // The ref is gone (a landing removes it) — the last observed tip answers.
   }
   const reachable = await commitIsMerged(root, state.tip, trunk);
+  if (condition === "landed") {
+    if (reachable && state.everUnreachable) {
+      return {
+        met: true,
+        observed: { landed: true, tip: state.tip },
+        via: "landed",
+      };
+    }
+    if (reachable) {
+      const landed = await findLandedReceiptNoteForBranch(
+        root,
+        branch,
+        trunk,
+        trunkStart,
+      );
+      if (landed !== undefined) {
+        return {
+          met: true,
+          observed: { landed: true, tip: landed.commit },
+          via: "landed",
+        };
+      }
+    } else {
+      state.everUnreachable = true;
+    }
+    return {
+      met: false,
+      observed: { tip: state.tip, landed: false },
+    };
+  }
+  // green: the receipt is the truth. A landing observed mid-wait satisfies it
+  // too, but only after the branch armed the transition above or a durable
+  // landed receipt note identifies the accepted work.
   const worktree = await worktreePathForBranch(root, branch);
   let receiptStatus: NonNullable<AwaitData["observed"]["receipt_status"]> =
     "no-worktree";
@@ -662,6 +873,25 @@ async function evaluateCondition(
       },
       via: "landed",
     };
+  }
+  if (reachable) {
+    const landed = await findLandedReceiptNoteForBranch(
+      root,
+      branch,
+      trunk,
+      trunkStart,
+    );
+    if (landed !== undefined) {
+      return {
+        met: true,
+        observed: {
+          landed: true,
+          tip: landed.commit,
+          ...(worktree !== undefined ? { worktree } : {}),
+        },
+        via: "landed",
+      };
+    }
   }
   if (!reachable) {
     state.everUnreachable = true;
