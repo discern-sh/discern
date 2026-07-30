@@ -64,7 +64,7 @@ From the main checkout, `discern worktree drop <id|path>` removes an abandoned w
 
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
 
-Prune also reports **contained** worktrees, so a staged train tidies as it goes: a checkout is contained when its branch tip is a strict ancestor of another live branch's tip, its tree is clean, and it is idle — the spent early stage of a `start --from` chain, its commits already travelling inside the next stage. The report names the nearest containing branch with tip hashes and its lead. The default apply never touches the group; `discern worktree prune --contained` plus the ordinary confirmation reclaims the checkouts through the same resource teardown acceptance uses, and **always keeps the branch refs** — they are the recovery path (`discern start --from <branch>`) and self-clean through the ordinary prune once the train lands. Reclaiming destroys per-worktree state, the gate receipt included ([ADR 0225](../_adr/0225-contained-worktree-reclaim-is-offer-only.md)).
+Prune also reports **contained** worktrees — spent `start --from` stages whose commits already travel inside a live sibling branch. The default apply never touches them; [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) covers the predicate, the `--contained` opt-in, and the kept branch refs.
 
 ## Where it lives in code
 

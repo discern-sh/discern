@@ -298,8 +298,14 @@ Deno.test("worktree prune leaves contained worktrees untouched by default and ke
 
     const human = await runAgent(dir, ["worktree", "prune", "--yes"]);
     assertEquals(human.code, 0, human.output);
-    assert(await exists(a), "the default apply must not touch a contained checkout");
-    assert(await exists(b), "the default apply must not touch a contained checkout");
+    assert(
+      await exists(a),
+      "the default apply must not touch a contained checkout",
+    );
+    assert(
+      await exists(b),
+      "the default apply must not touch a contained checkout",
+    );
     assert(await exists(c));
     assertStringIncludes(human.output, "Contained worktrees (kept)");
     assertStringIncludes(human.output, "--contained");
