@@ -26,7 +26,7 @@ import {
 } from "../src/shared/config_schema.ts";
 import { allGuidanceFilePaths, providerFor } from "../src/lib/providers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { DISCERN_BOT } from "../src/shared/brand.ts";
+import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 
@@ -342,7 +342,7 @@ Deno.test("setup done commits the completion marker when discern.toml is the onl
       await gitOut(dir, "log", "-1", "--format=%s"),
       "Mark discern setup complete",
     );
-    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
     assertStringIncludes(
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
@@ -859,7 +859,7 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
       await gitOut(dir, "log", "-1", "--format=%s"),
       "discern: scaffold wiring",
     );
-    assertEquals(await parsedCommitTrailers(dir), DISCERN_BOT.trailer);
+    assertEquals(await parsedCommitTrailers(dir), DISCERN_MACHINE.trailer);
     assertEquals(
       await gitOut(
         dir,

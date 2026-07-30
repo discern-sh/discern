@@ -133,6 +133,7 @@ import {
 import { configEpoch } from "../logbook/epoch.ts";
 import {
   type BranchLogbookActivity,
+  type DurationPrior,
   type FleetLogbookActivity,
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
@@ -198,7 +199,8 @@ export async function statusResult(
   const location: Location = gitKey !== undefined ? "worktree" : "main";
   const snap = await gitSnapshot(root, mainBranch);
 
-  // The git block — read-only; null when this isn't a git repo (degrade, don't throw).
+  // The git block — read-only; null when this isn't a git repo or its status
+  // cannot be read (degrade, don't throw).
   let git: StatusGit | null = null;
   // The hot zone, when this worktree is behind: the files it changed that the incoming
   // main also changed. Captured for both the git block and the behind hint.
@@ -407,7 +409,7 @@ export async function statusResult(
         return applyLogbookActivity(
           entry,
           logbookActivity?.byBranch.get(row.branch),
-          logbookActivity?.typicalDurationMs,
+          logbookActivity?.durationPriors,
           nowMs,
         );
       }),
@@ -718,7 +720,7 @@ function latestActivity(
 function applyLogbookActivity(
   entry: StatusFleetEntry,
   activity: BranchLogbookActivity | undefined,
-  typicalDurationMs: ReadonlyMap<string, number> | undefined,
+  durationPriors: ReadonlyMap<string, DurationPrior> | undefined,
   nowMs: number,
 ): StatusFleetEntry {
   if (activity === undefined) {
@@ -740,7 +742,7 @@ function applyLogbookActivity(
   }
   if (activity.running !== undefined) {
     const startedMs = Date.parse(activity.running.started);
-    const typical = typicalDurationMs?.get(activity.running.verb);
+    const typical = durationPriors?.get(activity.running.verb)?.medianMs;
     entry.running = {
       verb: activity.running.verb,
       started: activity.running.started,
@@ -1390,7 +1392,9 @@ function renderStatusHuman(
     }
   } else {
     out.raw(
-      `  ${label("git")}${c.dim}unavailable (not a git repository)${c.reset}\n`,
+      `  ${
+        label("git")
+      }${c.dim}unavailable (Git could not read this checkout)${c.reset}\n`,
     );
   }
 

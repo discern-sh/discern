@@ -34,7 +34,7 @@ All working text enters through `hints[]`, except `improvement`'s distinct `data
 
 ## Fleet activity
 
-`status` reads the newest 200 parsed events. Per branch, `last_action` is the newest completion; an unmatched fresh begin is `running`. Its duration prior is the recent median for that verb, preferring the current config epoch.
+`status` reads the newest 200 parsed events. Per branch, `last_action` is the newest completion. The reader retains every unmatched fresh begin and exposes the newest one as `running` for the compact fleet row. Duration priors carry the recent median, P90, and sample count for each verb, preferring the current config epoch. Consumers select their own view of the full in-flight set: `await` ignores its own begin and uses an underlying action's P90 remainder for timing.
 
 Running expires after the greater of 1 hour or 10 times its prior, or 24 hours without one. The begin remains crash evidence and contributes to `last_activity`, the later git timestamp or newest branch event ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)). It remains advice. With the logbook off, action fields disappear and activity stays git-only.
 

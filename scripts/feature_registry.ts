@@ -510,11 +510,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved — woken by logbook appends and git ref changes, re-checked on a slow polling fallback. A timeout is an answer, not an error: the result reports the observed state plus a retry delay priced from the fleet's typical verb durations.",
+          "`discern await` blocks until a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Logbook appends and git ref changes wake it, with a slow polling fallback. Omit the timeout and the repository's active work plus observed P90 verb durations price the bound. If the bound expires, the result returns observed state and a next-wait duration.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
-          "Conditions ground in git ancestry and the gate receipt — recorded history only wakes the wait and prices the retry, so the logbook stays advisory. While the verb holds, the blocked branch's own fleet row reads `running: await`. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it.",
+          "Conditions ground in git ancestry and the gate receipt; recorded history only wakes and prices the wait. Concurrent activity stays visible to timing, so status can show the branch `await` while the result names the underlying `done` and its duration evidence. A met condition hints the follow-up: update from the trunk, or from the green branch to compose below it.",
         surfaces: ["verb:await"],
         hints: ["await-not-yet", "await-timing-degraded"],
       },

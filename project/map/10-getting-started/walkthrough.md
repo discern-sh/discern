@@ -34,7 +34,7 @@ The agent attests that consent happened when it begins. A fresh interactive setu
 
 `discern setup begin` creates and checks out `discern-setup` from your repository's trunk. The setup files therefore appear as an ordinary branch diff. Your agent first wires the project's real format, lint, build, typecheck, test, and smoke commands into `discern.toml`. It then fills the project guidance and initial map pages while those checks are live.
 
-Discern commits the wiring it scaffolds before the handoff and the completion marker after setup passes. Those machine-composed commits keep your Git identity as author and add `discern-bot` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
+Discern commits the wiring it scaffolds before the handoff and the completion marker after setup passes. Those machine-composed commits keep your Git identity as author and add `discern <done@discern.sh>` as a co-author. The agent's authoring commits stay unchanged ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)).
 
 Watch the branch rather than the main checkout. The agent makes small authoring commits as it completes the staged setup brief. [What setup added](after-setup.md) explains each group in the diff.
 

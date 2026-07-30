@@ -53,8 +53,9 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   },
   {
     key: "await-retry-pricing",
-    phrase: "retry timing in `discern await` from typical run durations",
-    surface: "`discern await` on a not-yet answer",
+    phrase:
+      "wait bounds in `discern await` from active work and observed P90 durations",
+    surface: "`discern await` with an omitted timeout or a not-yet answer",
     readers: ["src/engine/await/await.ts"],
   },
   {

@@ -74,7 +74,7 @@ A handful of constraints hold for any task in any discern project. Fold them in 
 - **Never hand-edit generated files.** Change the source and re-run the producing command; the gate flags drift either way.
 - **Cure the class, not the symptom.** A real fix leaves behind a check that fails on the whole class of defect (the `discern-cure-a-bug` skill is the procedure).
 - **Record notable decisions.** A hard-to-reverse or surprising choice deserves an ADR (the `discern-write-adr` skill).
-- **Wait with the verb.** A brief that depends on a sibling stream has its agent wait by re-invoking `discern await` with a bounded `--timeout`, following the retry advice each "not yet" answer returns (a flat default where the project keeps no logbook) — never a hand-rolled sleep loop, and never a human relaying "it's ready".
+- **Wait with the verb.** A brief that depends on a sibling stream has its agent invoke `discern await` without a timeout so the repository's own duration evidence prices one bounded call, then follow the next-wait advice if the answer is "not yet" (or the labelled fallback where the project keeps no logbook). Reserve an explicit timeout for a caller with a tighter request budget — never use a hand-rolled sleep loop or a human relay.
 
 Keep this to a few lines. The agent's own guidance file already states most of it, the project's own rules included; reinforce the constraints this task leans on.
 

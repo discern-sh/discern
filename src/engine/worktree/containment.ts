@@ -87,8 +87,8 @@ export function containmentIdleCheck(
  * Whether the checkout at `path` is PROVABLY clean: `git status` ran and
  * reported nothing. A failed read is "unknown", and unknown fails safe — the
  * checkout may hold anything, so it never qualifies for a forced removal.
- * (The fleet snapshot's `clean` cannot carry this burden alone: it reads a
- * failed status as an empty entry list.)
+ * The fleet snapshot applies the same rule; this second read revalidates the
+ * destructive edge after the fleet survey.
  */
 export async function treeProvablyClean(path: string): Promise<boolean> {
   const run = await runGit(
@@ -207,9 +207,8 @@ export async function scanContainedWorktrees(
     if (row.branch === "" || row.branch === mainBranch) {
       continue;
     }
-    // The snapshot's `clean` is the cheap pre-filter; the qualifying read must
-    // PROVE cleanliness (a failed status is unknown, and unknown never
-    // qualifies a checkout for a forced removal).
+    // The snapshot's `clean` is the cheap pre-filter; the qualifying read proves
+    // the state again at the destructive edge.
     if (!(await treeProvablyClean(row.path))) {
       continue;
     }

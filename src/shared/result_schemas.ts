@@ -514,6 +514,13 @@ export const AWAIT_RETRY_BASES = [
   "logbook-off",
 ] as const;
 
+/** Why this call used its reported timeout: an exact caller request, or the
+ * same repository evidence vocabulary that prices a follow-up wait. */
+export const AWAIT_TIMEOUT_BASES = [
+  "explicit",
+  ...AWAIT_RETRY_BASES,
+] as const;
+
 /** What one `await` evaluation observed — always authoritative state (a git
  * ancestry read, a receipt inspection), never logbook history. Per-condition:
  * `green` carries the sibling receipt's status ({@link GateReceiptCheckSchema}
@@ -543,22 +550,27 @@ const awaitObservedSchema = z.strictObject({
   overlap_total: z.number().int().optional(),
 });
 
-/** The awaited branch's in-flight work at timeout — advisory logbook evidence
- * behind the retry delay, never part of the condition itself. The shape of a
- * fleet row's `running` block, so the two surfaces read alike. */
+/** The in-flight work that priced an `await` bound — advisory logbook evidence,
+ * never part of the condition itself. `branch` identifies the selected action
+ * even when `--trunk-moved` considers the whole fleet; the median remains the
+ * compact "typical" reading while P90 is the conservative upper-bound input. */
 const awaitRunningSchema = z.strictObject({
   verb: z.string(),
+  branch: z.string(),
   started: z.string(),
   elapsed_ms: z.number().int(),
   typical_duration_ms: z.number().int().optional(),
+  p90_duration_ms: z.number().int().optional(),
+  duration_samples: z.number().int().optional(),
 });
 
 /** `await` — one blocking wait on a fleet condition. `met` is the verdict this
  * call ends on (a timeout is `met: false` with `ok: true` — "not yet" is an
  * answer, not a failure); `observed` is the authoritative state behind it;
- * `retry_after_seconds` + `retry_basis` say when to call again and why that
- * number, with `running` carrying the in-flight evidence when that is the
- * basis. */
+ * `timeout_seconds` + `timeout_basis` name the bound this call used;
+ * `retry_after_seconds` + `retry_basis` price another bounded wait, with
+ * `running` carrying the in-flight evidence when repository history supplied
+ * the number. */
 export const AwaitDataSchema = z.strictObject({
   condition: z.enum(AWAIT_CONDITIONS),
   branch: z.string().optional(),
@@ -566,6 +578,7 @@ export const AwaitDataSchema = z.strictObject({
   met: z.boolean(),
   waited_ms: z.number().int(),
   timeout_seconds: z.number(),
+  timeout_basis: z.enum(AWAIT_TIMEOUT_BASES),
   observed: awaitObservedSchema,
   retry_after_seconds: z.number().int().optional(),
   retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),

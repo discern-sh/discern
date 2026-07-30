@@ -679,7 +679,11 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
   ];
 
   const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
-  assertEquals(derived.typicalDurationMs.get("done"), 300_000);
+  assertEquals(derived.durationPriors.get("done"), {
+    medianMs: 300_000,
+    p90Ms: 360_000,
+    samples: 2,
+  });
   assertEquals(derived.byBranch.get("main"), {
     lastAction: {
       verb: "done",
@@ -687,6 +691,10 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
       at: "2026-07-19T11:20:00.000Z",
       failedStage: "test",
     },
+    inFlight: [{
+      verb: "done",
+      started: "2026-07-19T12:08:00.000Z",
+    }],
     running: {
       verb: "done",
       started: "2026-07-19T12:08:00.000Z",
@@ -708,6 +716,57 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
     now,
   );
   assertEquals(paired.byBranch.get("main")?.running, undefined);
+});
+
+Deno.test("fleet activity preserves concurrent begins before choosing the newest display action", () => {
+  const now = Date.parse("2026-07-19T12:10:00.000Z");
+  const events: LogbookEvent[] = [
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: "2026-07-19T12:08:00.000Z",
+      writer: "9.9.9",
+      kind: "begin",
+      invocation: "older-work",
+      verb: "compile",
+      surface: "cli",
+      driver: {},
+      branch: "main",
+      head: "abc1234",
+      epoch: "current",
+    },
+    {
+      schema: LOGBOOK_SCHEMA_VERSION,
+      at: "2026-07-19T12:09:00.000Z",
+      writer: "9.9.9",
+      kind: "begin",
+      invocation: "newer-coordination",
+      verb: "coordinate",
+      surface: "mcp",
+      driver: {},
+      branch: "main",
+      head: "abc1234",
+      epoch: "current",
+    },
+  ];
+
+  const derived = deriveFleetLogbookActivity(events, "current", now);
+  assertEquals(derived.byBranch.get("main"), {
+    inFlight: [
+      {
+        verb: "compile",
+        started: "2026-07-19T12:08:00.000Z",
+      },
+      {
+        verb: "coordinate",
+        started: "2026-07-19T12:09:00.000Z",
+      },
+    ],
+    running: {
+      verb: "coordinate",
+      started: "2026-07-19T12:09:00.000Z",
+    },
+    lastEventAt: "2026-07-19T12:09:00.000Z",
+  });
 });
 
 Deno.test("fleet activity: a stale unmatched begin remains crash and activity evidence without claiming live work", () => {

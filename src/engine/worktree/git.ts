@@ -2034,8 +2034,9 @@ async function aheadBehind(
  * predicate is the user-facing / removal-safety one: no tracked changes and no
  * untracked non-ignored files. Pure reads — `rev-parse`, `branch`,
  * `status --porcelain --untracked-files=normal`, `rev-list` — so it never mutates
- * the working tree. Returns undefined when `cwd` is not inside a git repository, so
- * a caller can mark the git block unavailable rather than throw.
+ * the working tree. Returns undefined when `cwd` is not inside a git repository
+ * or Git cannot read its status. An unreadable status is unknown, so callers
+ * must not receive a snapshot that claims the checkout is clean.
  */
 export async function gitSnapshot(
   cwd: string,
@@ -2047,7 +2048,10 @@ export async function gitSnapshot(
   }
   const branchRun = await git(["branch", "--show-current"], cwd);
   const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const dirtyEntries = await statusEntries(cwd, "normal") ?? [];
+  const dirtyEntries = await statusEntries(cwd, "normal");
+  if (dirtyEntries === undefined) {
+    return undefined;
+  }
   const { ahead, behind } = await aheadBehind(
     cwd,
     integrationBranch(mainBranchFallback),

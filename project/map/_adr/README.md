@@ -220,6 +220,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0224 — Trend comparability is setup equality, and analysis skips setup-era events](0224-trend-comparability-is-setup-equality.md)
 - [0225 — Contained-worktree reclaim is offer-only and keeps the branch ref](0225-contained-worktree-reclaim-is-offer-only.md)
 - [0226 — Setup separates installation evidence from terminal launchers](0226-setup-separates-installation-evidence-from-terminal-launchers.md)
+- [0227 — `await` bounds follow repository evidence](0227-await-bounds-follow-repository-evidence.md)
 
 <!-- END GENERATED: current ADR records -->
 
