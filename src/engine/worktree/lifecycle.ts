@@ -1017,9 +1017,10 @@ export interface WorktreeDropOptions extends WorktreeOpOptions {
 /**
  * The read-only diagnosis a `worktree drop` acts on: resolve `target` (a worktree
  * id or path) against git's own registry, snapshot what discarding it would lose,
- * and read its resource ledger. Refuses an unknown target (listing the known ids)
- * and the main checkout. A plan exists even when blocked — `--dry-run` shows what
- * a `--force` WOULD discard; the executor enforces the `--force` gate.
+ * and read its resource ledger. Refuses an unknown target (listing the known ids),
+ * an ambiguous id/basename (listing the matching paths), and the main checkout.
+ * A plan exists even when blocked — `--dry-run` shows what a `--force` WOULD
+ * discard; the executor enforces the `--force` gate.
  */
 async function buildDropPlan(
   ctx: LifecycleContext,
@@ -1050,22 +1051,36 @@ async function buildDropPlan(
     ? await Deno.realPath(resolve(wanted)).catch(() => resolve(wanted))
     : undefined;
   const settings = await loadIdentitySettings(ctx.root).catch(() => undefined);
-  let match: (typeof fleet)[number] | undefined;
+  const matches: Array<(typeof fleet)[number]> = [];
   for (const row of fleet) {
-    if (row.path === wantedAbs || basename(row.path) === wanted) {
-      match = row;
-      break;
+    if (wantedAbs !== undefined) {
+      if (row.path === wantedAbs) {
+        matches.push(row);
+      }
+      continue;
+    }
+    if (basename(row.path) === wanted) {
+      matches.push(row);
+      continue;
     }
     if (settings !== undefined) {
       const id = await resolveWorktreeId(settings, row.path).catch(() =>
         undefined
       );
       if (id === wanted) {
-        match = row;
-        break;
+        matches.push(row);
       }
     }
   }
+  if (matches.length > 1) {
+    const candidates = matches.map((row) => `- ${row.path}`).sort().join("\n");
+    throw new WorktreeGitError(
+      `\`discern worktree drop\` can't resolve '${target}': it matches more ` +
+        `than one registered worktree:\n${candidates}\n` +
+        "Pass one of these paths as the target, then re-run.",
+    );
+  }
+  const match = matches[0];
   if (match === undefined) {
     const known = fleet.map((row) => basename(row.path)).join(", ");
     throw new WorktreeGitError(
