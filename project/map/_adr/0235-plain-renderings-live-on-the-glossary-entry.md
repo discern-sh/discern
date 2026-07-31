@@ -6,7 +6,7 @@
 
 [ADR 0228](0228-the-feature-canon-carries-a-plain-language-register.md) gave every glossary term a plain-register rendering and kept those renderings in their own table: `PLAIN_LEXICON` in the feature registry, keyed by term name, held in bijection with `GLOSSARY` by a runtime test. The reasoning was separation — the glossary defines terms for the technical manual's readers, while the lexicon is a rendering policy for one register.
 
-Living with the split showed the separation was thinner than it looked. The bijection guard already forced every glossary change through the feature registry, so the two files were coupled either way — the coupling just ran through a test instead of the compiler, and a mistyped key or a forgotten entry surfaced at test time rather than at the typecheck. Meanwhile ADR 0228's own strongest move points the other way: it made the plain account a *required field* on `FeatureNode` precisely so a node cannot enter the canon without its plain reading. The term-level rendering deserved the same mechanism.
+Living with the split showed the separation was thinner than it looked. The bijection guard already forced every glossary change through the feature registry, so the two files were coupled either way — the coupling just ran through a test instead of the compiler, and a mistyped key or a forgotten entry surfaced at test time rather than at the typecheck. Meanwhile ADR 0228's own strongest move points the other way: it made the plain account a _required field_ on `FeatureNode` precisely so a node cannot enter the canon without its plain reading. The term-level rendering deserved the same mechanism.
 
 ## Decision
 

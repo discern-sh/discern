@@ -101,7 +101,7 @@ export interface GlossaryEntry {
    * The plain register's rendering of this term. Required, so a new term
    * cannot enter the product's vocabulary without its plain-language
    * rendering being decided in the same change — enrolment at the typecheck
-   * stage, the guard the register test used to hold as a key-set bijection.
+   * stage (ADR 0235).
    */
   plain: GlossaryPlainRendering;
   /**
