@@ -1,9 +1,23 @@
 discern
 Copyright 2026 Jack Webb-Heller
 
-This product includes software developed by
+The discern software is licensed under the Functional Source License,
+Version 1.1, ALv2 Future License, in the repository's LICENSE file.
+
+Discern-authored portions of the canonical project artifacts that discern
+supplies into a user's repository are licensed under the Apache License,
+Version 2.0, in LICENSES/Apache-2.0.txt. This includes discern's built-in
+guidance, bundled skills, scaffolded text, and generated integration content.
+Project-authored, user-authored, provider-authored, and third-party portions of
+the same files keep their own terms.
+
+The Apache-2.0 project-payload grant does not relicense the discern executable,
+source repository, manual, or other material except where another notice says
+so.
+
+The Apache-licensed project payloads include material developed by
 Jack Webb-Heller (https://discern.sh).
 
-Files discern renders into your repository — compiled agent files,
-scaffolded configuration, materialized skills, and other generated
-outputs — belong to that repository, unencumbered by discern's licence.
+A person who redistributes those Apache-licensed portions is responsible for
+the Apache License, Version 2.0 redistribution conditions. discern does not add
+legal files or license headers to user projects.

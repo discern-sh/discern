@@ -8,15 +8,15 @@ discern's repository carried Apache-2.0 while private, and the project is approa
 
 ## Decision
 
-discern is licensed under the Functional Source License, Version 1.1, with the Apache License, Version 2.0 as its future license (SPDX: `FSL-1.1-ALv2`). Anyone may use, copy, modify, and redistribute discern for any purpose except offering a competing commercial product or service; internal use, commercial included, is free, permanently. Each release irrevocably converts to Apache-2.0 on the second anniversary of that release.
+discern is licensed under the Functional Source License, Version 1.1, with the Apache License, Version 2.0 as its future license (SPDX: `FSL-1.1-ALv2`). Anyone may use, copy, modify, and redistribute discern for any purpose except offering a competing commercial product or service; internal use, commercial included, is free, permanently. Each version irrevocably converts to Apache-2.0 on the second anniversary of the date it was first made publicly available.
 
-The vocabulary follows the license. discern describes itself as "Fair Source" or "source-available". It is not described as "open source" until a release's conversion date passes, because until then the definition does not hold. `LICENSE` carries the canonical FSL text from the maintained template at fsl.software, `deno.json` declares the SPDX identifier, and `NOTICE` states that the files discern renders into a user's repository — compiled agent files, scaffolded configuration, materialized skills, and other generated outputs — belong to that repository, unencumbered by discern's license.
+The vocabulary follows the license. discern describes itself as "Fair Source" or "source-available". It is not described as "open source" until a version's conversion date passes, because until then the definition does not hold. `LICENSE` carries the canonical FSL text from the maintained template at fsl.software, and `deno.json` declares the SPDX identifier. Discern-authored material written into user projects has a separate, immediate Apache-2.0 license ([ADR 0240](0240-discern-authored-project-payloads-use-apache-2-0.md)).
 
 The explicit noes: no copyleft license, no closed source, and no marketing claim the license text cannot back.
 
 ## Consequences
 
-- Every release carries a built-in openness guarantee: two years after it ships it is Apache-2.0, whatever happens to the project or its owner.
+- Every version carries a built-in openness guarantee: two years after it is first made available it is Apache-2.0, whatever happens to the project or its owner.
 - Teams adopting discern for their own development, commercial teams included, are unaffected; only offering discern itself as a competing product or service is reserved.
 - The project can offer commercial licenses over the same codebase, with no second edition and no license migration.
 - An "open source" claim on the site, in the README, or in metadata is now a defect. The landing chip reads "Free and Fair Source", and the site test outlaws the retired phrase.

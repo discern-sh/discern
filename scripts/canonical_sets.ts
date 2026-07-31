@@ -1468,7 +1468,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "project-artifacts",
     title: "Project artifacts",
     what:
-      "Every project-tree path discern writes or maintains, with its ownership answer.",
+      "Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.",
     source: {
       kind: "module",
       module: "src/lib/artifact_ownership.ts",

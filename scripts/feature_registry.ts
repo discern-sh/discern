@@ -1666,15 +1666,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "ownership-buckets",
         title: "File ownership",
         what:
-          "Every file discern touches is project-owned (written once, then yours), shared (`discern.toml` and the marked `.gitignore` block, with discern owning only its marked regions), or generated (safe to overwrite because the source is yours). Upgrade honors the buckets, and the removal set derives from the same registry.",
-        why:
-          "What an upgrade may touch is a lookup, never a judgment call — your files stay yours.",
+          "Every file discern touches is project-owned (seeded once, then left alone), shared (discern maintains only its declared entries or regions), or generated (rebuilt from reviewable sources). These are edit and overwrite rules, not copyright claims. Upgrade honors the buckets, and the removal set derives from the same registry.",
+        why: "What an upgrade may touch is a lookup, never a judgment call.",
         plain: {
           title: "Who owns each file",
           what:
-            "Every file Discern touches is in one of three groups: project-owned (written once, then entirely yours), shared (`discern.toml` and the marked `.gitignore` section, where Discern owns only its marked parts), or made automatically (safe to replace, because the source is yours). Updates honour the groups, and what removal covers comes from the same list.",
-          why:
-            "What an update may touch is a lookup, never a judgment call — your files stay yours.",
+            "Every file Discern touches is in one of three groups: project-owned (created once, then left alone), shared (Discern maintains only its listed entries or marked parts), or made automatically from text you can review. The groups say who may edit or replace a file, not who holds copyright. Updates honour the groups, and what removal covers comes from the same list.",
+          why: "What an update may touch is a lookup, never a judgment call.",
         },
       },
       {

@@ -302,7 +302,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     term: "File ownership",
     plain: { keep: "ownership of files is everyday English" },
     definition:
-      "The ownership buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.",
+      "The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). They do not assign copyright or change a license. [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.",
     retired: [
       {
         phrase: "file dispositions",
@@ -332,7 +332,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bgenerated\s+files?\b`,
     },
     definition:
-      "An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you never edit it; the reviewable source is always yours. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).",
+      "An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you edit its reviewable sources instead. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).",
     retired: [
       {
         phrase: "the binary's files",
@@ -597,7 +597,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       keep: "'project-owned' reads literally; the register uses it as-is",
     },
     definition:
-      "A file written once and then owned by the project: committed, edited in place, and left alone by `discern upgrade`. This includes the [namespace](#namespace) content, the [map](#map), the ledger, and provider settings merged into files already present at setup.",
+      "A file discern may seed once, then leaves for the project to edit in place. `discern upgrade` does not overwrite it. This operational category does not assign or change copyright. It includes the [namespace](#namespace) content, the [map](#map), the ledger, and authored skills.",
   },
 ];
 
