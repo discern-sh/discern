@@ -2,8 +2,9 @@
  * First-party legal-document registry.
  *
  * The repository files remain the authored legal texts. This registry owns
- * their identities, order, and paths so every consumer agrees about the legal
- * package discern ships.
+ * their identities, order, and paths so codegen, the installed `licenses`
+ * command, release smoke, package metadata parity, and canonical-set guards
+ * agree about the legal package discern ships.
  */
 
 /** The kinds of first-party legal document discern ships. */

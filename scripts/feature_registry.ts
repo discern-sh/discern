@@ -1731,13 +1731,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "licenses",
-        title: "Third-party notices",
+        title: "Licenses and notices",
         what:
-          "`discern licenses` prints the bundled third-party notices, generated from the compile graph rather than a hand-kept list.",
+          "`discern licenses` prints discern's software license, the Apache-2.0 license for discern-authored project payloads, its notice, and bundled third-party notices. The first-party texts derive from one legal-document registry; the third-party set derives from the compile graph.",
         plain: {
-          title: "Notices for bundled third-party work",
+          title: "Licenses and notices",
           what:
-            "`discern licenses` prints the required notices for other people's work carried inside Discern, produced from what the program includes rather than from a hand-kept list.",
+            "`discern licenses` prints Discern's own terms, the separate Apache-2.0 terms for material it writes into a project, and the required notices for other people's work carried inside Discern. The program builds those answers from its real legal files and included components instead of a hand-kept list.",
         },
         surfaces: ["verb:licenses"],
       },

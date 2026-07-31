@@ -1,11 +1,12 @@
 /**
- * `discern licenses` verb behaviour — the shared core returns the component list,
- * `--json` emits exactly one DiscernResult envelope, and human mode prints the
- * notices document. Both paths exit 0.
+ * `discern licenses` verb behavior — the shared core returns the first-party
+ * legal documents and component list, `--json` emits one result envelope, and
+ * human mode prints the complete legal report. Both paths exit 0.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { licensesResult, runLicenses } from "../src/commands/licenses.ts";
+import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
 
 /** Run `fn` with console.log captured, restoring it afterwards. */
 function capture(fn: () => number): { code: number; lines: string[] } {
@@ -22,11 +23,22 @@ function capture(fn: () => number): { code: number; lines: string[] } {
   }
 }
 
-Deno.test("licensesResult returns the embedded component list", () => {
+Deno.test("licensesResult returns the embedded legal documents and components", () => {
   const result = licensesResult();
   assert(result.ok);
   assertEquals(result.verb, "licenses");
   assert(result.data !== undefined);
+  assertEquals(
+    result.data.documents.map((document) => document.key),
+    FIRST_PARTY_LEGAL_DOCUMENTS.map((document) => document.key),
+  );
+  for (const declaration of FIRST_PARTY_LEGAL_DOCUMENTS) {
+    const document = result.data.documents.find((entry) =>
+      entry.key === declaration.key
+    );
+    assert(document !== undefined, `${declaration.key} is missing`);
+    assertStringIncludes(document.text, declaration.smokeMarker);
+  }
   assert(result.data.components.length > 0);
   for (const c of result.data.components) {
     assert(
@@ -47,12 +59,16 @@ Deno.test("runLicenses --json emits a single parseable DiscernResult and exits 0
   assertEquals(parsed.verb, "licenses");
 });
 
-Deno.test("runLicenses human mode prints the notices document and exits 0", () => {
+Deno.test("runLicenses human mode prints every legal document and exits 0", () => {
   const { code, lines } = capture(() =>
     runLicenses({ json: false, noColor: true })
   );
   assertEquals(code, 0);
   const out = lines.join("\n");
+  assertStringIncludes(out, "discern - Licenses and Notices");
+  for (const declaration of FIRST_PARTY_LEGAL_DOCUMENTS) {
+    assertStringIncludes(out, declaration.smokeMarker);
+  }
   assertStringIncludes(out, "Third-Party Software Notices");
   assertStringIncludes(out, "MIT License");
 });

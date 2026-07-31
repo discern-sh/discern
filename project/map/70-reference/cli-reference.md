@@ -663,7 +663,7 @@ Usage: `discern help [command] [options]`
 
 ### `discern licenses`
 
-Print the third-party software notices for the components bundled in this binary.
+Print discern's licenses and bundled third-party software notices.
 
 Usage: `discern licenses [options]`
 

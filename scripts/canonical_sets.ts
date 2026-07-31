@@ -1584,6 +1584,35 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
   },
   {
+    id: "first-party-legal-documents",
+    title: "First-party legal documents",
+    what:
+      "The ordered legal package embedded in every binary: discern's software license, its notice, and the Apache-2.0 license for discern-authored project payloads.",
+    source: {
+      kind: "module",
+      module: "src/shared/license_registry.ts",
+      exportName: "FIRST_PARTY_LEGAL_DOCUMENTS",
+    },
+    guards: ["tests/first_party_licenses_test.ts"],
+    artifacts: [
+      {
+        path: "src/lib/first_party_license_bundle.ts",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "legal-document plumbing; the CLI reference documents the licenses verb",
+      },
+      featureCanon: { nodeId: "licenses" },
+    },
+    members: async () =>
+      (await import("../src/shared/license_registry.ts"))
+        .FIRST_PARTY_LEGAL_DOCUMENTS.map((document) => document.key),
+  },
+  {
     id: "third-party-artifacts",
     title: "Third-party artifacts",
     what: "The generated third-party notice artifacts and their license cache.",

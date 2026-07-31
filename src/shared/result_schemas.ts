@@ -42,6 +42,7 @@ import {
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
+import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -1435,8 +1436,18 @@ const thirdPartyComponentSchema = z.strictObject({
   license: z.string(),
 });
 
-/** `licenses` — the components embedded in this binary. */
+const firstPartyLegalDocumentSchema = z.strictObject({
+  key: z.string(),
+  kind: z.enum(FIRST_PARTY_LEGAL_DOCUMENT_KINDS),
+  identifier: z.string(),
+  title: z.string(),
+  path: z.string(),
+  text: z.string(),
+});
+
+/** `licenses` — first-party documents and bundled components. */
 export const LicensesDataSchema = z.strictObject({
+  documents: z.array(firstPartyLegalDocumentSchema),
   components: z.array(thirdPartyComponentSchema),
 });
 export type LicensesData = z.infer<typeof LicensesDataSchema>;
@@ -1742,7 +1753,7 @@ export const ConfigOutputSchema = resultOutputSchema(
   ConfigDataSchema,
 );
 
-/** `licenses` output: envelope + embedded component inventory. */
+/** `licenses` output: envelope + first-party documents and component inventory. */
 export const LicensesOutputSchema = resultOutputSchema(
   "licenses",
   LicensesDataSchema,

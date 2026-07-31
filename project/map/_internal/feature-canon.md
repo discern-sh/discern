@@ -186,7 +186,7 @@ _Adopting discern is one file in the diff, and leaving is one command — the ex
 - **Uninstall** — `discern uninstall` removes the wiring discern laid down — derived from the ownership registry — and keeps `discern.toml`, your guidance, and the map. _Leaving costs one command and loses no authored work._
 - **Presets** — `discern preset <name>` applies a reusable overlay: scaffolded files plus config fills that never overwrite a value the project already sets, each key disclosed as filled or kept.
 - **Config without a parser** — `discern config` edits `discern.toml` while preserving comments and layout — `set`, `set-job`, `set-scope`, `set-standard` — and reads it back raw with `get`, `array`, `has`, `subsections`, and `keys`, so scripts and agents never parse TOML themselves. **Agent:** _Every edit re-validates the whole rendered file before touching disk, a renamed key is refused with its successor named, and value types come from the schema rather than the value's spelling — a scripted edit cannot leave behind a config the next command rejects._
-- **Third-party notices** — `discern licenses` prints the bundled third-party notices, generated from the compile graph rather than a hand-kept list.
+- **Licenses and notices** — `discern licenses` prints discern's software license, the Apache-2.0 license for discern-authored project payloads, its notice, and bundled third-party notices. The first-party texts derive from one legal-document registry; the third-party set derives from the compile graph.
 
 ## Interfaces and contracts
 

@@ -628,7 +628,7 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
   "verb:improvement":
     "read-only advisory of the ranked next action; no page uses it as a term of art",
   "verb:licenses":
-    "prints the third-party notices; a utility verb with no concept behind it",
+    "prints first-party licenses and third-party notices; a utility verb with no concept behind it",
   "verb:mcp":
     "starts the MCP server; transport plumbing documented by the CLI and MCP references, not a product concept",
   "verb:test":

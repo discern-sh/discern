@@ -465,7 +465,7 @@ export function buildCli(
   root
     .command("licenses")
     .description(
-      "Print the third-party software notices for the components bundled in this binary.",
+      "Print discern's licenses and bundled third-party software notices.",
     )
     .action(recordedExit("licenses", async (options) => {
       const { runLicenses } = await import("./commands/licenses.ts");

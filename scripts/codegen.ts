@@ -43,6 +43,12 @@ import {
   sameThirdPartyBundlePayload,
   THIRD_PARTY_ARTIFACT_PATHS,
 } from "../src/shared/third_party_codegen.ts";
+import {
+  FIRST_PARTY_LICENSE_ARTIFACT_PATHS,
+  generateFirstPartyLicenseBundle,
+  renderFirstPartyLicenseBundleModule,
+  sameFirstPartyLicenseBundlePayload,
+} from "../src/shared/first_party_license_codegen.ts";
 import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import {
@@ -209,6 +215,13 @@ await write(
     mcpReferenceDoc,
     renderPublicSchemaReference(),
   ),
+);
+console.log("Embedding the first-party legal documents:");
+const firstPartyLicenses = await generateFirstPartyLicenseBundle({ repoRoot });
+await write(
+  FIRST_PARTY_LICENSE_ARTIFACT_PATHS.bundle,
+  renderFirstPartyLicenseBundleModule(firstPartyLicenses),
+  sameFirstPartyLicenseBundlePayload,
 );
 console.log(
   "Regenerating third-party notices from the compile graph of src/main.ts:",
