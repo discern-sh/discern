@@ -906,6 +906,23 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             "The person in charge works from one screen, and every action on it is one keypress.",
         },
         surfaces: ["verb:desk"],
+        children: [
+          {
+            id: "tips",
+            title: "Desk tips",
+            what:
+              "The desk header ends with one dim tip per session: a line teaching one thing discern can do. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook.",
+            why:
+              "Capability reaches the person at the desk one calm line at a time, and the shown ids accumulate in the logbook from day one, ready for adoption reading.",
+            plain: {
+              title: "Desk tips",
+              what:
+                "The desk ends its heading with one short tip for each session: a line that teaches one thing Discern can do. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record.",
+              why:
+                "The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used.",
+            },
+          },
+        ],
       },
     ],
   },

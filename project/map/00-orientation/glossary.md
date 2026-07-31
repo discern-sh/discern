@@ -41,6 +41,7 @@ aliases:
   - stage
   - standard
   - tidy
+  - tip
   - trunk
   - update
   - worktree
@@ -202,6 +203,10 @@ A quality number that can never get worse: a floor or ceiling declared under `[s
 ### Tidy
 
 What `discern tidy` does: canonically format the configured [map](#map), deferred-work ledger, and [guidance sources](#guidance-source) as Markdown, plus the root `discern.toml` as TOML. Fresh installs invoke it through the [format job](#gate-job); removing that command is the opt-out. Covered in [Format discern-owned surfaces](../20-quality-gate/tidy.md).
+
+### Tip
+
+One dim line at the foot of the [desk](#desk) header teaching one thing discern can do. The desk chooses it once per session by deterministic rules (entries new since the last upgrade first, then tips whose context currently applies, then an authored curriculum, then the least recently shown) and records the shown id in the [logbook](#logbook). A tip addresses the person at the desk; agent-facing advice stays in result envelopes. Covered in [the desk](../30-worktrees/the-desk.md).
 
 ### Trunk
 
