@@ -1019,7 +1019,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "glossary-terms",
     title: "Glossary terms",
     what:
-      "The term registry behind the glossary page, its search aliases, and the retired-synonym scans.",
+      "The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.",
     source: {
       kind: "module",
       module: "scripts/glossary_registry.ts",
@@ -1029,6 +1029,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/glossary_codegen_test.ts",
       "tests/glossary_enrolment_test.ts",
       "tests/vocab_drift_test.ts",
+      "tests/feature_canon_plain_register_test.ts",
     ],
     artifacts: [
       {

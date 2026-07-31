@@ -38,8 +38,9 @@ import { GLOSSARY, phrasePatternSource } from "./glossary_registry.ts";
  * non-technical owner, in the register the plain canon page renders (ADR
  * 0228). The register's rules: NAMES ARE QUOTED, CONCEPTS ARE TRANSLATED.
  * Command names, config keys, and file names stay verbatim in code spans;
- * every concept around them is translated per {@link PLAIN_LEXICON} (one
- * plain phrase per term, used identically everywhere). Say "coding agent",
+ * every concept around them is translated per the glossary's plain
+ * renderings ({@link GLOSSARY}, `plain` on each entry — one plain phrase per
+ * term, used identically everywhere). Say "coding agent",
  * never "agent"; "the person in charge" for the owner; explain a kept name on
  * first use ("the computer's standard installed-program list, called
  * `PATH`"). Full sentences, everyday words, no unexplained initialisms. The
@@ -2090,168 +2091,6 @@ export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> =
   {};
 
 /**
- * How one term reads in the plain register (ADR 0228): either translated
- * (`plain`, the one phrase used identically everywhere) or kept (`keep`, with
- * the reason it is already plain English). Translated entries are policed out
- * of every node's plain strings by the register guard
- * (tests/feature_canon_plain_register_test.ts) — outside code spans, where
- * names are always legal.
- */
-export type PlainLexiconEntry =
-  | {
-    /** The plain phrase the register uses in place of the term. */
-    readonly plain: string;
-    /**
-     * How the register guard matches the term in plain prose. Omitted: the
-     * glossary entry's own match phrases (`matches ?? [term]`), word-bounded
-     * and case-insensitive. A regex source narrows or widens that (an
-     * inflection family, a plural-only ban for a term whose singular is
-     * ordinary English). `false`: the term reads as ordinary English too
-     * often to police mechanically — the translation still stands, and
-     * review owns it.
-     */
-    readonly match?: string | false;
-  }
-  | {
-    /** Why the term stays untranslated: it is already plain English. */
-    readonly keep: string;
-  };
-
-/**
- * The plain lexicon — one plain-register rendering per glossary term, keyed
- * by the term exactly as `GLOSSARY` spells it. The register guard holds the
- * key set in bijection with the glossary, so a NEW term cannot enter the
- * product's vocabulary without its plain-language rendering being decided in
- * the same change. Beyond the guard, this table is the translation canon:
- * site copy, tooltips, and future plain surfaces read it instead of
- * re-deciding how a concept is said to a non-technical reader.
- */
-export const PLAIN_LEXICON: Readonly<Record<string, PlainLexiconEntry>> = {
-  "Accept": { plain: "move finished work onto the main shared version" },
-  "Advisory": {
-    plain: "helpful advice that never blocks work",
-    match: String.raw`\badvisor(?:y|ies)\b`,
-  },
-  "discern version": { plain: "the version of the Discern program itself" },
-  "Gate job": {
-    plain: "a named piece of work in the final check",
-    match: String.raw`\bgate\s+jobs?\b`,
-  },
-  "Coupling": { plain: "files that usually change together" },
-  "Shared file": {
-    keep: "'shared' says exactly what it means; the register keeps the phrase",
-  },
-  "Agent file": {
-    plain: "a coding agent's instruction file",
-    match: String.raw`\bagent\s+files?\b`,
-  },
-  "Desk": {
-    keep:
-      "an everyday word for the person-in-charge's one-screen view; kept as the product says it",
-  },
-  "discern": {
-    keep:
-      "the product's name — a name, not jargon; the plain register capitalises it as Discern",
-  },
-  "Engine": {
-    plain: "the working core of the program",
-    match: String.raw`\bengines?\b`,
-  },
-  "File ownership": { keep: "ownership of files is everyday English" },
-  "Fleet": {
-    plain: "all the work in progress, viewed together",
-    match: String.raw`\bfleets?\b`,
-  },
-  "Gate": { plain: "the final quality check", match: String.raw`\bgates?\b` },
-  "Generated file": {
-    plain: "a file made automatically from a source the project owns",
-    match: String.raw`\bgenerated\s+files?\b`,
-  },
-  "Guidance source": {
-    plain: "the project's own instruction text for coding agents",
-    match: String.raw`\bguidance\s+sources?\b`,
-  },
-  "Installer": { keep: "an everyday computing word" },
-  "Landing authority": {
-    plain: "proof of permission to add work to the main shared version",
-    match: String.raw`\blanding\s+authorit(?:y|ies)\b`,
-  },
-  "Logbook": { plain: "the activity record", match: String.raw`\blogbooks?\b` },
-  "Map": { plain: "the project guide", match: String.raw`\bmaps?\b` },
-  "Migration": {
-    plain: "a numbered update step between settings versions",
-    match: String.raw`\bmigrations?\b`,
-  },
-  "Namespace": {
-    plain: "a clearly separated naming area",
-    match: String.raw`\bnamespaces?\b`,
-  },
-  "Patterns": { plain: "the recurring-behaviour report" },
-  "Placement is consent": {
-    plain: "putting a file somewhere is permission to write there",
-  },
-  "Preset": { plain: "a reusable starter collection of settings" },
-  "Project script": {
-    plain: "the project's own runnable instruction",
-    match: String.raw`\bproject\s+scripts?\b`,
-  },
-  "Receipt": {
-    plain: "the proof-of-completion summary",
-    match: String.raw`\breceipts?\b`,
-  },
-  "Receipt note": {
-    plain:
-      "a saved copy of the proof, attached to the project's shared history",
-    match: String.raw`\breceipt\s+notes?\b`,
-  },
-  "Schema version": {
-    plain: "the settings-format version number",
-    match: String.raw`\bschema\s+versions?\b`,
-  },
-  "Scope": {
-    plain: "a named area of the project",
-    match: String.raw`\bscopes?\b`,
-  },
-  "Skill": {
-    plain: "a reusable how-to guide",
-    match: String.raw`\bskills?\b`,
-  },
-  "Stage": {
-    plain: "a group in the final check's run order",
-    match: String.raw`\bstages?\b`,
-  },
-  "Standard": {
-    plain: "a quality rule",
-    // The singular is ordinary English ("the standard example"), so only the
-    // plural — the subsystem's name — is mechanically policed.
-    match: String.raw`\bstandards\b`,
-  },
-  "Trunk": {
-    plain: "the main shared version",
-    match: String.raw`\btrunks?\b`,
-  },
-  "Tidy": {
-    keep:
-      "discern's own plain-English verb name; the register uses tidy and tidying freely",
-  },
-  "Update": {
-    keep:
-      "an everyday word; the concept is explained in place and `discern update` stays quoted",
-  },
-  "Worktree": {
-    plain: "a separate working copy",
-    match: String.raw`\bworktrees?\b`,
-  },
-  "Worktree resource": {
-    plain: "a supporting service set up for one working copy",
-    match: String.raw`\bworktree\s+resources?\b`,
-  },
-  "Project-owned file": {
-    keep: "'project-owned' reads literally; the register uses it as-is",
-  },
-};
-
-/**
  * General software jargon the plain register translates — vocabulary the
  * glossary does not own (it is not discern's to define) but that agents
  * editing the registry most naturally leak. Every entry is policed; a general
@@ -2332,9 +2171,12 @@ export const PLAIN_GENERAL_JARGON: Readonly<
   "env": { plain: "private settings", match: String.raw`\benvs?\b` },
 };
 
-/** One policed plain-register matcher, derived from the lexicon tables. */
+/**
+ * One policed plain-register matcher, derived from the glossary's plain
+ * renderings and the general-jargon table.
+ */
 export interface PlainPolicedTerm {
-  /** The lexicon key it enforces. */
+  /** The glossary term or general-jargon key it enforces. */
   name: string;
   /** The compiled matcher, applied to code-span-stripped plain prose. */
   matcher: RegExp;
@@ -2344,15 +2186,15 @@ export interface PlainPolicedTerm {
 
 /**
  * Every matcher the plain-register guard applies: translated glossary terms
- * (default matcher derived from the glossary entry's own `matches` phrases)
- * plus the general-jargon table. `keep` and `match: false` entries police
- * nothing.
+ * (each entry's own `plain` rendering, default matcher derived from its
+ * `matches` phrases) plus the general-jargon table. `keep` and `match: false`
+ * entries police nothing.
  */
 export function plainPolicedTerms(): PlainPolicedTerm[] {
   const out: PlainPolicedTerm[] = [];
   for (const entry of GLOSSARY) {
-    const rendering = PLAIN_LEXICON[entry.term];
-    if (rendering === undefined || "keep" in rendering) continue;
+    const rendering = entry.plain;
+    if ("keep" in rendering) continue;
     if (rendering.match === false) continue;
     const source = rendering.match ??
       (entry.matches ?? [entry.term])
@@ -2361,7 +2203,7 @@ export function plainPolicedTerms(): PlainPolicedTerm[] {
     out.push({
       name: entry.term,
       matcher: new RegExp(source, "gi"),
-      plain: rendering.plain,
+      plain: rendering.phrase,
     });
   }
   for (const [name, entry] of Object.entries(PLAIN_GENERAL_JARGON)) {

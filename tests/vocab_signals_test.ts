@@ -17,10 +17,22 @@ import {
 } from "../scripts/vocab_signals_lib.ts";
 
 const FIXTURE: GlossaryEntry[] = [
-  { term: "Gate", definition: "The full check." },
-  { term: "Trunk", definition: "The shared branch." },
-  { term: "Gate job", definition: "One kind of gate work." },
-  { term: "Widget", definition: "A term no page uses." },
+  { term: "Gate", definition: "The full check.", plain: { keep: "fixture" } },
+  {
+    term: "Trunk",
+    definition: "The shared branch.",
+    plain: { keep: "fixture" },
+  },
+  {
+    term: "Gate job",
+    definition: "One kind of gate work.",
+    plain: { keep: "fixture" },
+  },
+  {
+    term: "Widget",
+    definition: "A term no page uses.",
+    plain: { keep: "fixture" },
+  },
 ];
 
 async function fixtureMap(files: Record<string, string>): Promise<string> {
@@ -96,11 +108,13 @@ Deno.test("vocab signals ignore hover matching controls", async () => {
       term: "Update",
       definition: "The update concept.",
       matches: [],
+      plain: { keep: "fixture" },
     },
     {
       term: "Accept",
       definition: "The accept concept.",
       matches: [],
+      plain: { keep: "fixture" },
     },
   ];
   const dir = await fixtureMap({

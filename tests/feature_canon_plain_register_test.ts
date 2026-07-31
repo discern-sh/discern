@@ -4,18 +4,18 @@
  *
  * Two contracts hold the register:
  *
- * 1. ENROLMENT — the plain lexicon is in bijection with the glossary: every
- *    glossary term has a lexicon entry (translated, or kept with a reason)
- *    and every lexicon key names a live term. A NEW glossary term therefore
- *    fails the gate until its plain-language rendering is decided in the
- *    same change — vocabulary at birth, the glossary-enrolment move applied
- *    to the plain register.
+ * 1. ENROLMENT — `plain` is a required field on every glossary entry
+ *    (translated, or kept with a reason), so a NEW glossary term fails the
+ *    typecheck until its plain-language rendering is decided in the same
+ *    change — vocabulary at birth, held by the compiler. The type-level
+ *    test below pins the field's required-ness so it cannot quietly become
+ *    optional.
  *
  * 2. THE JARGON SCAN — no policed term (a translated glossary term, or a
  *    row of the general-jargon table) may appear in any node's plain
  *    strings outside a code span. Names are quoted, concepts are
  *    translated: backticked command names and config keys are always legal;
- *    the surrounding prose must use the lexicon's plain phrase.
+ *    the surrounding prose must use the term's plain rendering.
  *
  * The scan covers the authored register (plain title/what/why/agent). Node
  * ids in the coverage appendix and the renderer's fixed chrome are
@@ -27,36 +27,36 @@ import {
   allFeatureNodes,
   type FeatureNode,
   PLAIN_GENERAL_JARGON,
-  PLAIN_LEXICON,
   plainPolicedTerms,
   stripCodeSpans,
 } from "../scripts/feature_registry.ts";
-import { GLOSSARY } from "../scripts/glossary_registry.ts";
+import { GLOSSARY, type GlossaryEntry } from "../scripts/glossary_registry.ts";
 
-Deno.test("the plain lexicon is in bijection with the glossary", () => {
-  const terms = GLOSSARY.map((entry) => entry.term).sort();
-  const keys = Object.keys(PLAIN_LEXICON).sort();
-  assertEquals(
-    keys,
-    terms,
-    "every glossary term needs a plain-lexicon entry (translate it, or keep " +
-      "it with a reason), and every lexicon key must name a live term — " +
-      "decide the plain rendering in the same change that adds the term " +
-      "(scripts/feature_registry.ts, PLAIN_LEXICON)",
+Deno.test("the plain rendering is a required field on every glossary entry", () => {
+  // Compile-time pin: if `plain` ever became optional, `undefined` would
+  // join its type and this assignment would stop typechecking — the
+  // enrolment guarantee lives in the compiler, and this keeps it there.
+  type PlainRequired = undefined extends GlossaryEntry["plain"] ? false : true;
+  const required: PlainRequired = true;
+  assert(
+    required,
+    "decide a term's plain rendering in the same change that adds it " +
+      "(scripts/glossary_registry.ts, the entry's `plain` field)",
   );
 });
 
-Deno.test("every lexicon entry carries substance", () => {
-  for (const [term, entry] of Object.entries(PLAIN_LEXICON)) {
-    if ("keep" in entry) {
+Deno.test("every plain rendering carries substance", () => {
+  for (const entry of GLOSSARY) {
+    const rendering = entry.plain;
+    if ("keep" in rendering) {
       assert(
-        entry.keep.trim().length > 0,
-        `${term}: a kept term carries the reason it is already plain`,
+        rendering.keep.trim().length > 0,
+        `${entry.term}: a kept term carries the reason it is already plain`,
       );
     } else {
       assert(
-        entry.plain.trim().length > 0,
-        `${term}: a translated term carries its plain rendering`,
+        rendering.phrase.trim().length > 0,
+        `${entry.term}: a translated term carries its plain phrase`,
       );
     }
   }
@@ -147,7 +147,7 @@ Deno.test("no policed jargon appears in any node's plain strings", () => {
     offenders,
     [],
     "the plain register translates concepts and quotes names — fix the " +
-      `prose or the lexicon, never by deleting the matcher:\n  ${
+      `prose or the term's plain rendering, never by deleting the matcher:\n  ${
         offenders.join("\n  ")
       }`,
   );

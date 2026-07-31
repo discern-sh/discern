@@ -50,8 +50,11 @@ function escapeRegExp(value: string): string {
  * verbs. Their generated lists enrol only their own set; otherwise the `test`
  * job and stage would silently enrol the unrelated `test` verb.
  */
+/** The fields the naming predicate reads — fixtures need supply no more. */
+type NamedByEntry = Pick<GlossaryEntry, "term" | "definition">;
+
 function namedBy(
-  glossary: readonly GlossaryEntry[],
+  glossary: readonly NamedByEntry[],
   set: ClosedSet,
   member: string,
 ): boolean {
@@ -123,7 +126,7 @@ Deno.test("every deliberate-absence record points at a live closed-set member, w
 // rot into a test that passes because everything looks named.
 
 Deno.test("enrolment guard: the naming predicate matches terms and backticked mentions only", () => {
-  const fixture: GlossaryEntry[] = [
+  const fixture: NamedByEntry[] = [
     {
       term: "Gate",
       definition:
@@ -153,7 +156,7 @@ Deno.test("enrolment guard: the naming predicate matches terms and backticked me
 });
 
 Deno.test("enrolment guard: interpolated sets do not cross-enrol same-named verbs", () => {
-  const fixture: GlossaryEntry[] = [
+  const fixture: NamedByEntry[] = [
     { term: "Gate job", definition: "Known jobs include `test`." },
     { term: "Stage", definition: "The stages include `test`." },
   ];

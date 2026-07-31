@@ -516,14 +516,27 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
 
   assertEquals(
     glossaryMentions([
-      { term: "Gate", definition: "The full check." },
-      { term: "Gate job", definition: "One unit of gate work." },
+      {
+        term: "Gate",
+        definition: "The full check.",
+        plain: { keep: "fixture" },
+      },
+      {
+        term: "Gate job",
+        definition: "One unit of gate work.",
+        plain: { keep: "fixture" },
+      },
     ]).map((mention) => mention.text),
     ["Gate job", "Gate"],
   );
   assertEquals(
     glossaryMentions([
-      { term: "Hidden", definition: "A hidden term.", matches: [] },
+      {
+        term: "Hidden",
+        definition: "A hidden term.",
+        matches: [],
+        plain: { keep: "fixture" },
+      },
     ]),
     [],
   );
@@ -534,11 +547,13 @@ Deno.test("glossary matching defaults, opt-outs, ordering, and ambiguity are exp
           term: "First",
           definition: "The first term.",
           matches: ["same phrase"],
+          plain: { keep: "fixture" },
         },
         {
           term: "Second",
           definition: "The second term.",
           matches: ["Same phrase"],
+          plain: { keep: "fixture" },
         },
       ]),
     Error,
