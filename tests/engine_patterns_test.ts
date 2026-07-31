@@ -469,7 +469,7 @@ async function seedTipAdoptionLogbook(dir: string): Promise<{
       ci: false,
       mcp_client: {
         name: "synthetic-client",
-        version: "1.0.0",
+        version: "8.8.8",
       },
     },
   });

@@ -1580,20 +1580,26 @@ Deno.test("tip adoption: dominant-client release excursions do not resolve a com
     ci: false,
     mcp_client: { name: "synthetic-client", version },
   });
+  const primaryVersion = "8.8.8";
+  const excursionVersion = "9.9.9";
   const outcome = tipAdoptionOutcome(
     buildStreamFacts(
       run([
-        { verb: "status", surface: "mcp", driver: mcpDriver("1.0.0") },
+        {
+          verb: "status",
+          surface: "mcp",
+          driver: mcpDriver(primaryVersion),
+        },
         shownTip(PATTERNS_TIP),
         {
           ...action,
           surface: "mcp",
-          driver: mcpDriver("2.0.0"),
+          driver: mcpDriver(excursionVersion),
         },
         {
           ...action,
           surface: "mcp",
-          driver: mcpDriver("1.0.0"),
+          driver: mcpDriver(primaryVersion),
         },
         shownTip(PATTERNS_TIP),
         shownTip(PATTERNS_TIP),
