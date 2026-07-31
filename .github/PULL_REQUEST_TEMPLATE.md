@@ -20,7 +20,6 @@ Explain why this is the smallest change that solves the problem.
 
 ## Attestations
 
-- [ ] I have read `CONTRIBUTING.md`.
+- [ ] I’ve read `CONTRIBUTING.md` and agree to follow it.
 - [ ] I understand this change and can explain and defend every line.
 - [ ] `discern done` passes locally on the final tree.
-- [ ] I have signed the discern contributor license agreement (`CLA.md`), or will sign it when the CLA assistant asks on this pull request.

@@ -16,7 +16,21 @@ import { extractDocLinks } from "../src/lib/docs_integrity.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const CONTRIBUTING = join(REPO_ROOT, "CONTRIBUTING.md");
+const INDIVIDUAL_CLA = join(REPO_ROOT, "CLA.md");
+const CORPORATE_CLA = join(REPO_ROOT, "CCLA.md");
 const PR_TEMPLATE = join(REPO_ROOT, ".github", "PULL_REQUEST_TEMPLATE.md");
+const CLA_ASSISTANT_METADATA = join(
+  REPO_ROOT,
+  ".github",
+  "cla-assistant",
+  "metadata",
+);
+const RETIRED_CLA_WORKFLOW = join(
+  REPO_ROOT,
+  ".github",
+  "workflows",
+  "cla.yml",
+);
 const ISSUE_TEMPLATE_DIR = join(REPO_ROOT, ".github", "ISSUE_TEMPLATE");
 const PROPOSAL_TEMPLATE = join(
   ISSUE_TEMPLATE_DIR,
@@ -55,9 +69,13 @@ Deno.test("the contribution guide carries the complete governance contract", asy
       "Every pull request starts with an issue that a maintainer has accepted",
       "AI-assisted contributions are welcome",
       "`discern done` is the contribution contract",
-      "[contributor license agreements](CLA.md)",
-      "You keep your copyright",
-      "converts to Apache-2.0 two years after that release",
+      "[Individual Contributor License Agreement](CLA.md)",
+      "You retain any copyright you hold in your Contributions",
+      "[Corporate Contributor License Agreement](CCLA.md) privately",
+      "[contributor agreement privacy notice](#contributor-agreement-privacy)",
+      "Contributor agreement intake status: inactive",
+      "Each version receives an irrevocable Apache-2.0 license",
+      "second anniversary of the date that version was first made available",
     ]
   ) {
     assertStringIncludes(guide, statement);
@@ -82,14 +100,54 @@ Deno.test("the pull-request template requires every contribution attestation", a
   const template = await Deno.readTextFile(PR_TEMPLATE);
   for (
     const attestation of [
-      /- \[ \] I have read `CONTRIBUTING\.md`\./,
+      /- \[ \] I’ve read `CONTRIBUTING\.md` and agree to follow it\./,
       /- \[ \] I understand this change and can explain and defend every line\./,
       /- \[ \] `discern done` passes locally on the final tree\./,
-      /- \[ \] I have signed the discern contributor license agreement \(`CLA\.md`\), or will sign it when the CLA assistant asks on this pull request\./,
     ]
   ) {
     assertMatch(template, attestation);
   }
+  for (const legalChecklist of ["CLA.md", "CCLA.md", "privacy notice"]) {
+    assert(
+      !template.includes(legalChecklist),
+      `the pull-request checklist should leave ${legalChecklist} to CONTRIBUTING.md and CLA Assistant`,
+    );
+  }
+});
+
+Deno.test("the hosted assistant accepts the individual agreement without a repository workflow", async () => {
+  const individual = await Deno.readTextFile(INDIVIDUAL_CLA);
+  const corporate = await Deno.readTextFile(CORPORATE_CLA);
+  const acceptance =
+    "I have read and agreed to the discern Contributor License Agreement, version 1.0";
+  assertStringIncludes(individual, acceptance);
+  assertStringIncludes(
+    individual,
+    "You retain any copyright you hold in your Contributions",
+  );
+  assertStringIncludes(individual, "the grant is non-exclusive");
+  assertStringIncludes(corporate, "covers only that named entity");
+  assertStringIncludes(
+    corporate,
+    "excluding any parent, subsidiary, affiliate",
+  );
+  assertStringIncludes(corporate, "authorized to enter into contracts");
+  assertStringIncludes(corporate, "Typing a name into a field, by itself");
+
+  const metadata = JSON.parse(
+    await Deno.readTextFile(CLA_ASSISTANT_METADATA),
+  );
+  assertEquals(metadata, {
+    agreement: {
+      title: acceptance,
+      type: "boolean",
+      required: true,
+    },
+  });
+  assertEquals(
+    await Deno.stat(RETIRED_CLA_WORKFLOW).catch(() => undefined),
+    undefined,
+  );
 });
 
 Deno.test("change proposals arrive before implementation and use the smallest-change ladder", async () => {
@@ -153,7 +211,15 @@ Deno.test("issue intake stays structured and every template has valid metadata",
 });
 
 Deno.test("repository-file links in contributor intake resolve", async () => {
-  for (const source of [CONTRIBUTING, PR_TEMPLATE, PROPOSAL_TEMPLATE]) {
+  for (
+    const source of [
+      CONTRIBUTING,
+      INDIVIDUAL_CLA,
+      CORPORATE_CLA,
+      PR_TEMPLATE,
+      PROPOSAL_TEMPLATE,
+    ]
+  ) {
     const markdown = await Deno.readTextFile(source);
     for (const { target, line } of extractDocLinks(markdown)) {
       if (/^(?:[a-z]+:|#|\/)/i.test(target)) continue;
