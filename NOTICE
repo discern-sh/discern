@@ -3,3 +3,7 @@ Copyright 2026 Jack Webb-Heller
 
 This product includes software developed by
 Jack Webb-Heller (https://discern.sh).
+
+Files discern renders into your repository — compiled agent files,
+scaffolded configuration, materialized skills, and other generated
+outputs — belong to that repository, unencumbered by discern's licence.
