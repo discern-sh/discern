@@ -55,6 +55,7 @@ import {
 } from "../../shared/patterns_vocabulary.ts";
 import { formatHumanNumber } from "../../shared/human_number.ts";
 import { type HintFollowThroughRule, HINTS } from "../../shared/hints.ts";
+import { type RegisteredTip, TIPS } from "../../shared/tips.ts";
 import {
   COHORT_MINIMUMS,
   cohortDenominators,
@@ -819,6 +820,276 @@ const hintFollowThrough: Detector = {
       });
     }
     return { considered, findings };
+  },
+};
+
+interface TipAdoptionMember {
+  id: string;
+  verbs: readonly string[];
+}
+
+interface TipAdoptionFamily {
+  family: string;
+  members: TipAdoptionMember[];
+}
+
+/** Derive every measurable family and member from the tip registry. A new
+ * declaration enrolls without a detector-side id table. Unlike hint families,
+ * members in one tip family can invite different verbs. */
+function tipAdoptionFamilies(
+  registry: readonly RegisteredTip[],
+): TipAdoptionFamily[] {
+  const groups = new Map<string, TipAdoptionMember[]>();
+  for (const tip of registry) {
+    const rule = tip.followThrough;
+    if (rule === undefined) {
+      continue;
+    }
+    const member = { id: tip.id, verbs: rule.verbs };
+    const existing = groups.get(rule.family);
+    if (existing === undefined) {
+      groups.set(rule.family, [member]);
+    } else {
+      existing.push(member);
+    }
+  }
+  return [...groups.entries()].map(([family, members]) => ({
+    family,
+    members,
+  }));
+}
+
+/** The setup fields tip episodes correlate on. Branch, surface, and session
+ * are absent on purpose: a person can adopt a desk tip through any of them. */
+function tipAdoptionSetup(
+  event: VerbEvent,
+  clientVersionInEffect: (event: VerbEvent) => string | undefined,
+  hasClientDimension: boolean,
+): string | undefined {
+  if (event.epoch === null || event.writer === undefined) {
+    return undefined;
+  }
+  const clientVersion = clientVersionInEffect(event);
+  if (hasClientDimension && clientVersion === undefined) {
+    return undefined;
+  }
+  return `${event.epoch}\u0000${event.writer}\u0000${clientVersion ?? ""}`;
+}
+
+function tipEpisodeOutcome(
+  events: readonly VerbEvent[],
+  index: number,
+  member: TipAdoptionMember,
+  clientVersionInEffect: (event: VerbEvent) => string | undefined,
+  hasClientDimension: boolean,
+): EpisodeOutcome {
+  const firing = events[index];
+  if (firing === undefined) {
+    return "censored";
+  }
+  const firingSetup = tipAdoptionSetup(
+    firing,
+    clientVersionInEffect,
+    hasClientDimension,
+  );
+  if (firingSetup === undefined) {
+    return "censored";
+  }
+  for (const candidate of events.slice(index + 1)) {
+    const repeated = (candidate.tip_ids ?? []).includes(member.id);
+    const action = member.verbs.includes(candidate.verb);
+    if (!repeated && !action) {
+      continue;
+    }
+    const candidateSetup = tipAdoptionSetup(
+      candidate,
+      clientVersionInEffect,
+      hasClientDimension,
+    );
+    if (candidateSetup === undefined) {
+      return "censored";
+    }
+    if (candidateSetup !== firingSetup) {
+      continue;
+    }
+    // A re-showing opens the next episode; an action on that same event was
+    // not between the two showings.
+    return repeated ? "not-followed" : "followed";
+  }
+  return "censored";
+}
+
+interface TipAdoptionCounts extends FollowThroughCounts {
+  family: string;
+  id: string;
+}
+
+const TIP_ADOPTION_RESOLVED_THRESHOLD = 3;
+
+function tipAdoptionNextStep(
+  familyCounts: readonly TipAdoptionCounts[],
+): string {
+  const ignored = familyCounts.reduce<TipAdoptionCounts | undefined>(
+    (worst, current) => {
+      if (current.notFollowed === 0) {
+        return worst;
+      }
+      if (
+        worst === undefined ||
+        current.notFollowed > worst.notFollowed ||
+        (
+          current.notFollowed === worst.notFollowed &&
+          current.fired > worst.fired
+        )
+      ) {
+        return current;
+      }
+      return worst;
+    },
+    undefined,
+  );
+  if (ignored !== undefined) {
+    return `Review the \`${ignored.id}\` tip first. Make the invited action explicit, or retire the tip if it no longer earns a desk slot.`;
+  }
+  const established = familyCounts.reduce<TipAdoptionCounts | undefined>(
+    (best, current) => {
+      const resolved = current.followed + current.notFollowed;
+      const bestResolved = best === undefined
+        ? -1
+        : best.followed + best.notFollowed;
+      return best === undefined || resolved > bestResolved ||
+          (resolved === bestResolved && current.fired > best.fired)
+        ? current
+        : best;
+    },
+    undefined,
+  );
+  if (established === undefined) {
+    return "Keep collecting tip-adoption evidence.";
+  }
+  const resolved = established.followed + established.notFollowed;
+  return `Keep the \`${established.id}\` tip in rotation while more showings resolve. Its ${
+    formatHumanNumber(resolved)
+  } resolved episodes all followed it.`;
+}
+
+/**
+ * Evaluate shown-tip → declared-verb episodes for a registry. The injected
+ * registry is a test seam for synthetic declarations; production passes
+ * {@link TIPS}. Each tip clears the evidence bar on its own, so adding sparse
+ * declarations cannot make another tip speak. `considered` is the largest
+ * per-tip resolved population, matching the runner's one-threshold contract.
+ */
+export function tipAdoptionOutcome(
+  facts: StreamFacts,
+  registry: readonly RegisteredTip[] = TIPS,
+): DetectorOutcome {
+  const families = tipAdoptionFamilies(registry);
+  const eras = dominantClientEras(facts.verbs);
+  const countsById = new Map<string, TipAdoptionCounts>();
+  for (const family of families) {
+    for (const member of family.members) {
+      const counts: TipAdoptionCounts = {
+        family: family.family,
+        id: member.id,
+        fired: 0,
+        followed: 0,
+        notFollowed: 0,
+        censored: 0,
+      };
+      for (const [index, event] of facts.verbs.entries()) {
+        if (!(event.tip_ids ?? []).includes(member.id)) {
+          continue;
+        }
+        counts.fired += 1;
+        switch (
+          tipEpisodeOutcome(
+            facts.verbs,
+            index,
+            member,
+            eras.versionInEffectOf,
+            eras.label !== undefined,
+          )
+        ) {
+          case "followed":
+            counts.followed += 1;
+            break;
+          case "not-followed":
+            counts.notFollowed += 1;
+            break;
+          case "censored":
+            counts.censored += 1;
+            break;
+        }
+      }
+      countsById.set(member.id, counts);
+    }
+  }
+
+  let considered = 0;
+  const findings: DetectorFinding[] = [];
+  for (const family of families) {
+    const familyCounts = family.members.flatMap((member) => {
+      const counts = countsById.get(member.id);
+      return counts === undefined ? [] : [counts];
+    });
+    const reportable = familyCounts.filter((counts) => {
+      const resolved = counts.followed + counts.notFollowed;
+      considered = Math.max(considered, resolved);
+      return resolved >= TIP_ADOPTION_RESOLVED_THRESHOLD;
+    });
+    if (reportable.length === 0) {
+      continue;
+    }
+    const nextStep = tipAdoptionNextStep(reportable);
+    for (const counts of reportable) {
+      const resolved = counts.followed + counts.notFollowed;
+      findings.push({
+        subject: counts.id,
+        brief: `${formatHumanNumber(counts.followed)} of ${
+          formatHumanNumber(resolved)
+        } resolved followed · ${
+          formatHumanNumber(counts.notFollowed)
+        } not followed · ${formatHumanNumber(counts.censored)} censored`,
+        tone: counts.notFollowed === 0 ? "good" : "attention",
+        observed: `The \`${counts.id}\` tip appeared at the desk ${
+          formatHumanNumber(counts.fired)
+        } times: ${formatHumanNumber(counts.followed)} followed, ${
+          formatHumanNumber(counts.notFollowed)
+        } not followed, and ${formatHumanNumber(counts.censored)} censored.`,
+        evidence: {
+          fired: counts.fired,
+          followed: counts.followed,
+          not_followed: counts.notFollowed,
+          censored: counts.censored,
+        },
+        strength: resolved,
+        next_step: nextStep,
+      });
+    }
+  }
+  return { considered, findings };
+}
+
+/**
+ * Measures desk tip → observable adoption episodes. Adoption can arrive
+ * through a human or an agent on any surface, branch, or session, so this
+ * project-wide reader uses every analyzable verb rather than the agent-only
+ * behavior population.
+ */
+const tipAdoption: Detector = {
+  id: "tip-adoption",
+  title: "Tip adoption by tip",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  // Three resolved episodes per tip: sparse tips never pool their evidence.
+  threshold: TIP_ADOPTION_RESOLVED_THRESHOLD,
+  next_step:
+    "Review tips with not-followed episodes. Make the invited action explicit, or retire advice that no longer earns a desk slot.",
+  detect(facts): DetectorOutcome {
+    return tipAdoptionOutcome(facts);
   },
 };
 
@@ -2754,6 +3025,7 @@ export const DETECTORS: readonly Detector[] = [
   doneThrash,
   refusalLoop,
   hintFollowThrough,
+  tipAdoption,
   skippedPrepare,
   dirtyDoneChurn,
   trunkEdits,

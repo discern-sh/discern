@@ -35,6 +35,7 @@ import {
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { TIPS } from "../src/shared/tips.ts";
 import { displayWidth, sparkline } from "../src/lib/text.ts";
 import { formatHumanNumber } from "../src/shared/human_number.ts";
 import {
@@ -410,6 +411,84 @@ async function seedHintFollowThroughLogbook(dir: string): Promise<void> {
     join(logDir, "2026-07.jsonl"),
     `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
   );
+}
+
+/** Seed one attention tip and one fully-followed tip, including adoption over
+ * MCP after a CLI desk showing. */
+async function seedTipAdoptionLogbook(dir: string): Promise<{
+  attention: string;
+  good: string;
+}> {
+  const patternsTip = TIPS.find((tip) =>
+    tip.followThrough?.verbs.includes("patterns")
+  );
+  const standardsTip = TIPS.find((tip) =>
+    tip.followThrough?.verbs.includes("standards")
+  );
+  assert(patternsTip !== undefined, "no tip declares patterns adoption");
+  assert(standardsTip !== undefined, "no tip declares standards adoption");
+
+  const events: Record<string, unknown>[] = [];
+  let hour = 0;
+  const add = (over: Record<string, unknown>): void => {
+    events.push({
+      schema: 1,
+      at: new Date(Date.UTC(2026, 6, 2, hour++)).toISOString(),
+      kind: "verb",
+      verb: "desk",
+      surface: "cli",
+      writer: "9.9.9",
+      driver: {
+        session: "cli:tip-adoption",
+        json: false,
+        tty: true,
+        ci: false,
+      },
+      branch: "main",
+      head: `head-${hour}`,
+      clean: true,
+      outcome: "ok",
+      duration_ms: 100,
+      epoch: "e1",
+      ...over,
+    });
+  };
+  const show = (id: string): void => add({ tip_ids: [id] });
+
+  show(patternsTip.id);
+  add({ verb: "patterns" });
+  show(patternsTip.id);
+  add({
+    verb: "patterns",
+    surface: "mcp",
+    branch: "agent/delegated",
+    driver: {
+      session: "mcp:delegated",
+      json: false,
+      tty: false,
+      ci: false,
+      mcp_client: {
+        name: "synthetic-client",
+        version: "1.0.0",
+      },
+    },
+  });
+  show(patternsTip.id);
+  show(patternsTip.id);
+
+  for (let i = 0; i < 3; i += 1) {
+    show(standardsTip.id);
+    add({ verb: "standards" });
+  }
+  show(standardsTip.id);
+
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    `${events.map((event) => JSON.stringify(event)).join("\n")}\n`,
+  );
+  return { attention: patternsTip.id, good: standardsTip.id };
 }
 
 const REPORT_STANDARD_NAMES = Array.from(
@@ -998,6 +1077,57 @@ Deno.test("patterns: seeded hint episodes report raw outcomes through JSON and t
     for (const family of Object.keys(expected)) {
       assertStringIncludes(human.output, family);
     }
+  });
+});
+
+Deno.test("patterns: seeded tip episodes report cross-surface adoption and favorable evidence", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const ids = await seedTipAdoptionLogbook(dir);
+
+    const json = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(json.stdout));
+    assert(parsed.ok && parsed.data !== undefined);
+    const findings = (parsed.data as PatternsData).findings.filter((finding) =>
+      finding.detector === "tip-adoption"
+    );
+    assertEquals(
+      findings.map((finding) => finding.subject).sort(),
+      [ids.attention, ids.good].sort(),
+    );
+    const attention = findings.find((finding) =>
+      finding.subject === ids.attention
+    );
+    assert(attention !== undefined);
+    assertEquals(attention.scope, "project");
+    assertEquals(attention.tone, "attention");
+    assertEquals(attention.evidence, {
+      fired: 4,
+      followed: 2,
+      not_followed: 1,
+      censored: 1,
+    });
+    assertStringIncludes(attention.next_step, `\`${ids.attention}\``);
+
+    const good = findings.find((finding) => finding.subject === ids.good);
+    assert(good !== undefined);
+    assertEquals(good.tone, "good");
+    assertEquals(good.evidence, {
+      fired: 4,
+      followed: 3,
+      not_followed: 0,
+      censored: 1,
+    });
+
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "80", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(human.output, "Tip adoption by tip");
+    assertStringIncludes(human.output, ids.attention);
+    assertStringIncludes(human.output, ids.good);
   });
 });
 

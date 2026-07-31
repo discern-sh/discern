@@ -43,6 +43,7 @@ import {
   type DetectorReport,
   DETECTORS,
   runDetector,
+  tipAdoptionOutcome,
 } from "../src/engine/logbook/detectors.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
@@ -59,6 +60,12 @@ import {
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { type HintFollowThroughRule, HINTS } from "../src/shared/hints.ts";
+import {
+  defineTip,
+  type RegisteredTip,
+  type TipFollowThroughRule,
+  TIPS,
+} from "../src/shared/tips.ts";
 import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
@@ -485,6 +492,87 @@ function measuredHint(id: string): MeasuredHint {
 
 const STATUS_UPDATE_HINT = measuredHint("status-branch-behind");
 
+interface MeasuredTip {
+  id: string;
+  followThrough: TipFollowThroughRule;
+}
+
+/** Every tip that declares an observable adoption. Passing a synthetic
+ * registry proves the evaluator enrolls declarations instead of consulting a
+ * detector-side id table. */
+function measuredTips(
+  registry: readonly RegisteredTip[] = TIPS,
+): MeasuredTip[] {
+  return registry.flatMap((tip) =>
+    tip.followThrough === undefined
+      ? []
+      : [{ id: tip.id, followThrough: tip.followThrough }]
+  );
+}
+
+function shownTip(
+  tip: MeasuredTip,
+  over: Partial<VerbEvent> = {},
+): Partial<VerbEvent> {
+  return { verb: "desk", tip_ids: [tip.id], ...over };
+}
+
+function tippedVerb(
+  tip: MeasuredTip,
+  over: Partial<VerbEvent> = {},
+): Partial<VerbEvent> {
+  const verb = tip.followThrough.verbs[0];
+  assert(verb !== undefined, `${tip.id}: no adoption verb`);
+  return { verb, ...over };
+}
+
+/** Three resolved episodes plus one history-end censor for one declaring tip. */
+function tipAdoptionFixture(
+  tip: MeasuredTip,
+  verdict: EpisodeVerdict,
+  actionSurface: VerbEvent["surface"] = "cli",
+): LogbookEvent[] {
+  const events: Partial<VerbEvent>[] = [];
+  if (verdict === "followed") {
+    for (let i = 0; i < 3; i += 1) {
+      events.push(
+        shownTip(tip),
+        tippedVerb(
+          tip,
+          actionSurface === "mcp"
+            ? {
+              surface: "mcp",
+              driver: {
+                session: `mcp:tip-${i}`,
+                json: false,
+                tty: false,
+                ci: false,
+              },
+            }
+            : {},
+        ),
+      );
+    }
+    events.push(shownTip(tip));
+  } else {
+    events.push(
+      shownTip(tip),
+      shownTip(tip),
+      shownTip(tip),
+      shownTip(tip),
+    );
+  }
+  return run(events);
+}
+
+function measuredTip(id: string): MeasuredTip {
+  const tip = measuredTips().find((entry) => entry.id === id);
+  assert(tip !== undefined, `${id} carries no adoption rule`);
+  return tip;
+}
+
+const PATTERNS_TIP = measuredTip("patterns-practice-report");
+
 // ── the fixture table (keyed by detector id — the forcing tie) ──────────────
 
 /** A quiet state that cannot exist gets a recorded reason instead of events. */
@@ -534,6 +622,18 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       firedHint(STATUS_UPDATE_HINT),
       firedHint(STATUS_UPDATE_HINT),
       firedHint(STATUS_UPDATE_HINT),
+    ]),
+  },
+  "tip-adoption": {
+    firing: tipAdoptionFixture(PATTERNS_TIP, "not-followed"),
+    quiet: {
+      impossible:
+        "informational: three resolved episodes always report the tip's raw outcomes, including an all-followed result",
+    },
+    sparse: run([
+      shownTip(PATTERNS_TIP),
+      shownTip(PATTERNS_TIP),
+      shownTip(PATTERNS_TIP),
     ]),
   },
   "skipped-prepare": {
@@ -1340,6 +1440,236 @@ Deno.test("hint follow-through stays distinct from skipped prepare", () => {
     "quiet",
     "prepare/test follow-through does not erase skipped-prepare's independent population",
   );
+});
+
+Deno.test("tip adoption: every declaring registry entry resolves same- and cross-surface episodes", () => {
+  const entries = measuredTips();
+  assert(entries.length > 0, "the tip registry carries no adoption rules");
+  const detectorUnderTest = detector("tip-adoption");
+  assertEquals(detectorUnderTest.threshold, 3);
+  assertEquals(detectorUnderTest.family, "behaviour");
+  assertEquals(detectorUnderTest.scope, "project");
+  assertEquals(detectorUnderTest.tier, "batch");
+
+  for (const tip of entries) {
+    const ignored = runDetector(
+      detectorUnderTest,
+      buildStreamFacts(
+        tipAdoptionFixture(tip, "not-followed"),
+        "main",
+      ),
+    );
+    assertEquals(ignored.status, "fired", tip.id);
+    assertEquals(ignored.considered, 3, tip.id);
+    const ignoredFinding = ignored.findings.find((finding) =>
+      finding.subject === tip.id
+    );
+    assert(ignoredFinding !== undefined, `${tip.id}: no ignored finding`);
+    assertEquals(ignoredFinding.evidence, {
+      fired: 4,
+      followed: 0,
+      not_followed: 3,
+      censored: 1,
+    }, tip.id);
+    assertEquals(ignoredFinding.tone, "attention", tip.id);
+    assertStringIncludes(
+      ignoredFinding.next_step ?? "",
+      `\`${tip.id}\``,
+      `${tip.id}: the next step names the tip to review`,
+    );
+
+    for (const surface of ["cli", "mcp"] as const) {
+      const followed = runDetector(
+        detectorUnderTest,
+        buildStreamFacts(
+          tipAdoptionFixture(tip, "followed", surface),
+          "main",
+        ),
+      );
+      assertEquals(followed.status, "fired", `${tip.id}:${surface}`);
+      assertEquals(followed.considered, 3, `${tip.id}:${surface}`);
+      const followedFinding = followed.findings.find((finding) =>
+        finding.subject === tip.id
+      );
+      assert(
+        followedFinding !== undefined,
+        `${tip.id}:${surface}: no followed finding`,
+      );
+      assertEquals(followedFinding.evidence, {
+        fired: 4,
+        followed: 3,
+        not_followed: 0,
+        censored: 1,
+      }, `${tip.id}:${surface}`);
+      assertEquals(
+        followedFinding.tone,
+        "good",
+        `${tip.id}:${surface}: all-followed evidence stays visible`,
+      );
+    }
+  }
+});
+
+Deno.test("tip adoption: history end and missing setup evidence censor episodes", () => {
+  const action = tippedVerb(PATTERNS_TIP);
+  const outcome = tipAdoptionOutcome(
+    buildStreamFacts(
+      run([
+        shownTip(PATTERNS_TIP),
+        action,
+        shownTip(PATTERNS_TIP),
+        action,
+        shownTip(PATTERNS_TIP),
+        action,
+        shownTip(PATTERNS_TIP, { writer: undefined }),
+        shownTip(PATTERNS_TIP),
+        { ...action, epoch: null },
+        shownTip(PATTERNS_TIP),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.considered, 3);
+  const finding = outcome.findings.find((entry) =>
+    entry.subject === PATTERNS_TIP.id
+  );
+  assert(finding !== undefined);
+  assertEquals(finding.evidence, {
+    fired: 6,
+    followed: 3,
+    not_followed: 0,
+    censored: 3,
+  });
+});
+
+Deno.test("tip adoption: setup equality excludes epoch and release excursions without breaking re-entry", () => {
+  const action = tippedVerb(PATTERNS_TIP);
+  const outcome = tipAdoptionOutcome(
+    buildStreamFacts(
+      run([
+        shownTip(PATTERNS_TIP),
+        { ...action, epoch: "foreign" },
+        { ...action, writer: "10.0.0" },
+        action,
+        shownTip(PATTERNS_TIP),
+        shownTip(PATTERNS_TIP),
+        shownTip(PATTERNS_TIP),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.considered, 3);
+  const finding = outcome.findings.find((entry) =>
+    entry.subject === PATTERNS_TIP.id
+  );
+  assert(finding !== undefined);
+  assertEquals(finding.evidence, {
+    fired: 4,
+    followed: 1,
+    not_followed: 2,
+    censored: 1,
+  });
+});
+
+Deno.test("tip adoption: dominant-client release excursions do not resolve a comparable episode", () => {
+  const action = tippedVerb(PATTERNS_TIP);
+  const mcpDriver = (version: string): VerbEvent["driver"] => ({
+    session: `mcp:${version}`,
+    json: false,
+    tty: false,
+    ci: false,
+    mcp_client: { name: "synthetic-client", version },
+  });
+  const outcome = tipAdoptionOutcome(
+    buildStreamFacts(
+      run([
+        { verb: "status", surface: "mcp", driver: mcpDriver("1.0.0") },
+        shownTip(PATTERNS_TIP),
+        {
+          ...action,
+          surface: "mcp",
+          driver: mcpDriver("2.0.0"),
+        },
+        {
+          ...action,
+          surface: "mcp",
+          driver: mcpDriver("1.0.0"),
+        },
+        shownTip(PATTERNS_TIP),
+        shownTip(PATTERNS_TIP),
+        shownTip(PATTERNS_TIP),
+      ]),
+      "main",
+    ),
+  );
+  assertEquals(outcome.considered, 3);
+  const finding = outcome.findings.find((entry) =>
+    entry.subject === PATTERNS_TIP.id
+  );
+  assert(finding !== undefined);
+  assertEquals(finding.evidence.followed, 1);
+  assertEquals(finding.evidence.not_followed, 2);
+});
+
+Deno.test("tip adoption: synthetic declarations auto-enrol without pooling sparse tips", () => {
+  const syntheticRule = {
+    family: "synthetic-adoption",
+    kind: "verb-run-after-tip",
+    verbs: ["doctor"],
+  } as const;
+  const synthetic = defineTip({
+    id: "synthetic-doctor-tip",
+    when: "Synthetic evaluator control.",
+    features: ["doctor"],
+    followThrough: syntheticRule,
+    example: undefined,
+    template: (): string => "Synthetic evaluator control.",
+  });
+  const second = defineTip({
+    id: "synthetic-patterns-tip",
+    when: "Synthetic threshold control.",
+    features: ["patterns"],
+    followThrough: {
+      family: syntheticRule.family,
+      kind: "verb-run-after-tip",
+      verbs: ["patterns"],
+    },
+    example: undefined,
+    template: (): string => "Synthetic threshold control.",
+  });
+  const registry = [...TIPS, synthetic, second];
+  assertEquals(
+    measuredTips(registry).some((tip) => tip.id === synthetic.id),
+    true,
+    "the synthetic declaration joins the measured population",
+  );
+
+  const syntheticTip = measuredTips(registry).find((tip) =>
+    tip.id === synthetic.id
+  );
+  const secondTip = measuredTips(registry).find((tip) => tip.id === second.id);
+  assert(syntheticTip !== undefined);
+  assert(secondTip !== undefined);
+  const outcome = tipAdoptionOutcome(
+    buildStreamFacts(
+      run([
+        shownTip(syntheticTip),
+        shownTip(syntheticTip),
+        shownTip(syntheticTip),
+        shownTip(secondTip),
+        shownTip(secondTip),
+        shownTip(secondTip),
+      ]),
+      "main",
+    ),
+    registry,
+  );
+  assertEquals(
+    outcome.considered,
+    2,
+    "two sparse tips in one family never pool past the per-tip threshold",
+  );
+  assertEquals(outcome.findings, []);
 });
 
 Deno.test("pre-authorized landings reports mixed consent sources, granted scopes, and a rate shift", () => {
