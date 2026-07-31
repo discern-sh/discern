@@ -28,9 +28,19 @@ import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./capabilities.ts";
-import { isValidMapDir } from "./map_path.ts";
 import { logbookPoweredPhraseList } from "./logbook_powered.ts";
-import { SOURCE_PATHS } from "./paths_registry.ts";
+import {
+  GLOB_METACHARACTER_RE,
+  isConcretePath,
+  SOURCE_PATHS,
+} from "./paths_registry.ts";
+import {
+  normalizeProjectRelativeDirectoryPath,
+  normalizeProjectRelativeFilePath,
+  PROJECT_RELATIVE_DIRECTORY_INPUT_RE,
+  PROJECT_RELATIVE_FILE_INPUT_RE,
+  projectRelativePathIssue,
+} from "./project_path.ts";
 import { deadConfigPosition, retiredConfigKeySuccessor } from "./vocabulary.ts";
 import { AGENT_NAMES } from "./agent_catalogue.ts";
 
@@ -263,6 +273,46 @@ const standardValue = z.strictObject({
 
 // ── the live `discern.toml` schema ─────────────────────────────────────────────
 
+const projectFilePath = z.string().regex(
+  PROJECT_RELATIVE_FILE_INPUT_RE,
+  "must be a portable project-relative file path outside .git",
+).overwrite(normalizeProjectRelativeFilePath).refine(
+  (value) => projectRelativePathIssue(value) === undefined,
+  { message: "must be a portable project-relative file path outside .git" },
+);
+
+const projectDirectoryPath = z.string().regex(
+  PROJECT_RELATIVE_DIRECTORY_INPUT_RE,
+  "must be a portable project-relative directory path outside .git",
+).overwrite(normalizeProjectRelativeDirectoryPath).refine(
+  (value) => projectRelativePathIssue(value) === undefined,
+  {
+    message: "must be a portable project-relative directory path outside .git",
+  },
+);
+
+const guidanceSourceInputPattern = new RegExp(
+  `(?:${PROJECT_RELATIVE_FILE_INPUT_RE.source})|` +
+    `(?:${GLOB_METACHARACTER_RE.source})`,
+);
+const guidanceSourcePath = z.string().regex(
+  guidanceSourceInputPattern,
+  "must be a project-relative file path or glob",
+).overwrite((value) =>
+  isConcretePath(value) ? normalizeProjectRelativeFilePath(value) : value
+).refine(
+  (value) =>
+    !isConcretePath(value) || projectRelativePathIssue(value) === undefined,
+  { message: "concrete sources must be portable project-relative file paths" },
+);
+
+function projectPathsAreUnique(values: readonly string[]): boolean {
+  const identities = values.map((value) =>
+    value.normalize("NFC").toLowerCase()
+  );
+  return new Set(identities).size === identities.length;
+}
+
 const metaSection = z.strictObject({
   schema_version: z.number().int().optional().describe(
     "The install schema version — managed by discern (bumped by `discern upgrade`). Don't edit by hand.",
@@ -290,8 +340,8 @@ const projectSection = z.strictObject({
   gotchas_doc: z.string().default("").describe(
     "Where the gate points an agent when a stage fails in a non-obvious way. Empty disables the pointer.",
   ),
-  todo: z.string().default(SOURCE_PATHS.todo.defaultPath).describe(
-    "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
+  todo: projectFilePath.default(SOURCE_PATHS.todo.defaultPath).describe(
+    "Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.",
   ),
   logbook: z.boolean().default(true).describe(
     "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds " +
@@ -321,17 +371,19 @@ const repositorySection = z.strictObject({
 );
 
 const guidanceSection = z.strictObject({
-  sources: z.array(z.string()).default([SOURCE_PATHS.guidance.defaultPath])
+  sources: z.array(guidanceSourcePath).default([
+    SOURCE_PATHS.guidance.defaultPath,
+  ])
     .describe(
-      "Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
+      "Your guidance source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in guidance is prepended.",
     ),
 }).prefault({}).describe(
   "The author-once → compile-everywhere agent-instruction pipeline. `discern refresh` compiles discern's built-in guidance plus your sources into one agent file per provider.",
 );
 
 const skillsSection = z.strictObject({
-  dir: z.string().default(SOURCE_PATHS.skills.defaultPath).describe(
-    "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.",
+  dir: projectDirectoryPath.default(SOURCE_PATHS.skills.defaultPath).describe(
+    "Where your authored skills live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The directory is read only when present, so a project with no authored skills uses the built-ins.",
   ),
   exclude: z.array(z.string()).default([]).describe(
     "Skill names (bundled or authored) excluded from materialization — each materialized skill occupies context in every agent session, so drop unused ones. An unknown name produces a warning without failing.",
@@ -341,11 +393,10 @@ const skillsSection = z.strictObject({
 );
 
 const mapSection = z.strictObject({
-  dir: z.string().refine(isValidMapDir, {
-    message:
-      "must be a project-relative directory that stays inside the repository",
-  }).default(SOURCE_PATHS.map.defaultPath).describe(
-    "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default.",
+  dir: projectDirectoryPath.overwrite((value) => `${value}/`).default(
+    SOURCE_PATHS.map.defaultPath,
+  ).describe(
+    "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. discern removes leading `./` prefixes and keeps one trailing slash. `discern setup` scaffolds it here, and `discern map` browses it by default.",
   ),
 }).prefault({}).describe(
   "The project documentation tree discern scaffolds, validates, and browses.",
@@ -446,8 +497,11 @@ const worktreeSection = z.strictObject({
   inherit_env: z.array(z.string()).default([]).describe(
     "Environment values copied from the main checkout's env files into a new worktree's (secrets a fresh worktree needs but that aren't in version control). The worktree's env file is created when absent, so each declared value reaches it.",
   ),
-  env_files: z.array(z.string()).default([".env", ".env.local"]).describe(
-    "The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too.",
+  env_files: z.array(projectFilePath).refine(projectPathsAreUnique, {
+    message:
+      "each env-file path may appear only once, including aliases on a case-insensitive filesystem",
+  }).meta({ uniqueItems: true }).default([".env", ".env.local"]).describe(
+    "Portable project-relative files the worktree lifecycle reads and writes, in precedence order. The list accepts any filename. discern removes leading `./` prefixes and refuses path aliases. When reading, the last listed file that defines a value wins. A newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy. The files also record the deterministic port and resource handles.",
   ),
   resources: z.record(z.string().regex(NAME_RE), resourceValue).default({})
     .describe(
@@ -500,8 +554,8 @@ const couplingSection = z.strictObject({
 );
 
 const scriptsSection = z.strictObject({
-  dir: z.string().default(SOURCE_PATHS.scripts.defaultPath).describe(
-    'Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. "tools/") if you prefer.',
+  dir: projectDirectoryPath.default(SOURCE_PATHS.scripts.defaultPath).describe(
+    'Where your project scripts live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The default works with no config. Use another directory such as "tools/" if you prefer.',
   ),
 }).prefault({}).describe(
   "Your own executable commands. Drop a script into the directory below and run it with `discern scripts <name>`; an optional `# desc: ...` line describes it in the listing.",

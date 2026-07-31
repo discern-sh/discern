@@ -5,6 +5,43 @@ import { basename, isAbsolute, join, relative } from "@std/path";
 const INVALID_PORTABLE_PUNCTUATION = /[<>:"\\|?*]/;
 const WINDOWS_RESERVED_NAME = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i;
 
+const WINDOWS_RESERVED_SEGMENT_PATTERN =
+  "(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|" +
+  "[cC][oO][mM][1-9]|[lL][pP][tT][1-9])";
+const PORTABLE_SEGMENT_PATTERN =
+  String.raw`(?!(?:\.{1,2}|\.[gG][iI][tT])(?:/|$))` +
+  `(?!(?:${WINDOWS_RESERVED_SEGMENT_PATTERN})(?:\\.|/|$))` +
+  String.raw`[^<>:"\\|?*\u0000-\u001F/]*` +
+  String.raw`[^<>:"\\|?*\u0000-\u001F/. ]`;
+const HARMLESS_LEADING_DOT_PREFIXES = String.raw`(?:\./)*`;
+
+/** Raw config spelling for a portable project-relative file path. Leading `./`
+ * prefixes are accepted because config parsing removes them before use. */
+export const PROJECT_RELATIVE_FILE_INPUT_RE = new RegExp(
+  `^(?!.*\\s$)${HARMLESS_LEADING_DOT_PREFIXES}` +
+    `(?![~\\s])${PORTABLE_SEGMENT_PATTERN}` +
+    `(?:/${PORTABLE_SEGMENT_PATTERN})*$`,
+);
+
+/** Raw config spelling for a portable project-relative directory path. It adds
+ * one optional trailing slash to the file-path input spellings. */
+export const PROJECT_RELATIVE_DIRECTORY_INPUT_RE = new RegExp(
+  `^(?!.*\\s/?$)${HARMLESS_LEADING_DOT_PREFIXES}` +
+    `(?![~\\s])${PORTABLE_SEGMENT_PATTERN}` +
+    `(?:/${PORTABLE_SEGMENT_PATTERN})*/?$`,
+);
+
+/** Remove every harmless leading `./` prefix from a configured file path. */
+export function normalizeProjectRelativeFilePath(value: string): string {
+  return value.replace(/^(?:\.\/)+/, "");
+}
+
+/** Canonicalize a configured directory path without erasing unsafe interior
+ * spellings: remove leading `./` prefixes and at most one trailing slash. */
+export function normalizeProjectRelativeDirectoryPath(value: string): string {
+  return normalizeProjectRelativeFilePath(value).replace(/\/$/, "");
+}
+
 /** Why one path is not a canonical portable project-relative path. */
 export function projectRelativePathIssue(value: string): string | undefined {
   if (value === "") return "the path is empty";

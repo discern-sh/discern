@@ -39,6 +39,33 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
+function schemaNodeAt(
+  schema: Record<string, unknown>,
+  dottedPath: string,
+): Record<string, unknown> {
+  let node = schema;
+  for (const segment of dottedPath.split(".")) {
+    const properties = node.properties;
+    assert(isJsonObject(properties), `${dottedPath} has no properties`);
+    const child = properties[segment];
+    assert(isJsonObject(child), `${dottedPath} has no ${segment} schema`);
+    node = child;
+  }
+  return node;
+}
+
+function assertSchemaAccepts(
+  validate: ReturnType<Ajv2020["compile"]>,
+  value: unknown,
+): void {
+  assert(
+    validate(value),
+    `schema rejected ${JSON.stringify(value)}:\n${
+      JSON.stringify(validate.errors, null, 2)
+    }`,
+  );
+}
+
 // These prove the committed, shipped artifacts stay in lockstep with the canonical
 // Zod schema (ADR 0026): a schema change that isn't regenerated (`deno task
 // codegen`) fails here, in the gate's test stage — the drift guard.
@@ -100,6 +127,62 @@ Deno.test("the generated config schemas fix the two historical staleness bugs", 
   assert(
     renderConfigDocSchemaJson().includes('"gemini"'),
     "the setup document's agents enum must include gemini",
+  );
+});
+
+Deno.test("the generated config schema publishes path and uniqueness rules", () => {
+  const live = JSON.parse(renderConfigSchemaJson()) as Record<string, unknown>;
+  for (const source of Object.values(SOURCE_PATHS)) {
+    if (source.key === null) continue;
+    const node = schemaNodeAt(live, source.key);
+    const pathNode = source.key === "guidance.sources" ? node.items : node;
+    assert(isJsonObject(pathNode), `${source.key} has no item schema`);
+    assert(
+      typeof pathNode.pattern === "string" && pathNode.pattern !== "",
+      `${source.key} must publish its path pattern`,
+    );
+  }
+
+  const envFiles = schemaNodeAt(live, "worktree.env_files");
+  assertEquals(envFiles.uniqueItems, true);
+  assert(isJsonObject(envFiles.items));
+  assert(
+    typeof envFiles.items.pattern === "string" &&
+      envFiles.items.pattern !== "",
+    "worktree.env_files items must publish their path pattern",
+  );
+
+  const setup = JSON.parse(renderConfigDocSchemaJson()) as Record<
+    string,
+    unknown
+  >;
+  const setupMapDir = schemaNodeAt(setup, "map.dir");
+  assert(
+    typeof setupMapDir.pattern === "string" && setupMapDir.pattern !== "",
+    "the setup document must publish map.dir's path pattern",
+  );
+
+  const validate = new Ajv2020({
+    allErrors: true,
+    strict: false,
+    validateSchema: true,
+  }).compile(live);
+  assertSchemaAccepts(validate, {
+    project: { todo: "././TODO.md" },
+    guidance: { sources: ["././guidance.md", "./docs/**/*.md"] },
+    skills: { dir: "././playbooks/" },
+    map: { dir: "././docs/map" },
+    scripts: { dir: "tools/" },
+    worktree: { env_files: ["././runtime", "config/secrets"] },
+  });
+  assertEquals(validate({ project: { todo: "../TODO.md" } }), false);
+  assertEquals(
+    validate({ project: { todo: "nested/.git/TODO.md" } }),
+    false,
+  );
+  assertEquals(
+    validate({ worktree: { env_files: ["runtime", "runtime"] } }),
+    false,
   );
 });
 

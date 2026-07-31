@@ -600,6 +600,104 @@ Deno.test("[map].dir round-trips and rejects paths outside the project", () => {
   );
 });
 
+Deno.test("write-capable config paths normalize harmless aliases", () => {
+  const config = parseConfigOrThrow(`
+[project]
+todo = "././TODO.md"
+
+[guidance]
+sources = ["././guidance.md", "./docs/**/*.md"]
+
+[skills]
+dir = "././playbooks/"
+
+[map]
+dir = "././docs/map"
+
+[scripts]
+dir = "tools/"
+
+[worktree]
+env_files = ["././runtime", "config/secrets"]
+`);
+
+  assertEquals(config.project.todo, "TODO.md");
+  assertEquals(config.guidance.sources, [
+    "guidance.md",
+    "./docs/**/*.md",
+  ]);
+  assertEquals(config.skills.dir, "playbooks");
+  assertEquals(config.map.dir, "docs/map/");
+  assertEquals(config.scripts.dir, "tools");
+  assertEquals(config.worktree.env_files, ["runtime", "config/secrets"]);
+});
+
+Deno.test("write-capable config paths keep every safety refusal", () => {
+  const unsafe = [
+    "",
+    " ../outside",
+    "../outside",
+    "/tmp/outside",
+    "C:/outside",
+    "~/outside",
+    "nested\\outside",
+    "nested//outside",
+    "nested/./outside",
+    "nested/../outside",
+    "nested/.git/config",
+    "nested/<outside>",
+    "nested/CON.txt",
+    "nested/trailing.",
+    "cafe\u0301.md",
+    "nested/\u0001outside",
+  ];
+  for (const value of unsafe) {
+    const parsed = parseConfig(
+      `[project]\ntodo = ${JSON.stringify(value)}\n`,
+    );
+    assert(
+      parsed.issues.some((issue) => issue.path === "project.todo"),
+      `${JSON.stringify(value)} unexpectedly passed: ${JSON.stringify(parsed)}`,
+    );
+  }
+
+  for (
+    const [text, path] of [
+      ['[guidance]\nsources = ["../guidance.md"]\n', "guidance.sources.0"],
+      ['[skills]\ndir = "nested/.git/skills"\n', "skills.dir"],
+      ['[scripts]\ndir = "tools//local"\n', "scripts.dir"],
+      ['[worktree]\nenv_files = ["../runtime"]\n', "worktree.env_files.0"],
+    ] as const
+  ) {
+    const parsed = parseConfig(text);
+    assert(
+      parsed.issues.some((issue) => issue.path === path),
+      `${path} unexpectedly passed: ${JSON.stringify(parsed)}`,
+    );
+  }
+});
+
+Deno.test("[worktree].env_files is unique after path normalization", () => {
+  for (
+    const values of [
+      ["runtime", "runtime"],
+      ["runtime", "./runtime"],
+      ["runtime", "././runtime"],
+      ["runtime", "RUNTIME"],
+    ]
+  ) {
+    const parsed = parseConfig(
+      `[worktree]\nenv_files = ${JSON.stringify(values)}\n`,
+    );
+    assert(
+      parsed.issues.some((issue) => issue.path === "worktree.env_files"),
+      `${JSON.stringify(values)} unexpectedly passed: ${
+        JSON.stringify(parsed)
+      }`,
+    );
+  }
+});
+
 Deno.test("a bad custom-job stage and a bad standard direction are rejected", () => {
   const badStage = parseConfig(
     `[jobs.x]\nstage = "lint"\nrun = "y"\n`,
