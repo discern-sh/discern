@@ -227,6 +227,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0232 — `await` continuations spend the transport budget](0232-await-continuations-spend-the-transport-budget.md)
 - [0233 — JUnit XML joins diagnostic auto-detection](0233-junit-xml-joins-diagnostic-auto-detection.md)
 - [0234 — Tips are the desk's human advisory channel](0234-tips-are-the-desks-human-advisory-channel.md)
+- [0235 — Plain renderings live on the glossary entry](0235-plain-renderings-live-on-the-glossary-entry.md)
 
 <!-- END GENERATED: current ADR records -->
 
