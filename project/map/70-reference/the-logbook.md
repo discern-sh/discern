@@ -28,6 +28,7 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - each worktree's last action and work in flight — the fleet survey's `last_action` and `running` columns
 - fleet activity times that include verb runs — a long test run no longer reads as dormancy
 - config-change attribution and each standard's limit history — the `config-change` and `pin` events
+- `tip-adoption` counts — whether each shown tip's invited verb ran before that tip appeared again
 - advisory findings on `status`, the `done` receipt, and `improvement`
 - wait estimates when concurrent test runs queue
 - the in-flight check on the contained-worktree offer — a logbook-off install falls back to a one-hour quiet period
@@ -70,12 +71,14 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `scopes`       | the configured scopes touched                   |
 | `steps`        | per-step labels, stages, outcomes, timings      |
 | `diagnostics`  | tool, rule id, file path at most                |
+| `hint_ids`     | stable ids of advice delivered with the result  |
+| `tip_ids`      | stable ids of desk tips shown during the run    |
 | `standards`    | each standard's limit and measured value        |
 | `consent`      | consent source and matched scopes on accept     |
 | `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
 
-`partial` marks an error after an irreversible effect. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
+`partial` marks an error after an irreversible effect. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
@@ -104,6 +107,8 @@ The logbook is written under the git admin area, so it lands in no commit and ne
 Events land in month-stamped files (`2026-07.jsonl`), and rotation keeps the newest 24 months. Pruning is loud: removals land as a `prune` line digesting each removed month (counts by verb and outcome, including a separate partial count), so coarse trends outlive the raw lines.
 
 The `epoch` fingerprint hashes your config's behavior-relevant settings, section by section, with a standard's `limit` masked out — so a pin doesn't move it, while a real edit (a command, a scope, an input list) does and logs a `config-change` line naming the section that moved.
+
+Tip-adoption episodes compare events only when the config epoch, discern writer release, and dominant MCP-client release match. A run on any branch, session, or surface can count. Another setup cannot resolve the episode. Missing setup evidence and the end of history stay censored ([ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)).
 
 ## See also
 
