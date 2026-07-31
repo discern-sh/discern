@@ -13,6 +13,8 @@ import {
   type AcceptData,
   type GateData,
   type Receipt,
+  RECEIPT_NOTE_FORMAT,
+  ReceiptNoteSchema,
   ReceiptSchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
@@ -95,6 +97,8 @@ async function land(
   return { target, receipt, result };
 }
 
+/** Read one durable note and prove it is the strict current record, bound to
+ * the commit that carries it, before handing back the receipt inside. */
 async function noteAt(root: string, commit: string): Promise<Receipt> {
   const content = await gitOut(
     root,
@@ -103,7 +107,12 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
     "show",
     commit,
   );
-  return ReceiptSchema.parse(JSON.parse(content));
+  const note = ReceiptNoteSchema.parse(JSON.parse(content));
+  assertEquals(note.subject.commit, commit);
+  assertEquals(note.issuer, undefined);
+  assertEquals(note.signature, undefined);
+  assertEquals(note.brief, undefined);
+  return note.receipt;
 }
 
 async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
@@ -189,6 +198,44 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       commit: second.target,
       ref: RECEIPT_NOTES_REF,
       receipt: second.receipt,
+    });
+    assertEquals(statusResult.data.landed_receipt_unsupported, undefined);
+
+    // A trunk tip whose note is a newer format major reports explicitly —
+    // the evidence exists, this binary is too old to read it.
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Landed by a newer discern",
+      "--no-gpg-sign",
+    );
+    const newerCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const newerFormat = RECEIPT_NOTE_FORMAT.replace("/v1/", "/v9/");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      `${
+        JSON.stringify({
+          format: newerFormat,
+          subject: { commit: newerCommit },
+        })
+      }\n`,
+      newerCommit,
+    );
+    const unreadStatus = await runAgent(dir, ["status", "--json"]);
+    assertEquals(unreadStatus.code, 0, unreadStatus.output);
+    const unreadResult = JSON.parse(unreadStatus.stdout);
+    assertEquals(unreadResult.data.landed_receipt, undefined);
+    assertEquals(unreadResult.data.landed_receipt_unsupported, {
+      commit: newerCommit,
+      ref: RECEIPT_NOTES_REF,
+      format: newerFormat,
     });
   });
 });
@@ -617,10 +664,14 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
     );
 
     assertEquals(await readReceiptNoteAt(dir, wantedCommit), {
+      status: "valid",
       commit: wantedCommit,
       ref: RECEIPT_NOTES_REF,
       receipt: wantedReceipt,
     });
+    ReceiptNoteSchema.parse(
+      JSON.parse(canonicalReceiptNote(wantedReceipt, wantedCommit)),
+    );
     assertEquals(
       await findLandedReceiptNoteForBranch(
         dir,
@@ -695,7 +746,9 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "not a receipt",
       malformedCommit,
     );
-    assertEquals(await readReceiptNoteAt(dir, malformedCommit), undefined);
+    assertEquals(await readReceiptNoteAt(dir, malformedCommit), {
+      status: "missing",
+    });
     await git(
       dir,
       "notes",
@@ -703,13 +756,16 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
-      canonicalReceiptNote({ ...wantedReceipt, head: "" }),
+      JSON.stringify({
+        ...syntheticReceipt(malformedCommit, "agent/x"),
+        head: "",
+      }),
       malformedCommit,
     );
     assertEquals(
       await readReceiptNoteAt(dir, malformedCommit),
-      undefined,
-      "an empty receipt head cannot authenticate the commit carrying the note",
+      { status: "missing" },
+      "a legacy note's empty receipt head cannot authenticate the commit carrying it",
     );
     await git(
       dir,
@@ -718,14 +774,134 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
-      canonicalReceiptNote(wantedReceipt),
+      canonicalReceiptNote(wantedReceipt, wantedCommit),
       malformedCommit,
     );
     assertEquals(
       await readReceiptNoteAt(dir, malformedCommit),
-      undefined,
-      "a valid receipt attached to the wrong commit is not landing evidence",
+      { status: "missing" },
+      "a valid receipt whose subject names another commit is not landing evidence",
     );
+  });
+});
+
+Deno.test("the durable reader accepts legacy and newer same-major notes, and refuses an unknown format explicitly", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+
+    // A bare 8-field note — what every pre-format binary wrote — still reads,
+    // as an unsigned record with no issuer.
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Legacy landing",
+      "--no-gpg-sign",
+    );
+    const legacyCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const legacyReceipt = syntheticReceipt(legacyCommit, "agent/legacy");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      `${JSON.stringify(legacyReceipt)}\n`,
+      legacyCommit,
+    );
+    assertEquals(await readReceiptNoteAt(dir, legacyCommit), {
+      status: "valid",
+      commit: legacyCommit,
+      ref: RECEIPT_NOTES_REF,
+      receipt: legacyReceipt,
+    });
+
+    // A synthetic FUTURE same-major note: unknown additive fields at every
+    // level must pass the tolerant reader, surviving into the known shape.
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Future landing",
+      "--no-gpg-sign",
+    );
+    const futureCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const futureReceipt = syntheticReceipt(futureCommit, "agent/future");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      `${
+        JSON.stringify({
+          format: RECEIPT_NOTE_FORMAT,
+          subject: { commit: futureCommit, tree: "0".repeat(40) },
+          receipt: { ...futureReceipt, verdict: "green" },
+          issuer: { name: "Future Owner", role: "maintainer" },
+          brief: "brief-0042",
+          attestations: [{ kind: "external" }],
+        })
+      }\n`,
+      futureCommit,
+    );
+    assertEquals(await readReceiptNoteAt(dir, futureCommit), {
+      status: "valid",
+      commit: futureCommit,
+      ref: RECEIPT_NOTES_REF,
+      receipt: futureReceipt,
+      issuer: { name: "Future Owner" },
+      brief: "brief-0042",
+    });
+
+    // An unknown format major is an explicit refusal naming the format —
+    // never a crash, never read as "no receipt exists".
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "Unreadable landing",
+      "--no-gpg-sign",
+    );
+    const unreadCommit = await gitOut(dir, "rev-parse", "HEAD");
+    const futureFormat = RECEIPT_NOTE_FORMAT.replace("/v1/", "/v9/");
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "-m",
+      `${
+        JSON.stringify({
+          format: futureFormat,
+          subject: { commit: unreadCommit },
+        })
+      }\n`,
+      unreadCommit,
+    );
+    assertEquals(await readReceiptNoteAt(dir, unreadCommit), {
+      status: "unsupported",
+      commit: unreadCommit,
+      ref: RECEIPT_NOTES_REF,
+      format: futureFormat,
+    });
+
+    // The writer refuses to publish a record whose receipt contradicts the
+    // commit it would annotate.
+    const mismatched = await writeReceiptNote(
+      dir,
+      unreadCommit,
+      syntheticReceipt(legacyCommit, "agent/mismatch"),
+    );
+    assertEquals(mismatched.status, "record_failed");
+    assert(mismatched.reason?.includes("does not match the landed commit"));
   });
 });
 
@@ -793,7 +969,7 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "--ref=remote-copy",
       "add",
       "-m",
-      canonicalReceiptNote(receiptThree),
+      canonicalReceiptNote(receiptThree, three),
       three,
     );
     await git(
@@ -833,7 +1009,7 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "--ref=conflicting-copy",
       "add",
       "-m",
-      canonicalReceiptNote(remoteFive),
+      canonicalReceiptNote(remoteFive, five),
       five,
     );
     await git(

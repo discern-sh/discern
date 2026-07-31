@@ -42,6 +42,7 @@ import {
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
+import { RECEIPT_NOTE_SCHEMA_ID } from "./public_schemas.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -242,7 +243,7 @@ const changedFileSchema = z.strictObject({
  * computation. Commit and per-file lists are git's to report (`git diff
  * <trunk>...<branch>`), so they are not mirrored here.
  */
-export const ReceiptSchema = z.strictObject({
+const RECEIPT_FIELDS = {
   branch: z.string(),
   trunk: z.string(),
   head: z.string(),
@@ -251,8 +252,89 @@ export const ReceiptSchema = z.strictObject({
   deletions: z.number(),
   line: z.string(),
   markdown: z.string(),
+};
+export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
+  id: "DiscernReceipt",
+  description:
+    "The structured receipt a green gate emits over a clean committed tree: " +
+    "the branch, trunk, validated commit (abbreviated for display), " +
+    "whole-diff stats, and the two renderings derived from those facts.",
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
+
+// ── the durable receipt note (ADR 0237) ─────────────────────────────────────
+// The landed receipt travels as a self-describing wire record: the published
+// schema `$id` in-band as `format` (a Git note has no schema-selection
+// channel), the full-object-id subject, the receipt, and reserved room for a
+// signing identity. The runtime writer stays strict; the durable reader is
+// tolerant — the same split ADR 0208 sets for results, applied where
+// mixed-version clones actually meet.
+
+/** The in-band format identity every current receipt note carries. */
+export const RECEIPT_NOTE_FORMAT = RECEIPT_NOTE_SCHEMA_ID;
+
+const RECEIPT_ISSUER_FIELDS = {
+  name: z.string().optional(),
+  email: z.string().optional(),
+  key: z.string().optional(),
+};
+/** Who issued a durable receipt. A claim until a signature proves it; absence
+ * means unsigned (every legacy note, and every note discern writes today). */
+export const ReceiptIssuerSchema = z.strictObject(RECEIPT_ISSUER_FIELDS).meta({
+  description:
+    "Who issued this receipt. Unverified until the signature proves it; " +
+    "absence means unsigned. Nothing writes it at v1.0.0.",
+});
+export type ReceiptIssuer = z.infer<typeof ReceiptIssuerSchema>;
+
+/** Reserved room for a signature over the note's claim. Nothing writes it at
+ * v1.0.0; a signing design defines its byte coverage before first use. */
+export const ReceiptSignatureSchema = z.strictObject({
+  scheme: z.string(),
+  value: z.string(),
+}).meta({
+  description:
+    "Reserved: a signature endorsing this record. Absence means unsigned. " +
+    "Nothing writes it at v1.0.0.",
+});
+
+/** The durable receipt note — the exact record `discern accept` attaches to a
+ * landed commit under `refs/notes/discern`. Strict: this is what current
+ * writers emit; durable READERS use {@link TolerantReceiptNoteSchema}. */
+export const ReceiptNoteSchema = z.strictObject({
+  format: z.literal(RECEIPT_NOTE_FORMAT).meta({
+    description:
+      "The published schema identity of this record, carried in-band. " +
+      "An unrecognized value must be reported as unsupported, not ignored.",
+  }),
+  subject: z.strictObject({
+    commit: z.string().meta({
+      description: "The full object id of the validated, landed commit.",
+    }),
+  }),
+  receipt: ReceiptSchema,
+  issuer: ReceiptIssuerSchema.optional(),
+  signature: ReceiptSignatureSchema.optional(),
+  brief: z.string().meta({
+    description:
+      "Reserved: a reference to a signed intent artifact. Nothing writes " +
+      "it at v1.0.0.",
+  }).optional(),
+});
+export type ReceiptNote = z.infer<typeof ReceiptNoteSchema>;
+
+/** The durable reader's schema: same required core as the strict note, but
+ * unknown additive fields pass at every level — an older binary must read
+ * every newer same-major note (ADR 0237). The blocks the reader does not
+ * consume (signature) accept any object shape. */
+export const TolerantReceiptNoteSchema = z.looseObject({
+  format: z.string(),
+  subject: z.looseObject({ commit: z.string() }),
+  receipt: z.looseObject(RECEIPT_FIELDS),
+  issuer: z.looseObject(RECEIPT_ISSUER_FIELDS).optional(),
+  signature: z.looseObject({}).optional(),
+  brief: z.string().optional(),
+});
 
 /** How one configured standard's measurement went in a gate run. The SSOT for the
  * measurement-disposition vocabulary — the engine types its outcomes from these. */
@@ -861,6 +943,19 @@ export const StatusDataSchema = z.strictObject({
     commit: z.string(),
     ref: z.string(),
     receipt: ReceiptSchema,
+    /** The durable record's issuer claim, when it carries one (unsigned notes
+     * omit it). */
+    issuer: ReceiptIssuerSchema.optional(),
+    /** The durable record's signed-intent reference, when it carries one. */
+    brief: z.string().optional(),
+  }).optional(),
+  /** The trunk tip carries a receipt note in a format this binary cannot read
+   * (a newer major). Explicit, so a mixed-version clone sees that evidence
+   * exists instead of "no receipt" (ADR 0237). */
+  landed_receipt_unsupported: z.strictObject({
+    commit: z.string(),
+    ref: z.string(),
+    format: z.string(),
   }).optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
   stale_generated: z.array(z.string()).optional(),

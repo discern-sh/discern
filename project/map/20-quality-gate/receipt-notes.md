@@ -7,13 +7,15 @@ aliases:
   - fetch receipt notes
   - publish receipt notes
   - git notes
+  - receipt format
+  - receipt note schema
 ---
 
 # Receipt notes
 
 _A green landing keeps its structured receipt beside the immutable trunk commit._
 
-After the trunk fast-forward, `discern accept` writes canonical JSON for `data.receipt` under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md)). It adds no trunk commit.
+After the trunk fast-forward, `discern accept` writes the durable receipt record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0237](../_adr/0237-durable-receipts-travel-versioned-and-signature-ready.md)). It adds no trunk commit.
 
 Read the current history with:
 
@@ -21,13 +23,25 @@ Read the current history with:
 git log --notes=discern
 ```
 
-Read one receipt object with:
+Read one record with:
 
 ```sh
 git notes --ref=discern show <commit>
 ```
 
 `discern status` reports a valid local or fetched trunk-tip note as `data.landed_receipt`: commit, source ref, and receipt.
+
+## The durable format
+
+The note body is one line of JSON plus a newline, published at <https://discern.sh/schema/v1/discern-receipt-note.schema.json>:
+
+- `format` — that schema URL, carried in the bytes. The note may be read by a different discern release than the one that wrote it, so the record names its own contract.
+- `subject.commit` — the full id of the landed commit. A reader accepts the note only when it equals the commit the note annotates; the receipt's short display commit stays for people.
+- `receipt` — the same structured receipt `data.receipt` carries: branch, trunk, short commit, diffstat, line, and page.
+- `issuer` and `signature` — reserved for signing. Absence means unsigned, which is every note discern writes today.
+- `brief` — reserved for a reference to a signed record of intent. Nothing writes it yet.
+
+Readers stay compatible in both directions. Unknown added fields pass, so an older discern reads every newer note in this major. A note whose `format` names a major this discern does not know reports as `data.landed_receipt_unsupported` in `discern status` — the evidence exists; upgrade to read it. A bare receipt object from an older discern still reads, as an unsigned legacy record.
 
 ## Authorship and failure
 

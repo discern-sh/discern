@@ -14,9 +14,12 @@ import {
 } from "../../shared/env.ts";
 import {
   type Receipt,
+  RECEIPT_NOTE_FORMAT,
+  type ReceiptIssuer,
   type ReceiptNotesFetchData,
   type ReceiptNoteWriteData,
   ReceiptSchema,
+  TolerantReceiptNoteSchema,
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -380,9 +383,10 @@ export function receiptNotesFetchSucceeded(
   return result.errors.length === 0;
 }
 
-/** One deterministic byte representation for every structured receipt note. */
-export function canonicalReceiptNote(receipt: Receipt): string {
-  return JSON.stringify({
+/** The receipt's fields in one fixed order, so every writer and comparison
+ * shares one byte layout for the same receipt. */
+function canonicalReceipt(receipt: Receipt): Receipt {
+  return {
     branch: receipt.branch,
     trunk: receipt.trunk,
     head: receipt.head,
@@ -391,17 +395,94 @@ export function canonicalReceiptNote(receipt: Receipt): string {
     deletions: receipt.deletions,
     line: receipt.line,
     markdown: receipt.markdown,
+  };
+}
+
+/**
+ * One deterministic byte representation for every structured receipt note: the
+ * versioned wire record binding the receipt to the full object id of the
+ * commit it is attached to (ADR 0237). Fixed key order by construction — the
+ * same receipt on the same commit is the same bytes in every clone.
+ */
+export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
+  return JSON.stringify({
+    format: RECEIPT_NOTE_FORMAT,
+    subject: { commit },
+    receipt: canonicalReceipt(receipt),
   }) + "\n";
 }
 
-function parseReceiptNote(content: string): Receipt | undefined {
+/** A durable note's parsed content, before its commit binding is checked:
+ * a readable receipt (`subject` present for the current format, absent for a
+ * legacy bare note), or an explicit refusal naming a format identity this
+ * binary does not know. Malformed content parses to `undefined`, as before. */
+type ParsedReceiptNote =
+  | {
+    kind: "receipt";
+    receipt: Receipt;
+    subject?: string;
+    issuer?: ReceiptIssuer;
+    brief?: string;
+  }
+  | { kind: "unsupported"; format: string };
+
+/** Project the durable reader's tolerant issuer block onto the strict runtime
+ * shape, dropping any additive fields a newer writer recorded. */
+function knownIssuerFields(
+  issuer: NonNullable<
+    ReturnType<typeof TolerantReceiptNoteSchema.parse>["issuer"]
+  >,
+): ReceiptIssuer {
+  return {
+    ...(issuer.name !== undefined ? { name: issuer.name } : {}),
+    ...(issuer.email !== undefined ? { email: issuer.email } : {}),
+    ...(issuer.key !== undefined ? { key: issuer.key } : {}),
+  };
+}
+
+/**
+ * Parse one note body. Dispatches on the in-band format identity: the current
+ * identity reads tolerantly (unknown additive fields pass at every level, so
+ * an older binary reads every newer same-major note), any other identity is
+ * reported as unsupported rather than dropped, and a body with no identity is
+ * read as today's bare 8-field receipt — an unsigned legacy record.
+ */
+function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(content);
-    const receipt = ReceiptSchema.safeParse(parsed);
-    return receipt.success ? receipt.data : undefined;
+    parsed = JSON.parse(content);
   } catch {
     return undefined;
   }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return undefined;
+  }
+  if (!("format" in parsed)) {
+    const legacy = ReceiptSchema.safeParse(parsed);
+    return legacy.success
+      ? { kind: "receipt", receipt: legacy.data }
+      : undefined;
+  }
+  const format: unknown = (parsed as { format: unknown }).format;
+  if (format !== RECEIPT_NOTE_FORMAT) {
+    return {
+      kind: "unsupported",
+      format: typeof format === "string" ? format : JSON.stringify(format),
+    };
+  }
+  const note = TolerantReceiptNoteSchema.safeParse(parsed);
+  if (!note.success) {
+    return undefined;
+  }
+  return {
+    kind: "receipt",
+    receipt: canonicalReceipt(note.data.receipt),
+    subject: note.data.subject.commit,
+    ...(note.data.issuer !== undefined
+      ? { issuer: knownIssuerFields(note.data.issuer) }
+      : {}),
+    ...(note.data.brief !== undefined ? { brief: note.data.brief } : {}),
+  };
 }
 
 async function receiptTrackingRefs(root: string): Promise<string[]> {
@@ -456,6 +537,18 @@ export async function writeReceiptNote(
       reason: "the validated gate marker carried no structured receipt",
     };
   }
+  // The write-side half of the subject cross-check: never publish a durable
+  // record whose display commit contradicts the commit it is attached to.
+  if (receipt.head === "" || !commit.startsWith(receipt.head)) {
+    return {
+      status: "record_failed",
+      ref: RECEIPT_NOTES_REF,
+      commit,
+      merged_refs: [],
+      reason:
+        `the receipt names ${receipt.head}, which does not match the landed commit ${commit}`,
+    };
+  }
 
   const identity = notesIdentity(env);
   const mergedRefs: string[] = [];
@@ -483,14 +576,31 @@ export async function writeReceiptNote(
     mergedRefs.push(ref);
   }
 
-  const body = canonicalReceiptNote(receipt);
+  const body = canonicalReceiptNote(receipt, commit);
   const existing = await runGit(
     ["notes", `--ref=${RECEIPT_NOTES_SHORT_REF}`, "show", commit],
     { cwd: root },
   );
   if (existing.success) {
     const parsed = parseReceiptNote(existing.stdout);
-    if (parsed !== undefined && canonicalReceiptNote(parsed) === body) {
+    if (parsed?.kind === "unsupported") {
+      return {
+        status: "record_failed",
+        ref: RECEIPT_NOTES_REF,
+        commit,
+        merged_refs: mergedRefs,
+        reason:
+          `the landed commit already carries a receipt note in a format this discern does not know (${parsed.format})`,
+      };
+    }
+    // The same receipt already recorded — under either format generation — is
+    // the idempotent success, not a conflict; notes are records, never rewritten.
+    if (
+      parsed !== undefined &&
+      JSON.stringify(canonicalReceipt(parsed.receipt)) ===
+        JSON.stringify(canonicalReceipt(receipt)) &&
+      (parsed.subject === undefined || parsed.subject === commit)
+    ) {
       return {
         status: "already_present",
         ref: RECEIPT_NOTES_REF,
@@ -554,7 +664,28 @@ export interface LandedReceiptNote {
   readonly commit: string;
   readonly ref: string;
   readonly receipt: Receipt;
+  /** The durable record's issuer claim, when it carries one — unsigned legacy
+   * and current notes omit it. */
+  readonly issuer?: ReceiptIssuer;
+  /** The durable record's signed-intent reference, when it carries one. */
+  readonly brief?: string;
 }
+
+/**
+ * What one commit's durable receipt lookup found: a bound, readable receipt;
+ * an explicit refusal for a record in a newer format this binary cannot read
+ * (never a silent miss — the evidence exists, the reader is too old); or
+ * nothing at all.
+ */
+export type LandedReceiptReading =
+  | ({ readonly status: "valid" } & LandedReceiptNote)
+  | {
+    readonly status: "unsupported";
+    readonly commit: string;
+    readonly ref: string;
+    readonly format: string;
+  }
+  | { readonly status: "missing" };
 
 async function noteContentFromTrackingRef(
   root: string,
@@ -592,14 +723,34 @@ async function notePathsFromRef(
   return paths;
 }
 
-/** Read one commit's first valid receipt, preferring local truth. */
+/** Whether a parsed note is bound to the commit that carries it. The current
+ * format's authority is the full-oid subject (with the display head kept
+ * coherent); a legacy note's strongest binding is its abbreviated head. */
+function boundToCommit(
+  parsed: ParsedReceiptNote & { kind: "receipt" },
+  commit: string,
+): boolean {
+  if (parsed.subject !== undefined) {
+    return parsed.subject === commit &&
+      (parsed.receipt.head === "" || commit.startsWith(parsed.receipt.head));
+  }
+  return /^[0-9a-f]{7,64}$/u.test(parsed.receipt.head) &&
+    commit.startsWith(parsed.receipt.head);
+}
+
+/**
+ * Read one commit's durable receipt, preferring local truth. A readable bound
+ * receipt on any ref wins; otherwise a record in an unknown newer format is
+ * reported as `unsupported` rather than dropped (ADR 0237).
+ */
 export async function readReceiptNoteAt(
   root: string,
   commit: string,
-): Promise<LandedReceiptNote | undefined> {
+): Promise<LandedReceiptReading> {
   if (commit === "") {
-    return undefined;
+    return { status: "missing" };
   }
+  let unsupported: LandedReceiptReading | undefined;
   const refs = [RECEIPT_NOTES_REF, ...await receiptTrackingRefs(root)];
   for (const ref of refs) {
     const content = ref === RECEIPT_NOTES_REF
@@ -611,16 +762,31 @@ export async function readReceiptNoteAt(
     if (content === undefined) {
       continue;
     }
-    const receipt = parseReceiptNote(content);
-    if (
-      receipt !== undefined &&
-      /^[0-9a-f]{7,64}$/u.test(receipt.head) &&
-      commit.startsWith(receipt.head)
-    ) {
-      return { commit, ref, receipt };
+    const parsed = parseReceiptNote(content);
+    if (parsed === undefined) {
+      continue;
+    }
+    if (parsed.kind === "unsupported") {
+      unsupported ??= {
+        status: "unsupported",
+        commit,
+        ref,
+        format: parsed.format,
+      };
+      continue;
+    }
+    if (boundToCommit(parsed, commit)) {
+      return {
+        status: "valid",
+        commit,
+        ref,
+        receipt: parsed.receipt,
+        ...(parsed.issuer !== undefined ? { issuer: parsed.issuer } : {}),
+        ...(parsed.brief !== undefined ? { brief: parsed.brief } : {}),
+      };
     }
   }
-  return undefined;
+  return unsupported ?? { status: "missing" };
 }
 
 /**
@@ -652,10 +818,12 @@ export async function findLandedReceiptNoteForBranch(
   ) {
     const landed = await readReceiptNoteAt(root, commit);
     if (
-      landed?.receipt.branch === branch &&
+      landed.status === "valid" &&
+      landed.receipt.branch === branch &&
       landed.receipt.trunk === trunk
     ) {
-      return landed;
+      const { status: _status, ...note } = landed;
+      return note;
     }
   }
   return undefined;
@@ -697,25 +865,27 @@ export async function findLatestLandedReceiptNoteForBranch(
     }
     const landed = await readReceiptNoteAt(root, commit);
     if (
-      landed?.receipt.branch === branch &&
+      landed.status === "valid" &&
+      landed.receipt.branch === branch &&
       landed.receipt.trunk === trunk
     ) {
-      return landed;
+      const { status: _status, ...note } = landed;
+      return note;
     }
   }
   return undefined;
 }
 
-/** Read the configured trunk tip's first valid receipt, preferring local truth. */
+/** Read the configured trunk tip's durable receipt, preferring local truth. */
 export async function readLandedReceiptNote(
   root: string,
   trunk: string,
-): Promise<LandedReceiptNote | undefined> {
+): Promise<LandedReceiptReading> {
   const tip = await runGit(
     ["rev-parse", "--verify", `refs/heads/${trunk}^{commit}`],
     { cwd: root },
   );
   return tip.success
     ? await readReceiptNoteAt(root, tip.stdout.trim())
-    : undefined;
+    : { status: "missing" };
 }

@@ -27,6 +27,16 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
   "discern-results.schema.json",
 );
 
+/** The durable landing receipt note. Every note carries this identity in-band
+ * as its `format` field — a Git note has no schema-selection channel, so the
+ * bytes name their own contract (ADR 0237). A breaking format change is a new
+ * major path, and readers report an unrecognized identity as unsupported. */
+export const RECEIPT_NOTE_SCHEMA_MAJOR = 1;
+export const RECEIPT_NOTE_SCHEMA_ID = publicSchemaId(
+  RECEIPT_NOTE_SCHEMA_MAJOR,
+  "discern-receipt-note.schema.json",
+);
+
 /** Generated-artifact field that records the policy owning its baseline. */
 export const PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY =
   "x-discern-compatibility-policy";
@@ -78,6 +88,15 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "Result contracts",
     contract: "Every CLI `--json` and MCP tool result envelope.",
+  },
+  {
+    id: RECEIPT_NOTE_SCHEMA_ID,
+    artifactPath: "schema/discern-receipt-note.schema.json",
+    major: RECEIPT_NOTE_SCHEMA_MAJOR,
+    compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    label: "Landing receipt note",
+    contract:
+      "The durable receipt record acceptance attaches to a landed commit.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 

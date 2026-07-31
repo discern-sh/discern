@@ -276,8 +276,12 @@ export async function statusResult(
     standards: Object.keys(cfg.standards),
   };
   const landedReceipt = await readLandedReceiptNote(root, mainBranch);
-  if (landedReceipt !== undefined) {
-    data.landed_receipt = landedReceipt;
+  if (landedReceipt.status === "valid") {
+    const { status: _status, ...note } = landedReceipt;
+    data.landed_receipt = note;
+  } else if (landedReceipt.status === "unsupported") {
+    const { status: _status, ...unread } = landedReceipt;
+    data.landed_receipt_unsupported = unread;
   }
   const gateReceipt = location === "worktree"
     ? await inspectGateReceipt(root)
@@ -1475,6 +1479,13 @@ function renderStatusHuman(
         }\n\n`,
       );
     }
+  }
+  if (data.landed_receipt_unsupported !== undefined) {
+    out.raw(
+      `  ${label("receipt")}${
+        data.landed_receipt_unsupported.commit.slice(0, 12)
+      }${dot}recorded in a newer format (${data.landed_receipt_unsupported.format}) — upgrade discern to read it\n`,
+    );
   }
   if (data.gate_receipt !== undefined) {
     out.raw(

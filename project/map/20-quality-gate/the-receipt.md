@@ -50,7 +50,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## After landing
 
-Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. The local record is default-on and fail-open; fetch transport is a separate opt-in. [Receipt notes](receipt-notes.md) covers inspection, authorship, publication, and cross-clone recovery.
+Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward, wrapped in a durable record that names its published format and the full landed commit id. The local record is default-on and fail-open; fetch transport is a separate opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, authorship, publication, and cross-clone recovery.
 
 ## Re-running an unchanged tree
 
