@@ -4,7 +4,7 @@
 
 _Every desk tip, generated from the live registry._
 
-Entries follow the authored order: a two-week onboarding path, not an insertion log. It starts with the desk, orientation, and a separate working copy; moves through human supervision; reads the practice's health; adds final-check and quality-rule habits; then opens the power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.
+Entries follow the authored order. The order is a two-week onboarding path. It starts with the desk, orientation, and a separate working copy. It then teaches human supervision, practice health, final-check and quality-rule habits, and the power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.
 
 Every rendered line is one or two short sentences and no more than 160 characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.
 
@@ -348,7 +348,7 @@ When a task has a project-owned tool, the desk offers "Run a Project Script". `d
 
 ## Coverage absences
 
-The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason; an unexplained member fails the gate.
+The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the gate.
 
 | Member                              | Why it has no tip                                                                                       |
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------- |
