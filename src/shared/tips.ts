@@ -26,6 +26,7 @@ import {
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
+import { KIT_VERSION } from "../lib/version.ts";
 
 /** Shared references for the commands tips cite. Each is one token rendered
  * per surface at delivery; a template interpolates it instead of spelling the
@@ -212,12 +213,14 @@ export const TIPS: readonly RegisteredTip[] = [
       `wait for another task's work instead of checking by hand.`,
   }),
 
-  /** Tagged to the release that introduced history-mined coupling, so an
-   * upgrade surfaces it with the "New in" prefix. */
+  /** Tagged to the release that introduced history-mined coupling — the
+   * current version, referenced through the single version source so no
+   * literal duplicates it. Coupling shipped with the first public release;
+   * when a later release ships, this pins to that literal arrival version. */
   defineTip({
     id: "coupling-cochange-history",
     when: "Evergreen; tagged to the release that introduced coupling.",
-    since: "1.0.0",
+    since: KIT_VERSION,
     features: ["coupling"],
     example: undefined,
     template: (): string =>

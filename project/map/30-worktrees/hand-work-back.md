@@ -1,7 +1,7 @@
 ---
 title: Hand work back
 description: Finish a branch, report its receipt for review, wait for approval, and accept the work without losing its proof.
-order: 120
+order: 130
 aliases:
   - handoff
   - hand work back

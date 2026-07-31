@@ -1,7 +1,7 @@
 ---
 title: Landing authority
 description: How conversation consent and recorded grants decide whether a finished worktree returns for review or lands directly.
-order: 100
+order: 110
 aliases:
   - landing authority
   - standing grant

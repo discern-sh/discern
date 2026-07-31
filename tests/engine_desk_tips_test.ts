@@ -209,7 +209,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
 
 Deno.test("unseen tips follow authored order — the curriculum", () => {
   const tips = [tipOf("first"), tipOf("second"), tipOf("third")];
-  const state = freshTipSeenState("1.0.0");
+  const state = freshTipSeenState("3.0.0");
   const selected = selectTip(tips, contextOf(), state);
   assertEquals(selected?.tip.id, "first");
   assertEquals(selected?.newIn, undefined);
@@ -223,7 +223,7 @@ Deno.test("an unseen tip whose predicate holds outranks the curriculum", () => {
   const selected = selectTip(
     tips,
     contextOf({ standards: [] }),
-    freshTipSeenState("1.0.0"),
+    freshTipSeenState("3.0.0"),
   );
   assertEquals(selected?.tip.id, "contextual");
 });
@@ -234,7 +234,7 @@ Deno.test("a tip whose predicate does not hold is not applicable, even for rotat
     tipOf("evergreen"),
   ];
   const ctx = contextOf();
-  const state = seen(freshTipSeenState("1.0.0"), [
+  const state = seen(freshTipSeenState("3.0.0"), [
     ["contextual", "2026-07-01T00:00:00.000Z"],
     ["evergreen", "2026-07-02T00:00:00.000Z"],
   ]);
@@ -253,18 +253,18 @@ Deno.test("a tip whose predicate does not hold is not applicable, even for rotat
 Deno.test("an unseen tip newer than the baseline ranks first and carries its release", () => {
   const tips = [
     tipOf("contextual", { predicate: { kind: "standards-empty" } }),
-    tipOf("arrived", { since: "1.1.0" }),
+    tipOf("arrived", { since: "3.1.0" }),
   ];
   const selected = selectTip(
     tips,
     contextOf({ standards: [] }),
-    freshTipSeenState("1.0.0"),
+    freshTipSeenState("3.0.0"),
   );
   assertEquals(selected?.tip.id, "arrived");
-  assertEquals(selected?.newIn, "1.1.0");
+  assertEquals(selected?.newIn, "3.1.0");
   assertEquals(
     renderTipLine(selected as NonNullable<typeof selected>),
-    "New in 1.1.0: Teaches arrived.",
+    "New in 3.1.0: Teaches arrived.",
   );
 });
 
@@ -289,7 +289,7 @@ Deno.test("a fresh state baselines at the current version, so nothing renders as
 
 Deno.test("a malformed since tag orders low instead of throwing", () => {
   const tips = [tipOf("odd", { since: "next" }), tipOf("plain")];
-  const selected = selectTip(tips, contextOf(), freshTipSeenState("1.0.0"));
+  const selected = selectTip(tips, contextOf(), freshTipSeenState("3.0.0"));
   assertEquals(selected?.tip.id, "odd");
   assertEquals(selected?.newIn, undefined);
 });
@@ -303,14 +303,14 @@ Deno.test("version comparison is numeric per segment, not lexicographic", () => 
 Deno.test("rotation picks the least-recently-shown tip, ties in authored order", () => {
   const tips = [tipOf("a"), tipOf("b"), tipOf("c")];
   const ctx = contextOf();
-  const state = seen(freshTipSeenState("1.0.0"), [
+  const state = seen(freshTipSeenState("3.0.0"), [
     ["a", "2026-07-03T00:00:00.000Z"],
     ["b", "2026-07-01T00:00:00.000Z"],
     ["c", "2026-07-02T00:00:00.000Z"],
   ]);
   assertEquals(selectTip(tips, ctx, state)?.tip.id, "b");
 
-  const tied = seen(freshTipSeenState("1.0.0"), [
+  const tied = seen(freshTipSeenState("3.0.0"), [
     ["b", "2026-07-01T00:00:00.000Z"],
     ["a", "2026-07-01T00:00:00.000Z"],
     ["c", "2026-07-02T00:00:00.000Z"],
@@ -325,7 +325,7 @@ Deno.test("rotation picks the least-recently-shown tip, ties in authored order",
 Deno.test("no tip repeats until the applicable pool exhausts", () => {
   const tips = [tipOf("a"), tipOf("b"), tipOf("c")];
   const ctx = contextOf();
-  let state = freshTipSeenState("1.0.0");
+  let state = freshTipSeenState("3.0.0");
   const shown: string[] = [];
   for (let round = 0; round < 4; round++) {
     const selected = selectTip(tips, ctx, state);
@@ -343,7 +343,7 @@ Deno.test("no tip repeats until the applicable pool exhausts", () => {
 Deno.test("selection is deterministic: identical inputs pick the identical tip", () => {
   const tips = [tipOf("a"), tipOf("b")];
   const ctx = contextOf();
-  const state = seen(freshTipSeenState("1.0.0"), [
+  const state = seen(freshTipSeenState("3.0.0"), [
     ["a", "2026-07-01T00:00:00.000Z"],
   ]);
   const first = selectTip(tips, ctx, state);
@@ -353,20 +353,20 @@ Deno.test("selection is deterministic: identical inputs pick the identical tip",
 
 Deno.test("an empty registry selects nothing", () => {
   assertEquals(
-    selectTip([], contextOf(), freshTipSeenState("1.0.0")),
+    selectTip([], contextOf(), freshTipSeenState("3.0.0")),
     undefined,
   );
 });
 
 Deno.test("marking a tip shown counts showings and advances the timestamp", () => {
-  let state = freshTipSeenState("1.0.0");
+  let state = freshTipSeenState("3.0.0");
   state = markTipShown(state, "a", "2026-07-01T00:00:00.000Z");
   state = markTipShown(state, "a", "2026-07-02T00:00:00.000Z");
   assertEquals(state.tips["a"], {
     count: 2,
     last_shown: "2026-07-02T00:00:00.000Z",
   });
-  assertEquals(state.baseline_version, "1.0.0");
+  assertEquals(state.baseline_version, "3.0.0");
 });
 
 // ── the seen-state store ────────────────────────────────────────────────────
@@ -387,7 +387,7 @@ Deno.test("tip seen-state: writes round-trip and linked worktrees share one file
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
     const state = markTipShown(
-      freshTipSeenState("1.0.0"),
+      freshTipSeenState("3.0.0"),
       "patterns-practice-report",
       "2026-07-11T12:00:00.000Z",
     );
@@ -412,8 +412,8 @@ Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", 
 
     await Deno.writeTextFile(path, "{ torn");
     assertEquals(
-      await readTipSeenState(dir, "1.0.0"),
-      freshTipSeenState("1.0.0"),
+      await readTipSeenState(dir, "3.0.0"),
+      freshTipSeenState("3.0.0"),
       "a torn write resets",
     );
 
@@ -426,8 +426,8 @@ Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", 
       }),
     );
     assertEquals(
-      await readTipSeenState(dir, "1.0.0"),
-      freshTipSeenState("1.0.0"),
+      await readTipSeenState(dir, "3.0.0"),
+      freshTipSeenState("3.0.0"),
       "a foreign schema major resets",
     );
 
@@ -440,8 +440,8 @@ Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", 
       }),
     );
     assertEquals(
-      await readTipSeenState(dir, "1.0.0"),
-      freshTipSeenState("1.0.0"),
+      await readTipSeenState(dir, "3.0.0"),
+      freshTipSeenState("3.0.0"),
       "a malformed entry resets",
     );
   });
@@ -451,9 +451,9 @@ Deno.test("tip seen-state: outside a repository, reads reset and writes are sile
   await withTempDir(async (dir) => {
     assertEquals(await tipStatePath(dir), undefined);
     assertEquals(
-      await readTipSeenState(dir, "1.0.0"),
-      freshTipSeenState("1.0.0"),
+      await readTipSeenState(dir, "3.0.0"),
+      freshTipSeenState("3.0.0"),
     );
-    await writeTipSeenState(dir, freshTipSeenState("1.0.0"));
+    await writeTipSeenState(dir, freshTipSeenState("3.0.0"));
   });
 });

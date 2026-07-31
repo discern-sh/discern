@@ -1,7 +1,7 @@
 ---
 title: Desk tips
 description: One deterministic teaching line per desk session — what it shows, how it is chosen, and where its record lands.
-order: 95
+order: 100
 aliases:
   - desk tips
   - tip line
