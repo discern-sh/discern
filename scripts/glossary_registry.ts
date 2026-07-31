@@ -462,7 +462,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\breceipt\s+notes?\b`,
     },
     definition:
-      "The repository-resident JSON copy of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Local recording is default-on; fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/receipt-notes.md).",
+      "The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. The record names its own published format and the full landed commit id, and reserves signing room. Local recording is default-on; fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/receipt-notes.md).",
   },
   {
     term: "Schema version",
