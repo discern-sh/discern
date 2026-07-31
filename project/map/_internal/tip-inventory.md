@@ -346,7 +346,7 @@ Rendered line:
 When a task has a project-owned tool, the desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
 ```
 
-## Deliberate absences
+## Coverage absences
 
 The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason; an unexplained member fails the gate.
 
@@ -394,7 +394,7 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:jobs-table`                | Project-specific job setup belongs in the gate guide; the tip teaches the final check those jobs serve. |
 | `feature:licenses`                  | License output is a legal reference surface, not an onboarding capability.                              |
 | `feature:map-freshness`             | This is a maintainer rule enforced by the gate, not a beginner desk action.                             |
-| `feature:mcp-surface`               | MCP is an agent-only protocol surface and deliberately stays out of human tips.                         |
+| `feature:mcp-surface`               | MCP is an agent-only protocol surface and stays out of human tips.                                      |
 | `feature:no-model-inside`           | This is an architecture boundary for integrations, not a desk capability.                               |
 | `feature:one-file-footprint`        | The settings footprint is a design property explained in setup and the map.                             |
 | `feature:output-discipline`         | Output discipline is an engine contract, not a beginner action.                                         |
@@ -441,7 +441,7 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `verb:config`                       | Low-level settings inspection is an advanced support path documented in command help.                   |
 | `verb:help`                         | Help is already present beside every command and needs no rotating lesson.                              |
 | `verb:licenses`                     | License output is a legal reference surface, not an onboarding capability.                              |
-| `verb:mcp`                          | MCP hosts an agent-only protocol surface and deliberately stays out of human tips.                      |
+| `verb:mcp`                          | MCP hosts an agent-only protocol surface and stays out of human tips.                                   |
 | `verb:prepare`                      | The fast iteration loop is primarily for coding agents; humans are taught `done`.                       |
 | `verb:preset`                       | Preset management is an advanced setup path documented in command help.                                 |
 | `verb:refresh`                      | Agent-file refresh is maintenance for coding-agent guidance, not a routine desk action.                 |

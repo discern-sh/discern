@@ -707,7 +707,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:idempotent-verbs":
     "Safe replay is an engine guarantee, not a separate action to adopt.",
   "feature:mcp-surface":
-    "MCP is an agent-only protocol surface and deliberately stays out of human tips.",
+    "MCP is an agent-only protocol surface and stays out of human tips.",
   "feature:published-contracts":
     "Published schemas serve integrations and are documented in the reference.",
   "feature:forgiving-cli":
@@ -745,7 +745,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "verb:licenses":
     "License output is a legal reference surface, not an onboarding capability.",
   "verb:mcp":
-    "MCP hosts an agent-only protocol surface and deliberately stays out of human tips.",
+    "MCP hosts an agent-only protocol surface and stays out of human tips.",
   "verb:prepare":
     "The fast iteration loop is primarily for coding agents; humans are taught `done`.",
   "verb:preset":

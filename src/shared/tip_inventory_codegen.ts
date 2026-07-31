@@ -67,7 +67,7 @@ function renderAbsenceLedger(): string {
       `| \`${member}\` | ${reason.replaceAll("|", "\\|")} |`
     );
   return [
-    "## Deliberate absences",
+    "## Coverage absences",
     "",
     "The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason; an unexplained member fails the gate.",
     "",
