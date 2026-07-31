@@ -29,7 +29,7 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
 
 /** The durable landing receipt note. Every note carries this identity in-band
  * as its `format` field — a Git note has no schema-selection channel, so the
- * bytes name their own contract (ADR 0237). A breaking format change is a new
+ * bytes name their own contract (ADR 0239). A breaking format change is a new
  * major path, and readers report an unrecognized identity as unsupported. */
 export const RECEIPT_NOTE_SCHEMA_MAJOR = 1;
 export const RECEIPT_NOTE_SCHEMA_ID = publicSchemaId(

@@ -1,6 +1,6 @@
 # ADR 0208: Public contracts version by schema major
 
-> **Durable-channel application (2026-07-31; [ADR 0237](0237-durable-receipts-travel-versioned-and-signature-ready.md)):** The landing receipt note carries its schema `$id` in-band as `format` — a Git note has no schema-selection channel, so the one identity this record pins travels in the durable bytes themselves. The no-payload-version rule for negotiated result and configuration channels is unchanged.
+> **Durable-channel application (2026-07-31; [ADR 0239](0239-durable-receipts-travel-versioned-and-signature-ready.md)):** The landing receipt note carries its schema `$id` in-band as `format` — a Git note has no schema-selection channel, so the one identity this record pins travels in the durable bytes themselves. The no-payload-version rule for negotiated result and configuration channels is unchanged.
 
 > **First breaking-major application ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** Renaming the manual result from `help` to `docs` starts result schema v2 while retaining the frozen v1 publication. Configuration remains at schema v1. The compatibility domains version independently.
 

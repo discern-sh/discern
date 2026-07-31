@@ -400,7 +400,7 @@ Deno.test("the public homepage presents engineering discipline for coding agents
       ...body.querySelectorAll(".discern-article-header__meta li"),
     ].map((item) => item.textContent?.trim()),
     [
-      "Free and open source",
+      "Free and Fair Source",
       "Runs offline",
       "No API key",
       "Not an AI",
@@ -527,6 +527,7 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   );
   assertEquals(text.includes("macOS · Linux · WSL2"), false);
   assertEquals(text.includes("Open source under Apache-2.0."), false);
+  assertEquals(text.includes("Free and open source"), false);
   const landingCss = await Deno.readTextFile(
     join(ROOT, "site/page-src/landing.css"),
   );

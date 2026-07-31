@@ -15,7 +15,7 @@ aliases:
 
 _A green landing keeps its structured receipt beside the immutable trunk commit._
 
-After the trunk fast-forward, `discern accept` writes the durable receipt record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0237](../_adr/0237-durable-receipts-travel-versioned-and-signature-ready.md)). It adds no trunk commit.
+After the trunk fast-forward, `discern accept` writes the durable receipt record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0239](../_adr/0239-durable-receipts-travel-versioned-and-signature-ready.md)). It adds no trunk commit.
 
 Read the current history with:
 

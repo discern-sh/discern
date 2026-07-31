@@ -27,6 +27,7 @@ cacheable
 canonicalization
 chokepoint
 CI
+CLA(s|'s)?
 classmap
 claude_code
 Cliffy('s)?
@@ -45,6 +46,7 @@ CVEs?
 cwd
 darwin
 DBs?
+DCO('s)?
 declaratively
 dedup(e|es|ed|ing)?
 deduplicat(e|ed|es|ing|ion)?
@@ -164,6 +166,7 @@ reformat(s|ted|ting)?
 refram(e|es|ed|ing)
 regenerable
 reimplementing
+relicens(e|es|ed|ing)
 renderers?
 repoints?
 repos?
@@ -196,6 +199,7 @@ strippable
 styleless
 subcommands?
 subdir
+sublicens(e|es|ed|ing)
 subpath
 subprocess(es)?
 subshell

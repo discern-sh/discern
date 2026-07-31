@@ -23,4 +23,4 @@ Explain why this is the smallest change that solves the problem.
 - [ ] I have read `CONTRIBUTING.md`.
 - [ ] I understand this change and can explain and defend every line.
 - [ ] `discern done` passes locally on the final tree.
-- [ ] Every commit carries my Developer Certificate of Origin (DCO) sign-off (`git commit -s`).
+- [ ] I have signed the discern contributor license agreement (`CLA.md`), or will sign it when the CLA assistant asks on this pull request.

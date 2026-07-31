@@ -37,11 +37,11 @@ The command owns the build, check, test, scope, and quality-standard details, so
 
 Keep each commit to one logical change. Use an imperative subject and explain the reason for non-trivial work in the commit body.
 
-## Sign your work
+## Sign the contributor license agreement
 
-Sign every commit with `git commit -s`. The sign-off certifies the [Developer Certificate of Origin 1.1](https://developercertificate.org/) and records that you have the right to submit the work.
+Every contribution is covered by the [contributor license agreements](CLA.md): individual, plus corporate when an employer owns the work. You sign once. On your first pull request, the CLA assistant asks for a signature, and one reply covers every later contribution. You keep your copyright; the agreement grants the project the license that keeps Fair Source distribution and commercial licensing viable.
 
-Inbound and outbound contributions use Apache-2.0. By submitting a contribution, you agree that the project may distribute it under the terms in [LICENSE](LICENSE). A Contributor License Agreement is not required.
+discern is distributed under the [Functional Source License](LICENSE), and each release converts to Apache-2.0 two years after that release.
 
 ## Report bugs and security issues
 
