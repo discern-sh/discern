@@ -102,7 +102,7 @@ The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, 
 
 ### File ownership
 
-The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). They do not assign copyright or change a license. [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
+The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
 
 ### Fleet
 
@@ -166,7 +166,7 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 ### Project-owned file
 
-A file discern may seed once, then leaves for the project to edit in place. `discern upgrade` does not overwrite it. This operational category does not assign or change copyright. It includes the [namespace](#namespace) content, the [map](#map), the ledger, and authored skills.
+A file discern may seed once, then leaves for the project to edit in place. `discern upgrade` does not overwrite it. It includes the [namespace](#namespace) content, the [map](#map), the ledger, and authored skills.
 
 ### Receipt
 
