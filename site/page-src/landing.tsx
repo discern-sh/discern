@@ -83,7 +83,7 @@ function LandingHero() {
           </div>
           <div className="discern-article-header__footer">
             <ul className="discern-article-header__meta">
-              <li>Free and open source</li>
+              <li>Free and Fair Source</li>
               <li>Runs offline</li>
               <li>No API key</li>
               <li>Not an AI</li>
