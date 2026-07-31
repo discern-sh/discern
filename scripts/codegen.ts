@@ -21,6 +21,7 @@ import {
 } from "../src/shared/config_codegen.ts";
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
+import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
   FEATURE_CANON_PAGE_REL,
@@ -75,6 +76,10 @@ const mcpReference = relative(
 const hintInventory = relative(
   repoRoot,
   join(mapDir, "_internal", "hint-inventory.md"),
+);
+const tipInventory = relative(
+  repoRoot,
+  join(mapDir, "_internal", "tip-inventory.md"),
 );
 const glossary = relative(
   repoRoot,
@@ -156,6 +161,8 @@ await write(
 );
 console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
+console.log("Regenerating the tip inventory from TIPS:");
+await write(tipInventory, renderTipInventoryDoc());
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
 console.log(

@@ -24,7 +24,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 14      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 15      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -39,6 +39,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 150     | "Advisory"       | node `hints`                |
+| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 5       | "Tip"            | node `tips`                 |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
@@ -47,8 +48,8 @@ One row per set, in registry order; the sections below follow the same order and
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 29      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
-| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 38      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 123     | —                | —                           |
+| [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 39      | —                | node `glossary-canon`       |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 124     | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 41      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -68,9 +69,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 57      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 58      | —                | node `canonical-sets`       |
 
-57 sets · 80 guard tests · 22 committed artifacts.
+58 sets · 84 guard tests · 23 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -98,6 +99,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_consent_gate_test.ts`               | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs), [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_desk_model_test.ts`                 | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_desk_runtime_test.ts`               | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| `tests/engine_desk_tips_test.ts`                  | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_effort_grant_test.ts`               | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/engine_help_groups_test.ts`                | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/engine_interrupt_surfaces_test.ts`         | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -153,6 +155,9 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/skill_name_parity_test.ts`                 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/ssot_claim_guard_test.ts`                  | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/third_party_notices_test.ts`               | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/tip_closed_set_guard_test.ts`              | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/tip_command_guard_test.ts`                 | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/tip_inventory_codegen_test.ts`             | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/validator_enrolment_test.ts`               | [`artifact-validators`](#artifact-validators--artifact-validators)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/vocab_drift_test.ts`                       | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/voice_vale_parity_test.ts`                 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -176,6 +181,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
 | `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
+| `project/map/_internal/tip-inventory.md`         | generated file   | [`tips`](#tips--tips)                                                                                     |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
@@ -314,7 +320,7 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
 Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 14
+- Members: 15
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
 - Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
 - Feature canon: not enrolled — one internal storage registry supports several independently documented product features
@@ -461,6 +467,17 @@ The advisory hint registry: every hint string enters results through it.
 - Glossary: the "Advisory" entry carries the concept
 - Feature canon: described by the `hints` node
 
+## `tips` — Tips
+
+The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.
+
+- Source: `src/shared/tips.ts` — `TIPS`
+- Members: 5
+- Guards: `tests/tip_closed_set_guard_test.ts`, `tests/tip_command_guard_test.ts`, `tests/tip_inventory_codegen_test.ts`, `tests/engine_desk_tips_test.ts`
+- Artifacts: `project/map/_internal/tip-inventory.md`
+- Glossary: the "Tip" entry carries the concept
+- Feature canon: described by the `tips` node
+
 ## `failure-recovery-evidence` — Generic failure-recovery evidence
 
 The result fields the generic recovery instruction may truthfully cite; without one, a failure needs a tailored next step.
@@ -546,7 +563,7 @@ The improvement catalog's categories, in display order; the runner ranks them we
 The term registry behind the glossary page, its search aliases, and the retired-synonym scans. Each entry also carries the term's plain-register rendering, so the vocabulary and its plain translation are one record.
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
-- Members: 38
+- Members: 39
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface
@@ -557,7 +574,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 123
+- Members: 124
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -765,7 +782,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 57
+- Members: 58
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

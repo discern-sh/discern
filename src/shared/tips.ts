@@ -120,6 +120,13 @@ export function defineTip<P = undefined>(def: TipDef<P>): RegisteredTip {
   return def as unknown as RegisteredTip;
 }
 
+/** A tip's authored template text, reference tokens intact — what the
+ * completeness guards scan around. `defineTip` is the only constructor, so
+ * the example always matches the template's parameter type. */
+export function authoredTipText(tip: RegisteredTip): string {
+  return (tip.template as (params: unknown) => string)(tip.example);
+}
+
 /**
  * A tip's delivered text: the template rendered with its registered example
  * parameters, command references resolved to their CLI spelling. One render
@@ -129,9 +136,7 @@ export function defineTip<P = undefined>(def: TipDef<P>): RegisteredTip {
  * the example parameters are the only rendering.
  */
 export function renderTipCli(tip: RegisteredTip): string {
-  return renderCommandRefsCli(
-    (tip.template as (params: unknown) => string)(tip.example),
-  );
+  return renderCommandRefsCli(authoredTipText(tip));
 }
 
 /**

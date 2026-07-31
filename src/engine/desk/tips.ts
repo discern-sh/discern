@@ -120,9 +120,10 @@ export interface SelectedTip {
 /**
  * Compare two dotted-numeric versions; positive when `a` is newer. Missing or
  * non-numeric segments compare as zero, so a malformed tag orders low instead
- * of ever throwing at the desk.
+ * of ever throwing at the desk. Exported so the registry's closed-set guard
+ * holds `since` tags to the same semantics selection applies.
  */
-function compareVersions(a: string, b: string): number {
+export function compareTipVersions(a: string, b: string): number {
   const parse = (version: string): number[] =>
     version.split(".").map((part) => {
       const value = Number.parseInt(part, 10);
@@ -165,7 +166,7 @@ export function selectTip(
   for (const tip of unseen) {
     if (
       tip.since !== undefined &&
-      compareVersions(tip.since, state.baseline_version) > 0
+      compareTipVersions(tip.since, state.baseline_version) > 0
     ) {
       return { tip, newIn: tip.since };
     }

@@ -813,6 +813,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       Object.keys((await import("../src/shared/hints.ts")).HINTS),
   },
   {
+    id: "tips",
+    title: "Tips",
+    what:
+      "The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.",
+    source: {
+      kind: "module",
+      module: "src/shared/tips.ts",
+      exportName: "TIPS",
+    },
+    guards: [
+      "tests/tip_closed_set_guard_test.ts",
+      "tests/tip_command_guard_test.ts",
+      "tests/tip_inventory_codegen_test.ts",
+      "tests/engine_desk_tips_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/_internal/tip-inventory.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: { term: "Tip" },
+      featureCanon: { nodeId: "tips" },
+    },
+    members: async () =>
+      (await import("../src/shared/tips.ts")).TIPS.map((tip) => tip.id),
+  },
+  {
     id: "failure-recovery-evidence",
     title: "Generic failure-recovery evidence",
     what:
