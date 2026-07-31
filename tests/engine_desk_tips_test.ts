@@ -7,6 +7,9 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { dirname, join } from "@std/path";
+import { withTempDir } from "./helpers.ts";
+import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
 import type {
   StatusData,
@@ -26,6 +29,11 @@ import {
   tipPredicateHolds,
   type TipSeenState,
 } from "../src/engine/desk/tips.ts";
+import {
+  readTipSeenState,
+  tipStatePath,
+  writeTipSeenState,
+} from "../src/engine/desk/tip_state.ts";
 
 const CONFIG = configSchema.parse({
   project: { slug: "demo" },
@@ -359,4 +367,93 @@ Deno.test("marking a tip shown counts showings and advances the timestamp", () =
     last_shown: "2026-07-02T00:00:00.000Z",
   });
   assertEquals(state.baseline_version, "1.0.0");
+});
+
+// ── the seen-state store ────────────────────────────────────────────────────
+
+Deno.test("tip seen-state: a missing file reads as the fresh state", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    assertEquals(
+      await readTipSeenState(dir, "1.2.3"),
+      freshTipSeenState("1.2.3"),
+    );
+  });
+});
+
+Deno.test("tip seen-state: writes round-trip and linked worktrees share one file", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const state = markTipShown(
+      freshTipSeenState("1.0.0"),
+      "patterns-practice-report",
+      "2026-07-11T12:00:00.000Z",
+    );
+    await writeTipSeenState(dir, state);
+    assertEquals(await readTipSeenState(dir, "9.9.9"), state);
+    const linked = await addWorktree(dir, "tips-shared");
+    assertEquals(
+      await readTipSeenState(linked, "9.9.9"),
+      state,
+      "the common git dir shares one seen-state across linked worktrees",
+    );
+  });
+});
+
+Deno.test("tip seen-state: torn, foreign, or malformed files reset gracefully", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
+    await gitInit(dir);
+    const path = await tipStatePath(dir);
+    assert(path !== undefined);
+    await Deno.mkdir(dirname(path), { recursive: true });
+
+    await Deno.writeTextFile(path, "{ torn");
+    assertEquals(
+      await readTipSeenState(dir, "1.0.0"),
+      freshTipSeenState("1.0.0"),
+      "a torn write resets",
+    );
+
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify({
+        schema_version: 99,
+        baseline_version: "0.1.0",
+        tips: {},
+      }),
+    );
+    assertEquals(
+      await readTipSeenState(dir, "1.0.0"),
+      freshTipSeenState("1.0.0"),
+      "a foreign schema major resets",
+    );
+
+    await Deno.writeTextFile(
+      path,
+      JSON.stringify({
+        schema_version: 1,
+        baseline_version: "0.1.0",
+        tips: { x: { count: "many", last_shown: 7 } },
+      }),
+    );
+    assertEquals(
+      await readTipSeenState(dir, "1.0.0"),
+      freshTipSeenState("1.0.0"),
+      "a malformed entry resets",
+    );
+  });
+});
+
+Deno.test("tip seen-state: outside a repository, reads reset and writes are silent", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(await tipStatePath(dir), undefined);
+    assertEquals(
+      await readTipSeenState(dir, "1.0.0"),
+      freshTipSeenState("1.0.0"),
+    );
+    await writeTipSeenState(dir, freshTipSeenState("1.0.0"));
+  });
 });
