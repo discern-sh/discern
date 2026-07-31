@@ -229,6 +229,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0234 — Tips are the desk's human advisory channel](0234-tips-are-the-desks-human-advisory-channel.md)
 - [0235 — Plain renderings live on the glossary entry](0235-plain-renderings-live-on-the-glossary-entry.md)
 - [0236 — Tip adoption clears evidence per tip across comparable setups](0236-tip-adoption-clears-evidence-per-tip-across-setups.md)
+- [0237 — discern ships under the Functional Source License with an Apache-2.0 future license](0237-ship-under-the-functional-source-license.md)
+- [0238 — Contributions are covered by a contributor license agreement](0238-contributions-are-covered-by-a-cla.md)
 
 <!-- END GENERATED: current ADR records -->
 
