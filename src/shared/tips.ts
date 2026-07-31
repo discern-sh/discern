@@ -43,6 +43,9 @@ const CMD = {
     flag("contained"),
   ),
   patterns: discernCommand("patterns"),
+  patternsStats: discernCommand("patterns", flag("stats")),
+  improvement: discernCommand("improvement"),
+  doctor: discernCommand("doctor"),
   standards: discernCommand("standards"),
   update: discernCommand("update"),
   awaitGreen: discernCommand("await", flag("green", "<branch>")),
@@ -285,11 +288,27 @@ export const TIPS: readonly RegisteredTip[] = [
       "files both sides changed, so you know what to recheck before review.",
   }),
 
-  // Seed lessons retained until their curriculum tranches expand below.
+  // ── Practice health: read the record, then choose the next improvement. ──
 
   defineTip({
     id: "patterns-practice-report",
     when: "Evergreen — the practice-health opener.",
+    features: ["insight", "logbook", "patterns", "local-evidence"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["patterns"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.patterns} reads the project's local activity record for ` +
+      "repeated habits, slow checks, and tasks that stall. It suggests one " +
+      "next step.",
+  }),
+
+  defineTip({
+    id: "patterns-practice-stats",
+    when: "Evergreen — the second practice-health lesson.",
     features: ["patterns"],
     followThrough: {
       family: "tip-adoption",
@@ -298,11 +317,42 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.patterns} reads discern's local activity records and reports ` +
-      `how the practice is going: which checks fail most often, how tasks ` +
-      `move from start to landing, and how each quality number is trending. ` +
-      `The report is read-only.`,
+      `${CMD.patternsStats} counts finished changes, passing streaks, time ` +
+      "from start to landing, and quality gains from the same local record.",
   }),
+
+  defineTip({
+    id: "improvement-next-action",
+    when: "Evergreen — the third practice-health lesson.",
+    features: ["improvement"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["improvement"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.improvement} ranks one next improvement across checks, setup, ` +
+      "guides, task copies, quality rules, and reusable playbooks.",
+  }),
+
+  defineTip({
+    id: "doctor-first-diagnostic",
+    when: "Evergreen — the final practice-health lesson.",
+    features: ["doctor"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["doctor"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.doctor} checks whether the install is wired correctly and ` +
+      "names the fix for each problem. Start there when a discern command " +
+      "behaves oddly.",
+  }),
+
+  // Seed lessons retained until their curriculum tranches expand below.
 
   defineTip({
     id: "standards-first-limit",

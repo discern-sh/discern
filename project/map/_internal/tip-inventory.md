@@ -123,13 +123,55 @@ Rendered line:
 - Relevance: Evergreen — the practice-health opener.
 - Predicate: —
 - Since: —
+- Teaches: `insight`, `logbook`, `patterns`, `local-evidence`
+- Follow-through: `verb-run-after-tip` (`patterns`)
+
+Rendered line:
+
+```text
+`discern patterns` reads the project's local activity record for repeated habits, slow checks, and tasks that stall. It suggests one next step.
+```
+
+## `patterns-practice-stats`
+
+- Relevance: Evergreen — the second practice-health lesson.
+- Predicate: —
+- Since: —
 - Teaches: `patterns`
 - Follow-through: `verb-run-after-tip` (`patterns`)
 
 Rendered line:
 
 ```text
-`discern patterns` reads discern's local activity records and reports how the practice is going: which checks fail most often, how tasks move from start to landing, and how each quality number is trending. The report is read-only.
+`discern patterns --stats` counts finished changes, passing streaks, time from start to landing, and quality gains from the same local record.
+```
+
+## `improvement-next-action`
+
+- Relevance: Evergreen — the third practice-health lesson.
+- Predicate: —
+- Since: —
+- Teaches: `improvement`
+- Follow-through: `verb-run-after-tip` (`improvement`)
+
+Rendered line:
+
+```text
+`discern improvement` ranks one next improvement across checks, setup, guides, task copies, quality rules, and reusable playbooks.
+```
+
+## `doctor-first-diagnostic`
+
+- Relevance: Evergreen — the final practice-health lesson.
+- Predicate: —
+- Since: —
+- Teaches: `doctor`
+- Follow-through: `verb-run-after-tip` (`doctor`)
+
+Rendered line:
+
+```text
+`discern doctor` checks whether the install is wired correctly and names the fix for each problem. Start there when a discern command behaves oddly.
 ```
 
 ## `standards-first-limit`
