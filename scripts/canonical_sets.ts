@@ -1584,6 +1584,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
   },
   {
+    id: "contributor-agreement-gist-files",
+    title: "Contributor-agreement Gist files",
+    what:
+      "The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.",
+    source: {
+      kind: "module",
+      module: "scripts/contributor_agreement.ts",
+      exportName: "CLA_ASSISTANT_GIST_FILES",
+    },
+    guards: ["tests/contributor_governance_test.ts"],
+    artifacts: [
+      {
+        path: ".github/cla-assistant/metadata",
+        kind: "generated-file",
+        banner: false,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent: "repository contribution policy, not product vocabulary",
+      },
+      featureCanon: {
+        absent: "repository governance, not an installed product feature",
+      },
+    },
+    members: async () =>
+      (await import("./contributor_agreement.ts")).CLA_ASSISTANT_GIST_FILES
+        .map((file) => file.gistName),
+  },
+  {
     id: "first-party-legal-documents",
     title: "First-party legal documents",
     what:

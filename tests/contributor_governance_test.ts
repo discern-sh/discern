@@ -8,11 +8,24 @@ import {
   assert,
   assertEquals,
   assertMatch,
+  assertRejects,
   assertStringIncludes,
 } from "@std/assert";
 import { dirname, join, relative } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
 import { extractDocLinks } from "../src/lib/docs_integrity.ts";
+import {
+  agreementChangeAdvancesVersion,
+  CLA_ASSISTANT_GIST_FILES,
+  CLA_ASSISTANT_METADATA_PATH,
+  CONTRIBUTOR_AGREEMENT_ACCEPTANCE,
+  CONTRIBUTOR_AGREEMENT_REGISTRY_PATH,
+  CONTRIBUTOR_AGREEMENTS,
+  contributorAgreementVersion,
+  CORPORATE_CONTRIBUTOR_AGREEMENT,
+  INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
+  renderClaAssistantMetadata,
+} from "../scripts/contributor_agreement.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const CONTRIBUTING = join(REPO_ROOT, "CONTRIBUTING.md");
@@ -21,9 +34,7 @@ const CORPORATE_CLA = join(REPO_ROOT, "CCLA.md");
 const PR_TEMPLATE = join(REPO_ROOT, ".github", "PULL_REQUEST_TEMPLATE.md");
 const CLA_ASSISTANT_METADATA = join(
   REPO_ROOT,
-  ".github",
-  "cla-assistant",
-  "metadata",
+  CLA_ASSISTANT_METADATA_PATH,
 );
 const RETIRED_CLA_WORKFLOW = join(
   REPO_ROOT,
@@ -37,6 +48,7 @@ const PROPOSAL_TEMPLATE = join(
   "change_proposal.md",
 );
 const ISSUE_CONFIG = join(ISSUE_TEMPLATE_DIR, "config.yml");
+const GATE_WORKFLOW = join(REPO_ROOT, ".github", "workflows", "gate.yml");
 
 async function assertFile(
   path: string,
@@ -59,6 +71,55 @@ function yamlRecord(yaml: string, source: string): Record<string, unknown> {
     `${source} must contain a YAML object`,
   );
   return parsed as Record<string, unknown>;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function requireBaselineRef(ref: string): Promise<void> {
+  const output = await new Deno.Command("git", {
+    cwd: REPO_ROOT,
+    args: ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`],
+    stdout: "null",
+    stderr: "null",
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `contributor agreement baseline ref ${ref} is unavailable; fetch it before running the gate`,
+    );
+  }
+}
+
+async function readGitFileAtRef(
+  ref: string,
+  path: string,
+): Promise<string | undefined> {
+  const exists = await new Deno.Command("git", {
+    cwd: REPO_ROOT,
+    args: ["cat-file", "-e", `${ref}:${path}`],
+    stdout: "null",
+    stderr: "null",
+  }).output();
+  if (!exists.success) return undefined;
+
+  const output = await new Deno.Command("git", {
+    cwd: REPO_ROOT,
+    args: ["show", `${ref}:${path}`],
+    stdout: "piped",
+    stderr: "piped",
+  }).output();
+  if (!output.success) {
+    throw new Error(
+      `could not read ${ref}:${path}: ${
+        new TextDecoder().decode(output.stderr)
+      }`,
+    );
+  }
+  return new TextDecoder().decode(output.stdout);
 }
 
 Deno.test("the contribution guide carries the complete governance contract", async () => {
@@ -118,9 +179,11 @@ Deno.test("the pull-request template requires every contribution attestation", a
 Deno.test("the hosted assistant accepts the individual agreement without a repository workflow", async () => {
   const individual = await Deno.readTextFile(INDIVIDUAL_CLA);
   const corporate = await Deno.readTextFile(CORPORATE_CLA);
-  const acceptance =
-    "I have read and agreed to the discern Contributor License Agreement, version 1.0";
-  assertStringIncludes(individual, acceptance);
+  assertEquals(
+    CONTRIBUTOR_AGREEMENT_ACCEPTANCE,
+    "I have read and agreed to the discern Contributor License Agreement, version 1.0",
+  );
+  assertStringIncludes(individual, CONTRIBUTOR_AGREEMENT_ACCEPTANCE);
   assertStringIncludes(
     individual,
     "You retain any copyright you hold in your Contributions",
@@ -134,20 +197,128 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
   assertStringIncludes(corporate, "authorized to enter into contracts");
   assertStringIncludes(corporate, "Typing a name into a field, by itself");
 
-  const metadata = JSON.parse(
-    await Deno.readTextFile(CLA_ASSISTANT_METADATA),
-  );
-  assertEquals(metadata, {
+  const metadataText = await Deno.readTextFile(CLA_ASSISTANT_METADATA);
+  assertEquals(metadataText, renderClaAssistantMetadata());
+  assertEquals(JSON.parse(metadataText), {
     agreement: {
-      title: acceptance,
+      title: CONTRIBUTOR_AGREEMENT_ACCEPTANCE,
       type: "boolean",
       required: true,
     },
   });
+  assertEquals(CLA_ASSISTANT_GIST_FILES, [
+    { repoPath: "CLA.md", gistName: "CLA.md" },
+    { repoPath: CLA_ASSISTANT_METADATA_PATH, gistName: "metadata" },
+  ]);
+  const hostedPaths = new Set<string>(
+    CLA_ASSISTANT_GIST_FILES.map((file) => file.repoPath),
+  );
+  assert(
+    !hostedPaths.has(CORPORATE_CONTRIBUTOR_AGREEMENT.repoPath),
+    "the hosted assistant must accept only the individual agreement",
+  );
   assertEquals(
     await Deno.stat(RETIRED_CLA_WORKFLOW).catch(() => undefined),
     undefined,
   );
+});
+
+Deno.test("numeric agreement versions pin immutable bytes against a real baseline", async () => {
+  assertEquals(CONTRIBUTOR_AGREEMENTS, [
+    INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
+    CORPORATE_CONTRIBUTOR_AGREEMENT,
+  ]);
+  assert(
+    !agreementChangeAdvancesVersion(
+      "# discern Individual Contributor License Agreement, version 1.0\nchanged\n",
+      "# discern Individual Contributor License Agreement, version 1.0\noriginal\n",
+    ),
+  );
+  assert(
+    agreementChangeAdvancesVersion(
+      "# discern Individual Contributor License Agreement, version 1.1\nchanged\n",
+      "# discern Individual Contributor License Agreement, version 1.0\noriginal\n",
+    ),
+  );
+
+  for (const agreement of CONTRIBUTOR_AGREEMENTS) {
+    const bytes = await Deno.readFile(join(REPO_ROOT, agreement.repoPath));
+    assertEquals(
+      await sha256Hex(bytes),
+      agreement.sha256,
+      `${agreement.repoPath} differs from its ${agreement.version} SHA-256 pin`,
+    );
+    const version = contributorAgreementVersion(
+      new TextDecoder().decode(bytes),
+    );
+    assert(version !== undefined, `${agreement.repoPath} needs a version`);
+    assertEquals(version.join("."), agreement.version);
+  }
+
+  const baseline = Deno.env.get("DISCERN_TRUNK") || "main";
+  await requireBaselineRef(baseline);
+  assertEquals(
+    await readGitFileAtRef(baseline, ".missing-agreement-control"),
+    undefined,
+    "a missing path at a valid baseline is distinct from a missing baseline",
+  );
+  const previousRegistry = await readGitFileAtRef(
+    baseline,
+    CONTRIBUTOR_AGREEMENT_REGISTRY_PATH,
+  );
+  if (previousRegistry !== undefined) {
+    for (const agreement of CONTRIBUTOR_AGREEMENTS) {
+      const previous = await readGitFileAtRef(baseline, agreement.repoPath);
+      if (previous === undefined) continue;
+      const current = await Deno.readTextFile(
+        join(REPO_ROOT, agreement.repoPath),
+      );
+      assert(
+        agreementChangeAdvancesVersion(current, previous),
+        `${agreement.repoPath} bytes changed without advancing its numeric version`,
+      );
+    }
+  }
+
+  await assertRejects(
+    () => requireBaselineRef("refs/heads/missing-agreement-baseline"),
+    Error,
+    "baseline ref refs/heads/missing-agreement-baseline is unavailable",
+  );
+});
+
+Deno.test("every CI gate fetches the agreement baseline without a silent skip", async () => {
+  const source = await Deno.readTextFile(GATE_WORKFLOW);
+  const workflow = yamlRecord(source, relative(REPO_ROOT, GATE_WORKFLOW));
+  const jobs = workflow.jobs;
+  assert(jobs !== null && typeof jobs === "object" && !Array.isArray(jobs));
+  for (const name of ["gate", "macos", "standards"]) {
+    const job = (jobs as Record<string, unknown>)[name];
+    assert(job !== null && typeof job === "object" && !Array.isArray(job));
+    const record = job as Record<string, unknown>;
+    const env = record.env;
+    assert(env !== null && typeof env === "object" && !Array.isArray(env));
+    assertEquals(
+      (env as Record<string, unknown>).DISCERN_TRUNK,
+      "origin/main",
+    );
+    const steps = record.steps;
+    assert(Array.isArray(steps), `${name} must declare steps`);
+    const fetchStep = steps.find((step) =>
+      step !== null && typeof step === "object" && !Array.isArray(step) &&
+      String((step as Record<string, unknown>).run).includes(
+        "+refs/heads/main:refs/remotes/origin/main",
+      )
+    );
+    assert(
+      fetchStep !== undefined,
+      `${name} must fetch origin/main for baseline checks`,
+    );
+    assert(
+      !String((fetchStep as Record<string, unknown>).run).includes("|| true"),
+      `${name} must not silently skip a failed baseline fetch`,
+    );
+  }
 });
 
 Deno.test("change proposals arrive before implementation and use the smallest-change ladder", async () => {

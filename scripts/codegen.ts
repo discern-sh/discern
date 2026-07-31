@@ -63,6 +63,10 @@ import {
   renderRegistryAtlasDoc,
 } from "./canonical_sets.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
+import {
+  CLA_ASSISTANT_METADATA_PATH,
+  renderClaAssistantMetadata,
+} from "./contributor_agreement.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -216,6 +220,8 @@ await write(
     renderPublicSchemaReference(),
   ),
 );
+console.log("Regenerating the hosted CLA Assistant metadata:");
+await write(CLA_ASSISTANT_METADATA_PATH, renderClaAssistantMetadata());
 console.log("Embedding the first-party legal documents:");
 const firstPartyLicenses = await generateFirstPartyLicenseBundle({ repoRoot });
 await write(
