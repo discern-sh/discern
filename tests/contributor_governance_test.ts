@@ -55,8 +55,9 @@ Deno.test("the contribution guide carries the complete governance contract", asy
       "Every pull request starts with an issue that a maintainer has accepted",
       "AI-assisted contributions are welcome",
       "`discern done` is the contribution contract",
-      "Inbound and outbound contributions use Apache-2.0",
-      "`git commit -s`",
+      "[contributor license agreements](CLA.md)",
+      "You keep your copyright",
+      "converts to Apache-2.0 two years after that release",
     ]
   ) {
     assertStringIncludes(guide, statement);
@@ -84,7 +85,7 @@ Deno.test("the pull-request template requires every contribution attestation", a
       /- \[ \] I have read `CONTRIBUTING\.md`\./,
       /- \[ \] I understand this change and can explain and defend every line\./,
       /- \[ \] `discern done` passes locally on the final tree\./,
-      /- \[ \] Every commit carries my Developer Certificate of Origin \(DCO\) sign-off \(`git commit -s`\)\./,
+      /- \[ \] I have signed the discern contributor license agreement \(`CLA\.md`\), or will sign it when the CLA assistant asks on this pull request\./,
     ]
   ) {
     assertMatch(template, attestation);
