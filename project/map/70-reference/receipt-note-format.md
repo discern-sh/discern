@@ -1,7 +1,7 @@
 ---
 title: Receipt note format
 description: The durable receipt record attached to a landed commit — its fields, its published schema, and its reading rules.
-order: 35
+order: 40
 aliases:
   - receipt format
   - receipt note schema

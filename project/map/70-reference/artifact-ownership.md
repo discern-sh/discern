@@ -1,7 +1,7 @@
 ---
 title: Files & ownership
 description: Every project path discern writes or maintains, its edit and overwrite contract, Git treatment, and uninstall behavior.
-order: 40
+order: 50
 publish: true
 redirect_from:
   - /docs/installer/what-discern-writes

@@ -45,6 +45,10 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "discern-setup-config",
     "the setup config document's published schema artifact basename",
   ],
+  [
+    "discern-receipt-note",
+    "the landing receipt note's published schema artifact basename",
+  ],
 ]);
 
 const EXEMPT_SEGMENTS = ["/_adr/", "/_private/"] as const;
