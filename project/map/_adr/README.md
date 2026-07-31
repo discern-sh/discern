@@ -231,6 +231,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0236 — Tip adoption clears evidence per tip across comparable setups](0236-tip-adoption-clears-evidence-per-tip-across-setups.md)
 - [0237 — discern ships under the Functional Source License with an Apache-2.0 future license](0237-ship-under-the-functional-source-license.md)
 - [0238 — Contributions are covered by a contributor license agreement](0238-contributions-are-covered-by-a-cla.md)
+- [0240 — The brand addresses the owner and judges only the work](0240-brand-addresses-the-owner.md)
+- [0241 — The receipt becomes the proof](0241-receipt-renamed-to-proof.md)
 
 <!-- END GENERATED: current ADR records -->
 
