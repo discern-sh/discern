@@ -37,9 +37,7 @@ Each row starts with the task name supplied to `discern start`. The state puts t
 
 ## Read the tip line
 
-The header ends with one dim tip per session: a line that teaches one thing discern can do, wrapped to the terminal width so a narrow sidebar terminal reads the whole sentence. The desk chooses it deterministically: entries new since the last upgrade first, then tips whose context currently applies, then an authored curriculum, then the least recently shown. The choice holds for the whole session ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)).
-
-Seen-state lives beside the logbook under the git common directory, so every worktree shares one rotation, and each shown tip's id lands in the logbook. Tips teach capabilities; state warnings stay on the header's own lines and in `discern status`.
+The header ends with one dim tip per session: a deterministic teaching line that wraps at the terminal width and holds until the session ends. [Desk tips](desk-tips.md) covers the selection order, the seen-state, and the logbook record.
 
 ## Choose an action
 
@@ -88,12 +86,9 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 | ----------------------------------- | --------------------------------------------------------------------------------------- |
 | Interactive loop and dispatch       | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
 | Buckets and launch availability     | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
-| Tip registry, in curriculum order   | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                                     |
-| Tip selection and seen-state        | [`src/engine/desk/tips.ts`](../../../src/engine/desk/tips.ts)                           |
 | Provider-owned CLI actions          | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
 | Model decision table tests          | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |
 | Interactive dispatch tests          | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts)       |
-| Tip engine and store tests          | [`tests/engine_desk_tips_test.ts`](../../../tests/engine_desk_tips_test.ts)             |
 | Real terminal/non-interactive tests | [`tests/engine_non_interactive_test.ts`](../../../tests/engine_non_interactive_test.ts) |
 
 ## Current state and gotchas
