@@ -112,6 +112,17 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds({ kind: "standards-empty" }, contextOf()),
     false,
   );
+  assertEquals(
+    tipPredicateHolds({ kind: "standards-present" }, contextOf()),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "standards-present" },
+      contextOf({ standards: [] }),
+    ),
+    false,
+  );
 
   const unauthorized = [fleetEntry("agent/a"), fleetEntry("agent/b")];
   assertEquals(

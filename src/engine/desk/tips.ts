@@ -46,6 +46,8 @@ export function tipPredicateHolds(
   switch (predicate.kind) {
     case "standards-empty":
       return ctx.data.standards.length === 0;
+    case "standards-present":
+      return ctx.data.standards.length > 0;
     case "no-landing-authority":
       return efforts(ctx).length >= 2 &&
         efforts(ctx).every(

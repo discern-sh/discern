@@ -46,7 +46,9 @@ const CMD = {
   patternsStats: discernCommand("patterns", flag("stats")),
   improvement: discernCommand("improvement"),
   doctor: discernCommand("doctor"),
+  done: discernCommand("done"),
   standards: discernCommand("standards"),
+  standardsPin: discernCommand("standards", flag("pin")),
   update: discernCommand("update"),
   awaitGreen: discernCommand("await", flag("green", "<branch>")),
   couplingFile: discernCommand("coupling", positional("file", "<file>")),
@@ -61,6 +63,8 @@ const CMD = {
 export type TipPredicate =
   /** No quality standards are configured. */
   | Readonly<{ kind: "standards-empty" }>
+  /** At least one quality standard is configured. */
+  | Readonly<{ kind: "standards-present" }>
   /** Two or more efforts are in flight and none carries landing authority. */
   | Readonly<{ kind: "no-landing-authority" }>
   /** Some effort's branch is behind the trunk. */
@@ -352,13 +356,39 @@ export const TIPS: readonly RegisteredTip[] = [
       "behaves oddly.",
   }),
 
-  // Seed lessons retained until their curriculum tranches expand below.
+  // ── Quality: prove the work, then learn the rules that hold gains. ───────
 
   defineTip({
-    id: "standards-first-limit",
+    id: "done-records-proof",
+    when: "Evergreen — the quality opener.",
+    features: ["gate", "receipt"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["done"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.done} runs the project's final quality check. On clean saved ` +
+      "work, a pass records the exact version and results for review.",
+  }),
+
+  defineTip({
+    id: "standards-first-rule",
     when: "No quality standards are configured.",
     predicate: { kind: "standards-empty" },
-    features: ["standards", "skill-set-the-standard"],
+    features: ["standards", "standards-direction", "skill-set-the-standard"],
+    example: undefined,
+    template: (): string =>
+      "A quality rule holds one number at a floor or ceiling that can only " +
+      "improve. The `discern-set-the-standard` guide helps a coding agent " +
+      "add one.",
+  }),
+
+  defineTip({
+    id: "standards-on-demand",
+    when: "Evergreen — the third quality lesson.",
+    features: ["standards-on-demand"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -366,10 +396,27 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `A standard holds one number, like test coverage or bundle size, at a ` +
-      `limit that can only improve. The bundled \`discern-set-the-standard\` ` +
-      `skill walks a coding agent through choosing and setting the first one.`,
+      'Rules marked `measure = "on-demand"` skip routine measurement; ' +
+      `${CMD.standards} measures them when you ask.`,
   }),
+
+  defineTip({
+    id: "standards-pin-gain",
+    when: "At least one quality standard is configured.",
+    predicate: { kind: "standards-present" },
+    features: ["standards-pin", "standards-margin"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["standards"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.standardsPin} saves a measured gain by tightening the limit. ` +
+      "A `margin` leaves room for small future changes.",
+  }),
+
+  // Seed lessons retained until their curriculum tranche expands below.
 
   defineTip({
     id: "coupling-cochange-history",

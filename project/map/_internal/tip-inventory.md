@@ -174,18 +174,60 @@ Rendered line:
 `discern doctor` checks whether the install is wired correctly and names the fix for each problem. Start there when a discern command behaves oddly.
 ```
 
-## `standards-first-limit`
+## `done-records-proof`
+
+- Relevance: Evergreen — the quality opener.
+- Predicate: —
+- Since: —
+- Teaches: `gate`, `receipt`
+- Follow-through: `verb-run-after-tip` (`done`)
+
+Rendered line:
+
+```text
+`discern done` runs the project's final quality check. On clean saved work, a pass records the exact version and results for review.
+```
+
+## `standards-first-rule`
 
 - Relevance: No quality standards are configured.
 - Predicate: `standards-empty`
 - Since: —
-- Teaches: `standards`, `skill-set-the-standard`
+- Teaches: `standards`, `standards-direction`, `skill-set-the-standard`
+- Follow-through: —
+
+Rendered line:
+
+```text
+A quality rule holds one number at a floor or ceiling that can only improve. The `discern-set-the-standard` guide helps a coding agent add one.
+```
+
+## `standards-on-demand`
+
+- Relevance: Evergreen — the third quality lesson.
+- Predicate: —
+- Since: —
+- Teaches: `standards-on-demand`
 - Follow-through: `verb-run-after-tip` (`standards`)
 
 Rendered line:
 
 ```text
-A standard holds one number, like test coverage or bundle size, at a limit that can only improve. The bundled `discern-set-the-standard` skill walks a coding agent through choosing and setting the first one.
+Rules marked `measure = "on-demand"` skip routine measurement; `discern standards` measures them when you ask.
+```
+
+## `standards-pin-gain`
+
+- Relevance: At least one quality standard is configured.
+- Predicate: `standards-present`
+- Since: —
+- Teaches: `standards-pin`, `standards-margin`
+- Follow-through: `verb-run-after-tip` (`standards`)
+
+Rendered line:
+
+```text
+`discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
 ```
 
 ## `coupling-cochange-history`
