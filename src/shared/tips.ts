@@ -546,3 +546,211 @@ export const TIPS: readonly RegisteredTip[] = [
       `Script". ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];
+
+/**
+ * Canon and verb members that deliberately receive no desk tip.
+ *
+ * Keys share one namespace with the enrolment guard: `feature:<node-id>` for
+ * every feature-canon node and `verb:<verb>` for the live CLI vocabulary.
+ * The reason is part of the contract. A member may stay dark only when a
+ * maintainer has recorded where it is taught instead or why it is not a
+ * beginner-facing capability.
+ */
+export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
+  Record<string, string>
+> = {
+  "feature:jobs-table":
+    "Project-specific job setup belongs in the gate guide; the tip teaches the final check those jobs serve.",
+  "feature:job-format":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-build":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-lint":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-typecheck":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-test":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-smoke":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:staged-pipeline":
+    "This is gate execution plumbing; the `done` tip teaches its human-visible outcome.",
+  "feature:fail-fast":
+    "This is gate execution plumbing; a failure explains the behavior at the point it matters.",
+  "feature:job-timeouts":
+    "This is gate safety plumbing; timeout diagnostics teach it at the point it matters.",
+  "feature:capture-environment":
+    "This preserves diagnostic context internally and offers no separate human action.",
+  "feature:gate-streaming":
+    "This is output plumbing for long checks, not a separate capability to adopt.",
+  "feature:strand-detection":
+    "This is gate safety plumbing; its diagnostic teaches the recovery when it fires.",
+  "feature:tidy":
+    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
+  "feature:gate-preconditions":
+    "These are safety checks; their diagnostics teach the required remedy when they fail.",
+  "feature:write-preflight":
+    "This is an internal safety check with no separate beginner action.",
+  "feature:fail-open-classification":
+    "This is internal scope-classification safety with no separate human action.",
+  "feature:prepare":
+    "This fast iteration loop is primarily for coding agents; humans are taught the final `done` check.",
+  "feature:test-verb":
+    "This test-only iteration loop is primarily for coding agents; humans are taught the final `done` check.",
+  "feature:diagnostics":
+    "Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.",
+  "feature:gotchas-pointer":
+    "The pointer appears in the failure that needs it, so a rotating tip would be less timely.",
+  "feature:unchanged-tree-rerun":
+    "This is receipt-reuse plumbing; the proof tip covers the human-visible result.",
+  "feature:standards-metric-protocol":
+    "Metric authoring is an advanced path taught by the standard-setting guide.",
+  "feature:standards-rates":
+    "Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.",
+  "feature:standards-replay":
+    "Replay is measurement plumbing with no separate beginner action.",
+  "feature:standards-escalation":
+    "A fired rule explains owner escalation at the point a decision is required.",
+  "feature:worktree-resources":
+    "Supporting-service separation is setup and agent plumbing, not a beginner action.",
+  "feature:crash-safe-provisioning":
+    "This is worktree safety plumbing; recovery guidance appears when provisioning fails.",
+  "feature:env-inheritance":
+    "Private-setting inheritance is setup plumbing with no routine human action.",
+  "feature:ignored-drift":
+    "Ignored-file drift is an advanced diagnostic taught when a worktree check finds it.",
+  "feature:guidance":
+    "Agent guidance is maintained by coding agents and project owners, not adopted from a desk tip.",
+  "feature:guidance-compile":
+    "Compilation is agent-file plumbing behind `refresh`, not a separate human capability.",
+  "feature:guidance-conditionals":
+    "Provider conditions are an advanced guidance-authoring feature documented in the map.",
+  "feature:providers":
+    "Provider support is an integration surface for coding agents, not a desk capability.",
+  "feature:provider-claude-code":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-codex":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-gemini":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-cursor":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-copilot":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:session-hooks":
+    "Session hooks are agent-integration plumbing and are documented with setup.",
+  "feature:agent-autodetect":
+    "Automatic provider choice is agent-integration plumbing with no human action.",
+  "feature:skills-materialization":
+    "Guide copying is implementation plumbing; `skills list` teaches the visible set.",
+  "feature:skill-cure-a-bug":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-clear-the-decks":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-delegate-work":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-document-subsystem":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-teach-the-project":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-write-adr":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-write-it-once":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:docs-integrity":
+    "This is map validation plumbing; a failure names the page and repair.",
+  "feature:map-freshness":
+    "This is a maintainer rule enforced by the gate, not a beginner desk action.",
+  "feature:publish-predicate":
+    "Map publication boundaries are maintainer-facing and documented with the map.",
+  "feature:adr-discipline":
+    "Decision-record authoring is a maintainer practice taught by its specialist guide.",
+  "feature:cli-help":
+    "Built-in command help is already present beside every command and needs no rotating lesson.",
+  "feature:glossary-canon":
+    "Canonical vocabulary is documentation infrastructure, not a capability to adopt.",
+  "feature:hints":
+    "Advice notes surface at their relevant action; a generic rotating tip would be less timely.",
+  "feature:install":
+    "Installation is complete before the desk can show tips and is taught by the installer.",
+  "feature:setup":
+    "Setup is complete before the desk can show tips and is taught by the installer.",
+  "feature:setup-observability":
+    "This is installer reporting plumbing, visible during setup rather than later on the desk.",
+  "feature:relay-messages":
+    "Relay messages coordinate coding agents and do not expose a human action.",
+  "feature:ownership-buckets":
+    "Upgrade ownership is migration plumbing, explained only when an upgrade needs it.",
+  "feature:placement-consent":
+    "Script placement consent belongs to initial setup and appears when the choice is required.",
+  "feature:uninstall":
+    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
+  "feature:presets":
+    "Preset management is an advanced setup path documented in command help.",
+  "feature:config-command":
+    "Low-level settings inspection is an advanced support path documented in command help.",
+  "feature:licenses":
+    "License output is a legal reference surface, not an onboarding capability.",
+  "feature:interfaces":
+    "Machine interfaces serve integrations and coding agents, not the human desk.",
+  "feature:result-envelope":
+    "The result shape is an integration contract, not a human action.",
+  "feature:plan-apply":
+    "Plan-then-apply is effectful-command plumbing; dry-run help teaches it where available.",
+  "feature:idempotent-verbs":
+    "Safe replay is an engine guarantee, not a separate action to adopt.",
+  "feature:mcp-surface":
+    "MCP is an agent-only protocol surface and deliberately stays out of human tips.",
+  "feature:published-contracts":
+    "Published schemas serve integrations and are documented in the reference.",
+  "feature:forgiving-cli":
+    "Input normalization is command-line plumbing with no separate capability.",
+  "feature:output-discipline":
+    "Output discipline is an engine contract, not a beginner action.",
+  "feature:foundations":
+    "The product principles explain why discern works this way; they are not individual actions.",
+  "feature:agent-is-user":
+    "This is a design principle about coding agents, not a human capability.",
+  "feature:context-budget":
+    "This is a design principle about agent attention, not a human capability.",
+  "feature:single-binary":
+    "Packaging is an implementation property, not a capability to adopt.",
+  "feature:one-file-footprint":
+    "The settings footprint is a design property explained in setup and the map.",
+  "feature:stack-neutral":
+    "Stack neutrality is a product property, not a separate action.",
+  "feature:no-model-inside":
+    "This is an architecture boundary for integrations, not a desk capability.",
+  "feature:all-subsystems-core":
+    "This is a product-shape decision, not a separate beginner action.",
+  "feature:forcing-functions":
+    "This is an engineering principle enforced by guards, not a desk action.",
+  "feature:canonical-sets":
+    "This is maintainer infrastructure for closed sets, not a user capability.",
+  "feature:dogfooding":
+    "Running discern on itself is evidence about the product, not an action for a user.",
+  "feature:interruption-safety":
+    "Interruption cleanup is an engine guarantee; it teaches itself only if a stop occurs.",
+  "verb:config":
+    "Low-level settings inspection is an advanced support path documented in command help.",
+  "verb:help":
+    "Help is already present beside every command and needs no rotating lesson.",
+  "verb:licenses":
+    "License output is a legal reference surface, not an onboarding capability.",
+  "verb:mcp":
+    "MCP hosts an agent-only protocol surface and deliberately stays out of human tips.",
+  "verb:prepare":
+    "The fast iteration loop is primarily for coding agents; humans are taught `done`.",
+  "verb:preset":
+    "Preset management is an advanced setup path documented in command help.",
+  "verb:refresh":
+    "Agent-file refresh is maintenance for coding-agent guidance, not a routine desk action.",
+  "verb:setup":
+    "Setup is complete before the desk can show tips and is taught by the installer.",
+  "verb:test":
+    "The test-only iteration loop is primarily for coding agents; humans are taught `done`.",
+  "verb:tidy":
+    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
+  "verb:uninstall":
+    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
+};
