@@ -68,6 +68,17 @@ import {
   type DeskAgentLaunch,
   type DeskRow,
 } from "./model.ts";
+import {
+  markTipShown,
+  renderTipLine,
+  selectTip,
+  type TipSeenState,
+} from "./tips.ts";
+import { readTipSeenState, writeTipSeenState } from "./tip_state.ts";
+import { TIPS } from "../../shared/tips.ts";
+import { observeShownTip } from "../../shared/result_capture.ts";
+import { KIT_VERSION } from "../../lib/version.ts";
+import { displayWidth, terminalWidth, wrapText } from "../../lib/text.ts";
 import { deskSessionEnv, inDeskSession } from "./session.ts";
 import { clearEffortGrant } from "../worktree/effort_grant_cleanup.ts";
 import {
@@ -156,6 +167,14 @@ export interface DeskRuntime {
     env: Record<string, string>,
   ): DeskMaybePromise<number>;
   now(): number;
+  /** Read the repository's tip seen-state; never throws (store contract). */
+  readTipState(root: string): DeskMaybePromise<TipSeenState>;
+  /** Persist the tip seen-state, best-effort; never throws (store contract). */
+  writeTipState(root: string, state: TipSeenState): DeskMaybePromise<void>;
+  /** Report a shown tip id for the session's logbook event. */
+  recordTipShown(id: string): void;
+  /** The terminal width the header wraps its tip line to. */
+  width(): number;
 }
 
 /** Dim "→ <command>" line: the CLI equivalent of the action about to run. */
@@ -289,6 +308,10 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   },
   runScript: (root, name, env) => runDeskProjectScript(root, name, env),
   now: () => Date.now(),
+  readTipState: (root) => readTipSeenState(root, KIT_VERSION),
+  writeTipState: (root, state) => writeTipSeenState(root, state),
+  recordTipShown: (id) => observeShownTip(id),
+  width: () => terminalWidth(),
 };
 
 /** Run a git read in `cwd` and print its output under a heading ("(none)" when
@@ -417,14 +440,19 @@ async function pickScript(
     : row.scripts.find((script) => script.name === name);
 }
 
-/** The desk header: project identity, the main checkout's state, and the
- * otherwise-invisible unlanded branches. */
+/** The first-line label of the tip slot; continuation lines hang under it. */
+const TIP_PREFIX = "  ✦ tip  ";
+
+/** The desk header: project identity, the main checkout's state, the
+ * otherwise-invisible unlanded branches, and the session's one tip line. */
 function renderHeader(
   out: Out,
   config: DiscernConfig,
   root: string,
   data: StatusData,
   rows: readonly DeskRow[],
+  tip: string | undefined,
+  width: number,
 ): void {
   const project = config.project.slug === ""
     ? basename(root)
@@ -473,6 +501,21 @@ function renderHeader(
       ? `${first.branch} rides inside ${first.contained_in} until it lands`
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
     out.raw(`  ${out.c.dim}${line}.${out.c.reset}\n`);
+  }
+  // The session's tip (ADR 0234): one dim teaching line at the header's foot,
+  // wrapped with a hanging indent at the resolved width — never truncated,
+  // because the narrow embedded terminals discern's users live in would clip
+  // most tips mid-sentence.
+  if (tip !== undefined) {
+    const indent = " ".repeat(displayWidth(TIP_PREFIX));
+    const lines = wrapText(tip, Math.max(1, width - indent.length));
+    for (const [index, line] of lines.entries()) {
+      out.raw(
+        `${out.c.dim}${
+          index === 0 ? TIP_PREFIX : indent
+        }${line}${out.c.reset}\n`,
+      );
+    }
   }
 }
 
@@ -995,6 +1038,31 @@ export async function runDesk(
     return 0;
   }
 
+  // The session's tip (ADR 0234): chosen once from the first survey, held
+  // stable across every redraw, and marked shown exactly once — the
+  // seen-state write and the logbook id together, at selection, never per
+  // redraw. Tip state must never cost a session, so any failure in the seams
+  // degrades to a tipless header.
+  let tipLine: string | undefined;
+  try {
+    const tipState = await runtime.readTipState(root);
+    const selected = selectTip(TIPS, { data: first.data, config }, tipState);
+    if (selected !== undefined) {
+      tipLine = renderTipLine(selected);
+      await runtime.writeTipState(
+        root,
+        markTipShown(
+          tipState,
+          selected.tip.id,
+          new Date(runtime.now()).toISOString(),
+        ),
+      );
+      runtime.recordTipShown(selected.tip.id);
+    }
+  } catch {
+    tipLine = undefined;
+  }
+
   let data: StatusData = first.data;
   let focusPath: string | undefined;
   while (true) {
@@ -1041,7 +1109,7 @@ export async function runDesk(
       agentLaunchesByPath,
       runtime.now(),
     );
-    renderHeader(out, config, root, data, rows);
+    renderHeader(out, config, root, data, rows, tipLine, runtime.width());
 
     const focused = focusPath === undefined
       ? undefined

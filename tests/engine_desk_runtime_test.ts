@@ -36,6 +36,13 @@ import {
   type LifecycleContext,
   WorktreeGitError,
 } from "../src/engine/worktree/lifecycle.ts";
+import {
+  freshTipSeenState,
+  type TipSeenState,
+} from "../src/engine/desk/tips.ts";
+import { renderTipCli, TIPS } from "../src/shared/tips.ts";
+import { KIT_VERSION } from "../src/lib/version.ts";
+import { displayWidth, wrapText } from "../src/lib/text.ts";
 import { withTempDir } from "./helpers.ts";
 import { scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
@@ -174,12 +181,43 @@ function scriptedRuntime(
     scripts: () => [],
     runScript: () => 0,
     now: () => NOW,
+    readTipState: () => freshTipSeenState(KIT_VERSION),
+    writeTipState: () => {},
+    recordTipShown: () => {},
+    width: () => 80,
     ...patch,
   };
 }
 
 function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
+}
+
+const TIP_PREFIX = "  ✦ tip  ";
+const TIP_INDENT = " ".repeat(TIP_PREFIX.length);
+
+/** The registered tip with `id`, or a failed assertion. */
+function registeredTip(id: string): (typeof TIPS)[number] {
+  const tip = TIPS.find((entry) => entry.id === id);
+  assert(tip !== undefined, `the shipped registry must carry ${id}`);
+  return tip;
+}
+
+/** The exact raw output one board pass emits for `tip` at `width`. */
+function renderedTipBlock(id: string, width: number): string {
+  return wrapText(renderTipCli(registeredTip(id)), width - TIP_PREFIX.length)
+    .map((line, index) => `${index === 0 ? TIP_PREFIX : TIP_INDENT}${line}\n`)
+    .join("");
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  let count = 0;
+  let index = haystack.indexOf(needle);
+  while (index !== -1) {
+    count += 1;
+    index = haystack.indexOf(needle, index + needle.length);
+  }
+  return count;
 }
 
 Deno.test("desk-owned terminal children receive the desk-session marker", async () => {
@@ -1039,6 +1077,121 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertEquals(reclaims, ["/worktrees/stage-a"]);
   assertEquals(pauses, 1);
   assertStringIncludes(joined(output), "Branch agent/stage-a kept");
+});
+
+Deno.test("desk shows one tip at the header foot, stable across redraws, marked once", async () => {
+  const output = transcript();
+  const writes: TipSeenState[] = [];
+  const recorded: string[] = [];
+  const choices = [REFRESH, QUIT];
+  const runtime = scriptedRuntime(output, {
+    select: () => choices.shift() ?? QUIT,
+    writeTipState: (_root, state) => {
+      writes.push(state);
+    },
+    recordTipShown: (id) => {
+      recorded.push(id);
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  // The scripted survey configures no standards, so the contextual
+  // standards tip outranks the curriculum opener.
+  const block = renderedTipBlock("standards-first-limit", 80);
+  assertEquals(
+    countOccurrences(output.stdout.join(""), block),
+    2,
+    "the same tip renders at the foot of both board passes",
+  );
+  assertEquals(
+    recorded,
+    ["standards-first-limit"],
+    "the shown id is reported once per session, not once per redraw",
+  );
+  assertEquals(writes.length, 1, "the seen-state is written once per session");
+  assertEquals(writes[0]?.tips["standards-first-limit"], {
+    count: 1,
+    last_shown: new Date(NOW).toISOString(),
+  });
+});
+
+Deno.test("desk wraps the tip with a hanging indent at 60 columns and never truncates", async () => {
+  const output = transcript();
+  const runtime = scriptedRuntime(output, { width: () => 60 });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  const lines = output.stdout.join("").split("\n");
+  const first = lines.findIndex((line) => line.startsWith(TIP_PREFIX));
+  assert(first >= 0, "the tip line must render");
+  const block = [lines[first] ?? ""];
+  for (
+    let index = first + 1;
+    index < lines.length && (lines[index] ?? "").startsWith(TIP_INDENT);
+    index += 1
+  ) {
+    block.push(lines[index] ?? "");
+  }
+  assert(block.length >= 2, "a 60-column terminal wraps the tip");
+  for (const line of block) {
+    assert(
+      displayWidth(line) <= 60,
+      `a tip line exceeds the terminal width: ${JSON.stringify(line)}`,
+    );
+  }
+  assertEquals(
+    block
+      .map((line, index) =>
+        index === 0 ? line.slice(TIP_PREFIX.length) : line.trimStart()
+      )
+      .join(" "),
+    renderTipCli(registeredTip("standards-first-limit")),
+    "wrapping reflows the whole text — nothing is truncated",
+  );
+});
+
+Deno.test("desk rotates the tip across sessions through the seen-state", async () => {
+  const stateRef = { state: freshTipSeenState(KIT_VERSION) };
+  const shown: string[] = [];
+  const session = async (): Promise<void> => {
+    const output = transcript();
+    const runtime = scriptedRuntime(output, {
+      readTipState: () => stateRef.state,
+      writeTipState: (_root, state) => {
+        stateRef.state = state;
+      },
+      recordTipShown: (id) => {
+        shown.push(id);
+      },
+    });
+    assertEquals(await runDesk({}, runtime), 0);
+  };
+
+  await session();
+  await session();
+  await session();
+  // Contextual first (no standards configured), then the curriculum in
+  // authored order; entries whose predicates do not hold never surface.
+  assertEquals(shown, [
+    "standards-first-limit",
+    "patterns-practice-report",
+    "coupling-cochange-history",
+  ]);
+});
+
+Deno.test("desk survives a tip-state failure with a tipless header, no warning", async () => {
+  const output = transcript();
+  const runtime = scriptedRuntime(output, {
+    readTipState: () => {
+      throw new Error("tip state unreadable");
+    },
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  assert(
+    !joined(output).includes("✦ tip"),
+    "a failed tip read renders no tip line",
+  );
+  assertEquals(output.stderr, [], "and warns about nothing");
 });
 
 Deno.test("desk renders a reclaimed stage ref as a dim fact, not a missing-worktree warning", async () => {
