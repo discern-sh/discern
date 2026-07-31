@@ -824,7 +824,9 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/tip_closed_set_guard_test.ts",
+      "tests/tip_canon_enrolment_test.ts",
       "tests/tip_command_guard_test.ts",
+      "tests/tip_register_guard_test.ts",
       "tests/tip_inventory_codegen_test.ts",
       "tests/engine_desk_tips_test.ts",
     ],

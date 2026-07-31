@@ -112,6 +112,17 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds({ kind: "standards-empty" }, contextOf()),
     false,
   );
+  assertEquals(
+    tipPredicateHolds({ kind: "standards-present" }, contextOf()),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "standards-present" },
+      contextOf({ standards: [] }),
+    ),
+    false,
+  );
 
   const unauthorized = [fleetEntry("agent/a"), fleetEntry("agent/b")];
   assertEquals(
@@ -180,6 +191,44 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
   assertEquals(
     tipPredicateHolds(
       { kind: "branch-behind-trunk" },
+      contextOf({
+        fleet: [fleetEntry("agent/a")],
+      }),
+    ),
+    false,
+  );
+
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "ready-to-review" },
+      contextOf({
+        fleet: [fleetEntry("agent/a", { receipt_honored: true })],
+      }),
+    ),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "ready-to-review" },
+      contextOf({
+        fleet: [fleetEntry("agent/a")],
+      }),
+    ),
+    false,
+  );
+
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "contained-worktree" },
+      contextOf({
+        fleet: [fleetEntry("agent/a", { contained_in: "agent/b" })],
+      }),
+    ),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "contained-worktree" },
       contextOf({
         fleet: [fleetEntry("agent/a")],
       }),

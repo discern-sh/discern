@@ -8,7 +8,13 @@
  * it as the desk will teach it.
  */
 
-import { type RegisteredTip, renderTipCli, TIPS } from "./tips.ts";
+import {
+  type RegisteredTip,
+  renderTipCli,
+  TIP_COVERAGE_DELIBERATELY_ABSENT,
+  TIP_RENDERED_LENGTH_LIMIT,
+  TIPS,
+} from "./tips.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =
@@ -53,6 +59,24 @@ function renderEntry(tip: RegisteredTip): string {
   ].join("\n");
 }
 
+/** Render the feature-and-verb members deliberately left out of the tips. */
+function renderAbsenceLedger(): string {
+  const rows = Object.entries(TIP_COVERAGE_DELIBERATELY_ABSENT)
+    .toSorted(([left], [right]) => left.localeCompare(right))
+    .map(([member, reason]) =>
+      `| \`${member}\` | ${reason.replaceAll("|", "\\|")} |`
+    );
+  return [
+    "## Coverage absences",
+    "",
+    "The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the gate.",
+    "",
+    "| Member | Why it has no tip |",
+    "| ------ | ----------------- |",
+    ...rows,
+  ].join("\n");
+}
+
 /** Render the complete tip inventory, in curriculum (authored) order. */
 export function renderTipInventoryDoc(): string {
   return [
@@ -62,9 +86,15 @@ export function renderTipInventoryDoc(): string {
     "",
     "_Every desk tip, generated from the live registry._",
     "",
-    "Entries follow the authored order — the curriculum the desk walks unseen tips through. Relevance states when an entry is contextually timely; a predicate makes it so, a since tag surfaces it after the upgrade that brought it, and each rendered line reads as the desk shows it.",
+    "Entries follow the authored order. The order is a two-week onboarding path. It starts with the desk, orientation, and a separate working copy. It then teaches human supervision, practice health, final-check and quality-rule habits, and the power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.",
+    "",
+    `Every rendered line is one or two short sentences and no more than ${TIP_RENDERED_LENGTH_LIMIT} characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.`,
+    "",
+    "There is no reading-grade ceiling: on samples this short, command names and placeholders move the score sharply, while an aggregate can hide one dense line. The per-tip jargon, sentence, and length checks hold the intended failure directly.",
     "",
     TIPS.map(renderEntry).join("\n\n"),
+    "",
+    renderAbsenceLedger(),
     "",
   ].join("\n");
 }

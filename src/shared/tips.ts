@@ -23,19 +23,42 @@
 
 import {
   discernCommand,
+  flag,
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
-import { KIT_VERSION } from "../lib/version.ts";
 
 /** Shared references for the commands tips cite. Each is one token rendered
  * per surface at delivery; a template interpolates it instead of spelling the
  * command as prose. */
 const CMD = {
+  status: discernCommand("status"),
+  startNamed: discernCommand("start", flag("name", '"<task>"')),
+  worktreeDrop: discernCommand(
+    "worktree drop",
+    positional("target", "<worktree>"),
+  ),
+  worktreePruneContained: discernCommand(
+    "worktree prune",
+    flag("contained"),
+  ),
   patterns: discernCommand("patterns"),
+  patternsStats: discernCommand("patterns", flag("stats")),
+  improvement: discernCommand("improvement"),
+  doctor: discernCommand("doctor"),
+  done: discernCommand("done"),
+  standards: discernCommand("standards"),
+  standardsPin: discernCommand("standards", flag("pin")),
   update: discernCommand("update"),
-  await: discernCommand("await"),
+  impact: discernCommand("impact"),
+  awaitGreen: discernCommand("await", flag("green", "<branch>")),
   couplingFile: discernCommand("coupling", positional("file", "<file>")),
+  mapSearch: discernCommand("map", flag("search", "<query>")),
+  docsSearch: discernCommand("docs", flag("search", "<query>")),
+  skillsList: discernCommand("skills list"),
+  identityPort: discernCommand("identity", flag("port")),
+  upgradeCheck: discernCommand("upgrade", flag("check")),
+  scripts: discernCommand("scripts"),
 } as const;
 
 /**
@@ -47,10 +70,16 @@ const CMD = {
 export type TipPredicate =
   /** No quality standards are configured. */
   | Readonly<{ kind: "standards-empty" }>
+  /** At least one quality standard is configured. */
+  | Readonly<{ kind: "standards-present" }>
   /** Two or more efforts are in flight and none carries landing authority. */
   | Readonly<{ kind: "no-landing-authority" }>
   /** Some effort's branch is behind the trunk. */
   | Readonly<{ kind: "branch-behind-trunk" }>
+  /** Some effort holds a clean, current proof ready for human review. */
+  | Readonly<{ kind: "ready-to-review" }>
+  /** Some effort's work is already contained in another live branch. */
+  | Readonly<{ kind: "contained-worktree" }>
   /** At least `min` efforts are in flight. */
   | Readonly<{ kind: "fleet-min-size"; min: number }>;
 
@@ -96,6 +125,13 @@ export interface TipDef<P = undefined> {
   /** Renders the tip from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
 }
+
+/**
+ * Maximum CLI-rendered tip length. At the desk's ordinary 60–80-column
+ * widths, 160 characters wraps to two or three lines; anything longer is two
+ * lessons or belongs in the map.
+ */
+export const TIP_RENDERED_LENGTH_LIMIT = 160;
 
 /**
  * One registered tip with its parameter type erased — the registry's storage
@@ -147,11 +183,150 @@ export function renderTipCli(tip: RegisteredTip): string {
  * only route to an action.
  */
 export const TIPS: readonly RegisteredTip[] = [
-  /** The curriculum opener: the practice mirror is the desk reader's own
-   * next surface, and adoption is observable as a later `patterns` run. */
+  // ── Basics: find the desk, read the state, start isolated work. ──────────
+
+  defineTip({
+    id: "desk-is-home",
+    when: "Evergreen — the curriculum opener.",
+    features: ["desk", "tips"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["desk"],
+    },
+    example: undefined,
+    template: (): string =>
+      "Bare `discern` opens the desk, where you start tasks and supervise " +
+      "their separate working copies. This line teaches one capability per " +
+      "session.",
+  }),
+
+  defineTip({
+    id: "status-orients-anywhere",
+    when: "Evergreen — the second basics lesson.",
+    features: ["status", "fleet"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["status"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.status} is a quick, read-only check of where you are, what ` +
+      "changed, which checks would run, and every task in flight from the " +
+      "main copy.",
+  }),
+
+  defineTip({
+    id: "start-isolates-a-task",
+    when: "Evergreen — the final basics lesson.",
+    features: ["worktrees", "start"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["start"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.startNamed} gives one change its own working copy and line of ` +
+      "saved work, keeping it away from other tasks and the main copy.",
+  }),
+
+  // ── Supervision: inspect, authorize, clean up, and update. ───────────────
+
+  defineTip({
+    id: "inspect-before-accepting",
+    when: "A task has a passing proof ready for review.",
+    predicate: { kind: "ready-to-review" },
+    features: ["accept", "receipt"],
+    example: undefined,
+    template: (): string =>
+      'Before accepting a task, choose "Inspect commits and changes" in the ' +
+      "desk. It shows saved work, unsaved edits, the change size, and any " +
+      "passing proof.",
+  }),
+
+  defineTip({
+    id: "grant-once-green",
+    when: "Two or more tasks are in flight and none is pre-authorized.",
+    predicate: { kind: "no-landing-authority" },
+    features: ["consent-attestations"],
+    example: undefined,
+    template: (): string =>
+      'For a task you trust, "Pre-authorize landing once green" lets it land ' +
+      "after every check passes. The permission belongs only to that task.",
+  }),
+
+  defineTip({
+    id: "drop-protects-work",
+    when: "At least one task is in flight.",
+    predicate: { kind: "fleet-min-size", min: 1 },
+    features: ["worktrees"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["worktree"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.worktreeDrop} refuses to discard unsaved or unshared work ` +
+      "without force. The desk asks you to type the branch name before that " +
+      "loss.",
+  }),
+
+  defineTip({
+    id: "reclaim-keeps-recovery",
+    when: "A working copy's saved work is contained in another live task.",
+    predicate: { kind: "contained-worktree" },
+    features: ["worktree-prune", "compose-below-trunk"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["worktree"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.worktreePruneContained} removes a working copy whose saved ` +
+      "work already lives inside another task. Its branch stays for recovery.",
+  }),
+
+  defineTip({
+    id: "update-before-review",
+    when: "A task is behind the main shared version.",
+    predicate: { kind: "branch-behind-trunk" },
+    features: ["update"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["update"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.update} brings the main shared version into a task and names ` +
+      "files both sides changed, so you know what to recheck before review.",
+  }),
+
+  // ── Practice health: read the record, then choose the next improvement. ──
+
   defineTip({
     id: "patterns-practice-report",
-    when: "Always applicable — the curriculum opener.",
+    when: "Evergreen — the practice-health opener.",
+    features: ["insight", "logbook", "patterns", "local-evidence"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["patterns"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.patterns} reads the project's local activity record for ` +
+      "repeated habits, slow checks, and tasks that stall. It suggests one " +
+      "next step.",
+  }),
+
+  defineTip({
+    id: "patterns-practice-stats",
+    when: "Evergreen — the second practice-health lesson.",
     features: ["patterns"],
     followThrough: {
       family: "tip-adoption",
@@ -160,19 +335,74 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.patterns} reads discern's local activity records and reports ` +
-      `how the practice is going: which checks fail most often, how tasks ` +
-      `move from start to landing, and how each quality number is trending. ` +
-      `The report is read-only.`,
+      `${CMD.patternsStats} counts finished changes, passing streaks, time ` +
+      "from start to landing, and quality gains from the same local record.",
   }),
 
-  /** Contextual: the moment a project has no standards is the moment the
-   * mechanism is worth one line. */
   defineTip({
-    id: "standards-first-limit",
+    id: "improvement-next-action",
+    when: "Evergreen — the third practice-health lesson.",
+    features: ["improvement"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["improvement"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.improvement} ranks one next improvement across checks, setup, ` +
+      "guides, task copies, quality rules, and reusable playbooks.",
+  }),
+
+  defineTip({
+    id: "doctor-first-diagnostic",
+    when: "Evergreen — the final practice-health lesson.",
+    features: ["doctor"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["doctor"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.doctor} checks whether the install is wired correctly and ` +
+      "names the fix for each problem. Start there when a discern command " +
+      "behaves oddly.",
+  }),
+
+  // ── Quality: prove the work, then learn the rules that hold gains. ───────
+
+  defineTip({
+    id: "done-records-proof",
+    when: "Evergreen — the quality opener.",
+    features: ["gate", "receipt"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["done"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.done} runs the project's final quality check. On clean saved ` +
+      "work, a pass records the exact version and results for review.",
+  }),
+
+  defineTip({
+    id: "standards-first-rule",
     when: "No quality standards are configured.",
     predicate: { kind: "standards-empty" },
-    features: ["standards", "skill-set-the-standard"],
+    features: ["standards", "standards-direction", "skill-set-the-standard"],
+    example: undefined,
+    template: (): string =>
+      "A quality rule holds one number at a floor or ceiling that can only " +
+      "improve. The `discern-set-the-standard` guide helps a coding agent " +
+      "add one.",
+  }),
+
+  defineTip({
+    id: "standards-on-demand",
+    when: "Evergreen — the third quality lesson.",
+    features: ["standards-on-demand"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -180,51 +410,354 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `This project has no quality limits yet. A standard holds one number, ` +
-      `like test coverage or bundle size, at a limit that can only improve. ` +
-      `The bundled \`discern-set-the-standard\` skill walks an agent through ` +
-      `choosing and setting the first one.`,
+      'Rules marked `measure = "on-demand"` skip routine measurement; ' +
+      `${CMD.standards} measures them when you ask.`,
   }),
 
-  /** Contextual: a fleet with nothing pre-authorized is the grant action's
-   * teaching moment. */
   defineTip({
-    id: "desk-grant-once-green",
-    when: "Two or more efforts are in flight and none is pre-authorized.",
-    predicate: { kind: "no-landing-authority" },
-    features: ["desk"],
+    id: "standards-pin-gain",
+    when: "At least one quality standard is configured.",
+    predicate: { kind: "standards-present" },
+    features: ["standards-pin", "standards-margin"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["standards"],
+    },
     example: undefined,
     template: (): string =>
-      `The desk can let one task land on its own once every check passes: ` +
-      `choose the task, then "Pre-authorize landing once green". Without a ` +
-      `pre-authorization, a landing waits for your go-ahead.`,
+      `${CMD.standardsPin} saves a measured gain by tightening the limit. ` +
+      "A `margin` leaves room for small future changes.",
   }),
 
-  /** Contextual: a branch behind the trunk is the composition-verbs moment. */
-  defineTip({
-    id: "update-await-compose",
-    when: "Some effort's branch is behind the trunk.",
-    predicate: { kind: "branch-behind-trunk" },
-    features: ["update", "await"],
-    example: undefined,
-    template: (): string =>
-      `Each task works on its own copy of the project. ${CMD.update} brings ` +
-      `the shared trunk's latest into a task, and ${CMD.await} lets an agent ` +
-      `wait for another task's work instead of checking by hand.`,
-  }),
+  // ── Power tools: explore wider surfaces after the core loop is familiar. ─
 
-  /** Tagged to the release that introduced history-mined coupling — the
-   * current version, referenced through the single version source so no
-   * literal duplicates it. Coupling shipped with the first public release;
-   * when a later release ships, this pins to that literal arrival version. */
   defineTip({
-    id: "coupling-cochange-history",
-    when: "Evergreen; tagged to the release that introduced coupling.",
-    since: KIT_VERSION,
+    id: "coupling-missing-partners",
+    when: "Evergreen — a power-tool lesson.",
     features: ["coupling"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["coupling"],
+    },
     example: undefined,
     template: (): string =>
-      `Run ${CMD.couplingFile} to see which files usually change together ` +
-      `with that one, learned from this project's own recent history.`,
+      `${CMD.couplingFile} spots files that usually change with the named ` +
+      "file but are missing from the current work. It reads only this " +
+      "project's history.",
+  }),
+
+  defineTip({
+    id: "impact-extra-checks",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["impact", "scope-gates"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["impact"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.impact} shows which named project areas and extra checks the ` +
+      "current change wakes.",
+  }),
+
+  defineTip({
+    id: "await-other-work",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["await", "compose-below-trunk"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["await"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.awaitGreen} waits for another task's passing proof and returns ` +
+      "the right next step, so a coding agent does not need to keep checking.",
+  }),
+
+  defineTip({
+    id: "map-and-docs-search",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["map", "map-browser", "discovery-funnel", "bundled-docs"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["map", "docs"],
+    },
+    example: undefined,
+    template: (): string =>
+      `Use ${CMD.mapSearch} to search this project's guide. Use ` +
+      `${CMD.docsSearch} for discern's own manual.`,
+  }),
+
+  defineTip({
+    id: "skills-effective-set",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["skills", "skills-curation"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["skills"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.skillsList} shows the reusable guides available to coding ` +
+      "agents, including project replacements and hidden guides.",
+  }),
+
+  defineTip({
+    id: "identity-stable-values",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["worktree-identity"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["identity"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.identityPort} prints a task's stable preview-server network ` +
+      "number. Other choices expose its branch and service names.",
+  }),
+
+  defineTip({
+    id: "upgrade-check-only",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["upgrade"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["upgrade"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.upgradeCheck} reports whether this project has pending settings ` +
+      "updates. It changes nothing.",
+  }),
+
+  defineTip({
+    id: "scripts-from-desk",
+    when: "Evergreen — the curriculum closer.",
+    features: ["project-scripts"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["scripts"],
+    },
+    example: undefined,
+    template: (): string =>
+      'When a task has a project-owned tool, the desk offers "Run a Project ' +
+      `Script". ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];
+
+/**
+ * Canon and verb members that deliberately receive no desk tip.
+ *
+ * Keys share one namespace with the enrolment guard: `feature:<node-id>` for
+ * every feature-canon node and `verb:<verb>` for the live CLI vocabulary.
+ * The reason is part of the contract. A member may stay dark only when a
+ * maintainer has recorded where it is taught instead or why it is not a
+ * beginner-facing capability.
+ */
+export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
+  Record<string, string>
+> = {
+  "feature:jobs-table":
+    "Project-specific job setup belongs in the gate guide; the tip teaches the final check those jobs serve.",
+  "feature:job-format":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-build":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-lint":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-typecheck":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-test":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:job-smoke":
+    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+  "feature:staged-pipeline":
+    "This is gate execution plumbing; the `done` tip teaches its human-visible outcome.",
+  "feature:fail-fast":
+    "This is gate execution plumbing; a failure explains the behavior at the point it matters.",
+  "feature:job-timeouts":
+    "This is gate safety plumbing; timeout diagnostics teach it at the point it matters.",
+  "feature:capture-environment":
+    "This preserves diagnostic context internally and offers no separate human action.",
+  "feature:gate-streaming":
+    "This is output plumbing for long checks, not a separate capability to adopt.",
+  "feature:strand-detection":
+    "This is gate safety plumbing; its diagnostic teaches the recovery when it fires.",
+  "feature:tidy":
+    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
+  "feature:gate-preconditions":
+    "These are safety checks; their diagnostics teach the required remedy when they fail.",
+  "feature:write-preflight":
+    "This is an internal safety check with no separate beginner action.",
+  "feature:fail-open-classification":
+    "This is internal scope-classification safety with no separate human action.",
+  "feature:prepare":
+    "This fast iteration loop is primarily for coding agents; humans are taught the final `done` check.",
+  "feature:test-verb":
+    "This test-only iteration loop is primarily for coding agents; humans are taught the final `done` check.",
+  "feature:diagnostics":
+    "Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.",
+  "feature:gotchas-pointer":
+    "The pointer appears in the failure that needs it, so a rotating tip would be less timely.",
+  "feature:unchanged-tree-rerun":
+    "This is receipt-reuse plumbing; the proof tip covers the human-visible result.",
+  "feature:standards-metric-protocol":
+    "Metric authoring is an advanced path taught by the standard-setting guide.",
+  "feature:standards-rates":
+    "Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.",
+  "feature:standards-replay":
+    "Replay is measurement plumbing with no separate beginner action.",
+  "feature:standards-escalation":
+    "A fired rule explains owner escalation at the point a decision is required.",
+  "feature:worktree-resources":
+    "Supporting-service separation is setup and agent plumbing, not a beginner action.",
+  "feature:crash-safe-provisioning":
+    "This is worktree safety plumbing; recovery guidance appears when provisioning fails.",
+  "feature:env-inheritance":
+    "Private-setting inheritance is setup plumbing with no routine human action.",
+  "feature:ignored-drift":
+    "Ignored-file drift is an advanced diagnostic taught when a worktree check finds it.",
+  "feature:guidance":
+    "Agent guidance is maintained by coding agents and project owners, not adopted from a desk tip.",
+  "feature:guidance-compile":
+    "Compilation is agent-file plumbing behind `refresh`, not a separate human capability.",
+  "feature:guidance-conditionals":
+    "Provider conditions are an advanced guidance-authoring feature documented in the map.",
+  "feature:providers":
+    "Provider support is an integration surface for coding agents, not a desk capability.",
+  "feature:provider-claude-code":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-codex":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-gemini":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-cursor":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:provider-copilot":
+    "This is an agent-provider integration, not a human desk capability.",
+  "feature:session-hooks":
+    "Session hooks are agent-integration plumbing and are documented with setup.",
+  "feature:agent-autodetect":
+    "Automatic provider choice is agent-integration plumbing with no human action.",
+  "feature:skills-materialization":
+    "Guide copying is implementation plumbing; `skills list` teaches the visible set.",
+  "feature:skill-cure-a-bug":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-clear-the-decks":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-delegate-work":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-document-subsystem":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-teach-the-project":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-write-adr":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:skill-write-it-once":
+    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
+  "feature:docs-integrity":
+    "This is map validation plumbing; a failure names the page and repair.",
+  "feature:map-freshness":
+    "This is a maintainer rule enforced by the gate, not a beginner desk action.",
+  "feature:publish-predicate":
+    "Map publication boundaries are maintainer-facing and documented with the map.",
+  "feature:adr-discipline":
+    "Decision-record authoring is a maintainer practice taught by its specialist guide.",
+  "feature:cli-help":
+    "Built-in command help is already present beside every command and needs no rotating lesson.",
+  "feature:glossary-canon":
+    "Canonical vocabulary is documentation infrastructure, not a capability to adopt.",
+  "feature:hints":
+    "Advice notes surface at their relevant action; a generic rotating tip would be less timely.",
+  "feature:install":
+    "Installation is complete before the desk can show tips and is taught by the installer.",
+  "feature:setup":
+    "Setup is complete before the desk can show tips and is taught by the installer.",
+  "feature:setup-observability":
+    "This is installer reporting plumbing, visible during setup rather than later on the desk.",
+  "feature:relay-messages":
+    "Relay messages coordinate coding agents and do not expose a human action.",
+  "feature:ownership-buckets":
+    "Upgrade ownership is migration plumbing, explained only when an upgrade needs it.",
+  "feature:placement-consent":
+    "Script placement consent belongs to initial setup and appears when the choice is required.",
+  "feature:uninstall":
+    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
+  "feature:presets":
+    "Preset management is an advanced setup path documented in command help.",
+  "feature:config-command":
+    "Low-level settings inspection is an advanced support path documented in command help.",
+  "feature:licenses":
+    "License output is a legal reference surface, not an onboarding capability.",
+  "feature:interfaces":
+    "Machine interfaces serve integrations and coding agents, not the human desk.",
+  "feature:result-envelope":
+    "The result shape is an integration contract, not a human action.",
+  "feature:plan-apply":
+    "Plan-then-apply is effectful-command plumbing; dry-run help teaches it where available.",
+  "feature:idempotent-verbs":
+    "Safe replay is an engine guarantee, not a separate action to adopt.",
+  "feature:mcp-surface":
+    "MCP is an agent-only protocol surface and stays out of human tips.",
+  "feature:published-contracts":
+    "Published schemas serve integrations and are documented in the reference.",
+  "feature:forgiving-cli":
+    "Input normalization is command-line plumbing with no separate capability.",
+  "feature:output-discipline":
+    "Output discipline is an engine contract, not a beginner action.",
+  "feature:foundations":
+    "The product principles explain why discern works this way; they are not individual actions.",
+  "feature:agent-is-user":
+    "This is a design principle about coding agents, not a human capability.",
+  "feature:context-budget":
+    "This is a design principle about agent attention, not a human capability.",
+  "feature:single-binary":
+    "Packaging is an implementation property, not a capability to adopt.",
+  "feature:one-file-footprint":
+    "The settings footprint is a design property explained in setup and the map.",
+  "feature:stack-neutral":
+    "Stack neutrality is a product property, not a separate action.",
+  "feature:no-model-inside":
+    "This is an architecture boundary for integrations, not a desk capability.",
+  "feature:all-subsystems-core":
+    "This is a product-shape decision, not a separate beginner action.",
+  "feature:forcing-functions":
+    "This is an engineering principle enforced by guards, not a desk action.",
+  "feature:canonical-sets":
+    "This is maintainer infrastructure for closed sets, not a user capability.",
+  "feature:dogfooding":
+    "Running discern on itself is evidence about the product, not an action for a user.",
+  "feature:interruption-safety":
+    "Interruption cleanup is an engine guarantee; it teaches itself only if a stop occurs.",
+  "verb:config":
+    "Low-level settings inspection is an advanced support path documented in command help.",
+  "verb:help":
+    "Help is already present beside every command and needs no rotating lesson.",
+  "verb:licenses":
+    "License output is a legal reference surface, not an onboarding capability.",
+  "verb:mcp":
+    "MCP hosts an agent-only protocol surface and stays out of human tips.",
+  "verb:prepare":
+    "The fast iteration loop is primarily for coding agents; humans are taught `done`.",
+  "verb:preset":
+    "Preset management is an advanced setup path documented in command help.",
+  "verb:refresh":
+    "Agent-file refresh is maintenance for coding-agent guidance, not a routine desk action.",
+  "verb:setup":
+    "Setup is complete before the desk can show tips and is taught by the installer.",
+  "verb:test":
+    "The test-only iteration loop is primarily for coding agents; humans are taught `done`.",
+  "verb:tidy":
+    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
+  "verb:uninstall":
+    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
+};

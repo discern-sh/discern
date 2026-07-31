@@ -1097,7 +1097,7 @@ Deno.test("desk shows one tip at the header foot, stable across redraws, marked 
   assertEquals(await runDesk({}, runtime), 0);
   // The scripted survey configures no standards, so the contextual
   // standards tip outranks the curriculum opener.
-  const block = renderedTipBlock("standards-first-limit", 80);
+  const block = renderedTipBlock("standards-first-rule", 80);
   assertEquals(
     countOccurrences(output.stdout.join(""), block),
     2,
@@ -1105,11 +1105,11 @@ Deno.test("desk shows one tip at the header foot, stable across redraws, marked 
   );
   assertEquals(
     recorded,
-    ["standards-first-limit"],
+    ["standards-first-rule"],
     "the shown id is reported once per session, not once per redraw",
   );
   assertEquals(writes.length, 1, "the seen-state is written once per session");
-  assertEquals(writes[0]?.tips["standards-first-limit"], {
+  assertEquals(writes[0]?.tips["standards-first-rule"], {
     count: 1,
     last_shown: new Date(NOW).toISOString(),
   });
@@ -1144,7 +1144,7 @@ Deno.test("desk wraps the tip with a hanging indent at 60 columns and never trun
         index === 0 ? line.slice(TIP_PREFIX.length) : line.trimStart()
       )
       .join(" "),
-    renderTipCli(registeredTip("standards-first-limit")),
+    renderTipCli(registeredTip("standards-first-rule")),
     "wrapping reflows the whole text — nothing is truncated",
   );
 });
@@ -1172,9 +1172,9 @@ Deno.test("desk rotates the tip across sessions through the seen-state", async (
   // Contextual first (no standards configured), then the curriculum in
   // authored order; entries whose predicates do not hold never surface.
   assertEquals(shown, [
-    "standards-first-limit",
-    "patterns-practice-report",
-    "coupling-cochange-history",
+    "standards-first-rule",
+    "desk-is-home",
+    "status-orients-anywhere",
   ]);
 });
 
