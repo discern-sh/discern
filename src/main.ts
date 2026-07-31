@@ -1102,7 +1102,12 @@ export async function main(args: string[]): Promise<void> {
         const json = argv.includes("--json");
         if (inDeskSession() || (!json && canPrompt(false))) {
           const { runDesk } = await import("./engine/desk/desk.ts");
-          Deno.exit(await runDesk({ json }));
+          // The bare invocation IS the desk, so it records through the same
+          // interceptor as `discern desk`: the session's begin/verb pair and
+          // its delivered tip ids land in the logbook from either spelling.
+          Deno.exit(
+            await recordedRun("desk", "cli", () => runDesk({ json })),
+          );
         }
       }
       console.log(operatorHelp(cli as unknown as Command, { color }));

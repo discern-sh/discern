@@ -42,6 +42,7 @@ import {
 import { KIT_VERSION } from "../src/lib/version.ts";
 import { fire, firedHintsFromTexts, HINTS } from "../src/shared/hints.ts";
 import { observeSupplementalHints } from "../src/shared/result_capture.ts";
+import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { verbNeedsSetup } from "../src/shared/setup_state.ts";
 
 /** All well-formed events across the project's logbook, in file line order. */
@@ -349,6 +350,74 @@ Deno.test("logbook: map-fetch payloads lift by shape under an unrelated verb", a
       !JSON.stringify(event).includes("message-body-must-never-land"),
       "the lift keeps the target string and drops the page body",
     );
+  });
+});
+
+Deno.test("logbook: a shown desk tip's id lands on the verb event verbatim", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const shown = beginRecording(dir, {
+      verb: "desk",
+      surface: "cli",
+      driver: Promise.resolve({}),
+    });
+    await shown.finish({
+      verb: "desk",
+      surface: "cli",
+      outcome: "ok",
+      durationMs: 1,
+      tipIds: ["patterns-practice-report"],
+    });
+    const tipless = beginRecording(dir, {
+      verb: "desk",
+      surface: "cli",
+      driver: Promise.resolve({}),
+    });
+    await tipless.finish({
+      verb: "desk",
+      surface: "cli",
+      outcome: "ok",
+      durationMs: 1,
+    });
+
+    const events = verbEvents(await readEvents(dir));
+    assertEquals(events.length, 2);
+    assertEquals(
+      events[0]?.tip_ids,
+      ["patterns-practice-report"],
+      "the registry id is the adoption reader's correlation key",
+    );
+    assertEquals(
+      events[1]?.tip_ids,
+      undefined,
+      "a session that showed no tip carries no tip_ids field",
+    );
+  });
+});
+
+Deno.test("logbook: bare discern's desk dispatch records like the named verb", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    // The desk-session marker forces the bare invocation onto the desk path
+    // under piped stdio; the nested-desk refusal is the observable outcome.
+    const r = await runAgent(dir, [], {
+      env: { [DESK_SESSION_ENV]: "1" },
+    });
+    assertEquals(r.code, 1, r.output);
+
+    const events = await readEvents(dir);
+    const begins = events.filter(
+      (event) => event.kind === "begin" && event.verb === "desk",
+    );
+    const completions = verbEvents(events).filter(
+      (event) => event.verb === "desk",
+    );
+    assertEquals(begins.length, 1, "the bare desk appends its begin event");
+    assertEquals(completions.length, 1);
+    assertEquals(completions[0]?.surface, "cli");
+    assertEquals(completions[0]?.outcome, "failed");
   });
 });
 

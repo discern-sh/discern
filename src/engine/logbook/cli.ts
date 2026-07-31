@@ -23,6 +23,7 @@
 
 import {
   takeObservedResult,
+  takeShownTipIds,
   takeSupplementalHintIds,
   takeVerbTarget,
 } from "../../shared/result_capture.ts";
@@ -135,9 +136,10 @@ export async function recordedRun(
   surface: LogbookSurface,
   body: () => number | undefined | Promise<number | undefined>,
 ): Promise<number> {
-  // A CLI process normally serves one verb, but the accumulator is process
+  // A CLI process normally serves one verb, but the accumulators are process
   // local: clear any stale test/embedded-call state before this invocation.
   takeSupplementalHintIds();
+  takeShownTipIds();
   // The recorder reaches the git/config machinery; load it only when a verb
   // actually runs, keeping this wrapper's static graph routing-thin (a bare
   // `--help` builds the whole CLI tree through recordedExit without it).
@@ -163,6 +165,7 @@ export async function recordedRun(
   } finally {
     const observed = takeObservedResult();
     const supplementalHintIds = takeSupplementalHintIds();
+    const tipIds = takeShownTipIds();
     const target = takeVerbTarget();
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `scripts` namespace is excluded from
@@ -185,6 +188,7 @@ export async function recordedRun(
           ...supplementalHintIds,
         ]),
       ],
+      ...(tipIds.length > 0 ? { tipIds } : {}),
       ...(dryRun ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),

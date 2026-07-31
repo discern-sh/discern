@@ -98,6 +98,8 @@ export interface FinishReport {
   result?: DiscernResult | undefined;
   /** Stable ids of the hints delivered with the invocation. */
   hintIds?: string[] | undefined;
+  /** Stable ids of the desk tips shown during the invocation. */
+  tipIds?: string[] | undefined;
   /** True when the invocation was a preview (`--dry-run`). */
   dryRun?: boolean | undefined;
   /** Surface-specific driver signals (session, mode, identity hints). */
@@ -583,6 +585,9 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(steps !== undefined ? { steps } : {}),
           ...(diagnostics !== undefined ? { diagnostics } : {}),
           hint_ids: report.hintIds ?? [],
+          ...(report.tipIds !== undefined && report.tipIds.length > 0
+            ? { tip_ids: report.tipIds }
+            : {}),
           ...(lifted.standards !== undefined
             ? { standards: lifted.standards }
             : {}),

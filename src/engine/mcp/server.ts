@@ -39,6 +39,7 @@ import { serializeResult } from "../../shared/result_serialization.ts";
 import {
   observeResult,
   takeObservedResult,
+  takeShownTipIds,
   takeSupplementalHintIds,
 } from "../../shared/result_capture.ts";
 import { beginRecording, type Recording } from "../logbook/record.ts";
@@ -1446,9 +1447,11 @@ async function completeToolCall(
   observeResult(result);
   const observed = takeObservedResult();
   // Supplemental ids describe CLI-only output such as a session-start
-  // `ctx.log` line. A long-lived MCP server drains stale state defensively and
-  // never attributes that output to a tool call.
+  // `ctx.log` line, and tips are shown only by the interactive desk. A
+  // long-lived MCP server drains stale state defensively and never attributes
+  // that output to a tool call.
   takeSupplementalHintIds();
+  takeShownTipIds();
 
   const recording = pending.recording;
   if (recording !== undefined) {
@@ -1615,6 +1618,7 @@ export async function runTool(
   // Drain state left by CLI-only output in this long-lived process before this
   // call starts. The final boundary drains again after observing this result.
   takeSupplementalHintIds();
+  takeShownTipIds();
   // If the binary on disk changed since this server started, every result needs
   // the restart hint — including dispatch refusals.
   const stale = versionMismatchHint(

@@ -68,6 +68,26 @@ export function takeSupplementalHintIds(): string[] {
   return ids;
 }
 
+const shownTipIds = new Set<string>();
+
+/**
+ * Record a desk tip's delivery. Tips are envelope-less by design — the desk
+ * is the one surface that shows them — so their ids follow the supplemental
+ * accumulator pattern above: the CLI interceptor drains this at invocation
+ * completion into the verb event's `tip_ids`, and no result envelope is
+ * synthesized to carry them. Call it only when the tip was actually rendered.
+ */
+export function observeShownTip(id: string): void {
+  shownTipIds.add(id);
+}
+
+/** Take and clear every shown-tip id, preserving insertion order. */
+export function takeShownTipIds(): string[] {
+  const ids = [...shownTipIds];
+  shownTipIds.clear();
+  return ids;
+}
+
 let observedTarget: string | undefined;
 
 /**

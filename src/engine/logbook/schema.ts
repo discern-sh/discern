@@ -307,6 +307,11 @@ export const verbEventSchema = z.looseObject({
    * events written before hint identity was added; new writers record `[]` when
    * no hint fired, preserving that distinction for readers. */
   hint_ids: z.array(z.string()).optional(),
+  /** Stable ids of the desk tips shown during this invocation — the tip
+   * registry's ids verbatim, the correlation key the adoption reader joins
+   * on. Present only when a tip was shown; the desk shows at most one per
+   * session, and only desk invocations deliver tips. */
+  tip_ids: z.array(z.string()).optional(),
   /** Per-standard readings lifted from the envelope ({@link StandardReading}). */
   standards: z.array(standardReadingSchema).optional(),
   /** What an `update` brought in ({@link UpdateShape}). */
