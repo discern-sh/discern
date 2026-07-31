@@ -55,12 +55,12 @@ One row per set, in registry order; the sections below follow the same order and
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
-| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 3       | —                | node `published-contracts`  |
+| [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 63      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 229     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 230     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -71,7 +71,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 58      | —                | node `canonical-sets`       |
 
-58 sets · 86 guard tests · 23 committed artifacts.
+58 sets · 86 guard tests · 24 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -185,6 +185,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `project/map/_internal/tip-inventory.md`         | generated file   | [`tips`](#tips--tips)                                                                                     |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `schema/discern-receipt-note.schema.json`        | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
 | `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
@@ -639,9 +640,9 @@ The true and false states every registered CLI predicate must preserve in bare a
 The versioned public schema URLs and the root generated artifacts served at them.
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
-- Members: 3
+- Members: 4
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
-- Artifacts: `project/map/70-reference/mcp-and-results.md`
+- Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-receipt-note.schema.json`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
@@ -692,7 +693,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 229
+- Members: 230
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node

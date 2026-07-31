@@ -5905,43 +5905,7 @@
                   ]
                 },
                 "receipt": {
-                  "type": "object",
-                  "properties": {
-                    "branch": {
-                      "type": "string"
-                    },
-                    "trunk": {
-                      "type": "string"
-                    },
-                    "head": {
-                      "type": "string"
-                    },
-                    "files_total": {
-                      "type": "number"
-                    },
-                    "insertions": {
-                      "type": "number"
-                    },
-                    "deletions": {
-                      "type": "number"
-                    },
-                    "line": {
-                      "type": "string"
-                    },
-                    "markdown": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "branch",
-                    "trunk",
-                    "head",
-                    "files_total",
-                    "insertions",
-                    "deletions",
-                    "line",
-                    "markdown"
-                  ]
+                  "$ref": "#/$defs/DiscernReceipt"
                 },
                 "gate_receipt": {
                   "type": "object",
@@ -10984,43 +10948,7 @@
                       "type": "string"
                     },
                     "receipt_data": {
-                      "type": "object",
-                      "properties": {
-                        "branch": {
-                          "type": "string"
-                        },
-                        "trunk": {
-                          "type": "string"
-                        },
-                        "head": {
-                          "type": "string"
-                        },
-                        "files_total": {
-                          "type": "number"
-                        },
-                        "insertions": {
-                          "type": "number"
-                        },
-                        "deletions": {
-                          "type": "number"
-                        },
-                        "line": {
-                          "type": "string"
-                        },
-                        "markdown": {
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "branch",
-                        "trunk",
-                        "head",
-                        "files_total",
-                        "insertions",
-                        "deletions",
-                        "line",
-                        "markdown"
-                      ]
+                      "$ref": "#/$defs/DiscernReceipt"
                     }
                   },
                   "required": [
@@ -11037,49 +10965,50 @@
                       "type": "string"
                     },
                     "receipt": {
+                      "$ref": "#/$defs/DiscernReceipt"
+                    },
+                    "issuer": {
                       "type": "object",
                       "properties": {
-                        "branch": {
+                        "name": {
                           "type": "string"
                         },
-                        "trunk": {
+                        "email": {
                           "type": "string"
                         },
-                        "head": {
-                          "type": "string"
-                        },
-                        "files_total": {
-                          "type": "number"
-                        },
-                        "insertions": {
-                          "type": "number"
-                        },
-                        "deletions": {
-                          "type": "number"
-                        },
-                        "line": {
-                          "type": "string"
-                        },
-                        "markdown": {
+                        "key": {
                           "type": "string"
                         }
                       },
-                      "required": [
-                        "branch",
-                        "trunk",
-                        "head",
-                        "files_total",
-                        "insertions",
-                        "deletions",
-                        "line",
-                        "markdown"
-                      ]
+                      "description": "Who issued this receipt. Unverified until the signature proves it; absence means unsigned. Nothing writes it at v1.0.0."
+                    },
+                    "brief": {
+                      "type": "string"
                     }
                   },
                   "required": [
                     "commit",
                     "ref",
                     "receipt"
+                  ]
+                },
+                "landed_receipt_unsupported": {
+                  "type": "object",
+                  "properties": {
+                    "commit": {
+                      "type": "string"
+                    },
+                    "ref": {
+                      "type": "string"
+                    },
+                    "format": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "commit",
+                    "ref",
+                    "format"
                   ]
                 },
                 "landing_authority": {
@@ -12200,43 +12129,7 @@
                           "type": "string"
                         },
                         "receipt_data": {
-                          "type": "object",
-                          "properties": {
-                            "branch": {
-                              "type": "string"
-                            },
-                            "trunk": {
-                              "type": "string"
-                            },
-                            "head": {
-                              "type": "string"
-                            },
-                            "files_total": {
-                              "type": "number"
-                            },
-                            "insertions": {
-                              "type": "number"
-                            },
-                            "deletions": {
-                              "type": "number"
-                            },
-                            "line": {
-                              "type": "string"
-                            },
-                            "markdown": {
-                              "type": "string"
-                            }
-                          },
-                          "required": [
-                            "branch",
-                            "trunk",
-                            "head",
-                            "files_total",
-                            "insertions",
-                            "deletions",
-                            "line",
-                            "markdown"
-                          ]
+                          "$ref": "#/$defs/DiscernReceipt"
                         }
                       },
                       "required": [
@@ -15613,6 +15506,47 @@
         "ok",
         "verb"
       ]
+    },
+    "DiscernReceipt": {
+      "title": "DiscernReceipt",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "trunk": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "files_total": {
+          "type": "number"
+        },
+        "insertions": {
+          "type": "number"
+        },
+        "deletions": {
+          "type": "number"
+        },
+        "line": {
+          "type": "string"
+        },
+        "markdown": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "trunk",
+        "head",
+        "files_total",
+        "insertions",
+        "deletions",
+        "line",
+        "markdown"
+      ],
+      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

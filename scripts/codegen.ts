@@ -31,6 +31,7 @@ import {
 } from "./feature_registry.ts";
 import { buildCli } from "../src/main.ts";
 import {
+  renderReceiptNoteJsonSchema,
   renderResultJsonSchema,
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
@@ -196,6 +197,10 @@ console.log(
   "Regenerating result artifacts from src/shared/result_contracts.ts:",
 );
 await write("schema/discern-results.schema.json", renderResultJsonSchema());
+await write(
+  "schema/discern-receipt-note.schema.json",
+  renderReceiptNoteJsonSchema(),
+);
 await write("types/discern-json.d.ts", renderResultTypesDts());
 console.log(
   "Regenerating the public schema reference from PUBLIC_SCHEMA_PUBLICATIONS:",

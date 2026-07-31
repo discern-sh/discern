@@ -17,9 +17,11 @@ import {
 } from "./result_contracts.ts";
 import {
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  RECEIPT_NOTE_SCHEMA_ID,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "./public_schemas.ts";
+import { ReceiptNoteSchema } from "./result_schemas.ts";
 import { ERROR_SLUGS } from "./result.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
@@ -43,9 +45,31 @@ function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function generatedSchema(schema: z.ZodType): JsonObject {
+/**
+ * Convert one Zod schema to its JSON-schema body. Sub-schemas registered with
+ * a metadata `id` (the named definitions, e.g. the receipt) convert to
+ * root-relative `$refs` with their definition beside the body — `hoisted`
+ * collects those definitions so the caller can place them in the document's
+ * root `$defs`, where the generated references point. Identical repeats
+ * coalesce; two different definitions under one name refuse loudly.
+ */
+function generatedSchema(schema: z.ZodType, hoisted: JsonObject): JsonObject {
   const raw = z.toJSONSchema(schema, { io: "output" }) as JsonObject;
-  const { $schema: _schema, ...body } = raw;
+  const { $schema: _schema, $defs, ...body } = raw;
+  if (isObject($defs)) {
+    for (const [name, def] of Object.entries($defs)) {
+      const existing = hoisted[name];
+      if (
+        existing !== undefined &&
+        JSON.stringify(existing) !== JSON.stringify(def)
+      ) {
+        throw new Error(
+          `two schemas hoist different definitions named ${name}`,
+        );
+      }
+      hoisted[name] = def;
+    }
+  }
   return body;
 }
 
@@ -157,15 +181,30 @@ function mcpUnionSchema(): JsonObject {
   };
 }
 
+/** Fold hoisted named definitions into a document's root `$defs`, titled like
+ * every other definition. A name already taken by a contract refuses loudly. */
+function placeHoistedDefs(defs: JsonObject, hoisted: JsonObject): void {
+  for (const [name, def] of Object.entries(hoisted)) {
+    if (defs[name] !== undefined) {
+      throw new Error(
+        `hoisted definition ${name} collides with an existing definition`,
+      );
+    }
+    defs[name] = { title: name, ...(isObject(def) ? def : {}) };
+  }
+}
+
 export function buildResultJsonSchema(): JsonObject {
   const defs: JsonObject = {};
+  const hoisted: JsonObject = {};
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     const name = typeName(contract);
     defs[name] = {
       title: name,
-      ...generatedSchema(contract.schema),
+      ...generatedSchema(contract.schema, hoisted),
     };
   }
+  placeHoistedDefs(defs, hoisted);
   for (const contract of MCP_RESULT_CONTRACTS) {
     defs[mcpTypeName(contract)] = {
       title: mcpTypeName(contract),
@@ -205,6 +244,44 @@ export function buildResultJsonSchema(): JsonObject {
 
 export function renderResultJsonSchema(): string {
   return `${JSON.stringify(buildResultJsonSchema(), null, 2)}\n`;
+}
+
+/**
+ * The durable receipt note's published contract: the exact record acceptance
+ * attaches to a landed commit, self-described by the `format` identity it
+ * carries in-band. Published additively, like every result artifact: the
+ * runtime writer stays strict while this schema permits unknown object fields,
+ * matching the tolerant durable reader.
+ */
+export function buildReceiptNoteJsonSchema(): JsonObject {
+  const hoisted: JsonObject = {};
+  const body = generatedSchema(ReceiptNoteSchema, hoisted);
+  const defs: JsonObject = {};
+  placeHoistedDefs(defs, hoisted);
+  return publicSchema({
+    $schema: "https://json-schema.org/draft/2020-12/schema",
+    $id: RECEIPT_NOTE_SCHEMA_ID,
+    [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
+      RESULT_SCHEMA_COMPATIBILITY_POLICY,
+    title: "DiscernReceiptNote",
+    description:
+      "The durable receipt record discern attaches to a landed commit as a " +
+      "Git note under refs/notes/discern (the note body is this object as " +
+      "one line of JSON plus a newline). The format field carries this " +
+      "schema's $id in-band: treat an unrecognized value as unsupported " +
+      "rather than ignoring it, tolerate unknown additive fields within " +
+      "this major, and require subject.commit to equal the commit the note " +
+      "annotates. issuer and signature are reserved for signing — absence " +
+      "means unsigned; brief is reserved for a reference to a signed intent " +
+      "record. A bare receipt object with no format field is a legacy " +
+      "unsigned note.",
+    ...body,
+    ...(Object.keys(defs).length > 0 ? { $defs: defs } : {}),
+  }) as JsonObject;
+}
+
+export function renderReceiptNoteJsonSchema(): string {
+  return `${JSON.stringify(buildReceiptNoteJsonSchema(), null, 2)}\n`;
 }
 
 function literal(value: JsonValue): string {
@@ -413,6 +490,19 @@ export function renderResultTypesDts(): string {
     ),
     "",
   ];
+  // The named definitions the contracts reference (hoisted from metadata ids)
+  // render first, so every later `$ref` resolves to an exported type.
+  const contractNames = new Set([
+    ...CLI_JSON_RESULT_CONTRACTS.map(typeName),
+    ...MCP_RESULT_CONTRACTS.map(mcpTypeName),
+    "DiscernCliJsonResult",
+    "DiscernMcpJsonResult",
+  ]);
+  for (const [name, def] of Object.entries(defs)) {
+    if (!contractNames.has(name) && isObject(def)) {
+      out.push(`export type ${name} = ${schemaToType(def)};`, "");
+    }
+  }
   for (const contract of CLI_JSON_RESULT_CONTRACTS) {
     const name = typeName(contract);
     const def = defs[name];

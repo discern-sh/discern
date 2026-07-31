@@ -21,7 +21,10 @@ import {
   buildConfigDocJsonSchema,
   buildConfigJsonSchema,
 } from "../src/shared/config_codegen.ts";
-import { buildResultJsonSchema } from "../src/shared/result_codegen.ts";
+import {
+  buildReceiptNoteJsonSchema,
+  buildResultJsonSchema,
+} from "../src/shared/result_codegen.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
 
 export type JsonValue =
@@ -68,6 +71,7 @@ const CURRENT_SCHEMA_BUILDERS: Record<
   "schema/discern-config.schema.json": buildConfigJsonSchema,
   "schema/discern-setup-config.schema.json": buildConfigDocJsonSchema,
   "schema/discern-results.schema.json": buildResultJsonSchema,
+  "schema/discern-receipt-note.schema.json": buildReceiptNoteJsonSchema,
 };
 
 const ANNOTATION_KEYS = new Set([

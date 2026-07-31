@@ -65,6 +65,17 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "write_access";
 
+export type DiscernReceipt = {
+  branch: string;
+  trunk: string;
+  head: string;
+  files_total: number;
+  insertions: number;
+  deletions: number;
+  line: string;
+  markdown: string;
+};
+
 export type DiscernDiscernResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -1833,16 +1844,7 @@ export type DiscernDoneResult = {
       }>;
       warnings?: Array<string>;
     };
-    receipt?: {
-      branch: string;
-      trunk: string;
-      head: string;
-      files_total: number;
-      insertions: number;
-      deletions: number;
-      line: string;
-      markdown: string;
-    };
+    receipt?: DiscernReceipt;
     gate_receipt?: {
       status:
         | "recorded"
@@ -3339,30 +3341,23 @@ export type DiscernStatusResult = {
       reason?: string;
       receipt?: string;
       receipt_line?: string;
-      receipt_data?: {
-        branch: string;
-        trunk: string;
-        head: string;
-        files_total: number;
-        insertions: number;
-        deletions: number;
-        line: string;
-        markdown: string;
-      };
+      receipt_data?: DiscernReceipt;
     };
     landed_receipt?: {
       commit: string;
       ref: string;
-      receipt: {
-        branch: string;
-        trunk: string;
-        head: string;
-        files_total: number;
-        insertions: number;
-        deletions: number;
-        line: string;
-        markdown: string;
+      receipt: DiscernReceipt;
+      issuer?: {
+        name?: string;
+        email?: string;
+        key?: string;
       };
+      brief?: string;
+    };
+    landed_receipt_unsupported?: {
+      commit: string;
+      ref: string;
+      format: string;
     };
     landing_authority?: {
       kind: "authorized" | "conversation-required";
@@ -3667,16 +3662,7 @@ export type DiscernAcceptResult = {
         reason?: string;
         receipt?: string;
         receipt_line?: string;
-        receipt_data?: {
-          branch: string;
-          trunk: string;
-          head: string;
-          files_total: number;
-          insertions: number;
-          deletions: number;
-          line: string;
-          markdown: string;
-        };
+        receipt_data?: DiscernReceipt;
       };
     };
     receipt?: string;

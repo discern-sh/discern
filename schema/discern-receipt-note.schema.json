@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://discern.sh/schema/v1/discern-receipt-note.schema.json",
+  "x-discern-compatibility-policy": "result-output",
+  "title": "DiscernReceiptNote",
+  "description": "The durable receipt record discern attaches to a landed commit as a Git note under refs/notes/discern (the note body is this object as one line of JSON plus a newline). The format field carries this schema's $id in-band: treat an unrecognized value as unsupported rather than ignoring it, tolerate unknown additive fields within this major, and require subject.commit to equal the commit the note annotates. issuer and signature are reserved for signing — absence means unsigned; brief is reserved for a reference to a signed intent record. A bare receipt object with no format field is a legacy unsigned note.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "https://discern.sh/schema/v1/discern-receipt-note.schema.json",
+      "description": "The published schema identity of this record, carried in-band. An unrecognized value must be reported as unsupported, not ignored."
+    },
+    "subject": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "type": "string",
+          "description": "The full object id of the validated, landed commit."
+        }
+      },
+      "required": [
+        "commit"
+      ]
+    },
+    "receipt": {
+      "$ref": "#/$defs/DiscernReceipt"
+    },
+    "issuer": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        }
+      },
+      "description": "Who issued this receipt. Unverified until the signature proves it; absence means unsigned. Nothing writes it at v1.0.0."
+    },
+    "signature": {
+      "type": "object",
+      "properties": {
+        "scheme": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "scheme",
+        "value"
+      ],
+      "description": "Reserved: a signature endorsing this record. Absence means unsigned. Nothing writes it at v1.0.0."
+    },
+    "brief": {
+      "type": "string",
+      "description": "Reserved: a reference to a signed intent artifact. Nothing writes it at v1.0.0."
+    }
+  },
+  "required": [
+    "format",
+    "subject",
+    "receipt"
+  ],
+  "$defs": {
+    "DiscernReceipt": {
+      "title": "DiscernReceipt",
+      "type": "object",
+      "properties": {
+        "branch": {
+          "type": "string"
+        },
+        "trunk": {
+          "type": "string"
+        },
+        "head": {
+          "type": "string"
+        },
+        "files_total": {
+          "type": "number"
+        },
+        "insertions": {
+          "type": "number"
+        },
+        "deletions": {
+          "type": "number"
+        },
+        "line": {
+          "type": "string"
+        },
+        "markdown": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "branch",
+        "trunk",
+        "head",
+        "files_total",
+        "insertions",
+        "deletions",
+        "line",
+        "markdown"
+      ],
+      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+    }
+  }
+}

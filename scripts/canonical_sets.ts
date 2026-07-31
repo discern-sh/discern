@@ -1287,6 +1287,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         path: "project/map/70-reference/mcp-and-results.md",
         kind: "maintained-block",
       },
+      {
+        path: "schema/discern-receipt-note.schema.json",
+        kind: "generated-file",
+        banner: false,
+      },
     ],
     enrolledIn: {
       glossary: {
