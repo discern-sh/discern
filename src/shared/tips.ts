@@ -50,8 +50,15 @@ const CMD = {
   standards: discernCommand("standards"),
   standardsPin: discernCommand("standards", flag("pin")),
   update: discernCommand("update"),
+  impact: discernCommand("impact"),
   awaitGreen: discernCommand("await", flag("green", "<branch>")),
   couplingFile: discernCommand("coupling", positional("file", "<file>")),
+  mapSearch: discernCommand("map", flag("search", "<query>")),
+  docsSearch: discernCommand("docs", flag("search", "<query>")),
+  skillsList: discernCommand("skills list"),
+  identityPort: discernCommand("identity", flag("port")),
+  upgradeCheck: discernCommand("upgrade", flag("check")),
+  scripts: discernCommand("scripts"),
 } as const;
 
 /**
@@ -416,25 +423,126 @@ export const TIPS: readonly RegisteredTip[] = [
       "A `margin` leaves room for small future changes.",
   }),
 
-  // Seed lessons retained until their curriculum tranche expands below.
+  // ── Power tools: explore wider surfaces after the core loop is familiar. ─
 
   defineTip({
-    id: "coupling-cochange-history",
+    id: "coupling-missing-partners",
     when: "Evergreen — a power-tool lesson.",
     features: ["coupling"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["coupling"],
+    },
     example: undefined,
     template: (): string =>
-      `Run ${CMD.couplingFile} to see which files usually change together ` +
-      `with that one, learned from this project's own recent history.`,
+      `${CMD.couplingFile} spots files that usually change with the named ` +
+      "file but are missing from the current work. It reads only this " +
+      "project's history.",
+  }),
+
+  defineTip({
+    id: "impact-extra-checks",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["impact", "scope-gates"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["impact"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.impact} shows which named project areas and extra checks the ` +
+      "current change wakes.",
   }),
 
   defineTip({
     id: "await-other-work",
     when: "Evergreen — a power-tool lesson.",
-    features: ["await"],
+    features: ["await", "compose-below-trunk"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["await"],
+    },
     example: undefined,
     template: (): string =>
       `${CMD.awaitGreen} waits for another task's passing proof and returns ` +
       "the right next step, so a coding agent does not need to keep checking.",
+  }),
+
+  defineTip({
+    id: "map-and-docs-search",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["map", "map-browser", "discovery-funnel", "bundled-docs"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["map", "docs"],
+    },
+    example: undefined,
+    template: (): string =>
+      `Use ${CMD.mapSearch} to search this project's guide. Use ` +
+      `${CMD.docsSearch} for discern's own manual.`,
+  }),
+
+  defineTip({
+    id: "skills-effective-set",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["skills", "skills-curation"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["skills"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.skillsList} shows the reusable guides available to coding ` +
+      "agents, including project replacements and hidden guides.",
+  }),
+
+  defineTip({
+    id: "identity-stable-values",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["worktree-identity"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["identity"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.identityPort} prints a task's stable preview-server network ` +
+      "number. Other choices expose its branch and service names.",
+  }),
+
+  defineTip({
+    id: "upgrade-check-only",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["upgrade"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["upgrade"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.upgradeCheck} reports whether this project has pending config ` +
+      "updates. It changes nothing.",
+  }),
+
+  defineTip({
+    id: "scripts-from-desk",
+    when: "Evergreen — the curriculum closer.",
+    features: ["project-scripts"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["scripts"],
+    },
+    example: undefined,
+    template: (): string =>
+      'When a task has a project-owned tool, the desk offers "Run a Project ' +
+      `Script". ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];

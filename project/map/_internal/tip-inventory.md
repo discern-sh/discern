@@ -230,18 +230,32 @@ Rendered line:
 `discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
 ```
 
-## `coupling-cochange-history`
+## `coupling-missing-partners`
 
 - Relevance: Evergreen — a power-tool lesson.
 - Predicate: —
 - Since: —
 - Teaches: `coupling`
-- Follow-through: —
+- Follow-through: `verb-run-after-tip` (`coupling`)
 
 Rendered line:
 
 ```text
-Run `discern coupling <file>` to see which files usually change together with that one, learned from this project's own recent history.
+`discern coupling <file>` spots files that usually change with the named file but are missing from the current work. It reads only this project's history.
+```
+
+## `impact-extra-checks`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `impact`, `scope-gates`
+- Follow-through: `verb-run-after-tip` (`impact`)
+
+Rendered line:
+
+```text
+`discern impact` shows which named project areas and extra checks the current change wakes.
 ```
 
 ## `await-other-work`
@@ -249,11 +263,81 @@ Run `discern coupling <file>` to see which files usually change together with th
 - Relevance: Evergreen — a power-tool lesson.
 - Predicate: —
 - Since: —
-- Teaches: `await`
-- Follow-through: —
+- Teaches: `await`, `compose-below-trunk`
+- Follow-through: `verb-run-after-tip` (`await`)
 
 Rendered line:
 
 ```text
 `discern await --green <branch>` waits for another task's passing proof and returns the right next step, so a coding agent does not need to keep checking.
+```
+
+## `map-and-docs-search`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `map`, `map-browser`, `discovery-funnel`, `bundled-docs`
+- Follow-through: `verb-run-after-tip` (`map`, `docs`)
+
+Rendered line:
+
+```text
+Use `discern map --search <query>` to search this project's guide. Use `discern docs --search <query>` for discern's own manual.
+```
+
+## `skills-effective-set`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skills`, `skills-curation`
+- Follow-through: `verb-run-after-tip` (`skills`)
+
+Rendered line:
+
+```text
+`discern skills list` shows the reusable guides available to coding agents, including project replacements and hidden guides.
+```
+
+## `identity-stable-values`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `worktree-identity`
+- Follow-through: `verb-run-after-tip` (`identity`)
+
+Rendered line:
+
+```text
+`discern identity --port` prints a task's stable preview-server network number. Other choices expose its branch and service names.
+```
+
+## `upgrade-check-only`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `upgrade`
+- Follow-through: `verb-run-after-tip` (`upgrade`)
+
+Rendered line:
+
+```text
+`discern upgrade --check` reports whether this project has pending config updates. It changes nothing.
+```
+
+## `scripts-from-desk`
+
+- Relevance: Evergreen — the curriculum closer.
+- Predicate: —
+- Since: —
+- Teaches: `project-scripts`
+- Follow-through: `verb-run-after-tip` (`scripts`)
+
+Rendered line:
+
+```text
+When a task has a project-owned tool, the desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
 ```
