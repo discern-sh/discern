@@ -23,18 +23,29 @@
 
 import {
   discernCommand,
+  flag,
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
-import { KIT_VERSION } from "../lib/version.ts";
 
 /** Shared references for the commands tips cite. Each is one token rendered
  * per surface at delivery; a template interpolates it instead of spelling the
  * command as prose. */
 const CMD = {
+  status: discernCommand("status"),
+  startNamed: discernCommand("start", flag("name", '"<task>"')),
+  worktreeDrop: discernCommand(
+    "worktree drop",
+    positional("target", "<worktree>"),
+  ),
+  worktreePruneContained: discernCommand(
+    "worktree prune",
+    flag("contained"),
+  ),
   patterns: discernCommand("patterns"),
+  standards: discernCommand("standards"),
   update: discernCommand("update"),
-  await: discernCommand("await"),
+  awaitGreen: discernCommand("await", flag("green", "<branch>")),
   couplingFile: discernCommand("coupling", positional("file", "<file>")),
 } as const;
 
@@ -51,6 +62,10 @@ export type TipPredicate =
   | Readonly<{ kind: "no-landing-authority" }>
   /** Some effort's branch is behind the trunk. */
   | Readonly<{ kind: "branch-behind-trunk" }>
+  /** Some effort holds a clean, current proof ready for human review. */
+  | Readonly<{ kind: "ready-to-review" }>
+  /** Some effort's work is already contained in another live branch. */
+  | Readonly<{ kind: "contained-worktree" }>
   /** At least `min` efforts are in flight. */
   | Readonly<{ kind: "fleet-min-size"; min: number }>;
 
@@ -147,11 +162,134 @@ export function renderTipCli(tip: RegisteredTip): string {
  * only route to an action.
  */
 export const TIPS: readonly RegisteredTip[] = [
-  /** The curriculum opener: the practice mirror is the desk reader's own
-   * next surface, and adoption is observable as a later `patterns` run. */
+  // ── Basics: find the desk, read the state, start isolated work. ──────────
+
+  defineTip({
+    id: "desk-is-home",
+    when: "Evergreen — the curriculum opener.",
+    features: ["desk", "tips"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["desk"],
+    },
+    example: undefined,
+    template: (): string =>
+      "Bare `discern` opens the desk, where you start tasks and supervise " +
+      "their separate working copies. This line teaches one capability per " +
+      "session.",
+  }),
+
+  defineTip({
+    id: "status-orients-anywhere",
+    when: "Evergreen — the second basics lesson.",
+    features: ["status", "fleet"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["status"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.status} is a quick, read-only check of where you are, what ` +
+      "changed, which checks would run, and every task in flight from the " +
+      "main copy.",
+  }),
+
+  defineTip({
+    id: "start-isolates-a-task",
+    when: "Evergreen — the final basics lesson.",
+    features: ["worktrees", "start"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["start"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.startNamed} gives one change its own working copy and line of ` +
+      "saved work, keeping it away from other tasks and the main copy.",
+  }),
+
+  // ── Supervision: inspect, authorize, clean up, and update. ───────────────
+
+  defineTip({
+    id: "inspect-before-accepting",
+    when: "A task has a passing proof ready for review.",
+    predicate: { kind: "ready-to-review" },
+    features: ["accept", "receipt"],
+    example: undefined,
+    template: (): string =>
+      'Before accepting a task, choose "Inspect commits and changes" in the ' +
+      "desk. It shows saved work, unsaved edits, the change size, and any " +
+      "passing proof.",
+  }),
+
+  defineTip({
+    id: "grant-once-green",
+    when: "Two or more tasks are in flight and none is pre-authorized.",
+    predicate: { kind: "no-landing-authority" },
+    features: ["consent-attestations"],
+    example: undefined,
+    template: (): string =>
+      'For a task you trust, "Pre-authorize landing once green" lets it land ' +
+      "after every check passes. The permission belongs only to that task.",
+  }),
+
+  defineTip({
+    id: "drop-protects-work",
+    when: "At least one task is in flight.",
+    predicate: { kind: "fleet-min-size", min: 1 },
+    features: ["worktrees"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["worktree"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.worktreeDrop} refuses to discard unsaved or unshared work ` +
+      "without force. The desk asks you to type the branch name before that " +
+      "loss.",
+  }),
+
+  defineTip({
+    id: "reclaim-keeps-recovery",
+    when: "A working copy's saved work is contained in another live task.",
+    predicate: { kind: "contained-worktree" },
+    features: ["worktree-prune", "compose-below-trunk"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["worktree"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.worktreePruneContained} removes a working copy whose saved ` +
+      "work already lives inside another task. Its branch stays for recovery.",
+  }),
+
+  defineTip({
+    id: "update-before-review",
+    when: "A task is behind the main shared version.",
+    predicate: { kind: "branch-behind-trunk" },
+    features: ["update"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["update"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.update} brings the main shared version into a task and names ` +
+      "files both sides changed, so you know what to recheck before review.",
+  }),
+
+  // Seed lessons retained until their curriculum tranches expand below.
+
   defineTip({
     id: "patterns-practice-report",
-    when: "Always applicable — the curriculum opener.",
+    when: "Evergreen — the practice-health opener.",
     features: ["patterns"],
     followThrough: {
       family: "tip-adoption",
@@ -166,8 +304,6 @@ export const TIPS: readonly RegisteredTip[] = [
       `The report is read-only.`,
   }),
 
-  /** Contextual: the moment a project has no standards is the moment the
-   * mechanism is worth one line. */
   defineTip({
     id: "standards-first-limit",
     when: "No quality standards are configured.",
@@ -180,51 +316,28 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `This project has no quality limits yet. A standard holds one number, ` +
-      `like test coverage or bundle size, at a limit that can only improve. ` +
-      `The bundled \`discern-set-the-standard\` skill walks an agent through ` +
-      `choosing and setting the first one.`,
+      `A standard holds one number, like test coverage or bundle size, at a ` +
+      `limit that can only improve. The bundled \`discern-set-the-standard\` ` +
+      `skill walks a coding agent through choosing and setting the first one.`,
   }),
 
-  /** Contextual: a fleet with nothing pre-authorized is the grant action's
-   * teaching moment. */
-  defineTip({
-    id: "desk-grant-once-green",
-    when: "Two or more efforts are in flight and none is pre-authorized.",
-    predicate: { kind: "no-landing-authority" },
-    features: ["desk"],
-    example: undefined,
-    template: (): string =>
-      `The desk can let one task land on its own once every check passes: ` +
-      `choose the task, then "Pre-authorize landing once green". Without a ` +
-      `pre-authorization, a landing waits for your go-ahead.`,
-  }),
-
-  /** Contextual: a branch behind the trunk is the composition-verbs moment. */
-  defineTip({
-    id: "update-await-compose",
-    when: "Some effort's branch is behind the trunk.",
-    predicate: { kind: "branch-behind-trunk" },
-    features: ["update", "await"],
-    example: undefined,
-    template: (): string =>
-      `Each task works on its own copy of the project. ${CMD.update} brings ` +
-      `the shared trunk's latest into a task, and ${CMD.await} lets an agent ` +
-      `wait for another task's work instead of checking by hand.`,
-  }),
-
-  /** Tagged to the release that introduced history-mined coupling — the
-   * current version, referenced through the single version source so no
-   * literal duplicates it. Coupling shipped with the first public release;
-   * when a later release ships, this pins to that literal arrival version. */
   defineTip({
     id: "coupling-cochange-history",
-    when: "Evergreen; tagged to the release that introduced coupling.",
-    since: KIT_VERSION,
+    when: "Evergreen — a power-tool lesson.",
     features: ["coupling"],
     example: undefined,
     template: (): string =>
       `Run ${CMD.couplingFile} to see which files usually change together ` +
       `with that one, learned from this project's own recent history.`,
+  }),
+
+  defineTip({
+    id: "await-other-work",
+    when: "Evergreen — a power-tool lesson.",
+    features: ["await"],
+    example: undefined,
+    template: (): string =>
+      `${CMD.awaitGreen} waits for another task's passing proof and returns ` +
+      "the right next step, so a coding agent does not need to keep checking.",
   }),
 ];

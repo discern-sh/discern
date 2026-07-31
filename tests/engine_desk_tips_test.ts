@@ -189,6 +189,44 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
 
   assertEquals(
     tipPredicateHolds(
+      { kind: "ready-to-review" },
+      contextOf({
+        fleet: [fleetEntry("agent/a", { receipt_honored: true })],
+      }),
+    ),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "ready-to-review" },
+      contextOf({
+        fleet: [fleetEntry("agent/a")],
+      }),
+    ),
+    false,
+  );
+
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "contained-worktree" },
+      contextOf({
+        fleet: [fleetEntry("agent/a", { contained_in: "agent/b" })],
+      }),
+    ),
+    true,
+  );
+  assertEquals(
+    tipPredicateHolds(
+      { kind: "contained-worktree" },
+      contextOf({
+        fleet: [fleetEntry("agent/a")],
+      }),
+    ),
+    false,
+  );
+
+  assertEquals(
+    tipPredicateHolds(
       { kind: "fleet-min-size", min: 2 },
       contextOf({
         fleet: [fleetEntry("agent/a"), fleetEntry("agent/b")],

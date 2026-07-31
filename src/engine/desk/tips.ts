@@ -53,6 +53,10 @@ export function tipPredicateHolds(
         );
     case "branch-behind-trunk":
       return efforts(ctx).some((entry) => (entry.behind ?? 0) > 0);
+    case "ready-to-review":
+      return efforts(ctx).some((entry) => entry.receipt_honored === true);
+    case "contained-worktree":
+      return efforts(ctx).some((entry) => entry.contained_in !== undefined);
     case "fleet-min-size":
       return efforts(ctx).length >= predicate.min;
   }

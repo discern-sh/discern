@@ -6,9 +6,121 @@ _Every desk tip, generated from the live registry._
 
 Entries follow the authored order — the curriculum the desk walks unseen tips through. Relevance states when an entry is contextually timely; a predicate makes it so, a since tag surfaces it after the upgrade that brought it, and each rendered line reads as the desk shows it.
 
+## `desk-is-home`
+
+- Relevance: Evergreen — the curriculum opener.
+- Predicate: —
+- Since: —
+- Teaches: `desk`, `tips`
+- Follow-through: `verb-run-after-tip` (`desk`)
+
+Rendered line:
+
+```text
+Bare `discern` opens the desk, where you start tasks and supervise their separate working copies. This line teaches one capability per session.
+```
+
+## `status-orients-anywhere`
+
+- Relevance: Evergreen — the second basics lesson.
+- Predicate: —
+- Since: —
+- Teaches: `status`, `fleet`
+- Follow-through: `verb-run-after-tip` (`status`)
+
+Rendered line:
+
+```text
+`discern status` is a quick, read-only check of where you are, what changed, which checks would run, and every task in flight from the main copy.
+```
+
+## `start-isolates-a-task`
+
+- Relevance: Evergreen — the final basics lesson.
+- Predicate: —
+- Since: —
+- Teaches: `worktrees`, `start`
+- Follow-through: `verb-run-after-tip` (`start`)
+
+Rendered line:
+
+```text
+`discern start --name "<task>"` gives one change its own working copy and line of saved work, keeping it away from other tasks and the main copy.
+```
+
+## `inspect-before-accepting`
+
+- Relevance: A task has a passing proof ready for review.
+- Predicate: `ready-to-review`
+- Since: —
+- Teaches: `accept`, `receipt`
+- Follow-through: —
+
+Rendered line:
+
+```text
+Before accepting a task, choose "Inspect commits and changes" in the desk. It shows saved work, unsaved edits, the change size, and any passing proof.
+```
+
+## `grant-once-green`
+
+- Relevance: Two or more tasks are in flight and none is pre-authorized.
+- Predicate: `no-landing-authority`
+- Since: —
+- Teaches: `consent-attestations`
+- Follow-through: —
+
+Rendered line:
+
+```text
+For a task you trust, "Pre-authorize landing once green" lets it land after every check passes. The permission belongs only to that task.
+```
+
+## `drop-protects-work`
+
+- Relevance: At least one task is in flight.
+- Predicate: `fleet-min-size`
+- Since: —
+- Teaches: `worktrees`
+- Follow-through: `verb-run-after-tip` (`worktree`)
+
+Rendered line:
+
+```text
+`discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The desk asks you to type the branch name before that loss.
+```
+
+## `reclaim-keeps-recovery`
+
+- Relevance: A working copy's saved work is contained in another live task.
+- Predicate: `contained-worktree`
+- Since: —
+- Teaches: `worktree-prune`, `compose-below-trunk`
+- Follow-through: `verb-run-after-tip` (`worktree`)
+
+Rendered line:
+
+```text
+`discern worktree prune --contained` removes a working copy whose saved work already lives inside another task. Its branch stays for recovery.
+```
+
+## `update-before-review`
+
+- Relevance: A task is behind the main shared version.
+- Predicate: `branch-behind-trunk`
+- Since: —
+- Teaches: `update`
+- Follow-through: `verb-run-after-tip` (`update`)
+
+Rendered line:
+
+```text
+`discern update` brings the main shared version into a task and names files both sides changed, so you know what to recheck before review.
+```
+
 ## `patterns-practice-report`
 
-- Relevance: Always applicable — the curriculum opener.
+- Relevance: Evergreen — the practice-health opener.
 - Predicate: —
 - Since: —
 - Teaches: `patterns`
@@ -31,42 +143,14 @@ Rendered line:
 Rendered line:
 
 ```text
-This project has no quality limits yet. A standard holds one number, like test coverage or bundle size, at a limit that can only improve. The bundled `discern-set-the-standard` skill walks an agent through choosing and setting the first one.
-```
-
-## `desk-grant-once-green`
-
-- Relevance: Two or more efforts are in flight and none is pre-authorized.
-- Predicate: `no-landing-authority`
-- Since: —
-- Teaches: `desk`
-- Follow-through: —
-
-Rendered line:
-
-```text
-The desk can let one task land on its own once every check passes: choose the task, then "Pre-authorize landing once green". Without a pre-authorization, a landing waits for your go-ahead.
-```
-
-## `update-await-compose`
-
-- Relevance: Some effort's branch is behind the trunk.
-- Predicate: `branch-behind-trunk`
-- Since: —
-- Teaches: `update`, `await`
-- Follow-through: —
-
-Rendered line:
-
-```text
-Each task works on its own copy of the project. `discern update` brings the shared trunk's latest into a task, and `discern await` lets an agent wait for another task's work instead of checking by hand.
+A standard holds one number, like test coverage or bundle size, at a limit that can only improve. The bundled `discern-set-the-standard` skill walks a coding agent through choosing and setting the first one.
 ```
 
 ## `coupling-cochange-history`
 
-- Relevance: Evergreen; tagged to the release that introduced coupling.
+- Relevance: Evergreen — a power-tool lesson.
 - Predicate: —
-- Since: `1.0.0`
+- Since: —
 - Teaches: `coupling`
 - Follow-through: —
 
@@ -74,4 +158,18 @@ Rendered line:
 
 ```text
 Run `discern coupling <file>` to see which files usually change together with that one, learned from this project's own recent history.
+```
+
+## `await-other-work`
+
+- Relevance: Evergreen — a power-tool lesson.
+- Predicate: —
+- Since: —
+- Teaches: `await`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern await --green <branch>` waits for another task's passing proof and returns the right next step, so a coding agent does not need to keep checking.
 ```
