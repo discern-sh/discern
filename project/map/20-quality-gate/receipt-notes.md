@@ -33,15 +33,7 @@ git notes --ref=discern show <commit>
 
 ## The durable format
 
-The note body is one line of JSON plus a newline, published at <https://discern.sh/schema/v1/discern-receipt-note.schema.json>:
-
-- `format` — that schema URL, carried in the bytes. The note may be read by a different discern release than the one that wrote it, so the record names its own contract.
-- `subject.commit` — the full id of the landed commit. A reader accepts the note only when it equals the commit the note annotates; the receipt's short display commit stays for people.
-- `receipt` — the same structured receipt `data.receipt` carries: branch, trunk, short commit, diffstat, line, and page.
-- `issuer` and `signature` — reserved for signing. Absence means unsigned, which is every note discern writes today.
-- `brief` — reserved for a reference to a signed record of intent. Nothing writes it yet.
-
-Readers stay compatible in both directions. Unknown added fields pass, so an older discern reads every newer note in this major. A note whose `format` names a major this discern does not know reports as `data.landed_receipt_unsupported` in `discern status` — the evidence exists; upgrade to read it. A bare receipt object from an older discern still reads, as an unsigned legacy record.
+The note body is a self-describing record: it names its own published format and the full landed commit id, carries the receipt, and reserves signing room. Unknown added fields pass, a newer format reports as unsupported rather than vanishing, and bare notes from older releases still read. [Receipt note format](../70-reference/receipt-note-format.md) is the field-by-field contract.
 
 ## Authorship and failure
 
