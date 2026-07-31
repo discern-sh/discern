@@ -325,7 +325,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern upgrade --check` reports whether this project has pending config updates. It changes nothing.
+`discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
 ```
 
 ## `scripts-from-desk`

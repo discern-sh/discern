@@ -127,6 +127,13 @@ export interface TipDef<P = undefined> {
 }
 
 /**
+ * Maximum CLI-rendered tip length. At the desk's ordinary 60–80-column
+ * widths, 160 characters wraps to two or three lines; anything longer is two
+ * lessons or belongs in the map.
+ */
+export const TIP_RENDERED_LENGTH_LIMIT = 160;
+
+/**
  * One registered tip with its parameter type erased — the registry's storage
  * shape. {@link defineTip} is the only constructor, so `example` always
  * matches the template's parameter type and {@link renderTipCli} can render
@@ -527,7 +534,7 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.upgradeCheck} reports whether this project has pending config ` +
+      `${CMD.upgradeCheck} reports whether this project has pending settings ` +
       "updates. It changes nothing.",
   }),
 
