@@ -88,6 +88,36 @@ export function takeShownTipIds(): string[] {
   return ids;
 }
 
+/** The logbook-safe reduction of a crash: the error's class name and one code
+ * location. No message — messages can carry paths and values, and the logbook
+ * records only metadata safe to read aloud. A type alias (not an interface) so
+ * it assigns into the logbook's loose event schemas. */
+export type CrashSignature = {
+  /** The error's constructor name ("TypeError"), or "throw" for a non-Error. */
+  name: string;
+  /** The topmost stack location, trimmed to a source-relative form
+   * ("src/engine/dispatch.ts:12:3"), when a stack was available. */
+  frame?: string | undefined;
+};
+
+let observedCrash: CrashSignature | undefined;
+
+/** Report the invocation's crash signature — set by the surface chokepoint
+ * that catches an unexpected throw (latest call wins), drained once at verb
+ * completion into the logbook event. The same one-slot mailbox pattern as the
+ * envelope above, because a throw bypasses every envelope path. */
+export function observeCrash(signature: CrashSignature): void {
+  observedCrash = signature;
+}
+
+/** Take (and clear) the observed crash signature, or undefined when the
+ * invocation completed without an unexpected throw. */
+export function takeObservedCrash(): CrashSignature | undefined {
+  const signature = observedCrash;
+  observedCrash = undefined;
+  return signature;
+}
+
 let observedTarget: string | undefined;
 
 /**

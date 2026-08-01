@@ -41,6 +41,7 @@
  */
 
 import { z } from "@zod/zod";
+import type { CrashSignature } from "../../shared/result_capture.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
@@ -108,6 +109,8 @@ export interface FinishReport {
   flags?: string[] | undefined;
   /** The requested object, when the surface knows it; a resolved payload wins. */
   target?: string | undefined;
+  /** The crash signature, when the invocation died on an unexpected throw. */
+  crash?: CrashSignature | undefined;
 }
 
 /** What an interceptor knows when an invocation starts. */
@@ -438,7 +441,8 @@ function landingChanged(
 
 /** The recorded outcome: irreversible effect evidence wins over an error slug
  * (`partial`); otherwise a slug means the verb declined to act (`refused`),
- * distinct from work that ran and failed. */
+ * distinct from work that ran and failed. `internal_error` is the exception:
+ * a crash envelope is work that died, so it records as `failed`. */
 function recordedOutcome(
   reported: "ok" | "failed",
   result: DiscernResult | undefined,
@@ -449,6 +453,9 @@ function recordedOutcome(
   }
   if (landingChanged(landing)) {
     return "partial";
+  }
+  if (result?.error === "internal_error") {
+    return "failed";
   }
   return result?.error !== undefined ? "refused" : "failed";
 }
@@ -573,6 +580,7 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(lifted.failedStage !== undefined
             ? { failed_stage: lifted.failedStage }
             : {}),
+          ...(report.crash !== undefined ? { crash: report.crash } : {}),
           ...(report.dryRun === true ? { dry_run: true } : {}),
           duration_ms: Math.round(report.durationMs),
           ...(target !== undefined ? { target } : {}),

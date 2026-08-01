@@ -114,6 +114,14 @@ const diagnosticClassSchema = z.looseObject({
 /** One recorded diagnostic class. */
 export type DiagnosticClass = z.infer<typeof diagnosticClassSchema>;
 
+/** A crash's logbook-safe signature — an unexpected throw reduced to the
+ * error's class name and one trimmed code location. The message never lands
+ * (it can carry paths and values); the saved crash report holds the rest. */
+const crashSignatureSchema = z.looseObject({
+  name: z.string(),
+  frame: z.string().optional(),
+});
+
 /**
  * The raw **driver signals** — evidence for the "who drove this?" question
  * `surface` alone cannot answer (agents follow the guidance onto the CLI, so
@@ -281,6 +289,10 @@ export const verbEventSchema = z.looseObject({
   /** The gate stage that failed, from the envelope's closed vocabulary —
    * "merge" and "test" are different diagnoses wearing the same red. */
   failed_stage: z.string().optional(),
+  /** The crash signature, when the invocation died on an unexpected throw —
+   * what separates "discern hit a bug" from an ordinary red verb, and the
+   * field a support conversation joins against the saved crash report. */
+  crash: crashSignatureSchema.optional(),
   /** True when the invocation was a preview (`--dry-run`) — nothing was applied. */
   dry_run: z.boolean().optional(),
   /** Wall-clock duration of the whole invocation, in milliseconds. */
