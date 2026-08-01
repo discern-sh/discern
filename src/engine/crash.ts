@@ -256,7 +256,7 @@ export function renderCrashArtifact(report: CrashReport): string {
 }
 
 /** A crash file's prefix: the sortable ISO timestamp (filesystem-safe) plus
- * the pid. A unique suffix prevents same-process, same-instant collisions
+ * the pid. A random suffix prevents same-process, same-instant collisions
  * while keeping newest-first equivalent to a name sort. */
 function crashFilePrefix(report: CrashReport): string {
   return `${report.at.replaceAll(":", "-")}-${Deno.pid}-`;
@@ -268,15 +268,33 @@ async function createCrashFile(
   report: CrashReport,
   body: string,
 ): Promise<string> {
-  const path = await Deno.makeTempFile({
+  const path = join(
     dir,
-    prefix: crashFilePrefix(report),
-    suffix: ".txt",
+    `${crashFilePrefix(report)}${crypto.randomUUID()}.txt`,
+  );
+  const file = await Deno.open(path, {
+    createNew: true,
+    write: true,
+    mode: 0o600,
   });
   try {
-    await Deno.writeTextFile(path, body);
+    const bytes = new TextEncoder().encode(body);
+    let offset = 0;
+    while (offset < bytes.length) {
+      const written = await file.write(bytes.subarray(offset));
+      if (written === 0) {
+        throw new Error("short write while saving a crash report");
+      }
+      offset += written;
+    }
+    file.close();
     return path;
   } catch (error) {
+    try {
+      file.close();
+    } catch {
+      // Preserve the original write error.
+    }
     try {
       await Deno.remove(path);
     } catch {
