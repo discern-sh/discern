@@ -1,4 +1,4 @@
-# ADR 0241: The durable receipt travels as a versioned, signature-ready record
+# ADR 0242: The durable receipt travels as a versioned, signature-ready record
 
 **Status**: accepted; amends the note-body decision of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), applies the contract discipline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) to a channel it deliberately excluded, and leaves the receipt derivation and relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) / [ADR 0188](0188-the-receipt-relays-as-one-line.md) unchanged.
 

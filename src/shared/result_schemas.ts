@@ -263,7 +263,7 @@ export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-// ── the durable receipt note (ADR 0241) ─────────────────────────────────────
+// ── the durable receipt note (ADR 0242) ─────────────────────────────────────
 // The landed receipt travels as a self-describing wire record: the published
 // schema `$id` in-band as `format` (a Git note has no schema-selection
 // channel), the full-object-id subject, the receipt, and reserved room for a
@@ -326,7 +326,7 @@ export type ReceiptNote = z.infer<typeof ReceiptNoteSchema>;
 
 /** The durable reader's schema: same required core as the strict note, but
  * unknown additive fields pass at every level — an older binary must read
- * every newer same-major note (ADR 0241). The blocks the reader does not
+ * every newer same-major note (ADR 0242). The blocks the reader does not
  * consume (signature) accept any object shape. */
 export const TolerantReceiptNoteSchema = z.looseObject({
   format: z.string(),
@@ -952,7 +952,7 @@ export const StatusDataSchema = z.strictObject({
   }).optional(),
   /** The trunk tip carries a receipt note in a format this binary cannot read
    * (a newer major). Explicit, so a mixed-version clone sees that evidence
-   * exists instead of "no receipt" (ADR 0241). */
+   * exists instead of "no receipt" (ADR 0242). */
   landed_receipt_unsupported: z.strictObject({
     commit: z.string(),
     ref: z.string(),

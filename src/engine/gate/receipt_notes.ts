@@ -401,7 +401,7 @@ function canonicalReceipt(receipt: Receipt): Receipt {
 /**
  * One deterministic byte representation for every structured receipt note: the
  * versioned wire record binding the receipt to the full object id of the
- * commit it is attached to (ADR 0241). Fixed key order by construction — the
+ * commit it is attached to (ADR 0242). Fixed key order by construction — the
  * same receipt on the same commit is the same bytes in every clone.
  */
 export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
@@ -741,7 +741,7 @@ function boundToCommit(
 /**
  * Read one commit's durable receipt, preferring local truth. A readable bound
  * receipt on any ref wins; otherwise a record in an unknown newer format is
- * reported as `unsupported` rather than dropped (ADR 0241).
+ * reported as `unsupported` rather than dropped (ADR 0242).
  */
 export async function readReceiptNoteAt(
   root: string,

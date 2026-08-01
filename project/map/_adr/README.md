@@ -232,7 +232,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0237 — discern ships under the Functional Source License with an Apache-2.0 future license](0237-ship-under-the-functional-source-license.md)
 - [0238 — Contributions are covered by a contributor license agreement](0238-contributions-are-covered-by-a-cla.md)
 - [0240 — Discern-authored project payloads use Apache-2.0](0240-discern-authored-project-payloads-use-apache-2-0.md)
-- [0241 — The durable receipt travels as a versioned, signature-ready record](0241-durable-receipts-travel-versioned-and-signature-ready.md)
+- [0242 — The durable receipt travels as a versioned, signature-ready record](0242-durable-receipts-travel-versioned-and-signature-ready.md)
 
 <!-- END GENERATED: current ADR records -->
 
