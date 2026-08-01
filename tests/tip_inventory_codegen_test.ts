@@ -77,7 +77,7 @@ Deno.test("the committed tip inventory declares its generated provenance", async
 });
 
 Deno.test("the generated inventory explains the curriculum and its guardrails", () => {
-  assertStringIncludes(rendered, "a two-week onboarding path");
+  assertStringIncludes(rendered, "a guided onboarding path");
   assertStringIncludes(
     rendered,
     "place a new tip at its learning moment instead of appending it by default",

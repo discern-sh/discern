@@ -86,7 +86,7 @@ export function renderTipInventoryDoc(): string {
     "",
     "_Every desk tip, generated from the live registry._",
     "",
-    "Entries follow the authored order. The order is a two-week onboarding path. It starts with the desk, orientation, and a separate working copy. It then teaches human supervision, practice health, final-check and quality-rule habits, and the power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.",
+    "Entries follow the authored order. The order is a guided onboarding path. It starts with the desk, orientation, a separate working copy, and the daily loop. It then teaches human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.",
     "",
     `Every rendered line is one or two short sentences and no more than ${TIP_RENDERED_LENGTH_LIMIT} characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.`,
     "",

@@ -39,7 +39,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 150     | "Advisory"       | node `hints`                |
-| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 24      | "Tip"            | node `tips`                 |
+| [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 41      | "Tip"            | node `tips`                 |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
@@ -840,15 +840,19 @@ The advisory hint registry: every hint string enters results through it.
 The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
-- Members: 24
+- Members: 41
   - `desk-is-home`
   - `status-orients-anywhere`
   - `start-isolates-a-task`
+  - `prepare-fast-feedback`
+  - `test-runs-alone`
+  - `tidy-discern-files`
   - `inspect-before-accepting`
   - `grant-once-green`
   - `drop-protects-work`
   - `reclaim-keeps-recovery`
   - `update-before-review`
+  - `dry-run-previews-writes`
   - `patterns-practice-report`
   - `patterns-practice-stats`
   - `improvement-next-action`
@@ -857,13 +861,26 @@ The desk tip registry: every teaching line the desk can show enters through it, 
   - `standards-first-rule`
   - `standards-on-demand`
   - `standards-pin-gain`
+  - `config-validates-edits`
+  - `refresh-publishes-guidance`
+  - `preset-keeps-project-values`
+  - `upgrade-check-only`
+  - `one-file-settings`
+  - `no-model-any-language`
   - `coupling-missing-partners`
   - `impact-extra-checks`
   - `await-other-work`
   - `map-and-docs-search`
   - `skills-effective-set`
+  - `cure-the-bug-class`
+  - `clear-agent-leftovers`
+  - `write-a-fact-once`
+  - `document-from-the-code`
+  - `teach-the-next-agent`
+  - `record-a-decision`
+  - `delegate-with-a-complete-brief`
   - `identity-stable-values`
-  - `upgrade-check-only`
+  - `resources-follow-the-copy`
   - `scripts-from-desk`
 - Guards: `tests/tip_closed_set_guard_test.ts`, `tests/tip_canon_enrolment_test.ts`, `tests/tip_command_guard_test.ts`, `tests/tip_register_guard_test.ts`, `tests/tip_inventory_codegen_test.ts`, `tests/engine_desk_tips_test.ts`
 - Artifacts: `project/map/_internal/tip-inventory.md`
