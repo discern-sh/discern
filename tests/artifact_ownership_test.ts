@@ -16,8 +16,13 @@ import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   declaredFileOwnership,
   declaredWrittenArtifactClass,
+  discernProjectPayloadLicense,
   PROVIDER_LOCAL,
 } from "../src/shared/file_ownership.ts";
+import {
+  DISCERN_PROJECT_PAYLOAD_LICENSE,
+  FIRST_PARTY_LEGAL_DOCUMENTS,
+} from "../src/shared/license_registry.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -71,6 +76,52 @@ Deno.test("every discern-written project artifact declares one provenance class"
     );
   }
   assert(classified > 0, "expected at least one discern-written artifact");
+});
+
+Deno.test("every registered discern-authored project payload is Apache-2.0", () => {
+  const entries = projectArtifactPaths(parseConfigOrThrow(""));
+  for (const entry of entries) {
+    const expected = declaredFileOwnership(entry) === PROVIDER_LOCAL
+      ? undefined
+      : DISCERN_PROJECT_PAYLOAD_LICENSE.identifier;
+    assertEquals(
+      discernProjectPayloadLicense(entry),
+      expected,
+      `${entry.path} has the wrong discern-authored payload license`,
+    );
+  }
+
+  assertEquals(
+    discernProjectPayloadLicense({
+      id: "synthetic:future-artifact",
+      ownership: { generated: true },
+    }),
+    DISCERN_PROJECT_PAYLOAD_LICENSE.identifier,
+    "a future registered artifact must inherit the payload license without a second list",
+  );
+});
+
+Deno.test("configured worktree env files enter the project-artifact registry", () => {
+  const config = parseConfigOrThrow(`
+[worktree]
+env_files = ["config/secrets", ".env.override"]
+`);
+  const envPaths = projectArtifactPaths(config)
+    .filter((entry) => entry.id.startsWith("fixed:environment:"))
+    .map((entry) => entry.path);
+  assertEquals(envPaths, ["config/secrets", ".env.override"]);
+});
+
+Deno.test("first-party legal documents never enter the project footprint", () => {
+  const projectPaths = new Set(
+    projectArtifactPaths(parseConfigOrThrow("")).map((entry) => entry.path),
+  );
+  for (const document of FIRST_PARTY_LEGAL_DOCUMENTS) {
+    assert(
+      !projectPaths.has(document.path),
+      `${document.path} must stay in discern's distribution, outside user projects`,
+    );
+  }
 });
 
 // Positive controls: prove the guard rejects both ways an ownership answer can

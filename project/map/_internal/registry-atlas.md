@@ -60,18 +60,20 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 232     | —                | node `adr-discipline`       |
-| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 25      | "File ownership" | node `ownership-buckets`    |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 233     | —                | node `adr-discipline`       |
+| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 26      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
+| [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)             | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
+| [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 58      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 60      | —                | node `canonical-sets`       |
 
-58 sets · 86 guard tests · 24 committed artifacts.
+60 sets · 88 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -91,6 +93,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_codegen_test.ts`                    | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                 |
 | `tests/config_schema_test.ts`                     | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/config_set_schema_guard_test.ts`           | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `tests/contributor_governance_test.ts`            | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/dev_vocab_guard_test.ts`                   | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/diagnostic_formats_enrolment_test.ts`      | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/discern_commit_enrolment_test.ts`          | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -120,6 +123,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/feature_canon_codegen_test.ts`             | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/feature_canon_enrolment_test.ts`           | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                          |
 | `tests/feature_canon_plain_register_test.ts`      | [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/first_party_licenses_test.ts`              | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/gate_diagnostics_test.ts`                  | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/gate_plan_test.ts`                         | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/git_admin_state_test.ts`                   | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -172,6 +176,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 
 | Artifact                                         | Kind             | Compiled from                                                                                             |
 | ------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `.github/cla-assistant/metadata`                 | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
 | `THIRD_PARTY_NOTICES`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `project/map/00-orientation/glossary.md`         | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
 | `project/map/70-reference/artifact-ownership.md` | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
@@ -192,6 +197,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 | `schema/discern-setup-config.schema.json`        | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
 | `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `src/lib/first_party_license_bundle.ts`          | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
 | `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
 | `types/discern-json.d.ts`                        | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
@@ -693,17 +699,17 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 232
+- Members: 233
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
 
 ## `project-artifacts` — Project artifacts
 
-Every project-tree path discern writes or maintains, with its ownership answer.
+Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
-- Members: 25
+- Members: 26
 - Guards: `tests/artifact_ownership_test.ts`, `tests/paths_write_surface_test.ts`
 - Artifacts: `project/map/70-reference/artifact-ownership.md`, `project/map/80-development/install-surface.md`
 - Glossary: the "File ownership" entry carries the concept
@@ -738,6 +744,28 @@ The stack-independent gate traps seeded into every project's gotchas doc; the re
 - Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — seeded documentation content, not product vocabulary
 - Feature canon: described by the `gotchas-pointer` node
+
+## `contributor-agreement-gist-files` — Contributor-agreement Gist files
+
+The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.
+
+- Source: `scripts/contributor_agreement.ts` — `CLA_ASSISTANT_GIST_FILES`
+- Members: 2
+- Guards: `tests/contributor_governance_test.ts`
+- Artifacts: `.github/cla-assistant/metadata`
+- Glossary: not enrolled — repository contribution policy, not product vocabulary
+- Feature canon: not enrolled — repository governance, not an installed product feature
+
+## `first-party-legal-documents` — First-party legal documents
+
+The ordered legal package embedded in every binary: discern's software license, its notice, and the Apache-2.0 license for discern-authored project payloads.
+
+- Source: `src/shared/license_registry.ts` — `FIRST_PARTY_LEGAL_DOCUMENTS`
+- Members: 3
+- Guards: `tests/first_party_licenses_test.ts`
+- Artifacts: `src/lib/first_party_license_bundle.ts`
+- Glossary: not enrolled — legal-document plumbing; the CLI reference documents the licenses verb
+- Feature canon: described by the `licenses` node
 
 ## `third-party-artifacts` — Third-party artifacts
 
@@ -785,7 +813,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 58
+- Members: 60
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

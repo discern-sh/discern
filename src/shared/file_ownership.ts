@@ -6,6 +6,8 @@
  * registry rejects both cases. Production declarations carry one marker.
  */
 
+import { DISCERN_PROJECT_PAYLOAD_LICENSE } from "./license_registry.ts";
+
 /** The three File ownership buckets, in documentation order. */
 export const FILE_OWNERSHIP_BUCKETS = [
   "project-owned",
@@ -155,4 +157,21 @@ export function declaredFileOwnership(entry: OwnablePath): FileOwnershipKind {
     throw new Error(`${entry.id} must explain why it is provider-local`);
   }
   return kind;
+}
+
+/** The license applied to discern-authored project payloads. */
+export type DiscernProjectPayloadLicense =
+  typeof DISCERN_PROJECT_PAYLOAD_LICENSE.identifier;
+
+/**
+ * Resolve the license for discern-authored material in one project artifact.
+ * File ownership governs editing and overwrite behavior; project-, user-, and
+ * third-party-authored portions in the same destination keep their own terms.
+ */
+export function discernProjectPayloadLicense(
+  entry: OwnablePath,
+): DiscernProjectPayloadLicense | undefined {
+  return declaredFileOwnership(entry) === PROVIDER_LOCAL
+    ? undefined
+    : DISCERN_PROJECT_PAYLOAD_LICENSE.identifier;
 }

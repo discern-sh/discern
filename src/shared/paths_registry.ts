@@ -127,10 +127,13 @@ export function sourcePathDefault(name: SourcePathName): string {
   return SOURCE_PATHS[name].defaultPath;
 }
 
+/** The glob vocabulary shared by concrete-path detection and config validation. */
+export const GLOB_METACHARACTER_RE = /[*?[\]{}]/;
+
 /** True when a configured path pattern is a concrete file path (no glob
  * metacharacters) — i.e. somewhere setup can seed a file. */
 export function isConcretePath(pattern: string): boolean {
-  return !/[*?[\]{}]/.test(pattern);
+  return !GLOB_METACHARACTER_RE.test(pattern);
 }
 
 /**

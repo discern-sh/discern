@@ -1,3 +1,8 @@
+import {
+  normalizeProjectRelativeDirectoryPath,
+  projectRelativePathIssue,
+} from "./project_path.ts";
+
 /** A live config reference accepted in commands and globs that follow `[map].dir`. */
 export const MAP_DIR_REFERENCE = "${map.dir}";
 
@@ -6,28 +11,18 @@ export const MAP_DIR_REFERENCE = "${map.dir}";
  * verbatim from an instruction, and accepting one scaffolds a literal
  * `<placeholder>/` tree — so the class is rejected here, for every caller. */
 export function isValidMapDir(value: string): boolean {
-  const trimmed = value.trim().replaceAll("\\", "/");
-  if (
-    trimmed === "" || /^\.\/?$/.test(trimmed) || trimmed.startsWith("/") ||
-    /^[A-Za-z]:\//.test(trimmed) || /[<>]/.test(trimmed)
-  ) {
-    return false;
-  }
-  return !trimmed.split("/").some((segment) => segment === "..");
+  const normalized = normalizeProjectRelativeDirectoryPath(value);
+  return projectRelativePathIssue(normalized) === undefined;
 }
 
 /** Canonicalize a valid map directory to forward slashes with one trailing slash. */
 export function normalizeMapDir(value: string): string {
-  if (!isValidMapDir(value)) {
+  const normalized = normalizeProjectRelativeDirectoryPath(value);
+  if (projectRelativePathIssue(normalized) !== undefined) {
     throw new Error(
       `invalid map directory "${value}": use a project-relative path that stays inside the repository`,
     );
   }
-  const normalized = value.trim()
-    .replaceAll("\\", "/")
-    .replace(/\/+/g, "/")
-    .replace(/^\.\//, "")
-    .replace(/\/$/, "");
   return `${normalized}/`;
 }
 

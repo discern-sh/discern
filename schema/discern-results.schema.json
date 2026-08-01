@@ -3699,6 +3699,44 @@
             {
               "type": "object",
               "properties": {
+                "documents": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "license",
+                          "notice"
+                        ]
+                      },
+                      "identifier": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "path": {
+                        "type": "string"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "key",
+                      "kind",
+                      "identifier",
+                      "title",
+                      "path",
+                      "text"
+                    ]
+                  }
+                },
                 "components": {
                   "type": "array",
                   "items": {
@@ -3727,6 +3765,7 @@
                 }
               },
               "required": [
+                "documents",
                 "components"
               ]
             },

@@ -27,8 +27,15 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    env:
+      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Fetch main for baseline checks
+        run: >-
+          git fetch --no-tags --depth=1 origin
+          +refs/heads/main:refs/remotes/origin/main
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -62,8 +69,15 @@ jobs:
     # hosted lane for public changes; releases repeat it before publication.
     if: github.event.repository.private == false
     runs-on: macos-15
+    env:
+      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Fetch main for baseline checks
+        run: >-
+          git fetch --no-tags --depth=1 origin
+          +refs/heads/main:refs/remotes/origin/main
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -80,6 +94,8 @@ jobs:
     # direct pushes to main stay fast (whatever landed already passed on its PR).
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    env:
+      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -88,12 +104,12 @@ jobs:
           deno-version: v2.x
           cache: true
 
-      # The "never loosen vs main" half of each standard reads `main:discern.toml`
-      # (with a legacy `.discern/config.toml` fallback). A PR checkout does not
-      # carry the base branch, so fetch its tip; the check self-skips if it is
-      # still unavailable (e.g. before the standard is on main).
-      - name: Fetch main for the never-loosen comparison
-        run: git fetch --no-tags --depth=1 origin +refs/heads/main:refs/heads/main || true
+      # Standards and agreement-version checks compare against the real base
+      # branch. A shallow PR checkout does not carry it, so fetch it explicitly.
+      - name: Fetch main for baseline checks
+        run: >-
+          git fetch --no-tags --depth=1 origin
+          +refs/heads/main:refs/remotes/origin/main
 
       # The prose standard measures with Vale; install + sync it like the gate job.
       - name: Install Vale and sync its styles

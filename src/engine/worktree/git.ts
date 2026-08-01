@@ -30,7 +30,9 @@ import {
 } from "../../shared/git_paths.ts";
 import {
   formatEnvValue,
+  readEnvFilesAt,
   readEnvValueAcross,
+  readEnvValueFromFiles,
   stripQuotes,
   writeEnvVar,
 } from "./env_file.ts";
@@ -45,6 +47,27 @@ export class WorktreeGitError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "WorktreeGitError";
+  }
+}
+
+/**
+ * Write one configured worktree env value, translating a filesystem or path
+ * refusal into the error contract every worktree verb already serializes.
+ */
+export async function writeWorktreeEnvVar(
+  worktreeRoot: string,
+  key: string,
+  value: string,
+  files: readonly string[],
+  opts: { create?: boolean } = {},
+): Promise<boolean> {
+  try {
+    return await writeEnvVar(worktreeRoot, key, value, files, opts);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new WorktreeGitError(
+      `Discern couldn't update the configured worktree env file: ${reason}`,
+    );
   }
 }
 
@@ -3103,8 +3126,8 @@ export interface InheritEnvOptions {
  * arrive. Per-var safe-copy policy: skip when main is blank; replace when the
  * worktree value is empty or equals `.env.example`'s default; otherwise leave a
  * customised value alone. Idempotent. An empty `vars` list, or a main checkout
- * with no env file at all, is a clean no-op. Throws `WorktreeGitError` only when
- * the main checkout cannot be resolved.
+ * with no readable env file, is a warned no-op. A missing main checkout or a
+ * refused env write throws `WorktreeGitError`.
  */
 export async function inheritMainEnvVars(
   opts: InheritEnvOptions,
@@ -3121,14 +3144,8 @@ export async function inheritMainEnvVars(
         "Run `git worktree repair`, then re-run `discern worktree setup`.",
     );
   }
-  let mainHasAny = false;
-  for (const file of files) {
-    if (await readFileMaybe(join(mainRepo, file)) !== undefined) {
-      mainHasAny = true;
-      break;
-    }
-  }
-  if (!mainHasAny) {
+  const mainEnvFiles = await readEnvFilesAt(mainRepo, files);
+  if (mainEnvFiles.length === 0) {
     log.warn(
       `inherit-main-env-vars: main checkout has no env file (${
         files.join(", ")
@@ -3142,7 +3159,7 @@ export async function inheritMainEnvVars(
     if (varName === "") {
       continue;
     }
-    const mainRaw = await readEnvValueAcross(mainRepo, files, varName);
+    const mainRaw = readEnvValueFromFiles(mainEnvFiles, varName);
     const mainValue = stripQuotes(mainRaw ?? "");
     if (mainValue === "") {
       log.warn(
@@ -3165,7 +3182,7 @@ export async function inheritMainEnvVars(
       continue;
     }
 
-    await writeEnvVar(
+    await writeWorktreeEnvVar(
       opts.worktreeRoot,
       varName,
       formatEnvValue(mainValue),

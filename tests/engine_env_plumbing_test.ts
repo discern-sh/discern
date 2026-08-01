@@ -32,6 +32,7 @@ import {
 import type { MintedWorktreeId } from "../src/engine/worktree/identity.ts";
 import {
   formatEnvValue,
+  readEnvFileAt,
   stripQuotes,
 } from "../src/engine/worktree/env_file.ts";
 import { Logger } from "../src/lib/log.ts";
@@ -125,6 +126,110 @@ Deno.test("fleet rows derive id and port when the project has no env file", asyn
       "number",
       "port derives without any env file",
     );
+  });
+});
+
+Deno.test("status keeps a stale fleet row instead of crashing on its missing root", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, INHERIT_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "stale-env-root");
+
+    // Leave Git's worktree registration behind, as an out-of-band deletion does.
+    await Deno.remove(wt, { recursive: true });
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as {
+      data: { fleet?: Array<{ path: string; broken?: boolean }> };
+    };
+    const row = result.data.fleet?.find((entry) =>
+      entry.path.endsWith("stale-env-root")
+    );
+    assert(row !== undefined, JSON.stringify(result.data.fleet));
+    assertEquals(row.broken, true);
+  });
+});
+
+Deno.test("status reads a contained symlinked env file in a fleet member", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, INHERIT_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "linked-env-status");
+    await Deno.writeTextFile(
+      join(wt, ".env.real"),
+      "DISCERN_WORKTREE_ID=recorded-through-link\n",
+    );
+    await Deno.symlink(".env.real", join(wt, ".env"));
+
+    const r = await runAgent(dir, ["status", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const result = JSON.parse(r.stdout) as {
+      data: { fleet?: Array<{ path: string; id?: string }> };
+    };
+    const row = result.data.fleet?.find((entry) =>
+      entry.path.endsWith("linked-env-status")
+    );
+    assert(row !== undefined, JSON.stringify(result.data.fleet));
+    assertEquals(row.id, "recorded-through-link");
+  });
+});
+
+Deno.test("inherit_env reads main's contained symlink through the shared snapshot", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, INHERIT_CONFIG);
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, ".env.real"), "APP_KEY=s3cret\n");
+    await Deno.symlink(".env.real", join(dir, ".env"));
+
+    const wt = await addWorktree(dir, "env-linked-main");
+    const setup = await runAgent(wt, ["worktree", "setup"]);
+    assertEquals(setup.code, 0, setup.output);
+    assertStringIncludes(
+      await Deno.readTextFile(join(wt, ".env")),
+      "APP_KEY=s3cret",
+    );
+  });
+});
+
+Deno.test("env reads ignore a symbolic link whose target leaves the project", async () => {
+  await withTempDir(async (dir) => {
+    const root = join(dir, "project");
+    await Deno.mkdir(root);
+    const outside = join(dir, "outside.env");
+    await Deno.writeTextFile(outside, "APP_KEY=outside\n");
+    await Deno.symlink(outside, join(root, ".env"));
+
+    assertEquals(await readEnvFileAt(root, ".env"), undefined);
+  });
+});
+
+Deno.test("worktree setup reports a symlinked env write refusal as a result", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, INHERIT_CONFIG);
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, ".env"), "APP_KEY=s3cret\n");
+
+    const wt = await addWorktree(dir, "env-linked-write");
+    const real = join(wt, ".env.real");
+    await Deno.writeTextFile(real, "");
+    await Deno.symlink(".env.real", join(wt, ".env"));
+
+    const setup = await runAgent(wt, ["worktree", "setup", "--json"]);
+    assertEquals(setup.code, 1, setup.output);
+    const result = JSON.parse(setup.stdout) as {
+      ok: boolean;
+      error?: string;
+      message?: string;
+    };
+    assertEquals(result.ok, false);
+    assertEquals(result.error, "precondition_failed");
+    assertStringIncludes(result.message ?? "", "remove the symbolic link");
+    assertEquals(await Deno.readTextFile(real), "");
   });
 });
 

@@ -43,6 +43,7 @@ import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { RECEIPT_NOTE_SCHEMA_ID } from "./public_schemas.ts";
+import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -262,7 +263,7 @@ export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-// ── the durable receipt note (ADR 0239) ─────────────────────────────────────
+// ── the durable receipt note (ADR 0241) ─────────────────────────────────────
 // The landed receipt travels as a self-describing wire record: the published
 // schema `$id` in-band as `format` (a Git note has no schema-selection
 // channel), the full-object-id subject, the receipt, and reserved room for a
@@ -325,7 +326,7 @@ export type ReceiptNote = z.infer<typeof ReceiptNoteSchema>;
 
 /** The durable reader's schema: same required core as the strict note, but
  * unknown additive fields pass at every level — an older binary must read
- * every newer same-major note (ADR 0239). The blocks the reader does not
+ * every newer same-major note (ADR 0241). The blocks the reader does not
  * consume (signature) accept any object shape. */
 export const TolerantReceiptNoteSchema = z.looseObject({
   format: z.string(),
@@ -951,7 +952,7 @@ export const StatusDataSchema = z.strictObject({
   }).optional(),
   /** The trunk tip carries a receipt note in a format this binary cannot read
    * (a newer major). Explicit, so a mixed-version clone sees that evidence
-   * exists instead of "no receipt" (ADR 0239). */
+   * exists instead of "no receipt" (ADR 0241). */
   landed_receipt_unsupported: z.strictObject({
     commit: z.string(),
     ref: z.string(),
@@ -1530,8 +1531,18 @@ const thirdPartyComponentSchema = z.strictObject({
   license: z.string(),
 });
 
-/** `licenses` — the components embedded in this binary. */
+const firstPartyLegalDocumentSchema = z.strictObject({
+  key: z.string(),
+  kind: z.enum(FIRST_PARTY_LEGAL_DOCUMENT_KINDS),
+  identifier: z.string(),
+  title: z.string(),
+  path: z.string(),
+  text: z.string(),
+});
+
+/** `licenses` — first-party documents and bundled components. */
 export const LicensesDataSchema = z.strictObject({
+  documents: z.array(firstPartyLegalDocumentSchema),
   components: z.array(thirdPartyComponentSchema),
 });
 export type LicensesData = z.infer<typeof LicensesDataSchema>;
@@ -1837,7 +1848,7 @@ export const ConfigOutputSchema = resultOutputSchema(
   ConfigDataSchema,
 );
 
-/** `licenses` output: envelope + embedded component inventory. */
+/** `licenses` output: envelope + first-party documents and component inventory. */
 export const LicensesOutputSchema = resultOutputSchema(
   "licenses",
   LicensesDataSchema,

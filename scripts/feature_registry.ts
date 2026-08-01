@@ -1666,15 +1666,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "ownership-buckets",
         title: "File ownership",
         what:
-          "Every file discern touches is project-owned (written once, then yours), shared (`discern.toml` and the marked `.gitignore` block, with discern owning only its marked regions), or generated (safe to overwrite because the source is yours). Upgrade honors the buckets, and the removal set derives from the same registry.",
-        why:
-          "What an upgrade may touch is a lookup, never a judgment call — your files stay yours.",
+          "Every file discern touches is project-owned (seeded once, then left alone), shared (discern maintains only its declared entries or regions), or generated (rebuilt from reviewable sources). These are edit and overwrite rules, not copyright claims. Upgrade honors the buckets, and the removal set derives from the same registry.",
+        why: "What an upgrade may touch is a lookup, never a judgment call.",
         plain: {
           title: "Who owns each file",
           what:
-            "Every file Discern touches is in one of three groups: project-owned (written once, then entirely yours), shared (`discern.toml` and the marked `.gitignore` section, where Discern owns only its marked parts), or made automatically (safe to replace, because the source is yours). Updates honour the groups, and what removal covers comes from the same list.",
-          why:
-            "What an update may touch is a lookup, never a judgment call — your files stay yours.",
+            "Every file Discern touches is in one of three groups: project-owned (created once, then left alone), shared (Discern maintains only its listed entries or marked parts), or made automatically from text you can review. The groups say who may edit or replace a file, not who holds copyright. Updates honour the groups, and what removal covers comes from the same list.",
+          why: "What an update may touch is a lookup, never a judgment call.",
         },
       },
       {
@@ -1733,13 +1731,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       },
       {
         id: "licenses",
-        title: "Third-party notices",
+        title: "Licenses and notices",
         what:
-          "`discern licenses` prints the bundled third-party notices, generated from the compile graph rather than a hand-kept list.",
+          "`discern licenses` prints discern's software license, the Apache-2.0 license for discern-authored project payloads, its notice, and bundled third-party notices. The first-party texts derive from one legal-document registry; the third-party set derives from the compile graph.",
         plain: {
-          title: "Notices for bundled third-party work",
+          title: "Licenses and notices",
           what:
-            "`discern licenses` prints the required notices for other people's work carried inside Discern, produced from what the program includes rather than from a hand-kept list.",
+            "`discern licenses` prints Discern's own terms, the separate Apache-2.0 terms for material it writes into a project, and the required notices for other people's work carried inside Discern. The program builds those answers from its real legal files and included components instead of a hand-kept list.",
         },
         surfaces: ["verb:licenses"],
       },

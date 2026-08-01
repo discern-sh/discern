@@ -17,9 +17,14 @@
  * file discovers identity via `discern identity` instead.
  */
 
-import { join } from "@std/path";
+import { dirname } from "@std/path";
+import { ensureDir } from "@std/fs";
 import { generatedArtifactMarker } from "../../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../../shared/file_ownership.ts";
+import {
+  resolveContainedProjectReadPath,
+  resolveContainedProjectWritePath,
+} from "../../shared/project_path.ts";
 
 /** The default `[worktree].env_files` when a caller has no config in hand. */
 export const DEFAULT_ENV_FILES: readonly string[] = [".env", ".env.local"];
@@ -66,16 +71,38 @@ export function upsertEnvLine(
   return next.join("\n");
 }
 
-/** Read one env-style file under `root`, or undefined when it has none. */
+/**
+ * Read one env-style file under `root`. Missing, stale, unreadable, or escaping
+ * paths return undefined; a contained symbolic link remains readable.
+ */
 export async function readEnvFileAt(
   root: string,
   file: string,
 ): Promise<string | undefined> {
+  const path = await resolveContainedProjectReadPath(root, file);
+  if (path === undefined) {
+    return undefined;
+  }
   try {
-    return await Deno.readTextFile(join(root, file));
+    return await Deno.readTextFile(path);
   } catch {
     return undefined;
   }
+}
+
+/** Read the configured env files once, preserving their precedence order. */
+export async function readEnvFilesAt(
+  root: string,
+  files: readonly string[],
+): Promise<string[]> {
+  const readable: string[] = [];
+  for (const file of files) {
+    const text = await readEnvFileAt(root, file);
+    if (text !== undefined) {
+      readable.push(text);
+    }
+  }
+  return readable;
 }
 
 /**
@@ -121,28 +148,32 @@ export function readEnvLineValue(
   return undefined;
 }
 
-/**
- * The value of `key` across `files` under `root` — the LAST listed file that
- * defines it wins (the dotenv override convention). Undefined when no file
- * defines it. Raw value; the caller strips quotes if it cares.
- */
-export async function readEnvValueAcross(
-  root: string,
+/** The last definition of `key` in an already-read precedence list. */
+export function readEnvValueFromFiles(
   files: readonly string[],
   key: string,
-): Promise<string | undefined> {
+): string | undefined {
   let found: string | undefined;
-  for (const file of files) {
-    const text = await readEnvFileAt(root, file);
-    if (text === undefined) {
-      continue;
-    }
+  for (const text of files) {
     const value = readEnvLineValue(text, key);
     if (value !== undefined) {
       found = value;
     }
   }
   return found;
+}
+
+/**
+ * The value of `key` across `files` under `root` — the LAST listed file that
+ * defines it wins (the dotenv override convention). Undefined when no readable
+ * file defines it. Raw value; the caller strips quotes if it cares.
+ */
+export async function readEnvValueAcross(
+  root: string,
+  files: readonly string[],
+  key: string,
+): Promise<string | undefined> {
+  return readEnvValueFromFiles(await readEnvFilesAt(root, files), key);
 }
 
 /**
@@ -184,8 +215,21 @@ export async function writeEnvVar(
     target = files[0] as string;
   }
   const text = await readEnvFileAt(worktreeRoot, target) ?? "";
+  let path = await resolveContainedProjectWritePath(
+    worktreeRoot,
+    target,
+    "[worktree].env_files",
+  );
+  if (text === "" && (opts.create ?? false)) {
+    await ensureDir(dirname(path));
+    path = await resolveContainedProjectWritePath(
+      worktreeRoot,
+      target,
+      "[worktree].env_files",
+    );
+  }
   await Deno.writeTextFile(
-    join(worktreeRoot, target),
+    path,
     upsertEnvLine(text, key, value),
   );
   return true;

@@ -39,7 +39,6 @@ import {
   type WorktreeField,
   type WorktreeIdentity,
 } from "./identity.ts";
-import { writeEnvVar } from "./env_file.ts";
 import {
   hasIgnoredFileChanges,
   inspectIgnoredFileChanges,
@@ -154,6 +153,7 @@ import {
   WorktreeGitError,
   worktreeGitKey,
   worktreeSetupComplete,
+  writeWorktreeEnvVar,
 } from "./git.ts";
 import {
   type ContainedWorktree,
@@ -370,7 +370,7 @@ async function recordPort(
     return;
   }
   const port = String(identity.port);
-  const wrote = await writeEnvVar(
+  const wrote = await writeWorktreeEnvVar(
     ctx.cwd,
     "DISCERN_WORKTREE_PORT",
     port,

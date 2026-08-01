@@ -56,8 +56,9 @@
         },
         "todo": {
           "default": "discern/TODO.md",
-          "description": "Where the deferred-work ledger (the running TODO list agents read and maintain) lives, relative to the project root.",
-          "type": "string"
+          "description": "Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.",
+          "type": "string",
+          "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
         },
         "logbook": {
           "default": true,
@@ -125,10 +126,11 @@
           "default": [
             "discern/guidance.md"
           ],
-          "description": "Your guidance source file(s), relative to the project root. Globs allowed; source discovery excludes the agent files, so a glob may safely match them. Read only if present; discern's built-in guidance is prepended.",
+          "description": "Your guidance source files and globs. Concrete paths are relative to the project root, and discern removes leading `./` prefixes from them. Globs keep their authored spelling and may be relative or absolute. Source discovery excludes the agent files, so a glob may match them. Sources are read only when present; discern's built-in guidance is prepended.",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "(?:^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$)|(?:[*?[\\]{}])"
           }
         }
       },
@@ -141,8 +143,9 @@
       "properties": {
         "dir": {
           "default": "discern/skills",
-          "description": "Where your authored skills live, relative to the project root. Read only if present, so a project with no authored-skills dir uses the built-ins.",
-          "type": "string"
+          "description": "Where your authored skills live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The directory is read only when present, so a project with no authored skills uses the built-ins.",
+          "type": "string",
+          "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         },
         "exclude": {
           "default": [],
@@ -162,8 +165,9 @@
       "properties": {
         "dir": {
           "default": "discern/map/",
-          "description": "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. `discern setup` scaffolds it here and `discern map` browses it by default.",
-          "type": "string"
+          "description": "Where the project map — discern's agent-maintained documentation tree — lives, relative to the project root. discern removes leading `./` prefixes and keeps one trailing slash. `discern setup` scaffolds it here, and `discern map` browses it by default.",
+          "type": "string",
+          "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
       },
       "additionalProperties": false
@@ -586,11 +590,13 @@
             ".env",
             ".env.local"
           ],
-          "description": "The env files the worktree lifecycle reads and writes, in precedence order: when reading, the last listed file that defines a value wins (the dotenv override convention); a newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy; the deterministic port and resource handles are recorded into them too.",
+          "description": "Portable project-relative files the worktree lifecycle reads and writes, in precedence order. The list accepts any filename. discern removes leading `./` prefixes and refuses path aliases. When reading, the last listed file that defines a value wins. A newly written value lands in the first. `inherit_env` reads these in the main checkout and writes the worktree's copy. The files also record the deterministic port and resource handles.",
           "type": "array",
           "items": {
-            "type": "string"
-          }
+            "type": "string",
+            "pattern": "^(?!.*\\s$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*$"
+          },
+          "uniqueItems": true
         },
         "resources": {
           "default": {},
@@ -866,8 +872,9 @@
       "properties": {
         "dir": {
           "default": "discern/scripts",
-          "description": "Where your project scripts live, relative to the project root. The default works with no config; point it elsewhere (e.g. \"tools/\") if you prefer.",
-          "type": "string"
+          "description": "Where your project scripts live, relative to the project root. discern removes leading `./` prefixes and one trailing slash. The default works with no config. Use another directory such as \"tools/\" if you prefer.",
+          "type": "string",
+          "pattern": "^(?!.*\\s\\/?$)(?:\\.\\/)*(?![~\\s])(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ](?:\\/(?!(?:\\.{1,2}|\\.[gG][iI][tT])(?:\\/|$))(?!(?:(?:[cC][oO][nN]|[pP][rR][nN]|[aA][uU][xX]|[nN][uU][lL]|[cC][oO][mM][1-9]|[lL][pP][tT][1-9]))(?:\\.|\\/|$))[^<>:\"\\\\|?*\\u0000-\\u001F/]*[^<>:\"\\\\|?*\\u0000-\\u001F/. ])*\\/?$"
         }
       },
       "additionalProperties": false
