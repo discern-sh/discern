@@ -41,6 +41,13 @@ import {
   runConfigRead,
 } from "./engine/dispatch.ts";
 import { recordedExit, recordedRun } from "./engine/logbook/cli.ts";
+import {
+  captureCrashReport,
+  CRASH_EXIT_CODE,
+  internalErrorResult,
+  renderCrashFrame,
+  writeCrashArtifact,
+} from "./engine/crash.ts";
 import { runCommandGroup } from "./shared/command_group.ts";
 import { cliJsonResultVerb } from "./shared/result_contracts.ts";
 
@@ -1224,7 +1231,8 @@ export async function main(args: string[]): Promise<void> {
     // diagnostic, not a raw stack trace — in both human and `--json` modes (a
     // CI/agent consuming JSON gets a structured error, not garbage). A syntax
     // error reads `invalid_toml`; a schema violation reads `invalid_config` and
-    // carries the per-issue list. Other errors propagate unchanged.
+    // carries the per-issue list. Anything else is a crash — a bug in discern
+    // reaching the surface — and exits through the crash frame (ADR 0246).
     if (
       err instanceof ConfigParseError || err instanceof ConfigValidationError
     ) {
@@ -1245,10 +1253,66 @@ export async function main(args: string[]): Promise<void> {
       }
       Deno.exit(1);
     }
-    throw err;
+    await exitWithCrashFrame(verb, err, argv.includes("--json"));
   }
 }
 
+/** Re-entrancy latch for {@link exitWithCrashFrame}: a throw from inside the
+ * crash path itself must exit rather than recurse through the last-resort
+ * listeners. */
+let crashFrameActive = false;
+
+/**
+ * The crash exit — the one path every unexpected throw leaves the process
+ * through: save the report, print the stderr frame, emit the uniform
+ * `internal_error` envelope in `--json` mode, and exit
+ * {@link CRASH_EXIT_CODE}. Expected failures (config errors, refusals, red
+ * gates) never come here; they have their own structured exits above.
+ */
+async function exitWithCrashFrame(
+  verb: string | undefined,
+  err: unknown,
+  json: boolean,
+): Promise<never> {
+  if (crashFrameActive) {
+    Deno.exit(CRASH_EXIT_CODE);
+  }
+  crashFrameActive = true;
+  const report = captureCrashReport(verb, err);
+  let cwd = ".";
+  try {
+    cwd = Deno.cwd();
+  } catch {
+    // A deleted working directory still gets a report, via the temp fallback.
+  }
+  const artifact = await writeCrashArtifact(cwd, report);
+  if (json) {
+    emitResult(internalErrorResult(report.verb, report, artifact));
+  }
+  console.error(renderCrashFrame(report, artifact));
+  Deno.exit(CRASH_EXIT_CODE);
+}
+
 if (import.meta.main) {
+  // Last-resort crash handlers, registered only for the real binary (never for
+  // tests importing `main`): a stray rejection or uncaught error outside
+  // `main`'s own catch — a fire-and-forget promise, a listener throw — still
+  // leaves a saved report and the frame instead of a raw runtime dump.
+  globalThis.addEventListener("unhandledrejection", (event) => {
+    event.preventDefault();
+    void exitWithCrashFrame(
+      undefined,
+      event.reason,
+      Deno.args.includes("--json"),
+    );
+  });
+  globalThis.addEventListener("error", (event) => {
+    event.preventDefault();
+    void exitWithCrashFrame(
+      undefined,
+      event.error ?? event.message,
+      Deno.args.includes("--json"),
+    );
+  });
   await main(Deno.args);
 }

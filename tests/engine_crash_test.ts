@@ -14,7 +14,11 @@ import {
 } from "@std/assert";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
-import { gitInit } from "./engine_helpers.ts";
+import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import {
+  parseLogbookLine,
+  type VerbEvent,
+} from "../src/engine/logbook/schema.ts";
 import {
   captureCrashReport,
   CRASH_EXIT_CODE,
@@ -180,4 +184,120 @@ Deno.test("writeCrashArtifact: outside a repository, falls back to a temp file",
 
 Deno.test("CRASH_EXIT_CODE is sysexits EX_SOFTWARE", () => {
   assertEquals(CRASH_EXIT_CODE, 70);
+});
+
+// ── the CLI crash path, end to end ───────────────────────────────────────────
+
+/** Every crash report file under the repo's `.git/discern/crash/`. */
+async function crashFiles(dir: string): Promise<string[]> {
+  const names: string[] = [];
+  try {
+    for await (
+      const entry of Deno.readDir(join(dir, ".git", "discern", "crash"))
+    ) {
+      names.push(entry.name);
+    }
+  } catch {
+    // absent directory — no reports
+  }
+  return names.sort();
+}
+
+/** Every parsed verb event in the repo's logbook, oldest first. */
+async function logbookVerbEvents(dir: string): Promise<VerbEvent[]> {
+  const events: VerbEvent[] = [];
+  const logDir = join(dir, ".git", "discern", "logbook");
+  for await (const entry of Deno.readDir(logDir)) {
+    if (!entry.isFile || !entry.name.endsWith(".jsonl")) {
+      continue;
+    }
+    const text = await Deno.readTextFile(join(logDir, entry.name));
+    for (const line of text.split("\n")) {
+      if (line.trim() === "") {
+        continue;
+      }
+      const parsed = parseLogbookLine(line);
+      if (parsed.kind === "event" && parsed.event.kind === "verb") {
+        events.push(parsed.event);
+      }
+    }
+  }
+  return events;
+}
+
+Deno.test("CLI crash: exit 70, the stderr frame, a saved report, and a signed logbook event", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const run = await runAgent(dir, ["status"], {
+      env: { DISCERN_CRASH_PROBE: "1" },
+    });
+
+    assertEquals(run.code, CRASH_EXIT_CODE, run.output);
+    assertStringIncludes(
+      run.stderr,
+      `discern ${KIT_VERSION} crashed while running \`status\`.`,
+    );
+    assertStringIncludes(run.stderr, "Synthetic crash requested");
+    assertStringIncludes(run.stderr, ISSUES_URL);
+
+    // The report file exists where the frame says it is.
+    const reports = await crashFiles(dir);
+    assertEquals(reports.length, 1);
+    const reportName = reports[0];
+    assertExists(reportName);
+    assertStringIncludes(run.stderr, reportName);
+    const body = await Deno.readTextFile(
+      join(dir, ".git", "discern", "crash", reportName),
+    );
+    assertStringIncludes(body, "discern crash report");
+    assertStringIncludes(body, "verb: status");
+    assertStringIncludes(body, "Synthetic crash requested");
+
+    // The logbook event carries the failed outcome and the crash signature.
+    const events = await logbookVerbEvents(dir);
+    const crashed = events.find((event) => event.verb === "status");
+    assertExists(crashed);
+    assertEquals(crashed.outcome, "failed");
+    assertExists(crashed.crash);
+    assertEquals(crashed.crash.name, "Error");
+    assertExists(crashed.crash.frame);
+    assert(
+      crashed.crash.frame.startsWith("src/engine/crash.ts:"),
+      `frame was ${crashed.crash.frame}`,
+    );
+  });
+});
+
+Deno.test("CLI crash in --json mode: stdout is one uniform internal_error envelope", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const run = await runAgent(dir, ["status", "--json"], {
+      env: { DISCERN_CRASH_PROBE: "1" },
+    });
+
+    assertEquals(run.code, CRASH_EXIT_CODE, run.output);
+    const envelope = JSON.parse(run.stdout) as {
+      ok: boolean;
+      verb: string;
+      error: string;
+      message: string;
+      data?: unknown;
+    };
+    assertEquals(envelope.ok, false);
+    assertEquals(envelope.verb, "status");
+    assertEquals(envelope.error, "internal_error");
+    assertEquals(envelope.data, undefined);
+    assertStringIncludes(envelope.message, "Synthetic crash requested");
+    assertStringIncludes(envelope.message, ISSUES_URL);
+    // The saved report is named in the message, and exists.
+    const reports = await crashFiles(dir);
+    assertEquals(reports.length, 1);
+    const reportName = reports[0];
+    assertExists(reportName);
+    assertStringIncludes(envelope.message, reportName);
+    // The human frame still lands on stderr for anyone watching a log.
+    assertStringIncludes(run.stderr, "crashed while running");
+  });
 });
