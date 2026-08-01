@@ -14,6 +14,7 @@ import {
 import { dirname, join, relative } from "@std/path";
 import { parse as parseYaml } from "@std/yaml";
 import { extractDocLinks } from "../src/lib/docs_integrity.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import {
   agreementChangeAdvancesVersion,
   CLA_ASSISTANT_GIST_FILES,
@@ -49,6 +50,7 @@ const PROPOSAL_TEMPLATE = join(
 );
 const ISSUE_CONFIG = join(ISSUE_TEMPLATE_DIR, "config.yml");
 const GATE_WORKFLOW = join(REPO_ROOT, ".github", "workflows", "gate.yml");
+const DISCERN_CONFIG = join(REPO_ROOT, "discern.toml");
 
 async function assertFile(
   path: string,
@@ -255,7 +257,9 @@ Deno.test("numeric agreement versions pin immutable bytes against a real baselin
     assertEquals(version.join("."), agreement.version);
   }
 
-  const baseline = Deno.env.get("DISCERN_TRUNK") || "main";
+  const baseline = parseConfigOrThrow(
+    await Deno.readTextFile(DISCERN_CONFIG),
+  ).repository.trunk;
   await requireBaselineRef(baseline);
   assertEquals(
     await readGitFileAtRef(baseline, ".missing-agreement-control"),
@@ -287,7 +291,7 @@ Deno.test("numeric agreement versions pin immutable bytes against a real baselin
   );
 });
 
-Deno.test("every CI gate fetches the agreement baseline without a silent skip", async () => {
+Deno.test("every CI gate materializes the agreement baseline as the local trunk", async () => {
   const source = await Deno.readTextFile(GATE_WORKFLOW);
   const workflow = yamlRecord(source, relative(REPO_ROOT, GATE_WORKFLOW));
   const jobs = workflow.jobs;
@@ -296,12 +300,6 @@ Deno.test("every CI gate fetches the agreement baseline without a silent skip", 
     const job = (jobs as Record<string, unknown>)[name];
     assert(job !== null && typeof job === "object" && !Array.isArray(job));
     const record = job as Record<string, unknown>;
-    const env = record.env;
-    assert(env !== null && typeof env === "object" && !Array.isArray(env));
-    assertEquals(
-      (env as Record<string, unknown>).DISCERN_TRUNK,
-      "origin/main",
-    );
     const steps = record.steps;
     assert(Array.isArray(steps), `${name} must declare steps`);
     const fetchStep = steps.find((step) =>
@@ -317,6 +315,11 @@ Deno.test("every CI gate fetches the agreement baseline without a silent skip", 
     assert(
       !String((fetchStep as Record<string, unknown>).run).includes("|| true"),
       `${name} must not silently skip a failed baseline fetch`,
+    );
+    assertStringIncludes(
+      String((fetchStep as Record<string, unknown>).run),
+      "git branch --force main refs/remotes/origin/main",
+      `${name} must expose the fetched baseline as the configured local trunk`,
     );
   }
 });
