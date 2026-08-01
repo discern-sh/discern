@@ -50,7 +50,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## After landing
 
-Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. The record uses the Dead Simple Signing Envelope (DSSE) field and payload boundary: it preserves the receipt payload bytes, names their published type, and binds them to the full landed commit id. discern's unsigned extension carries an empty signature array today. The local record is default-on and fail-open; fetch transport is a separate opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, authorship, publication, and cross-clone recovery.
+Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. Its Dead Simple Signing Envelope (DSSE) boundary preserves the payload bytes and full commit id. `signatures: []` is discern's unsigned extension. The local record is default-on and fail-open, while fetch transport is opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, publication, and cross-clone recovery.
 
 ## Re-running an unchanged tree
 

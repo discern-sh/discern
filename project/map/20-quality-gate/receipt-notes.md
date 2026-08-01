@@ -33,7 +33,7 @@ git notes --ref=discern show <commit>
 
 ## The durable format
 
-The note body uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its Base64 payload carries the full landed commit id and structured receipt. The envelope fixes which bytes a future signature will cover. discern's unsigned extension uses an empty `signatures` array because discern does not yet sign or verify notes. Adding a real signature will produce the standard signed form without changing the payload. Optional issuer details state what a signer claims. A later trust policy would connect the signing key to a person, agent, runner, or organization.
+The note uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its Base64 payload preserves the full commit and receipt bytes a future signature covers. `signatures: []` is discern's unsigned extension. discern signs and verifies nothing today. Optional issuer details are payload assertions. A later policy decides which signing keys to trust.
 
 Unknown added fields pass, an unknown payload type reports as unsupported rather than vanishing, and bare notes from older releases still read. [Receipt note format](../70-reference/receipt-note-format.md) covers the payload, signature boundary, issuer meaning, and reading rules.
 
