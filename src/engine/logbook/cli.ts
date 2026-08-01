@@ -22,14 +22,16 @@
  */
 
 import {
-  observeCrash,
-  takeObservedCrash,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
   takeVerbTarget,
 } from "../../shared/result_capture.ts";
-import { crashSignature, throwIfCrashProbe } from "../crash.ts";
+import {
+  type CrashSignature,
+  crashSignature,
+  throwIfCrashProbe,
+} from "../crash.ts";
 import type { DriverFacts, LogbookSurface } from "./schema.ts";
 import type { AgentSignal } from "./agent_signals.ts";
 import { LOGBOOK_EFFECTFUL_VERBS } from "../../shared/verbs.ts";
@@ -163,20 +165,20 @@ export async function recordedRun(
   // the host-marker stat does not extend the completion tail.
   const started = performance.now();
   let code = 1;
+  let crash: CrashSignature | undefined;
   try {
     throwIfCrashProbe();
     code = (await body()) ?? 0;
   } catch (err) {
     // An unexpected throw still records — outcome `failed`, plus the
     // logbook-safe signature — before propagating to the crash frame.
-    observeCrash(crashSignature(err));
+    crash = crashSignature(err);
     throw err;
   } finally {
     const observed = takeObservedResult();
     const supplementalHintIds = takeSupplementalHintIds();
     const tipIds = takeShownTipIds();
     const target = takeVerbTarget();
-    const crash = takeObservedCrash();
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `scripts` namespace is excluded from
     // every argv scan (dry-run, --json, flag names) — everything after the

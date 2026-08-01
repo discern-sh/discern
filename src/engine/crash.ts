@@ -36,7 +36,6 @@ import { ensureDir } from "@std/fs";
 import { ISSUES_URL, KIT_VERSION } from "../lib/version.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
-import type { CrashSignature } from "../shared/result_capture.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
 
 /** The crash exit code: sysexits `EX_SOFTWARE` — an internal software error,
@@ -69,7 +68,17 @@ export function throwIfCrashProbe(): void {
   }
 }
 
-export type { CrashSignature } from "../shared/result_capture.ts";
+/** The logbook-safe reduction of a crash: the error's class name and one code
+ * location. No message — messages can carry paths and values, and the logbook
+ * records only metadata safe to read aloud. A type alias (not an interface) so
+ * it assigns into the logbook's loose event schemas. */
+export type CrashSignature = {
+  /** The error's constructor name ("TypeError"), or "throw" for a non-Error. */
+  name: string;
+  /** The topmost stack location, trimmed to a source-relative form
+   * ("src/engine/dispatch.ts:12:3"), when a stack was available. */
+  frame?: string | undefined;
+};
 
 /** The source trees a discern stack frame can point into — the repo's authored
  * roots. A frame is trimmed to start at the last of these, so the same frame

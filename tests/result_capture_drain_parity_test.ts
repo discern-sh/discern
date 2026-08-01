@@ -1,7 +1,7 @@
 /**
  * The observed-state drain parity guard. `src/shared/result_capture.ts` holds
  * process-local one-slot mailboxes (the envelope, supplemental hints, tips,
- * the verb target, the crash signature). Both surface chokepoints — the CLI
+ * and the verb target). Both surface chokepoints — the CLI
  * interceptor and the MCP completion boundary — must drain EVERY mailbox at
  * invocation completion: the CLI to keep embedded-call state out of its own
  * event, the long-lived MCP server so state can never leak from one tool call

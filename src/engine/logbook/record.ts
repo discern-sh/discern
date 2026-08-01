@@ -41,13 +41,13 @@
  */
 
 import { z } from "@zod/zod";
-import type { CrashSignature } from "../../shared/result_capture.ts";
 import { AcceptLandingStateSchema } from "../../shared/accept_landing_state.ts";
 import { findRoot } from "../../shared/env.ts";
 import { loadConfig } from "../../shared/config_schema.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { treeDiffFingerprint } from "../../shared/tree_identity.ts";
 import { KIT_VERSION } from "../../lib/version.ts";
+import type { CrashSignature } from "../crash.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import { LANDING_CONSENT_SOURCES } from "../../shared/consent.ts";
 import { logbookVerbIsEffectful } from "../../shared/verbs.ts";

@@ -886,6 +886,86 @@ Deno.test("discern mcp: an unexpected core throw becomes internal_error and the 
   });
 });
 
+Deno.test("discern mcp: concurrent calls keep a crash signature on the call that crashed", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { bootstrapped: true });
+    await gitInit(dir);
+
+    const status = TOOLS.find((tool) => tool.name === "discern_status");
+    const docs = TOOLS.find((tool) => tool.name === "discern_docs");
+    assertExists(status);
+    assertExists(docs);
+
+    let signalCapture: (() => void) | undefined;
+    const captureStarted = new Promise<void>((resolve) => {
+      signalCapture = resolve;
+    });
+    const failure = new TypeError("parallel crash");
+    Object.defineProperty(failure, "stack", {
+      configurable: true,
+      get: () => {
+        signalCapture?.();
+        return [
+          "TypeError: parallel crash",
+          "    at explode (file:///tmp/project/src/parallel.ts:12:3)",
+        ].join("\n");
+      },
+    });
+
+    const crashingTool = {
+      ...status,
+      run: (): Promise<never> => Promise.reject(failure),
+    };
+    const successfulTool = {
+      ...docs,
+      run: async (): Promise<DiscernResult> => {
+        // Resume only after the other call has entered crash capture. The
+        // crashing call then yields while saving its report, so this call
+        // crosses the MCP completion boundary first.
+        await captureStarted;
+        return { ok: true, verb: "docs" };
+      },
+    };
+
+    const [crashResult, successResult] = await Promise.all([
+      runTool(
+        crashingTool,
+        new WorkingRoot(dir),
+        {},
+        undefined,
+        () => Promise.resolve(KIT_VERSION),
+      ),
+      runTool(
+        successfulTool,
+        // This root-independent call has no recorder. It still crosses the
+        // same completion boundary, so the old process-global mailbox let it
+        // steal another request's signature without introducing a second
+        // concurrent logbook append into the regression itself.
+        new WorkingRoot(undefined),
+        {},
+        undefined,
+        () => Promise.resolve(KIT_VERSION),
+      ),
+    ]);
+    assertEquals(crashResult.structuredContent.error, "internal_error");
+    assertEquals(successResult.structuredContent.ok, true);
+
+    const events = await readMcpVerbEvents(dir);
+    const crashed = events.find((event) => event.verb === "status");
+    assertExists(crashed);
+    assertEquals(crashed.outcome, "failed");
+    assertEquals(crashed.crash, {
+      name: "TypeError",
+      frame: "src/parallel.ts:12:3",
+    });
+    assertEquals(
+      events.some((event) => event.verb === "docs"),
+      false,
+      "a root-independent call outside a project has no logbook recorder",
+    );
+  });
+});
+
 Deno.test("discern mcp: a malformed JSON line does not prevent the next valid call", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

@@ -37,9 +37,7 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import {
-  observeCrash,
   observeResult,
-  takeObservedCrash,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
@@ -47,6 +45,7 @@ import {
 } from "../../shared/result_capture.ts";
 import {
   captureCrashReport,
+  type CrashSignature,
   internalErrorResult,
   throwIfCrashProbe,
   writeCrashArtifact,
@@ -1398,8 +1397,12 @@ function beginMcpRecording(
 /** A dispatch result plus the optional recording opened once its root was known.
  * Dispatch may refuse early; {@link runTool} still sends every member through the
  * same completion boundary. */
-interface PendingToolCall {
+interface VerbRun {
   result: DiscernResult;
+  crash?: CrashSignature | undefined;
+}
+
+interface PendingToolCall extends VerbRun {
   recording: McpRecording | undefined;
 }
 
@@ -1409,8 +1412,8 @@ interface PendingToolCall {
  * This is the single place tool handlers are invoked (normal and root-independent
  * paths alike). A throw is a crash — a bug in discern (ADR 0247) — so it also
  * saves a crash report beside the logbook (the envelope's message names the
- * file) and reports the logbook-safe signature through the shared crash
- * mailbox, drained at {@link completeToolCall}. Observation and recording
+ * file) and returns the logbook-safe signature beside that call's result.
+ * {@link completeToolCall} records the same request-owned signature. Observation and recording
  * deliberately happen later, at {@link completeToolCall}, because dispatch
  * refusals never enter a handler and delivery can still append a stale-server
  * hint after the handler returns.
@@ -1421,20 +1424,24 @@ async function runVerb(
   args: Record<string, unknown>,
   signal?: AbortSignal,
   awaitCallProfile: AwaitCallProfile = "unknown-client",
-): Promise<DiscernResult> {
+): Promise<VerbRun> {
   try {
     throwIfCrashProbe();
-    return await tool.run(
-      root,
-      args,
-      signal ?? new AbortController().signal,
-      { awaitCallProfile },
-    );
+    return {
+      result: await tool.run(
+        root,
+        args,
+        signal ?? new AbortController().signal,
+        { awaitCallProfile },
+      ),
+    };
   } catch (e) {
     const report = captureCrashReport(verbOf(tool.name), e);
-    observeCrash(report.signature);
     const artifact = await writeCrashArtifact(root, report);
-    return internalErrorResult(verbOf(tool.name), report, artifact);
+    return {
+      result: internalErrorResult(verbOf(tool.name), report, artifact),
+      crash: report.signature,
+    };
   }
 }
 
@@ -1467,10 +1474,6 @@ async function completeToolCall(
   takeSupplementalHintIds();
   takeShownTipIds();
   takeVerbTarget();
-  // Drained per call like the envelope above, so a crash signature can never
-  // leak from one tool call into the next on this long-lived server.
-  const crash = takeObservedCrash();
-
   const recording = pending.recording;
   if (recording !== undefined) {
     const { flags, target } = mcpCallFacts(args);
@@ -1485,7 +1488,7 @@ async function completeToolCall(
       ...(result.dry_run === true ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),
-      ...(crash !== undefined ? { crash } : {}),
+      ...(pending.crash !== undefined ? { crash: pending.crash } : {}),
     });
   }
   return renderResult(result);
@@ -1551,14 +1554,15 @@ async function dispatchToolCall(
     // genuinely needs a project and refuses (B38). The property is declared on the tool
     // (the TOOLS-table single source of truth) — no per-name special case here.
     if (tool.rootIndependent === true) {
+      const run = await runVerb(
+        tool,
+        Deno.cwd(),
+        args,
+        signal,
+        awaitCallProfile,
+      );
       return {
-        result: await runVerb(
-          tool,
-          Deno.cwd(),
-          args,
-          signal,
-          awaitCallProfile,
-        ),
+        ...run,
         recording: undefined,
       };
     }
@@ -1591,7 +1595,7 @@ async function dispatchToolCall(
       recording,
     };
   }
-  const result = await runVerb(
+  const run = await runVerb(
     tool,
     root,
     args,
@@ -1605,16 +1609,16 @@ async function dispatchToolCall(
   // directory the held root points at, so the hook re-roots when that root is now gone
   // (`heldRootMissing`), even on a path override; otherwise the next no-path call would
   // resolve a deleted worktree (the Codex failure mode). A dry-run never moves it.
-  if (result.dry_run !== true && tool.reaimAfterResult !== undefined) {
+  if (run.result.dry_run !== true && tool.reaimAfterResult !== undefined) {
     const heldRoot = working.get();
     const heldRootMissing = heldRoot !== undefined &&
       !(await pathExists(heldRoot));
-    const next = tool.reaimAfterResult(result, { heldRootMissing });
+    const next = tool.reaimAfterResult(run.result, { heldRootMissing });
     if (next !== undefined) {
       working.set(next);
     }
   }
-  return { result, recording };
+  return { ...run, recording };
 }
 
 /**
