@@ -151,6 +151,7 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 | ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.     |
 | `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.      |
+| `70`                         | discern itself crashed on an unexpected error and saved a [crash report](crash-reports.md).                 |
 | Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract. |
 | Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.          |
 

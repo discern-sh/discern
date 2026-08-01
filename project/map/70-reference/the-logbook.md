@@ -64,6 +64,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `tree`         | a checksum of the uncommitted diff              |
 | `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"` |
 | `failed_stage` | the gate stage that went red                    |
+| `crash`        | error class name and one code location          |
 | `duration_ms`  | wall-clock milliseconds                         |
 | `target`       | `map`/`docs` page served, miss, or new branch   |
 | `flags`        | `["force"]` — names, never values               |
@@ -78,7 +79,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `landing`      | recovery, trunk, worktree, and branch effects   |
 | `epoch`        | a fingerprint of your config                    |
 
-`partial` marks an error after an irreversible effect. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
+`partial` marks an error after an irreversible effect. `crash` appears only when the run died on an unexpected throw (a bug in discern) and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The full error text lives in the [crash report file](crash-reports.md). `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 
 Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
