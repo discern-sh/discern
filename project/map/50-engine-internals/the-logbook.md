@@ -88,30 +88,30 @@ Context (branch, commit, config, toggle) is gathered from invocation, so `accept
 
 ## Where it lives in code
 
-| Concept                         | File                                                                                        |
-| ------------------------------- | ------------------------------------------------------------------------------------------- |
-| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                     |
-| Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                   |
-| Desk tip registry               | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                                         |
-| MCP classifier + effective view | [`src/engine/logbook/agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts)     |
-| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)       |
-| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                       |
-| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                       |
-| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                     |
-| Verb vocabulary + effect class  | [`src/shared/verbs.ts`](../../../src/shared/verbs.ts)                                       |
-| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                           |
-| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                         |
-| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)               |
-| Finding routing                 | [`src/engine/logbook/routing.ts`](../../../src/engine/logbook/routing.ts)                   |
-| Working-command collection      | [`src/engine/logbook/surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                 |
-| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)                 |
-| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                     |
-| Crash capture + report files    | [`src/engine/crash.ts`](../../../src/engine/crash.ts)                                       |
+| Concept                         | File                                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Event schema + tolerant parser  | [`src/engine/logbook/schema.ts`](../../../src/engine/logbook/schema.ts)                           |
+| Agent identity catalogue        | [`src/shared/agent_catalogue.ts`](../../../src/shared/agent_catalogue.ts)                         |
+| Desk tip registry               | [`src/shared/tips.ts`](../../../src/shared/tips.ts)                                               |
+| MCP classifier + effective view | [`src/engine/logbook/agent_identity.ts`](../../../src/engine/logbook/agent_identity.ts)           |
+| Advisory identity detector      | [`src/engine/logbook/agent_signals.ts`](../../../src/engine/logbook/agent_signals.ts)             |
+| Config-epoch fingerprint        | [`src/engine/logbook/epoch.ts`](../../../src/engine/logbook/epoch.ts)                             |
+| Append, rotation, epoch sidecar | [`src/engine/logbook/store.ts`](../../../src/engine/logbook/store.ts)                             |
+| The recorder                    | [`src/engine/logbook/record.ts`](../../../src/engine/logbook/record.ts)                           |
+| Verb vocabulary + effect class  | [`src/shared/verbs.ts`](../../../src/shared/verbs.ts)                                             |
+| The CLI wrapper + verb registry | [`src/engine/logbook/cli.ts`](../../../src/engine/logbook/cli.ts)                                 |
+| The stream reader               | [`src/engine/logbook/read.ts`](../../../src/engine/logbook/read.ts)                               |
+| The detector registry           | [`src/engine/logbook/detectors.ts`](../../../src/engine/logbook/detectors.ts)                     |
+| Finding routing                 | [`src/engine/logbook/routing.ts`](../../../src/engine/logbook/routing.ts)                         |
+| Working-command collection      | [`src/engine/logbook/surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                       |
+| The `patterns` verb + reset     | [`src/engine/logbook/patterns.ts`](../../../src/engine/logbook/patterns.ts)                       |
+| The observed-envelope seam      | [`src/shared/result_capture.ts`](../../../src/shared/result_capture.ts)                           |
+| Crash capture + report files    | [`src/engine/crash.ts`](../../../src/engine/crash.ts)                                             |
 | Mailbox drain parity guard      | [`tests/result_capture_drain_parity_test.ts`](../../../tests/result_capture_drain_parity_test.ts) |
-| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)             |
-| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                     |
-| Routing and outcome guards      | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                   |
-| Working-command tests           | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts) |
+| The no-network guard            | [`tests/logbook_no_network_test.ts`](../../../tests/logbook_no_network_test.ts)                   |
+| Behaviour tests                 | [`tests/engine_logbook_test.ts`](../../../tests/engine_logbook_test.ts)                           |
+| Routing and outcome guards      | [`tests/logbook_routing_test.ts`](../../../tests/logbook_routing_test.ts)                         |
+| Working-command tests           | [`tests/engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)       |
 
 ## See also
 

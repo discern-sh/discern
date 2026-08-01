@@ -1,7 +1,7 @@
 ---
 title: Crash reports
 description: What discern leaves behind when it fails on a bug in itself — the saved report, exit code 70, the JSON envelope, and what to attach to an issue.
-order: 85
+order: 90
 aliases:
   - crash
   - crashes

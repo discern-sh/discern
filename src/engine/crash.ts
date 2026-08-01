@@ -37,6 +37,7 @@ import { ISSUES_URL, KIT_VERSION } from "../lib/version.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { CrashSignature } from "../shared/result_capture.ts";
+import { makeTempArtifact } from "../shared/temp_artifacts.ts";
 
 /** The crash exit code: sysexits `EX_SOFTWARE` — an internal software error,
  * distinct from an ordinary failed verb's exit 1 and the re-raised signal
@@ -233,10 +234,9 @@ export async function writeCrashArtifact(
     // fall through to the temp-file fallback
   }
   try {
-    const path = await Deno.makeTempFile({
-      prefix: "discern-crash-",
-      suffix: ".txt",
-    });
+    // The registered temp-artifact family, so the reaper's coverage stays
+    // total; its TTL only collects reports nobody came back for.
+    const path = await makeTempArtifact("crash");
     await Deno.writeTextFile(path, body);
     return path;
   } catch {

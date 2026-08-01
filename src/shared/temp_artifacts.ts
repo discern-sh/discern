@@ -35,6 +35,8 @@ export const TEMP_ARTIFACT_KINDS = {
   job: "discern-job-",
   /** A truncated diagnostic's offloaded full text (ADR 0083). */
   diag: "discern-diag-",
+  /** A crash report's fallback home outside a repository (ADR 0247). */
+  crash: "discern-crash-",
 } as const;
 
 export type TempArtifactKind = keyof typeof TEMP_ARTIFACT_KINDS;
