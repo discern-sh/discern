@@ -23,7 +23,7 @@
  *    hand-copied list. A stray write inside a sanctioned module fails here.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertRejects } from "@std/assert";
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { walk } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
@@ -38,6 +38,7 @@ import {
   isDiscernWriteTarget,
   projectArtifactPaths,
 } from "../src/lib/artifact_ownership.ts";
+import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
 
 // ── leg 1: the static funnel ─────────────────────────────────────────────────
 
@@ -157,6 +158,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   [
     "src/engine/desk/tip_state.ts",
     "the desk tip seen-state — .git-internal, outside the project tree",
+  ],
+  [
+    "src/engine/continuations/store.ts",
+    "short-handle continuation state — registry-resolved .git-internal state outside the project tree",
   ],
   [
     "src/shared/setup_machinery_evidence.ts",
@@ -294,6 +299,51 @@ async function contractPredicate(
   const writable = projectArtifactPaths(config).filter(isDiscernWriteTarget);
   return (rel) => writable.some((entry) => artifactPathMatches(entry, rel));
 }
+
+Deno.test("env writes refuse traversal and symbolic links before changing a file", async () => {
+  await withTempDir(async (dir) => {
+    const root = join(dir, "project");
+    await Deno.mkdir(root);
+
+    assert(
+      await writeEnvVar(root, "INHERITED_VALUE", "present", [
+        "state/runtime",
+      ], { create: true }),
+    );
+    assert(
+      (await Deno.readTextFile(join(root, "state/runtime"))).includes(
+        "INHERITED_VALUE=present",
+      ),
+      "a nested configured env file should be created inside the project",
+    );
+
+    await assertRejects(
+      () =>
+        writeEnvVar(root, "DISCERN_PORT", "2", ["../escaped.env"], {
+          create: true,
+        }),
+      Error,
+      "invalid [worktree].env_files path",
+    );
+    await assertRejects(
+      () => Deno.stat(join(dir, "escaped.env")),
+      Deno.errors.NotFound,
+    );
+
+    const real = join(root, ".env.real");
+    await Deno.writeTextFile(real, "DISCERN_PORT=1\n");
+    await Deno.symlink(".env.real", join(root, ".env"));
+    await assertRejects(
+      () =>
+        writeEnvVar(root, "DISCERN_PORT", "2", [".env"], {
+          create: true,
+        }),
+      Error,
+      "remove the symbolic link",
+    );
+    assertEquals(await Deno.readTextFile(real), "DISCERN_PORT=1\n");
+  });
+});
 
 Deno.test("setup begin + refresh + upgrade write only inside the contract", async () => {
   await withTempDir(async (dir) => {

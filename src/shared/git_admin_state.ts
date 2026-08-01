@@ -51,6 +51,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  continuations: {
+    path: "discern/continuations",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   gateReceipt: {
     path: "discern/gate-receipt",
     scope: "worktree",

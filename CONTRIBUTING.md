@@ -37,12 +37,30 @@ The command owns the build, check, test, scope, and quality-standard details, so
 
 Keep each commit to one logical change. Use an imperative subject and explain the reason for non-trivial work in the commit body.
 
-## Sign the contributor license agreement
+## Agree to the contributor license agreement
 
-Every contribution is covered by the [contributor license agreements](CLA.md): individual, plus corporate when an employer owns the work. You sign once. On your first pull request, the CLA assistant asks for a signature, and one reply covers every later contribution. You keep your copyright; the agreement grants the project the license that keeps Fair Source distribution and commercial licensing viable.
+Every contributor accepts the [Individual Contributor License Agreement](CLA.md). On your first pull request, the hosted CLA Assistant links to the agreement and records your acceptance through your authenticated GitHub account. You agree once for each CLA version; if the agreement changes, the assistant asks you to agree again. You retain any copyright you hold in your Contributions. The non-exclusive grant lets the project continue its Fair Source distribution, promised future license, and commercial licensing.
 
-discern is distributed under the [Functional Source License](LICENSE), and each release converts to Apache-2.0 two years after that release.
+**Contributor agreement intake status: inactive.** The hosted service and private records path must pass their launch checks before this status changes. Until then, do not submit an external pull request expecting acceptance or send a corporate agreement.
+
+If an employer or another legal entity owns your work, an authorized representative must also complete the [Corporate Contributor License Agreement](CCLA.md) privately. Once intake is active, `cla@discern.sh` is the private route. Do not put corporate addresses, contact details, or signatures in an issue or pull request.
+
+Read the [contributor agreement privacy notice](#contributor-agreement-privacy) before using either path. CLA Assistant is operated by SAP, whose [privacy statement](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md) also applies to the hosted individual path.
+
+discern is distributed under the [Functional Source License](LICENSE). Each version receives an irrevocable Apache-2.0 license on the second anniversary of the date that version was first made available.
 
 ## Report bugs and security issues
 
 Open a bug or setup-failure issue with the matching template and include the complete `discern doctor --json` result. Report vulnerabilities through the private process in [SECURITY.md](SECURITY.md).
+
+## Contributor agreement privacy
+
+This notice covers personal data used to administer discern's Individual and Corporate Contributor License Agreements.
+
+Jack Webb-Heller, the Steward named in the agreements, is the controller of the records discern manages; once contributor agreement intake is active, `cla@discern.sh` is the contact for them. SAP controls the data its hosted CLA Assistant processes, and GitHub processes account and pull-request data. [SAP's CLA Assistant privacy statement](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md) and [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) cover those services.
+
+The individual path may process your GitHub identity, associated email, agreement revision, acceptance time, and pull-request status. The corporate path collects the named entity's details, its representative's name, title, and contact details, its designated contributors, the signed PDF and its SHA-256 digest, and related correspondence. These records verify who granted rights, administer the agreements, and establish, exercise, or defend legal claims, on the legal bases of the Steward's legitimate interests in operating and protecting discern, steps taken to enter into or perform an agreement, and applicable legal obligations.
+
+Providing this data is not required by law; it is required for discern to accept a Contribution. You can still use discern and open issues without it, and a maintainer, not an automated process, makes the final decision on accepting a Contribution. The Steward may share records with service providers that store or administer them, professional advisers under duties of confidence, a successor or permitted assign, or a public authority when legally required. Corporate agreements stay private, and contributor-agreement data is never sold or used for advertising. Project-controlled records will not be collected until this notice identifies their storage location, processing countries, and any safeguard needed for an international transfer. Accepted agreements and the minimum evidence of acceptance are retained while any covered Contribution is distributed or licensed, and afterward for as long as reasonably needed for legal claims or legal obligations.
+
+Depending on applicable law, you may ask to access, correct, delete, restrict, port, or object to discern's processing of your personal data. Some requests may be limited where records remain necessary to evidence a license, comply with law, or handle a legal claim, and exercising a privacy right does not revoke licenses already granted. Once intake is active, contact `cla@discern.sh` about records discern controls, contact SAP through its privacy statement for records it controls, or complain to the [UK Information Commissioner's Office](https://ico.org.uk/make-a-complaint/).

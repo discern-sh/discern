@@ -102,7 +102,7 @@ The stack-neutral logic behind the run-time verbs (`done`, `prepare`, `status`, 
 
 ### File ownership
 
-The ownership buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
+The operational buckets that decide what `discern upgrade` may touch: [project-owned](#project-owned-file), [shared](#shared-file), and [generated](#generated-file). [Files & ownership](../70-reference/artifact-ownership.md) is the user-facing account; the [install surface](../80-development/install-surface.md) is the exhaustive inventory.
 
 ### Fleet
 
@@ -118,7 +118,7 @@ A labeled unit of work scheduled by the gate. A project declares its jobs under 
 
 ### Generated file
 
-An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you never edit it; the reviewable source is always yours. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
+An [agent file](#agent-file) or materialized skill that discern produces and re-produces. It is safe to overwrite because you edit its reviewable sources instead. Drift between a generated file and its source fails the gate ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
 ### Guidance source
 
@@ -166,7 +166,7 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 ### Project-owned file
 
-A file written once and then owned by the project: committed, edited in place, and left alone by `discern upgrade`. This includes the [namespace](#namespace) content, the [map](#map), the ledger, and provider settings merged into files already present at setup.
+A file discern may seed once, then leaves for the project to edit in place. `discern upgrade` does not overwrite it. It includes the [namespace](#namespace) content, the [map](#map), the ledger, and authored skills.
 
 ### Receipt
 

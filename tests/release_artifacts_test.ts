@@ -7,11 +7,15 @@ import {
   assertStringIncludes,
   assertThrows,
 } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { BUILD_TARGETS, type BuildTarget } from "../scripts/build_targets.ts";
 import { releasePlan } from "../scripts/release_plan.ts";
 import { smokeReleaseBinary } from "../scripts/release_smoke.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import {
+  DISCERN_PROJECT_PAYLOAD_LICENSE,
+  FIRST_PARTY_LEGAL_DOCUMENTS,
+} from "../src/shared/license_registry.ts";
 
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const releaseSource = await Deno.readTextFile(RELEASE);
@@ -88,8 +92,21 @@ Deno.test("the compiled release smoke gates artifact upload", () => {
 
 interface FakeOptions {
   docsRoot?: boolean;
+  materializedLegalPath?: string;
+  missingLicenseKey?: string;
   scaffoldMap?: boolean;
+  truncatedLicenseKey?: string;
   version?: string;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function truncateAfterMarker(text: string, marker: string): string {
+  const markerIndex = text.indexOf(marker);
+  assert(markerIndex >= 0, `fixture text is missing ${marker}`);
+  return text.slice(0, markerIndex + marker.length);
 }
 
 async function writeFakeDiscern(
@@ -99,9 +116,41 @@ async function writeFakeDiscern(
   const binary = join(dir, "fake-discern");
   const version = options.version ?? "1.2.3";
   const docs = options.docsRoot === false ? [] : [{ path: "docs/README.md" }];
+  const documents = await Promise.all(
+    FIRST_PARTY_LEGAL_DOCUMENTS
+      .filter((document) => document.key !== options.missingLicenseKey)
+      .map(async (document) => {
+        const text = await Deno.readTextFile(
+          new URL(`../${document.path}`, import.meta.url),
+        );
+        return {
+          key: document.key,
+          kind: document.kind,
+          identifier: document.identifier,
+          title: document.title,
+          path: document.path,
+          text: document.key === options.truncatedLicenseKey
+            ? truncateAfterMarker(text, document.smokeMarker)
+            : text,
+        };
+      }),
+  );
+  const licensesJson = JSON.stringify({
+    ok: true,
+    verb: "licenses",
+    data: { documents, components: [] },
+  });
+  const thirdPartyNotices = await Deno.readTextFile(
+    new URL("../THIRD_PARTY_NOTICES", import.meta.url),
+  );
   const scaffoldMap = options.scaffoldMap === false
     ? ""
     : `mkdir -p ${SOURCE_PATHS.map.defaultPath}; printf '# Map\\n' > ${SOURCE_PATHS.map.defaultPath}README.md`;
+  const materializeLegal = options.materializedLegalPath === undefined
+    ? ""
+    : `mkdir -p ${
+      shellQuote(dirname(options.materializedLegalPath))
+    }; printf 'fixture\\n' > ${shellQuote(options.materializedLegalPath)}`;
   await Deno.writeTextFile(
     binary,
     `#!/bin/sh
@@ -115,11 +164,19 @@ case "$1" in
       JSON.stringify({ ok: true, verb: "docs", data: { docs } })
     }'
     ;;
+  licenses)
+    if [ "$#" -gt 1 ] && [ "$2" = "--json" ]; then
+      printf '%s\\n' ${shellQuote(licensesJson)}
+    else
+      printf '%s' ${shellQuote(thirdPartyNotices)}
+    fi
+    ;;
   setup)
     mkdir -p discern
     printf '%s\\n' '[project]' > discern.toml
     printf '%s\\n' '# Guidance' > ${SOURCE_PATHS.guidance.defaultPath}
     ${scaffoldMap}
+    ${materializeLegal}
     printf '%s\\n' '${JSON.stringify({ ok: true, verb: "setup" })}'
     ;;
   *)
@@ -132,7 +189,7 @@ esac
   return binary;
 }
 
-Deno.test("release smoke proves version, bundled docs, and bundled setup assets", async () => {
+Deno.test("release smoke proves version, licenses, bundled docs, and setup assets", async () => {
   const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
   try {
     await smokeReleaseBinary(await writeFakeDiscern(dir), "1.2.3");
@@ -155,7 +212,7 @@ Deno.test("release smoke rejects an unrelated future binary with the wrong versi
   }
 });
 
-Deno.test("release smoke rejects a binary missing embedded docs or templates", async () => {
+Deno.test("release smoke rejects a binary missing licenses, docs, or templates", async () => {
   const dir = await Deno.makeTempDir({ prefix: "release-smoke-test-" });
   try {
     const noDocs = await writeFakeDiscern(dir, { docsRoot: false });
@@ -170,6 +227,33 @@ Deno.test("release smoke rejects a binary missing embedded docs or templates", a
       () => smokeReleaseBinary(noMap, "1.2.3"),
       Error,
       `did not scaffold ${SOURCE_PATHS.map.defaultPath}README.md`,
+    );
+
+    const missingPayloadLicense = await writeFakeDiscern(dir, {
+      missingLicenseKey: DISCERN_PROJECT_PAYLOAD_LICENSE.key,
+    });
+    await assertRejects(
+      () => smokeReleaseBinary(missingPayloadLicense, "1.2.3"),
+      Error,
+      `missing ${DISCERN_PROJECT_PAYLOAD_LICENSE.key}`,
+    );
+
+    const truncatedPayloadLicense = await writeFakeDiscern(dir, {
+      truncatedLicenseKey: DISCERN_PROJECT_PAYLOAD_LICENSE.key,
+    });
+    await assertRejects(
+      () => smokeReleaseBinary(truncatedPayloadLicense, "1.2.3"),
+      Error,
+      `${DISCERN_PROJECT_PAYLOAD_LICENSE.key}.text differs`,
+    );
+
+    const materializedNotice = await writeFakeDiscern(dir, {
+      materializedLegalPath: "NOTICE",
+    });
+    await assertRejects(
+      () => smokeReleaseBinary(materializedNotice, "1.2.3"),
+      Error,
+      "materialized legal file NOTICE",
     );
   } finally {
     await Deno.remove(dir, { recursive: true });

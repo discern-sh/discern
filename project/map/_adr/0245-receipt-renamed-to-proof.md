@@ -1,4 +1,4 @@
-# ADR 0241: The receipt becomes the proof
+# ADR 0245: The receipt becomes the proof
 
 **Status**: accepted
 
@@ -6,7 +6,7 @@
 
 Since [ADR 0114](0114-the-gate-emits-the-receipt.md), the gate's minted record — the versioned envelope tying a green run to one exact tree — has been the **receipt**. [ADR 0120](0120-launch-verb-canon.md) reviewed the whole verb surface and left the name standing.
 
-Three pressures reopened it. The brand direction ([ADR 0240](0240-brand-addresses-the-owner.md)) judged "receipt" wrong as a public word: transactional, waste-associated, the slip you discard. Banning a word from marketing while it names the most-shared artifact the product mints splits the vocabulary. The split already exists in the tree: the desk's tips say "passing proof" while the feature canon says receipt — a live synonym pair the one-name-per-concept rule forbids ([ADR 0018](0018-vocabulary-consolidation.md), [ADR 0167](0167-term-registry-polices-the-vocabulary.md)). And v1.0.0 ships the envelope as a signature-ready public contract. After launch the name lives in schemas and git notes ([ADR 0215](0215-landing-receipts-travel-as-git-notes.md)), and a rename becomes the expensive walk-back the verb canon pre-empted. Before launch it costs about an hour.
+Three pressures reopened it. The brand direction ([ADR 0244](0244-brand-addresses-the-owner.md)) judged "receipt" wrong as a public word: transactional, waste-associated, the slip you discard. Banning a word from marketing while it names the most-shared artifact the product mints splits the vocabulary. The split already exists in the tree: the desk's tips say "passing proof" while the feature canon says receipt — a live synonym pair the one-name-per-concept rule forbids ([ADR 0018](0018-vocabulary-consolidation.md), [ADR 0167](0167-term-registry-polices-the-vocabulary.md)). And v1.0.0 ships the envelope as a signature-ready public contract. After launch the name lives in schemas and git notes ([ADR 0215](0215-landing-receipts-travel-as-git-notes.md)), and a rename becomes the expensive walk-back the verb canon pre-empted. Before launch it costs about an hour.
 
 ## Decision
 
@@ -22,7 +22,7 @@ One name everywhere: CLI and MCP surfaces, the result envelope and schemas, the 
 
 Two disciplines attach to the word:
 
-- **Proof attaches to the work, never to the worker.** Copy and product strings say "the change lands proven", never "make the agent prove it". The verifier frame retired by [ADR 0240](0240-brand-addresses-the-owner.md) must not re-enter through the new noun.
+- **Proof attaches to the work, never to the worker.** Copy and product strings say "the change lands proven", never "make the agent prove it". The verifier frame retired by [ADR 0244](0244-brand-addresses-the-owner.md) must not re-enter through the new noun.
 - **The canonical sense owns the word.** In docs, loose idiomatic uses ("proof that this works") yield to precise alternatives, so the glossary term stays exact.
 
 The explicit noes: "attestation" is not a second name for the artifact — docs may say once that proofs function as attestations for supply chain audiences — and "receipt" survives nowhere as an alias.

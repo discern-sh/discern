@@ -41,8 +41,7 @@ import {
 import { expandTokens, WORKTREE_TOKENS } from "./tokens.ts";
 import type { TokenResolver, WorktreeToken } from "./tokens.ts";
 import { runShellRouted } from "./shell.ts";
-import { writeEnvVar } from "./env_file.ts";
-import { gitKeyIsLive, WorktreeGitError } from "./git.ts";
+import { gitKeyIsLive, WorktreeGitError, writeWorktreeEnvVar } from "./git.ts";
 
 /** The ledger entry format version (forward-compat: GC skips unknown majors). */
 const LEDGER_SCHEMA = 1;
@@ -484,14 +483,14 @@ export async function recordResourceEnv(
     return;
   }
   const files = ctx.config.worktree.env_files;
-  await writeEnvVar(
+  await writeWorktreeEnvVar(
     ctx.cwd,
     "DISCERN_WORKTREE",
     worktreeBase(settings.slug, identity.id),
     files,
   );
   for (const spec of specs) {
-    await writeEnvVar(
+    await writeWorktreeEnvVar(
       ctx.cwd,
       resourceEnvName(spec.name),
       resourceForId(settings.slug, identity.id, spec.name),

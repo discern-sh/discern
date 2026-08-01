@@ -1368,7 +1368,7 @@ export const HINTS = {
       seconds: 45,
       command: discernCommand(
         "await",
-        flag("resume", "v1.opaque-continuation"),
+        flag("resume", "C1-7K3M-PQ9D-YM"),
         flag("timeout", "45"),
       ),
     },

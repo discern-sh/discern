@@ -76,15 +76,17 @@ Deno.test("every comment-capable non-context artifact emits the standard marker"
       canonicalDiscernGitignoreBlock(gitignoreFragment),
     );
 
-    assert(
-      await writeEnvVar(
-        root,
-        "DISCERN_WORKTREE_ID",
-        "provenance-test",
-        [".env"],
-        { create: true },
-      ),
-    );
+    for (const file of ALL_AGENT_CONFIG.worktree.env_files) {
+      assert(
+        await writeEnvVar(
+          root,
+          "DISCERN_WORKTREE_ID",
+          "provenance-test",
+          [file],
+          { create: true },
+        ),
+      );
+    }
 
     await wireProviderMcp(
       root,

@@ -1,0 +1,7 @@
+{
+  "agreement": {
+    "title": "I have read and agreed to the discern Contributor License Agreement, version 1.0",
+    "type": "boolean",
+    "required": true
+  }
+}

@@ -25,7 +25,12 @@
  * — never weakening the assertion.
  */
 
-import { assert, assertEquals, assertNotEquals } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+  assertStringIncludes,
+} from "@std/assert";
 import { encodeBase64 } from "@std/encoding/base64";
 import { walk } from "@std/fs";
 import { dirname, fromFileUrl, join } from "@std/path";
@@ -121,7 +126,7 @@ Deno.test("committed notices artifacts regenerate identically from the compile g
   }
 });
 
-Deno.test("the embedded bundle serves the same notices document as the committed file", async () => {
+Deno.test("the complete license report includes the committed third-party notices", async () => {
   const { runLicenses } = await import("../src/commands/licenses.ts");
   const printed: string[] = [];
   const original = console.log;
@@ -136,9 +141,9 @@ Deno.test("the embedded bundle serves the same notices document as the committed
   const committed = await Deno.readTextFile(
     join(repoRoot, THIRD_PARTY_ARTIFACT_PATHS.notices),
   );
-  assertEquals(
+  assertStringIncludes(
     printed.join("\n"),
-    committed,
+    committed.trimEnd(),
     "the bundled notices drifted from THIRD_PARTY_NOTICES — run `deno task codegen`",
   );
 });

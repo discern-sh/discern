@@ -4,10 +4,11 @@
  * beside `feature_canon_enrolment` and `glossary_enrolment`).
  *
  * Forward: every declared set's single source resolves to a non-empty member
- * list, every declared guard exists and references its source, and every
- * declared artifact is committed with its banner or block markers, enrolled as
- * a codegen target, and canonical under the embedded Markdown formatter — the
- * rewrite loop between the formatter and the generator, cured as a class.
+ * list, the atlas renders those members in source order, every declared guard
+ * exists and references its source, and every declared artifact is committed
+ * with its banner or block markers, enrolled as a codegen target, and canonical
+ * under the embedded Markdown formatter — the rewrite loop between the
+ * formatter and the generator, cured as a class.
  *
  * Reverse: convention sweeps. Every conventionally named guard test, every
  * codegen write target must be claimed by a declared set or recorded
@@ -35,6 +36,10 @@ import {
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import {
+  REGISTRY_ATLAS_REL,
+  withoutRegistryAtlasMembers,
+} from "./registry_atlas_scan.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -123,6 +128,42 @@ function artifactOffenders(
   return offenders;
 }
 
+/** One set's detail section from the generated atlas. */
+function atlasSetSection(doc: string, entry: CanonicalSetEntry): string {
+  const heading = `## \`${entry.id}\` — ${entry.title}`;
+  const start = doc.indexOf(`${heading}\n`);
+  assert(start >= 0, `${entry.id}: the atlas carries no detail section`);
+  const bodyStart = start + heading.length + 1;
+  const nextHeading = doc.indexOf("\n## ", bodyStart);
+  return doc.slice(bodyStart, nextHeading < 0 ? doc.length : nextHeading);
+}
+
+/** Decode the nested code-span bullets under a section's member count. */
+function atlasMemberNames(section: string): string[] {
+  const lines = section.split("\n");
+  const countLine = lines.findIndex((line) => line.startsWith("- Members:"));
+  assert(countLine >= 0, "the atlas section carries no member count");
+  const names: string[] = [];
+  for (const line of lines.slice(countLine + 1)) {
+    if (!line.startsWith("  - ")) break;
+    const span = line.slice("  - ".length);
+    const fence = span.match(/^`+/)?.[0];
+    assert(
+      fence !== undefined && span.endsWith(fence),
+      `atlas member is not a code span: ${line}`,
+    );
+    let name = span.slice(fence.length, -fence.length);
+    if (name.startsWith(" ") && name.endsWith(" ")) {
+      const unpadded = name.slice(1, -1);
+      if (unpadded.startsWith("`") || unpadded.endsWith("`")) {
+        name = unpadded;
+      }
+    }
+    names.push(name);
+  }
+  return names;
+}
+
 // --- Forward checks: the declarations hold against the live repository.
 
 Deno.test("every declared source resolves to a non-empty member set", async () => {
@@ -146,6 +187,13 @@ Deno.test("every declared source resolves to a non-empty member set", async () =
         members !== undefined && members.length > 0,
         `${entry.id}: the members thunk must resolve a non-empty set`,
       );
+      for (const member of members) {
+        assert(
+          member.length > 0 && member === member.trim() &&
+            !member.includes("\n") && !member.includes("\r"),
+          `${entry.id}: every atlas member name must be non-empty and fit on one line`,
+        );
+      }
     } else {
       const text = await fileText(entry.source.path);
       assert(
@@ -406,6 +454,70 @@ Deno.test("the meta-registry enrols itself", () => {
       artifact.path.endsWith(REGISTRY_ATLAS_PAGE_REL)
     ),
     "the self entry must declare the registry atlas as its artifact",
+  );
+});
+
+Deno.test("the registry atlas lists every resolvable member in source order", async () => {
+  const doc = await renderRegistryAtlasDoc();
+  for (const entry of CANONICAL_SETS) {
+    const section = atlasSetSection(doc, entry);
+    const members = await resolveSetMembers(entry);
+    if (members === undefined) {
+      assert(
+        section.includes(
+          "- Members: — (the authored source does not expose member names to codegen)",
+        ),
+        `${entry.id}: the atlas does not explain why member names are unavailable`,
+      );
+      assertEquals(
+        atlasMemberNames(section),
+        [],
+        `${entry.id}: a set without a member reader cannot render member names`,
+      );
+      continue;
+    }
+    assert(
+      section.includes(`- Members: ${members.length}`),
+      `${entry.id}: the atlas count does not match the source`,
+    );
+    assertEquals(
+      atlasMemberNames(section),
+      members,
+      `${entry.id}: the atlas member names have drifted from the source`,
+    );
+  }
+});
+
+Deno.test("control: semantic scans ignore member names and keep atlas prose", () => {
+  const retired = ["`", "in", "it", "`"].join("");
+  const skillLike = "discern-future-token";
+  const doc = [
+    "## `control` — Control",
+    "",
+    `Prose still names ${skillLike}.`,
+    "",
+    "- Members: 2",
+    `  - ${retired}`,
+    `  - \`${skillLike}\``,
+    "- Guards: `tests/control_test.ts`",
+  ].join("\n");
+  assertEquals(
+    withoutRegistryAtlasMembers(REGISTRY_ATLAS_REL, doc),
+    [
+      "## `control` — Control",
+      "",
+      `Prose still names ${skillLike}.`,
+      "",
+      "- Members: 2",
+      "",
+      "",
+      "- Guards: `tests/control_test.ts`",
+    ].join("\n"),
+  );
+  assertEquals(
+    withoutRegistryAtlasMembers("project/map/elsewhere.md", doc),
+    doc,
+    "the projection must leave every other file byte-for-byte unchanged",
   );
 });
 

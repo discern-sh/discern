@@ -47,9 +47,13 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Fetch trunk
-        run: >-
-          git fetch --no-tags --depth=1 origin
-          +refs/heads/main:refs/remotes/origin/main
+        shell: bash
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
 
       - name: Install discern
         shell: bash
@@ -68,8 +72,6 @@ jobs:
           cache: true
 
       - name: Run the gate
-        env:
-          DISCERN_TRUNK: origin/main
         run: discern done
 
       - name: Assert a clean tree
@@ -105,5 +107,5 @@ A cloud coding agent may start from a clone without the discern binary or materi
 ## Current state & gotchas
 
 - Do not run `discern refresh` in the gate job. CI verifies committed guidance and accepts an intentionally missing untracked copy; regenerating first can hide drift.
-- A pull-request checkout may lack a local trunk branch. Fetching `origin/main` and setting `DISCERN_TRUNK` prevents the never-loosen check from becoming unverified.
+- Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
 - `git diff --exit-code` catches fixer output. A workflow that omits it can finish after changing the runner's checkout, which proves less than the commit contains.

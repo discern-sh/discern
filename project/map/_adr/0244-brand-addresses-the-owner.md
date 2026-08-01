@@ -1,4 +1,4 @@
-# ADR 0240: The brand addresses the owner and judges only the work
+# ADR 0244: The brand addresses the owner and judges only the work
 
 **Status**: accepted
 

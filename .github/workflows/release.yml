@@ -67,15 +67,16 @@ jobs:
       # gate, avoiding a separate macOS runner while preserving release proof.
       - name: Fetch main for the release gate
         if: ${{ matrix.gateBeforeBuild }}
-        run: >-
-          git fetch --no-tags --depth=1 origin
-          +refs/heads/main:refs/remotes/origin/main
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
 
       - name: Run the full gate on native macOS
         if: ${{ matrix.gateBeforeBuild }}
         uses: ./.github/actions/macos-gate
-        env:
-          DISCERN_TRUNK: origin/main
 
       - name: Compile ${{ matrix.target }}
         run: deno task build ${{ matrix.target }}

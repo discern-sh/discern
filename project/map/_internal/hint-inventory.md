@@ -161,7 +161,7 @@ The work from `agent/upload-retry` landed on `main` — run `discern update` to 
 Rendered example:
 
 ```text
-Not yet: `agent/upload-retry` has no honored receipt yet. Continue this same watch once for up to 45s: `discern await --resume v1.opaque-continuation --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
+Not yet: `agent/upload-retry` has no honored receipt yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
 ```
 
 ## `await-trunk-moved-met`

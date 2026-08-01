@@ -1,6 +1,6 @@
 # ADR 0120: The launch verb canon — questions are nouns, actions are imperatives
 
-> **Receipt-naming amendment ([ADR 0241](0241-receipt-renamed-to-proof.md)):** the July 10, 2026 receipt naming no longer stands — the gate's record is renamed **the proof**, and the scope-and-sequencing line below that kept it is superseded on that point.
+> **Receipt-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** the July 10, 2026 receipt naming no longer stands — the gate's record is renamed **the proof**, and the scope-and-sequencing line below that kept it is superseded on that point.
 >
 > **Manual-command amendment ([ADR 0218](0218-docs-owns-the-manual-help-owns-cli-reference.md)):** `docs` now names discern's bundled manual, while `help` names CLI reference. `map` remains the project-maintained tree, and the single-spelling policy stands.
 >

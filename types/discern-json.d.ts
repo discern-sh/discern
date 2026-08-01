@@ -1185,6 +1185,14 @@ export type DiscernLicensesResult = {
   message?: string;
   verb: "licenses";
   data?: {
+    documents: Array<{
+      key: string;
+      kind: "license" | "notice";
+      identifier: string;
+      title: string;
+      path: string;
+      text: string;
+    }>;
     components: Array<{
       name: string;
       version: string;

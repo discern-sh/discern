@@ -1,10 +1,12 @@
 /** Execute the binary-only release seams before an artifact can be uploaded. */
 
 import { ensureDir, exists } from "@std/fs";
-import { isAbsolute, join, resolve } from "@std/path";
+import { fromFileUrl, isAbsolute, join, resolve } from "@std/path";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
+import { FIRST_PARTY_LEGAL_DOCUMENTS } from "../src/shared/license_registry.ts";
 
 const DECODER = new TextDecoder();
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
 interface CommandOutput {
   stderr: string;
@@ -70,7 +72,72 @@ function assertBundledDocs(envelope: Record<string, unknown>): void {
   }
 }
 
-/** Run version, embedded-docs, and embedded-template probes against one binary. */
+async function assertBundledFirstPartyLicenses(
+  envelope: Record<string, unknown>,
+): Promise<void> {
+  const data = envelope.data;
+  if (!isRecord(data) || !Array.isArray(data.documents)) {
+    throw new Error(
+      "compiled licenses result has no first-party documents list",
+    );
+  }
+
+  for (const [index, declaration] of FIRST_PARTY_LEGAL_DOCUMENTS.entries()) {
+    const document = data.documents[index];
+    if (!isRecord(document)) {
+      throw new Error(
+        `compiled licenses result is missing ${declaration.key} at index ${index}`,
+      );
+    }
+    const expected = {
+      key: declaration.key,
+      kind: declaration.kind,
+      identifier: declaration.identifier,
+      title: declaration.title,
+      path: declaration.path,
+      text: await Deno.readTextFile(join(REPO_ROOT, declaration.path)),
+    };
+    const actualFields = Object.keys(document).sort();
+    const expectedFields = Object.keys(expected).sort();
+    if (JSON.stringify(actualFields) !== JSON.stringify(expectedFields)) {
+      throw new Error(
+        `compiled licenses document ${declaration.key} has fields ` +
+          `[${actualFields.join(", ")}], expected [${
+            expectedFields.join(", ")
+          }]`,
+      );
+    }
+    for (const [field, expectedValue] of Object.entries(expected)) {
+      if (document[field] !== expectedValue) {
+        throw new Error(
+          `compiled licenses document ${declaration.key}.${field} differs ` +
+            `from ${declaration.path}`,
+        );
+      }
+    }
+  }
+
+  if (data.documents.length !== FIRST_PARTY_LEGAL_DOCUMENTS.length) {
+    throw new Error(
+      `compiled licenses result has ${data.documents.length} first-party ` +
+        `documents, expected ${FIRST_PARTY_LEGAL_DOCUMENTS.length}`,
+    );
+  }
+}
+
+async function assertBundledThirdPartyNotices(output: string): Promise<void> {
+  const notices = await Deno.readTextFile(
+    join(REPO_ROOT, "THIRD_PARTY_NOTICES"),
+  );
+  if (!output.includes(notices)) {
+    throw new Error(
+      "compiled licenses human output is missing the complete committed " +
+        "THIRD_PARTY_NOTICES",
+    );
+  }
+}
+
+/** Run version, legal, embedded-docs, and template probes against one binary. */
 export async function smokeReleaseBinary(
   binaryPath: string,
   expectedVersion: string,
@@ -96,6 +163,15 @@ export async function smokeReleaseBinary(
           `discern ${expectedVersion}`,
       );
     }
+
+    const licenses = resultEnvelope(
+      (await run(binary, ["licenses", "--json"], temp)).stdout,
+      "compiled licenses",
+    );
+    await assertBundledFirstPartyLicenses(licenses);
+    await assertBundledThirdPartyNotices(
+      (await run(binary, ["licenses"], temp)).stdout,
+    );
 
     const docs = resultEnvelope(
       (await run(binary, ["docs", "--json"], temp)).stdout,
@@ -166,6 +242,13 @@ export async function smokeReleaseBinary(
     const config = await Deno.readTextFile(join(project, "discern.toml"));
     if (config.includes("{{")) {
       throw new Error("compiled setup left an unresolved template token");
+    }
+    for (const document of FIRST_PARTY_LEGAL_DOCUMENTS) {
+      if (await exists(join(project, document.path))) {
+        throw new Error(
+          `compiled setup materialized legal file ${document.path}`,
+        );
+      }
     }
   } finally {
     await Deno.remove(temp, { recursive: true }).catch(() => {});

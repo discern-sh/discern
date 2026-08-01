@@ -17,6 +17,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
+import { encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -47,6 +48,7 @@ import {
   type AwaitCallProfile,
 } from "../src/shared/mcp_timeout_policy.ts";
 import { writeReceiptNote } from "../src/engine/gate/receipt_notes.ts";
+import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -564,7 +566,7 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
       const resume = (first.data as { resume?: unknown } | undefined)?.resume;
       assert(
         typeof resume === "string",
-        `${condition} must return an opaque continuation when not met`,
+        `${condition} must return a continuation handle when not met`,
       );
 
       await fixture.crossGap();
@@ -583,7 +585,89 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
   }
 });
 
-Deno.test("await continuation tokens are closed, versioned, and repository-bound", async () => {
+const AWAIT_HANDLE_PATTERN =
+  /^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$/u;
+
+Deno.test("await continuation handles stay short as their saved payload grows", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const longName = `dep-${"payload".repeat(20)}`;
+    await addWorktree(dir, longName);
+
+    const first = await awaitResult(dir, {
+      green: `agent/${longName}`,
+      timeoutSeconds: 0,
+    });
+    const resume = first.data?.resume;
+    assert(typeof resume === "string");
+    assertEquals(resume.length, 15);
+    assert(
+      AWAIT_HANDLE_PATTERN.test(resume),
+      `continuation ${resume} must use the fixed agent-relay handle grammar`,
+    );
+
+    const changed = resume[3] === "0" ? "1" : "0";
+    const mistyped = `${resume.slice(0, 3)}${changed}${resume.slice(4)}`;
+    const rejected = await awaitResult(dir, {
+      resume: mistyped,
+      timeoutSeconds: 0,
+    });
+    assertEquals(rejected.ok, false);
+    assertEquals(rejected.error, "invalid_arguments");
+    assert(
+      rejected.message?.includes("typo") === true,
+      "the refusal must identify a damaged agent-relay handle",
+    );
+  });
+});
+
+Deno.test("await handles persist across CLI processes and sibling worktrees", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const caller = await addWorktree(dir, "caller");
+
+    const first = await runAgent(dir, [
+      "await",
+      "--trunk-moved",
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(first.code, AWAIT_TIMEOUT_EXIT_CODE, first.output);
+    const firstEnvelope = JSON.parse(first.stdout) as {
+      data?: { resume?: unknown };
+    };
+    const resume = firstEnvelope.data?.resume;
+    assert(typeof resume === "string" && AWAIT_HANDLE_PATTERN.test(resume));
+
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "move trunk between processes",
+      "--no-gpg-sign",
+    );
+    const resumed = await runAgent(caller, [
+      "await",
+      "--resume",
+      resume,
+      "--timeout",
+      "0",
+      "--json",
+    ]);
+    assertEquals(resumed.code, 0, resumed.output);
+    const resumedEnvelope = JSON.parse(resumed.stdout) as {
+      data?: { met?: unknown };
+    };
+    assertEquals(resumedEnvelope.data?.met, true);
+  });
+});
+
+Deno.test("await continuation handles are closed, versioned, and repository-bound", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -620,10 +704,47 @@ Deno.test("await continuation tokens are closed, versioned, and repository-bound
       assertEquals(foreign.ok, false);
       assertEquals(foreign.error, "invalid_arguments");
       assert(
-        foreign.message?.includes("different repository") === true,
-        "the refusal names the repository binding",
+        foreign.message?.includes("not found in this repository") === true,
+        "the refusal names the repository-local lookup",
       );
     });
+  });
+});
+
+Deno.test("legacy self-contained await tokens resume and migrate to short handles", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const dep = await addWorktree(dir, "legacy-dep");
+    await commitFile(dep, "dep.txt", "work", "legacy dep work");
+    const tip = await gitOut(dep, "rev-parse", "HEAD");
+    const trunkStart = await gitOut(dir, "rev-parse", "main");
+    const repository = await resolveCommonGitDir(dir);
+    assert(repository !== undefined);
+    const encoded = encodeBase64(
+      new TextEncoder().encode(JSON.stringify({
+        version: 1,
+        repository,
+        condition: "landed",
+        branch: "agent/legacy-dep",
+        trunk: "main",
+        tip,
+        trunk_start: trunkStart,
+        branch_ever_unreachable: true,
+      })),
+    ).replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+
+    const migrated = await awaitResult(dir, {
+      resume: `v1.${encoded}`,
+      timeoutSeconds: 0,
+    });
+    assertEquals(migrated.data?.met, false);
+    const resume = migrated.data?.resume;
+    assert(typeof resume === "string" && AWAIT_HANDLE_PATTERN.test(resume));
+
+    await git(dir, "merge", "-q", "--ff-only", tip);
+    const landed = await awaitResult(dir, { resume, timeoutSeconds: 0 });
+    assertEquals(landed.data?.met, true);
   });
 });
 
