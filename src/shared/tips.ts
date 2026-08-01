@@ -34,6 +34,10 @@ import {
 const CMD = {
   status: discernCommand("status"),
   startNamed: discernCommand("start", flag("name", '"<task>"')),
+  prepare: discernCommand("prepare"),
+  test: discernCommand("test"),
+  tidy: discernCommand("tidy"),
+  doneDryRun: discernCommand("done", flag("dry-run")),
   worktreeDrop: discernCommand(
     "worktree drop",
     positional("target", "<worktree>"),
@@ -57,7 +61,15 @@ const CMD = {
   docsSearch: discernCommand("docs", flag("search", "<query>")),
   skillsList: discernCommand("skills list"),
   identityPort: discernCommand("identity", flag("port")),
+  configSet: discernCommand(
+    "config set",
+    positional("key", "<key>"),
+    positional("value", "<value>"),
+  ),
+  refresh: discernCommand("refresh"),
+  preset: discernCommand("preset", positional("name", "<name>")),
   upgradeCheck: discernCommand("upgrade", flag("check")),
+  uninstallDryRun: discernCommand("uninstall", flag("dry-run")),
   scripts: discernCommand("scripts"),
 } as const;
 
@@ -232,6 +244,53 @@ export const TIPS: readonly RegisteredTip[] = [
       "saved work, keeping it away from other tasks and the main copy.",
   }),
 
+  // ── Daily loop: get fast feedback before the final proof. ───────────────
+
+  defineTip({
+    id: "prepare-fast-feedback",
+    when: "Evergreen — the daily loop opener.",
+    features: ["prepare"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["prepare"],
+    },
+    example: undefined,
+    template: (): string =>
+      `Use ${CMD.prepare} while a change is moving. It runs fixers and ` +
+      "read-only checks, skipping builds and tests.",
+  }),
+
+  defineTip({
+    id: "test-runs-alone",
+    when: "Evergreen — a daily loop lesson.",
+    features: ["test-verb"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["test"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.test} runs the project's configured tests and quick readiness ` +
+      "check outside the full final check.",
+  }),
+
+  defineTip({
+    id: "tidy-discern-files",
+    when: "Evergreen — a daily loop lesson.",
+    features: ["tidy"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["tidy"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.tidy} formats discern's Markdown sources and ` +
+      "`discern.toml`; add `--dry-run` to list changes without writing.",
+  }),
+
   // ── Supervision: inspect, authorize, clean up, and update. ───────────────
 
   defineTip({
@@ -304,6 +363,21 @@ export const TIPS: readonly RegisteredTip[] = [
     template: (): string =>
       `${CMD.update} brings the main shared version into a task and names ` +
       "files both sides changed, so you know what to recheck before review.",
+  }),
+
+  defineTip({
+    id: "dry-run-previews-writes",
+    when: "Evergreen — the final supervision lesson.",
+    features: ["plan-apply"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["done"],
+    },
+    example: undefined,
+    template: (): string =>
+      `Commands such as ${CMD.doneDryRun} show their plan without changing ` +
+      "the project. Look for `--dry-run` before an unfamiliar write.",
   }),
 
   // ── Practice health: read the record, then choose the next improvement. ──
@@ -430,6 +504,107 @@ export const TIPS: readonly RegisteredTip[] = [
       "A `margin` leaves room for small future changes.",
   }),
 
+  // ── Project upkeep: edit settings, rebuild outputs, and leave safely. ────
+
+  defineTip({
+    id: "config-validates-edits",
+    when: "Evergreen — the project-upkeep opener.",
+    features: ["config-command"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["config"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.configSet} edits ` +
+      "`discern.toml` without losing comments and validates the full file " +
+      "before writing.",
+  }),
+
+  defineTip({
+    id: "refresh-publishes-guidance",
+    when: "Evergreen — a project-upkeep lesson.",
+    features: ["guidance", "guidance-compile", "skills-materialization"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["refresh"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.refresh} compiles shared guidance into every configured coding ` +
+      "agent's instruction file and republishes reusable guides from their " +
+      "sources.",
+  }),
+
+  defineTip({
+    id: "preset-keeps-project-values",
+    when: "Evergreen — a project-upkeep lesson.",
+    features: ["presets"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["preset"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.preset} adds a reusable set of starter files and settings. ` +
+      "Values already present in the project stay unchanged.",
+  }),
+
+  defineTip({
+    id: "upgrade-check-only",
+    when: "Evergreen — a project-upkeep lesson.",
+    features: ["upgrade"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["upgrade"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.upgradeCheck} reports whether this project has pending settings ` +
+      "updates. It changes nothing.",
+  }),
+
+  defineTip({
+    id: "uninstall-preserves-sources",
+    when: "Evergreen — a project-upkeep lesson.",
+    features: ["uninstall"],
+    followThrough: {
+      family: "tip-adoption",
+      kind: "verb-run-after-tip",
+      verbs: ["uninstall"],
+    },
+    example: undefined,
+    template: (): string =>
+      `${CMD.uninstallDryRun} previews what discern would remove and keep. ` +
+      "Applying it keeps `discern.toml`, project guidance, and the project " +
+      "guide.",
+  }),
+
+  defineTip({
+    id: "one-file-settings",
+    when: "Evergreen — a project-structure lesson.",
+    features: ["one-file-footprint"],
+    example: undefined,
+    template: (): string =>
+      "`discern.toml` holds all project-specific discern settings. Everything " +
+      "else is bundled, placed through those settings, or generated from " +
+      "text you can review.",
+  }),
+
+  defineTip({
+    id: "no-model-any-language",
+    when: "Evergreen — a project-structure lesson.",
+    features: ["no-model-inside", "stack-neutral"],
+    example: undefined,
+    template: (): string =>
+      "discern contains no AI model and needs no API key. It runs the commands " +
+      "your project declares, in any language.",
+  }),
+
   // ── Power tools: explore wider surfaces after the core loop is familiar. ─
 
   defineTip({
@@ -524,18 +699,13 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "upgrade-check-only",
+    id: "resources-follow-the-copy",
     when: "Evergreen — a power-tool lesson.",
-    features: ["upgrade"],
-    followThrough: {
-      family: "tip-adoption",
-      kind: "verb-run-after-tip",
-      verbs: ["upgrade"],
-    },
+    features: ["worktree-resources"],
     example: undefined,
     template: (): string =>
-      `${CMD.upgradeCheck} reports whether this project has pending settings ` +
-      "updates. It changes nothing.",
+      "A project can give every working copy its own information store, " +
+      "emulator, or container. discern creates and removes them with the copy.",
   }),
 
   defineTip({
@@ -592,18 +762,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "This is output plumbing for long checks, not a separate capability to adopt.",
   "feature:strand-detection":
     "This is gate safety plumbing; its diagnostic teaches the recovery when it fires.",
-  "feature:tidy":
-    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
   "feature:gate-preconditions":
     "These are safety checks; their diagnostics teach the required remedy when they fail.",
   "feature:write-preflight":
     "This is an internal safety check with no separate beginner action.",
   "feature:fail-open-classification":
     "This is internal scope-classification safety with no separate human action.",
-  "feature:prepare":
-    "This fast iteration loop is primarily for coding agents; humans are taught the final `done` check.",
-  "feature:test-verb":
-    "This test-only iteration loop is primarily for coding agents; humans are taught the final `done` check.",
   "feature:diagnostics":
     "Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.",
   "feature:gotchas-pointer":
@@ -618,18 +782,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Replay is measurement plumbing with no separate beginner action.",
   "feature:standards-escalation":
     "A fired rule explains owner escalation at the point a decision is required.",
-  "feature:worktree-resources":
-    "Supporting-service separation is setup and agent plumbing, not a beginner action.",
   "feature:crash-safe-provisioning":
     "This is worktree safety plumbing; recovery guidance appears when provisioning fails.",
   "feature:env-inheritance":
     "Private-setting inheritance is setup plumbing with no routine human action.",
   "feature:ignored-drift":
     "Ignored-file drift is an advanced diagnostic taught when a worktree check finds it.",
-  "feature:guidance":
-    "Agent guidance is maintained by coding agents and project owners, not adopted from a desk tip.",
-  "feature:guidance-compile":
-    "Compilation is agent-file plumbing behind `refresh`, not a separate human capability.",
   "feature:guidance-conditionals":
     "Provider conditions are an advanced guidance-authoring feature documented in the map.",
   "feature:providers":
@@ -648,8 +806,6 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Session hooks are agent-integration plumbing and are documented with setup.",
   "feature:agent-autodetect":
     "Automatic provider choice is agent-integration plumbing with no human action.",
-  "feature:skills-materialization":
-    "Guide copying is implementation plumbing; `skills list` teaches the visible set.",
   "feature:skill-cure-a-bug":
     "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
   "feature:skill-clear-the-decks":
@@ -690,20 +846,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Upgrade ownership is migration plumbing, explained only when an upgrade needs it.",
   "feature:placement-consent":
     "Script placement consent belongs to initial setup and appears when the choice is required.",
-  "feature:uninstall":
-    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
-  "feature:presets":
-    "Preset management is an advanced setup path documented in command help.",
-  "feature:config-command":
-    "Low-level settings inspection is an advanced support path documented in command help.",
   "feature:licenses":
     "License output is a legal reference surface, not an onboarding capability.",
   "feature:interfaces":
     "Machine interfaces serve integrations and coding agents, not the human desk.",
   "feature:result-envelope":
     "The result shape is an integration contract, not a human action.",
-  "feature:plan-apply":
-    "Plan-then-apply is effectful-command plumbing; dry-run help teaches it where available.",
   "feature:idempotent-verbs":
     "Safe replay is an engine guarantee, not a separate action to adopt.",
   "feature:mcp-surface":
@@ -722,12 +870,6 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "This is a design principle about agent attention, not a human capability.",
   "feature:single-binary":
     "Packaging is an implementation property, not a capability to adopt.",
-  "feature:one-file-footprint":
-    "The settings footprint is a design property explained in setup and the map.",
-  "feature:stack-neutral":
-    "Stack neutrality is a product property, not a separate action.",
-  "feature:no-model-inside":
-    "This is an architecture boundary for integrations, not a desk capability.",
   "feature:all-subsystems-core":
     "This is a product-shape decision, not a separate beginner action.",
   "feature:forcing-functions":
@@ -738,26 +880,12 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Running discern on itself is evidence about the product, not an action for a user.",
   "feature:interruption-safety":
     "Interruption cleanup is an engine guarantee; it teaches itself only if a stop occurs.",
-  "verb:config":
-    "Low-level settings inspection is an advanced support path documented in command help.",
   "verb:help":
     "Help is already present beside every command and needs no rotating lesson.",
   "verb:licenses":
     "License output is a legal reference surface, not an onboarding capability.",
   "verb:mcp":
     "MCP hosts an agent-only protocol surface and stays out of human tips.",
-  "verb:prepare":
-    "The fast iteration loop is primarily for coding agents; humans are taught `done`.",
-  "verb:preset":
-    "Preset management is an advanced setup path documented in command help.",
-  "verb:refresh":
-    "Agent-file refresh is maintenance for coding-agent guidance, not a routine desk action.",
   "verb:setup":
     "Setup is complete before the desk can show tips and is taught by the installer.",
-  "verb:test":
-    "The test-only iteration loop is primarily for coding agents; humans are taught `done`.",
-  "verb:tidy":
-    "Repository maintenance is outside the two-week beginner curriculum and remains in command help.",
-  "verb:uninstall":
-    "Uninstall is destructive lifecycle maintenance and stays in explicit command help.",
 };

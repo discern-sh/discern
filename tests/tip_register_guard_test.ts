@@ -73,8 +73,8 @@ Deno.test("the tip register allowlist is live, narrow, and reasoned", () => {
 
 Deno.test("the curriculum stays within its count, sentence, and rendered-length budgets", () => {
   assert(
-    TIPS.length >= 15 && TIPS.length <= 25,
-    `the curriculum needs 15–25 tips; found ${TIPS.length}`,
+    TIPS.length >= 30 && TIPS.length <= 50,
+    `the curriculum needs 30–50 tips; found ${TIPS.length}`,
   );
   const offenders: string[] = [];
   for (const tip of TIPS) {

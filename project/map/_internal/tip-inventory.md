@@ -4,7 +4,7 @@
 
 _Every desk tip, generated from the live registry._
 
-Entries follow the authored order. The order is a two-week onboarding path. It starts with the desk, orientation, and a separate working copy. It then teaches human supervision, practice health, final-check and quality-rule habits, and the power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.
+Entries follow the authored order. The order is a guided onboarding path. It starts with the desk, orientation, a separate working copy, and the daily loop. It then teaches human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.
 
 Every rendered line is one or two short sentences and no more than 160 characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.
 
@@ -50,6 +50,48 @@ Rendered line:
 
 ```text
 `discern start --name "<task>"` gives one change its own working copy and line of saved work, keeping it away from other tasks and the main copy.
+```
+
+## `prepare-fast-feedback`
+
+- Relevance: Evergreen — the daily loop opener.
+- Predicate: —
+- Since: —
+- Teaches: `prepare`
+- Follow-through: `verb-run-after-tip` (`prepare`)
+
+Rendered line:
+
+```text
+Use `discern prepare` while a change is moving. It runs fixers and read-only checks, skipping builds and tests.
+```
+
+## `test-runs-alone`
+
+- Relevance: Evergreen — a daily loop lesson.
+- Predicate: —
+- Since: —
+- Teaches: `test-verb`
+- Follow-through: `verb-run-after-tip` (`test`)
+
+Rendered line:
+
+```text
+`discern test` runs the project's configured tests and quick readiness check outside the full final check.
+```
+
+## `tidy-discern-files`
+
+- Relevance: Evergreen — a daily loop lesson.
+- Predicate: —
+- Since: —
+- Teaches: `tidy`
+- Follow-through: `verb-run-after-tip` (`tidy`)
+
+Rendered line:
+
+```text
+`discern tidy` formats discern's Markdown sources and `discern.toml`; add `--dry-run` to list changes without writing.
 ```
 
 ## `inspect-before-accepting`
@@ -120,6 +162,20 @@ Rendered line:
 
 ```text
 `discern update` brings the main shared version into a task and names files both sides changed, so you know what to recheck before review.
+```
+
+## `dry-run-previews-writes`
+
+- Relevance: Evergreen — the final supervision lesson.
+- Predicate: —
+- Since: —
+- Teaches: `plan-apply`
+- Follow-through: `verb-run-after-tip` (`done`)
+
+Rendered line:
+
+```text
+Commands such as `discern done --dry-run` show their plan without changing the project. Look for `--dry-run` before an unfamiliar write.
 ```
 
 ## `patterns-practice-report`
@@ -234,6 +290,104 @@ Rendered line:
 `discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
 ```
 
+## `config-validates-edits`
+
+- Relevance: Evergreen — the project-upkeep opener.
+- Predicate: —
+- Since: —
+- Teaches: `config-command`
+- Follow-through: `verb-run-after-tip` (`config`)
+
+Rendered line:
+
+```text
+`discern config set <key> <value>` edits `discern.toml` without losing comments and validates the full file before writing.
+```
+
+## `refresh-publishes-guidance`
+
+- Relevance: Evergreen — a project-upkeep lesson.
+- Predicate: —
+- Since: —
+- Teaches: `guidance`, `guidance-compile`, `skills-materialization`
+- Follow-through: `verb-run-after-tip` (`refresh`)
+
+Rendered line:
+
+```text
+`discern refresh` compiles shared guidance into every configured coding agent's instruction file and republishes reusable guides from their sources.
+```
+
+## `preset-keeps-project-values`
+
+- Relevance: Evergreen — a project-upkeep lesson.
+- Predicate: —
+- Since: —
+- Teaches: `presets`
+- Follow-through: `verb-run-after-tip` (`preset`)
+
+Rendered line:
+
+```text
+`discern preset <name>` adds a reusable set of starter files and settings. Values already present in the project stay unchanged.
+```
+
+## `upgrade-check-only`
+
+- Relevance: Evergreen — a project-upkeep lesson.
+- Predicate: —
+- Since: —
+- Teaches: `upgrade`
+- Follow-through: `verb-run-after-tip` (`upgrade`)
+
+Rendered line:
+
+```text
+`discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
+```
+
+## `uninstall-preserves-sources`
+
+- Relevance: Evergreen — a project-upkeep lesson.
+- Predicate: —
+- Since: —
+- Teaches: `uninstall`
+- Follow-through: `verb-run-after-tip` (`uninstall`)
+
+Rendered line:
+
+```text
+`discern uninstall --dry-run` previews what discern would remove and keep. Applying it keeps `discern.toml`, project guidance, and the project guide.
+```
+
+## `one-file-settings`
+
+- Relevance: Evergreen — a project-structure lesson.
+- Predicate: —
+- Since: —
+- Teaches: `one-file-footprint`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern.toml` holds all project-specific discern settings. Everything else is bundled, placed through those settings, or generated from text you can review.
+```
+
+## `no-model-any-language`
+
+- Relevance: Evergreen — a project-structure lesson.
+- Predicate: —
+- Since: —
+- Teaches: `no-model-inside`, `stack-neutral`
+- Follow-through: —
+
+Rendered line:
+
+```text
+discern contains no AI model and needs no API key. It runs the commands your project declares, in any language.
+```
+
 ## `coupling-missing-partners`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -318,18 +472,18 @@ Rendered line:
 `discern identity --port` prints a task's stable preview-server network number. Other choices expose its branch and service names.
 ```
 
-## `upgrade-check-only`
+## `resources-follow-the-copy`
 
 - Relevance: Evergreen — a power-tool lesson.
 - Predicate: —
 - Since: —
-- Teaches: `upgrade`
-- Follow-through: `verb-run-after-tip` (`upgrade`)
+- Teaches: `worktree-resources`
+- Follow-through: —
 
 Rendered line:
 
 ```text
-`discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
+A project can give every working copy its own information store, emulator, or container. discern creates and removes them with the copy.
 ```
 
 ## `scripts-from-desk`
@@ -359,7 +513,6 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:canonical-sets`            | This is maintainer infrastructure for closed sets, not a user capability.                               |
 | `feature:capture-environment`       | This preserves diagnostic context internally and offers no separate human action.                       |
 | `feature:cli-help`                  | Built-in command help is already present beside every command and needs no rotating lesson.             |
-| `feature:config-command`            | Low-level settings inspection is an advanced support path documented in command help.                   |
 | `feature:context-budget`            | This is a design principle about agent attention, not a human capability.                               |
 | `feature:crash-safe-provisioning`   | This is worktree safety plumbing; recovery guidance appears when provisioning fails.                    |
 | `feature:diagnostics`               | Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.               |
@@ -375,8 +528,6 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:gate-streaming`            | This is output plumbing for long checks, not a separate capability to adopt.                            |
 | `feature:glossary-canon`            | Canonical vocabulary is documentation infrastructure, not a capability to adopt.                        |
 | `feature:gotchas-pointer`           | The pointer appears in the failure that needs it, so a rotating tip would be less timely.               |
-| `feature:guidance`                  | Agent guidance is maintained by coding agents and project owners, not adopted from a desk tip.          |
-| `feature:guidance-compile`          | Compilation is agent-file plumbing behind `refresh`, not a separate human capability.                   |
 | `feature:guidance-conditionals`     | Provider conditions are an advanced guidance-authoring feature documented in the map.                   |
 | `feature:hints`                     | Advice notes surface at their relevant action; a generic rotating tip would be less timely.             |
 | `feature:idempotent-verbs`          | Safe replay is an engine guarantee, not a separate action to adopt.                                     |
@@ -395,14 +546,9 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:licenses`                  | License output is a legal reference surface, not an onboarding capability.                              |
 | `feature:map-freshness`             | This is a maintainer rule enforced by the gate, not a beginner desk action.                             |
 | `feature:mcp-surface`               | MCP is an agent-only protocol surface and stays out of human tips.                                      |
-| `feature:no-model-inside`           | This is an architecture boundary for integrations, not a desk capability.                               |
-| `feature:one-file-footprint`        | The settings footprint is a design property explained in setup and the map.                             |
 | `feature:output-discipline`         | Output discipline is an engine contract, not a beginner action.                                         |
 | `feature:ownership-buckets`         | Upgrade ownership is migration plumbing, explained only when an upgrade needs it.                       |
 | `feature:placement-consent`         | Script placement consent belongs to initial setup and appears when the choice is required.              |
-| `feature:plan-apply`                | Plan-then-apply is effectful-command plumbing; dry-run help teaches it where available.                 |
-| `feature:prepare`                   | This fast iteration loop is primarily for coding agents; humans are taught the final `done` check.      |
-| `feature:presets`                   | Preset management is an advanced setup path documented in command help.                                 |
 | `feature:provider-claude-code`      | This is an agent-provider integration, not a human desk capability.                                     |
 | `feature:provider-codex`            | This is an agent-provider integration, not a human desk capability.                                     |
 | `feature:provider-copilot`          | This is an agent-provider integration, not a human desk capability.                                     |
@@ -424,28 +570,15 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:skill-teach-the-project`   | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
 | `feature:skill-write-adr`           | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
 | `feature:skill-write-it-once`       | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skills-materialization`    | Guide copying is implementation plumbing; `skills list` teaches the visible set.                        |
-| `feature:stack-neutral`             | Stack neutrality is a product property, not a separate action.                                          |
 | `feature:staged-pipeline`           | This is gate execution plumbing; the `done` tip teaches its human-visible outcome.                      |
 | `feature:standards-escalation`      | A fired rule explains owner escalation at the point a decision is required.                             |
 | `feature:standards-metric-protocol` | Metric authoring is an advanced path taught by the standard-setting guide.                              |
 | `feature:standards-rates`           | Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.         |
 | `feature:standards-replay`          | Replay is measurement plumbing with no separate beginner action.                                        |
 | `feature:strand-detection`          | This is gate safety plumbing; its diagnostic teaches the recovery when it fires.                        |
-| `feature:test-verb`                 | This test-only iteration loop is primarily for coding agents; humans are taught the final `done` check. |
-| `feature:tidy`                      | Repository maintenance is outside the two-week beginner curriculum and remains in command help.         |
 | `feature:unchanged-tree-rerun`      | This is receipt-reuse plumbing; the proof tip covers the human-visible result.                          |
-| `feature:uninstall`                 | Uninstall is destructive lifecycle maintenance and stays in explicit command help.                      |
-| `feature:worktree-resources`        | Supporting-service separation is setup and agent plumbing, not a beginner action.                       |
 | `feature:write-preflight`           | This is an internal safety check with no separate beginner action.                                      |
-| `verb:config`                       | Low-level settings inspection is an advanced support path documented in command help.                   |
 | `verb:help`                         | Help is already present beside every command and needs no rotating lesson.                              |
 | `verb:licenses`                     | License output is a legal reference surface, not an onboarding capability.                              |
 | `verb:mcp`                          | MCP hosts an agent-only protocol surface and stays out of human tips.                                   |
-| `verb:prepare`                      | The fast iteration loop is primarily for coding agents; humans are taught `done`.                       |
-| `verb:preset`                       | Preset management is an advanced setup path documented in command help.                                 |
-| `verb:refresh`                      | Agent-file refresh is maintenance for coding-agent guidance, not a routine desk action.                 |
 | `verb:setup`                        | Setup is complete before the desk can show tips and is taught by the installer.                         |
-| `verb:test`                         | The test-only iteration loop is primarily for coding agents; humans are taught `done`.                  |
-| `verb:tidy`                         | Repository maintenance is outside the two-week beginner curriculum and remains in command help.         |
-| `verb:uninstall`                    | Uninstall is destructive lifecycle maintenance and stays in explicit command help.                      |
