@@ -236,6 +236,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0243 — Await continuations use short repository-local handles](0243-await-continuations-use-short-repository-local-handles.md)
 - [0244 — The brand addresses the owner and judges only the work](0244-brand-addresses-the-owner.md)
 - [0245 — The receipt becomes the proof](0245-receipt-renamed-to-proof.md)
+- [0246 — `discern map --export` reads a configured scope as an ordered reading list](0246-map-export-reads-scopes-as-reading-lists.md)
 
 <!-- END GENERATED: current ADR records -->
 
