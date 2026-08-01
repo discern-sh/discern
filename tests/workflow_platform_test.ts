@@ -4,8 +4,10 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { walk } from "@std/fs";
 import { parse as parseYaml } from "@std/yaml";
 import { BUILD_TARGETS } from "../scripts/build_targets.ts";
+import { parseConfigOrThrow, toCommand } from "../src/shared/config_schema.ts";
 
 const GITHUB = new URL("../.github/", import.meta.url);
+const DISCERN_TOML = new URL("../discern.toml", import.meta.url);
 const GATE = new URL("../.github/workflows/gate.yml", import.meta.url);
 const RELEASE = new URL("../.github/workflows/release.yml", import.meta.url);
 const MACOS_GATE_ACTION = new URL(
@@ -68,6 +70,27 @@ async function githubYaml(): Promise<GithubYaml[]> {
   return documents;
 }
 
+function isFullGateCommand(value: unknown): boolean {
+  return typeof value === "string" &&
+    /(?:^|\s)(?:discern done|deno task (?:dev done|gate))(?:\s|$)/.test(
+      value,
+    );
+}
+
+function missingPrettyReporter(document: GithubYaml): string[] {
+  return document.mappings
+    .filter(({ value }) => isFullGateCommand(value.run))
+    .filter(({ value }) => {
+      const env = value.env;
+      return env === null || typeof env !== "object" || Array.isArray(env) ||
+        (env as Record<string, unknown>).DISCERN_GATE_TEST_REPORTER !==
+          "pretty";
+    })
+    .map(({ path }) =>
+      `${document.path}:${path}.env.DISCERN_GATE_TEST_REPORTER`
+    );
+}
+
 function job(source: string, name: string, next: string): string {
   const start = source.indexOf(`  ${name}:`);
   const end = source.indexOf(`  ${next}:`, start + 1);
@@ -117,6 +140,45 @@ jobs:
     .map(({ path }) => `${path}.DISCERN_TRUNK`);
   assertEquals(paths, [
     "$.jobs.unrelated_lane.steps[0].env.DISCERN_TRUNK",
+  ]);
+});
+
+Deno.test("local gates default to JUnit and hosted full gates select pretty output", async () => {
+  const config = parseConfigOrThrow(await Deno.readTextFile(DISCERN_TOML));
+  assertEquals(
+    toCommand(config.jobs.test),
+    "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}",
+  );
+
+  const documents = await githubYaml();
+  const gateCommands = documents.flatMap(({ mappings }) =>
+    mappings.filter(({ value }) => isFullGateCommand(value.run))
+  );
+  assert(
+    gateCommands.length > 0,
+    "hosted automation runs at least one full gate",
+  );
+  assertEquals(
+    documents.flatMap(missingPrettyReporter),
+    [],
+    "every hosted full-gate command must select the pretty test reporter",
+  );
+});
+
+Deno.test("the reporter guard catches a future full-gate container", () => {
+  const fixture: GithubYaml = {
+    path: "future-workflow.yml",
+    mappings: yamlMappings(parseYaml(`
+jobs:
+  container_gate:
+    container: denoland/deno:latest
+    steps:
+      - name: Run the gate
+        run: discern done
+`)),
+  };
+  assertEquals(missingPrettyReporter(fixture), [
+    "future-workflow.yml:$.jobs.container_gate.steps[0].env.DISCERN_GATE_TEST_REPORTER",
   ]);
 });
 
