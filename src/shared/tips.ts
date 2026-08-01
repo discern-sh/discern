@@ -69,7 +69,6 @@ const CMD = {
   refresh: discernCommand("refresh"),
   preset: discernCommand("preset", positional("name", "<name>")),
   upgradeCheck: discernCommand("upgrade", flag("check")),
-  uninstallDryRun: discernCommand("uninstall", flag("dry-run")),
   scripts: discernCommand("scripts"),
 } as const;
 
@@ -569,22 +568,6 @@ export const TIPS: readonly RegisteredTip[] = [
   }),
 
   defineTip({
-    id: "uninstall-preserves-sources",
-    when: "Evergreen — a project-upkeep lesson.",
-    features: ["uninstall"],
-    followThrough: {
-      family: "tip-adoption",
-      kind: "verb-run-after-tip",
-      verbs: ["uninstall"],
-    },
-    example: undefined,
-    template: (): string =>
-      `${CMD.uninstallDryRun} previews what discern would remove and keep. ` +
-      "Applying it keeps `discern.toml`, project guidance, and the project " +
-      "guide.",
-  }),
-
-  defineTip({
     id: "one-file-settings",
     when: "Evergreen — a project-structure lesson.",
     features: ["one-file-footprint"],
@@ -908,6 +891,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Upgrade ownership is migration plumbing, explained only when an upgrade needs it.",
   "feature:placement-consent":
     "Script placement consent belongs to initial setup and appears when the choice is required.",
+  "feature:uninstall":
+    "Uninstall stays in explicit command help. The desk does not advertise leaving discern.",
   "feature:licenses":
     "License output is a legal reference surface, not an onboarding capability.",
   "feature:interfaces":
@@ -950,4 +935,6 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "MCP hosts an agent-only protocol surface and stays out of human tips.",
   "verb:setup":
     "Setup is complete before the desk can show tips and is taught by the installer.",
+  "verb:uninstall":
+    "Uninstall stays in explicit command help. The desk does not advertise leaving discern.",
 };

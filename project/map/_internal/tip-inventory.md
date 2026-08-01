@@ -346,20 +346,6 @@ Rendered line:
 `discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
 ```
 
-## `uninstall-preserves-sources`
-
-- Relevance: Evergreen — a project-upkeep lesson.
-- Predicate: —
-- Since: —
-- Teaches: `uninstall`
-- Follow-through: `verb-run-after-tip` (`uninstall`)
-
-Rendered line:
-
-```text
-`discern uninstall --dry-run` previews what discern would remove and keep. Applying it keeps `discern.toml`, project guidance, and the project guide.
-```
-
 ## `one-file-settings`
 
 - Relevance: Evergreen — a project-structure lesson.
@@ -668,8 +654,10 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:standards-replay`          | Replay is measurement plumbing with no separate beginner action.                                        |
 | `feature:strand-detection`          | This is gate safety plumbing; its diagnostic teaches the recovery when it fires.                        |
 | `feature:unchanged-tree-rerun`      | This is receipt-reuse plumbing; the proof tip covers the human-visible result.                          |
+| `feature:uninstall`                 | Uninstall stays in explicit command help. The desk does not advertise leaving discern.                  |
 | `feature:write-preflight`           | This is an internal safety check with no separate beginner action.                                      |
 | `verb:help`                         | Help is already present beside every command and needs no rotating lesson.                              |
 | `verb:licenses`                     | License output is a legal reference surface, not an onboarding capability.                              |
 | `verb:mcp`                          | MCP hosts an agent-only protocol surface and stays out of human tips.                                   |
 | `verb:setup`                        | Setup is complete before the desk can show tips and is taught by the installer.                         |
+| `verb:uninstall`                    | Uninstall stays in explicit command help. The desk does not advertise leaving discern.                  |
