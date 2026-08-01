@@ -1411,8 +1411,9 @@ interface PendingToolCall extends VerbRun {
  * result — so a single tool blowing up can never take the whole stdio server down.
  * This is the single place tool handlers are invoked (normal and root-independent
  * paths alike). A throw is a crash — a bug in discern (ADR 0247) — so it also
- * saves a crash report beside the logbook (the envelope's message names the
- * file) and returns the logbook-safe signature beside that call's result.
+ * tries to save a crash report beside the logbook (the envelope's message
+ * names the file when written) and returns the logbook-safe signature beside
+ * that call's result.
  * {@link completeToolCall} records the same request-owned signature. Observation and recording
  * deliberately happen later, at {@link completeToolCall}, because dispatch
  * refusals never enter a handler and delivery can still append a stale-server

@@ -85,7 +85,7 @@ After installation, discern itself makes no network calls. Project commands rema
 | `DISCERN_SCRIPTS`                | Absolute configured Project Scripts directory exported to a Project Script.             |
 | `DISCERN_SCRIPTS_DIR`            | The configured Project Scripts directory value exported to a Project Script.            |
 | `DISCERN_DESK_SESSION`           | `1` in desk-launched processes; `discern doctor` reports it.                            |
-| `DISCERN_CRASH_PROBE`            | Crashes the next invocation on purpose when non-empty, to demonstrate crash reporting.  |
+| `DISCERN_CRASH_PROBE`            | Crashes each normal CLI verb or MCP tool run while non-empty, for crash-report testing. |
 
 Project Scripts also receive `DISCERN_TRUNK`. They read other config through `discern config get|array|has|subsections|keys` rather than parsing TOML or sourcing a helper library.
 

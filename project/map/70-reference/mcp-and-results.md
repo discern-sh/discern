@@ -30,7 +30,7 @@ aliases:
   - discern_improvement
 ---
 
-# MCP tools and result contracts
+# Model Context Protocol tools and result contracts
 
 _The caller-visible contract shared by MCP tools and `discern <command> --json`, plus the CLI exit statuses around it._
 
@@ -45,7 +45,7 @@ _The caller-visible contract shared by MCP tools and `discern <command> --json`,
 
 Human, JSON, and MCP tool forms share one result. `structuredContent` is machine-readable; `content[0].text` is its JSON text.
 
-## MCP tools
+## Model Context Protocol tools
 
 | Tool                  | Purpose                                                                                                  | Effect contract                                                 |
 | --------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
@@ -55,7 +55,7 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 | `discern_prepare`     | Run the fix and check stages for the fast inner loop.                                                    | Runs project commands; fix-stage commands may rewrite.          |
 | `discern_test`        | Run the configured test job on its own.                                                                  | Runs a project command.                                         |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                             | Mutating and idempotent for the same inputs.                    |
-| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.    | Read-only and idempotent; a timeout is an answer, not an error. |
+| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.    | Read-only and idempotent; timeouts return a normal result.      |
 | `discern_standards`   | Measure standards, compare limits, and optionally pin improvements.                                      | Runs project commands; pinning changes and commits config.      |
 | `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                      | Destructive; requires conversation consent or a verified grant. |
 | `discern_impact`      | List the scopes the current change activates.                                                            | Read-only and idempotent.                                       |
@@ -133,7 +133,7 @@ Output metadata is advisory. A configured command's exit status decides the job 
 
 Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It may also include normalized `output`, `truncated`, `output_path`, `file`, `line`, `col`, `rule`, and `fix_available`. Use `reproduce_cmd` for the smallest direct rerun; use `output_path` when the inline capture was truncated.
 
-## MCP resources
+## Model Context Protocol resources
 
 | URI                                             | Payload                                        |
 | ----------------------------------------------- | ---------------------------------------------- |
@@ -147,13 +147,13 @@ Every diagnostic includes `tool`, `severity`, `message`, and `reproduce_cmd`. It
 
 ## CLI exit codes
 
-| Status                       | Meaning                                                                                                     |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.     |
-| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.      |
-| `70`                         | discern itself crashed on an unexpected error and saved a [crash report](crash-reports.md).                 |
-| Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract. |
-| Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.          |
+| Status                       | Meaning                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `0`                          | The command completed successfully, or a bare predicate such as `config has` / `impact --has` was true.      |
+| `1`                          | A controlled failure or refusal, a false bare predicate, or an enforcement threshold that was not met.       |
+| `70`                         | discern itself crashed on an unexpected error; see [crash reports](crash-reports.md) for the local evidence. |
+| Project Script's own code    | `discern scripts <name>` passes through the script's exit code because the script owns its result contract.  |
+| Signal status (`130`, `143`) | An in-flight gate interrupted by Ctrl-C or SIGTERM terminates with the conventional signal status.           |
 
 Published JSON maps exit `0` to `ok: true` and controlled nonzero to `ok: false`. JSON predicates always exit `0`; their boolean is in `data`. Bare `config has` and `impact --has` stay silent, exiting `0` or `1`. `identity` and config reads are bare unless `--json` requests envelopes.
 

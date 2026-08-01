@@ -1264,7 +1264,7 @@ let crashFrameActive = false;
 
 /**
  * The crash exit — the one path every unexpected throw leaves the process
- * through: save the report, print the stderr frame, emit the uniform
+ * through: try to save the report, print the stderr frame, emit the uniform
  * `internal_error` envelope in `--json` mode, and exit
  * {@link CRASH_EXIT_CODE}. Expected failures (config errors, refusals, red
  * gates) never come here; they have their own structured exits above.

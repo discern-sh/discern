@@ -1,6 +1,6 @@
 ---
 title: Crash reports
-description: What discern leaves behind when it fails on a bug in itself — the saved report, exit code 70, the JSON envelope, and what to attach to an issue.
+description: How discern reports unexpected internal errors across the CLI and MCP, where it saves local evidence, and what to attach to an issue.
 order: 90
 aliases:
   - crash
@@ -15,29 +15,28 @@ aliases:
 
 _What discern does when it fails on a bug in itself, and where to find the evidence._
 
-A red check, a refused precondition, or a broken `discern.toml` is a normal result: the command explains itself and exits `1`. A crash is an error discern's own code did not expect. When one happens, discern saves a report, prints what it knows, and exits `70`.
+A red check, a refused precondition, or a broken `discern.toml` is a normal result: the command explains itself, and the CLI exits `1`. A crash is an error discern's own code did not expect. On the CLI, a crash prints a stderr frame and exits `70`; `--json` also emits a structured result on stdout. Over Model Context Protocol (MCP), only the affected tool call fails, and the server stays available. Both surfaces try to save a local report.
 
-## What a crash leaves behind
+## What discern records
 
-- **A stderr frame.** The discern version, the command that was running, the full error and stack, and the saved report's path.
-- **A report file.** `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`: plain text carrying the discern version, Deno runtime, platform, command, error, and stack. The newest 20 reports are kept. Outside a git repository the report lands in the system temp directory; the frame prints the path either way.
-- **A logbook line.** [The logbook](the-logbook.md) records the failed run with a `crash` field holding the error's class name and one code location. The message appears only in the report file.
-- **Exit code `70`.** Distinct from the ordinary failure exit `1`, so a script can tell "discern hit a bug" from "the check failed". See [CLI exit codes](mcp-and-results.md#cli-exit-codes).
-
-With `--json`, stdout is still one result envelope: `ok: false`, `error: "internal_error"`, and a `message` naming the saved report. Over MCP a crashing tool call returns that same envelope, and the server keeps answering.
+- **A report file, when the write succeeds.** discern first tries `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`. The plain-text file carries the discern version, Deno runtime, platform, command, error, and stack. That directory keeps the newest 20 reports. Outside a Git repository, discern tries the system temp directory instead. If neither write succeeds, crash handling continues without a file.
+- **A stderr frame on the CLI.** It names the discern version, command, full error and stack, issue tracker, and saved report path. If the report write failed, the frame says so.
+- **A machine envelope with `--json` and MCP.** It has `ok: false`, `error: "internal_error"`, and a `message` with the error name, error message, and saved report path when available. It has no `data` or stack. An MCP tool crash returns this envelope without stopping the server.
+- **A logbook signature when recording is available.** If discern resolves a configured Git project with its logbook enabled, [the logbook](the-logbook.md) records a failed event whose `crash` field holds the error class and one code location. It omits the error message and stack. A crash before root or config resolution, with an unreadable config, or with the logbook disabled leaves no logbook line.
+- **Exit code `70` on the CLI.** This is distinct from the ordinary failure exit `1`, so a script can tell "discern hit a bug" from "the check failed". See [CLI exit codes](mcp-and-results.md#cli-exit-codes). MCP does not exit the server process for a tool crash.
 
 Nothing is uploaded. discern makes no network calls, so a crash report exists only on your machine until you share it.
 
 ## Reporting one
 
-Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It carries everything a fix needs to start: the version block, the command, and the stack. The error message can quote paths from your machine, so skim the file before attaching it. If the file is gone, the same text was printed on stderr.
+Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so skim the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.
 
 ## Trying it
 
-Set `DISCERN_CRASH_PROBE=1` and run any command to see the frame, the report file, the logbook line, and exit `70`:
+Run the probe from a configured project to exercise the CLI path:
 
 ```bash
 DISCERN_CRASH_PROBE=1 discern status
 ```
 
-Unset the variable to return to normal.
+The CLI prints the stderr frame, tries to save a report, records a logbook signature when the logbook is enabled, and exits `70`. The inline assignment applies only to that command. If you export the variable instead, every normal CLI verb or MCP tool run crashes until you unset it.

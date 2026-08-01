@@ -185,7 +185,10 @@ Deno.test("internalErrorResult: the uniform machine envelope, no data payload", 
   assertExists(result.message);
   assertStringIncludes(result.message, "TypeError: boom");
   assertStringIncludes(result.message, "/tmp/report.txt");
-  assertStringIncludes(result.message, ISSUES_URL);
+  assertStringIncludes(
+    result.message,
+    `This is a bug in discern. Report it at ${ISSUES_URL}.`,
+  );
 });
 
 // ── the artifact writer ──────────────────────────────────────────────────────

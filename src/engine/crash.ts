@@ -9,18 +9,18 @@
  *
  *  - **capture** — {@link captureCrashReport} reduces the throw to a report:
  *    discern version, runtime, platform, verb, error, stack.
- *  - **artifact** — {@link writeCrashArtifact} saves the report under the git
- *    common dir (`discern/crash/`, beside the logbook — never inside the
- *    project tree), falling back to a temp file outside a repository. The
- *    newest {@link MAX_CRASH_FILES} reports are kept. Best-effort: it returns
- *    `undefined` rather than ever throwing from a crash path.
+ *  - **artifact** — {@link writeCrashArtifact} tries to save the report under
+ *    the git common dir (`discern/crash/`, beside the logbook — never inside
+ *    the project tree), falling back to a temp file outside a repository. The
+ *    newest {@link MAX_CRASH_FILES} repository reports are kept. Best-effort:
+ *    it returns `undefined` rather than ever throwing from a crash path.
  *  - **frame** — {@link renderCrashFrame} is the human stderr block: version,
  *    verb, the error, where the report was saved, where to send it.
  *  - **envelope** — {@link internalErrorResult} is the uniform machine result
  *    (`error: "internal_error"`) the CLI's `--json` mode and the MCP server
  *    both emit, so an agent reads a crash as a structured result instead of
  *    a broken stream. It carries no `data`: typed per-verb payload schemas
- *    stay intact, and the report path travels in `message`.
+ *    stay intact, and a written report's path travels in `message`.
  *  - **signature** — {@link crashSignature} is the logbook-safe reduction
  *    (error class name and one code location, never the message), within the
  *    logbook's metadata-only bar.
@@ -46,9 +46,9 @@ export const CRASH_EXIT_CODE = 70;
 /** Crash reports kept under `discern/crash/` — newest first, pruned on write. */
 export const MAX_CRASH_FILES = 20;
 
-/** The env var that makes the next invocation crash on purpose — the
- * deterministic probe the crash-path tests (and a user checking what a crash
- * report looks like) flip. Any non-empty value triggers it. */
+/** The env var that makes each recorded invocation crash on purpose while set
+ * — the deterministic probe the crash-path tests (and a user checking what a
+ * crash report looks like) flip. Any non-empty value triggers it. */
 export const CRASH_PROBE_ENV = "DISCERN_CRASH_PROBE";
 
 /** Throw a synthetic crash when {@link CRASH_PROBE_ENV} is set. Called inside
@@ -384,6 +384,6 @@ export function internalErrorResult(
     message:
       `discern ${report.version} crashed while running \`${report.verb}\`: ` +
       `${report.name}: ${report.message}${saved} ` +
-      `This is a bug in discern — please report it at ${ISSUES_URL}.`,
+      `This is a bug in discern. Report it at ${ISSUES_URL}.`,
   };
 }
