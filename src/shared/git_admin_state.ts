@@ -33,6 +33,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  crash: {
+    path: "discern/crash",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   testSlots: {
     path: "discern/test-slots",
     scope: "common",

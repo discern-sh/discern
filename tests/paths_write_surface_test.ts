@@ -156,6 +156,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the logbook (events, epoch sidecar, rotation) — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/crash.ts",
+    "crash report files — registry-resolved .git-internal state outside the project tree, with an OS-temp fallback outside a repository",
+  ],
+  [
     "src/engine/desk/tip_state.ts",
     "the desk tip seen-state — .git-internal, outside the project tree",
   ],

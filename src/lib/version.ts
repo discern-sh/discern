@@ -23,6 +23,11 @@ export const KIT_VERSION: string = denoJson.version;
 export const UPDATE_CHANNEL =
   "re-run the install script from the README at https://github.com/jackwh/discern";
 
+/** Where a crash report belongs: the repository's public issue tracker, cited
+ * verbatim by every crash surface (the stderr frame, the `--json` envelope,
+ * the saved report file). */
+export const ISSUES_URL = "https://github.com/jackwh/discern/issues";
+
 /**
  * The install schema version — the monotonic migration anchor recorded in
  * `[meta].schema_version` (ADR 0014). It is independent of `KIT_VERSION` and
