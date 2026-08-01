@@ -190,8 +190,13 @@ Deno.test("test slots: the lock excludes a second open of the same file, same pr
     } finally {
       first.close();
     }
-    // Closing the holder releases the lock for the next open description.
-    assertEquals(await second.tryLock(true), true, "released slot acquires");
+    // Closing the holder releases the lock for the next open description — but
+    // the release is not instantly visible to another description under load,
+    // so poll for it the way the killed-holder test below does.
+    await pollUntil(
+      "the released slot to acquire",
+      () => second.tryLock(true),
+    );
     second.close();
   });
 });

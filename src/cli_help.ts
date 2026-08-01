@@ -17,6 +17,7 @@ import type { Command } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
 import { terminalWidth, wrapText } from "./lib/text.ts";
 import type { EnvReader } from "./shared/env.ts";
+import { colorEnabled } from "./engine/output.ts";
 
 /** Ambient inputs that callers may pin for deterministic help rendering. */
 export interface OperatorHelpOptions {
@@ -28,8 +29,8 @@ export interface OperatorHelpOptions {
    * The CLI's resolved colour decision (`--no-color` flag + NO_COLOR + isatty).
    * When set it governs the help's colour — including stripping any escape Cliffy's
    * own `getHelp()` emitted, since that generator consults only `Deno.noColor` and
-   * so ignores both `--no-color` and non-TTY output. Omitted, the legacy heuristic
-   * (was the base help already coloured?) applies.
+   * so ignores both `--no-color` and non-TTY output. Omitted, the process-wide
+   * resolved decision (`colorEnabled`) applies.
    */
   readonly color?: boolean;
 }
@@ -250,11 +251,13 @@ export function operatorHelp(
   options: OperatorHelpOptions = {},
 ): string {
   const rawBase = root.getHelp();
-  // The CLI's resolved decision wins; absent it, fall back to "did Cliffy colour
-  // the base?" (its legacy heuristic). When the decision is "no colour", strip the
-  // escapes Cliffy emitted regardless — its generator honours only Deno.noColor, so
-  // it ignores our --no-color and non-TTY output.
-  const color = options.color ?? rawBase.includes(ESC);
+  // The CLI's resolved decision wins; absent an explicit value, read the
+  // process-wide decision — never infer it from the rendered bytes. Cliffy's
+  // generator colours from `Deno.noColor` alone, and FORCE_COLOR flips that even
+  // when NO_COLOR is set, so "did Cliffy colour the base?" would let the
+  // environment override the resolved decision. When the decision is "no
+  // colour", strip the escapes Cliffy emitted regardless.
+  const color = options.color ?? colorEnabled();
   const base = color ? rawBase : stripAnsi(rawBase);
   const lines = dropVersionRow(base.split("\n"));
 

@@ -236,3 +236,37 @@ Deno.test("the root help and a bare invocation honour --no-color on the real CLI
     }
   });
 });
+
+Deno.test("FORCE_COLOR never overrides the resolved decision on any help spelling (zero ANSI)", async () => {
+  // FORCE_COLOR flips `Deno.noColor` false even when NO_COLOR is set, so any
+  // path that consults Cliffy's own colouring instead of the one resolved
+  // decision recolours under it (the `help` verb once did, via a "did Cliffy
+  // colour the base?" fallback in `operatorHelp`). Every spelling that prints
+  // help must stay plain when the resolved decision is "no colour", whatever
+  // the inherited environment says.
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      ["[project]", 'slug = "color-contract"', ""].join("\n"),
+    );
+    await gitInit(dir);
+
+    const spellings = [["help"], ["--help"], [], ["help", "done"], [
+      "done",
+      "--help",
+    ]];
+    for (const args of spellings) {
+      const r = await runAgent(dir, args, {
+        env: { NO_COLOR: "1", FORCE_COLOR: "3" },
+      });
+      assertEquals(
+        ansiCount(r.output),
+        0,
+        `\`discern ${args.join(" ")}\` leaked ${
+          ansiCount(r.output)
+        } ANSI escape(s) under FORCE_COLOR:\n${r.output}`,
+      );
+    }
+  });
+});
