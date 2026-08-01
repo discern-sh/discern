@@ -174,7 +174,7 @@ The review claim `discern done` emits after a clean, committed worktree passes t
 
 ### Receipt note
 
-The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. The record names its own published format and the full landed commit id, and reserves signing room. Local recording is default-on; fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/receipt-notes.md).
+The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. It uses the Dead Simple Signing Envelope (DSSE) field and payload boundary, names the published payload type, preserves the bytes a future signature will cover, and binds the payload to the full landed commit id. discern's unsigned extension carries an empty signature array. Local recording is default-on; fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/receipt-notes.md).
 
 ### Schema version
 

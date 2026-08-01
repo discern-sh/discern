@@ -2,7 +2,9 @@ import { assert, assertEquals } from "@std/assert";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
+  buildReceiptNoteJsonSchema,
   buildResultJsonSchema,
+  renderReceiptNoteJsonSchema,
   renderResultJsonSchema,
   renderResultTypesDts,
 } from "../src/shared/result_codegen.ts";
@@ -19,6 +21,11 @@ import {
 } from "../src/shared/result_contracts.ts";
 import {
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  RECEIPT_NOTE_DSSE_ENVELOPE,
+  RECEIPT_NOTE_DSSE_PROTOCOL,
+  RECEIPT_NOTE_PAYLOAD_DEFINITION,
+  RECEIPT_NOTE_PAYLOAD_TYPE,
+  RECEIPT_NOTE_SCHEMA_ID,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "../src/shared/public_schemas.ts";
@@ -37,6 +44,45 @@ Deno.test("schema/discern-results.schema.json matches the generator (run `deno t
     renderResultJsonSchema(),
     "schema/discern-results.schema.json is stale — run `deno task codegen`",
   );
+});
+
+Deno.test("schema/discern-receipt-note.schema.json matches the generator (run `deno task codegen`)", async () => {
+  const committed = await Deno.readTextFile(
+    new URL("../schema/discern-receipt-note.schema.json", import.meta.url),
+  );
+  assertEquals(
+    committed,
+    renderReceiptNoteJsonSchema(),
+    "schema/discern-receipt-note.schema.json is stale — run `deno task codegen`",
+  );
+});
+
+Deno.test("the receipt-note schema publishes one DSSE payload boundary", () => {
+  const schema = buildReceiptNoteJsonSchema();
+  assertEquals(schema.$id, RECEIPT_NOTE_SCHEMA_ID);
+  assertEquals(schema["x-discern-payload-type"], RECEIPT_NOTE_PAYLOAD_TYPE);
+  assertEquals(schema["x-discern-dsse-envelope"], RECEIPT_NOTE_DSSE_ENVELOPE);
+  assertEquals(schema["x-discern-dsse-protocol"], RECEIPT_NOTE_DSSE_PROTOCOL);
+  assert(isRecord(schema.properties), "receipt envelope should declare fields");
+  const payloadType = schema.properties.payloadType;
+  assert(isRecord(payloadType), "receipt envelope should declare payloadType");
+  assertEquals(payloadType.const, RECEIPT_NOTE_PAYLOAD_TYPE);
+  const payload = schema.properties.payload;
+  assert(isRecord(payload), "receipt envelope should declare its payload");
+  assertEquals(payload.contentEncoding, "base64");
+  assertEquals(payload.contentMediaType, "application/json");
+  assertEquals(payload.contentSchema, {
+    $ref: `#/$defs/${RECEIPT_NOTE_PAYLOAD_DEFINITION}`,
+  });
+  const signatures = schema.properties.signatures;
+  assert(isRecord(signatures), "receipt envelope should declare signatures");
+  assertEquals(signatures.type, "array");
+  assert(isRecord(signatures.items), "signature entries should have a schema");
+  assertEquals(signatures.items.required, ["sig"]);
+  assert(isRecord(schema.$defs), "receipt schema should publish definitions");
+  const claim = schema.$defs[RECEIPT_NOTE_PAYLOAD_DEFINITION];
+  assert(isRecord(claim), "receipt schema should publish its decoded payload");
+  assertEquals(claim.required, ["subject", "receipt"]);
 });
 
 Deno.test("the generated result schema carries its public identity and policy", () => {
@@ -117,6 +163,11 @@ Deno.test("public result verbs use CLI-style space delimiters, never colons", ()
 Deno.test("public JSON schema is additive-compatible for output objects", () => {
   const offenders: string[] = [];
   collectClosedOutputMarkers(buildResultJsonSchema(), "$", offenders);
+  collectClosedOutputMarkers(
+    buildReceiptNoteJsonSchema(),
+    "$receiptNote",
+    offenders,
+  );
   assertEquals(
     offenders,
     [],

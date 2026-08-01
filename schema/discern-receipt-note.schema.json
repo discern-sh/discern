@@ -2,70 +2,53 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://discern.sh/schema/v1/discern-receipt-note.schema.json",
   "x-discern-compatibility-policy": "result-output",
-  "title": "DiscernReceiptNote",
-  "description": "The durable receipt record discern attaches to a landed commit as a Git note under refs/notes/discern (the note body is this object as one line of JSON plus a newline). The format field carries this schema's $id in-band: treat an unrecognized value as unsupported rather than ignoring it, tolerate unknown additive fields within this major, and require subject.commit to equal the commit the note annotates. issuer and signature are reserved for signing — absence means unsigned; brief is reserved for a reference to a signed intent record. A bare receipt object with no format field is a legacy unsigned note.",
+  "title": "DiscernReceiptNoteEnvelope",
+  "description": "The discern receipt envelope follows the Dead Simple Signing Envelope (DSSE) field and payload boundary. Discern attaches it to a landed commit as a Git note under refs/notes/discern. The note body is this object as one line of JSON plus a newline. Decode payload from Base64 and keep those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), payload bytes). No other envelope field enters that signature input. payloadType points to the payload definition in this schema. Standard signed DSSE envelopes carry at least one signature; discern's unsigned extension carries an empty signatures array. keyid is an unauthenticated lookup hint; a signing profile and trust policy decide the algorithm, verification key, and identity. A bare receipt object with no payloadType is a legacy unsigned note.",
+  "x-discern-payload-type": "https://discern.sh/schema/v1/discern-receipt-note.schema.json#/$defs/DiscernReceiptNotePayload",
+  "x-discern-dsse-envelope": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md",
+  "x-discern-dsse-protocol": "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md",
   "type": "object",
   "properties": {
-    "format": {
+    "payloadType": {
       "type": "string",
-      "const": "https://discern.sh/schema/v1/discern-receipt-note.schema.json",
-      "description": "The published schema identity of this record, carried in-band. An unrecognized value must be reported as unsupported, not ignored."
+      "const": "https://discern.sh/schema/v1/discern-receipt-note.schema.json#/$defs/DiscernReceiptNotePayload",
+      "description": "The receipt payload's published type. DSSE authenticates this value together with the decoded payload bytes."
     },
-    "subject": {
-      "type": "object",
-      "properties": {
-        "commit": {
-          "type": "string",
-          "description": "The full object id of the validated, landed commit."
-        }
-      },
-      "required": [
-        "commit"
-      ]
-    },
-    "receipt": {
-      "$ref": "#/$defs/DiscernReceipt"
-    },
-    "issuer": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        },
-        "email": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string"
-        }
-      },
-      "description": "Who issued this receipt. Unverified until the signature proves it; absence means unsigned. Nothing writes it at v1.0.0."
-    },
-    "signature": {
-      "type": "object",
-      "properties": {
-        "scheme": {
-          "type": "string"
-        },
-        "value": {
-          "type": "string"
-        }
-      },
-      "required": [
-        "scheme",
-        "value"
-      ],
-      "description": "Reserved: a signature endorsing this record. Absence means unsigned. Nothing writes it at v1.0.0."
-    },
-    "brief": {
+    "payload": {
       "type": "string",
-      "description": "Reserved: a reference to a signed intent artifact. Nothing writes it at v1.0.0."
+      "description": "Standard or URL-safe Base64-encoded UTF-8 JSON matching DiscernReceiptNotePayload, with or without padding. These decoded bytes are the DSSE payload and must not be reserialized before verification.",
+      "contentEncoding": "base64",
+      "contentMediaType": "application/json",
+      "contentSchema": {
+        "$ref": "#/$defs/DiscernReceiptNotePayload"
+      }
+    },
+    "signatures": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "keyid": {
+            "type": "string",
+            "description": "Optional key-selection hint. It is not authenticated by DSSE and must not be used as evidence that a key is trusted."
+          },
+          "sig": {
+            "type": "string",
+            "description": "The Base64-encoded signature over DSSE v1 pre-authentication encoding of payloadType and the decoded payload bytes."
+          }
+        },
+        "required": [
+          "sig"
+        ],
+        "description": "One DSSE signature over this envelope's payload type and decoded payload bytes. No signing profile or trust policy is selected at v1.0.0."
+      },
+      "description": "DSSE signatures over this payload. Standard signed envelopes carry at least one. An empty array is discern's unsigned extension, written at v1.0.0."
     }
   },
   "required": [
-    "format",
-    "subject",
-    "receipt"
+    "payloadType",
+    "payload",
+    "signatures"
   ],
   "$defs": {
     "DiscernReceipt": {
@@ -108,6 +91,54 @@
         "markdown"
       ],
       "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+    },
+    "DiscernReceiptNotePayload": {
+      "title": "DiscernReceiptNotePayload",
+      "type": "object",
+      "properties": {
+        "subject": {
+          "type": "object",
+          "properties": {
+            "commit": {
+              "type": "string",
+              "description": "The full object id of the validated, landed commit."
+            }
+          },
+          "required": [
+            "commit"
+          ]
+        },
+        "receipt": {
+          "$ref": "#/$defs/DiscernReceipt"
+        },
+        "issuer": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "The issuer's asserted display name. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
+            },
+            "email": {
+              "type": "string",
+              "description": "The issuer's asserted email address. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
+            },
+            "key": {
+              "type": "string",
+              "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
+            }
+          },
+          "description": "Identity details asserted by the receipt payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
+        },
+        "brief": {
+          "type": "string",
+          "description": "Reserved: a reference to a signed intent artifact. Nothing writes it at v1.0.0."
+        }
+      },
+      "required": [
+        "subject",
+        "receipt"
+      ],
+      "description": "The receipt claim carried as UTF-8 JSON in the DSSE payload: the landed commit, receipt, and optional issuer assertion and intent reference."
     }
   }
 }

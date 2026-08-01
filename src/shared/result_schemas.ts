@@ -42,7 +42,7 @@ import {
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
-import { RECEIPT_NOTE_SCHEMA_ID } from "./public_schemas.ts";
+import { RECEIPT_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 import {
   CONTINUATION_HANDLE_LENGTH,
@@ -268,50 +268,61 @@ export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
 // ── the durable receipt note (ADR 0242) ─────────────────────────────────────
-// The landed receipt travels as a self-describing wire record: the published
-// schema `$id` in-band as `format` (a Git note has no schema-selection
-// channel), the full-object-id subject, the receipt, and reserved room for a
-// signing identity. The runtime writer stays strict; the durable reader is
-// tolerant — the same split ADR 0208 sets for results, applied where
-// mixed-version clones actually meet.
-
-/** The in-band format identity every current receipt note carries. */
-export const RECEIPT_NOTE_FORMAT = RECEIPT_NOTE_SCHEMA_ID;
+// The landed receipt travels as a DSSE-compatible envelope. `payloadType` and
+// the decoded `payload` bytes are the future signature input; the payload owns
+// the full-object-id subject, receipt, issuer assertion, and brief reference.
+// Runtime writers stay strict while durable readers accept additive fields.
 
 const RECEIPT_ISSUER_FIELDS = {
-  name: z.string().optional(),
-  email: z.string().optional(),
-  key: z.string().optional(),
+  name: z.string().meta({
+    description:
+      "The issuer's asserted display name. A verified signature protects " +
+      "this text from alteration; trust policy decides who the signing key represents.",
+  }).optional(),
+  email: z.string().meta({
+    description:
+      "The issuer's asserted email address. A verified signature protects " +
+      "this text from alteration; trust policy decides who the signing key represents.",
+  }).optional(),
+  key: z.string().meta({
+    description:
+      "The issuer's asserted key or key reference. Verifiers use their signing " +
+      "profile and trust policy rather than trusting this value on its own.",
+  }).optional(),
 };
-/** Who issued a durable receipt. A claim until a signature proves it; absence
- * means unsigned (every legacy note, and every note discern writes today). */
+/** Identity details asserted by a durable receipt payload. A verified
+ * signature protects the assertion; a trust policy binds its key to a person,
+ * agent, runner, or organization. */
 export const ReceiptIssuerSchema = z.strictObject(RECEIPT_ISSUER_FIELDS).meta({
   description:
-    "Who issued this receipt. Unverified until the signature proves it; " +
-    "absence means unsigned. Nothing writes it at v1.0.0.",
+    "Identity details asserted by the receipt payload. A verified Dead Simple " +
+    "Signing Envelope (DSSE) signature protects these details from alteration " +
+    "but does not establish who controls the signing key. Nothing writes them at v1.0.0.",
 });
 export type ReceiptIssuer = z.infer<typeof ReceiptIssuerSchema>;
 
-/** Reserved room for a signature over the note's claim. Nothing writes it at
- * v1.0.0; a signing design defines its byte coverage before first use. */
-export const ReceiptSignatureSchema = z.strictObject({
-  scheme: z.string(),
-  value: z.string(),
+/** One standard DSSE signature entry. Cryptographic algorithm, signature
+ * encoding, key resolution, and trust remain the signing profile's decisions. */
+export const ReceiptNoteSignatureSchema = z.strictObject({
+  keyid: z.string().meta({
+    description:
+      "Optional key-selection hint. It is not authenticated by DSSE and must " +
+      "not be used as evidence that a key is trusted.",
+  }).optional(),
+  sig: z.string().meta({
+    description:
+      "The Base64-encoded signature over DSSE v1 pre-authentication encoding " +
+      "of payloadType and the decoded payload bytes.",
+  }),
 }).meta({
   description:
-    "Reserved: a signature endorsing this record. Absence means unsigned. " +
-    "Nothing writes it at v1.0.0.",
+    "One DSSE signature over this envelope's payload type and decoded payload " +
+    "bytes. No signing profile or trust policy is selected at v1.0.0.",
 });
 
-/** The durable receipt note — the exact record `discern accept` attaches to a
- * landed commit under `refs/notes/discern`. Strict: this is what current
- * writers emit; durable READERS use {@link TolerantReceiptNoteSchema}. */
-export const ReceiptNoteSchema = z.strictObject({
-  format: z.literal(RECEIPT_NOTE_FORMAT).meta({
-    description:
-      "The published schema identity of this record, carried in-band. " +
-      "An unrecognized value must be reported as unsupported, not ignored.",
-  }),
+/** The JSON claim preserved as the envelope's Base64 payload. A future DSSE
+ * signature covers every byte of this claim, including issuer and brief. */
+export const ReceiptNotePayloadSchema = z.strictObject({
   subject: z.strictObject({
     commit: z.string().meta({
       description: "The full object id of the validated, landed commit.",
@@ -319,26 +330,55 @@ export const ReceiptNoteSchema = z.strictObject({
   }),
   receipt: ReceiptSchema,
   issuer: ReceiptIssuerSchema.optional(),
-  signature: ReceiptSignatureSchema.optional(),
   brief: z.string().meta({
     description:
       "Reserved: a reference to a signed intent artifact. Nothing writes " +
       "it at v1.0.0.",
   }).optional(),
+}).meta({
+  description:
+    "The receipt claim carried as UTF-8 JSON in the DSSE payload: the landed " +
+    "commit, receipt, and optional issuer assertion and intent reference.",
+});
+export type ReceiptNotePayload = z.infer<typeof ReceiptNotePayloadSchema>;
+
+/** The durable receipt note envelope `discern accept` attaches to a landed
+ * commit under `refs/notes/discern`. Current writers use discern's unsigned
+ * empty-array extension; durable readers use {@link TolerantReceiptNoteSchema}. */
+export const ReceiptNoteSchema = z.strictObject({
+  payloadType: z.literal(RECEIPT_NOTE_PAYLOAD_TYPE).meta({
+    description:
+      "The receipt payload's published type. DSSE authenticates this value " +
+      "together with the decoded payload bytes.",
+  }),
+  payload: z.string().meta({
+    description: "Standard or URL-safe Base64-encoded UTF-8 JSON matching " +
+      "DiscernReceiptNotePayload, with or without padding. These " +
+      "decoded bytes are the DSSE payload and must not be reserialized before verification.",
+  }),
+  signatures: z.array(ReceiptNoteSignatureSchema).meta({
+    description:
+      "DSSE signatures over this payload. Standard signed envelopes carry at " +
+      "least one. An empty array is discern's unsigned extension, written at v1.0.0.",
+  }),
 });
 export type ReceiptNote = z.infer<typeof ReceiptNoteSchema>;
 
-/** The durable reader's schema: same required core as the strict note, but
- * unknown additive fields pass at every level — an older binary must read
- * every newer same-major note (ADR 0242). The blocks the reader does not
- * consume (signature) accept any object shape. */
-export const TolerantReceiptNoteSchema = z.looseObject({
-  format: z.string(),
+/** The durable reader's payload schema. Unknown additive fields pass at every
+ * level while the required receipt claim remains stable within this major. */
+export const TolerantReceiptNotePayloadSchema = z.looseObject({
   subject: z.looseObject({ commit: z.string() }),
   receipt: z.looseObject(RECEIPT_FIELDS),
   issuer: z.looseObject(RECEIPT_ISSUER_FIELDS).optional(),
-  signature: z.looseObject({}).optional(),
   brief: z.string().optional(),
+});
+
+/** The durable reader's envelope schema. Signature entries stay opaque until
+ * a signing profile and verifier exist; their bytes remain in the Git note. */
+export const TolerantReceiptNoteSchema = z.looseObject({
+  payloadType: z.string(),
+  payload: z.string(),
+  signatures: z.array(z.looseObject({})),
 });
 
 /** How one configured standard's measurement went in a gate run. The SSOT for the
@@ -954,8 +994,8 @@ export const StatusDataSchema = z.strictObject({
     commit: z.string(),
     ref: z.string(),
     receipt: ReceiptSchema,
-    /** The durable record's issuer claim, when it carries one (unsigned notes
-     * omit it). */
+    /** The payload's issuer assertion, when present. This field does not mean
+     * the signature or the asserted identity has been verified. */
     issuer: ReceiptIssuerSchema.optional(),
     /** The durable record's signed-intent reference, when it carries one. */
     brief: z.string().optional(),

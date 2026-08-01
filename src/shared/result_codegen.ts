@@ -17,11 +17,18 @@ import {
 } from "./result_contracts.ts";
 import {
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
+  RECEIPT_NOTE_DSSE_ENVELOPE,
+  RECEIPT_NOTE_DSSE_PROTOCOL,
+  RECEIPT_NOTE_PAYLOAD_DEFINITION,
+  RECEIPT_NOTE_PAYLOAD_TYPE,
   RECEIPT_NOTE_SCHEMA_ID,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "./public_schemas.ts";
-import { ReceiptNoteSchema } from "./result_schemas.ts";
+import {
+  ReceiptNotePayloadSchema,
+  ReceiptNoteSchema,
+} from "./result_schemas.ts";
 import { ERROR_SLUGS } from "./result.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
@@ -247,35 +254,60 @@ export function renderResultJsonSchema(): string {
 }
 
 /**
- * The durable receipt note's published contract: the exact record acceptance
- * attaches to a landed commit, self-described by the `format` identity it
- * carries in-band. Published additively, like every result artifact: the
- * runtime writer stays strict while this schema permits unknown object fields,
- * matching the tolerant durable reader.
+ * The durable receipt note's published contract: a DSSE-compatible envelope
+ * plus the decoded JSON payload definition its `payloadType` identifies.
+ * Runtime writers stay strict while this publication permits additive object
+ * fields, matching the tolerant durable reader.
  */
 export function buildReceiptNoteJsonSchema(): JsonObject {
   const hoisted: JsonObject = {};
   const body = generatedSchema(ReceiptNoteSchema, hoisted);
+  const payloadBody = generatedSchema(ReceiptNotePayloadSchema, hoisted);
   const defs: JsonObject = {};
   placeHoistedDefs(defs, hoisted);
+  defs[RECEIPT_NOTE_PAYLOAD_DEFINITION] = {
+    title: RECEIPT_NOTE_PAYLOAD_DEFINITION,
+    ...payloadBody,
+  };
+  const properties = body.properties;
+  if (!isObject(properties) || !isObject(properties.payload)) {
+    throw new Error("receipt note schema must declare its encoded payload");
+  }
+  const annotatedBody: JsonObject = {
+    ...body,
+    properties: {
+      ...properties,
+      payload: {
+        ...properties.payload,
+        contentEncoding: "base64",
+        contentMediaType: "application/json",
+        contentSchema: refFor(RECEIPT_NOTE_PAYLOAD_DEFINITION),
+      },
+    },
+  };
   return publicSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
     $id: RECEIPT_NOTE_SCHEMA_ID,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    title: "DiscernReceiptNote",
+    title: "DiscernReceiptNoteEnvelope",
     description:
-      "The durable receipt record discern attaches to a landed commit as a " +
-      "Git note under refs/notes/discern (the note body is this object as " +
-      "one line of JSON plus a newline). The format field carries this " +
-      "schema's $id in-band: treat an unrecognized value as unsupported " +
-      "rather than ignoring it, tolerate unknown additive fields within " +
-      "this major, and require subject.commit to equal the commit the note " +
-      "annotates. issuer and signature are reserved for signing — absence " +
-      "means unsigned; brief is reserved for a reference to a signed intent " +
-      "record. A bare receipt object with no format field is a legacy " +
-      "unsigned note.",
-    ...body,
+      "The discern receipt envelope follows the Dead Simple Signing Envelope " +
+      "(DSSE) field and payload boundary. Discern attaches it to a landed " +
+      "commit as a Git note under refs/notes/discern. The note body is this object as " +
+      "one line of JSON plus a newline. Decode payload from Base64 and keep " +
+      "those bytes unchanged: a DSSE v1 signature is over PAE(UTF8(payloadType), " +
+      "payload bytes). No other envelope field enters that signature input. " +
+      "payloadType points to the payload definition in this schema. " +
+      "Standard signed DSSE envelopes carry at least one signature; discern's " +
+      "unsigned extension carries an empty signatures array. keyid is an " +
+      "unauthenticated lookup hint; a signing profile and trust policy decide " +
+      "the algorithm, verification key, and identity. A bare receipt object " +
+      "with no payloadType is a legacy unsigned note.",
+    "x-discern-payload-type": RECEIPT_NOTE_PAYLOAD_TYPE,
+    "x-discern-dsse-envelope": RECEIPT_NOTE_DSSE_ENVELOPE,
+    "x-discern-dsse-protocol": RECEIPT_NOTE_DSSE_PROTOCOL,
+    ...annotatedBody,
     ...(Object.keys(defs).length > 0 ? { $defs: defs } : {}),
   }) as JsonObject;
 }

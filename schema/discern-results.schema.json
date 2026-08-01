@@ -11013,16 +11013,19 @@
                       "type": "object",
                       "properties": {
                         "name": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "The issuer's asserted display name. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
                         },
                         "email": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "The issuer's asserted email address. A verified signature protects this text from alteration; trust policy decides who the signing key represents."
                         },
                         "key": {
-                          "type": "string"
+                          "type": "string",
+                          "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
                         }
                       },
-                      "description": "Who issued this receipt. Unverified until the signature proves it; absence means unsigned. Nothing writes it at v1.0.0."
+                      "description": "Identity details asserted by the receipt payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
                     },
                     "brief": {
                       "type": "string"

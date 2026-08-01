@@ -15,7 +15,7 @@ aliases:
 
 _A green landing keeps its structured receipt beside the immutable trunk commit._
 
-After the trunk fast-forward, `discern accept` writes the durable receipt record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0242](../_adr/0242-durable-receipts-travel-versioned-and-signature-ready.md)). It adds no trunk commit.
+After the trunk fast-forward, `discern accept` writes the durable receipt record under `refs/notes/discern` ([ADR 0215](../_adr/0215-landing-receipts-travel-as-git-notes.md), [ADR 0242](../_adr/0242-durable-receipts-use-a-versioned-dsse-envelope.md)). It adds no trunk commit.
 
 Read the current history with:
 
@@ -33,7 +33,9 @@ git notes --ref=discern show <commit>
 
 ## The durable format
 
-The note body is a self-describing record: it names its own published format and the full landed commit id, carries the receipt, and reserves signing room. Unknown added fields pass, a newer format reports as unsupported rather than vanishing, and bare notes from older releases still read. [Receipt note format](../70-reference/receipt-note-format.md) is the field-by-field contract.
+The note body uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its Base64 payload carries the full landed commit id and structured receipt. The envelope fixes which bytes a future signature will cover. discern's unsigned extension uses an empty `signatures` array because discern does not yet sign or verify notes. Adding a real signature will produce the standard signed form without changing the payload. Optional issuer details state what a signer claims. A later trust policy would connect the signing key to a person, agent, runner, or organization.
+
+Unknown added fields pass, an unknown payload type reports as unsupported rather than vanishing, and bare notes from older releases still read. [Receipt note format](../70-reference/receipt-note-format.md) covers the payload, signature boundary, issuer meaning, and reading rules.
 
 ## Authorship and failure
 
@@ -86,6 +88,8 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 ## Current state and gotchas
 
 - A note proves only the ref you read. Remote publication remains explicit.
+- `data.landed_receipt` reports a readable note that is bound to its commit. This read path performs no signature or issuer-identity verification.
+- Direct Git inspection shows a Base64 payload. Use `discern status --verbose` for the rendered receipt.
 - A normal fetch keeps a stale tracking note after the remote deletes it. Run `git fetch --prune <remote>` to remove refs the remote no longer carries.
 - Refresh migrates older exact mappings that carry discern's ownership marker. An unmarked exact mapping stays untouched; the refresh result gives the command that removes it.
 - An older marker may lack structured data. Acceptance honors its commit proof but reports `missing_receipt`.

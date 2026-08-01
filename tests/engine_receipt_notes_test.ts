@@ -4,6 +4,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { join } from "@std/path";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -13,14 +14,16 @@ import {
   type AcceptData,
   type GateData,
   type Receipt,
-  RECEIPT_NOTE_FORMAT,
+  ReceiptNotePayloadSchema,
   ReceiptNoteSchema,
   ReceiptSchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
+import { RECEIPT_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import {
   canonicalReceiptNote,
+  canonicalReceiptNotePayload,
   findLandedReceiptNoteForBranch,
   findLatestLandedReceiptNoteForBranch,
   readReceiptNoteAt,
@@ -97,8 +100,8 @@ async function land(
   return { target, receipt, result };
 }
 
-/** Read one durable note and prove it is the strict current record, bound to
- * the commit that carries it, before handing back the receipt inside. */
+/** Read one durable note and prove it is the strict current envelope, bound to
+ * the commit that carries it, before handing back the receipt payload. */
 async function noteAt(root: string, commit: string): Promise<Receipt> {
   const content = await gitOut(
     root,
@@ -107,12 +110,19 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
     "show",
     commit,
   );
-  const note = ReceiptNoteSchema.parse(JSON.parse(content));
-  assertEquals(note.subject.commit, commit);
-  assertEquals(note.issuer, undefined);
-  assertEquals(note.signature, undefined);
-  assertEquals(note.brief, undefined);
-  return note.receipt;
+  const envelope = ReceiptNoteSchema.parse(JSON.parse(content));
+  assertEquals(envelope.payloadType, RECEIPT_NOTE_PAYLOAD_TYPE);
+  assertEquals(envelope.signatures, []);
+  const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
+  const payload = ReceiptNotePayloadSchema.parse(JSON.parse(payloadText));
+  assertEquals(
+    payloadText,
+    canonicalReceiptNotePayload(payload.receipt, commit),
+  );
+  assertEquals(payload.subject.commit, commit);
+  assertEquals(payload.issuer, undefined);
+  assertEquals(payload.brief, undefined);
+  return payload.receipt;
 }
 
 async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
@@ -213,7 +223,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       "--no-gpg-sign",
     );
     const newerCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const newerFormat = RECEIPT_NOTE_FORMAT.replace("/v1/", "/v9/");
+    const newerFormat = RECEIPT_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
     await git(
       dir,
       "notes",
@@ -222,8 +232,9 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       "-m",
       `${
         JSON.stringify({
-          format: newerFormat,
-          subject: { commit: newerCommit },
+          payloadType: newerFormat,
+          payload: "",
+          signatures: [],
         })
       }\n`,
       newerCommit,
@@ -237,6 +248,12 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       ref: RECEIPT_NOTES_REF,
       format: newerFormat,
     });
+    const unreadHuman = await runAgent(dir, ["status", "--plain"]);
+    assertEquals(unreadHuman.code, 0, unreadHuman.output);
+    assertStringIncludes(
+      unreadHuman.stdout,
+      `recorded in a newer format (${newerFormat})`,
+    );
   });
 });
 
@@ -625,6 +642,18 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
   };
 }
 
+function encodedReceiptPayload(
+  value: unknown,
+  alphabet: "standard" | "url-safe" = "standard",
+): string {
+  const encoded = encodeBase64(
+    new TextEncoder().encode(JSON.stringify(value)),
+  );
+  return alphabet === "standard"
+    ? encoded
+    : encoded.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
+}
+
 Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
@@ -774,6 +803,24 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
+      canonicalReceiptNote({
+        ...syntheticReceipt(malformedCommit, "agent/x"),
+        head: "",
+      }, malformedCommit),
+      malformedCommit,
+    );
+    assertEquals(
+      await readReceiptNoteAt(dir, malformedCommit),
+      { status: "missing" },
+      "a current note keeps its abbreviated receipt head coherent with its full subject",
+    );
+    await git(
+      dir,
+      "notes",
+      "--ref=discern",
+      "add",
+      "--force",
+      "-m",
       canonicalReceiptNote(wantedReceipt, wantedCommit),
       malformedCommit,
     );
@@ -819,8 +866,8 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       receipt: legacyReceipt,
     });
 
-    // A synthetic FUTURE same-major note: unknown additive fields at every
-    // level must pass the tolerant reader, surviving into the known shape.
+    // A synthetic FUTURE same-major note: unknown additive fields in the
+    // envelope, signature entries, and decoded payload pass the tolerant reader.
     await git(
       dir,
       "commit",
@@ -832,6 +879,17 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     );
     const futureCommit = await gitOut(dir, "rev-parse", "HEAD");
     const futureReceipt = syntheticReceipt(futureCommit, "agent/future");
+    const futurePayload = encodedReceiptPayload({
+      subject: { commit: futureCommit, tree: "0".repeat(40) },
+      receipt: { ...futureReceipt, verdict: "green" },
+      issuer: { name: "Future Owner", role: "maintainer" },
+      brief: "brief-0042",
+      future: "\u{10FFFF}",
+    }, "url-safe");
+    assert(
+      /[-_]/u.test(futurePayload),
+      "the fixture must exercise DSSE's URL-safe Base64 alphabet",
+    );
     await git(
       dir,
       "notes",
@@ -840,11 +898,13 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "-m",
       `${
         JSON.stringify({
-          format: RECEIPT_NOTE_FORMAT,
-          subject: { commit: futureCommit, tree: "0".repeat(40) },
-          receipt: { ...futureReceipt, verdict: "green" },
-          issuer: { name: "Future Owner", role: "maintainer" },
-          brief: "brief-0042",
+          payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+          payload: futurePayload,
+          signatures: [{
+            keyid: "future-key",
+            sig: "AA==",
+            profile: "future-profile",
+          }],
           attestations: [{ kind: "external" }],
         })
       }\n`,
@@ -859,6 +919,35 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       brief: "brief-0042",
     });
 
+    // A readable envelope still needs valid Base64, UTF-8, JSON, and the
+    // required payload core. Malformed payload bytes are not receipt evidence.
+    const malformedPayloads = [
+      "***",
+      encodeBase64(new Uint8Array([0xff])),
+      encodedReceiptPayload({ receipt: futureReceipt }),
+    ];
+    for (const payload of malformedPayloads) {
+      await git(
+        dir,
+        "notes",
+        "--ref=discern",
+        "add",
+        "--force",
+        "-m",
+        `${
+          JSON.stringify({
+            payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+            payload,
+            signatures: [],
+          })
+        }\n`,
+        futureCommit,
+      );
+      assertEquals(await readReceiptNoteAt(dir, futureCommit), {
+        status: "missing",
+      });
+    }
+
     // An unknown format major is an explicit refusal naming the format —
     // never a crash, never read as "no receipt exists".
     await git(
@@ -871,7 +960,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "--no-gpg-sign",
     );
     const unreadCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const futureFormat = RECEIPT_NOTE_FORMAT.replace("/v1/", "/v9/");
+    const futureFormat = RECEIPT_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
     await git(
       dir,
       "notes",
@@ -880,8 +969,9 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "-m",
       `${
         JSON.stringify({
-          format: futureFormat,
-          subject: { commit: unreadCommit },
+          payloadType: futureFormat,
+          payload: "",
+          signatures: [],
         })
       }\n`,
       unreadCommit,

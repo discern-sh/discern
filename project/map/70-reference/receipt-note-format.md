@@ -1,6 +1,6 @@
 ---
 title: Receipt note format
-description: The durable receipt record attached to a landed commit — its fields, its published schema, and its reading rules.
+description: The DSSE-compatible envelope attached to a landed commit, including its payload, signature boundary, and reading rules.
 order: 40
 aliases:
   - receipt format
@@ -11,41 +11,82 @@ aliases:
 
 # Receipt note format
 
-_The exact record `discern accept` attaches to a landed commit, and the rules any reader must follow._
+_The durable claim `discern accept` attaches to a landed commit, and the rules every reader follows._
 
-A landing writes one note under `refs/notes/discern`. The note body is one line of JSON plus a newline, published at <https://discern.sh/schema/v1/discern-receipt-note.schema.json>:
+A landing writes one note under `refs/notes/discern`. The note body is a compact JSON form of the Dead Simple Signing Envelope (DSSE) plus a newline, published at <https://discern.sh/schema/v1/discern-receipt-note.schema.json>:
 
 ```json
 {
-  "format": "https://discern.sh/schema/v1/discern-receipt-note.schema.json",
-  "subject": { "commit": "<full commit id>" },
-  "receipt": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0, "line": "…", "markdown": "…" }
+  "payloadType": "https://discern.sh/schema/v1/discern-receipt-note.schema.json#/$defs/DiscernReceiptNotePayload",
+  "payload": "<Base64-encoded payload bytes>",
+  "signatures": []
 }
 ```
 
-## Fields
+Decode `payload` from Base64 to read the UTF-8 JSON claim:
 
-- `format` — the published schema identity, carried in the bytes. The release that reads a note is often not the release that wrote it, so the record names its own contract. The `/v1/` path segment is the compatibility major.
-- `subject.commit` — the full id of the landed commit. The receipt's short `head` stays for display.
-- `receipt` — the same structured receipt `data.receipt` carries after a green gate: branch, trunk, short commit, diffstat, one-line summary, and the page.
-- `issuer` and `signature` — reserved for signing. Absence means unsigned, which is every note discern writes today. `issuer` names who issued the record; `signature` carries a `scheme` and a `value`.
-- `brief` — reserved for a reference to a signed record of intent. Nothing writes it yet.
+```json
+{
+  "subject": { "commit": "<full commit id>" },
+  "receipt": {
+    "branch": "…",
+    "trunk": "…",
+    "head": "…",
+    "files_total": 1,
+    "insertions": 1,
+    "deletions": 0,
+    "line": "…",
+    "markdown": "…"
+  }
+}
+```
+
+## Envelope fields
+
+- `payloadType` identifies the payload contract and its compatibility major. It is also part of the future signature input.
+- `payload` preserves the claim's serialized bytes as Base64. Discern writes standard padded Base64. DSSE permits the standard and Base64url alphabets; discern readers also tolerate omitted padding.
+- `signatures` holds standard DSSE signature entries. Each entry has a Base64 `sig` and may carry a `keyid` lookup hint. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one entry. discern v1.0.0 writes an empty array as its unsigned extension.
+
+The decoded payload holds:
+
+- `subject.commit`, the full object id of the landed commit;
+- `receipt`, the structured gate receipt with branch, trunk, abbreviated commit, diffstat, line, and page;
+- optional `issuer`, identity details asserted inside the payload;
+- optional `brief`, reserved for a signed-intent reference used by a future provenance feature.
+
+## What a future signature covers
+
+The envelope fixes the message a future signer will sign. Following [DSSE protocol v1.0.2](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md), the signature input is:
+
+```text
+PAE(UTF8(payloadType), decoded payload bytes)
+```
+
+The payload type and every payload byte form the authenticated message. No other outer-envelope field enters it, so future claims that need authentication belong inside the payload. A verifier feeds the decoded bytes from the envelope directly into verification. Parsing and serializing the JSON again could produce a different message. This lets later releases add a signer without changing the receipt claim or inventing a JSON canonicalization rule.
+
+Discern does not sign or verify receipt notes at v1.0.0. The current `signatures` array is empty. Adding one or more real signature entries will produce the standard signed DSSE form without changing the payload bytes. A future signing profile will choose the algorithm, signature encoding, key lookup, and trust rules.
+
+## Issuer assertions and identity
+
+`issuer.name`, `issuer.email`, and `issuer.key` are claims inside the payload. Once a signature exists, successful verification will show that those claims have not changed since the signing key endorsed the payload. It will not, by itself, show that the key belongs to the named person, agent, runner, or organization.
+
+That identity link belongs to a later trust policy. The DSSE `keyid` field is only a key-selection hint and is not authenticated. At v1.0.0, discern returns an issuer block when one is present. This read path performs no signature or identity verification.
 
 ## Reading rules
 
-A consumer follows four rules, and the published schema states them beside the fields:
+A consumer follows these rules:
 
-1. Accept a note only when `subject.commit` equals the commit the note annotates.
-2. Let unknown added fields pass. Same-major releases only add optional fields, so an older reader reads every newer note.
-3. Report an unrecognized `format` value as unsupported evidence. `discern status` reports that case as `data.landed_receipt_unsupported`, naming the format.
-4. Read a bare receipt object with no `format` field as a legacy unsigned note from an older discern.
+1. Accept a current payload only when `subject.commit` equals the commit carrying the note. Its abbreviated receipt head must also agree.
+2. Preserve the encoded payload bytes for signature verification. Unknown added fields may pass at every envelope and payload level within v1.
+3. Report an unrecognized `payloadType` as unsupported evidence. `discern status` exposes it as `data.landed_receipt_unsupported`.
+4. Read a bare receipt object with no `payloadType` as a legacy unsigned note.
 
-`discern status` reports a valid trunk-tip note as `data.landed_receipt`: the commit, the source ref, the receipt, and the issuer when the record carries one.
+`discern status` reports a readable, commit-bound trunk-tip note as `data.landed_receipt`. That result describes the note's structure and commit binding. This path performs no cryptographic verification.
 
 ## Where it lives in code
 
 | Concern                     | Source                                                                                 |
 | --------------------------- | -------------------------------------------------------------------------------------- |
-| Record shape and tolerance  | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                           |
+| Envelope, payload, issuer   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                           |
 | Writer, reader, cross-check | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                        |
 | Published schema            | [`discern-receipt-note.schema.json`](../../../schema/discern-receipt-note.schema.json) |

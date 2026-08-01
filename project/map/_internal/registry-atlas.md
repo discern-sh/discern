@@ -60,7 +60,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 233     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 234     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 26      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -1305,9 +1305,9 @@ The versioned public schema URLs and the root generated artifacts served at them
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
 - Members: 4
   - `https://discern.sh/schema/v1/discern-config.schema.json`
-  - `https://discern.sh/schema/v1/discern-receipt-note.schema.json`
   - `https://discern.sh/schema/v1/discern-setup-config.schema.json`
   - `https://discern.sh/schema/v1/discern-results.schema.json`
+  - `https://discern.sh/schema/v1/discern-receipt-note.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
 - Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-receipt-note.schema.json`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms

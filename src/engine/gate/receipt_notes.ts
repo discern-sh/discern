@@ -8,17 +8,20 @@
  */
 
 import { DISCERN_MACHINE } from "../../shared/brand.ts";
+import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import {
   discernCommitAttributionEnabled,
   type EnvReader,
 } from "../../shared/env.ts";
+import { RECEIPT_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
   type Receipt,
-  RECEIPT_NOTE_FORMAT,
   type ReceiptIssuer,
+  type ReceiptNotePayload,
   type ReceiptNotesFetchData,
   type ReceiptNoteWriteData,
   ReceiptSchema,
+  TolerantReceiptNotePayloadSchema,
   TolerantReceiptNoteSchema,
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
@@ -29,6 +32,8 @@ export const RECEIPT_NOTES_SHORT_REF = "discern";
 export const RECEIPT_NOTES_TRACKING_PREFIX = "refs/discern/remotes";
 
 const MANAGED_REMOTE_KEY = "discern.receiptNotesFetchRemote";
+const UTF8_ENCODER = new TextEncoder();
+const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 function fetchRef(remote: string): string {
   return `${RECEIPT_NOTES_TRACKING_PREFIX}/${remote}/notes`;
@@ -398,17 +403,30 @@ function canonicalReceipt(receipt: Receipt): Receipt {
   };
 }
 
-/**
- * One deterministic byte representation for every structured receipt note: the
- * versioned wire record binding the receipt to the full object id of the
- * commit it is attached to (ADR 0242). Fixed key order by construction — the
- * same receipt on the same commit is the same bytes in every clone.
- */
-export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
-  return JSON.stringify({
-    format: RECEIPT_NOTE_FORMAT,
+/** The UTF-8 JSON text placed byte-for-byte inside the DSSE payload. Fixed key
+ * order makes today's unsigned writer deterministic; DSSE verification later
+ * consumes the decoded bytes without reserializing this object. */
+export function canonicalReceiptNotePayload(
+  receipt: Receipt,
+  commit: string,
+): string {
+  const payload: ReceiptNotePayload = {
     subject: { commit },
     receipt: canonicalReceipt(receipt),
+  };
+  return JSON.stringify(payload);
+}
+
+/** One deterministic DSSE-compatible boundary for a structured receipt note.
+ * Current notes use discern's empty-array unsigned extension. */
+export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
+  const payload = UTF8_ENCODER.encode(
+    canonicalReceiptNotePayload(receipt, commit),
+  );
+  return JSON.stringify({
+    payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+    payload: encodeBase64(payload),
+    signatures: [],
   }) + "\n";
 }
 
@@ -430,7 +448,7 @@ type ParsedReceiptNote =
  * shape, dropping any additive fields a newer writer recorded. */
 function knownIssuerFields(
   issuer: NonNullable<
-    ReturnType<typeof TolerantReceiptNoteSchema.parse>["issuer"]
+    ReturnType<typeof TolerantReceiptNotePayloadSchema.parse>["issuer"]
   >,
 ): ReceiptIssuer {
   return {
@@ -440,12 +458,53 @@ function knownIssuerFields(
   };
 }
 
+/** DSSE permits standard and URL-safe Base64. The durable reader also accepts
+ * either alphabet without padding. Reject mixed alphabets and bad padding. */
+function decodeDsseBase64(value: string): Uint8Array | undefined {
+  if (!/^[A-Za-z0-9+/_-]*={0,2}$/u.test(value)) {
+    return undefined;
+  }
+  const standardAlphabet = /[+/]/u.test(value);
+  const urlSafeAlphabet = /[-_]/u.test(value);
+  if (standardAlphabet && urlSafeAlphabet) {
+    return undefined;
+  }
+  const normalized = value.replaceAll("-", "+").replaceAll("_", "/");
+  try {
+    return decodeBase64(normalized);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Decode the envelope once and parse the same bytes a future verifier checks. */
+function parseReceiptNotePayload(
+  encoded: string,
+): ReturnType<typeof TolerantReceiptNotePayloadSchema.parse> | undefined {
+  const bytes = decodeDsseBase64(encoded);
+  if (bytes === undefined) {
+    return undefined;
+  }
+  let content: string;
+  try {
+    content = UTF8_DECODER.decode(bytes);
+  } catch {
+    return undefined;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return undefined;
+  }
+  const payload = TolerantReceiptNotePayloadSchema.safeParse(parsed);
+  return payload.success ? payload.data : undefined;
+}
+
 /**
- * Parse one note body. Dispatches on the in-band format identity: the current
- * identity reads tolerantly (unknown additive fields pass at every level, so
- * an older binary reads every newer same-major note), any other identity is
- * reported as unsupported rather than dropped, and a body with no identity is
- * read as today's bare 8-field receipt — an unsigned legacy record.
+ * Parse one note body. `payloadType` is the in-band format identity: the current
+ * type reads the envelope and decoded payload tolerantly, any other type is
+ * reported as unsupported, and a bare 8-field receipt remains legacy unsigned.
  */
 function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
   let parsed: unknown;
@@ -457,31 +516,37 @@ function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
   if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     return undefined;
   }
-  if (!("format" in parsed)) {
+  if (!("payloadType" in parsed)) {
     const legacy = ReceiptSchema.safeParse(parsed);
     return legacy.success
       ? { kind: "receipt", receipt: legacy.data }
       : undefined;
   }
-  const format: unknown = (parsed as { format: unknown }).format;
-  if (format !== RECEIPT_NOTE_FORMAT) {
+  const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
+  if (payloadType !== RECEIPT_NOTE_PAYLOAD_TYPE) {
     return {
       kind: "unsupported",
-      format: typeof format === "string" ? format : JSON.stringify(format),
+      format: typeof payloadType === "string"
+        ? payloadType
+        : JSON.stringify(payloadType) ?? String(payloadType),
     };
   }
-  const note = TolerantReceiptNoteSchema.safeParse(parsed);
-  if (!note.success) {
+  const envelope = TolerantReceiptNoteSchema.safeParse(parsed);
+  if (!envelope.success) {
+    return undefined;
+  }
+  const payload = parseReceiptNotePayload(envelope.data.payload);
+  if (payload === undefined) {
     return undefined;
   }
   return {
     kind: "receipt",
-    receipt: canonicalReceipt(note.data.receipt),
-    subject: note.data.subject.commit,
-    ...(note.data.issuer !== undefined
-      ? { issuer: knownIssuerFields(note.data.issuer) }
+    receipt: canonicalReceipt(payload.receipt),
+    subject: payload.subject.commit,
+    ...(payload.issuer !== undefined
+      ? { issuer: knownIssuerFields(payload.issuer) }
       : {}),
-    ...(note.data.brief !== undefined ? { brief: note.data.brief } : {}),
+    ...(payload.brief !== undefined ? { brief: payload.brief } : {}),
   };
 }
 
@@ -539,7 +604,7 @@ export async function writeReceiptNote(
   }
   // The write-side half of the subject cross-check: never publish a durable
   // record whose display commit contradicts the commit it is attached to.
-  if (receipt.head === "" || !commit.startsWith(receipt.head)) {
+  if (!receiptHeadMatchesCommit(receipt.head, commit)) {
     return {
       status: "record_failed",
       ref: RECEIPT_NOTES_REF,
@@ -664,15 +729,16 @@ export interface LandedReceiptNote {
   readonly commit: string;
   readonly ref: string;
   readonly receipt: Receipt;
-  /** The durable record's issuer claim, when it carries one — unsigned legacy
-   * and current notes omit it. */
+  /** The payload's issuer assertion, when present. This read path does not
+   * verify a signature or bind the assertion to a trusted identity. */
   readonly issuer?: ReceiptIssuer;
   /** The durable record's signed-intent reference, when it carries one. */
   readonly brief?: string;
 }
 
 /**
- * What one commit's durable receipt lookup found: a bound, readable receipt;
+ * What one commit's durable receipt lookup found: a bound, readable receipt
+ * (`valid` is structural and subject validity, not signature verification);
  * an explicit refusal for a record in a newer format this binary cannot read
  * (never a silent miss — the evidence exists, the reader is too old); or
  * nothing at all.
@@ -723,19 +789,23 @@ async function notePathsFromRef(
   return paths;
 }
 
+/** Whether an abbreviated receipt head identifies the full commit. */
+function receiptHeadMatchesCommit(head: string, commit: string): boolean {
+  return /^[0-9a-f]{7,64}$/u.test(head) && commit.startsWith(head);
+}
+
 /** Whether a parsed note is bound to the commit that carries it. The current
- * format's authority is the full-oid subject (with the display head kept
- * coherent); a legacy note's strongest binding is its abbreviated head. */
+ * format's authority is the full-oid subject, with the display head kept
+ * coherent; a legacy note's strongest binding is its abbreviated head. */
 function boundToCommit(
   parsed: ParsedReceiptNote & { kind: "receipt" },
   commit: string,
 ): boolean {
   if (parsed.subject !== undefined) {
     return parsed.subject === commit &&
-      (parsed.receipt.head === "" || commit.startsWith(parsed.receipt.head));
+      receiptHeadMatchesCommit(parsed.receipt.head, commit);
   }
-  return /^[0-9a-f]{7,64}$/u.test(parsed.receipt.head) &&
-    commit.startsWith(parsed.receipt.head);
+  return receiptHeadMatchesCommit(parsed.receipt.head, commit);
 }
 
 /**

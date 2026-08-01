@@ -27,15 +27,25 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
   "discern-results.schema.json",
 );
 
-/** The durable landing receipt note. Every note carries this identity in-band
- * as its `format` field — a Git note has no schema-selection channel, so the
- * bytes name their own contract (ADR 0242). A breaking format change is a new
- * major path, and readers report an unrecognized identity as unsupported. */
+/** The durable landing receipt note's DSSE-compatible envelope. Its
+ * `payloadType` points back into this schema, so every note names the payload
+ * contract carried in its bytes (ADR 0242). */
 export const RECEIPT_NOTE_SCHEMA_MAJOR = 1;
 export const RECEIPT_NOTE_SCHEMA_ID = publicSchemaId(
   RECEIPT_NOTE_SCHEMA_MAJOR,
   "discern-receipt-note.schema.json",
 );
+/** The named payload definition inside the receipt-note publication. */
+export const RECEIPT_NOTE_PAYLOAD_DEFINITION = "DiscernReceiptNotePayload";
+/** DSSE authenticates this type together with the decoded payload bytes. */
+export const RECEIPT_NOTE_PAYLOAD_TYPE =
+  `${RECEIPT_NOTE_SCHEMA_ID}#/$defs/${RECEIPT_NOTE_PAYLOAD_DEFINITION}` as const;
+/** The frozen external protocol that defines receipt signature bytes. */
+export const RECEIPT_NOTE_DSSE_PROTOCOL =
+  "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md";
+/** The frozen external JSON envelope whose field shape the receipt follows. */
+export const RECEIPT_NOTE_DSSE_ENVELOPE =
+  "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md";
 
 /** Generated-artifact field that records the policy owning its baseline. */
 export const PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY =
@@ -96,7 +106,7 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
     label: "Landing receipt note",
     contract:
-      "The durable receipt record acceptance attaches to a landed commit.",
+      "The receipt envelope acceptance attaches to a landed commit, using the Dead Simple Signing Envelope (DSSE) field and payload boundary.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 
