@@ -14,7 +14,7 @@ export const INDIVIDUAL_CONTRIBUTOR_AGREEMENT = {
   kind: "individual",
   repoPath: "CLA.md",
   version: "1.0",
-  sha256: "586f74631a5a491fab420335d1cc2457b17d3fe966590a3c966a97e872f3bfdb",
+  sha256: "cb7dac75b7af2224d1949567406f56df7c43ff8167fb250950c4d391db7a6040",
 } as const;
 
 export const CORPORATE_CONTRIBUTOR_AGREEMENT = {
