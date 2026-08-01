@@ -874,7 +874,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed receipt notes, and gate receipts decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, an opaque continuation preserves the branch transition or trunk baseline across the next call.",
+          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed receipt notes, and gate receipts decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:

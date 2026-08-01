@@ -49,13 +49,15 @@ The effective bound and source are `data.timeout_seconds` and `data.timeout_basi
 
 ## Continue without a gap
 
-A timed-out call returns a usable continuation. Its envelope carries `ok: true`, `data.met: false`, the authoritative observation, and an opaque `data.resume` token. The hint returns the next call:
+A timed-out call returns a 15-character continuation handle. Its envelope carries `ok: true`, `data.met: false`, the authoritative observation, and `data.resume`, such as `C1-7K3M-PQ9D-YM`. The hint returns the next call:
 
 ```sh
-discern await --resume <token> --timeout 45
+discern await --resume C1-7K3M-PQ9D-YM --timeout 45
 ```
 
-Pass the token by itself, without another condition flag. It restores the branch's latest observed tip and landing transition, or the original trunk baseline. A change in the round-trip gap can still satisfy the watch. If the result is still not met, follow its next `--resume` command. Do not restart the condition or stop after an arbitrary retry count. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency. An `ok: false` refusal carries no continuation. Follow its recovery hint or resolve the blocker.
+Pass the handle by itself, without another condition flag. It restores the branch's latest observed tip and landing transition, or the original trunk baseline. A change in the round-trip gap can still satisfy the watch. If the result is still not met, follow its next `--resume` command. Do not restart the condition or stop after an arbitrary retry count. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency. An `ok: false` refusal carries no continuation. Follow its recovery hint or resolve the blocker.
+
+The handle uses a reduced Base32 alphabet and carries a checksum. discern rejects a damaged handle before looking it up. The saved state lives at `<git-common-dir>/discern/continuations/`, shared by every worktree in the repository. discern removes a completed watch's record. A cleanup failure leaves it to expiry. Unused records expire after 7 days, and the store keeps at most 512. An expired or evicted handle cannot reconstruct its gap, so restart that watch from its condition. Older `v1.…` tokens remain accepted and become short handles if the watch times out again ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)).
 
 The CLI exits `0` when met, `1` on refusal, and `124` on "not yet":
 
@@ -83,15 +85,18 @@ Follow the returned met hint. A live green receipt uses its immutable commit wit
 
 ## Where it lives in code
 
-| Responsibility                         | Source                                                                          |
-| -------------------------------------- | ------------------------------------------------------------------------------- |
-| Conditions, continuations, and waiting | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)               |
-| Provider timeout capabilities          | [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts) |
-| Behavioral coverage                    | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)             |
+| Responsibility                      | Source                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------- |
+| Conditions and waiting              | [`src/engine/await/await.ts`](../../../src/engine/await/await.ts)                 |
+| Short-handle grammar                | [`src/shared/continuation_handle.ts`](../../../src/shared/continuation_handle.ts) |
+| Repository-local continuation state | [`src/engine/continuations/store.ts`](../../../src/engine/continuations/store.ts) |
+| Provider timeout capabilities       | [`src/shared/mcp_timeout_policy.ts`](../../../src/shared/mcp_timeout_policy.ts)   |
+| Behavioral coverage                 | [`tests/engine_await_test.ts`](../../../tests/engine_await_test.ts)               |
 
 ## Current state and gotchas
 
-- `await` blocks only its caller. It gates nothing, holds no locks, and writes no state.
+- `await` blocks only its caller and gates nothing. It holds no lock while waiting; short store operations use a repository-local file lock.
+- A condition that is not met saves its continuation before the blocking wait. A Git directory without write access produces a refusal before the wait begins.
 - The logbook can be off; polling still evaluates every condition.
 - Provider timeout changes take effect after `discern refresh` rewrites the MCP entry and the client restarts it.
 - A failed landing-receipt-note write can make a green landing hidden entirely inside a retry gap unprovable. `await` stays not met instead of inferring from an unrelated trunk move.

@@ -88,7 +88,7 @@ export interface CanonicalSetEntry {
     readonly glossary: GlossaryEnrolment;
     readonly featureCanon: CanonEnrolment;
   };
-  /** Resolve the live member names from the source (module sources only). */
+  /** Resolve live member names for the atlas count and list (module sources only). */
   readonly members?: () => Promise<readonly string[]>;
 }
 
@@ -1913,6 +1913,15 @@ function pathList(paths: readonly string[]): string {
   return paths.map((path) => `\`${path}\``).join(", ");
 }
 
+/** A Markdown code span using a fence longer than any run in its value. */
+function codeSpan(value: string): string {
+  const runs = value.match(/`+/g) ?? [];
+  const fenceLength = Math.max(1, ...runs.map((run) => run.length + 1));
+  const fence = "`".repeat(fenceLength);
+  const padding = value.startsWith("`") || value.endsWith("`") ? " " : "";
+  return `${fence}${padding}${value}${padding}${fence}`;
+}
+
 /** The heading a set's atlas section renders under. */
 function setHeading(entry: CanonicalSetEntry): string {
   return `\`${entry.id}\` — ${entry.title}`;
@@ -1963,10 +1972,10 @@ function strayLines(record: Readonly<Record<string, string>>): string[] {
 
 /** Render the atlas page from the live registry. */
 export async function renderRegistryAtlasDoc(): Promise<string> {
-  const memberCounts = new Map<string, number>();
+  const memberLists = new Map<string, readonly string[]>();
   for (const entry of CANONICAL_SETS) {
     const members = await resolveSetMembers(entry);
-    if (members !== undefined) memberCounts.set(entry.id, members.length);
+    if (members !== undefined) memberLists.set(entry.id, members);
   }
   const guardIndex = new Map<string, CanonicalSetEntry[]>();
   for (const entry of CANONICAL_SETS) {
@@ -1988,19 +1997,19 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
     "",
     "# Registry atlas",
     "",
-    "_Every canonical set — source, guards, artifacts, and enrolments — generated from the meta-registry._",
+    "_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrolments here._",
     "",
     "To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.",
     "",
     "## The sets at a glance",
     "",
-    "One row per set, in registry order; the sections below follow the same order and carry the full account. Member counts resolve from each set's single source at generation time; an authored table shows a dash. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.",
+    "One row per set, in registry order; the sections below follow the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when the source exposes them to codegen; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.",
     "",
     "| Set | Source | Members | Glossary | Feature canon |",
     "| --- | --- | --- | --- | --- |",
   ];
   for (const entry of CANONICAL_SETS) {
-    const count = memberCounts.get(entry.id);
+    const count = memberLists.get(entry.id)?.length;
     lines.push(
       `| ${setLink(entry)} | ${sourceCell(entry.source)} | ${
         count === undefined ? "—" : count
@@ -2044,13 +2053,20 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   }
   lines.push("");
   for (const entry of CANONICAL_SETS) {
-    const count = memberCounts.get(entry.id);
+    const members = memberLists.get(entry.id);
     lines.push(`## ${setHeading(entry)}`);
     lines.push("");
     lines.push(entry.what);
     lines.push("");
     lines.push(sourceLine(entry.source));
-    lines.push(`- Members: ${count === undefined ? "—" : count}`);
+    if (members === undefined) {
+      lines.push(
+        "- Members: — (the authored source does not expose member names to codegen)",
+      );
+    } else {
+      lines.push(`- Members: ${members.length}`);
+      lines.push(...members.map((member) => `  - ${codeSpan(member)}`));
+    }
     lines.push(`- Guards: ${pathList(entry.guards)}`);
     if (entry.artifacts.length > 0) {
       lines.push(

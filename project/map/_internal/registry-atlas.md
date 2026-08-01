@@ -2,13 +2,13 @@
 
 # Registry atlas
 
-_Every canonical set — source, guards, artifacts, and enrolments — generated from the meta-registry._
+_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrolments here._
 
 To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.
 
 ## The sets at a glance
 
-One row per set, in registry order; the sections below follow the same order and carry the full account. Member counts resolve from each set's single source at generation time; an authored table shows a dash. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.
+One row per set, in registry order; the sections below follow the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when the source exposes them to codegen; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
@@ -24,7 +24,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 15      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 16      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -209,6 +209,37 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
 - Members: 31
+  - `setup`
+  - `upgrade`
+  - `uninstall`
+  - `doctor`
+  - `preset`
+  - `map`
+  - `docs`
+  - `help`
+  - `config`
+  - `licenses`
+  - `done`
+  - `prepare`
+  - `test`
+  - `await`
+  - `improvement`
+  - `standards`
+  - `refresh`
+  - `tidy`
+  - `impact`
+  - `coupling`
+  - `patterns`
+  - `status`
+  - `desk`
+  - `accept`
+  - `update`
+  - `start`
+  - `worktree`
+  - `identity`
+  - `skills`
+  - `scripts`
+  - `mcp`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/cli_reference_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/glossary_enrolment_test.ts`
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
@@ -220,6 +251,27 @@ Every command path that registers --dry-run — the plan/apply verbs whose previ
 
 - Source: `src/main.ts` — `dryRunCapableVerbs`
 - Members: 21
+  - `accept`
+  - `config set`
+  - `config set-job`
+  - `config set-scope`
+  - `config set-standard`
+  - `done`
+  - `patterns reset`
+  - `preset`
+  - `setup`
+  - `setup accept`
+  - `setup begin`
+  - `standards`
+  - `start`
+  - `tidy`
+  - `uninstall`
+  - `update`
+  - `upgrade`
+  - `worktree drop`
+  - `worktree prune`
+  - `worktree setup`
+  - `worktree teardown`
 - Guards: `tests/engine_plan_parity_test.ts`
 - Glossary: not enrolled — the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own
 - Feature canon: described by the `plan-apply` node
@@ -230,6 +282,23 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
 - Members: 17
+  - `discern_status`
+  - `discern_start`
+  - `discern_done`
+  - `discern_prepare`
+  - `discern_test`
+  - `discern_update`
+  - `discern_await`
+  - `discern_standards`
+  - `discern_accept`
+  - `discern_impact`
+  - `discern_coupling`
+  - `discern_patterns`
+  - `discern_refresh`
+  - `discern_map`
+  - `discern_docs`
+  - `discern_doctor`
+  - `discern_improvement`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
 - Feature canon: described by the `mcp-surface` node
@@ -240,6 +309,13 @@ The core policy statements carried by the bundled guidance and MCP server instru
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
 - Members: 7
+  - `worktree-first`
+  - `never-adopt`
+  - `done-is-the-bar`
+  - `iterate-fast-loop`
+  - `await-longest-safe`
+  - `never-loosen`
+  - `accept-on-handoff`
 - Guards: `tests/agent_policy_parity_test.ts`
 - Glossary: not enrolled — policy ids are internal; existing glossary entries define each reader-facing concept
 - Feature canon: not enrolled — cross-cutting enforcement for guidance, worktrees, standards, and MCP; it adds no product feature
@@ -250,6 +326,12 @@ The named, ordered buckets the top-level verbs render under — the grouping tab
 
 - Source: `src/cli_help.ts` — `COMMAND_GROUPS`
 - Members: 6
+  - `Your desk`
+  - `Agentic loop`
+  - `Worktree lifecycle`
+  - `Project Scripts`
+  - `Setup & maintenance`
+  - `Inspect & explore`
 - Guards: `tests/engine_help_groups_test.ts`
 - Glossary: not enrolled — display grouping over the verb vocabulary; the glossary defines the verbs themselves
 - Feature canon: described by the `cli-help` node
@@ -260,6 +342,8 @@ The verbs with a `--confirmed` conversation-attestation boundary. The class test
 
 - Source: `src/shared/consent.ts` — `CONSENT_GATED_VERBS`
 - Members: 2
+  - `setup-begin`
+  - `accept`
 - Guards: `tests/engine_consent_gate_test.ts`
 - Glossary: not enrolled — an attestation modality of two verbs, documented on each verb rather than as a term of its own
 - Feature canon: described by the `consent-attestations` node
@@ -270,6 +354,9 @@ The consent evidence recorded for every successful landing: a conversation attes
 
 - Source: `src/shared/consent.ts` — `LANDING_CONSENT_SOURCES`
 - Members: 3
+  - `conversation`
+  - `standing-grant`
+  - `effort-grant`
 - Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_accept_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
 - Glossary: not enrolled — three evidence forms of the landing-consent concept, documented together on the acceptance page
 - Feature canon: described by the `consent-attestations` node
@@ -280,6 +367,8 @@ The read-only outcomes lifecycle envelopes report after the landing-authority re
 
 - Source: `src/shared/consent.ts` — `LANDING_AUTHORITY_KINDS`
 - Members: 2
+  - `authorized`
+  - `conversation-required`
 - Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_lifecycle_authority_test.ts`
 - Glossary: not enrolled — two machine outcomes of the documented landing-authority concept
 - Feature canon: described by the `consent-attestations` node
@@ -290,6 +379,8 @@ The durable authority/ref facts acceptance journals before a later process or ch
 
 - Source: `src/engine/worktree/acceptance_transaction.ts` — `ACCEPTANCE_TRANSACTION_BOUNDARIES`
 - Members: 2
+  - `effort-claim`
+  - `trunk-ref`
 - Guards: `tests/engine_accept_authority_test.ts`
 - Glossary: not enrolled — internal recovery boundaries of the documented acceptance workflow, not user-facing product vocabulary
 - Feature canon: described by the `worktrees` node
@@ -300,6 +391,10 @@ The irreversible acceptance effects carried by partial and successful results, M
 
 - Source: `src/shared/accept_landing_state.ts` — `ACCEPT_LANDING_STATE_FIELDS`
 - Members: 4
+  - `recovery_performed`
+  - `trunk_landed`
+  - `worktree_removed`
+  - `branch_deleted`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — machine fields of the documented acceptance result, not separate product terms
 - Feature canon: described by the `published-contracts` node
@@ -310,6 +405,8 @@ The worktree lifecycle verbs that refuse when discern.toml lives below the Git r
 
 - Source: `src/engine/worktree/lifecycle.ts` — `WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`
 - Members: 2
+  - `start`
+  - `accept`
 - Guards: `tests/engine_nested_root_test.ts`
 - Glossary: not enrolled — a repository-layout precondition over documented lifecycle verbs, not product vocabulary
 - Feature canon: described by the `worktrees` node
@@ -320,6 +417,16 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
 - Members: 10
+  - `accept`
+  - `grant`
+  - `revoke_grant`
+  - `update`
+  - `reclaim`
+  - `scripts`
+  - `agent`
+  - `jump`
+  - `inspect`
+  - `drop`
 - Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`
 - Glossary: not enrolled — menu actions on the human desk, described in place rather than as standalone terms
 - Feature canon: described by the `desk` node
@@ -329,7 +436,23 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
 Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 15
+- Members: 16
+  - `resources`
+  - `logbook`
+  - `testSlots`
+  - `deskTips`
+  - `tempArtifactSweep`
+  - `continuations`
+  - `gateReceipt`
+  - `lastGateRun`
+  - `standardMeasurements`
+  - `ignoredBaseline`
+  - `effortGrant`
+  - `effortGrantClaims`
+  - `acceptanceTransaction`
+  - `acceptanceTransactionLock`
+  - `setupMachineryCommitEvidence`
+  - `worktreeReady`
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
 - Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
 - Feature canon: not enrolled — one internal storage registry supports several independently documented product features
@@ -340,6 +463,12 @@ The known gate jobs — the command table's fixed vocabulary.
 
 - Source: `src/shared/capabilities.ts` — `KNOWN_JOBS`
 - Members: 6
+  - `format`
+  - `build`
+  - `lint`
+  - `typecheck`
+  - `test`
+  - `smoke`
 - Guards: `tests/config_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Glossary: the "Gate job" entry carries the concept
 - Feature canon: claimed as the `job` surface set
@@ -350,6 +479,10 @@ The gate's stage vocabulary and order.
 
 - Source: `src/shared/capabilities.ts` — `STAGES`
 - Members: 4
+  - `fix`
+  - `build`
+  - `check`
+  - `test`
 - Guards: `tests/glossary_enrolment_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/execution_model_test.ts`
 - Glossary: the "Stage" entry carries the concept
 - Feature canon: claimed as the `stage` surface set
@@ -360,6 +493,8 @@ The machine formats failed-job normalization auto-detects, in detection order; s
 
 - Source: `src/engine/gate/diagnostics.ts` — `DIAGNOSTIC_FORMATS`
 - Members: 2
+  - `sarif`
+  - `junit-xml`
 - Guards: `tests/gate_diagnostics_test.ts`, `tests/diagnostic_formats_enrolment_test.ts`
 - Glossary: not enrolled — SARIF and JUnit XML are external report standards, explained where users configure job output
 - Feature canon: described by the `diagnostics` node
@@ -370,6 +505,24 @@ The result-step operation vocabulary — what a step does; the doctor's annotati
 
 - Source: `src/shared/result.ts` — `STEP_KINDS`
 - Members: 18
+  - `job`
+  - `scope-gate`
+  - `merge-check`
+  - `standards-limits-check`
+  - `tracked-artifacts-check`
+  - `guidance-check`
+  - `skills-check`
+  - `resource-create`
+  - `resource-destroy`
+  - `git`
+  - `setup-step`
+  - `repository-ensure`
+  - `checkout-clean-check`
+  - `setup-ensure`
+  - `env`
+  - `refresh`
+  - `tidy`
+  - `standard`
 - Guards: `tests/execution_model_test.ts`, `tests/result_schemas_test.ts`
 - Glossary: not enrolled — values in each result step; doctor explains every kind in context
 - Feature canon: described by the `doctor` node
@@ -380,6 +533,20 @@ The top-level tables of the config schema — the whole configuration surface.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
 - Members: 14
+  - `meta`
+  - `project`
+  - `repository`
+  - `guidance`
+  - `skills`
+  - `map`
+  - `jobs`
+  - `scopes`
+  - `acceptance`
+  - `worktree`
+  - `standards`
+  - `gate`
+  - `coupling`
+  - `scripts`
 - Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`
 - Glossary: not enrolled — config keys are reference material; the config reference documents every table
@@ -391,6 +558,12 @@ The configurable authored-source locations — guidance, map, skills, scripts, t
 
 - Source: `src/shared/paths_registry.ts` — `SOURCE_PATHS`
 - Members: 6
+  - `guidance`
+  - `map`
+  - `skills`
+  - `scripts`
+  - `todo`
+  - `brief`
 - Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`
 - Glossary: not enrolled — path names are configuration reference material; the config reference documents every key
 - Feature canon: described by the `one-file-footprint` node
@@ -401,6 +574,14 @@ The skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
 - Members: 8
+  - `discern-clear-the-decks`
+  - `discern-cure-a-bug`
+  - `discern-delegate-work`
+  - `discern-document-subsystem`
+  - `discern-set-the-standard`
+  - `discern-teach-the-project`
+  - `discern-write-adr`
+  - `discern-write-it-once`
 - Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
@@ -411,6 +592,11 @@ The agent providers discern writes files for, each with a compact mark and horiz
 
 - Source: `src/shared/agent_catalogue.ts` — `AGENT_NAMES`
 - Members: 5
+  - `claude_code`
+  - `codex`
+  - `gemini`
+  - `cursor`
+  - `copilot`
 - Guards: `tests/agent_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Glossary: not enrolled — provider names are product nouns; the glossary carries the agent-file concept instead
 - Feature canon: claimed as the `agent` surface set
@@ -421,6 +607,11 @@ The staged-setup handshake's sub-verb sequence.
 
 - Source: `src/shared/setup_state.ts` — `SETUP_SUBVERBS`
 - Members: 5
+  - `verify`
+  - `begin`
+  - `step`
+  - `done`
+  - `accept`
 - Guards: `tests/engine_setup_phase_parity_test.ts`
 - Glossary: not enrolled — sub-verbs of one handshake; the CLI reference documents them under setup
 - Feature canon: described by the `setup` node
@@ -431,6 +622,9 @@ The workflows whose diffs discern composes and commits: setup wiring, setup comp
 
 - Source: `src/shared/discern_commit.ts` — `DISCERN_AUTHORED_COMMIT_SITES`
 - Members: 3
+  - `scaffold-wiring`
+  - `setup-completion`
+  - `standards-pin`
 - Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — an internal provenance boundary over existing commands, not product vocabulary
 - Feature canon: not enrolled — cross-cutting commit metadata for setup and standards, not a separate product feature
@@ -441,6 +635,10 @@ The shipped capability modules whose importers are restricted: attributed commit
 
 - Source: `tests/writer_boundaries.ts` — `RESTRICTED_WRITER_MODULES`
 - Members: 4
+  - `discern-authored-commit`
+  - `effort-grant-human-writer`
+  - `effort-grant-cleanup`
+  - `acceptance-transaction`
 - Guards: `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — an internal authority relationship over existing workflows, not product vocabulary
 - Feature canon: not enrolled — cross-cutting enforcement for existing workflows, not a separate product feature
@@ -451,6 +649,9 @@ The machine-checkable predicates behind setup's observable progress; each mirror
 
 - Source: `src/shared/setup_checks.ts` — `SETUP_COMPLETION_CHECKS`
 - Members: 3
+  - `known_jobs`
+  - `design_principles`
+  - `guidance`
 - Guards: `tests/engine_setup_pages_test.ts`
 - Glossary: not enrolled — internal predicates behind setup's progress reporting; the setup pages describe each step in prose
 - Feature canon: described by the `setup-observability` node
@@ -461,6 +662,13 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 
 - Source: `src/engine/worktree/tokens.ts` — `WORKTREE_TOKENS`
 - Members: 7
+  - `db`
+  - `site`
+  - `port`
+  - `project_slug`
+  - `dir`
+  - `worktree`
+  - `resource`
 - Guards: `tests/worktree_tokens_test.ts`
 - Glossary: not enrolled — substitution vocabulary inside resource commands; the map's worktree-resources pages document each token
 - Feature canon: described by the `worktree-resources` node
@@ -471,6 +679,156 @@ The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
 - Members: 150
+  - `setup-unfinished-status`
+  - `missing-trunk-branch`
+  - `silent-worktree-divergence`
+  - `tracked-ignored-artifacts`
+  - `untracked-agent-files`
+  - `generated-agent-files-missing`
+  - `generated-agent-files-stale`
+  - `materialized-skills-missing`
+  - `materialized-skills-stale`
+  - `provider-integrations-missing`
+  - `provider-integrations-stale`
+  - `adr-index-stale`
+  - `status-start-on-trunk`
+  - `status-start-off-trunk`
+  - `status-missing-trunk`
+  - `status-dirty-worktree-scoped`
+  - `status-dirty-worktree`
+  - `status-branch-behind`
+  - `status-main-checkout-dirty`
+  - `status-ready-for-review`
+  - `status-land-under-verified-authority`
+  - `status-ready-uncovered-authority`
+  - `status-missing-done-receipt`
+  - `fleet-ownership`
+  - `status-fleet-logbook-disabled`
+  - `status-no-active-worktrees`
+  - `status-dirty-fleet-members`
+  - `status-fleet-member-ready`
+  - `status-fleet-authorized-landings`
+  - `status-fleet-collisions`
+  - `status-adr-number-collisions`
+  - `status-fleet-member-unreadable`
+  - `status-fleet-member-broken`
+  - `status-fleet-member-stale`
+  - `status-unlanded-branches`
+  - `status-contained-refs`
+  - `coupling-evidence-none`
+  - `coupling-evidence-summary`
+  - `coupling-evidence-more`
+  - `coupling-diff-header`
+  - `coupling-diff-partner`
+  - `coupling-query-header`
+  - `coupling-query-partner`
+  - `coupling-more-partners`
+  - `coupling-strong-pair`
+  - `await-green-met`
+  - `await-landed-met`
+  - `await-trunk-moved-met`
+  - `await-not-yet`
+  - `await-green-no-worktree`
+  - `await-branch-missing`
+  - `patterns-logbook-empty`
+  - `patterns-insufficient-evidence`
+  - `patterns-advisory-findings`
+  - `patterns-recording-off`
+  - `patterns-reset-empty`
+  - `patterns-reset-preview`
+  - `patterns-reset-recording-resumes`
+  - `logbook-receipt-finding`
+  - `logbook-status-finding`
+  - `improvement-logbook-off`
+  - `setup-unfinished-gate`
+  - `gate-job-loud-success`
+  - `test-job-not-configured`
+  - `gate-trunk-advanced`
+  - `gate-test-run-queued`
+  - `gate-test-slots-unavailable`
+  - `gate-standards-limits-unverified`
+  - `gate-receipt-skipped-dirty`
+  - `gate-receipt-head-moved`
+  - `gate-receipt-record-failed`
+  - `gate-receipt-unavailable`
+  - `gate-receipt-clear-failed`
+  - `done-unchanged-tree-red`
+  - `done-unchanged-tree-green`
+  - `gate-failure-gotchas`
+  - `gate-failure-gotcha-matched`
+  - `gotchas-matcher-invalid`
+  - `gate-failure-fix`
+  - `gate-failure-build`
+  - `gate-failure-check`
+  - `gate-failure-test`
+  - `gate-failure-check-test`
+  - `gate-failure-scope-gates`
+  - `gate-failure-tree-drift`
+  - `gate-failure-tracked-artifacts`
+  - `gate-failure-guidance`
+  - `gate-failure-skills`
+  - `gate-failure-skill-frontmatter`
+  - `gate-failure-adr-numbers`
+  - `gate-failure-adr-index`
+  - `gate-failure-map-integrity`
+  - `gate-failure-merge`
+  - `gate-failure-standards`
+  - `gate-failure-write-access`
+  - `gate-prove-it-works`
+  - `gate-relay-receipt`
+  - `gate-land-under-verified-authority`
+  - `gate-relay-uncovered-authority`
+  - `gate-update-docs`
+  - `gate-deferred-standards`
+  - `gate-previewable-change`
+  - `standards-pin-empty`
+  - `standards-pin-dry-run`
+  - `standards-pin-reused-measurements`
+  - `standards-pin-blocked`
+  - `standards-pin-no-slack`
+  - `standards-pin-carried-receipt`
+  - `standards-pin-no-receipt`
+  - `standards-limits-unverified`
+  - `standards-pin-behind`
+  - `standards-none-configured`
+  - `standards-pinnable-slack`
+  - `refresh-mcp-first-install`
+  - `refresh-commit-tracked-artifacts`
+  - `skills-eject-edit-override`
+  - `accept-awaiting-confirmation`
+  - `accept-review-via-status`
+  - `accept-refresh-failed`
+  - `accept-convergence-changed-tracked`
+  - `accept-relay-landing-receipt`
+  - `accept-publish-receipt-note`
+  - `update-summary-fallback`
+  - `update-overlap`
+  - `update-no-overlap`
+  - `start-name-fallback`
+  - `start-name-normalized`
+  - `start-landing-authority`
+  - `start-re-root`
+  - `start-main-changes-stay`
+  - `start-submodules-empty`
+  - `ensure-main-worktree-first`
+  - `setup-refresh-artifact-failed`
+  - `setup-guidance-preserved`
+  - `setup-guidance-own-render-skipped`
+  - `setup-done-land-dedicated`
+  - `setup-done-land-manually`
+  - `setup-reactivate-tools`
+  - `setup-run-coach`
+  - `setup-unfinished-doctor`
+  - `doctor-failed-checks`
+  - `upgrade-newer-discern`
+  - `upgrade-check-pending`
+  - `upgrade-restart-session`
+  - `config-job-deferred`
+  - `failure-recovery`
+  - `unknown-command-suggestion`
+  - `unknown-command-help`
+  - `start-mcp-re-root`
+  - `mcp-version-mismatch`
 - Guards: `tests/hint_audience_guard_test.ts`, `tests/hint_closed_set_guard_test.ts`, `tests/hint_command_guard_test.ts`, `tests/hint_inventory_codegen_test.ts`, `tests/gate_plan_test.ts`, `tests/result_schemas_test.ts`, `tests/engine_json_purity_test.ts`, `tests/engine_logbook_test.ts`, `tests/patterns_test.ts`
 - Artifacts: `project/map/_internal/hint-inventory.md`
 - Glossary: the "Advisory" entry carries the concept
@@ -482,6 +840,30 @@ The desk tip registry: every teaching line the desk can show enters through it, 
 
 - Source: `src/shared/tips.ts` — `TIPS`
 - Members: 24
+  - `desk-is-home`
+  - `status-orients-anywhere`
+  - `start-isolates-a-task`
+  - `inspect-before-accepting`
+  - `grant-once-green`
+  - `drop-protects-work`
+  - `reclaim-keeps-recovery`
+  - `update-before-review`
+  - `patterns-practice-report`
+  - `patterns-practice-stats`
+  - `improvement-next-action`
+  - `doctor-first-diagnostic`
+  - `done-records-proof`
+  - `standards-first-rule`
+  - `standards-on-demand`
+  - `standards-pin-gain`
+  - `coupling-missing-partners`
+  - `impact-extra-checks`
+  - `await-other-work`
+  - `map-and-docs-search`
+  - `skills-effective-set`
+  - `identity-stable-values`
+  - `upgrade-check-only`
+  - `scripts-from-desk`
 - Guards: `tests/tip_closed_set_guard_test.ts`, `tests/tip_canon_enrolment_test.ts`, `tests/tip_command_guard_test.ts`, `tests/tip_register_guard_test.ts`, `tests/tip_inventory_codegen_test.ts`, `tests/engine_desk_tips_test.ts`
 - Artifacts: `project/map/_internal/tip-inventory.md`
 - Glossary: the "Tip" entry carries the concept
@@ -493,6 +875,8 @@ The result fields the generic recovery instruction may truthfully cite; without 
 
 - Source: `src/shared/hints.ts` — `FAILURE_RECOVERY_EVIDENCE`
 - Members: 2
+  - `message`
+  - `diagnostic`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — wire-envelope evidence behind the documented advisory contract, not product vocabulary
 - Feature canon: described by the `hints` node
@@ -503,6 +887,10 @@ How one verb invocation ended: cleanly, red after running, partial after an irre
 
 - Source: `src/engine/logbook/schema.ts` — `LOGBOOK_OUTCOMES`
 - Members: 4
+  - `ok`
+  - `failed`
+  - `partial`
+  - `refused`
 - Guards: `tests/logbook_test.ts`, `tests/engine_logbook_test.ts`, `tests/patterns_test.ts`
 - Glossary: not enrolled — recording vocabulary behind the documented Logbook concept, not separate product terms
 - Feature canon: described by the `logbook` node
@@ -513,6 +901,11 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 
 - Source: `src/engine/logbook/schema.ts` — `logbookEventSchema`
 - Members: 5
+  - `begin`
+  - `verb`
+  - `config-change`
+  - `pin`
+  - `prune`
 - Guards: `tests/engine_logbook_test.ts`, `tests/engine_patterns_test.ts`, `tests/logbook_test.ts`, `tests/logbook_routing_test.ts`, `tests/logbook_no_network_test.ts`, `tests/patterns_test.ts`
 - Glossary: the "Logbook" entry carries the concept
 - Feature canon: described by the `logbook` node
@@ -523,6 +916,13 @@ The advisory capabilities that switch off with [project].logbook = false; every 
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
 - Members: 7
+  - `patterns-report`
+  - `fleet-actions`
+  - `fleet-activity-freshness`
+  - `epoch-pin-trajectory`
+  - `inline-findings`
+  - `test-wait-estimate`
+  - `contained-idle-check`
 - Guards: `tests/logbook_powered_test.ts`
 - Glossary: not enrolled — opt-out wording behind the documented Logbook concept, not separate product vocabulary
 - Feature canon: described by the `logbook` node
@@ -533,6 +933,10 @@ The categories that group every patterns detector and finding; schemas, registry
 
 - Source: `src/shared/patterns_vocabulary.ts` — `DETECTOR_FAMILIES`
 - Members: 4
+  - `trajectory`
+  - `gate-fit`
+  - `behaviour`
+  - `funnel`
 - Guards: `tests/patterns_test.ts`, `tests/engine_patterns_test.ts`
 - Glossary: not enrolled — internal report grouping; the Patterns entry carries the reader-facing concept
 - Feature canon: described by the `patterns` node
@@ -543,6 +947,9 @@ The presentation-only vocabulary a patterns finding uses to distinguish favorabl
 
 - Source: `src/shared/patterns_vocabulary.ts` — `PATTERN_FINDING_TONES`
 - Members: 3
+  - `good`
+  - `neutral`
+  - `attention`
 - Guards: `tests/patterns_test.ts`, `tests/engine_patterns_test.ts`
 - Glossary: not enrolled — presentation metadata inside the patterns result; it is not a user command or product term
 - Feature canon: described by the `patterns` node
@@ -553,6 +960,36 @@ Every detector the patterns verb runs over the logbook, in stable registry order
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
 - Members: 30
+  - `done-thrash`
+  - `refusal-loop`
+  - `hint-follow-through`
+  - `tip-adoption`
+  - `skipped-prepare`
+  - `dirty-done-churn`
+  - `trunk-edits`
+  - `force-habit`
+  - `confirmed-rerun`
+  - `pre-authorized-landings`
+  - `grant-suggestion`
+  - `docs-gap`
+  - `abandoned-worktrees`
+  - `sequence-anomaly`
+  - `identity-gap`
+  - `provider-fit`
+  - `cohort-done-thrash`
+  - `guidance-parity`
+  - `dominant-stage`
+  - `duration-creep`
+  - `fix-stage-idle`
+  - `recurring-diagnostic`
+  - `same-tree-flake`
+  - `loops-to-green`
+  - `cohort-loops-to-green`
+  - `cycle-time`
+  - `giant-commit-landing`
+  - `update-friction`
+  - `standard-trajectory`
+  - `red-rate-history`
 - Guards: `tests/patterns_test.ts`, `tests/logbook_routing_test.ts`, `tests/engine_patterns_test.ts`
 - Glossary: the "Patterns" entry carries the concept
 - Feature canon: described by the `patterns` node
@@ -563,6 +1000,13 @@ The improvement catalog's categories, in display order; the runner ranks them we
 
 - Source: `src/engine/improve/rules.ts` — `CATEGORIES`
 - Members: 7
+  - `gate`
+  - `setup`
+  - `guidance`
+  - `map`
+  - `worktrees`
+  - `standards`
+  - `skills`
 - Guards: `tests/improve_catalog_test.ts`
 - Glossary: not enrolled — category slugs are reference material; every surfaced list derives from the catalog itself
 - Feature canon: described by the `improvement` node
@@ -573,6 +1017,45 @@ The term registry behind the glossary page, its search aliases, and the retired-
 
 - Source: `scripts/glossary_registry.ts` — `GLOSSARY`
 - Members: 39
+  - `Accept`
+  - `Advisory`
+  - `discern version`
+  - `Gate job`
+  - `Coupling`
+  - `Shared file`
+  - `Agent file`
+  - `Desk`
+  - `discern`
+  - `Engine`
+  - `File ownership`
+  - `Fleet`
+  - `Gate`
+  - `Generated file`
+  - `Guidance source`
+  - `Installer`
+  - `Landing authority`
+  - `Logbook`
+  - `Map`
+  - `Migration`
+  - `Namespace`
+  - `Patterns`
+  - `Placement is consent`
+  - `Preset`
+  - `Project script`
+  - `Receipt`
+  - `Receipt note`
+  - `Schema version`
+  - `Scope`
+  - `Skill`
+  - `Stage`
+  - `Standard`
+  - `Trunk`
+  - `Tidy`
+  - `Tip`
+  - `Update`
+  - `Worktree`
+  - `Worktree resource`
+  - `Project-owned file`
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
 - Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface
@@ -584,6 +1067,130 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
 - Members: 124
+  - `gate`
+  - `jobs-table`
+  - `job-format`
+  - `job-build`
+  - `job-lint`
+  - `job-typecheck`
+  - `job-test`
+  - `job-smoke`
+  - `staged-pipeline`
+  - `fail-fast`
+  - `job-timeouts`
+  - `capture-environment`
+  - `gate-streaming`
+  - `strand-detection`
+  - `tidy`
+  - `gate-preconditions`
+  - `write-preflight`
+  - `scope-gates`
+  - `fail-open-classification`
+  - `prepare`
+  - `test-verb`
+  - `diagnostics`
+  - `gotchas-pointer`
+  - `receipt`
+  - `unchanged-tree-rerun`
+  - `standards`
+  - `standards-direction`
+  - `standards-metric-protocol`
+  - `standards-rates`
+  - `standards-margin`
+  - `standards-replay`
+  - `standards-on-demand`
+  - `standards-pin`
+  - `standards-escalation`
+  - `worktrees`
+  - `start`
+  - `update`
+  - `accept`
+  - `compose-below-trunk`
+  - `worktree-identity`
+  - `worktree-resources`
+  - `crash-safe-provisioning`
+  - `worktree-prune`
+  - `env-inheritance`
+  - `ignored-drift`
+  - `fleet`
+  - `await`
+  - `desk`
+  - `tips`
+  - `guidance`
+  - `guidance-compile`
+  - `guidance-conditionals`
+  - `providers`
+  - `provider-claude-code`
+  - `provider-codex`
+  - `provider-gemini`
+  - `provider-cursor`
+  - `provider-copilot`
+  - `session-hooks`
+  - `agent-autodetect`
+  - `skills`
+  - `skills-materialization`
+  - `skills-curation`
+  - `skill-cure-a-bug`
+  - `skill-set-the-standard`
+  - `skill-clear-the-decks`
+  - `skill-delegate-work`
+  - `skill-document-subsystem`
+  - `skill-teach-the-project`
+  - `skill-write-adr`
+  - `skill-write-it-once`
+  - `map`
+  - `map-browser`
+  - `discovery-funnel`
+  - `docs-integrity`
+  - `map-freshness`
+  - `publish-predicate`
+  - `adr-discipline`
+  - `bundled-docs`
+  - `cli-help`
+  - `glossary-canon`
+  - `insight`
+  - `status`
+  - `impact`
+  - `coupling`
+  - `improvement`
+  - `logbook`
+  - `patterns`
+  - `hints`
+  - `install`
+  - `setup`
+  - `setup-observability`
+  - `relay-messages`
+  - `consent-attestations`
+  - `doctor`
+  - `upgrade`
+  - `ownership-buckets`
+  - `placement-consent`
+  - `uninstall`
+  - `presets`
+  - `config-command`
+  - `licenses`
+  - `interfaces`
+  - `result-envelope`
+  - `plan-apply`
+  - `idempotent-verbs`
+  - `mcp-surface`
+  - `published-contracts`
+  - `project-scripts`
+  - `forgiving-cli`
+  - `output-discipline`
+  - `foundations`
+  - `agent-is-user`
+  - `context-budget`
+  - `single-binary`
+  - `one-file-footprint`
+  - `stack-neutral`
+  - `no-model-inside`
+  - `local-evidence`
+  - `all-subsystems-core`
+  - `forcing-functions`
+  - `canonical-sets`
+  - `dogfooding`
+  - `interruption-safety`
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
 - Glossary: not enrolled — a maintainer database, not user vocabulary
@@ -595,6 +1202,47 @@ The per-verb result contracts behind the published JSON schema and type declarat
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
 - Members: 41
+  - `discern`
+  - `setup`
+  - `setupVerify`
+  - `setupStep`
+  - `setupDone`
+  - `setupAccept`
+  - `upgrade`
+  - `uninstall`
+  - `doctor`
+  - `licenses`
+  - `preset`
+  - `map`
+  - `docs`
+  - `config`
+  - `done`
+  - `prepare`
+  - `test`
+  - `improvement`
+  - `standards`
+  - `refresh`
+  - `tidy`
+  - `impact`
+  - `coupling`
+  - `await`
+  - `patterns`
+  - `patternsReset`
+  - `desk`
+  - `status`
+  - `start`
+  - `accept`
+  - `update`
+  - `identity`
+  - `scripts`
+  - `worktree`
+  - `worktreeSetup`
+  - `worktreeTeardown`
+  - `worktreeDrop`
+  - `worktreePrune`
+  - `skills`
+  - `skillsList`
+  - `skillsEject`
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
@@ -606,6 +1254,8 @@ The semantic CLI and MCP schema-reference fields published for each result contr
 
 - Source: `src/shared/result_contracts.ts` — `RESULT_CONTRACT_REFERENCE_FIELDS`
 - Members: 2
+  - `schema`
+  - `mcpToolResultSchema`
 - Guards: `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`
 - Artifacts: `schema/discern-results.schema.json`
 - Glossary: not enrolled — machine schema metadata fields, documented through the result contract reference
@@ -617,6 +1267,8 @@ The option- and positional-selected predicates whose bare exit status becomes a 
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_PREDICATE_CONTRACTS`
 - Members: 2
+  - `configHas`
+  - `impactHas`
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
 - Glossary: not enrolled — invocation modes inside documented commands, not reader-facing vocabulary
 - Feature canon: described by the `published-contracts` node
@@ -627,6 +1279,9 @@ The bare and global/local JSON placements every registered CLI predicate must pr
 
 - Source: `src/shared/result_contracts.ts` — `CLI_PREDICATE_INVOCATION_MODES`
 - Members: 3
+  - `bare`
+  - `json-global`
+  - `json-local`
 - Guards: `tests/engine_json_purity_test.ts`
 - Glossary: not enrolled — machine-output placements inside documented commands, not product terms
 - Feature canon: described by the `published-contracts` node
@@ -637,6 +1292,8 @@ The true and false states every registered CLI predicate must preserve in bare a
 
 - Source: `src/shared/result_contracts.ts` — `CLI_PREDICATE_STATES`
 - Members: 2
+  - `true`
+  - `false`
 - Guards: `tests/engine_json_purity_test.ts`
 - Glossary: not enrolled — boolean test states, not reader-facing product vocabulary
 - Feature canon: described by the `published-contracts` node
@@ -647,6 +1304,10 @@ The versioned public schema URLs and the root generated artifacts served at them
 
 - Source: `src/shared/public_schemas.ts` — `PUBLIC_SCHEMA_PUBLICATIONS`
 - Members: 4
+  - `https://discern.sh/schema/v1/discern-config.schema.json`
+  - `https://discern.sh/schema/v1/discern-receipt-note.schema.json`
+  - `https://discern.sh/schema/v1/discern-setup-config.schema.json`
+  - `https://discern.sh/schema/v1/discern-results.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
 - Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-receipt-note.schema.json`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
@@ -658,6 +1319,69 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
 - Members: 63
+  - `active_worktrees`
+  - `ambiguous`
+  - `apply_failed`
+  - `awaiting_consent`
+  - `below_min_score`
+  - `brief_unparseable`
+  - `checkout_failed`
+  - `config_template_unavailable`
+  - `confirmation_required`
+  - `conflict`
+  - `desk_already_active`
+  - `detached_head`
+  - `diagrams_misaligned`
+  - `dirty_worktree`
+  - `edit_error`
+  - `gate_failed`
+  - `gitignore_template_unavailable`
+  - `identity_error`
+  - `incomplete`
+  - `internal_error`
+  - `invalid_arguments`
+  - `invalid_config`
+  - `invalid_config_file`
+  - `invalid_migrated_config`
+  - `invalid_preset`
+  - `invalid_settings_file`
+  - `invalid_toml`
+  - `invalid_value`
+  - `no_docs`
+  - `no_map`
+  - `no_project`
+  - `no_repository`
+  - `no_such_step`
+  - `no_target`
+  - `not_found`
+  - `not_initialized`
+  - `not_main_checkout`
+  - `not_on_trunk`
+  - `not_set_up`
+  - `not_setup_branch`
+  - `partial_acceptance`
+  - `partial_materialization`
+  - `partial_refresh`
+  - `pin_failed`
+  - `precondition_failed`
+  - `read_error`
+  - `renamed_command`
+  - `renamed_config_key`
+  - `schema_version_too_new`
+  - `setup_plan_failed`
+  - `skills_eject_failed`
+  - `tables_malformed`
+  - `templates_not_found`
+  - `tidy_parse_failed`
+  - `tidy_write_failed`
+  - `uncommitted_changes`
+  - `unchanged_tree_rerun`
+  - `unknown_category`
+  - `unknown_command`
+  - `unknown_key`
+  - `unknown_preset`
+  - `unknown_standard`
+  - `write_access`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms
@@ -669,6 +1393,10 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
 
 - Source: `src/shared/result.ts` — `STEP_OUTCOMES`
 - Members: 4
+  - `ok`
+  - `failed`
+  - `skipped`
+  - `cancelled`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
 - Glossary: not enrolled — wire-level states whose plain-language meanings are shown directly with each executed step
@@ -680,6 +1408,10 @@ The projection matrix deciding which map pages publish to each public surface.
 
 - Source: `src/lib/docs.ts` — `PUBLIC_DOC_SURFACES`
 - Members: 4
+  - `site`
+  - `docs`
+  - `export-public`
+  - `docs-staging`
 - Guards: `tests/public_doc_parity_test.ts`
 - Glossary: not enrolled — an engine projection table; the Map entry carries the reader-facing concept
 - Feature canon: described by the `publish-predicate` node
@@ -690,6 +1422,11 @@ The source Markdown markers the browser manual projects through the design syste
 
 - Source: `site/workflow_registry.ts` — `WORKFLOW_DIRECTIVES`
 - Members: 5
+  - `procedure`
+  - `command`
+  - `result-summary`
+  - `artifact-ownership`
+  - `branch-choice`
 - Guards: `tests/site_workflow_test.ts`
 - Glossary: not enrolled — internal Markdown projection labels, not reader-facing product vocabulary
 - Feature canon: described by the `bundled-docs` node
@@ -699,7 +1436,241 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 233
+- Members: 234
+  - `0003`
+  - `0005`
+  - `0006`
+  - `0007`
+  - `0009`
+  - `0011`
+  - `0014`
+  - `0015`
+  - `0017`
+  - `0018`
+  - `0019`
+  - `0020`
+  - `0021`
+  - `0022`
+  - `0023`
+  - `0025`
+  - `0026`
+  - `0027`
+  - `0028`
+  - `0029`
+  - `0031`
+  - `0033`
+  - `0034`
+  - `0035`
+  - `0036`
+  - `0037`
+  - `0038`
+  - `0039`
+  - `0040`
+  - `0041`
+  - `0043`
+  - `0044`
+  - `0045`
+  - `0047`
+  - `0049`
+  - `0050`
+  - `0051`
+  - `0052`
+  - `0053`
+  - `0054`
+  - `0055`
+  - `0057`
+  - `0058`
+  - `0059`
+  - `0060`
+  - `0062`
+  - `0063`
+  - `0064`
+  - `0065`
+  - `0066`
+  - `0067`
+  - `0068`
+  - `0069`
+  - `0070`
+  - `0071`
+  - `0072`
+  - `0073`
+  - `0074`
+  - `0075`
+  - `0076`
+  - `0077`
+  - `0078`
+  - `0079`
+  - `0080`
+  - `0081`
+  - `0082`
+  - `0083`
+  - `0084`
+  - `0085`
+  - `0086`
+  - `0087`
+  - `0088`
+  - `0089`
+  - `0090`
+  - `0092`
+  - `0093`
+  - `0094`
+  - `0095`
+  - `0096`
+  - `0097`
+  - `0098`
+  - `0099`
+  - `0100`
+  - `0101`
+  - `0102`
+  - `0103`
+  - `0104`
+  - `0105`
+  - `0106`
+  - `0108`
+  - `0109`
+  - `0110`
+  - `0111`
+  - `0112`
+  - `0113`
+  - `0114`
+  - `0115`
+  - `0116`
+  - `0117`
+  - `0118`
+  - `0119`
+  - `0120`
+  - `0125`
+  - `0126`
+  - `0127`
+  - `0128`
+  - `0129`
+  - `0130`
+  - `0131`
+  - `0133`
+  - `0134`
+  - `0135`
+  - `0136`
+  - `0137`
+  - `0138`
+  - `0139`
+  - `0140`
+  - `0141`
+  - `0142`
+  - `0143`
+  - `0144`
+  - `0145`
+  - `0146`
+  - `0147`
+  - `0148`
+  - `0149`
+  - `0150`
+  - `0151`
+  - `0152`
+  - `0153`
+  - `0154`
+  - `0155`
+  - `0156`
+  - `0157`
+  - `0158`
+  - `0159`
+  - `0160`
+  - `0161`
+  - `0162`
+  - `0163`
+  - `0164`
+  - `0165`
+  - `0166`
+  - `0167`
+  - `0168`
+  - `0169`
+  - `0170`
+  - `0171`
+  - `0172`
+  - `0173`
+  - `0174`
+  - `0175`
+  - `0176`
+  - `0177`
+  - `0178`
+  - `0179`
+  - `0180`
+  - `0181`
+  - `0182`
+  - `0183`
+  - `0184`
+  - `0185`
+  - `0186`
+  - `0187`
+  - `0188`
+  - `0189`
+  - `0190`
+  - `0191`
+  - `0192`
+  - `0193`
+  - `0194`
+  - `0195`
+  - `0196`
+  - `0197`
+  - `0198`
+  - `0199`
+  - `0200`
+  - `0201`
+  - `0202`
+  - `0203`
+  - `0205`
+  - `0206`
+  - `0207`
+  - `0208`
+  - `0209`
+  - `0210`
+  - `0211`
+  - `0212`
+  - `0213`
+  - `0214`
+  - `0215`
+  - `0216`
+  - `0217`
+  - `0218`
+  - `0219`
+  - `0220`
+  - `0221`
+  - `0222`
+  - `0223`
+  - `0224`
+  - `0225`
+  - `0226`
+  - `0227`
+  - `0228`
+  - `0229`
+  - `0231`
+  - `0232`
+  - `0233`
+  - `0234`
+  - `0235`
+  - `0236`
+  - `0237`
+  - `0238`
+  - `0240`
+  - `0242`
+  - `0243`
+  - `0001`
+  - `0002`
+  - `0004`
+  - `0008`
+  - `0010`
+  - `0012`
+  - `0013`
+  - `0016`
+  - `0024`
+  - `0030`
+  - `0032`
+  - `0042`
+  - `0046`
+  - `0048`
+  - `0056`
+  - `0061`
+  - `0091`
+  - `0107`
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
 - Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
 - Feature canon: described by the `adr-discipline` node
@@ -710,6 +1681,32 @@ Every project-tree path discern writes or maintains, with its operational owners
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
 - Members: 26
+  - `discern/guidance.md`
+  - `discern/map/`
+  - `discern/skills`
+  - `discern/scripts`
+  - `discern/TODO.md`
+  - `discern/brief.md`
+  - `discern.toml`
+  - `.gitignore`
+  - `.env`
+  - `.env.local`
+  - `CLAUDE.md`
+  - `.claude/skills`
+  - `.mcp.json`
+  - `.claude/settings.json`
+  - `.claude/settings.local.json`
+  - `AGENTS.md`
+  - `.agents/skills`
+  - `.codex/config.toml`
+  - `.codex/hooks.json`
+  - `.codex/environments/environment.toml`
+  - `.codex/rules/discern.rules`
+  - `GEMINI.md`
+  - `.gemini/settings.json`
+  - `.cursor/mcp.json`
+  - `.cursor/hooks.json`
+  - `.github/hooks/discern.json`
 - Guards: `tests/artifact_ownership_test.ts`, `tests/paths_write_surface_test.ts`
 - Artifacts: `project/map/70-reference/artifact-ownership.md`, `project/map/80-development/install-surface.md`
 - Glossary: the "File ownership" entry carries the concept
@@ -721,6 +1718,27 @@ Retired commands, retired config keys, dead config positions, and synonym redire
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
 - Members: 21
+  - `finish`
+  - `graduate`
+  - `setup land`
+  - `integrate`
+  - `scopes`
+  - `ratchets`
+  - `config set-ratchet`
+  - `config set-capability`
+  - `config set-check`
+  - `ratchets`
+  - `docs`
+  - `recipes`
+  - `capabilities`
+  - `checks`
+  - `init`
+  - `install`
+  - `check`
+  - `sync`
+  - `land`
+  - `merge`
+  - `improve`
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
 - Glossary: not enrolled — redirect data for retired words; live vocabulary lives in the glossary proper
 - Feature canon: described by the `forgiving-cli` node
@@ -730,7 +1748,7 @@ Retired commands, retired config keys, dead config positions, and synonym redire
 The voice skill's banned-moves table; the Vale style must match it pattern for pattern.
 
 - Source: `project/skills/discern-voice-and-tone/SKILL.md` (authored table)
-- Members: —
+- Members: — (the authored source does not expose member names to codegen)
 - Guards: `tests/voice_vale_parity_test.ts`
 - Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
 - Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
@@ -740,7 +1758,7 @@ The voice skill's banned-moves table; the Vale style must match it pattern for p
 The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
 
 - Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
-- Members: —
+- Members: — (the authored source does not expose member names to codegen)
 - Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
 - Glossary: not enrolled — seeded documentation content, not product vocabulary
 - Feature canon: described by the `gotchas-pointer` node
@@ -751,6 +1769,8 @@ The exact repository sources mirrored into the hosted CLA Assistant Gist: the in
 
 - Source: `scripts/contributor_agreement.ts` — `CLA_ASSISTANT_GIST_FILES`
 - Members: 2
+  - `CLA.md`
+  - `metadata`
 - Guards: `tests/contributor_governance_test.ts`
 - Artifacts: `.github/cla-assistant/metadata`
 - Glossary: not enrolled — repository contribution policy, not product vocabulary
@@ -762,6 +1782,9 @@ The ordered legal package embedded in every binary: discern's software license, 
 
 - Source: `src/shared/license_registry.ts` — `FIRST_PARTY_LEGAL_DOCUMENTS`
 - Members: 3
+  - `software`
+  - `notice`
+  - `project-payloads`
 - Guards: `tests/first_party_licenses_test.ts`
 - Artifacts: `src/lib/first_party_license_bundle.ts`
 - Glossary: not enrolled — legal-document plumbing; the CLI reference documents the licenses verb
@@ -773,6 +1796,9 @@ The generated third-party notice artifacts and their license cache.
 
 - Source: `src/shared/third_party_codegen.ts` — `THIRD_PARTY_ARTIFACT_PATHS`
 - Members: 3
+  - `notices`
+  - `bundle`
+  - `jsrLicenseCache`
 - Guards: `tests/third_party_notices_test.ts`
 - Artifacts: `THIRD_PARTY_NOTICES`, `src/lib/third_party_bundle.ts`, `scripts/jsr_license_cache.json`
 - Glossary: not enrolled — license plumbing; the CLI reference documents the licenses verb
@@ -784,6 +1810,14 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 
 - Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
 - Members: 8
+  - `src/shared/subprocess.ts`
+  - `src/shared/discern_commit.ts`
+  - `src/shared/third_party_codegen.ts`
+  - `src/commands/docs.ts`
+  - `src/engine/owned_child.ts`
+  - `src/engine/jobs/command.ts`
+  - `src/engine/worktree/shell.ts`
+  - `src/engine/mcp/version_check.ts`
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
 - Glossary: not enrolled — an internal subprocess-ownership contract, not product vocabulary
 - Feature canon: described by the `interruption-safety` node
@@ -794,6 +1828,11 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
 
 - Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
 - Members: 5
+  - `scripts`
+  - `site`
+  - `src`
+  - `tests`
+  - `types`
 - Guards: `tests/repo_authored_paths_test.ts`
 - Glossary: not enrolled — this repository's internal scan universe, not product vocabulary
 - Feature canon: not enrolled — guard infrastructure for this repository's own sweeps, not a product feature
@@ -804,6 +1843,15 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 
 - Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
 - Members: 9
+  - `src/lib/map_integrity.ts#checkDocsIntegrity`
+  - `src/lib/frontmatter.ts#frontmatterShapeIssues`
+  - `src/lib/adr_index.ts#adrIndexState`
+  - `src/lib/adr_numbers.ts#duplicateAdrNumbers`
+  - `src/lib/skills.ts#checkSkillsCurrent`
+  - `src/lib/skills.ts#checkSkillsWellformed`
+  - `src/lib/skills.ts#skillFrontmatterIssues`
+  - `src/lib/frontmatter.ts#validateFrontmatter`
+  - `src/lib/adr_citations.ts#findMalformedAdrReferences`
 - Guards: `tests/validator_enrolment_test.ts`
 - Glossary: not enrolled — an internal enforcement-parity contract, not product vocabulary
 - Feature canon: not enrolled — guard infrastructure for this repository's own wiring, not a product feature
@@ -814,6 +1862,66 @@ This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
 - Members: 60
+  - `verbs`
+  - `dry-run-verbs`
+  - `mcp-tools`
+  - `operating-policies`
+  - `command-groups`
+  - `consent-gated-verbs`
+  - `landing-consent-sources`
+  - `landing-authority-kinds`
+  - `acceptance-transaction-boundaries`
+  - `accept-landing-state-fields`
+  - `worktree-lifecycle-repo-root-verbs`
+  - `desk-actions`
+  - `git-admin-state`
+  - `jobs`
+  - `stages`
+  - `diagnostic-formats`
+  - `step-kinds`
+  - `config-tables`
+  - `source-paths`
+  - `bundled-skills`
+  - `agent-providers`
+  - `setup-subverbs`
+  - `authored-commit-sites`
+  - `restricted-writer-modules`
+  - `setup-completion-checks`
+  - `worktree-tokens`
+  - `hints`
+  - `tips`
+  - `failure-recovery-evidence`
+  - `logbook-outcomes`
+  - `logbook-events`
+  - `logbook-powered`
+  - `detector-families`
+  - `pattern-finding-tones`
+  - `patterns-detectors`
+  - `improve-categories`
+  - `glossary-terms`
+  - `feature-canon`
+  - `result-contracts`
+  - `result-contract-reference-fields`
+  - `cli-json-predicates`
+  - `cli-predicate-invocation-modes`
+  - `cli-predicate-states`
+  - `public-schema-publications`
+  - `error-slugs`
+  - `step-outcomes`
+  - `public-doc-surfaces`
+  - `docs-workflow-directives`
+  - `adrs`
+  - `project-artifacts`
+  - `distribution-vocabulary`
+  - `voice-banned-moves`
+  - `seeded-gotchas-traps`
+  - `contributor-agreement-gist-files`
+  - `first-party-legal-documents`
+  - `third-party-artifacts`
+  - `spawn-surfaces`
+  - `authored-ts-universe`
+  - `artifact-validators`
+  - `canonical-sets`
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
 - Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight

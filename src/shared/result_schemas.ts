@@ -44,6 +44,10 @@ import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
 import { RECEIPT_NOTE_SCHEMA_ID } from "./public_schemas.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
+import {
+  CONTINUATION_HANDLE_LENGTH,
+  CONTINUATION_HANDLE_PATTERN,
+} from "./continuation_handle.ts";
 
 export {
   ACCEPT_LANDING_STATE_FIELDS,
@@ -585,6 +589,11 @@ export const AWAIT_CONDITIONS = ["green", "landed", "trunk-moved"] as const;
 /** One `await` condition ({@link AWAIT_CONDITIONS}). */
 export type AwaitConditionKind = (typeof AWAIT_CONDITIONS)[number];
 
+/** A bounded, checksum-protected identifier safe for an agent to relay. */
+export const ContinuationHandleSchema = z.string()
+  .length(CONTINUATION_HANDLE_LENGTH)
+  .regex(CONTINUATION_HANDLE_PATTERN);
+
 /** Why one `await` call uses its reported bound: an exact caller request, the
  * long CLI allowance, a known configurable MCP client, a known strict client,
  * or the conservative unknown-client fallback. */
@@ -630,8 +639,9 @@ const awaitObservedSchema = z.strictObject({
  * answer, not a failure); `observed` is the authoritative state behind it;
  * `timeout_seconds` + `timeout_basis` name the transport-safe bound this call
  * used; `requested_timeout_seconds` records a larger caller request when that
- * request had to be capped; `resume` preserves the original pins across calls;
- * `retry_after_seconds` + `retry_basis` give the next lossless call's bound. */
+ * request had to be capped; `resume` is the short repository-local handle that
+ * preserves the original pins across calls; `retry_after_seconds` +
+ * `retry_basis` give the next lossless call's bound. */
 export const AwaitDataSchema = z.strictObject({
   condition: z.enum(AWAIT_CONDITIONS),
   branch: z.string().optional(),
@@ -642,7 +652,7 @@ export const AwaitDataSchema = z.strictObject({
   timeout_basis: z.enum(AWAIT_TIMEOUT_BASES),
   requested_timeout_seconds: z.number().optional(),
   observed: awaitObservedSchema,
-  resume: z.string().optional(),
+  resume: ContinuationHandleSchema.optional(),
   retry_after_seconds: z.number().int().optional(),
   retry_basis: z.enum(AWAIT_RETRY_BASES).optional(),
 });

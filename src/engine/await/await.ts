@@ -19,21 +19,22 @@
  * own caller, at the caller's request.
  *
  * Timing out is NOT a failure: the envelope stays `ok: true` with `met: false`
- * and carries an opaque continuation plus the longest reliable next-call
- * bound. The continuation keeps the branch's latest observed tip and landing
- * transition, or the original trunk baseline, across transport slices. The
- * CLI still exits {@link AWAIT_TIMEOUT_EXIT_CODE} on
+ * and carries a short continuation handle plus the longest reliable next-call
+ * bound. Repository-local state behind that handle keeps the branch's latest
+ * observed tip and landing transition, or the original trunk baseline, across
+ * transport slices. The CLI still exits {@link AWAIT_TIMEOUT_EXIT_CODE} on
  * "not yet" so `discern await … && discern update` composes in a shell,
  * without the envelope calling the wait a defect.
  *
- * Read-only and stateless: no plan/apply (there is no effect to plan), no
- * locks, no daemon — the verb holds nothing beyond its own process. It IS
- * begin-recorded (deliberately not a pure-observation verb), so a blocked
- * agent's fleet row reads `running: await` while it holds.
+ * The verdict remains observational: continuation state changes no project
+ * file, ref, receipt, or condition truth. It lives under the Git common dir,
+ * shared by sibling worktrees and reaped by age and capacity. `await` needs no
+ * daemon. It IS begin-recorded (deliberately not a pure-observation verb), so a
+ * blocked agent's fleet row reads `running: await` while it holds.
  */
 
 import { join } from "@std/path";
-import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
+import { decodeBase64 } from "@std/encoding/base64";
 import { loadConfig } from "../../shared/config_schema.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import {
@@ -83,6 +84,11 @@ import {
 } from "../../shared/mcp_timeout_policy.ts";
 
 import { AWAIT_POLL_INTERVAL_MS, AWAIT_TIMEOUT_EXIT_CODE } from "./defaults.ts";
+import {
+  readContinuation,
+  removeContinuation,
+  saveContinuation,
+} from "../continuations/store.ts";
 
 export {
   AWAIT_LONG_CALL_SECONDS,
@@ -118,12 +124,9 @@ export interface AwaitExecutionContext {
   callProfile: AwaitCallProfile;
 }
 
-/** Versioned, self-contained state for continuing one bounded wait. The common
- * Git directory binds it to this repository while still allowing any sibling
- * worktree to resume it. It is opaque at the command boundary, not secret. */
-interface AwaitResumePayload {
+/** Versioned state saved behind one short continuation handle. */
+interface AwaitContinuationPayload {
   version: 1;
-  repository: string;
   condition: AwaitConditionKind;
   branch?: string;
   trunk: string;
@@ -132,11 +135,16 @@ interface AwaitResumePayload {
   branch_ever_unreachable?: boolean;
 }
 
-const AWAIT_RESUME_PREFIX = "v1.";
-const AWAIT_RESUME_TOKEN_MAX_LENGTH = 16_384;
-const AWAIT_RESUME_KEYS = new Set([
+/** The self-contained format emitted before repository-local handles. It stays
+ * readable so a watch already between calls survives an engine upgrade. */
+interface LegacyAwaitResumePayload extends AwaitContinuationPayload {
+  repository: string;
+}
+
+const LEGACY_AWAIT_RESUME_PREFIX = "v1.";
+const LEGACY_AWAIT_RESUME_TOKEN_MAX_LENGTH = 16_384;
+const AWAIT_CONTINUATION_KEYS = new Set([
   "version",
-  "repository",
   "condition",
   "branch",
   "trunk",
@@ -144,46 +152,18 @@ const AWAIT_RESUME_KEYS = new Set([
   "trunk_start",
   "branch_ever_unreachable",
 ]);
+const LEGACY_AWAIT_RESUME_KEYS = new Set([
+  ...AWAIT_CONTINUATION_KEYS,
+  "repository",
+]);
 
 function isAwaitCondition(value: unknown): value is AwaitConditionKind {
   return AWAIT_CONDITIONS.some((condition) => condition === value);
 }
 
-function encodeResumeToken(payload: AwaitResumePayload): string {
-  const bytes = new TextEncoder().encode(JSON.stringify(payload));
-  const encoded = encodeBase64(bytes)
-    .replaceAll("+", "-")
-    .replaceAll("/", "_")
-    .replace(/=+$/u, "");
-  return `${AWAIT_RESUME_PREFIX}${encoded}`;
-}
-
-function decodeResumeToken(token: string): AwaitResumePayload | undefined {
-  if (
-    token.length > AWAIT_RESUME_TOKEN_MAX_LENGTH ||
-    !token.startsWith(AWAIT_RESUME_PREFIX)
-  ) {
-    return undefined;
-  }
-  const encoded = token.slice(AWAIT_RESUME_PREFIX.length);
-  if (encoded === "" || !/^[A-Za-z0-9_-]+$/u.test(encoded)) {
-    return undefined;
-  }
-  const remainder = encoded.length % 4;
-  if (remainder === 1) {
-    return undefined;
-  }
-  const padded = encoded.replaceAll("-", "+").replaceAll("_", "/") +
-    "=".repeat((4 - remainder) % 4);
-  let decoded: unknown;
-  try {
-    const json = new TextDecoder("utf-8", { fatal: true }).decode(
-      decodeBase64(padded),
-    );
-    decoded = JSON.parse(json);
-  } catch {
-    return undefined;
-  }
+function parseAwaitContinuationPayload(
+  decoded: unknown,
+): AwaitContinuationPayload | undefined {
   if (
     typeof decoded !== "object" ||
     decoded === null ||
@@ -192,13 +172,11 @@ function decodeResumeToken(token: string): AwaitResumePayload | undefined {
     return undefined;
   }
   const value = decoded as Record<string, unknown>;
-  if (Object.keys(value).some((key) => !AWAIT_RESUME_KEYS.has(key))) {
+  if (Object.keys(value).some((key) => !AWAIT_CONTINUATION_KEYS.has(key))) {
     return undefined;
   }
   if (
     value.version !== 1 ||
-    typeof value.repository !== "string" ||
-    value.repository === "" ||
     !isAwaitCondition(value.condition) ||
     typeof value.trunk !== "string" ||
     value.trunk === "" ||
@@ -230,7 +208,6 @@ function decodeResumeToken(token: string): AwaitResumePayload | undefined {
   }
   return {
     version: 1,
-    repository: value.repository,
     condition: value.condition,
     ...(typeof branch === "string" ? { branch } : {}),
     trunk: value.trunk,
@@ -240,6 +217,56 @@ function decodeResumeToken(token: string): AwaitResumePayload | undefined {
       ? { branch_ever_unreachable: branchEverUnreachable }
       : {}),
   };
+}
+
+function decodeLegacyResumeToken(
+  token: string,
+): LegacyAwaitResumePayload | undefined {
+  if (
+    token.length > LEGACY_AWAIT_RESUME_TOKEN_MAX_LENGTH ||
+    !token.startsWith(LEGACY_AWAIT_RESUME_PREFIX)
+  ) {
+    return undefined;
+  }
+  const encoded = token.slice(LEGACY_AWAIT_RESUME_PREFIX.length);
+  if (encoded === "" || !/^[A-Za-z0-9_-]+$/u.test(encoded)) {
+    return undefined;
+  }
+  const remainder = encoded.length % 4;
+  if (remainder === 1) {
+    return undefined;
+  }
+  const padded = encoded.replaceAll("-", "+").replaceAll("_", "/") +
+    "=".repeat((4 - remainder) % 4);
+  let decoded: unknown;
+  try {
+    const json = new TextDecoder("utf-8", { fatal: true }).decode(
+      decodeBase64(padded),
+    );
+    decoded = JSON.parse(json);
+  } catch {
+    return undefined;
+  }
+  if (
+    typeof decoded !== "object" || decoded === null || Array.isArray(decoded)
+  ) {
+    return undefined;
+  }
+  const value = decoded as Record<string, unknown>;
+  if (
+    Object.keys(value).some((key) => !LEGACY_AWAIT_RESUME_KEYS.has(key)) ||
+    typeof value.repository !== "string" || value.repository === ""
+  ) {
+    return undefined;
+  }
+  const payload = parseAwaitContinuationPayload(
+    Object.fromEntries(
+      Object.entries(value).filter(([key]) => key !== "repository"),
+    ),
+  );
+  return payload === undefined
+    ? undefined
+    : { ...payload, repository: value.repository };
 }
 
 /** One condition evaluation: the verdict now, and the state behind it. */
@@ -252,7 +279,12 @@ interface Evaluation {
 }
 
 function refusal(
-  error: "invalid_arguments" | "not_found" | "no_repository",
+  error:
+    | "invalid_arguments"
+    | "not_found"
+    | "no_repository"
+    | "read_error"
+    | "write_access",
   message: string,
   hints: string[],
 ): DiscernResult<AwaitData> {
@@ -525,23 +557,76 @@ export async function awaitResult(
   }
   const callerHasWorktree = await worktreeGitKey(root) !== undefined;
 
-  const resumed = opts.resume === undefined
-    ? undefined
-    : decodeResumeToken(opts.resume);
-  if (opts.resume !== undefined && resumed === undefined) {
-    return refusal(
-      "invalid_arguments",
-      "The --resume token is invalid or was written by an incompatible discern version.",
-      failureRecoveryHintTexts("await"),
-    );
+  let resumed: AwaitContinuationPayload | undefined;
+  let resumeHandle: string | undefined;
+  if (opts.resume?.startsWith(LEGACY_AWAIT_RESUME_PREFIX) === true) {
+    const legacy = decodeLegacyResumeToken(opts.resume);
+    if (legacy === undefined) {
+      return refusal(
+        "invalid_arguments",
+        "The `--resume` token is invalid or was written by an incompatible discern version.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    if (legacy.repository !== commonGitDir || legacy.trunk !== trunk) {
+      return refusal(
+        "invalid_arguments",
+        "The `--resume` token belongs to a different repository or trunk branch.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    resumed = legacy;
+  } else if (opts.resume !== undefined) {
+    const stored = await readContinuation(root, opts.resume);
+    if (stored.kind === "invalid-handle") {
+      return refusal(
+        "invalid_arguments",
+        "The `--resume` handle has a typo or an incompatible format.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    if (stored.kind === "missing") {
+      return refusal(
+        "invalid_arguments",
+        "The `--resume` handle was not found in this repository or has expired. Restart the watch with its condition.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    if (stored.kind === "corrupt") {
+      return refusal(
+        "read_error",
+        "discern couldn't read the saved `--resume` handle. Restart the watch with its condition.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    if (stored.kind === "unavailable") {
+      return refusal(
+        "read_error",
+        "discern couldn't open continuation state in Git's administrative directory. Check that the Git directory is readable, then retry the same `--resume` handle.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    if (stored.record.kind !== "await") {
+      return refusal(
+        "invalid_arguments",
+        "The `--resume` handle belongs to a different discern operation.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    resumed = parseAwaitContinuationPayload(stored.record.payload);
+    if (resumed === undefined) {
+      return refusal(
+        "read_error",
+        "discern couldn't read the saved `--resume` handle. Restart the watch with its condition.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    resumeHandle = stored.handle;
   }
-  if (
-    resumed !== undefined &&
-    (resumed.repository !== commonGitDir || resumed.trunk !== trunk)
-  ) {
+  if (resumed !== undefined && resumed.trunk !== trunk) {
     return refusal(
       "invalid_arguments",
-      "The --resume token belongs to a different repository or trunk branch.",
+      "The `--resume` handle belongs to a different trunk branch.",
       failureRecoveryHintTexts("await"),
     );
   }
@@ -549,7 +634,7 @@ export async function awaitResult(
   if (condition === undefined) {
     return refusal(
       "invalid_arguments",
-      "Pass one await condition or a continuation token.",
+      "Pass one await condition or a continuation handle.",
       failureRecoveryHintTexts("await"),
     );
   }
@@ -633,6 +718,21 @@ export async function awaitResult(
     }
     : undefined;
 
+  const continuationPayload = (): AwaitContinuationPayload => {
+    const currentTip = branchState?.tip ?? tip;
+    return {
+      version: 1,
+      condition,
+      ...(branch !== undefined ? { branch } : {}),
+      trunk,
+      ...(currentTip !== undefined ? { tip: currentTip } : {}),
+      trunk_start: trunkStart,
+      ...(branchState !== undefined
+        ? { branch_ever_unreachable: branchState.everUnreachable }
+        : {}),
+    };
+  };
+
   let last: Evaluation = { met: false, observed: {} };
   const evaluate = async (): Promise<boolean> => {
     last = await evaluateCondition(root, condition, {
@@ -647,18 +747,37 @@ export async function awaitResult(
   };
 
   const startMs = Date.now();
-  const outcome = await waitForWakes(
-    evaluate,
-    await existingPaths([
-      join(commonGitDir, "refs", "heads"),
-      join(commonGitDir, "refs", "notes"),
-      join(commonGitDir, "packed-refs"),
-      ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
-    ]),
-    startMs + timeoutSeconds * 1000,
-    opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
-    signal,
-  );
+  let outcome: "met" | "timeout";
+  if (await evaluate()) {
+    outcome = "met";
+  } else {
+    const initialSave = await saveContinuation(
+      root,
+      "await",
+      continuationPayload(),
+      resumeHandle,
+    );
+    if (initialSave.kind === "unavailable") {
+      return refusal(
+        "write_access",
+        "discern couldn't save this await continuation in Git's administrative directory. Check that the Git directory is writable, then retry the watch.",
+        failureRecoveryHintTexts("await"),
+      );
+    }
+    resumeHandle = initialSave.handle;
+    outcome = await waitForWakes(
+      evaluate,
+      await existingPaths([
+        join(commonGitDir, "refs", "heads"),
+        join(commonGitDir, "refs", "notes"),
+        join(commonGitDir, "packed-refs"),
+        ...(cfg.project.logbook ? [logbookDir(commonGitDir)] : []),
+      ]),
+      startMs + timeoutSeconds * 1000,
+      opts.pollIntervalMs ?? AWAIT_POLL_INTERVAL_MS,
+      signal,
+    );
+  }
   const waitedMs = Math.round(Date.now() - startMs);
 
   const base: AwaitData = {
@@ -676,6 +795,9 @@ export async function awaitResult(
   };
 
   if (outcome === "met") {
+    if (resumeHandle !== undefined) {
+      await removeContinuation(root, resumeHandle);
+    }
     const greenSource = last.via === "receipt"
       ? last.observed.tip ?? branchState?.tip
       : undefined;
@@ -713,19 +835,23 @@ export async function awaitResult(
     };
   }
 
-  const continuationTip = branchState?.tip ?? tip;
-  const resume = encodeResumeToken({
-    version: 1,
-    repository: commonGitDir,
-    condition,
-    ...(branch !== undefined ? { branch } : {}),
-    trunk,
-    ...(continuationTip !== undefined ? { tip: continuationTip } : {}),
-    trunk_start: trunkStart,
-    ...(branchState !== undefined
-      ? { branch_ever_unreachable: branchState.everUnreachable }
-      : {}),
-  });
+  const finalSave = await saveContinuation(
+    root,
+    "await",
+    continuationPayload(),
+    resumeHandle,
+  );
+  if (finalSave.kind === "unavailable") {
+    const retry = opts.resume === undefined
+      ? "restart the watch with its condition"
+      : "retry the same `--resume` handle";
+    return refusal(
+      "write_access",
+      `discern couldn't update this await continuation in Git's administrative directory. Check that the Git directory is writable, then ${retry}.`,
+      failureRecoveryHintTexts("await"),
+    );
+  }
+  const resume = finalSave.handle;
   const hints: FiredHint[] = [
     fire(HINTS["await-not-yet"], {
       summary: notYetSummary(condition, branch, trunk, last.observed),

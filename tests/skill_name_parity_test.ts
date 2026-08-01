@@ -21,6 +21,7 @@ import { walk } from "@std/fs";
 import { bundledSkillNames } from "../src/lib/skills.ts";
 import { SKILL_CITATION_BARE } from "../src/lib/docs_integrity.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
 
 /** The citation grammar, from its single source (docs_integrity.ts): two-plus
  * segments after the prefix, reached at a word boundary. This repo-local sweep
@@ -101,9 +102,13 @@ Deno.test("skill-name parity: every live discern-* citation ships", async () => 
       continue;
     }
     if (info.isFile) {
+      const rel = relative(REPO_ROOT, root).replaceAll("\\", "/");
       scan(
-        relative(REPO_ROOT, root).replaceAll("\\", "/"),
-        await Deno.readTextFile(root),
+        rel,
+        withoutRegistryAtlasMembers(
+          rel,
+          await Deno.readTextFile(root),
+        ),
       );
       continue;
     }
@@ -112,7 +117,13 @@ Deno.test("skill-name parity: every live discern-* citation ships", async () => 
       if (EXEMPT_SEGMENTS.some((seg) => `/${rel}`.includes(seg))) {
         continue;
       }
-      scan(rel, await Deno.readTextFile(entry.path));
+      scan(
+        rel,
+        withoutRegistryAtlasMembers(
+          rel,
+          await Deno.readTextFile(entry.path),
+        ),
+      );
     }
   }
   assertEquals(

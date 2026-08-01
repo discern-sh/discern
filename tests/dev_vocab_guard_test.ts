@@ -26,6 +26,7 @@ import {
   REPO_AUTHORED_PATHS,
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
+import { withoutRegistryAtlasMembers } from "./registry_atlas_scan.ts";
 
 const SRC = join(REPO_ROOT, "src");
 const TEMPLATES = join(REPO_ROOT, "templates");
@@ -222,7 +223,12 @@ async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
     const file = await maybeConfiguredTextFile(path);
     if (file !== undefined) out.push(file);
   }
-  return out.filter(([rel]) => !RETIRED_COMMAND_ALLOWLIST.has(rel));
+  return out.filter(([rel]) => !RETIRED_COMMAND_ALLOWLIST.has(rel)).map(
+    ([rel, text]): [string, string] => [
+      rel,
+      withoutRegistryAtlasMembers(rel, text),
+    ],
+  );
 }
 
 Deno.test("retired prelaunch command vocabulary does not reappear", async () => {

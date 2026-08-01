@@ -97,22 +97,23 @@ Materialized skills and provider-local state are ignored by exact registry path,
 
 Git-admin runtime records live under `discern/`; do not commit or edit them.
 
-| Registered path                                | Lifetime   | Purpose                                                |
-| ---------------------------------------------- | ---------- | ------------------------------------------------------ |
-| `discern/resources/`                           | repository | Resource ledger.                                       |
-| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events. |
-| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                  |
-| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                     |
-| `discern/standard-measurements`                | worktree   | Reusable measurements.                                 |
-| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                 |
-| `discern/effort-grant`                         | worktree   | Desk landing grant.                                    |
-| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                             |
-| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                           |
-| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                       |
-| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                  |
-| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                |
+| Registered path                                | Lifetime   | Purpose                                                 |
+| ---------------------------------------------- | ---------- | ------------------------------------------------------- |
+| `discern/resources/`                           | repository | Resource ledger.                                        |
+| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.  |
+| `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days. |
+| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                   |
+| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                      |
+| `discern/standard-measurements`                | worktree   | Reusable measurements.                                  |
+| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                  |
+| `discern/effort-grant`                         | worktree   | Desk landing grant.                                     |
+| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                              |
+| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                            |
+| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                        |
+| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                   |
+| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                 |
 
-Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Guards enforce namespace, lifetime, and reset behavior.
+Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Await continuation records also have a 7-day time limit and a 512-record repository cap ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)). Guards enforce namespace, lifetime, and reset behavior.
 
 Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
 

@@ -8998,7 +8998,10 @@
                   }
                 },
                 "resume": {
-                  "type": "string"
+                  "type": "string",
+                  "minLength": 15,
+                  "maxLength": 15,
+                  "pattern": "^C1-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}$"
                 },
                 "retry_after_seconds": {
                   "type": "integer",

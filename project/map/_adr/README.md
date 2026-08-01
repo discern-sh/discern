@@ -233,6 +233,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0238 — Contributions are covered by a contributor license agreement](0238-contributions-are-covered-by-a-cla.md)
 - [0240 — Discern-authored project payloads use Apache-2.0](0240-discern-authored-project-payloads-use-apache-2-0.md)
 - [0242 — The durable receipt travels as a versioned, signature-ready record](0242-durable-receipts-travel-versioned-and-signature-ready.md)
+- [0243 — Await continuations use short repository-local handles](0243-await-continuations-use-short-repository-local-handles.md)
 
 <!-- END GENERATED: current ADR records -->
 

@@ -67,7 +67,7 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 Gemini infers stdio from the presence of `command`, so discern does not write a `type` field for this server. The hook seed includes `hooksConfig.enabled:
 true` — the hooks system's canonical toggle, a separate section from the per-event `hooks` arrays (every key under `hooks` must be an event array; Gemini rejects a boolean there). Without the toggle, Gemini keeps the hook block inert.
 
-Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned resume token.
+Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned 15-character resume handle.
 
 discern does not set Gemini sandbox options, model settings, custom commands, `.env` loading, approval defaults, or worktree flags. Those remain user or project choices.
 
