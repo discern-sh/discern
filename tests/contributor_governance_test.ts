@@ -22,6 +22,7 @@ import {
   CONTRIBUTOR_AGREEMENT_ACCEPTANCE,
   CONTRIBUTOR_AGREEMENT_REGISTRY_PATH,
   CONTRIBUTOR_AGREEMENTS,
+  CONTRIBUTOR_AGREEMENTS_OFFERED,
   contributorAgreementVersion,
   CORPORATE_CONTRIBUTOR_AGREEMENT,
   INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
@@ -197,7 +198,7 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
     "excluding any parent, subsidiary, affiliate",
   );
   assertStringIncludes(corporate, "authorized to enter into contracts");
-  assertStringIncludes(corporate, "Typing a name into a field, by itself");
+  assertStringIncludes(corporate, "SHA-256 digest of the signed PDF");
 
   const metadataText = await Deno.readTextFile(CLA_ASSISTANT_METADATA);
   assertEquals(metadataText, renderClaAssistantMetadata());
@@ -225,7 +226,12 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
   );
 });
 
-Deno.test("numeric agreement versions pin immutable bytes against a real baseline", async () => {
+const OFFERED_FLAG =
+  /^export const CONTRIBUTOR_AGREEMENTS_OFFERED: boolean = (?:true|false);$/m;
+const OFFERED_TRUE =
+  /^export const CONTRIBUTOR_AGREEMENTS_OFFERED: boolean = true;$/m;
+
+Deno.test("numeric agreement versions pin bytes, immutable once offered", async () => {
   assertEquals(CONTRIBUTOR_AGREEMENTS, [
     INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
     CORPORATE_CONTRIBUTOR_AGREEMENT,
@@ -266,21 +272,36 @@ Deno.test("numeric agreement versions pin immutable bytes against a real baselin
     undefined,
     "a missing path at a valid baseline is distinct from a missing baseline",
   );
+  const registrySource = await Deno.readTextFile(
+    join(REPO_ROOT, CONTRIBUTOR_AGREEMENT_REGISTRY_PATH),
+  );
+  assertMatch(
+    registrySource,
+    OFFERED_FLAG,
+    "the registry must declare CONTRIBUTOR_AGREEMENTS_OFFERED as a literal boolean so baseline checks can read it",
+  );
+
   const previousRegistry = await readGitFileAtRef(
     baseline,
     CONTRIBUTOR_AGREEMENT_REGISTRY_PATH,
   );
   if (previousRegistry !== undefined) {
-    for (const agreement of CONTRIBUTOR_AGREEMENTS) {
-      const previous = await readGitFileAtRef(baseline, agreement.repoPath);
-      if (previous === undefined) continue;
-      const current = await Deno.readTextFile(
-        join(REPO_ROOT, agreement.repoPath),
-      );
+    if (OFFERED_TRUE.test(previousRegistry)) {
       assert(
-        agreementChangeAdvancesVersion(current, previous),
-        `${agreement.repoPath} bytes changed without advancing its numeric version`,
+        CONTRIBUTOR_AGREEMENTS_OFFERED,
+        "CONTRIBUTOR_AGREEMENTS_OFFERED can never return to false once the agreements have been offered",
       );
+      for (const agreement of CONTRIBUTOR_AGREEMENTS) {
+        const previous = await readGitFileAtRef(baseline, agreement.repoPath);
+        if (previous === undefined) continue;
+        const current = await Deno.readTextFile(
+          join(REPO_ROOT, agreement.repoPath),
+        );
+        assert(
+          agreementChangeAdvancesVersion(current, previous),
+          `${agreement.repoPath} bytes changed without advancing its numeric version`,
+        );
+      }
     }
   }
 

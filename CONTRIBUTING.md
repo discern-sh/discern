@@ -57,30 +57,10 @@ Open a bug or setup-failure issue with the matching template and include the com
 
 This notice covers personal data used to administer discern's Individual and Corporate Contributor License Agreements.
 
-### Who handles the data
+Jack Webb-Heller, the Steward named in the agreements, is the controller of the records discern manages; once contributor agreement intake is active, `cla@discern.sh` is the contact for them. SAP controls the data its hosted CLA Assistant processes, and GitHub processes account and pull-request data. [SAP's CLA Assistant privacy statement](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md) and [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) cover those services.
 
-For records managed by discern, Jack Webb-Heller, the Steward named in the agreements, is the controller. The contact for these records will be `cla@discern.sh` once contributor agreement intake is active.
+The individual path may process your GitHub identity, associated email, agreement revision, acceptance time, and pull-request status. The corporate path collects the named entity's details, its representative's name, title, and contact details, its designated contributors, the signed PDF and its SHA-256 digest, and related correspondence. These records verify who granted rights, administer the agreements, and establish, exercise, or defend legal claims, on the legal bases of the Steward's legitimate interests in operating and protecting discern, steps taken to enter into or perform an agreement, and applicable legal obligations.
 
-SAP operates the hosted CLA Assistant and controls the data it processes for that service. GitHub also processes account and pull-request data. Read [SAP's CLA Assistant privacy statement](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md) and [GitHub's privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement) for their terms.
+Providing this data is not required by law; it is required for discern to accept a Contribution. You can still use discern and open issues without it, and a maintainer, not an automated process, makes the final decision on accepting a Contribution. The Steward may share records with service providers that store or administer them, professional advisers under duties of confidence, a successor or permitted assign, or a public authority when legally required. Corporate agreements stay private, and contributor-agreement data is never sold or used for advertising. Project-controlled records will not be collected until this notice identifies their storage location, processing countries, and any safeguard needed for an international transfer. Accepted agreements and the minimum evidence of acceptance are retained while any covered Contribution is distributed or licensed, and afterward for as long as reasonably needed for legal claims or legal obligations.
 
-### What is collected and why
-
-The individual path may process your GitHub identity, associated email, agreement revision, acceptance time, and pull-request status. The corporate path collects the named entity's details, its representative's name, title, contact details, signature, designated contributors, the signed PDF and its SHA-256 digest, and related correspondence.
-
-These records verify who granted rights, determine whether a Contribution can be accepted, administer the agreements, handle corrections, and establish, exercise, or defend legal claims. The legal bases are the Steward's legitimate interests in operating and protecting discern, steps taken to enter into or perform an agreement, and applicable legal obligations.
-
-Providing this data is not required by law. It is required for discern to accept a Contribution through the relevant agreement path. You can still use discern and submit issue reports, feature requests, or review comments without it. A maintainer makes the final decision on accepting a Contribution; discern does not use solely automated decision-making that produces a legal or similarly significant effect.
-
-### Sharing, transfers, and retention
-
-Individual acceptance uses GitHub and SAP's hosted service. The Steward may share records with service providers needed to store or administer them, professional advisers under duties of confidence, a successor or permitted assign, or a public authority when legally required. Corporate agreements stay private. discern does not sell contributor-agreement data or use it for advertising.
-
-GitHub and SAP describe their processing locations, international transfers, and safeguards in their privacy statements. Project-controlled records will not be collected until this notice identifies their storage location, processing countries, and any safeguard needed for an international transfer.
-
-Accepted agreements and the minimum evidence of acceptance are retained while any covered Contribution is distributed or licensed, and afterward for as long as reasonably needed for legal claims or legal obligations. Administrative copies, outdated contact details, incomplete submissions, and correspondence are deleted or minimized when no longer needed.
-
-### Your rights
-
-Depending on applicable law, you may ask to access, correct, delete, restrict, or object to discern's processing of your personal data. Where the legal conditions apply, you may also request portable data. Some requests may be limited where records remain necessary to evidence a license, comply with law, or handle a legal claim. Exercising a privacy right does not revoke licenses already granted.
-
-Once intake is active, contact `cla@discern.sh` about records controlled by discern. Contact SAP through its privacy statement for records it controls. You can also complain to the [UK Information Commissioner's Office](https://ico.org.uk/make-a-complaint/).
+Depending on applicable law, you may ask to access, correct, delete, restrict, port, or object to discern's processing of your personal data. Some requests may be limited where records remain necessary to evidence a license, comply with law, or handle a legal claim, and exercising a privacy right does not revoke licenses already granted. Once intake is active, contact `cla@discern.sh` about records discern controls, contact SAP through its privacy statement for records it controls, or complain to the [UK Information Commissioner's Office](https://ico.org.uk/make-a-complaint/).

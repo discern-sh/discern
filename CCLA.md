@@ -38,19 +38,11 @@ The Corporation identified above ("You") accepts these terms for its past, prese
 
 ## Acceptance
 
-Complete the Corporation details and the fields below in a copy of version 1.0 without changing the terms. Save or print every page as one PDF. The authorized representative must execute that PDF with one of these methods:
-
-- a handwritten signature on a printed copy that is scanned into the PDF;
-- a hand-drawn electronic signature applied to the PDF;
-- a verifiable digital signature applied to the PDF; or
-- a recognized electronic-signature service that records the representative's act.
-
-Typing a name into a field, by itself, is not a signature. Send the signed PDF from the contact email address to the private submission address only after `CONTRIBUTING.md` says contributor agreement intake is active. This agreement becomes effective when the Steward replies in writing, identifies version 1.0, and confirms the SHA-256 digest of the signed PDF. Keep that reply with Your copy.
+Complete the Corporation details and the fields below in a copy of version 1.0 without changing the terms, and save the result as one PDF. The authorized representative signs that PDF; an electronic signature is fine. Send it from the contact email address to the private submission address once `CONTRIBUTING.md` says contributor agreement intake is active. This agreement becomes effective when the Steward confirms acceptance in writing, identifying version 1.0 and the SHA-256 digest of the signed PDF. Keep that reply with Your copy.
 
 - Agreement version: 1.0
 - Corporation:
 - Authorized representative:
 - Title:
 - Signature:
-- Signature method:
 - Date:

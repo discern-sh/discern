@@ -2,23 +2,26 @@
  * The authored identities of discern's contributor agreements and the exact
  * payload mirrored into the hosted CLA Assistant Gist.
  *
- * A numeric version identifies one immutable byte sequence. Any byte change to
- * an agreement requires a later version and a new SHA-256 pin here. Keep the
- * legal prose in its Markdown file and regenerate service metadata with codegen.
+ * A numeric version identifies one immutable byte sequence from the moment the
+ * agreements are first offered for acceptance. Until then, a byte change keeps
+ * its version and updates the SHA-256 pin here; once
+ * CONTRIBUTOR_AGREEMENTS_OFFERED is true, any byte change requires a later
+ * version and a new pin. Keep the legal prose in its Markdown file and
+ * regenerate service metadata with codegen.
  */
 
 export const INDIVIDUAL_CONTRIBUTOR_AGREEMENT = {
   kind: "individual",
   repoPath: "CLA.md",
   version: "1.0",
-  sha256: "586f74631a5a491fab420335d1cc2457b17d3fe966590a3c966a97e872f3bfdb",
+  sha256: "cb7dac75b7af2224d1949567406f56df7c43ff8167fb250950c4d391db7a6040",
 } as const;
 
 export const CORPORATE_CONTRIBUTOR_AGREEMENT = {
   kind: "corporate",
   repoPath: "CCLA.md",
   version: "1.0",
-  sha256: "42bd715e690237da24e9ab95c1234b4327f6f7114479524ac699746ba7ddae8f",
+  sha256: "4a755a1c98eeab1d62021c07d2696c598d331bc39de4d9933c1acd35904650ec",
 } as const;
 
 /** Every agreement whose versioned bytes form part of the legal record. */
@@ -26,6 +29,14 @@ export const CONTRIBUTOR_AGREEMENTS = [
   INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
   CORPORATE_CONTRIBUTOR_AGREEMENT,
 ] as const;
+
+/**
+ * Whether any agreement version has ever been offered for acceptance. The
+ * release runbook flips this to true when the hosted acceptance path goes
+ * live; it never returns to false. While false, nobody has been offered the
+ * current bytes, so an agreement may change under its existing version.
+ */
+export const CONTRIBUTOR_AGREEMENTS_OFFERED: boolean = false;
 
 export const CONTRIBUTOR_AGREEMENT_REGISTRY_PATH =
   "scripts/contributor_agreement.ts";

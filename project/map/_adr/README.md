@@ -234,6 +234,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0240 — Discern-authored project payloads use Apache-2.0](0240-discern-authored-project-payloads-use-apache-2-0.md)
 - [0242 — Durable receipts use a versioned DSSE-compatible envelope](0242-durable-receipts-use-a-versioned-dsse-envelope.md)
 - [0243 — Await continuations use short repository-local handles](0243-await-continuations-use-short-repository-local-handles.md)
+- [0244 — The brand addresses the owner and judges only the work](0244-brand-addresses-the-owner.md)
+- [0245 — The receipt becomes the proof](0245-receipt-renamed-to-proof.md)
 
 <!-- END GENERATED: current ADR records -->
 

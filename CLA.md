@@ -8,7 +8,7 @@ Keeping that model working requires one steward to be able to license the comple
 
 You agree once for this version of the agreement. The hosted CLA Assistant asks you to agree on your first pull request and asks again if the agreement changes. If an employer or another legal entity owns your work, that entity must complete the separate Corporate Contributor License Agreement in the repository's `CCLA.md` file before the work can be accepted.
 
-This agreement is adapted from The Apache Software Foundation's Individual Contributor License Agreement, version 2.2. Before agreeing, read discern's [contributor agreement privacy notice](https://github.com/jackwh/discern/blob/main/CONTRIBUTING.md#contributor-agreement-privacy) and [SAP's privacy statement for CLA Assistant](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md).
+This agreement is adapted from The Apache Software Foundation's Individual Contributor License Agreement, version 2.2. Before agreeing, read discern's [contributor agreement privacy notice](https://github.com/discern-sh/discern/blob/main/CONTRIBUTING.md#contributor-agreement-privacy) and [SAP's privacy statement for CLA Assistant](https://gist.github.com/CLAassistant/3a73e4cd729c9d0a6e30#file-privacy-md).
 
 ## Terms
 
