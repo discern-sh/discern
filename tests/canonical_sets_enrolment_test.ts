@@ -36,6 +36,10 @@ import {
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import {
+  REGISTRY_ATLAS_REL,
+  withoutRegistryAtlasMembers,
+} from "./registry_atlas_scan.ts";
 import { formatMarkdownText } from "../src/lib/tidy_format.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -482,6 +486,39 @@ Deno.test("the registry atlas lists every resolvable member in source order", as
       `${entry.id}: the atlas member names have drifted from the source`,
     );
   }
+});
+
+Deno.test("control: semantic scans ignore member names and keep atlas prose", () => {
+  const retired = ["`", "in", "it", "`"].join("");
+  const skillLike = "discern-future-token";
+  const doc = [
+    "## `control` — Control",
+    "",
+    `Prose still names ${skillLike}.`,
+    "",
+    "- Members: 2",
+    `  - ${retired}`,
+    `  - \`${skillLike}\``,
+    "- Guards: `tests/control_test.ts`",
+  ].join("\n");
+  assertEquals(
+    withoutRegistryAtlasMembers(REGISTRY_ATLAS_REL, doc),
+    [
+      "## `control` — Control",
+      "",
+      `Prose still names ${skillLike}.`,
+      "",
+      "- Members: 2",
+      "",
+      "",
+      "- Guards: `tests/control_test.ts`",
+    ].join("\n"),
+  );
+  assertEquals(
+    withoutRegistryAtlasMembers("project/map/elsewhere.md", doc),
+    doc,
+    "the projection must leave every other file byte-for-byte unchanged",
+  );
 });
 
 Deno.test("the committed registry atlas matches the renderer", async () => {
