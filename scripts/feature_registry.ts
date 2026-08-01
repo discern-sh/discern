@@ -1247,11 +1247,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "map-browser",
         title: "The map browser",
         what:
-          "`discern map` lists, searches, and renders the tree in the terminal — frontmatter search aliases included — and `--export` writes a public, full, or selected projection to one file.",
+          "`discern map` lists, searches, and renders the tree in the terminal — frontmatter search aliases included — and `--export` writes a public, full, or selected projection to one file. Naming a configured scope instead exports the map pages its paths list, in their declared order.",
         plain: {
           title: "Reading and searching the guide",
           what:
-            "`discern map` lists, searches, and displays the guide's pages in the typed-command window, including the alternative search names stored at the top of each page. `--export` writes the public pages, everything, or a chosen selection into one file.",
+            "`discern map` lists, searches, and displays the guide's pages in the typed-command window, including the alternative search names stored at the top of each page. `--export` writes the public pages, everything, a chosen selection, or the pages a named area of the project lists — in its listed order — into one file.",
         },
         surfaces: ["verb:map"],
       },
