@@ -458,6 +458,104 @@ Rendered line:
 `discern skills list` shows the reusable guides available to coding agents, including project replacements and hidden guides.
 ```
 
+## `cure-the-bug-class`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-cure-a-bug`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-cure-a-bug` guides a coding agent to prove the cause, fix every occurrence, and add a check that catches the defect if it returns.
+```
+
+## `clear-agent-leftovers`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-clear-the-decks`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-clear-the-decks` guides a coding agent to remove unused code, repeated helpers, and leftovers from abandoned approaches in small safe commits.
+```
+
+## `write-a-fact-once`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-write-it-once`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-write-it-once` helps a coding agent store each fact once, include future additions automatically, and preview changes before running them.
+```
+
+## `document-from-the-code`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-document-subsystem`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-document-subsystem` has a coding agent rebuild one part of the project guide from the code and verify every claim.
+```
+
+## `teach-the-next-agent`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-teach-the-project`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-teach-the-project` records a hard-won lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
+```
+
+## `record-a-decision`
+
+- Relevance: Evergreen — a reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-write-adr`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-write-adr` records a significant choice, its reasons, and its trade-offs where future coding agents can find it.
+```
+
+## `delegate-with-a-complete-brief`
+
+- Relevance: Evergreen — the final reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-delegate-work`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews what comes back.
+```
+
 ## `identity-stable-values`
 
 - Relevance: Evergreen — a power-tool lesson.
@@ -563,13 +661,6 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:setup`                     | Setup is complete before the desk can show tips and is taught by the installer.                         |
 | `feature:setup-observability`       | This is installer reporting plumbing, visible during setup rather than later on the desk.               |
 | `feature:single-binary`             | Packaging is an implementation property, not a capability to adopt.                                     |
-| `feature:skill-clear-the-decks`     | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-cure-a-bug`          | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-delegate-work`       | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-document-subsystem`  | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-teach-the-project`   | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-write-adr`           | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
-| `feature:skill-write-it-once`       | This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.        |
 | `feature:staged-pipeline`           | This is gate execution plumbing; the `done` tip teaches its human-visible outcome.                      |
 | `feature:standards-escalation`      | A fired rule explains owner escalation at the point a decision is required.                             |
 | `feature:standards-metric-protocol` | Metric authoring is an advanced path taught by the standard-setting guide.                              |

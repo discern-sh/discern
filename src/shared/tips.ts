@@ -683,6 +683,82 @@ export const TIPS: readonly RegisteredTip[] = [
       "agents, including project replacements and hidden guides.",
   }),
 
+  // ── Reusable guides: give specialized work its full procedure. ─────────
+
+  defineTip({
+    id: "cure-the-bug-class",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-cure-a-bug"],
+    example: undefined,
+    template: (): string =>
+      "`discern-cure-a-bug` guides a coding agent to prove the cause, fix " +
+      "every occurrence, and add a check that catches the defect if it " +
+      "returns.",
+  }),
+
+  defineTip({
+    id: "clear-agent-leftovers",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-clear-the-decks"],
+    example: undefined,
+    template: (): string =>
+      "`discern-clear-the-decks` guides a coding agent to remove unused code, " +
+      "repeated helpers, and leftovers from abandoned approaches in small " +
+      "safe commits.",
+  }),
+
+  defineTip({
+    id: "write-a-fact-once",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-write-it-once"],
+    example: undefined,
+    template: (): string =>
+      "`discern-write-it-once` helps a coding agent store each fact once, " +
+      "include future additions automatically, and preview changes before " +
+      "running them.",
+  }),
+
+  defineTip({
+    id: "document-from-the-code",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-document-subsystem"],
+    example: undefined,
+    template: (): string =>
+      "`discern-document-subsystem` has a coding agent rebuild one part of " +
+      "the project guide from the code and verify every claim.",
+  }),
+
+  defineTip({
+    id: "teach-the-next-agent",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-teach-the-project"],
+    example: undefined,
+    template: (): string =>
+      "`discern-teach-the-project` records a hard-won lesson in project " +
+      "instructions, a reusable guide, a script, documentation, or a decision " +
+      "record.",
+  }),
+
+  defineTip({
+    id: "record-a-decision",
+    when: "Evergreen — a reusable guide lesson.",
+    features: ["skill-write-adr"],
+    example: undefined,
+    template: (): string =>
+      "`discern-write-adr` records a significant choice, its reasons, and its " +
+      "trade-offs where future coding agents can find it.",
+  }),
+
+  defineTip({
+    id: "delegate-with-a-complete-brief",
+    when: "Evergreen — the final reusable guide lesson.",
+    features: ["skill-delegate-work"],
+    example: undefined,
+    template: (): string =>
+      "`discern-delegate-work` turns a discussed task into a complete brief " +
+      "for a fresh coding agent, then reviews what comes back.",
+  }),
+
   defineTip({
     id: "identity-stable-values",
     when: "Evergreen — a power-tool lesson.",
@@ -806,20 +882,6 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Session hooks are agent-integration plumbing and are documented with setup.",
   "feature:agent-autodetect":
     "Automatic provider choice is agent-integration plumbing with no human action.",
-  "feature:skill-cure-a-bug":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-clear-the-decks":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-delegate-work":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-document-subsystem":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-teach-the-project":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-write-adr":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
-  "feature:skill-write-it-once":
-    "This specialist coding-agent guide is discovered through `skills list`, not a separate desk tip.",
   "feature:docs-integrity":
     "This is map validation plumbing; a failure names the page and repair.",
   "feature:map-freshness":
