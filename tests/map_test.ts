@@ -932,6 +932,134 @@ Deno.test("map --export all includes internal docs after public docs", async () 
   });
 });
 
+/** The exported sources, in stream order. */
+function exportedSources(stdout: string): string[] {
+  return [...stdout.matchAll(/^<!-- BEGIN SOURCE: (.+) -->$/gm)]
+    .map((match) => match[1] ?? "");
+}
+
+/** A docs project whose discern.toml also declares `[scopes.<name>]` tables. */
+async function makeScopedDocsProject(
+  dir: string,
+  scopes: string,
+): Promise<void> {
+  await makeDocsProject(dir);
+  await seedConfig(
+    dir,
+    '[meta]\nbootstrapped = true\n[map]\ndir = "docs/"\n[project]\nslug = "demo"\n' +
+      scopes,
+  );
+}
+
+Deno.test("map --export <configured scope> follows the scope's declared order", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["${map.dir}00-intro/beta.md", "docs/README.md", "docs/00-intro/alpha.md"]\nneutral = true\n',
+    );
+
+    const { code, stdout, stderr } = await runCli(
+      ["map", "--export", "canon"],
+      dir,
+    );
+
+    assertEquals(code, 0);
+    assertEquals(stderr, "");
+    assertEquals(exportedSources(stdout), [
+      "docs/00-intro/beta.md",
+      "docs/README.md",
+      "docs/00-intro/alpha.md",
+    ]);
+  });
+});
+
+Deno.test("map --export <configured scope> reaches buried docs and dedupes overlaps", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["docs/_adr/", "docs/00-intro/alpha.md", "docs/00-intro/"]\n',
+    );
+
+    const { code, stdout } = await runCli(["map", "--export", "canon"], dir);
+
+    assertEquals(code, 0);
+    const sources = exportedSources(stdout);
+    assertEquals(sources[0], "docs/_adr/0001-first.md");
+    assertEquals(sources[1], "docs/00-intro/alpha.md");
+    assertEquals(
+      sources.filter((path) => path === "docs/00-intro/alpha.md").length,
+      1,
+      "a document matched twice keeps its first position",
+    );
+    assertEquals(sources.length, 4);
+  });
+});
+
+Deno.test("map --export warns on a scope path matching no map documents", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["docs/missing.md", "docs/00-intro/alpha.md"]\n',
+    );
+
+    const { code, stdout, stderr } = await runCli(
+      ["map", "--export", "canon"],
+      dir,
+    );
+
+    assertEquals(code, 0);
+    assertStringIncludes(stderr, '"docs/missing.md" matches no map documents');
+    assertEquals(exportedSources(stdout), ["docs/00-intro/alpha.md"]);
+  });
+});
+
+Deno.test("map --export rejects an unknown scope naming the configured ones", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["docs/00-intro/alpha.md"]\n',
+    );
+
+    const { code, stderr } = await runCli(["map", "--export", "nope"], dir);
+
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, 'unknown export scope "nope"');
+    assertStringIncludes(stderr, "a configured scope (canon)");
+  });
+});
+
+Deno.test("map --export <configured scope> refuses --dir", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["docs/00-intro/alpha.md"]\n',
+    );
+
+    const { code, stderr } = await runCli(
+      ["map", "--export", "canon", "--dir", "docs"],
+      dir,
+    );
+
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, "cannot be combined with --dir");
+  });
+});
+
+Deno.test("docs --export never resolves configured scopes", async () => {
+  await withTempDir(async (dir) => {
+    await makeScopedDocsProject(
+      dir,
+      '[scopes.canon]\npaths = ["docs/00-intro/alpha.md"]\n',
+    );
+
+    const { code, stderr } = await runCli(["docs", "--export", "canon"], dir);
+
+    assertEquals(code, 1);
+    assertStringIncludes(stderr, 'unknown export scope "canon"');
+    assertStringIncludes(stderr, "expected public.");
+  });
+});
+
 Deno.test("map export can overwrite an explicit output file", async () => {
   await withTempDir(async (dir) => {
     await makeDocsProject(dir);

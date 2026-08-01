@@ -42,6 +42,7 @@ import {
   type DocEntry,
   type DocsTree,
   filterDocsByGroups,
+  findProjectRoot,
   formatDocsExport,
   groupDocs,
   publicDocs,
@@ -55,6 +56,9 @@ import {
 } from "../lib/docs_search.ts";
 import { parseFrontmatter } from "../lib/frontmatter.ts";
 import { stripAdrCitations } from "../lib/adr_citations.ts";
+import { pathMatchesPattern } from "../engine/scopes/glob.ts";
+import { loadConfig } from "../shared/config_schema.ts";
+import { expandMapDirReference } from "../shared/map_path.ts";
 import { observeVerbTarget } from "../shared/result_capture.ts";
 import {
   DOCS_ADR_DOC_DIR,
@@ -75,8 +79,83 @@ import {
   type MapRegion,
 } from "../lib/map_overview.ts";
 
-/** Supported concatenated Markdown export scopes. */
+/** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
+
+/**
+ * A resolved `--export` value: a built-in projection, or — on the `map` verb —
+ * a configured `[scopes.<name>]` acting as a curated reading list. A configured
+ * scope decides both WHICH map documents export and their ORDER: documents
+ * concatenate by the scope's declared `paths` sequence (a pattern matching
+ * several documents keeps their map reading order; a document matched twice
+ * keeps its first position). Built-in names win over a configured scope of the
+ * same name.
+ */
+type ExportSelection =
+  | { kind: "builtin"; scope: DocsExportScope }
+  | { kind: "configured"; name: string; patterns: string[] };
+
+/** A failed `--export` resolution; `message` names every accepted value. */
+interface ExportUnknown {
+  kind: "unknown";
+  message: string;
+}
+
+/**
+ * The project's configured `[scopes.<name>]` tables as export candidates:
+ * scope name → its `paths` with `${map.dir}` expanded. Read best-effort — no
+ * project root, or a missing/invalid discern.toml, leaves only the built-in
+ * export scopes rather than failing a browse-adjacent command.
+ */
+async function configuredExportScopes(
+  cwd: string,
+): Promise<Map<string, string[]>> {
+  const root = await findProjectRoot(cwd);
+  if (root === undefined) return new Map();
+  try {
+    const config = await loadConfig(root);
+    return new Map(
+      Object.entries(config.scopes).map(([name, scope]) => [
+        name,
+        scope.paths.map((path) => expandMapDirReference(path, config.map.dir)),
+      ]),
+    );
+  } catch {
+    return new Map();
+  }
+}
+
+/**
+ * Parse an `--export` value: the verb's built-in scopes first, then — for the
+ * project-owned `map` tree only — the configured `[scopes.<name>]` tables.
+ * `docs` serves discern's fixed bundled manual, which no project scope
+ * describes, so it never consults the config.
+ */
+async function resolveExportSelection(
+  desc: DocsVerb,
+  value: string,
+  cwd: string,
+): Promise<ExportSelection | ExportUnknown> {
+  const builtin = exportScope(value, desc.exportScopes);
+  if (builtin !== undefined) return { kind: "builtin", scope: builtin };
+  const configured = desc.verb === "map"
+    ? await configuredExportScopes(cwd)
+    : new Map<string, string[]>();
+  const patterns = configured.get(value);
+  if (patterns !== undefined) {
+    return { kind: "configured", name: value, patterns };
+  }
+  const names = [...configured.keys()];
+  const alternatives = names.length > 0
+    ? `, or a configured scope (${names.join(", ")})`
+    : "";
+  return {
+    kind: "unknown",
+    message: `unknown export scope "${value}"; expected ${
+      listScopes(desc.exportScopes)
+    }${alternatives}.`,
+  };
+}
 
 /**
  * How `discern map` (the project's agent-maintained documentation tree) and `discern docs`
@@ -787,29 +866,36 @@ function printSearchResults(
 /**
  * Concatenate a selected docs scope and emit it atomically from the command's
  * point of view: every source is read before stdout or the output file changes.
+ * A configured scope concatenates in its declared `paths` order.
  */
 async function exportDocs(
   desc: DocsVerb,
   options: DocsOptions,
-  scope: DocsExportScope,
+  selection: ExportSelection,
   log: Logger,
   cwd: string,
 ): Promise<number> {
   const resolved = await desc.resolveDir(options);
+  // A configured scope names exactly the documents it wants — spelling a
+  // `_`-buried path IS its opt-in, so discovery admits the whole tree and the
+  // scope's own patterns decide (the same width `--export all` already has).
+  const includeInternal = selection.kind === "configured" ||
+    selection.scope !== "public";
   const discovered = resolved.kind === "missing"
     ? undefined
     : await discoverDocs({
       cwd,
       dir: resolved.dir,
-      includeInternal: scope !== "public",
+      includeInternal,
     });
   if (!discovered) {
     log.error(desc.missingTree(options));
     return 1;
   }
   // `--export public` is an explicitly-published projection for either verb;
-  // the wider scopes (`all`, `select`) keep everything, like the map itself.
-  const tree = scope === "public"
+  // the wider scopes (`all`, `select`, a configured scope) keep everything,
+  // like the map itself.
+  const tree = selection.kind === "builtin" && selection.scope === "public"
     ? publicVerbTree(desc, discovered)
     : discovered;
 
@@ -835,7 +921,27 @@ async function exportDocs(
   }
 
   let entries = tree.entries;
-  if (scope === "select") {
+  if (selection.kind === "configured") {
+    const seen = new Set<string>();
+    const ordered: DocEntry[] = [];
+    for (const pattern of selection.patterns) {
+      const matches = tree.entries.filter((entry) =>
+        pathMatchesPattern(entry.path, pattern)
+      );
+      if (matches.length === 0) {
+        log.warn(
+          `scope "${selection.name}" path "${pattern}" matches no map documents.`,
+        );
+      }
+      for (const match of matches) {
+        if (!seen.has(match.path)) {
+          seen.add(match.path);
+          ordered.push(match);
+        }
+      }
+    }
+    entries = ordered;
+  } else if (selection.scope === "select") {
     const groups = groupDocs(entries);
     if (groups.length === 0) {
       log.warn(`no Markdown files under ${display(tree.docsDir, cwd)}.`);
@@ -1197,15 +1303,9 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
   }
 
   if (options.export) {
-    const scope = exportScope(options.export, desc.exportScopes);
-    if (!scope) {
-      return invalidOptions(
-        log,
-        desc.verb,
-        `unknown export scope "${options.export}"; expected ${
-          listScopes(desc.exportScopes)
-        }.`,
-      );
+    const selection = await resolveExportSelection(desc, options.export, cwd);
+    if (selection.kind === "unknown") {
+      return invalidOptions(log, desc.verb, selection.message);
     }
 
     const conflicts = [
@@ -1226,7 +1326,15 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       );
     }
 
-    if (scope === "select") {
+    if (selection.kind === "configured" && options.dir !== undefined) {
+      return invalidOptions(
+        log,
+        desc.verb,
+        `--export ${selection.name} reads the configured [scopes.${selection.name}] paths, which are anchored to the project's [map].dir; it cannot be combined with --dir.`,
+      );
+    }
+
+    if (selection.kind === "builtin" && selection.scope === "select") {
       if (!options.output) {
         return invalidOptions(
           log,
@@ -1243,7 +1351,7 @@ async function runTree(desc: DocsVerb, options: DocsOptions): Promise<number> {
       }
     }
 
-    return await exportDocs(desc, options, scope, log, cwd);
+    return await exportDocs(desc, options, selection, log, cwd);
   }
 
   // `docs --adr` widens discovery to the bundled ADR subtree, and a target that

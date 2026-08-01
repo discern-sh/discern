@@ -635,7 +635,7 @@ Usage: `discern map [target] [options]`
 | `--no-pager`       | Don't page rendered output through $PAGER.                                  |
 | `--dir <path>`     | Map directory to browse (default: the project's [map].dir).                 |
 | `--width <cols>`   | Wrap width for rendered output.                                             |
-| `--export <scope>` | Concatenate Markdown: public, all, or select.                               |
+| `--export <scope>` | Concatenate Markdown: public, all, select, or a configured scope name.      |
 | `--output <path>`  | Write an export to a file instead of stdout.                                |
 
 ### `discern docs`

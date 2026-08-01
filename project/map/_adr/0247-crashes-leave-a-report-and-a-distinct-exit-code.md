@@ -1,4 +1,4 @@
-# ADR 0246: Crashes leave a report and a distinct exit code
+# ADR 0247: Crashes leave a report and a distinct exit code
 
 **Status**: accepted.
 
