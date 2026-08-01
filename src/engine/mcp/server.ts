@@ -37,11 +37,20 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import { serializeResult } from "../../shared/result_serialization.ts";
 import {
+  observeCrash,
   observeResult,
+  takeObservedCrash,
   takeObservedResult,
   takeShownTipIds,
   takeSupplementalHintIds,
+  takeVerbTarget,
 } from "../../shared/result_capture.ts";
+import {
+  captureCrashReport,
+  internalErrorResult,
+  throwIfCrashProbe,
+  writeCrashArtifact,
+} from "../crash.ts";
 import { beginRecording, type Recording } from "../logbook/record.ts";
 import type { DriverFacts } from "../logbook/schema.ts";
 import {
@@ -1398,9 +1407,13 @@ interface PendingToolCall {
  * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
  * result — so a single tool blowing up can never take the whole stdio server down.
  * This is the single place tool handlers are invoked (normal and root-independent
- * paths alike). Observation and recording deliberately happen later, at
- * {@link completeToolCall}, because dispatch refusals never enter a handler and
- * delivery can still append a stale-server hint after the handler returns.
+ * paths alike). A throw is a crash — a bug in discern (ADR 0246) — so it also
+ * saves a crash report beside the logbook (the envelope's message names the
+ * file) and reports the logbook-safe signature through the shared crash
+ * mailbox, drained at {@link completeToolCall}. Observation and recording
+ * deliberately happen later, at {@link completeToolCall}, because dispatch
+ * refusals never enter a handler and delivery can still append a stale-server
+ * hint after the handler returns.
  */
 async function runVerb(
   tool: McpTool,
@@ -1410,6 +1423,7 @@ async function runVerb(
   awaitCallProfile: AwaitCallProfile = "unknown-client",
 ): Promise<DiscernResult> {
   try {
+    throwIfCrashProbe();
     return await tool.run(
       root,
       args,
@@ -1417,12 +1431,10 @@ async function runVerb(
       { awaitCallProfile },
     );
   } catch (e) {
-    return {
-      ok: false,
-      verb: verbOf(tool.name),
-      error: "internal_error",
-      message: e instanceof Error ? e.message : String(e),
-    };
+    const report = captureCrashReport(verbOf(tool.name), e);
+    observeCrash(report.signature);
+    const artifact = await writeCrashArtifact(root, report);
+    return internalErrorResult(verbOf(tool.name), report, artifact);
   }
 }
 
@@ -1448,11 +1460,16 @@ async function completeToolCall(
   observeResult(result);
   const observed = takeObservedResult();
   // Supplemental ids describe CLI-only output such as a session-start
-  // `ctx.log` line, and tips are shown only by the interactive desk. A
-  // long-lived MCP server drains stale state defensively and never attributes
-  // that output to a tool call.
+  // `ctx.log` line, tips are shown only by the interactive desk, and the
+  // verb-target mailbox is fed by CLI positionals (MCP targets arrive as
+  // arguments). A long-lived MCP server drains stale state defensively and
+  // never attributes that output to a tool call.
   takeSupplementalHintIds();
   takeShownTipIds();
+  takeVerbTarget();
+  // Drained per call like the envelope above, so a crash signature can never
+  // leak from one tool call into the next on this long-lived server.
+  const crash = takeObservedCrash();
 
   const recording = pending.recording;
   if (recording !== undefined) {
@@ -1468,6 +1485,7 @@ async function completeToolCall(
       ...(result.dry_run === true ? { dryRun: true } : {}),
       ...(flags !== undefined ? { flags } : {}),
       ...(target !== undefined ? { target } : {}),
+      ...(crash !== undefined ? { crash } : {}),
     });
   }
   return renderResult(result);

@@ -5,7 +5,12 @@
  * each verb's tool returns its DiscernResult as the tool's structuredContent.
  */
 
-import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import {
+  assert,
+  assertEquals,
+  assertExists,
+  assertStringIncludes,
+} from "@std/assert";
 import { exists } from "@std/fs";
 import { basename, dirname, join } from "@std/path";
 import {
@@ -25,7 +30,7 @@ import {
   WorkingRoot,
 } from "../src/engine/mcp/server.ts";
 import { providerFor } from "../src/lib/providers.ts";
-import { KIT_VERSION } from "../src/lib/version.ts";
+import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { OPERATING_POLICIES } from "../src/shared/operating_policies.ts";
@@ -851,6 +856,21 @@ Deno.test("discern mcp: an unexpected core throw becomes internal_error and the 
     assertEquals(failed.result.structuredContent.ok, false);
     assertEquals(failed.result.structuredContent.verb, "coupling");
     assertEquals(failed.result.structuredContent.error, "internal_error");
+    // A crash saves a report beside the logbook and names it in the message —
+    // even here, where the corrupt config keeps the logbook recorder silent.
+    const message = String(failed.result.structuredContent.message);
+    assertStringIncludes(message, "This is a bug in discern");
+    assertStringIncludes(message, ISSUES_URL);
+    const crashReports: string[] = [];
+    for await (
+      const entry of Deno.readDir(join(dir, ".git", "discern", "crash"))
+    ) {
+      crashReports.push(entry.name);
+    }
+    assertEquals(crashReports.length, 1);
+    const crashReport = crashReports[0];
+    assertExists(crashReport);
+    assertStringIncludes(message, crashReport);
 
     await mcp.send({
       jsonrpc: "2.0",
