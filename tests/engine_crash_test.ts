@@ -1,5 +1,5 @@
 /**
- * Crash reporting (ADR 0246): the shared capture/artifact/frame/envelope module,
+ * Crash reporting (ADR 0247): the shared capture/artifact/frame/envelope module,
  * and the end-to-end crash paths on each surface. A crash — an unexpected throw
  * no verb turned into a structured refusal — must leave a version-stamped
  * report the user can attach to an issue, a structured `internal_error`

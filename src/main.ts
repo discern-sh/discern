@@ -1232,7 +1232,7 @@ export async function main(args: string[]): Promise<void> {
     // CI/agent consuming JSON gets a structured error, not garbage). A syntax
     // error reads `invalid_toml`; a schema violation reads `invalid_config` and
     // carries the per-issue list. Anything else is a crash — a bug in discern
-    // reaching the surface — and exits through the crash frame (ADR 0246).
+    // reaching the surface — and exits through the crash frame (ADR 0247).
     if (
       err instanceof ConfigParseError || err instanceof ConfigValidationError
     ) {

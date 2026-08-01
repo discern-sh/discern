@@ -5,7 +5,7 @@
  * Expected failures (a red gate, a refused precondition, a bad config) travel
  * as `DiscernResult` envelopes with error slugs and diagnostics. A crash is the
  * other class: a defect in discern reaching the surface. This module gives that
- * class one shared treatment on every surface (ADR 0246):
+ * class one shared treatment on every surface (ADR 0247):
  *
  *  - **capture** — {@link captureCrashReport} reduces the throw to a report:
  *    discern version, runtime, platform, verb, error, stack.
