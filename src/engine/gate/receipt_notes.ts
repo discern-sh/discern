@@ -13,16 +13,16 @@ import {
   discernCommitAttributionEnabled,
   type EnvReader,
 } from "../../shared/env.ts";
-import { RECEIPT_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
+import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
+  type ProofIssuer,
+  type ProofNotePayload,
   type Receipt,
-  type ReceiptIssuer,
-  type ReceiptNotePayload,
   type ReceiptNotesFetchData,
   type ReceiptNoteWriteData,
   ReceiptSchema,
-  TolerantReceiptNotePayloadSchema,
-  TolerantReceiptNoteSchema,
+  TolerantProofNotePayloadSchema,
+  TolerantProofNoteSchema,
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -406,25 +406,25 @@ function canonicalReceipt(receipt: Receipt): Receipt {
 /** The UTF-8 JSON text placed byte-for-byte inside the DSSE payload. Fixed key
  * order makes today's unsigned writer deterministic; DSSE verification later
  * consumes the decoded bytes without reserializing this object. */
-export function canonicalReceiptNotePayload(
+export function canonicalProofNotePayload(
   receipt: Receipt,
   commit: string,
 ): string {
-  const payload: ReceiptNotePayload = {
+  const payload: ProofNotePayload = {
     subject: { commit },
-    receipt: canonicalReceipt(receipt),
+    proof: canonicalReceipt(receipt),
   };
   return JSON.stringify(payload);
 }
 
-/** One deterministic DSSE-compatible boundary for a structured receipt note.
+/** One deterministic DSSE-compatible boundary for a structured proof note.
  * Current notes use discern's empty-array unsigned extension. */
-export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
+export function canonicalProofNote(receipt: Receipt, commit: string): string {
   const payload = UTF8_ENCODER.encode(
-    canonicalReceiptNotePayload(receipt, commit),
+    canonicalProofNotePayload(receipt, commit),
   );
   return JSON.stringify({
-    payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+    payloadType: PROOF_NOTE_PAYLOAD_TYPE,
     payload: encodeBase64(payload),
     signatures: [],
   }) + "\n";
@@ -434,12 +434,12 @@ export function canonicalReceiptNote(receipt: Receipt, commit: string): string {
  * a readable receipt (`subject` present for the current format, absent for a
  * legacy bare note), or an explicit refusal naming a format identity this
  * binary does not know. Malformed content parses to `undefined`, as before. */
-type ParsedReceiptNote =
+type ParsedProofNote =
   | {
     kind: "receipt";
     receipt: Receipt;
     subject?: string;
-    issuer?: ReceiptIssuer;
+    issuer?: ProofIssuer;
     brief?: string;
   }
   | { kind: "unsupported"; format: string };
@@ -448,9 +448,9 @@ type ParsedReceiptNote =
  * shape, dropping any additive fields a newer writer recorded. */
 function knownIssuerFields(
   issuer: NonNullable<
-    ReturnType<typeof TolerantReceiptNotePayloadSchema.parse>["issuer"]
+    ReturnType<typeof TolerantProofNotePayloadSchema.parse>["issuer"]
   >,
-): ReceiptIssuer {
+): ProofIssuer {
   return {
     ...(issuer.name !== undefined ? { name: issuer.name } : {}),
     ...(issuer.email !== undefined ? { email: issuer.email } : {}),
@@ -478,9 +478,9 @@ function decodeDsseBase64(value: string): Uint8Array | undefined {
 }
 
 /** Decode the envelope once and parse the same bytes a future verifier checks. */
-function parseReceiptNotePayload(
+function parseProofNotePayload(
   encoded: string,
-): ReturnType<typeof TolerantReceiptNotePayloadSchema.parse> | undefined {
+): ReturnType<typeof TolerantProofNotePayloadSchema.parse> | undefined {
   const bytes = decodeDsseBase64(encoded);
   if (bytes === undefined) {
     return undefined;
@@ -497,7 +497,7 @@ function parseReceiptNotePayload(
   } catch {
     return undefined;
   }
-  const payload = TolerantReceiptNotePayloadSchema.safeParse(parsed);
+  const payload = TolerantProofNotePayloadSchema.safeParse(parsed);
   return payload.success ? payload.data : undefined;
 }
 
@@ -506,7 +506,7 @@ function parseReceiptNotePayload(
  * type reads the envelope and decoded payload tolerantly, any other type is
  * reported as unsupported, and a bare 8-field receipt remains legacy unsigned.
  */
-function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
+function parseProofNote(content: string): ParsedProofNote | undefined {
   let parsed: unknown;
   try {
     parsed = JSON.parse(content);
@@ -523,7 +523,7 @@ function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
       : undefined;
   }
   const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
-  if (payloadType !== RECEIPT_NOTE_PAYLOAD_TYPE) {
+  if (payloadType !== PROOF_NOTE_PAYLOAD_TYPE) {
     return {
       kind: "unsupported",
       format: typeof payloadType === "string"
@@ -531,17 +531,17 @@ function parseReceiptNote(content: string): ParsedReceiptNote | undefined {
         : JSON.stringify(payloadType) ?? String(payloadType),
     };
   }
-  const envelope = TolerantReceiptNoteSchema.safeParse(parsed);
+  const envelope = TolerantProofNoteSchema.safeParse(parsed);
   if (!envelope.success) {
     return undefined;
   }
-  const payload = parseReceiptNotePayload(envelope.data.payload);
+  const payload = parseProofNotePayload(envelope.data.payload);
   if (payload === undefined) {
     return undefined;
   }
   return {
     kind: "receipt",
-    receipt: canonicalReceipt(payload.receipt),
+    receipt: canonicalReceipt(payload.proof),
     subject: payload.subject.commit,
     ...(payload.issuer !== undefined
       ? { issuer: knownIssuerFields(payload.issuer) }
@@ -641,13 +641,13 @@ export async function writeReceiptNote(
     mergedRefs.push(ref);
   }
 
-  const body = canonicalReceiptNote(receipt, commit);
+  const body = canonicalProofNote(receipt, commit);
   const existing = await runGit(
     ["notes", `--ref=${RECEIPT_NOTES_SHORT_REF}`, "show", commit],
     { cwd: root },
   );
   if (existing.success) {
-    const parsed = parseReceiptNote(existing.stdout);
+    const parsed = parseProofNote(existing.stdout);
     if (parsed?.kind === "unsupported") {
       return {
         status: "record_failed",
@@ -731,7 +731,7 @@ export interface LandedReceiptNote {
   readonly receipt: Receipt;
   /** The payload's issuer assertion, when present. This read path does not
    * verify a signature or bind the assertion to a trusted identity. */
-  readonly issuer?: ReceiptIssuer;
+  readonly issuer?: ProofIssuer;
   /** The durable record's signed-intent reference, when it carries one. */
   readonly brief?: string;
 }
@@ -798,7 +798,7 @@ function receiptHeadMatchesCommit(head: string, commit: string): boolean {
  * format's authority is the full-oid subject, with the display head kept
  * coherent; a legacy note's strongest binding is its abbreviated head. */
 function boundToCommit(
-  parsed: ParsedReceiptNote & { kind: "receipt" },
+  parsed: ParsedProofNote & { kind: "receipt" },
   commit: string,
 ): boolean {
   if (parsed.subject !== undefined) {
@@ -832,7 +832,7 @@ export async function readReceiptNoteAt(
     if (content === undefined) {
       continue;
     }
-    const parsed = parseReceiptNote(content);
+    const parsed = parseProofNote(content);
     if (parsed === undefined) {
       continue;
     }

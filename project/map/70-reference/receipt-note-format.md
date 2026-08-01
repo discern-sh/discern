@@ -7,17 +7,19 @@ aliases:
   - receipt note schema
   - durable receipt
   - receipt subject
+  - proof note
+  - proof note schema
 ---
 
 # Receipt note format
 
 _The durable claim `discern accept` attaches to a landed commit._
 
-A landing writes one compact JSON object plus a newline under `refs/notes/discern`. The object uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its schema is <https://discern.sh/schema/v1/discern-receipt-note.schema.json>:
+A landing writes one compact JSON object plus a newline under `refs/notes/discern`. The object uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its schema is <https://discern.sh/schema/v1/discern-proof-note.schema.json>:
 
 ```json
 {
-  "payloadType": "https://discern.sh/schema/v1/discern-receipt-note.schema.json#/$defs/DiscernReceiptNotePayload",
+  "payloadType": "https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernProofNotePayload",
   "payload": "<Base64-encoded payload bytes>",
   "signatures": []
 }
@@ -28,7 +30,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 ```json
 {
   "subject": { "commit": "<full commit id>" },
-  "receipt": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0, "line": "…", "markdown": "…" }
+  "proof": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0, "line": "…", "markdown": "…" }
 }
 ```
 
@@ -38,7 +40,7 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 - `payload` preserves the serialized claim. discern writes standard padded Base64. DSSE accepts standard and Base64url alphabets. discern also accepts omitted padding.
 - `signatures` holds DSSE entries with a Base64 `sig` and optional `keyid`. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one entry. discern's unsigned extension uses an empty array.
 
-The decoded payload contains the full commit under `subject.commit`, the structured gate `receipt`, optional issuer assertions (`name`, `email`, and `key`), and the reserved optional `brief` reference for future provenance work.
+The decoded payload contains the full commit under `subject.commit`, the structured gate record under `proof`, optional issuer assertions (`name`, `email`, and `key`), and the reserved optional `brief` reference for future provenance work.
 
 ## Signature and identity boundary
 
@@ -56,7 +58,7 @@ Issuer fields assert what the payload claims. A verified signature shows that a 
 
 ## Reading rules
 
-1. Require `subject.commit` and the receipt's abbreviated `head` to agree with the commit carrying the note.
+1. Require `subject.commit` and the proof claim's abbreviated `head` to agree with the commit carrying the note.
 2. Let unknown added fields pass at every envelope and payload level within v1.
 3. Report an unknown `payloadType` as `data.landed_receipt_unsupported`.
 4. Read a bare receipt with no `payloadType` as legacy unsigned evidence.
@@ -65,8 +67,8 @@ Issuer fields assert what the payload claims. A verified signature shows that a 
 
 ## Where it lives in code
 
-| Concern                     | Source                                                                                 |
-| --------------------------- | -------------------------------------------------------------------------------------- |
-| Envelope, payload, issuer   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                           |
-| Writer, reader, cross-check | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                        |
-| Published schema            | [`discern-receipt-note.schema.json`](../../../schema/discern-receipt-note.schema.json) |
+| Concern                     | Source                                                                             |
+| --------------------------- | ---------------------------------------------------------------------------------- |
+| Envelope, payload, issuer   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                       |
+| Writer, reader, cross-check | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                    |
+| Published schema            | [`discern-proof-note.schema.json`](../../../schema/discern-proof-note.schema.json) |

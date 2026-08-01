@@ -27,24 +27,24 @@ export const RESULT_SCHEMA_ID = publicSchemaId(
   "discern-results.schema.json",
 );
 
-/** The durable landing receipt note's DSSE-compatible envelope. Its
+/** The durable landing proof note's DSSE-compatible envelope. Its
  * `payloadType` points back into this schema, so every note names the payload
  * contract carried in its bytes (ADR 0242). */
-export const RECEIPT_NOTE_SCHEMA_MAJOR = 1;
-export const RECEIPT_NOTE_SCHEMA_ID = publicSchemaId(
-  RECEIPT_NOTE_SCHEMA_MAJOR,
-  "discern-receipt-note.schema.json",
+export const PROOF_NOTE_SCHEMA_MAJOR = 1;
+export const PROOF_NOTE_SCHEMA_ID = publicSchemaId(
+  PROOF_NOTE_SCHEMA_MAJOR,
+  "discern-proof-note.schema.json",
 );
-/** The named payload definition inside the receipt-note publication. */
-export const RECEIPT_NOTE_PAYLOAD_DEFINITION = "DiscernReceiptNotePayload";
+/** The named payload definition inside the proof-note publication. */
+export const PROOF_NOTE_PAYLOAD_DEFINITION = "DiscernProofNotePayload";
 /** DSSE authenticates this type together with the decoded payload bytes. */
-export const RECEIPT_NOTE_PAYLOAD_TYPE =
-  `${RECEIPT_NOTE_SCHEMA_ID}#/$defs/${RECEIPT_NOTE_PAYLOAD_DEFINITION}` as const;
-/** The frozen external protocol that defines receipt signature bytes. */
-export const RECEIPT_NOTE_DSSE_PROTOCOL =
+export const PROOF_NOTE_PAYLOAD_TYPE =
+  `${PROOF_NOTE_SCHEMA_ID}#/$defs/${PROOF_NOTE_PAYLOAD_DEFINITION}` as const;
+/** The frozen external protocol that defines proof signature bytes. */
+export const PROOF_NOTE_DSSE_PROTOCOL =
   "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md";
-/** The frozen external JSON envelope whose field shape the receipt follows. */
-export const RECEIPT_NOTE_DSSE_ENVELOPE =
+/** The frozen external JSON envelope whose field shape the proof note follows. */
+export const PROOF_NOTE_DSSE_ENVELOPE =
   "https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md";
 
 /** Generated-artifact field that records the policy owning its baseline. */
@@ -100,13 +100,13 @@ export const PUBLIC_SCHEMA_PUBLICATIONS = [
     contract: "Every CLI `--json` and MCP tool result envelope.",
   },
   {
-    id: RECEIPT_NOTE_SCHEMA_ID,
-    artifactPath: "schema/discern-receipt-note.schema.json",
-    major: RECEIPT_NOTE_SCHEMA_MAJOR,
+    id: PROOF_NOTE_SCHEMA_ID,
+    artifactPath: "schema/discern-proof-note.schema.json",
+    major: PROOF_NOTE_SCHEMA_MAJOR,
     compatibility: RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    label: "Landing receipt note",
+    label: "Landing proof note",
     contract:
-      "The receipt envelope acceptance attaches to a landed commit, using the Dead Simple Signing Envelope (DSSE) field and payload boundary.",
+      "The proof envelope acceptance attaches to a landed commit, using the Dead Simple Signing Envelope (DSSE) field and payload boundary.",
   },
 ] as const satisfies readonly PublicSchemaPublication[];
 

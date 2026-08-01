@@ -190,7 +190,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `project/map/_internal/tip-inventory.md`         | generated file   | [`tips`](#tips--tips)                                                                                     |
 | `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/discern-receipt-note.schema.json`        | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
+| `schema/discern-proof-note.schema.json`          | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
 | `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
 | `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
@@ -1307,9 +1307,9 @@ The versioned public schema URLs and the root generated artifacts served at them
   - `https://discern.sh/schema/v1/discern-config.schema.json`
   - `https://discern.sh/schema/v1/discern-setup-config.schema.json`
   - `https://discern.sh/schema/v1/discern-results.schema.json`
-  - `https://discern.sh/schema/v1/discern-receipt-note.schema.json`
+  - `https://discern.sh/schema/v1/discern-proof-note.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
-- Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-receipt-note.schema.json`
+- Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
 - Feature canon: described by the `published-contracts` node
 

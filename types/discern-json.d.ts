@@ -65,7 +65,7 @@ export type DiscernKnownErrorSlug =
   | "unknown_standard"
   | "write_access";
 
-export type DiscernReceipt = {
+export type DiscernProof = {
   branch: string;
   trunk: string;
   head: string;
@@ -1852,7 +1852,7 @@ export type DiscernDoneResult = {
       }>;
       warnings?: Array<string>;
     };
-    receipt?: DiscernReceipt;
+    receipt?: DiscernProof;
     gate_receipt?: {
       status:
         | "recorded"
@@ -3349,12 +3349,12 @@ export type DiscernStatusResult = {
       reason?: string;
       receipt?: string;
       receipt_line?: string;
-      receipt_data?: DiscernReceipt;
+      receipt_data?: DiscernProof;
     };
     landed_receipt?: {
       commit: string;
       ref: string;
-      receipt: DiscernReceipt;
+      receipt: DiscernProof;
       issuer?: {
         name?: string;
         email?: string;
@@ -3670,7 +3670,7 @@ export type DiscernAcceptResult = {
         reason?: string;
         receipt?: string;
         receipt_line?: string;
-        receipt_data?: DiscernReceipt;
+        receipt_data?: DiscernProof;
       };
     };
     receipt?: string;

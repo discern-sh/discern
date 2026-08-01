@@ -16,19 +16,16 @@ import {
   type ResultContract,
 } from "./result_contracts.ts";
 import {
+  PROOF_NOTE_DSSE_ENVELOPE,
+  PROOF_NOTE_DSSE_PROTOCOL,
+  PROOF_NOTE_PAYLOAD_DEFINITION,
+  PROOF_NOTE_PAYLOAD_TYPE,
+  PROOF_NOTE_SCHEMA_ID,
   PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY,
-  RECEIPT_NOTE_DSSE_ENVELOPE,
-  RECEIPT_NOTE_DSSE_PROTOCOL,
-  RECEIPT_NOTE_PAYLOAD_DEFINITION,
-  RECEIPT_NOTE_PAYLOAD_TYPE,
-  RECEIPT_NOTE_SCHEMA_ID,
   RESULT_SCHEMA_COMPATIBILITY_POLICY,
   RESULT_SCHEMA_ID,
 } from "./public_schemas.ts";
-import {
-  ReceiptNotePayloadSchema,
-  ReceiptNoteSchema,
-} from "./result_schemas.ts";
+import { ProofNotePayloadSchema, ProofNoteSchema } from "./result_schemas.ts";
 import { ERROR_SLUGS } from "./result.ts";
 
 const SCHEMA_TITLE = "discern CLI and MCP JSON results";
@@ -254,24 +251,24 @@ export function renderResultJsonSchema(): string {
 }
 
 /**
- * The durable receipt note's published contract: a DSSE-compatible envelope
+ * The durable proof note's published contract: a DSSE-compatible envelope
  * plus the decoded JSON payload definition its `payloadType` identifies.
  * Runtime writers stay strict while this publication permits additive object
  * fields, matching the tolerant durable reader.
  */
-export function buildReceiptNoteJsonSchema(): JsonObject {
+export function buildProofNoteJsonSchema(): JsonObject {
   const hoisted: JsonObject = {};
-  const body = generatedSchema(ReceiptNoteSchema, hoisted);
-  const payloadBody = generatedSchema(ReceiptNotePayloadSchema, hoisted);
+  const body = generatedSchema(ProofNoteSchema, hoisted);
+  const payloadBody = generatedSchema(ProofNotePayloadSchema, hoisted);
   const defs: JsonObject = {};
   placeHoistedDefs(defs, hoisted);
-  defs[RECEIPT_NOTE_PAYLOAD_DEFINITION] = {
-    title: RECEIPT_NOTE_PAYLOAD_DEFINITION,
+  defs[PROOF_NOTE_PAYLOAD_DEFINITION] = {
+    title: PROOF_NOTE_PAYLOAD_DEFINITION,
     ...payloadBody,
   };
   const properties = body.properties;
   if (!isObject(properties) || !isObject(properties.payload)) {
-    throw new Error("receipt note schema must declare its encoded payload");
+    throw new Error("proof note schema must declare its encoded payload");
   }
   const annotatedBody: JsonObject = {
     ...body,
@@ -281,18 +278,18 @@ export function buildReceiptNoteJsonSchema(): JsonObject {
         ...properties.payload,
         contentEncoding: "base64",
         contentMediaType: "application/json",
-        contentSchema: refFor(RECEIPT_NOTE_PAYLOAD_DEFINITION),
+        contentSchema: refFor(PROOF_NOTE_PAYLOAD_DEFINITION),
       },
     },
   };
   return publicSchema({
     $schema: "https://json-schema.org/draft/2020-12/schema",
-    $id: RECEIPT_NOTE_SCHEMA_ID,
+    $id: PROOF_NOTE_SCHEMA_ID,
     [PUBLIC_SCHEMA_COMPATIBILITY_POLICY_KEY]:
       RESULT_SCHEMA_COMPATIBILITY_POLICY,
-    title: "DiscernReceiptNoteEnvelope",
+    title: "DiscernProofNoteEnvelope",
     description:
-      "The discern receipt envelope follows the Dead Simple Signing Envelope " +
+      "The discern proof envelope follows the Dead Simple Signing Envelope " +
       "(DSSE) field and payload boundary. Discern attaches it to a landed " +
       "commit as a Git note under refs/notes/discern. The note body is this object as " +
       "one line of JSON plus a newline. Decode payload from Base64 and keep " +
@@ -304,16 +301,16 @@ export function buildReceiptNoteJsonSchema(): JsonObject {
       "unauthenticated lookup hint; a signing profile and trust policy decide " +
       "the algorithm, verification key, and identity. A bare receipt object " +
       "with no payloadType is a legacy unsigned note.",
-    "x-discern-payload-type": RECEIPT_NOTE_PAYLOAD_TYPE,
-    "x-discern-dsse-envelope": RECEIPT_NOTE_DSSE_ENVELOPE,
-    "x-discern-dsse-protocol": RECEIPT_NOTE_DSSE_PROTOCOL,
+    "x-discern-payload-type": PROOF_NOTE_PAYLOAD_TYPE,
+    "x-discern-dsse-envelope": PROOF_NOTE_DSSE_ENVELOPE,
+    "x-discern-dsse-protocol": PROOF_NOTE_DSSE_PROTOCOL,
     ...annotatedBody,
     ...(Object.keys(defs).length > 0 ? { $defs: defs } : {}),
   }) as JsonObject;
 }
 
-export function renderReceiptNoteJsonSchema(): string {
-  return `${JSON.stringify(buildReceiptNoteJsonSchema(), null, 2)}\n`;
+export function renderProofNoteJsonSchema(): string {
+  return `${JSON.stringify(buildProofNoteJsonSchema(), null, 2)}\n`;
 }
 
 function literal(value: JsonValue): string {

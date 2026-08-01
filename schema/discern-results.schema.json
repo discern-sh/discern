@@ -5944,7 +5944,7 @@
                   ]
                 },
                 "receipt": {
-                  "$ref": "#/$defs/DiscernReceipt"
+                  "$ref": "#/$defs/DiscernProof"
                 },
                 "gate_receipt": {
                   "type": "object",
@@ -10990,7 +10990,7 @@
                       "type": "string"
                     },
                     "receipt_data": {
-                      "$ref": "#/$defs/DiscernReceipt"
+                      "$ref": "#/$defs/DiscernProof"
                     }
                   },
                   "required": [
@@ -11007,7 +11007,7 @@
                       "type": "string"
                     },
                     "receipt": {
-                      "$ref": "#/$defs/DiscernReceipt"
+                      "$ref": "#/$defs/DiscernProof"
                     },
                     "issuer": {
                       "type": "object",
@@ -11025,7 +11025,7 @@
                           "description": "The issuer's asserted key or key reference. Verifiers use their signing profile and trust policy rather than trusting this value on its own."
                         }
                       },
-                      "description": "Identity details asserted by the receipt payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
+                      "description": "Identity details asserted by the proof payload. A verified Dead Simple Signing Envelope (DSSE) signature protects these details from alteration but does not establish who controls the signing key. Nothing writes them at v1.0.0."
                     },
                     "brief": {
                       "type": "string"
@@ -12174,7 +12174,7 @@
                           "type": "string"
                         },
                         "receipt_data": {
-                          "$ref": "#/$defs/DiscernReceipt"
+                          "$ref": "#/$defs/DiscernProof"
                         }
                       },
                       "required": [
@@ -15552,8 +15552,8 @@
         "verb"
       ]
     },
-    "DiscernReceipt": {
-      "title": "DiscernReceipt",
+    "DiscernProof": {
+      "title": "DiscernProof",
       "type": "object",
       "properties": {
         "branch": {

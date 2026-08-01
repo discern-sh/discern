@@ -13,17 +13,17 @@ import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type AcceptData,
   type GateData,
+  ProofNotePayloadSchema,
+  ProofNoteSchema,
   type Receipt,
-  ReceiptNotePayloadSchema,
-  ReceiptNoteSchema,
   ReceiptSchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
-import { RECEIPT_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
+import { PROOF_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import {
-  canonicalReceiptNote,
-  canonicalReceiptNotePayload,
+  canonicalProofNote,
+  canonicalProofNotePayload,
   findLandedReceiptNoteForBranch,
   findLatestLandedReceiptNoteForBranch,
   readReceiptNoteAt,
@@ -110,19 +110,19 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
     "show",
     commit,
   );
-  const envelope = ReceiptNoteSchema.parse(JSON.parse(content));
-  assertEquals(envelope.payloadType, RECEIPT_NOTE_PAYLOAD_TYPE);
+  const envelope = ProofNoteSchema.parse(JSON.parse(content));
+  assertEquals(envelope.payloadType, PROOF_NOTE_PAYLOAD_TYPE);
   assertEquals(envelope.signatures, []);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
-  const payload = ReceiptNotePayloadSchema.parse(JSON.parse(payloadText));
+  const payload = ProofNotePayloadSchema.parse(JSON.parse(payloadText));
   assertEquals(
     payloadText,
-    canonicalReceiptNotePayload(payload.receipt, commit),
+    canonicalProofNotePayload(payload.proof, commit),
   );
   assertEquals(payload.subject.commit, commit);
   assertEquals(payload.issuer, undefined);
   assertEquals(payload.brief, undefined);
-  return payload.receipt;
+  return payload.proof;
 }
 
 async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
@@ -223,7 +223,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       "--no-gpg-sign",
     );
     const newerCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const newerFormat = RECEIPT_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
+    const newerFormat = PROOF_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
     await git(
       dir,
       "notes",
@@ -642,7 +642,7 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
   };
 }
 
-function encodedReceiptPayload(
+function encodedProofPayload(
   value: unknown,
   alphabet: "standard" | "url-safe" = "standard",
 ): string {
@@ -698,8 +698,8 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       ref: RECEIPT_NOTES_REF,
       receipt: wantedReceipt,
     });
-    ReceiptNoteSchema.parse(
-      JSON.parse(canonicalReceiptNote(wantedReceipt, wantedCommit)),
+    ProofNoteSchema.parse(
+      JSON.parse(canonicalProofNote(wantedReceipt, wantedCommit)),
     );
     assertEquals(
       await findLandedReceiptNoteForBranch(
@@ -803,7 +803,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
-      canonicalReceiptNote({
+      canonicalProofNote({
         ...syntheticReceipt(malformedCommit, "agent/x"),
         head: "",
       }, malformedCommit),
@@ -821,7 +821,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
-      canonicalReceiptNote(wantedReceipt, wantedCommit),
+      canonicalProofNote(wantedReceipt, wantedCommit),
       malformedCommit,
     );
     assertEquals(
@@ -879,12 +879,14 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     );
     const futureCommit = await gitOut(dir, "rev-parse", "HEAD");
     const futureReceipt = syntheticReceipt(futureCommit, "agent/future");
-    const futurePayload = encodedReceiptPayload({
+    const futurePayload = encodedProofPayload({
       subject: { commit: futureCommit, tree: "0".repeat(40) },
-      receipt: { ...futureReceipt, verdict: "green" },
+      proof: { ...futureReceipt, verdict: "green" },
       issuer: { name: "Future Owner", role: "maintainer" },
       brief: "brief-0042",
-      future: "\u{10FFFF}",
+      // Two astral characters guarantee a `+`/`/` sextet at every Base64
+      // alignment, so the URL-safe guard below cannot rot as fields change.
+      future: "\u{10FFFF}\u{10FFFF}",
     }, "url-safe");
     assert(
       /[-_]/u.test(futurePayload),
@@ -898,7 +900,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "-m",
       `${
         JSON.stringify({
-          payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+          payloadType: PROOF_NOTE_PAYLOAD_TYPE,
           payload: futurePayload,
           signatures: [{
             keyid: "future-key",
@@ -924,7 +926,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     const malformedPayloads = [
       "***",
       encodeBase64(new Uint8Array([0xff])),
-      encodedReceiptPayload({ receipt: futureReceipt }),
+      encodedProofPayload({ proof: futureReceipt }),
     ];
     for (const payload of malformedPayloads) {
       await git(
@@ -936,7 +938,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
         "-m",
         `${
           JSON.stringify({
-            payloadType: RECEIPT_NOTE_PAYLOAD_TYPE,
+            payloadType: PROOF_NOTE_PAYLOAD_TYPE,
             payload,
             signatures: [],
           })
@@ -960,7 +962,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "--no-gpg-sign",
     );
     const unreadCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const futureFormat = RECEIPT_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
+    const futureFormat = PROOF_NOTE_PAYLOAD_TYPE.replace("/v1/", "/v9/");
     await git(
       dir,
       "notes",
@@ -1059,7 +1061,7 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "--ref=remote-copy",
       "add",
       "-m",
-      canonicalReceiptNote(receiptThree, three),
+      canonicalProofNote(receiptThree, three),
       three,
     );
     await git(
@@ -1099,7 +1101,7 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "--ref=conflicting-copy",
       "add",
       "-m",
-      canonicalReceiptNote(remoteFive, five),
+      canonicalProofNote(remoteFive, five),
       five,
     );
     await git(

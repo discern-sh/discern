@@ -22,7 +22,7 @@ import {
   buildConfigJsonSchema,
 } from "../src/shared/config_codegen.ts";
 import {
-  buildReceiptNoteJsonSchema,
+  buildProofNoteJsonSchema,
   buildResultJsonSchema,
 } from "../src/shared/result_codegen.ts";
 import { RESULT_CONTRACT_REFERENCE_FIELDS } from "../src/shared/result_contracts.ts";
@@ -71,7 +71,7 @@ const CURRENT_SCHEMA_BUILDERS: Record<
   "schema/discern-config.schema.json": buildConfigJsonSchema,
   "schema/discern-setup-config.schema.json": buildConfigDocJsonSchema,
   "schema/discern-results.schema.json": buildResultJsonSchema,
-  "schema/discern-receipt-note.schema.json": buildReceiptNoteJsonSchema,
+  "schema/discern-proof-note.schema.json": buildProofNoteJsonSchema,
 };
 
 const ANNOTATION_KEYS = new Set([

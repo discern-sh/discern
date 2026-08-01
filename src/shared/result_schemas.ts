@@ -42,7 +42,7 @@ import {
 import { ASSURANCE_VERDICTS, KNOWN_JOB_STATES } from "./setup_assurance.ts";
 import { LANDING_AUTHORITY_KINDS, LANDING_CONSENT_SOURCES } from "./consent.ts";
 import { AWAIT_CALL_PROFILES } from "./mcp_timeout_policy.ts";
-import { RECEIPT_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
+import { PROOF_NOTE_PAYLOAD_TYPE } from "./public_schemas.ts";
 import { FIRST_PARTY_LEGAL_DOCUMENT_KINDS } from "./license_registry.ts";
 import {
   CONTINUATION_HANDLE_LENGTH,
@@ -259,7 +259,7 @@ const RECEIPT_FIELDS = {
   markdown: z.string(),
 };
 export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
-  id: "DiscernReceipt",
+  id: "DiscernProof",
   description:
     "The structured receipt a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
@@ -267,13 +267,14 @@ export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 
-// ── the durable receipt note (ADR 0242) ─────────────────────────────────────
-// The landed receipt travels as a DSSE-compatible envelope. `payloadType` and
-// the decoded `payload` bytes are the future signature input; the payload owns
-// the full-object-id subject, receipt, issuer assertion, and brief reference.
+// ── the durable proof note (ADR 0242) ───────────────────────────────────────
+// The landed receipt travels as a DSSE-compatible envelope under the proof
+// name (ADR 0245). `payloadType` and the decoded `payload` bytes are the
+// future signature input; the payload owns the full-object-id subject, the
+// proof claim, the issuer assertion, and the brief reference.
 // Runtime writers stay strict while durable readers accept additive fields.
 
-const RECEIPT_ISSUER_FIELDS = {
+const PROOF_ISSUER_FIELDS = {
   name: z.string().meta({
     description:
       "The issuer's asserted display name. A verified signature protects " +
@@ -290,20 +291,20 @@ const RECEIPT_ISSUER_FIELDS = {
       "profile and trust policy rather than trusting this value on its own.",
   }).optional(),
 };
-/** Identity details asserted by a durable receipt payload. A verified
+/** Identity details asserted by a durable proof payload. A verified
  * signature protects the assertion; a trust policy binds its key to a person,
  * agent, runner, or organization. */
-export const ReceiptIssuerSchema = z.strictObject(RECEIPT_ISSUER_FIELDS).meta({
+export const ProofIssuerSchema = z.strictObject(PROOF_ISSUER_FIELDS).meta({
   description:
-    "Identity details asserted by the receipt payload. A verified Dead Simple " +
+    "Identity details asserted by the proof payload. A verified Dead Simple " +
     "Signing Envelope (DSSE) signature protects these details from alteration " +
     "but does not establish who controls the signing key. Nothing writes them at v1.0.0.",
 });
-export type ReceiptIssuer = z.infer<typeof ReceiptIssuerSchema>;
+export type ProofIssuer = z.infer<typeof ProofIssuerSchema>;
 
 /** One standard DSSE signature entry. Cryptographic algorithm, signature
  * encoding, key resolution, and trust remain the signing profile's decisions. */
-export const ReceiptNoteSignatureSchema = z.strictObject({
+export const ProofNoteSignatureSchema = z.strictObject({
   keyid: z.string().meta({
     description:
       "Optional key-selection hint. It is not authenticated by DSSE and must " +
@@ -322,14 +323,14 @@ export const ReceiptNoteSignatureSchema = z.strictObject({
 
 /** The JSON claim preserved as the envelope's Base64 payload. A future DSSE
  * signature covers every byte of this claim, including issuer and brief. */
-export const ReceiptNotePayloadSchema = z.strictObject({
+export const ProofNotePayloadSchema = z.strictObject({
   subject: z.strictObject({
     commit: z.string().meta({
       description: "The full object id of the validated, landed commit.",
     }),
   }),
-  receipt: ReceiptSchema,
-  issuer: ReceiptIssuerSchema.optional(),
+  proof: ReceiptSchema,
+  issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
       "Reserved: a reference to a signed intent artifact. Nothing writes " +
@@ -337,45 +338,46 @@ export const ReceiptNotePayloadSchema = z.strictObject({
   }).optional(),
 }).meta({
   description:
-    "The receipt claim carried as UTF-8 JSON in the DSSE payload: the landed " +
-    "commit, receipt, and optional issuer assertion and intent reference.",
+    "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
+    "commit, the structured gate record, and optional issuer assertion and " +
+    "intent reference.",
 });
-export type ReceiptNotePayload = z.infer<typeof ReceiptNotePayloadSchema>;
+export type ProofNotePayload = z.infer<typeof ProofNotePayloadSchema>;
 
-/** The durable receipt note envelope `discern accept` attaches to a landed
+/** The durable proof note envelope `discern accept` attaches to a landed
  * commit under `refs/notes/discern`. Current writers use discern's unsigned
- * empty-array extension; durable readers use {@link TolerantReceiptNoteSchema}. */
-export const ReceiptNoteSchema = z.strictObject({
-  payloadType: z.literal(RECEIPT_NOTE_PAYLOAD_TYPE).meta({
+ * empty-array extension; durable readers use {@link TolerantProofNoteSchema}. */
+export const ProofNoteSchema = z.strictObject({
+  payloadType: z.literal(PROOF_NOTE_PAYLOAD_TYPE).meta({
     description:
-      "The receipt payload's published type. DSSE authenticates this value " +
+      "The proof payload's published type. DSSE authenticates this value " +
       "together with the decoded payload bytes.",
   }),
   payload: z.string().meta({
     description: "Standard or URL-safe Base64-encoded UTF-8 JSON matching " +
-      "DiscernReceiptNotePayload, with or without padding. These " +
+      "DiscernProofNotePayload, with or without padding. These " +
       "decoded bytes are the DSSE payload and must not be reserialized before verification.",
   }),
-  signatures: z.array(ReceiptNoteSignatureSchema).meta({
+  signatures: z.array(ProofNoteSignatureSchema).meta({
     description:
       "DSSE signatures over this payload. Standard signed envelopes carry at " +
       "least one. An empty array is discern's unsigned extension, written at v1.0.0.",
   }),
 });
-export type ReceiptNote = z.infer<typeof ReceiptNoteSchema>;
+export type ProofNote = z.infer<typeof ProofNoteSchema>;
 
 /** The durable reader's payload schema. Unknown additive fields pass at every
- * level while the required receipt claim remains stable within this major. */
-export const TolerantReceiptNotePayloadSchema = z.looseObject({
+ * level while the required proof claim remains stable within this major. */
+export const TolerantProofNotePayloadSchema = z.looseObject({
   subject: z.looseObject({ commit: z.string() }),
-  receipt: z.looseObject(RECEIPT_FIELDS),
-  issuer: z.looseObject(RECEIPT_ISSUER_FIELDS).optional(),
+  proof: z.looseObject(RECEIPT_FIELDS),
+  issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
   brief: z.string().optional(),
 });
 
 /** The durable reader's envelope schema. Signature entries stay opaque until
  * a signing profile and verifier exist; their bytes remain in the Git note. */
-export const TolerantReceiptNoteSchema = z.looseObject({
+export const TolerantProofNoteSchema = z.looseObject({
   payloadType: z.string(),
   payload: z.string(),
   signatures: z.array(z.looseObject({})),
@@ -996,7 +998,7 @@ export const StatusDataSchema = z.strictObject({
     receipt: ReceiptSchema,
     /** The payload's issuer assertion, when present. This field does not mean
      * the signature or the asserted identity has been verified. */
-    issuer: ReceiptIssuerSchema.optional(),
+    issuer: ProofIssuerSchema.optional(),
     /** The durable record's signed-intent reference, when it carries one. */
     brief: z.string().optional(),
   }).optional(),

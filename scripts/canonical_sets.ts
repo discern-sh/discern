@@ -1288,7 +1288,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "maintained-block",
       },
       {
-        path: "schema/discern-receipt-note.schema.json",
+        path: "schema/discern-proof-note.schema.json",
         kind: "generated-file",
         banner: false,
       },

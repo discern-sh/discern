@@ -47,8 +47,8 @@ const NON_SKILL_TOKENS = new Map<string, string>([
     "the setup config document's published schema artifact basename",
   ],
   [
-    "discern-receipt-note",
-    "the landing receipt note's published schema artifact basename",
+    "discern-proof-note",
+    "the landing proof note's published schema artifact basename",
   ],
 ]);
 

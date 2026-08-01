@@ -1,6 +1,6 @@
 # ADR 0242: Durable receipts use a versioned DSSE-compatible envelope
 
-**Status**: accepted; amends the note-body decision of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), applies the contract discipline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) to a channel it deliberately excluded, and leaves the receipt derivation and relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) / [ADR 0188](0188-the-receipt-relays-as-one-line.md) unchanged.
+**Status**: accepted; amends the note-body decision of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), applies the contract discipline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) to a channel it deliberately excluded, and leaves the receipt derivation and relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) / [ADR 0188](0188-the-receipt-relays-as-one-line.md) unchanged. The frozen identifiers — the schema id, the payload type, and the payload's `proof` field — carry the artifact's successor name from [ADR 0245](0245-receipt-renamed-to-proof.md), landed ahead of the product-wide rename sweep so the durable bytes never need a second identity; this record otherwise keeps the receipt vocabulary current at its writing.
 
 ## Context
 
@@ -14,11 +14,11 @@ The append-only compatibility ratchet arms at the first release tag. Signing imp
 
 **Acceptance records the landed receipt as a DSSE-compatible JSON envelope whose payload bytes are preserved in the note.** The note body is one compact JSON object plus a trailing newline:
 
-- `payloadType` is `https://discern.sh/schema/v1/discern-receipt-note.schema.json#/$defs/DiscernReceiptNotePayload`. It identifies the UTF-8 JSON payload contract and is the in-band compatibility-major identity.
+- `payloadType` is `https://discern.sh/schema/v1/discern-proof-note.schema.json#/$defs/DiscernProofNotePayload`. It identifies the UTF-8 JSON payload contract and is the in-band compatibility-major identity.
 - `payload` is Base64 of the serialized payload bytes. Current writers use standard padded Base64; readers accept the standard and URL-safe alphabets and also tolerate omitted padding. A verifier uses the decoded bytes and never reconstructs them from parsed JSON.
 - `signatures` is an array of DSSE signature entries. Each entry has the required Base64 `sig` and optional `keyid`. The [standard DSSE JSON envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) requires at least one signature. Discern v1.0.0 writes an empty array as its unsigned extension. Adding one or more real entries produces the standard signed form without moving the payload.
 
-The payload contains `subject`, `receipt`, and the optional `issuer` and `brief` fields. `subject.commit` is the full object id of the validated landed commit. The writer checks it against the receipt's abbreviated display head; the reader requires it to equal the commit carrying the Git note.
+The payload contains `subject`, `proof` (the structured gate record), and the optional `issuer` and `brief` fields. `subject.commit` is the full object id of the validated landed commit. The writer checks it against the record's abbreviated display head; the reader requires it to equal the commit carrying the Git note.
 
 The signature input follows [DSSE protocol v1.0.2](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/protocol.md): `PAE(UTF8(payloadType), decoded payload bytes)`. The payload type and every payload field are therefore covered, including unknown future fields, the commit subject, an issuer assertion, and a brief reference. No other outer-envelope field enters the signature input, so future authenticated claims belong inside the payload. No JSON canonicalization is involved.
 
@@ -26,7 +26,7 @@ The signature input follows [DSSE protocol v1.0.2](https://github.com/secure-sys
 
 The runtime writer is strict and the durable reader is tolerant. Unknown fields pass at every envelope and payload level within v1. An unrecognized `payloadType` yields an explicit `unsupported` reading. A bare 8-field receipt with no `payloadType` remains a legacy unsigned note. The parser currently reads signatures as opaque data and performs no cryptographic verification; `valid` means the payload is readable and bound to its Git commit.
 
-The envelope and decoded payload definition publish together at `schema/discern-receipt-note.schema.json`. The payload type points into that publication, and code generation derives the artifact from the Zod schemas. Breaking changes move to a new major path and payload type.
+The envelope and decoded payload definition publish together at `schema/discern-proof-note.schema.json`. The payload type points into that publication, and code generation derives the artifact from the Zod schemas. Breaking changes move to a new major path and payload type.
 
 Explicitly not decided here: no signing command, verification verb, signing profile, trust configuration, key management, signature threshold, ledger, in-toto statement, or authorship-chain behavior. The `brief` field only reserves the receipt's signed reference to that future artifact.
 
@@ -37,7 +37,7 @@ Explicitly not decided here: no signing command, verification verb, signing prof
 - Unsigned notes are less pleasant to inspect directly because the receipt payload is Base64. `discern status` remains the human reader, and local gate output does not change.
 - Unknown compatible payload fields remain authenticated because the envelope preserves their original bytes, even when an older reader ignores them after parsing.
 - Legacy bare notes remain readable. The unlanded wrapper draft has no compatibility claim and is replaced before v1.
-- The result schema still carries the named `DiscernReceipt` definition. The note schema embeds the same generated definition, plus the payload contract and DSSE envelope.
+- The result schema still carries the named `DiscernProof` definition. The note schema embeds the same generated definition, plus the payload contract and DSSE envelope.
 
 ## Alternatives considered
 
