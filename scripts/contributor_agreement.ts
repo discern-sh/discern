@@ -21,7 +21,7 @@ export const CORPORATE_CONTRIBUTOR_AGREEMENT = {
   kind: "corporate",
   repoPath: "CCLA.md",
   version: "1.0",
-  sha256: "42bd715e690237da24e9ab95c1234b4327f6f7114479524ac699746ba7ddae8f",
+  sha256: "4a755a1c98eeab1d62021c07d2696c598d331bc39de4d9933c1acd35904650ec",
 } as const;
 
 /** Every agreement whose versioned bytes form part of the legal record. */

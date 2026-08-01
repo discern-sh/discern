@@ -196,7 +196,7 @@ Deno.test("the hosted assistant accepts the individual agreement without a repos
     "excluding any parent, subsidiary, affiliate",
   );
   assertStringIncludes(corporate, "authorized to enter into contracts");
-  assertStringIncludes(corporate, "Typing a name into a field, by itself");
+  assertStringIncludes(corporate, "SHA-256 digest of the signed PDF");
 
   const metadataText = await Deno.readTextFile(CLA_ASSISTANT_METADATA);
   assertEquals(metadataText, renderClaAssistantMetadata());
