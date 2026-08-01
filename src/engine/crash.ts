@@ -255,10 +255,35 @@ export function renderCrashArtifact(report: CrashReport): string {
   ].join("\n");
 }
 
-/** A crash file's name: the sortable ISO timestamp (filesystem-safe) plus the
- * pid, so concurrent crashes never collide and newest-first is a name sort. */
-function crashFileName(report: CrashReport): string {
-  return `${report.at.replaceAll(":", "-")}-${Deno.pid}.txt`;
+/** A crash file's prefix: the sortable ISO timestamp (filesystem-safe) plus
+ * the pid. A unique suffix prevents same-process, same-instant collisions
+ * while keeping newest-first equivalent to a name sort. */
+function crashFilePrefix(report: CrashReport): string {
+  return `${report.at.replaceAll(":", "-")}-${Deno.pid}-`;
+}
+
+/** Create and fill one crash file without exposing a shared target path. */
+async function createCrashFile(
+  dir: string,
+  report: CrashReport,
+  body: string,
+): Promise<string> {
+  const path = await Deno.makeTempFile({
+    dir,
+    prefix: crashFilePrefix(report),
+    suffix: ".txt",
+  });
+  try {
+    await Deno.writeTextFile(path, body);
+    return path;
+  } catch (error) {
+    try {
+      await Deno.remove(path);
+    } catch {
+      // Best-effort cleanup while the outer crash path is already failing.
+    }
+    throw error;
+  }
 }
 
 /** Prune the crash directory to the newest {@link MAX_CRASH_FILES} reports.
@@ -293,8 +318,7 @@ export async function writeCrashArtifact(
     const dir = await gitAdminStatePath(cwd, "crash");
     if (dir !== undefined) {
       await ensureDir(dir);
-      const path = join(dir, crashFileName(report));
-      await Deno.writeTextFile(path, body);
+      const path = await createCrashFile(dir, report, body);
       await pruneCrashDir(dir);
       return path;
     }

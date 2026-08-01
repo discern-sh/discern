@@ -20,7 +20,7 @@ A red check, a refused precondition, or a broken `discern.toml` is a normal resu
 ## What a crash leaves behind
 
 - **A stderr frame.** The discern version, the command that was running, the full error and stack, and the saved report's path.
-- **A report file.** `.git/discern/crash/<timestamp>-<pid>.txt`: plain text carrying the discern version, Deno runtime, platform, command, error, and stack. The newest 20 reports are kept. Outside a git repository the report lands in the system temp directory; the frame prints the path either way.
+- **A report file.** `<git-common-dir>/discern/crash/<timestamp>-<pid>-<unique>.txt`: plain text carrying the discern version, Deno runtime, platform, command, error, and stack. The newest 20 reports are kept. Outside a git repository the report lands in the system temp directory; the frame prints the path either way.
 - **A logbook line.** [The logbook](the-logbook.md) records the failed run with a `crash` field holding the error's class name and one code location. The message appears only in the report file.
 - **Exit code `70`.** Distinct from the ordinary failure exit `1`, so a script can tell "discern hit a bug" from "the check failed". See [CLI exit codes](mcp-and-results.md#cli-exit-codes).
 

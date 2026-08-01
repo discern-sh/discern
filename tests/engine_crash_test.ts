@@ -222,6 +222,39 @@ Deno.test("writeCrashArtifact: saves under .git/discern/crash and prunes to the 
   });
 });
 
+Deno.test("writeCrashArtifact: concurrent same-instant reports get distinct files", async () => {
+  await withTempDir(async (dir) => {
+    await Deno.writeTextFile(join(dir, "README.md"), "scaffold\n");
+    await gitInit(dir);
+    const first = captureCrashReport("status", new TypeError("first crash"));
+    const second = captureCrashReport("docs", new RangeError("second crash"));
+    second.at = first.at;
+
+    const [firstPath, secondPath] = await Promise.all([
+      writeCrashArtifact(dir, first),
+      writeCrashArtifact(dir, second),
+    ]);
+    assertExists(firstPath);
+    assertExists(secondPath);
+    assert(
+      firstPath !== secondPath,
+      `same-instant reports resolved to one path: ${firstPath}`,
+    );
+    assertStringIncludes(await Deno.readTextFile(firstPath), "first crash");
+    assertStringIncludes(await Deno.readTextFile(secondPath), "second crash");
+
+    const files: string[] = [];
+    for await (
+      const entry of Deno.readDir(join(dir, ".git", "discern", "crash"))
+    ) {
+      if (entry.isFile) {
+        files.push(entry.name);
+      }
+    }
+    assertEquals(files.length, 2);
+  });
+});
+
 Deno.test("writeCrashArtifact: outside a repository, falls back to a temp file", async () => {
   await withTempDir(async (dir) => {
     const report = captureCrashReport("status", new TypeError("boom"));
