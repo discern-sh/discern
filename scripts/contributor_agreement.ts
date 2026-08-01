@@ -2,9 +2,12 @@
  * The authored identities of discern's contributor agreements and the exact
  * payload mirrored into the hosted CLA Assistant Gist.
  *
- * A numeric version identifies one immutable byte sequence. Any byte change to
- * an agreement requires a later version and a new SHA-256 pin here. Keep the
- * legal prose in its Markdown file and regenerate service metadata with codegen.
+ * A numeric version identifies one immutable byte sequence from the moment the
+ * agreements are first offered for acceptance. Until then, a byte change keeps
+ * its version and updates the SHA-256 pin here; once
+ * CONTRIBUTOR_AGREEMENTS_OFFERED is true, any byte change requires a later
+ * version and a new pin. Keep the legal prose in its Markdown file and
+ * regenerate service metadata with codegen.
  */
 
 export const INDIVIDUAL_CONTRIBUTOR_AGREEMENT = {
@@ -26,6 +29,14 @@ export const CONTRIBUTOR_AGREEMENTS = [
   INDIVIDUAL_CONTRIBUTOR_AGREEMENT,
   CORPORATE_CONTRIBUTOR_AGREEMENT,
 ] as const;
+
+/**
+ * Whether any agreement version has ever been offered for acceptance. The
+ * release runbook flips this to true when the hosted acceptance path goes
+ * live; it never returns to false. While false, nobody has been offered the
+ * current bytes, so an agreement may change under its existing version.
+ */
+export const CONTRIBUTOR_AGREEMENTS_OFFERED: boolean = false;
 
 export const CONTRIBUTOR_AGREEMENT_REGISTRY_PATH =
   "scripts/contributor_agreement.ts";
