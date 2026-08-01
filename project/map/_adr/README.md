@@ -237,7 +237,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0244 — The brand addresses the owner and judges only the work](0244-brand-addresses-the-owner.md)
 - [0245 — The receipt becomes the proof](0245-receipt-renamed-to-proof.md)
 - [0246 — `discern map --export` reads a configured scope as an ordered reading list](0246-map-export-reads-scopes-as-reading-lists.md)
-- [0247 — Crashes leave a report and a distinct exit code](0247-crashes-leave-a-report-and-a-distinct-exit-code.md)
+- [0247 — Declared generated artifacts regenerate; they are never merged textually](0247-generated-artifacts-regenerate-never-merge.md)
+- [0248 — Crashes leave a report and a distinct exit code](0248-crashes-leave-a-report-and-a-distinct-exit-code.md)
 
 <!-- END GENERATED: current ADR records -->
 
