@@ -527,7 +527,7 @@ export function buildCli(
     .option("--width <cols:number>", "Wrap width for rendered output.")
     .option(
       "--export <scope:string>",
-      "Concatenate Markdown: public, all, or select.",
+      "Concatenate Markdown: public, all, select, or a configured scope name.",
     )
     .option(
       "--output <path:string>",

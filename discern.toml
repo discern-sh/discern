@@ -219,6 +219,22 @@
     ]
     neutral = true
 
+  # The language canon: the pages that define discern's vocabulary — the glossary
+  # and feature canon first, then the generated references and inventories derived
+  # from them. The list order is deliberate; keep it. Entirely inside the map, so
+  # changes stay neutral and land under the map grant.
+  [scopes.canon]
+    paths = [
+      "${map.dir}00-orientation/glossary.md",
+      "${map.dir}_internal/feature-canon.md",
+      "${map.dir}70-reference/config-reference.md",
+      "${map.dir}70-reference/cli-reference.md",
+      "${map.dir}_internal/hint-inventory.md",
+      "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}_internal/feature-canon-plain.md",
+    ]
+    neutral = true
+
   # The subset of changes a person could see — worth a preview link.
   # [scopes.assets]
   # paths       = ["assets/**", "public/**"]

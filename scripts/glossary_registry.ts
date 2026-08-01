@@ -480,7 +480,7 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
       match: String.raw`\bscopes?\b`,
     },
     definition:
-      "A named region of the repository, declared as `[scopes.<name>]` with path globs and an optional `gate` command run only when that region changed. Classification fails open: a path matching no scope counts as a real code change ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)). Covered in [the quality gate](../20-quality-gate/).",
+      "A named region of the repository, declared as `[scopes.<name>]` with path globs and an optional `gate` command run only when that region changed. Classification fails open: a path matching no scope counts as a real code change ([ADR 0018](../_adr/0018-vocabulary-consolidation.md)). `discern map --export <name>` also reads a scope as a reading list, concatenating the map pages it names in declared order ([ADR 0246](../_adr/0246-map-export-reads-scopes-as-reading-lists.md)). Covered in [the quality gate](../20-quality-gate/).",
     retired: [
       {
         // The seeded documentation scope's retired name (now [scopes.map]).
