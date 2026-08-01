@@ -1410,7 +1410,7 @@ interface PendingToolCall extends VerbRun {
  * Run one verb in `root` and normalize an unexpected throw to an `internal_error`
  * result — so a single tool blowing up can never take the whole stdio server down.
  * This is the single place tool handlers are invoked (normal and root-independent
- * paths alike). A throw is a crash — a bug in discern (ADR 0247) — so it also
+ * paths alike). A throw is a crash — a bug in discern (ADR 0248) — so it also
  * tries to save a crash report beside the logbook (the envelope's message
  * names the file when written) and returns the logbook-safe signature beside
  * that call's result.
