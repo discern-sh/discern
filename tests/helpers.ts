@@ -85,6 +85,9 @@ export async function runCli(
     env: {
       DISCERN_TEMPLATES_DIR: REAL_TEMPLATES,
       NO_COLOR: "1",
+      // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
+      // means unset, so an inherited value can't recolour spawned output.
+      FORCE_COLOR: "",
       [DESK_SESSION_ENV]: "",
       ...env,
     },

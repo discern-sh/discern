@@ -9,6 +9,7 @@
 
 import { Command, ValidationError } from "@cliffy/command";
 import { colors } from "@cliffy/ansi/colors";
+import { setColorEnabled as setStdColorEnabled } from "@std/fmt/colors";
 import { KIT_VERSION } from "./lib/version.ts";
 import { operatorHelp } from "./cli_help.ts";
 import { emitResult } from "./shared/emit.ts";
@@ -91,6 +92,9 @@ export function resolveColorMode(
  * Thread the one resolved colour decision to every surface that emits colour:
  *  - the standalone Cliffy `colors` chain (the installer + engine `Logger`s, and
  *    the help's own group headings) — `setColorEnabled` makes those a no-op when off;
+ *  - the `@std/fmt/colors` module-global, for any consumer outside Cliffy's help
+ *    generator (the generator saves, forces, and restores that global around each
+ *    render, so it is governed by {@link applyHelpColorOption} instead);
  *  - the engine's `colorEnabled()` (the gate/status/desk/coupling output) — via the
  *    process-wide override.
  * The root help additionally strips Cliffy's `getHelp()` escapes when off (it honours
@@ -98,7 +102,24 @@ export function resolveColorMode(
  */
 function applyColorMode(color: boolean): void {
   colors.setColorEnabled(color);
+  setStdColorEnabled(color);
   setColorOverride(color);
+}
+
+/**
+ * Store the resolved colour decision in every command's help-generator options.
+ * Cliffy's generator forces the std colour toggle on for the duration of each
+ * render (its `colors` option defaults to true) and beneath that consults only
+ * `Deno.noColor` — which FORCE_COLOR flips even when NO_COLOR is set — so the
+ * stored option is the one lever that makes `<verb> --help` and `help <verb>`
+ * honour the resolved decision. An options-object `.help()` keeps the default
+ * generator (no custom handler), so `operatorHelp`'s `getHelp()` cannot recurse.
+ */
+function applyHelpColorOption(root: Command, color: boolean): void {
+  root.help({ colors: color });
+  for (const sub of root.getCommands(true)) {
+    applyHelpColorOption(sub, color);
+  }
 }
 
 /**
@@ -1062,6 +1083,7 @@ export async function main(args: string[]): Promise<void> {
       await resolveProjectState();
     const hideSetup = inProject && bootstrapped;
     const cli = buildCli(hideSetup, mainBranch);
+    applyHelpColorOption(cli as unknown as Command, color);
 
     // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
     // verb the way Cliffy will — the first non-global-flag token — and key

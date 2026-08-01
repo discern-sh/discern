@@ -128,6 +128,9 @@ export async function engineEnv(
   const shim = await selfShimDir();
   return {
     NO_COLOR: "1",
+    // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
+    // means unset, so an inherited value can't recolour spawned output.
+    FORCE_COLOR: "",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
     [DESK_SESSION_ENV]: "",
     ...GIT_ISOLATION,
