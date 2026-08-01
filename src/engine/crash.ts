@@ -80,6 +80,65 @@ export type CrashSignature = {
   frame?: string | undefined;
 };
 
+/** Fallback text when even inspecting a thrown value triggers another error. */
+const UNINSPECTABLE_THROWN_VALUE = "The thrown value could not be inspected.";
+
+interface InspectedThrow {
+  name: string;
+  message: string;
+  stack?: string | undefined;
+}
+
+/** Whether an unknown value is an Error without trusting a proxy's prototype
+ * trap. A revoked or hostile proxy can make `instanceof` throw. */
+function isInspectableError(value: unknown): value is Error {
+  try {
+    return value instanceof Error;
+  } catch {
+    return false;
+  }
+}
+
+/** Read one Error field without trusting an overridden getter or proxy trap. */
+function errorField(
+  error: Error,
+  field: "name" | "message" | "stack",
+): unknown {
+  try {
+    return Reflect.get(error, field);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Convert an arbitrary thrown value to text without letting its coercion path
+ * escape into the crash reporter. */
+function thrownValueText(value: unknown): string {
+  try {
+    return String(value);
+  } catch {
+    return UNINSPECTABLE_THROWN_VALUE;
+  }
+}
+
+/** Inspect an unknown throw once. Every operation that can invoke user-defined
+ * behavior is guarded, so this boundary always returns plain strings. */
+function inspectThrow(value: unknown): InspectedThrow {
+  if (!isInspectableError(value)) {
+    return { name: "throw", message: thrownValueText(value) };
+  }
+  const rawName = errorField(value, "name");
+  const rawMessage = errorField(value, "message");
+  const rawStack = errorField(value, "stack");
+  return {
+    name: typeof rawName === "string" && rawName !== "" ? rawName : "Error",
+    message: typeof rawMessage === "string"
+      ? rawMessage
+      : UNINSPECTABLE_THROWN_VALUE,
+    ...(typeof rawStack === "string" ? { stack: rawStack } : {}),
+  };
+}
+
 /** The source trees a discern stack frame can point into — the repo's authored
  * roots. A frame is trimmed to start at the last of these, so the same frame
  * reads identically from a dev run (absolute paths) and the compiled binary
@@ -119,16 +178,18 @@ function topFrame(stack: string | undefined): string | undefined {
   return undefined;
 }
 
+/** Reduce inspected crash fields to their logbook-safe signature. */
+function inspectedSignature(inspected: InspectedThrow): CrashSignature {
+  const frame = topFrame(inspected.stack);
+  return {
+    name: inspected.name,
+    ...(frame !== undefined ? { frame } : {}),
+  };
+}
+
 /** Reduce a thrown value to its logbook-safe {@link CrashSignature}. */
 export function crashSignature(err: unknown): CrashSignature {
-  if (err instanceof Error) {
-    const frame = topFrame(err.stack);
-    return {
-      name: err.name === "" ? "Error" : err.name,
-      ...(frame !== undefined ? { frame } : {}),
-    };
-  }
-  return { name: "throw" };
+  return inspectedSignature(inspectThrow(err));
 }
 
 /** Everything a crash report carries — enough to reproduce the "what did the
@@ -158,8 +219,8 @@ export function captureCrashReport(
   verb: string | undefined,
   err: unknown,
 ): CrashReport {
-  const signature = crashSignature(err);
-  const message = err instanceof Error ? err.message : String(err);
+  const inspected = inspectThrow(err);
+  const signature = inspectedSignature(inspected);
   return {
     at: new Date().toISOString(),
     verb: verb === undefined || verb === "" ? "discern" : verb,
@@ -167,10 +228,8 @@ export function captureCrashReport(
     deno: Deno.version.deno,
     platform: `${Deno.build.os}-${Deno.build.arch}`,
     name: signature.name,
-    message,
-    ...(err instanceof Error && err.stack !== undefined
-      ? { stack: err.stack }
-      : {}),
+    message: inspected.message,
+    ...(inspected.stack !== undefined ? { stack: inspected.stack } : {}),
     signature,
   };
 }

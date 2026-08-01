@@ -77,6 +77,57 @@ Deno.test("crashSignature: a stackless error and a non-Error throw stay name-onl
   assertEquals(crashSignature("a thrown string"), { name: "throw" });
 });
 
+const hostileThrownValueCases: ReadonlyArray<{
+  label: string;
+  make: () => unknown;
+  expectedName: string;
+}> = [
+  {
+    label: "throwing string coercion",
+    make: () => ({
+      toString: (): string => {
+        throw new Error("string coercion failed");
+      },
+    }),
+    expectedName: "throw",
+  },
+  {
+    label: "throwing Error getters",
+    make: () => {
+      const error = new Error("hidden");
+      for (const property of ["name", "message", "stack"] as const) {
+        Object.defineProperty(error, property, {
+          configurable: true,
+          get: () => {
+            throw new Error(`${property} getter failed`);
+          },
+        });
+      }
+      return error;
+    },
+    expectedName: "Error",
+  },
+  {
+    label: "revoked proxy",
+    make: () => {
+      const revocable = Proxy.revocable({}, {});
+      revocable.revoke();
+      return revocable.proxy;
+    },
+    expectedName: "throw",
+  },
+];
+
+for (const fixture of hostileThrownValueCases) {
+  Deno.test(`captureCrashReport: a hostile thrown value cannot escape (${fixture.label})`, () => {
+    const report = captureCrashReport("status", fixture.make());
+    assertEquals(report.name, fixture.expectedName);
+    assertEquals(report.message, "The thrown value could not be inspected.");
+    assertEquals(report.stack, undefined);
+    assertEquals(report.signature, { name: fixture.expectedName });
+  });
+}
+
 // ── the report and its renderings ────────────────────────────────────────────
 
 Deno.test("captureCrashReport: stamps version, runtime, platform, and verb", () => {
