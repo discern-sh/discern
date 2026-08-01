@@ -152,8 +152,9 @@ interface ToolAnnotations {
   openWorldHint?: boolean;
 }
 
-/** A pure observation — reads project state, mutates nothing, and reaches nothing
- * external (git/file reads only), so the world is closed. Trivially idempotent. */
+/** A safe observation — changes no project data, Git ref, or external system.
+ * Internal protocol and logbook records may change without changing the
+ * observed domain, so the world remains closed. */
 const READ_ONLY: ToolAnnotations = {
   readOnlyHint: true,
   idempotentHint: true,
@@ -679,9 +680,9 @@ export const TOOLS: McpTool[] = orderTools([
         "Wait until the trunk ref moves from its position at call start.",
       ),
       resume: z.string().optional().describe(
-        "Opaque continuation returned by a previous not-met wait. Pass it by " +
-          "itself instead of green, landed, or trunk_moved so the original " +
-          "branch transition or trunk baseline survives between calls.",
+        "Short continuation handle returned by a previous not-met wait. Pass " +
+          "it by itself instead of green, landed, or trunk_moved so the " +
+          "original branch transition or trunk baseline survives between calls.",
       ),
       timeout: z.number().optional().describe(
         'Seconds before answering "not yet". Omit for the longest reliable ' +

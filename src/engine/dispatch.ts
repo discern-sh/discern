@@ -509,8 +509,8 @@ export function attachEngineCommands(
     .description(
       "Block until a fleet condition holds: a sibling branch is green (its " +
         "worktree holds an honored gate receipt), a branch's work has landed " +
-        "on the trunk, or the trunk has moved. Read-only; timing out is not " +
-        "an error — the result carries a continuation that preserves the " +
+        "on the trunk, or the trunk has moved. Timing out is not an error; " +
+        "the result carries a short continuation handle that preserves the " +
         "original condition across calls.",
     )
     .option(
@@ -530,7 +530,7 @@ export function attachEngineCommands(
       "Wait until the trunk ref moves from its position at call start.",
     )
     .option(
-      "--resume <token:string>",
+      "--resume <handle:string>",
       "Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.",
     )
     .option(

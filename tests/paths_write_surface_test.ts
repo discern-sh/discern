@@ -160,6 +160,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "the desk tip seen-state — .git-internal, outside the project tree",
   ],
   [
+    "src/engine/continuations/store.ts",
+    "short-handle continuation state — registry-resolved .git-internal state outside the project tree",
+  ],
+  [
     "src/shared/setup_machinery_evidence.ts",
     "setup machinery retry evidence — registry-resolved .git-internal state outside the project tree",
   ],

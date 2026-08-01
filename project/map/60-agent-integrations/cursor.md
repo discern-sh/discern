@@ -100,7 +100,7 @@ Cursor does not use one MCP timeout across all of its surfaces. In the Cursor Ag
 
 The editor's IDE Agent follows a different path. Cursor support reports its timeout as around 60 minutes, but Cursor publishes no precise maximum. The Agents Window and cloud-agent limits remain unverified.
 
-The IDE and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. A not-yet result carries a continuation token and exact `--resume` command that preserve the original watch. Continue it until the condition holds, the user stops the watch, or the task no longer needs the dependency.
+The IDE and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. A not-yet result carries a 15-character continuation handle and `--resume` command that preserve the original watch. Continue it until the condition holds, the user stops the watch, or the task no longer needs the dependency.
 
 ## `.cursor/hooks.json`
 
