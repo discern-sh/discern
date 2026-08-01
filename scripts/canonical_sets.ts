@@ -1803,7 +1803,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/result_capture_drain_parity_test.ts":
-    "holds every result_capture one-slot mailbox to being drained at both recording points; its universe derives from the module's take* exports, not from a registry symbol",
+    "holds every `result_capture` one-slot mailbox to being drained at both recording points; its universe derives from the module's `take*` exports, not from a registry symbol",
   "tests/control_byte_guard_test.ts":
     "sweeps authored text for raw control bytes that read as binary to POSIX tools; a bytes rule, not a member set",
   "tests/adr_vocab_guard_test.ts":
