@@ -14,6 +14,8 @@ runs:
 
     - name: Run the gate (discern done, via the dev binary)
       shell: bash
+      env:
+        DISCERN_GATE_TEST_REPORTER: pretty
       run: deno task dev done
 
     - name: Assert a clean tree (the fix stage must change nothing in CI)

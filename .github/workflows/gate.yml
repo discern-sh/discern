@@ -27,15 +27,16 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
-    env:
-      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Fetch main for baseline checks
-        run: >-
-          git fetch --no-tags --depth=1 origin
-          +refs/heads/main:refs/remotes/origin/main
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -58,6 +59,8 @@ jobs:
         run: shellcheck install.sh
 
       - name: Run the gate (discern done, via the dev binary)
+        env:
+          DISCERN_GATE_TEST_REPORTER: pretty
         run: deno task dev done
 
       - name: Assert a clean tree (the fix stage must change nothing in CI)
@@ -69,15 +72,16 @@ jobs:
     # hosted lane for public changes; releases repeat it before publication.
     if: github.event.repository.private == false
     runs-on: macos-15
-    env:
-      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Fetch main for baseline checks
-        run: >-
-          git fetch --no-tags --depth=1 origin
-          +refs/heads/main:refs/remotes/origin/main
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
         with:
@@ -94,8 +98,6 @@ jobs:
     # direct pushes to main stay fast (whatever landed already passed on its PR).
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    env:
-      DISCERN_TRUNK: origin/main
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
@@ -107,9 +109,12 @@ jobs:
       # Standards and agreement-version checks compare against the real base
       # branch. A shallow PR checkout does not carry it, so fetch it explicitly.
       - name: Fetch main for baseline checks
-        run: >-
-          git fetch --no-tags --depth=1 origin
-          +refs/heads/main:refs/remotes/origin/main
+        run: |
+          git fetch --no-tags --depth=1 origin \
+            +refs/heads/main:refs/remotes/origin/main
+          if [ "$(git branch --show-current)" != "main" ]; then
+            git branch --force main refs/remotes/origin/main
+          fi
 
       # The prose standard measures with Vale; install + sync it like the gate job.
       - name: Install Vale and sync its styles
