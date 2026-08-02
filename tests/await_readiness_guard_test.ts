@@ -13,44 +13,64 @@ import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 interface PendingAwait {
   readonly name: string;
   readonly startLine: number;
+  ready: boolean;
 }
 
-interface AwaitCliCandidate extends PendingAwait {
+interface AwaitCliCandidate {
+  readonly name: string;
+  readonly startLine: number;
   command: string;
 }
 
-export interface ReadinessDelay {
+interface ReadinessViolation {
   readonly line: number;
   readonly pendingLine: number;
+}
+
+interface AwaitCall {
+  readonly startLine: number;
+  text: string;
+  depth: number;
 }
 
 const PENDING_CORE =
   /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*awaitResult\s*\(/u;
 const CLI_START =
   /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*new\s+Deno\.Command\s*\(/u;
-const ELAPSED_WAIT =
-  /\bawait\s+[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\(\s*\d[\d_]*(?:\.\d+)?\s*\)\s*;/u;
+const AWAIT_CALL_START =
+  /\bawait\s+(?:new\s+)?[A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*\s*\(/u;
 
 /** Escape an identifier before using it in a pending-operation terminator. */
 function regexEscape(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }
 
+/** Count call parentheses while an awaited readiness expression spans lines. */
+function parenthesisDelta(value: string): number {
+  return [...value].reduce(
+    (depth, character) =>
+      depth + (character === "(" ? 1 : character === ")" ? -1 : 0),
+    0,
+  );
+}
+
 /**
- * Find sleeps used between starting an await operation and observing its
- * result. Both in-process `awaitResult` calls and CLI processes whose command
- * contains the await verb belong to the same readiness boundary.
+ * Find pending await operations whose first async boundary does not receive
+ * that operation. Passing the promise (or CLI status) makes readiness
+ * observable and lets the probe fail on early settlement; an unrelated wait
+ * leaves startup timing as an assumption.
  */
-export function preReadinessDelays(source: string): ReadinessDelay[] {
-  const offenders: ReadinessDelay[] = [];
+function preReadinessAwaits(source: string): ReadinessViolation[] {
+  const offenders: ReadinessViolation[] = [];
   const pending: PendingAwait[] = [];
   let cliCandidate: AwaitCliCandidate | undefined;
+  let awaitCall: AwaitCall | undefined;
   for (const [index, line] of source.split("\n").entries()) {
     const lineNumber = index + 1;
     const coreMatch = line.match(PENDING_CORE);
     const coreName = coreMatch?.[1];
     if (coreName !== undefined) {
-      pending.push({ name: coreName, startLine: lineNumber });
+      pending.push({ name: coreName, startLine: lineNumber, ready: false });
     }
 
     const cliMatch = line.match(CLI_START);
@@ -72,16 +92,12 @@ export function preReadinessDelays(source: string): ReadinessDelay[] {
         pending.push({
           name: cliCandidate.name,
           startLine: cliCandidate.startLine,
+          ready: false,
         });
       }
       cliCandidate = undefined;
     }
 
-    if (ELAPSED_WAIT.test(line)) {
-      for (const operation of pending) {
-        offenders.push({ line: lineNumber, pendingLine: operation.startLine });
-      }
-    }
     for (
       let pendingIndex = pending.length - 1;
       pendingIndex >= 0;
@@ -99,6 +115,33 @@ export function preReadinessDelays(source: string): ReadinessDelay[] {
         pending.splice(pendingIndex, 1);
       }
     }
+
+    if (awaitCall === undefined && AWAIT_CALL_START.test(line)) {
+      awaitCall = {
+        startLine: lineNumber,
+        text: line,
+        depth: parenthesisDelta(line),
+      };
+    } else if (awaitCall !== undefined && awaitCall.startLine !== lineNumber) {
+      awaitCall.text += `\n${line}`;
+      awaitCall.depth += parenthesisDelta(line);
+    }
+    if (awaitCall !== undefined && awaitCall.depth <= 0) {
+      for (const operation of pending.filter((item) => !item.ready)) {
+        const escaped = regexEscape(operation.name);
+        if (
+          new RegExp(`\\b${escaped}(?:\\.status)?\\b`, "u").test(awaitCall.text)
+        ) {
+          operation.ready = true;
+        } else {
+          offenders.push({
+            line: awaitCall.startLine,
+            pendingLine: operation.startLine,
+          });
+        }
+      }
+      awaitCall = undefined;
+    }
   }
   return offenders;
 }
@@ -106,31 +149,37 @@ export function preReadinessDelays(source: string): ReadinessDelay[] {
 Deno.test("await harness: elapsed time cannot stand in for readiness", async () => {
   const syntheticCore = [
     "const pendingObservation = " + "awaitResult(root, { trunkMoved: true });",
-    "await " + "letClockPass(37);",
+    "await " + "letClockPass(WAIT_WINDOW);",
     "const outcome = await pendingObservation;",
   ].join("\n");
   const syntheticCli = [
     "const backgroundProbe = new Deno.Command(Deno.execPath(), {",
     "  args: [MAIN_TS, " + '"await"' + ", " + '"--trunk-moved"' + "],",
     "}).spawn();",
-    "await " + "burnTicks(91);",
+    "await " + "burnTicks(RETRY_BUDGET);",
     "const outcome = await backgroundProbe.output();",
   ].join("\n");
-  assertEquals(preReadinessDelays(syntheticCore), [
+  const synchronized = [
+    "const pendingSignal = " + "awaitResult(root, { trunkMoved: true });",
+    "await " + 'ready(pendingSignal, "trunk watch")' + ";",
+    "const outcome = await pendingSignal;",
+  ].join("\n");
+  assertEquals(preReadinessAwaits(syntheticCore), [
     { line: 2, pendingLine: 1 },
   ]);
-  assertEquals(preReadinessDelays(syntheticCli), [
+  assertEquals(preReadinessAwaits(syntheticCli), [
     { line: 4, pendingLine: 1 },
   ]);
+  assertEquals(preReadinessAwaits(synchronized), []);
 
   const offenders: string[] = [];
   for (
     const rel of AUTHORED_TS_FILES.filter((path) => path.startsWith("tests/"))
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
-    for (const delay of preReadinessDelays(source)) {
+    for (const violation of preReadinessAwaits(source)) {
       offenders.push(
-        `${rel}:${delay.line} starts from pending await at line ${delay.pendingLine}`,
+        `${rel}:${violation.line} starts from pending await at line ${violation.pendingLine}`,
       );
     }
   }
