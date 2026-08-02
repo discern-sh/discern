@@ -276,6 +276,27 @@ function redDone(over: Partial<VerbEvent> = {}): Partial<VerbEvent> {
   };
 }
 
+/** A red `done` where a quick check failed and the long suite was cancelled
+ * mid-flight (`"cancelled"`) or never started (`"skipped"`) — the first half
+ * of a masked-failures instance. */
+function maskedRed(suiteOutcome: "cancelled" | "skipped"): Partial<VerbEvent> {
+  return redDone({
+    steps: [
+      { ...step("lint", 1), outcome: "failed" },
+      { ...step("test", 150), outcome: suiteOutcome },
+    ],
+  });
+}
+
+/** The revealing follow-up run: the check is fixed and the suite's own,
+ * independent failure surfaces — the second half of a masked-failures
+ * instance. */
+function suiteReveal(): Partial<VerbEvent> {
+  return redDone({
+    steps: [step("lint", 1), { ...step("test", 150), outcome: "failed" }],
+  });
+}
+
 /** One successful acceptance with recorded consent and changed-scope names. */
 function accepted(
   source: NonNullable<VerbEvent["consent"]>["source"],
@@ -1047,6 +1068,36 @@ const FIXTURES: Record<string, DetectorFixtures> = {
         waited_ms: 60_000,
       })),
     ),
+  },
+  "masked-failures": {
+    // Alternating mask/reveal pairs; one pair uses the never-started (barrier)
+    // variant. The quiet stream repeats one persistent suite failure beside a
+    // cancelled sibling — attribution unsafe there, so never an instance.
+    firing: run([
+      maskedRed("cancelled"),
+      suiteReveal(),
+      maskedRed("skipped"),
+      suiteReveal(),
+      maskedRed("cancelled"),
+      suiteReveal(),
+      maskedRed("cancelled"),
+      suiteReveal(),
+    ]),
+    quiet: run(
+      Array.from({ length: 8 }, () =>
+        redDone({
+          steps: [
+            { ...step("test", 150), outcome: "failed" },
+            { ...step("lint", 1), outcome: "cancelled" },
+          ],
+        })),
+    ),
+    sparse: run([
+      maskedRed("cancelled"),
+      suiteReveal(),
+      maskedRed("cancelled"),
+      suiteReveal(),
+    ]),
   },
   "duration-creep": {
     firing: run(

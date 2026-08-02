@@ -2353,6 +2353,150 @@ const slotContention: Detector = {
   },
 };
 
+const MASKED_FAILURES_MIN_PAIRS = 6;
+const MASKED_FAILURES_MIN_INSTANCES = 3;
+const MASKED_FAILURES_PAIR_GAP_MS = 6 * 3_600_000;
+
+/** Step labels carrying `outcome` among steps the plan scheduled to run — a
+ * `disposition: "skip"` step (an unchanged scope's gate, a replayed or
+ * deferred standard) was never information the run withheld. */
+function scheduledStepLabels(e: VerbEvent, outcome: string): Set<string> {
+  return new Set(
+    (e.steps ?? [])
+      .filter((s) => s.disposition === "run" && s.outcome === outcome)
+      .map((s) => s.label),
+  );
+}
+
+/** Members of `a` also present in `b`, in `a`'s order. */
+function intersection(a: Set<string>, b: Set<string>): string[] {
+  return [...a].filter((x) => b.has(x));
+}
+
+/**
+ * Read serial discovery, not coincidence. A qualifying instance is two
+ * adjacent red `done` runs in one conversation where the first run's failures
+ * were all fixed by the second, yet a job the first run cancelled mid-flight
+ * (fail-fast) or never started (its group stopped early) now fails: that
+ * failure existed a run earlier, and its discovery cost one whole
+ * fix-and-regate round. Requiring the original failures fixed is what makes
+ * the attribution safe — a failure that merely persists, or one plausibly
+ * introduced by an incomplete fix, never counts. Six adjacent red pairs give
+ * the history real iteration to speak from; three instances make "every fix
+ * happened to break the sibling" an unlikely story; pairs more than six hours
+ * apart are two work sessions, not one fix loop.
+ */
+const maskedFailures: Detector = {
+  id: "masked-failures",
+  title: "Failures discovered a run late",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  threshold: MASKED_FAILURES_MIN_PAIRS,
+  next_step:
+    "Each instance paid a full fix-and-regate round to learn what one run could have reported. Weigh `[gate].fail_fast` against this history — a red run left to finish trades tail time for whole rounds — and consider whether a quick, often-red job belongs in a stage before the long one it keeps stopping.",
+  detect(facts): DetectorOutcome {
+    const dones = facts.verbs.filter((e) =>
+      e.verb === "done" && (e.steps?.length ?? 0) > 0
+    );
+    let considered = 0;
+    let viaCancellation = 0;
+    let viaBarrier = 0;
+    const gapsMs: number[] = [];
+    const branches = new Set<string>();
+    const lateLabels = new Map<string, number>();
+    for (const [branch, events] of byBranch(dones)) {
+      for (const session of bySession(events)) {
+        for (let i = 0; i + 1 < session.length; i++) {
+          const n = session[i];
+          const next = session[i + 1];
+          if (n === undefined || next === undefined) continue;
+          if (n.outcome !== "failed") continue;
+          const gapMs = Date.parse(next.at) - Date.parse(n.at);
+          if (
+            !Number.isFinite(gapMs) || gapMs < 0 ||
+            gapMs > MASKED_FAILURES_PAIR_GAP_MS
+          ) {
+            continue;
+          }
+          considered += 1;
+          const failedNext = scheduledStepLabels(next, "failed");
+          if (failedNext.size === 0) {
+            continue;
+          }
+          const failedN = scheduledStepLabels(n, "failed");
+          if (intersection(failedN, failedNext).length > 0) {
+            continue;
+          }
+          const masked = intersection(
+            scheduledStepLabels(n, "cancelled"),
+            failedNext,
+          );
+          const deferred = intersection(
+            scheduledStepLabels(n, "skipped"),
+            failedNext,
+          );
+          if (masked.length === 0 && deferred.length === 0) {
+            continue;
+          }
+          if (masked.length > 0) {
+            viaCancellation += 1;
+          }
+          if (deferred.length > 0) {
+            viaBarrier += 1;
+          }
+          gapsMs.push(gapMs);
+          branches.add(branch);
+          for (const label of [...masked, ...deferred]) {
+            lateLabels.set(label, (lateLabels.get(label) ?? 0) + 1);
+          }
+        }
+      }
+    }
+    const instances = gapsMs.length;
+    if (instances < MASKED_FAILURES_MIN_INSTANCES) {
+      return { considered, findings: [] };
+    }
+    const medianRoundS = round1(median(gapsMs) / 1000);
+    const commonest = [...lateLabels.entries()]
+      .sort((a, b) => b[1] - a[1])[0];
+    return {
+      considered,
+      findings: [{
+        brief: `${formatHumanNumber(instances)} late discoveries · ${
+          formatHumanNumber(viaCancellation)
+        } cancelled · ${
+          formatHumanNumber(viaBarrier)
+        } never started · median round ${formatHumanNumber(medianRoundS)}s`,
+        observed: `${
+          formatHumanNumber(instances)
+        } red \`done\` runs were followed — original failures fixed — by a failure in a job the earlier run had cancelled (${
+          formatHumanNumber(viaCancellation)
+        }) or never started (${formatHumanNumber(viaBarrier)}), across ${
+          formatHumanNumber(branches.size)
+        } branches with a median ${
+          formatHumanNumber(medianRoundS)
+        }s round between the two runs${
+          commonest === undefined
+            ? ""
+            : `; \`${commonest[0]}\` surfaced late ${
+              formatHumanNumber(commonest[1])
+            } times`
+        }.`,
+        evidence: {
+          late_discoveries: instances,
+          via_cancelled_job: viaCancellation,
+          via_job_never_started: viaBarrier,
+          branches: branches.size,
+          median_round_seconds: medianRoundS,
+        },
+        strength: instances,
+      }],
+    };
+  },
+};
+
 const durationCreep: Detector = {
   id: "duration-creep",
   title: "Gate duration creeping up",
@@ -3253,6 +3397,7 @@ export const DETECTORS: readonly Detector[] = [
   dominantStage,
   generatorGateShare,
   slotContention,
+  maskedFailures,
   durationCreep,
   fixStageIdle,
   recurringDiagnostic,
