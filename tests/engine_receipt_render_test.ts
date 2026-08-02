@@ -37,6 +37,10 @@ const SGR = new RegExp(
   `${String.fromCharCode(27)}\\[[0-9;]*m`,
   "u",
 );
+const SGR_GLOBAL = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-9;]*m`,
+  "gu",
+);
 
 const FACTS: ReceiptFacts = {
   branch: "agent/upload-retry",
@@ -454,8 +458,7 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
       { ...options, color: true },
     )
   }`;
-  const stripSgr = (value: string): string =>
-    value.replaceAll(/\x1b\[[0-9;]*m/gu, "");
+  const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
   assertEquals(stripSgr(colored), plain);
   assertStringIncludes(colored, "\x1b[31mfailed");
   assertStringIncludes(colored, "\x1b[33mcancelled");

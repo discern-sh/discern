@@ -13,6 +13,7 @@ import { withTempDir } from "./helpers.ts";
 const CSI = `${String.fromCharCode(27)}[`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
 
+/** Build the minimal prepare fixture config for one job and gate-mode matrix row. */
 function config(
   jobs: readonly string[],
   gate: readonly string[] = [],
@@ -30,6 +31,7 @@ function config(
   ].join("\n");
 }
 
+/** Scaffold and commit a configured project ready for a prepare invocation. */
 async function preparedRepo(
   dir: string,
   toml: string,
