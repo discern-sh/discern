@@ -47,7 +47,7 @@ You can also supervise a ready branch from [the desk](the-desk.md). Its Accept a
 
 ## Spin out follow-on work
 
-Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The Skill prepares self-contained prompts for agents to run in fresh worktrees and hands the prompts back by default. If your agent can launch those sessions or worktrees and you prefer that, it can launch them directly.
+Ask your agent to use the bundled `discern-delegate-work` Skill when review reveals independent follow-ups or a larger effort needs separate briefs. The Skill prepares self-contained prompts for agents to run in fresh worktrees and hands them back. It assumes you'll launch them yourself. If it can launch them, it shows you the dispatch plan, offers, and waits for confirmation before starting anything.
 
 Leave the ready worktree untouched while its landing decision is pending. Independent follow-ups start from the trunk in separate worktrees. A dependent follow-up starts from the unlanded branch with `discern start --from <ref>` or pulls that ref into its own worktree with `discern update --from <ref>`. [Parallel and team work](team-workflow.md) covers that composition model.
 
