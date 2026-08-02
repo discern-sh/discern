@@ -136,6 +136,7 @@ const ENVELOPE_BASE_FIELDS = {
   dry_run: z.boolean().optional(),
   plan: PlanJsonSchema.optional(),
   steps: z.array(StepResultJsonSchema).optional(),
+  waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
   error: z.enum(ERROR_SLUGS).optional(),
@@ -147,6 +148,7 @@ const ENVELOPE_BASE_FIELDS_WITHOUT_VERB = {
   dry_run: z.boolean().optional(),
   plan: PlanJsonSchema.optional(),
   steps: z.array(StepResultJsonSchema).optional(),
+  waited_ms: z.number().nonnegative().optional(),
   diagnostics: z.array(DiagnosticSchema).optional(),
   hints: z.array(z.string()).optional(),
   error: z.enum(ERROR_SLUGS).optional(),
@@ -244,7 +246,8 @@ const changedFileSchema = z.strictObject({
  * The **receipt** — the deterministic review claim a green gate emits over a
  * clean committed tree, in two renderings from one set of facts (ADR 0188): the
  * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
- * vs the trunk; `line` — the one sentence an agent closes its report with; and
+ * vs the trunk; optional capped-run slot wait; `line` — the one sentence an
+ * agent closes its report with; and
  * `markdown` — the review page the owner pulls from discern. Derived ONCE from
  * the result envelope: both renderings are a function of these fields plus the
  * envelope's `steps[]` (what ran, with command and duration), never a second
@@ -258,6 +261,7 @@ const RECEIPT_FIELDS = {
   files_total: z.number(),
   insertions: z.number(),
   deletions: z.number(),
+  waited_ms: z.number().nonnegative().optional(),
   line: z.string(),
   markdown: z.string(),
 };
@@ -266,7 +270,8 @@ export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
   description:
     "The structured receipt a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
-    "whole-diff stats, and the two renderings derived from those facts.",
+    "whole-diff stats, optional capped-run slot wait, and the two renderings " +
+    "derived from those facts.",
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 

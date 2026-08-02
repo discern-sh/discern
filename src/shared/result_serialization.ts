@@ -50,6 +50,9 @@ export function serializeResult(r: DiscernResult): Record<string, unknown> {
   if (r.steps !== undefined) {
     out.steps = r.steps.map(stepResultToJson);
   }
+  if (r.waitedMs !== undefined) {
+    out.waited_ms = r.waitedMs;
+  }
   if (r.diagnostics !== undefined) {
     out.diagnostics = r.diagnostics;
   }

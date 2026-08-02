@@ -1492,6 +1492,7 @@ async function completeToolCall(
       surface: "mcp",
       outcome: result.ok ? "ok" : "failed",
       durationMs: performance.now() - recording.started,
+      ...(result.waitedMs !== undefined ? { waitedMs: result.waitedMs } : {}),
       result,
       hintIds: observed?.hintIds ?? [],
       driver: await recording.driver,

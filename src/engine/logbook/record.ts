@@ -95,6 +95,8 @@ export interface FinishReport {
   outcome: "ok" | "failed";
   /** Wall-clock duration of the whole invocation, in milliseconds. */
   durationMs: number;
+  /** Slot-wait time when capped acquisition was in play. */
+  waitedMs?: number | undefined;
   /** The invocation's result envelope, when one surfaced. */
   result?: DiscernResult | undefined;
   /** Stable ids of the hints delivered with the invocation. */
@@ -584,6 +586,9 @@ export function beginRecording(cwd: string, begin: BeginReport): Recording {
           ...(report.crash !== undefined ? { crash: report.crash } : {}),
           ...(report.dryRun === true ? { dry_run: true } : {}),
           duration_ms: Math.round(report.durationMs),
+          ...(report.waitedMs !== undefined
+            ? { waited_ms: Math.round(report.waitedMs) }
+            : {}),
           ...(target !== undefined ? { target } : {}),
           ...(lifted.from !== undefined ? { from: lifted.from } : {}),
           ...(report.flags !== undefined && report.flags.length > 0

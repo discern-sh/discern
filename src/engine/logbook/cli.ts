@@ -129,6 +129,14 @@ type VerbBody<TThis, A extends unknown[]> = (
   ...args: A
 ) => number | undefined | Promise<number | undefined> | void | Promise<void>;
 
+/** Metadata known by a direct pre-Cliffy recording caller. */
+export interface RecordedRunOptions {
+  /** The object acted on when no result or target observer supplies one. */
+  readonly target?: string;
+  /** Read envelope-less slot-wait timing after the body settles. */
+  readonly waitedMs?: () => number | undefined;
+}
+
 /**
  * Run one CLI verb invocation through the recorder: begin the concurrent
  * context gather, run `body`, record the event, and return the exit code. A
@@ -140,6 +148,7 @@ export async function recordedRun(
   verb: string,
   surface: LogbookSurface,
   body: () => number | undefined | Promise<number | undefined>,
+  opts: RecordedRunOptions = {},
 ): Promise<number> {
   // A CLI process normally serves one verb, but the accumulators are process
   // local: clear any stale test/embedded-call state before this invocation.
@@ -178,13 +187,14 @@ export async function recordedRun(
     const observed = takeObservedResult();
     const supplementalHintIds = takeSupplementalHintIds();
     const tipIds = takeShownTipIds();
-    const target = takeVerbTarget();
+    const target = takeVerbTarget() ?? opts.target;
     // A preview leaves the envelope's own dry_run mark; the argv flag is the
     // fallback for human-mode previews. The `scripts` namespace is excluded from
     // every argv scan (dry-run, --json, flag names) — everything after the
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.
     const result = observed?.result;
+    const waitedMs = result?.waitedMs ?? opts.waitedMs?.();
     const dryRun = result?.dry_run === true ||
       (scanArgs && Deno.args.includes("--dry-run"));
     await recording.finish({
@@ -192,6 +202,7 @@ export async function recordedRun(
       surface,
       outcome: code === 0 ? "ok" : "failed",
       durationMs: performance.now() - started,
+      ...(waitedMs !== undefined ? { waitedMs } : {}),
       driver: await driver,
       ...(result !== undefined ? { result } : {}),
       hintIds: [

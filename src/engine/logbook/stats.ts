@@ -226,6 +226,8 @@ function gateFeats(facts: StreamFacts): PatternsStats["gate"] {
       firstTry += 1;
     }
   }
+  // Check-hours answers how much time the agents experienced across their
+  // checking loops, so slot waits remain part of this end-to-end wall total.
   const checkMs = facts.verbs
     .filter((e) => CHECK_VERBS.has(e.verb))
     .reduce((sum, e) => sum + e.duration_ms, 0);
