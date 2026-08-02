@@ -19,6 +19,7 @@ aliases:
   - fleet
   - gate
   - gate job
+  - generated artifact
   - generated file
   - guidance source
   - installer
@@ -115,6 +116,10 @@ The project's full quality check, run with `discern done`: its preconditions, th
 ### Gate job
 
 A labeled unit of work scheduled by the gate. A project declares its jobs under `[jobs]`: the six known names `format`, `build`, `lint`, `typecheck`, `test`, and `smoke` derive their [stage](#stage), while a custom name declares one. The run also schedules fired [scope](#scope) gates and [standard](#standard) measurements as labeled jobs. Covered in [the quality gate](../20-quality-gate/).
+
+### Generated artifact
+
+A committed file wholly derived from the rest of the tree, declared under `[generated.<name>]` in `discern.toml` beside the deterministic command that rewrites it. The [gate](#gate) reruns each group in the build stage and fails on drift, `discern update` resolves conflicts confined to declared paths by regenerating instead of refusing, and [coupling](#coupling) keeps declared paths out of its evidence ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). The [agent files](#agent-file) and other [generated files](#generated-file) discern itself rebuilds form the built-in group, needing no declaration. Covered in [the quality gate](../20-quality-gate/).
 
 ### Generated file
 

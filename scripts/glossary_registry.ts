@@ -341,6 +341,16 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     ],
   },
   {
+    term: "Generated artifact",
+    plain: {
+      phrase:
+        "a committed file a command rebuilds from the project's own sources",
+      match: String.raw`\bgenerated\s+artifacts?\b`,
+    },
+    definition:
+      "A committed file wholly derived from the rest of the tree, declared under `[generated.<name>]` in `discern.toml` beside the deterministic command that rewrites it. The [gate](#gate) reruns each group in the build stage and fails on drift, `discern update` resolves conflicts confined to declared paths by regenerating instead of refusing, and [coupling](#coupling) keeps declared paths out of its evidence ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). The [agent files](#agent-file) and other [generated files](#generated-file) discern itself rebuilds form the built-in group, needing no declaration. Covered in [the quality gate](../20-quality-gate/).",
+  },
+  {
     term: "Guidance source",
     plain: {
       phrase: "the project's own instruction text for coding agents",

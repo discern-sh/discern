@@ -93,7 +93,7 @@ Path overrides preserve ownership: placement grants write consent, not overwrite
 
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
-Project lines outside `.gitattributes`' discern markers survive; `refresh` and `upgrade` replace the block from config and the Agent registry. Hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+Project lines outside `.gitattributes`' discern markers survive; `refresh` and `upgrade` rebuild the block from the `[generated.<name>]` declarations and the Agent registry, marking each [generated artifact](../00-orientation/glossary.md#generated-artifact) with the `discern-generated` merge driver. Hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
 Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files alone. Add agent-file ignores outside the managed block if preferred; currency accepts a missing copy.
 

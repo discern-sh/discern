@@ -44,9 +44,9 @@ Setup runs in this order:
 
 `discern update` merges trunk or `--from`, requires tracked-clean files, and leaves untracked scratch.
 
-Only wholly generated conflicts auto-resolve; others abort. `update` merges one side, runs and commits every generator, refreshes Agent files, then runs both ensures. No-ops converge ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). Temporary bytes cannot determine output; failures remain visible ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+Only conflicts confined to [generated artifacts](../00-orientation/glossary.md#generated-artifact) — declared groups and discern's own agent surfaces — auto-resolve; others abort. `update` merges one side, runs and commits every generator, refreshes Agent files, then runs both ensures. No-ops converge ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)). Temporary bytes cannot determine output; failures remain visible ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
-On first setup, provisioned worktrees with a managed block install `merge.discern-generated.driver`. Raw merge keeps the marked side without conflict markers; `done` or `update` regenerates it. Plain clones, CI, and main lack the driver (never global), so conflicts remain; `update` still resolves generated paths ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md), [ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
+On first setup, provisioned worktrees with a managed block install `merge.discern-generated.driver`. Raw merge keeps the marked side without conflict markers; `done` or `update` regenerates it. Plain clones, CI, and main lack the driver (never global), so conflicts remain; `update` still resolves generated paths ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
 
 Use `[repository].ensure` for checkout-safe commands and `[worktree.setup].ensure` for identity-dependent ones; `[worktree.setup].steps` remains one-shot.
 
