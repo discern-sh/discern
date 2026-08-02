@@ -50,20 +50,9 @@ A registry of named detectors runs over the event stream, grouped by family:
 | Behavior   | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, hint follow-through by declared family, tip adoption by registry entry, dirty-tree churn, edits on the trunk, recurring `--force`, recurring `done --confirmed` reruns, missed doc lookups, worktrees started but never green, out-of-protocol orderings, recurring drivers the identity catalogue can't name, a returning agent whose native integration isn't configured, red streaks split by driver cohort, and a guidance-parity read of gaps one cohort keeps hitting. |
 | Funnel     | Red runs before the first green per branch and per driver cohort, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
-Detector thresholds start conservative and are recorded beside each entry in the registry source.
-
 ### Test-run slot contention
 
-`slot-contention` reads the latest 20 runs that recorded capped-slot
-machinery. It needs at least 6. It reports when the median slot wait is both at
-least 30 seconds and at least 25% of median execution time. The absolute floor
-sets aside scheduler jitter; the ratio sets aside small waits beside long
-suites.
-
-The finding leaves the resource decision with the owner. A machine with spare
-capacity can take a higher `[gate].concurrent_test_runs` cap. A saturated
-machine needs fewer simultaneous agents. It changes neither the cap nor the
-gate outcome.
+After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap with spare capacity; reduce agents on a saturated machine. The reading remains advisory.
 
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after 3 resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
 
