@@ -6,6 +6,8 @@
  *                 name, later ones `name#2`, `name#3`). kind = "known".
  *   custom jobs   every `[jobs.<name>]` whose declared `stage` matches. Its
  *                 `run` list joins into one command. kind = "custom".
+ *   generated     every `[generated.<name>]` command in the build stage,
+ *                 labelled `generated:<name>`. kind = "generated".
  *
  * Empty and `:` no-op commands are skipped.
  */
@@ -19,6 +21,7 @@ import {
 import { isKnownJob, jobStage, type Stage } from "../../shared/capabilities.ts";
 import { shellCommand } from "../../shared/subprocess.ts";
 import { expandMapDirReference } from "../../shared/map_path.ts";
+import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 
 /** The custom table shape after config validation. The key decides which arm of
  * the jobs union applies, but TypeScript cannot correlate an object entry's key
@@ -34,7 +37,7 @@ function isCustomJobSpec(
 export interface StageJob {
   label: string;
   command: string;
-  kind: "known" | "custom";
+  kind: "known" | "custom" | "generated";
   /** Per-job `timeout` override from the config value, replacing the global
    * `[gate].timeout` for this job only (`0` disables the bound for it). */
   timeoutS?: number;
@@ -80,6 +83,17 @@ export function jobsInStage(config: DiscernConfig, stage: Stage): StageJob[] {
       kind: "custom",
       ...(spec.timeout !== undefined ? { timeoutS: spec.timeout } : {}),
     });
+  }
+
+  if (stage === "build") {
+    for (const group of resolveGeneratedGroups(config)) {
+      jobs.push({
+        label: `generated:${group.name}`,
+        command: group.run,
+        kind: "generated",
+        ...(group.timeout !== undefined ? { timeoutS: group.timeout } : {}),
+      });
+    }
   }
 
   return jobs;
