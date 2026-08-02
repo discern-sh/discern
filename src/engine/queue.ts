@@ -15,6 +15,9 @@ import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import {
   buildTestRunSlotAcquirer,
+  TEST_RUN_SLOT_ENV,
+  TEST_RUN_SLOT_VALUE,
+  testRunSlotAccounted,
   type TestRunSlotEvent,
 } from "./test_run_slots.ts";
 
@@ -110,13 +113,17 @@ export async function runQueue(
   command: string,
   args: string[],
 ): Promise<number> {
-  const root = await findRoot();
-  const acquirer = root === undefined
+  const accounted = testRunSlotAccounted();
+  const root = accounted ? undefined : await findRoot();
+  const acquirer = accounted || root === undefined
     ? undefined
     : buildTestRunSlotAcquirer(root, await loadConfig(root));
   const hold = await acquirer?.acquire(writeSlotEvent);
   try {
-    const child = await runOwnedChild(command, { args });
+    const child = await runOwnedChild(command, {
+      args,
+      env: { [TEST_RUN_SLOT_ENV]: TEST_RUN_SLOT_VALUE },
+    });
     if (child.status.signal !== null) {
       reraiseInterrupt(child.status.signal);
     }

@@ -7,6 +7,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
+import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   DENO_JSON,
@@ -99,17 +100,20 @@ interface RunningAgent {
   readonly result: Promise<RunResult>;
   /** Stderr accumulated so far, for deterministic queue readiness. */
   readonly stderrSoFar: () => string;
+  /** Stop a stuck fixture through the engine's owned-child signal path. */
+  readonly kill: (signal: Deno.Signal) => void;
 }
 
 /** Spawn an engine process while exposing its live stderr queue notice. */
 async function spawnAgent(
   dir: string,
   args: string[],
+  env: Record<string, string> = {},
 ): Promise<RunningAgent> {
   const child = new Deno.Command("deno", {
     args: ["run", "--no-check", "--config", DENO_JSON, "-A", MAIN_TS, ...args],
     cwd: dir,
-    env: await engineEnv(),
+    env: await engineEnv(env),
     stdin: "null",
     stdout: "piped",
     stderr: "piped",
@@ -137,7 +141,17 @@ async function spawnAgent(
       output: out + err,
     };
   })();
-  return { result, stderrSoFar: () => stderrText };
+  return {
+    result,
+    stderrSoFar: () => stderrText,
+    kill: (signal): void => {
+      try {
+        child.kill(signal);
+      } catch {
+        // Already settled.
+      }
+    },
+  };
 }
 
 /** Read every logbook event whose verb is `queue`. */
@@ -231,6 +245,197 @@ Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on s
     } finally {
       release();
     }
+  });
+});
+
+Deno.test("queue treats any non-empty marker as accounted and normalizes it for the child", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeCapConfig(dir, 1);
+    await gitInit(dir);
+    const observed = join(dir, "accounted-marker");
+    const release = await holdOnlySlot(dir);
+    const running = await spawnAgent(
+      dir,
+      [
+        "queue",
+        "--",
+        "sh",
+        "-c",
+        'printf "%s" "$DISCERN_TEST_SLOT" > "$1"',
+        "queue-accounted",
+        observed,
+      ],
+      { [TEST_RUN_SLOT_ENV]: "accounted-upstream" },
+    );
+    let result: RunResult;
+    try {
+      await pollUntil(
+        "the marked wrapper child to bypass the held slot",
+        () => pathExists(observed),
+        5_000,
+      );
+    } finally {
+      release();
+      result = await running.result;
+    }
+    assertEquals(result.code, 0, result.output);
+    assertEquals(await Deno.readTextFile(observed), "1");
+    assertEquals(
+      occurrenceCount(result.stderr, QUEUED_TEXT),
+      0,
+      "an accounted wrapper never probes the slots",
+    );
+  });
+});
+
+Deno.test("queue nesting takes one slot total at cap 1", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeCapConfig(dir, 1);
+    await gitInit(dir);
+    const observed = join(dir, "nested-marker");
+    const ready = join(dir, "nested-ready");
+    const releaseChild = join(dir, "nested-release");
+    const running = await spawnAgent(dir, [
+      "queue",
+      "--",
+      "discern",
+      "queue",
+      "--",
+      "sh",
+      "-c",
+      'printf "%s" "$DISCERN_TEST_SLOT" > "$1"; : > "$2"; ' +
+      'while [ ! -f "$3" ]; do sleep 0.05; done',
+      "queue-nested",
+      observed,
+      ready,
+      releaseChild,
+    ]);
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    try {
+      watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+      await pollUntil(
+        "the nested wrapper child to start",
+        () => pathExists(ready),
+        5_000,
+      );
+      const probe = await Deno.open(join(slotDirOf(dir), "slot-1"), {
+        read: true,
+        write: true,
+      });
+      try {
+        assertEquals(
+          await probe.tryLock(true),
+          false,
+          "the outer wrapper must hold the repository's one slot",
+        );
+      } finally {
+        probe.close();
+      }
+      await Deno.writeTextFile(releaseChild, "go");
+      const result = await running.result;
+      assertEquals(result.code, 0, result.output);
+      assertEquals(await Deno.readTextFile(observed), "1");
+      assertEquals(occurrenceCount(result.stderr, QUEUED_TEXT), 0);
+    } catch (error) {
+      try {
+        running.kill("SIGTERM");
+      } catch {
+        // Already settled.
+      }
+      await running.result;
+      throw error;
+    } finally {
+      if (watchdog !== undefined) clearTimeout(watchdog);
+      await Deno.writeTextFile(releaseChild, "go").catch(() => {});
+    }
+  });
+});
+
+Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const observed = join(dir, "gate-held-marker");
+    const job = join(dir, "wrapped-test.sh");
+    await Deno.writeTextFile(
+      job,
+      `printf '%s' "$DISCERN_TEST_SLOT" > "${observed}"\n`,
+    );
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        `test = "discern queue -- sh ${job}"`,
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const running = await spawnAgent(
+      dir,
+      ["test", "--json"],
+      { [TEST_RUN_SLOT_ENV]: "" },
+    );
+    const watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+    try {
+      const result = await running.result;
+      assertEquals(result.code, 0, result.output);
+      assertEquals(await Deno.readTextFile(observed), "1");
+    } finally {
+      clearTimeout(watchdog);
+    }
+  });
+});
+
+Deno.test("a capped gate exports the marker after its slots fail open", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const gateObserved = join(dir, "gate-fail-open-marker");
+    const nestedObserved = join(dir, "nested-fail-open-marker");
+    const job = join(dir, "fail-open-test.sh");
+    await Deno.writeTextFile(
+      job,
+      `printf '%s' "$DISCERN_TEST_SLOT" > "${gateObserved}"\n` +
+        `discern queue -- sh -c 'printf "%s" "$DISCERN_TEST_SLOT" > "$1"' queue-child "${nestedObserved}"\n`,
+    );
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "logbook = false",
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        `test = "sh ${job}"`,
+        "",
+      ].join("\n"),
+    );
+    const result = await runAgent(dir, ["test", "--json"], {
+      env: { [TEST_RUN_SLOT_ENV]: "" },
+    });
+    assertEquals(result.code, 0, result.output);
+    assertEquals(await Deno.readTextFile(gateObserved), "1");
+    assertEquals(await Deno.readTextFile(nestedObserved), "1");
+    assertEquals(
+      occurrenceCount(result.output, UNAVAILABLE_TEXT),
+      1,
+      "only the gate warns; its marked child never probes independently",
+    );
   });
 });
 

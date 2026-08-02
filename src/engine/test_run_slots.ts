@@ -26,6 +26,17 @@ const POLL_CAP_MS = 2_000;
 /** At most this many in-flight sibling runs are named on the wait line. */
 const WAIT_LINE_IN_FLIGHT_LIMIT = 2;
 
+/** Child-process marker: a non-empty value means the cap is accounted above. */
+export const TEST_RUN_SLOT_ENV = "DISCERN_TEST_SLOT";
+
+/** Canonical value written by the gate and queue wrapper. */
+export const TEST_RUN_SLOT_VALUE = "1";
+
+/** Whether an ancestor already accounts this process under the test-run cap. */
+export function testRunSlotAccounted(): boolean {
+  return (Deno.env.get(TEST_RUN_SLOT_ENV) ?? "") !== "";
+}
+
 /** One held slot. Releasing closes the file, which releases the OS lock. */
 export interface TestRunSlotHold {
   release(): void;
