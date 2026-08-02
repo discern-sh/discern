@@ -50,9 +50,79 @@ import {
 import { writeReceiptNote } from "../src/engine/gate/receipt_notes.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
-/** Yield for a bounded interval so an asynchronous await condition can change. */
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+const AWAIT_READINESS_TIMEOUT_MS = 180_000;
+const AWAIT_READINESS_POLL_MS = 25;
+
+type AwaitReadinessProbe = (
+  pending: Promise<unknown>,
+  what: string,
+) => Promise<void>;
+
+/** List await's repository-local, post-baseline continuation markers. */
+async function awaitContinuations(directory: string): Promise<Set<string>> {
+  const records = new Set<string>();
+  for await (const entry of Deno.readDir(directory)) {
+    if (entry.isFile && entry.name.endsWith(".json")) {
+      records.add(entry.name);
+    }
+  }
+  return records;
+}
+
+/**
+ * Snapshot await's continuation store before an operation starts, then return
+ * a probe that waits for that operation's new post-baseline marker. Marker
+ * creation supplies readiness; polling and the timer only bound observation.
+ */
+async function armAwaitReadinessProbe(
+  root: string,
+): Promise<AwaitReadinessProbe> {
+  const directory = await gitAdminStatePath(root, "continuations");
+  assert(directory !== undefined, "continuation path must resolve in a repo");
+  await Deno.mkdir(directory, { recursive: true });
+  const before = await awaitContinuations(directory);
+  return async (pending: Promise<unknown>, what: string): Promise<void> => {
+    let settled:
+      | { readonly ok: true; readonly value: unknown }
+      | { readonly ok: false; readonly error: unknown }
+      | undefined;
+    void pending.then(
+      (value) => {
+        settled = { ok: true, value };
+      },
+      (error: unknown) => {
+        settled = { ok: false, error };
+      },
+    );
+    const deadline = Date.now() + AWAIT_READINESS_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const after = await awaitContinuations(directory);
+      if ([...after].some((record) => !before.has(record))) {
+        return;
+      }
+      if (settled !== undefined) {
+        if (settled.ok) {
+          throw new Error(
+            `${what} settled before recording readiness: ${
+              JSON.stringify(settled.value)
+            }`,
+          );
+        }
+        if (settled.error instanceof Error) {
+          throw settled.error;
+        }
+        throw new Error(
+          `${what} rejected before readiness: ${settled.error}`,
+        );
+      }
+      await new Promise((resolve) =>
+        setTimeout(resolve, AWAIT_READINESS_POLL_MS)
+      );
+    }
+    throw new Error(
+      `timed out after ${AWAIT_READINESS_TIMEOUT_MS}ms waiting for ${what} readiness`,
+    );
+  };
 }
 
 /** Commit one file in `dir` (add-all, no signing). */
@@ -100,12 +170,13 @@ Deno.test("await --landed tracks the branch tip and survives its deletion", asyn
     // Mid-wait, the landing happens the way acceptance performs it: the
     // worktree is removed and the BRANCH DELETED before the sha reaches the
     // trunk — only the last observed tip can still answer.
+    const readiness = await armAwaitReadinessProbe(dir);
     const wait = awaitResult(dir, {
       landed: "agent/dep",
       timeoutSeconds: 10,
       pollIntervalMs: 100,
     });
-    await delay(300);
+    await readiness(wait, "await --landed");
     await git(dir, "worktree", "remove", "--force", dep);
     await git(dir, "branch", "-D", "agent/dep");
     await git(dir, "merge", "-q", "--ff-only", tip);
@@ -336,12 +407,13 @@ Deno.test("await --green is satisfied by a landing it watched happen", async () 
     // The wait observes the branch unreachable, then the landing mid-hold:
     // only a validated tree lands, so the transition proves the gate held —
     // no receipt observation window required.
+    const readiness = await armAwaitReadinessProbe(dir);
     const wait = awaitResult(dir, {
       green: "agent/dep",
       timeoutSeconds: 10,
       pollIntervalMs: 100,
     });
-    await delay(300);
+    await readiness(wait, "await --green");
     await git(dir, "merge", "-q", "agent/dep");
     const met = await wait;
     assert(met.ok);
@@ -433,12 +505,13 @@ Deno.test("await --trunk-moved wakes on the ref change, not the deadline", async
     await scaffoldEngine(dir);
     await gitInit(dir);
     const start = await gitOut(dir, "rev-parse", "HEAD");
+    const mainReadiness = await armAwaitReadinessProbe(dir);
     const wait = awaitResult(dir, {
       trunkMoved: true,
       timeoutSeconds: 10,
       pollIntervalMs: 100,
     });
-    await delay(300);
+    await mainReadiness(wait, "main-rooted await --trunk-moved");
     await git(
       dir,
       "commit",
@@ -460,12 +533,16 @@ Deno.test("await --trunk-moved wakes on the ref change, not the deadline", async
     );
 
     const dependent = await addWorktree(dir, "dependent");
+    const worktreeReadiness = await armAwaitReadinessProbe(dependent);
     const worktreeWait = awaitResult(dependent, {
       trunkMoved: true,
       timeoutSeconds: 10,
       pollIntervalMs: 100,
     });
-    await delay(300);
+    await worktreeReadiness(
+      worktreeWait,
+      "worktree-rooted await --trunk-moved",
+    );
     await git(
       dir,
       "commit",
@@ -898,6 +975,7 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
+    const readiness = await armAwaitReadinessProbe(dir);
     const child = new Deno.Command("deno", {
       args: [
         "run",
@@ -917,8 +995,7 @@ Deno.test("a SIGINT ends the wait promptly, leaving nothing behind", async () =>
       stdout: "piped",
       stderr: "piped",
     }).spawn();
-    // Give the process time to reach the wait loop (module load included).
-    await delay(2500);
+    await readiness(child.status, "CLI await --trunk-moved");
     child.kill("SIGINT");
     const guard = setTimeout(() => child.kill("SIGKILL"), 8_000);
     const killedAt = Date.now();
