@@ -989,6 +989,35 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       })),
     ),
   },
+  "generator-gate-share": {
+    firing: run(
+      Array.from({ length: 5 }, () => ({
+        verb: "done",
+        steps: [
+          step("generated:schemas", 20, "Build"),
+          step("generated:docs", 10, "Build"),
+          step("lint", 10),
+          step("test", 10),
+        ],
+      })),
+    ),
+    quiet: run(
+      Array.from({ length: 5 }, () => ({
+        verb: "done",
+        steps: [
+          step("generated:schemas", 10, "Build"),
+          step("lint", 10),
+          step("test", 10),
+        ],
+      })),
+    ),
+    sparse: run(
+      Array.from({ length: 4 }, () => ({
+        verb: "done",
+        steps: [step("generated:schemas", 20, "Build"), step("lint", 5)],
+      })),
+    ),
+  },
   "duration-creep": {
     firing: run(
       Array.from({ length: 8 }, (_, i) => ({
@@ -1280,6 +1309,70 @@ function detector(id: string): Detector {
   assert(found !== undefined, `no detector ${id}`);
   return found;
 }
+
+Deno.test("generator gate share attributes generated groups heaviest first", () => {
+  const detectorUnderTest = detector("generator-gate-share");
+  assertEquals(detectorUnderTest.family, "gate-fit");
+  assertEquals(detectorUnderTest.scope, "project");
+  assertEquals(detectorUnderTest.tier, "batch");
+  assertEquals(detectorUnderTest.threshold, 5);
+
+  const audit = report(
+    detectorUnderTest,
+    fixturesOf(detectorUnderTest).firing,
+  );
+  assertEquals(audit.status, "fired");
+  assertEquals(
+    audit.findings.map((finding) => finding.subject),
+    ["generated:schemas", "generated:docs"],
+  );
+  assertEquals(audit.findings[0]?.evidence, {
+    runs: 5,
+    group_share_pct: 40,
+    group_mean_seconds: 20,
+    generated_share_pct: 60,
+    generated_mean_seconds: 30,
+  });
+  assertStringIncludes(
+    audit.findings[0]?.observed ?? "",
+    "all generated groups averaged 30s and accounted for 60%",
+  );
+  assertStringIncludes(detectorUnderTest.next_step, "Restructure");
+  assert(!/skip|less often/i.test(detectorUnderTest.next_step));
+});
+
+Deno.test("generator gate share keeps short gates below the absolute floor", () => {
+  const events = run(
+    Array.from({ length: 5 }, () => ({
+      verb: "done",
+      steps: [step("generated:schemas", 0.6, "Build"), step("lint", 0.4)],
+    })),
+  );
+  const audit = runDetector(
+    detector("generator-gate-share"),
+    buildStreamFacts(events, "main"),
+  );
+  assertEquals(audit.status, "quiet");
+  assertEquals(audit.findings, []);
+});
+
+Deno.test("generator gate share supersedes dominant stage for a generated job", () => {
+  const events = run(
+    Array.from({ length: 5 }, () => ({
+      verb: "done",
+      steps: [step("generated:schemas", 30, "Build"), step("test", 5)],
+    })),
+  );
+  const facts = buildStreamFacts(events, "main");
+  assertEquals(
+    runDetector(detector("dominant-stage"), facts).status,
+    "quiet",
+  );
+  assertEquals(
+    runDetector(detector("generator-gate-share"), facts).status,
+    "fired",
+  );
+});
 
 Deno.test("hint follow-through: every declaring registry entry resolves followed, not-followed, and censored episodes", () => {
   const entries = measuredHints();
