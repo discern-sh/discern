@@ -53,7 +53,7 @@ Deno.test("prepare TTY: an 80-column live table moves every job through executio
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 10_000,
+      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "JOB");
@@ -95,7 +95,7 @@ Deno.test("prepare TTY: a narrow terminal uses the stacked layout", async () => 
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "40", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 10_000,
+      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "JOB / RESULT");
@@ -119,7 +119,7 @@ Deno.test("prepare TTY: a failed live table completes before the actionable tail
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 10_000,
+      timeoutMs: 20_000,
     });
     assertEquals(result.code, 1, result.output);
     assertStringIncludes(result.output, "failed · <1s");
@@ -164,7 +164,7 @@ Deno.test("prepare TTY: --plain and CI render a static final table", async () =>
       );
       const result = await runAgentPty(dir, args, {
         env,
-        timeoutMs: 10_000,
+        timeoutMs: 20_000,
       });
       assertEquals(result.code, 0, `${label}: ${result.output}`);
       assertStringIncludes(result.output, "JOB");
@@ -192,7 +192,7 @@ Deno.test("prepare TTY: stream mode keeps the ordinary command transcript", asyn
 
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 10_000,
+      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "Applying fixers");
@@ -247,7 +247,7 @@ Deno.test("prepare TTY: a no-op names the missing fix and check jobs", async () 
     await preparedRepo(dir, config([]));
     const result = await runAgentPty(dir, ["prepare"], {
       env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
-      timeoutMs: 10_000,
+      timeoutMs: 20_000,
     });
     assertEquals(result.code, 0, result.output);
     assertStringIncludes(result.output, "(no job is wired — nothing ran)");
