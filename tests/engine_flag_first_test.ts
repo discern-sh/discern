@@ -20,7 +20,14 @@ import { join } from "@std/path";
 import type { Command } from "@cliffy/command";
 import { withTempDir } from "./helpers.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
-import { buildCli, globalFlagTokens, resolveInvocation } from "../src/main.ts";
+import {
+  buildCli,
+  CLI_CHILD_BOUNDARIES,
+  discernOwnedArgv,
+  globalFlagTokens,
+  resolveInvocation,
+  ROOT_GLOBAL_FLAG_TOKENS,
+} from "../src/main.ts";
 import { SETUP_GATED_VERBS } from "../src/shared/setup_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
@@ -35,6 +42,25 @@ Deno.test("the global-flag registration is non-empty and includes --json", () =>
   // every flag-first case silently vacuous.
   assert(GLOBAL_FLAGS.length > 0, "no global flags derived from the root");
   assert(GLOBAL_FLAGS.includes("--json"), GLOBAL_FLAGS.join(", "));
+  assertEquals([...ROOT_GLOBAL_FLAG_TOKENS].sort(), GLOBAL_FLAGS);
+});
+
+Deno.test("raw child boundaries exclude every global-looking child flag", () => {
+  for (const [verb, boundary] of Object.entries(CLI_CHILD_BOUNDARIES)) {
+    for (const flag of GLOBAL_FLAGS) {
+      const argv = boundary.kind === "delimiter"
+        ? [flag, verb, boundary.token, "fresh-relay", flag]
+        : [flag, verb, "fresh-relay", flag];
+      const expected = boundary.kind === "delimiter"
+        ? [flag, verb]
+        : [flag, verb, "fresh-relay"];
+      assertEquals(
+        discernOwnedArgv(argv, ROOT_GLOBAL_FLAG_TOKENS),
+        expected,
+        `${verb} let child flag ${flag} select a discern global mode`,
+      );
+    }
+  }
 });
 
 Deno.test("every global flag is valueless, so token-skipping verb resolution stays sound", () => {

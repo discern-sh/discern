@@ -642,6 +642,23 @@ Deno.test("queue usage errors require the delimiter and a non-empty command", as
   });
 });
 
+Deno.test("queue child flags cannot select discern global modes", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(dir, "[project\n");
+    const result = await runAgent(dir, [
+      "queue",
+      "--",
+      "sh",
+      "-c",
+      "exit 0",
+      "--json",
+    ]);
+    assertEquals(result.code, 1, result.output);
+    assertEquals(result.stdout, "");
+    assertStringIncludes(result.stderr, "syntax error near line 1");
+  });
+});
+
 Deno.test("queue and await help cross-reference their distinct wait surfaces", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

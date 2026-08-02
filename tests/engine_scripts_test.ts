@@ -200,6 +200,16 @@ Deno.test("scripts: project scripts retain normal executable shell behavior", as
   });
 });
 
+Deno.test("scripts: child flags cannot select discern global modes", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(dir, "[project\n");
+    const result = await runAgent(dir, ["scripts", "unreached", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    assertEquals(result.stdout, "");
+    assertStringIncludes(result.stderr, "syntax error near line 1");
+  });
+});
+
 Deno.test("scripts: an existing non-executable file is reported, not run", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
