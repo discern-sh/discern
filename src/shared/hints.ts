@@ -27,6 +27,7 @@ import {
   positional,
   renderCommandRefsCli,
 } from "./command_reference.ts";
+import { worktreeContinuityPolicy } from "./operating_policies.ts";
 
 /**
  * Shared references for the commands hints cite most. Each is one token
@@ -623,9 +624,9 @@ export const HINTS = {
     family: "status-start-here",
     example: undefined,
     template: (): string =>
-      `Run ${
+      `${worktreeContinuityPolicy(CMD.start)} For a new effort, run ${
         discernCommand("start", flag("name", '"<task>"'))
-      } from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable. Never adopt an existing worktree: each belongs to another line of work, and a clean tree may still be in use.`,
+      } from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable.`,
   }),
 
   /**
@@ -642,11 +643,11 @@ export const HINTS = {
     example: { branch: "agent/hints", trunk: "main" },
     template: ({ branch, trunk }): string => {
       const label = branch === "" ? "(detached)" : `'${branch}'`;
-      return `Run \`git switch ${trunk}\` in the main checkout before ` +
+      return `${worktreeContinuityPolicy(CMD.start)} Run ` +
+        `\`git switch ${trunk}\` in the main checkout before ` +
         `${CMD.accept}. The checkout is parked on ${label}, while '${trunk}' ` +
-        `is the trunk. New worktrees still fork from the trunk, so you can run ` +
-        `${CMD.start} meanwhile. Never adopt an existing worktree. Each belongs ` +
-        `to another line of work.`;
+        `is the trunk. A new effort can still run ${CMD.start}; its worktree ` +
+        `forks from the trunk.`;
     },
   }),
 
@@ -833,10 +834,12 @@ export const HINTS = {
     id: "fleet-ownership",
     category: "guardrail",
     audience: "agent",
-    when: "A fleet survey includes worktrees owned by other lines of work.",
+    when: "A fleet survey includes a worktree other than the current checkout.",
     example: undefined,
     template: (): string =>
-      "Never work in a fleet worktree you didn't create. Each belongs to another line of work, and a clean tree may still be in use.",
+      "Continue a fleet worktree only if this effort created it. Review " +
+      "feedback and resumed sessions keep that assignment. Never claim a " +
+      "worktree from another effort because it is idle or clean.",
   }),
 
   "status-fleet-logbook-disabled": defineHint({
@@ -2770,8 +2773,10 @@ export const HINTS = {
     family: "start-result",
     example: { dir: "/workspace/project.worktrees/hint-registry" },
     template: ({ dir }): string =>
-      `Start a session rooted at ${dir} (or cd there) to continue. Do not keep ` +
-      `working in the main checkout.`,
+      `${
+        worktreeContinuityPolicy(CMD.start)
+      } Start a session rooted at ${dir} ` +
+      `(or cd there) to continue. Do not keep working in the main checkout.`,
   }),
 
   /** Uncommitted main-checkout work stays behind when start forks a commit. */
@@ -2819,10 +2824,10 @@ export const HINTS = {
     followThrough: MAIN_WORKTREE_FOLLOW_THROUGH,
     example: undefined,
     template: (): string =>
-      "Session opened in the main checkout — the trunk every effort lands " +
-      `on. Before editing, run ${CMD.start} and work in the worktree it ` +
-      "returns. A worktree is for changes; questions and investigation read " +
-      "from anywhere.",
+      `Session opened in the main checkout, where every effort lands. ${
+        worktreeContinuityPolicy(CMD.start)
+      } For a new effort, run ${CMD.start} before editing and work in the ` +
+      "worktree it returns. Questions and investigation can read from anywhere.",
   }),
 
   /** Setup's refresh core reports each failed artifact with its next action. */
@@ -3100,7 +3105,10 @@ export const HINTS = {
     family: "start-result",
     example: { path: "/workspace/project.worktrees/hint-registry" },
     template: ({ path }): string =>
-      `Re-root or cd into ${path} before editing. discern's MCP tools already ` +
+      `${
+        worktreeContinuityPolicy(CMD.start)
+      } Re-root or cd into ${path} before ` +
+      `editing. discern's MCP tools already ` +
       `target this worktree. \`discern_done\`, \`discern_update\`, and ` +
       `\`discern_accept\` follow it automatically. If you can't change your ` +
       `working root, prefix every shell command with ` +

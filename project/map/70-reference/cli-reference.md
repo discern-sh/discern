@@ -154,7 +154,7 @@ Isolated workspaces your agent drives.
 
 ### `discern start`
 
-From the main checkout, create a worktree with a separate checkout and branch for one change. Base it on the trunk, the shared landing branch, then print its path.
+From the main checkout, create a worktree with a separate checkout and branch for one effort. Base it on the trunk, the shared landing branch, then print its path.
 
 Usage: `discern start [options]`
 

@@ -179,7 +179,7 @@ export function buildCli(
     .usage("<command> [options]")
     .description(
       "Operate your project's quality gate (its full quality check) and Git " +
-        "worktrees (a separate checkout and branch for each change); `discern setup` " +
+        "worktrees (a separate checkout and branch for each effort); `discern setup` " +
         "scaffolds the stack-neutral system the first time.",
     )
     .example(

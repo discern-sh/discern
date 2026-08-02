@@ -17,6 +17,8 @@
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { buildInstructions, TOOLS } from "../src/engine/mcp/server.ts";
+import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
+import { type HintDef, HINTS } from "../src/shared/hints.ts";
 import {
   OPERATING_POLICIES,
   OPERATING_POLICY_SURFACES,
@@ -142,6 +144,74 @@ function awaitCallingFailures(
   return failures;
 }
 
+const WORKTREE_OWNERSHIP_REQUIREMENTS = [
+  {
+    meaning: "the effort that created a worktree keeps it",
+    pattern: /only if this effort created it/i,
+  },
+  {
+    meaning: "review feedback keeps the assignment",
+    pattern: /review feedback/i,
+  },
+  {
+    meaning: "resumed sessions keep the assignment",
+    pattern: /resumed sessions/i,
+  },
+  {
+    meaning: "another effort's worktree stays off limits",
+    pattern: /another effort/i,
+  },
+] as const;
+
+interface NamedText {
+  readonly label: string;
+  readonly text: string;
+}
+
+function policyRequirements(id: string): readonly {
+  readonly meaning: string;
+  readonly pattern: RegExp;
+}[] {
+  const policy = OPERATING_POLICIES.find((candidate) => candidate.id === id);
+  if (policy === undefined) {
+    throw new Error(`missing operating policy: ${id}`);
+  }
+  return policy.probes.map((pattern) => ({
+    meaning: `${id} policy probe ${pattern}`,
+    pattern,
+  }));
+}
+
+function requirementFailures(
+  requirements: readonly {
+    readonly meaning: string;
+    readonly pattern: RegExp;
+  }[],
+  surfaces: readonly NamedText[],
+): string[] {
+  const failures: string[] = [];
+  for (const surface of surfaces) {
+    for (const requirement of requirements) {
+      if (!requirement.pattern.test(surface.text)) {
+        failures.push(`${surface.label} missing: ${requirement.meaning}`);
+      }
+    }
+  }
+  return failures;
+}
+
+function renderedHintSurfaces(
+  predicate: (hint: HintDef<unknown>) => boolean,
+): NamedText[] {
+  const definitions = Object.values(HINTS) as unknown as readonly HintDef<
+    unknown
+  >[];
+  return definitions.filter(predicate).map((hint) => ({
+    label: `hint ${hint.id}`,
+    text: renderCommandRefsCli(hint.template(hint.example)),
+  }));
+}
+
 Deno.test("the operating-policy registry is complete and self-consistent", () => {
   assertEquals(registryFailures(OPERATING_POLICIES), []);
 });
@@ -189,6 +259,80 @@ Deno.test("await calling surfaces keep active calls and unmet continuations off 
     awaitCallingFailures(surfaces),
     [],
     "every surface used by the calling agent must carry the await reporting contract",
+  );
+});
+
+Deno.test("every worktree-entry surface keeps follow-up turns in the effort's existing worktree", async () => {
+  const tool = TOOLS.find((candidate) => candidate.name === "discern_start");
+  assert(tool !== undefined, "the start MCP tool must remain registered");
+  const hintSurfaces = renderedHintSurfaces((hint) =>
+    hint.family === "status-start-here" ||
+    hint.followThrough?.family === "main-worktree-first" ||
+    hint.id === "start-re-root" ||
+    hint.id === "start-mcp-re-root"
+  );
+  assertEquals(
+    hintSurfaces.map((surface) => surface.label).sort(),
+    [
+      "hint ensure-main-worktree-first",
+      "hint start-mcp-re-root",
+      "hint start-re-root",
+      "hint status-start-off-trunk",
+      "hint status-start-on-trunk",
+    ],
+    "the detector must cover every current entry and re-root hint",
+  );
+  const surfaces = [
+    { label: "bundled guidance", text: await guidanceBlob() },
+    { label: "MCP instructions", text: buildInstructions() },
+    { label: "start MCP tool", text: tool.description },
+    ...hintSurfaces,
+  ];
+  const failures = requirementFailures(
+    policyRequirements("worktree-continuity"),
+    surfaces,
+  );
+  assertEquals(
+    failures,
+    [],
+    "a main-rooted follow-up must be told to resume its recorded worktree before any surface suggests a fresh one:\n  " +
+      failures.join("\n  "),
+  );
+});
+
+Deno.test("control: worktree-continuity detector rejects renamed fresh-start advice", () => {
+  const requirements = policyRequirements("worktree-continuity");
+  const failures = requirementFailures(requirements, [
+    {
+      label: "future checkout launcher",
+      text:
+        "From the central checkout, run launch_branch to create a task checkout. Every listed checkout belongs to somebody else.",
+    },
+  ]);
+  assertEquals(failures.length, requirements.length);
+  assert(
+    failures.every((failure) =>
+      failure.startsWith("future checkout launcher missing:")
+    ),
+  );
+});
+
+Deno.test("fleet ownership distinguishes this effort's worktree from another effort's", () => {
+  const surfaces = renderedHintSurfaces((hint) =>
+    hint.id === "fleet-ownership"
+  );
+  assertEquals(surfaces.map((surface) => surface.label), [
+    "hint fleet-ownership",
+  ]);
+  const failures = requirementFailures(
+    WORKTREE_OWNERSHIP_REQUIREMENTS,
+    surfaces,
+  );
+  assertEquals(
+    failures,
+    [],
+    "the fleet rule must preserve ownership across turns without making every existing worktree foreign:\n  " +
+      failures.join("\n  "),
   );
 });
 

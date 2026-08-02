@@ -660,7 +660,7 @@ export function attachEngineCommands(
     .command("start")
     .description(
       "From the main checkout, create a worktree with a separate checkout and branch " +
-        `for one change. Base it on the trunk${trunkName}, the shared landing branch, ` +
+        `for one effort. Base it on the trunk${trunkName}, the shared landing branch, ` +
         "then print its path.",
     )
     .option(

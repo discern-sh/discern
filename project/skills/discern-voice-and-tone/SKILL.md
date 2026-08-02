@@ -252,7 +252,7 @@ discern does not offer "AI productivity." It offers a checkable way for a repo t
 - the repo declares its checks once;
 - every agent reads the same instructions;
 - every agent runs the same commands;
-- each task happens in an isolated worktree;
+- each effort keeps one isolated worktree;
 - failures name the command that failed;
 - quality limits can move only in the right direction;
 - setup is completed autonomously by an agent.
