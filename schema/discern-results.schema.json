@@ -3070,6 +3070,12 @@
                     "type": "string"
                   }
                 },
+                "removed_runtime_state": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "stripped": {
                   "type": "array",
                   "items": {
@@ -3086,6 +3092,12 @@
                   "type": "string"
                 },
                 "worktrees": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "resources": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -16942,6 +16954,7 @@
     "partial_refresh",
     "pin_failed",
     "precondition_failed",
+    "provisioned_resources",
     "read_error",
     "renamed_command",
     "renamed_config_key",

@@ -7,9 +7,14 @@
  * environment — must still run a self-invoking job like the seeded
  * `format = "discern tidy"`. The incident: CI's `deno task dev done` died
  * with `format#2 failed (exit 127) — sh: discern: not found`, because the
- * gate job's PATH had no dev wrapper and no binary. Both tests below scrub
- * every discern off the base PATH, so they fail on any engine that leans on
- * ambient resolution again.
+ * gate job's PATH had no dev wrapper and no binary. The PATH tests below
+ * scrub every discern off the base PATH, so they fail on any engine that
+ * leans on ambient resolution again.
+ *
+ * The identity test guards the population class (ADR 0249): shim dirs live
+ * under the repository's Git admin state, one per engine identity, reused by
+ * every process — an engine that mints one OS-temp dir per process regrows
+ * an unbounded backlog the reaper cannot drain.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -20,6 +25,7 @@ import {
   gitInit,
   runAgent,
   scaffoldEngine,
+  suiteTempDir,
   writeConfig,
 } from "./engine_helpers.ts";
 
@@ -34,7 +40,11 @@ const SCRUBBED_BASE = "/usr/bin:/bin";
  * would live and quietly satisfy the test.
  */
 async function denoOnlyPath(): Promise<string> {
-  const dir = await Deno.makeTempDir({ prefix: "discern-deno-only-" });
+  // Under the suite temp home so the symlink dir is cleaned with the run.
+  const dir = await Deno.makeTempDir({
+    dir: await suiteTempDir(),
+    prefix: "deno-only-",
+  });
   await Deno.symlink(Deno.execPath(), join(dir, "deno"));
   return `${dir}:${SCRUBBED_BASE}`;
 }
@@ -42,13 +52,45 @@ async function denoOnlyPath(): Promise<string> {
 Deno.test("self-shim: `discern` runs from a PATH holding no discern", async () => {
   const out = await new Deno.Command("sh", {
     args: ["-c", "discern --version"],
-    env: { PATH: await selfShimPath(SCRUBBED_BASE) },
+    env: { PATH: await selfShimPath(undefined, SCRUBBED_BASE) },
     stdout: "piped",
     stderr: "piped",
   }).output();
   const stderr = new TextDecoder().decode(out.stderr);
   assertEquals(out.code, 0, stderr);
   assertStringIncludes(new TextDecoder().decode(out.stdout), "discern");
+});
+
+Deno.test("self-shim: engine processes converge on one git-admin identity, not one temp dir each", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'format = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    for (let i = 0; i < 2; i++) {
+      const r = await runAgent(dir, ["prepare", "--json"]);
+      assertEquals(r.code, 0, r.output);
+    }
+    const home = join(dir, ".git", "discern", "shim");
+    const identities = await Array.fromAsync(Deno.readDir(home));
+    assertEquals(
+      identities.map((entry) => entry.isDirectory),
+      [true],
+      "two processes of one engine must share one shim identity under .git",
+    );
+  });
 });
 
 Deno.test("gate: a job invoking `discern` succeeds with no discern on PATH", async () => {

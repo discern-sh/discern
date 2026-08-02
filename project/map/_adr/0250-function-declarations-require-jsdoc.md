@@ -1,4 +1,4 @@
-# ADR 0249: Every authored TypeScript function declaration carries JSDoc
+# ADR 0250: Every authored TypeScript function declaration carries JSDoc
 
 **Status**: accepted
 

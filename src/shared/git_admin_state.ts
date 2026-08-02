@@ -123,6 +123,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  selfShim: {
+    path: "discern/shim",
+    scope: "worktree",
+    kind: "directory",
+    validation: false,
+  },
 } as const satisfies Record<string, GitAdminStateEntry>;
 
 export type GitAdminStateKey = keyof typeof GIT_ADMIN_STATE;
@@ -172,4 +178,30 @@ export async function gitAdminStatePath(
   }
   const commonDir = await gitPath(cwd, ["rev-parse", "--git-common-dir"]);
   return commonDir === undefined ? undefined : join(commonDir, entry.path);
+}
+
+/**
+ * The `discern/` namespace directories inside Git's administrative area for
+ * the repository at `cwd`: the worktree-scoped one and the shared common one,
+ * deduplicated (a main checkout has just one). Uninstall removes these whole,
+ * so every registered entry — and any future one — exits with the tool
+ * (ADR 0104) without a hand-kept list to drift.
+ */
+export async function gitAdminNamespaceDirs(cwd: string): Promise<string[]> {
+  const probes: string[][] = [
+    ["rev-parse", "--absolute-git-dir"],
+    ["rev-parse", "--git-common-dir"],
+  ];
+  const dirs: string[] = [];
+  for (const probe of probes) {
+    const resolved = await gitPath(cwd, probe);
+    if (resolved === undefined) {
+      continue;
+    }
+    const dir = join(resolved, GIT_ADMIN_STATE_NAMESPACE);
+    if (!dirs.includes(dir)) {
+      dirs.push(dir);
+    }
+  }
+  return dirs;
 }

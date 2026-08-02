@@ -46,6 +46,7 @@ export type DiscernKnownErrorSlug =
   | "partial_refresh"
   | "pin_failed"
   | "precondition_failed"
+  | "provisioned_resources"
   | "read_error"
   | "renamed_command"
   | "renamed_config_key"
@@ -982,10 +983,12 @@ export type DiscernUninstallResult = {
   verb: "uninstall";
   data?: {
     removed?: Array<string>;
+    removed_runtime_state?: Array<string>;
     stripped?: Array<string>;
     kept?: Array<string>;
     binary_hint?: string;
     worktrees?: Array<string>;
+    resources?: Array<string>;
   } | {
     issues: Array<{
       path: string;

@@ -29,7 +29,13 @@ import {
   sweepDueTempArtifacts,
   TEMP_ARTIFACT_SWEEP_INTERVAL_MS,
 } from "../src/engine/gate/temp_artifact_sweep.ts";
-import { gitInit } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  suiteTempDir,
+  writeConfig,
+} from "./engine_helpers.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -238,6 +244,41 @@ Deno.test("temp artifacts: the inspection budget bounds a fresh population, and 
   });
 });
 
+Deno.test("temp artifacts: budgeted pages visit a large population once each — no revisits, full drain", async () => {
+  await withTempDir(async (dir) => {
+    const prefix = Object.values(TEMP_ARTIFACT_KINDS)[0] ?? "discern-job-";
+    const age = TEMP_ARTIFACT_TTL_MS + HOUR_MS;
+    const total = 400;
+    const budget = 25;
+    for (let i = 0; i < total; i++) {
+      await fileAged(
+        dir,
+        `${prefix}${String(i).padStart(4, "0")}${TEMP_ARTIFACT_SUFFIX}`,
+        i % 2 === 0 ? age : HOUR_MS,
+      );
+    }
+    // A cursor that revisits any page cannot clear the stale half within
+    // exactly population/budget pages; one that skips entries clears less.
+    let cursor: string | undefined;
+    let removed = 0;
+    for (let page = 0; page < total / budget; page++) {
+      const result = await pruneStaleTempArtifacts({
+        dir,
+        maxInspections: budget,
+        maxRemovals: budget,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      assert(
+        result.inspected <= budget,
+        `page ${page} inspected ${result.inspected}`,
+      );
+      removed += result.removed;
+      cursor = result.cursor;
+    }
+    assertEquals(removed, total / 2);
+  });
+});
+
 Deno.test("temp artifacts: independent callers share one repository-wide sweep interval", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
@@ -303,6 +344,47 @@ Deno.test("temp artifacts: creation goes through the registry, so what is minted
       await Deno.remove(path).catch(() => undefined);
     }
   }
+});
+
+Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, not the shared OS temp dir", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    // Twelve error-like lines make the passing job loud enough to keep its
+    // output artifact, giving the envelope a real OS-temp path to check.
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        "lint = \"printf 'error: one\\nerror: two\\nerror: three\\nerror: four\\nerror: five\\nerror: six\\nerror: seven\\nerror: eight\\nerror: nine\\nerror: ten\\nerror: eleven\\nerror: twelve\\n'\"",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+    const envelope = JSON.parse(r.stdout.trim()) as {
+      steps?: Array<{ label?: string; output_path?: string }>;
+    };
+    const outputPath = envelope.steps?.find((step) => step.label === "lint")
+      ?.output_path;
+    assert(typeof outputPath === "string", r.stdout);
+    // realPath both sides: macOS spells its temp dir with and without the
+    // /private prefix depending on who resolved it.
+    const home = await Deno.realPath(await suiteTempDir());
+    const artifact = await Deno.realPath(outputPath);
+    assert(
+      artifact.startsWith(`${home}/`),
+      `a spawned engine minted ${artifact} outside the injected suite temp ` +
+        `home ${home} — engineEnv must inject TMPDIR so parallel suites ` +
+        `cannot pollute or scan the shared OS temp dir`,
+    );
+  });
 });
 
 // ── the structural guard ─────────────────────────────────────────────────────────
