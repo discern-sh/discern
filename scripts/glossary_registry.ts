@@ -641,6 +641,8 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
     "prints first-party licenses and third-party notices; a utility verb with no concept behind it",
   "verb:mcp":
     "starts the MCP server; transport plumbing documented by the CLI and MCP references, not a product concept",
+  "verb:queue":
+    "wraps a shell command with the configured concurrent test-run cap; the quality-gate guide and CLI reference document it, not a separate term of art",
   "verb:test":
     "runs the configured test stage on its own; the Gate job and Stage entries carry the concepts, and the CLI reference documents the verb",
   "verb:uninstall":

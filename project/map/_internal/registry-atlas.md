@@ -12,7 +12,7 @@ One row per set, in registry order; the sections below follow the same order and
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 31      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 32      | per member       | surface `verb`              |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 8       | —                | —                           |
@@ -208,7 +208,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 31
+- Members: 32
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -222,6 +222,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
   - `done`
   - `prepare`
   - `test`
+  - `queue`
   - `await`
   - `improvement`
   - `standards`

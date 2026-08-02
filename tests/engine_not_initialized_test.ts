@@ -70,6 +70,10 @@ const SPEC: Record<string, OutsideSpec> = {
     expect: "not_initialized",
   },
   scripts: { run: ["scripts"], verb: "scripts", expect: "not_initialized" },
+  queue: {
+    skip:
+      "exec-style wrapper; engine_queue_test proves it runs without a project and emits no result envelope",
+  },
 
   // Installer verbs with their own guards — same slug, verb-tailored message.
   upgrade: { run: ["upgrade"], verb: "upgrade", expect: "not_initialized" },

@@ -376,6 +376,23 @@ async function prepareProjectScript(root: string): Promise<BlackBoxRun> {
   };
 }
 
+/** The queue wrapper (owned_child.ts via queue.ts): an arbitrary raw command. */
+async function prepareQueue(root: string): Promise<BlackBoxRun> {
+  await scaffoldEngine(root);
+  return {
+    args: [
+      "queue",
+      "--",
+      "sh",
+      "-c",
+      recordingTree("queue.pid", "queue_descendant.pid"),
+    ],
+    cwd: root,
+    leaderPidFile: join(root, "queue.pid"),
+    descendantPidFile: join(root, "queue_descendant.pid"),
+  };
+}
+
 /** Worktree lifecycle commands (worktree/shell.ts): a `[worktree.setup].steps`
  * entry mid-`worktree setup` — the same runner carries the ensure buckets and
  * resource create/destroy/ensure. */
@@ -494,6 +511,7 @@ const SCENARIOS: Record<
   "gate-job": (signal) => assertInterruptStopsTree(signal, prepareGateJob),
   "project-script": (signal) =>
     assertInterruptStopsTree(signal, prepareProjectScript),
+  "queue": (signal) => assertInterruptStopsTree(signal, prepareQueue),
   "worktree-setup": (signal) =>
     assertInterruptStopsTree(signal, prepareWorktreeSetup),
   "with-gotchas": (signal) =>

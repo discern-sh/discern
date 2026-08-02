@@ -292,6 +292,14 @@ export function attachEngineCommands(
     );
 
   root
+    .command("queue")
+    .usage("-- <command> [args...]")
+    .description(
+      "Run a command while holding one configured concurrent test-run slot. " +
+        "Use `discern await` to watch a fleet condition instead.",
+    );
+
+  root
     .command("improvement")
     .description(
       "Find the highest-value next improvement, with the health audit and open reviews for agent and owner to evaluate together.",
@@ -511,7 +519,8 @@ export function attachEngineCommands(
         "worktree holds an honored gate receipt), a branch's work has landed " +
         "on the trunk, or the trunk has moved. Timing out is not an error; " +
         "the result carries a short continuation handle that preserves the " +
-        "original condition across calls.",
+        "original condition across calls. To wrap a command behind the " +
+        "concurrent test-run cap, use `discern queue -- <command> [args...]`.",
     )
     .option(
       "--json",

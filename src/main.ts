@@ -1186,6 +1186,25 @@ export async function main(args: string[]): Promise<void> {
       Deno.exit(0);
     }
 
+    // `queue` is an exec-style boundary: parse only the required `--`, then
+    // hand every following token to the child unchanged. Help stays with Cliffy;
+    // every run and usage error bypasses the result/logbook protocol because the
+    // wrapped command owns stdout, stderr, and its exit status.
+    if (verb === "queue") {
+      const { parseQueueInvocation, reportQueueUsageError, runQueue } =
+        await import("./engine/queue.ts");
+      const queued = parseQueueInvocation(
+        invocation.argsWithoutVerb,
+        globalTokens,
+      );
+      if (queued.kind === "error") {
+        Deno.exit(reportQueueUsageError(queued.message));
+      }
+      if (queued.kind === "run") {
+        Deno.exit(await runQueue(queued.command, queued.args));
+      }
+    }
+
     // Pre-setup hard redirect (ADR 0036): until the project records
     // `[meta].bootstrapped`, the setup-gated verbs refuse and point at setup —
     // running an empty gate would report a false "all-green", and `map` would

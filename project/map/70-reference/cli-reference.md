@@ -30,6 +30,7 @@ aliases:
   - discern done
   - discern prepare
   - discern test
+  - discern queue
   - discern improvement
   - discern mcp
   - discern scripts
@@ -137,6 +138,12 @@ Usage: `discern test [options]`
 | -------- | -------------------------------------------------------------------- |
 | `--json` | Emit the result as a JSON DiscernResult on stdout (output → stderr). |
 
+### `discern queue`
+
+Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead.
+
+Usage: `discern queue -- <command> [args...]`
+
 ### `discern tidy`
 
 Canonically format discern's configured Markdown sources and root discern.toml, and check that fenced box-drawing diagrams stay aligned. Select `md` or `toml`; omit the type to run both. A Markdown file whose frontmatter is not valid YAML, or whose table rows would drop cells when formatted (escape pipes inside code spans as `\|`), is refused and left unchanged.
@@ -179,7 +186,7 @@ Usage: `discern update [options]`
 
 ### `discern await`
 
-Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls.
+Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.
 
 Usage: `discern await [options]`
 

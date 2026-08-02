@@ -12,6 +12,7 @@ export const KNOWN_ENGINE_VERBS: ReadonlySet<string> = new Set([
   "done",
   "prepare",
   "test",
+  "queue",
   "await",
   "improvement",
   "standards",
