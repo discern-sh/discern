@@ -605,12 +605,21 @@ const couplingEvidenceCommitSchema = z.strictObject({
   subject: z.string(),
 });
 
+/** One input path coupling did not model because a configured generated group owns it. */
+const couplingGeneratedExclusionSchema = z.strictObject({
+  path: z.string(),
+  group: z.string(),
+});
+
 /** `coupling` — the co-change view mined from git history; `mode` picks the shape:
  * - `diff` carries the `changed` set considered and the `partners` MISSING from it;
  * - `query` carries the queried `target` and its `partners` (the capped ranked list, each
  *   entry an edge with its evidence — advisory and NOT exhaustive);
  * - `evidence` compares two files `a` and `b`: `together` commits changed both (of `of_a`
  *   that touched `a` and `of_b` that touched `b`), the most recent listed in `commits`.
+ * `excluded_generated` names query arguments or current changed paths removed because a
+ * `[generated.<group>]` declaration owns them. Evidence fields are absent when either
+ * argument is excluded, because the pair was not modeled.
  * `partners` is always present (empty in `evidence` mode); the mode-specific fields are
  * optional so one object models every shape. */
 export const CouplingDataSchema = z.strictObject({
@@ -618,6 +627,7 @@ export const CouplingDataSchema = z.strictObject({
   changed: z.array(z.string()).optional(),
   target: z.string().optional(),
   partners: z.array(couplingPartnerSchema),
+  excluded_generated: z.array(couplingGeneratedExclusionSchema).optional(),
   a: z.string().optional(),
   b: z.string().optional(),
   together: z.number().int().optional(),

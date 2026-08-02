@@ -24,8 +24,11 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
+import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { loadConfig } from "../src/shared/config_schema.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
@@ -43,7 +46,11 @@ import {
 } from "../src/engine/coupling/coupling.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { prepareResult } from "../src/engine/gate/prepare.ts";
-import type { CouplingData } from "../src/shared/result_schemas.ts";
+import { isNeutralPath } from "../src/engine/scopes/scopes.ts";
+import {
+  type CouplingData,
+  CouplingOutputSchema,
+} from "../src/shared/result_schemas.ts";
 
 /** A bare set-up project (no capabilities; guidance/skills off so the gate is a clean
  * green no-op) — coupling needs zero config, so the only thing a test varies is `in_gate`. */
@@ -72,7 +79,9 @@ async function commit(
   msg: string,
 ): Promise<void> {
   for (const [f, c] of Object.entries(files)) {
-    await Deno.writeTextFile(join(dir, f), c);
+    const path = join(dir, f);
+    await Deno.mkdir(dirname(path), { recursive: true });
+    await Deno.writeTextFile(path, c);
   }
   await git(dir, "add", "-A");
   await git(dir, "commit", "-q", "-m", msg, "--no-gpg-sign");
@@ -118,6 +127,114 @@ async function rankedHubHistory(dir: string): Promise<void> {
     await commit(dir, files, `hub-${i}`);
   }
   await noise(dir, 80, "rank-noise");
+}
+
+/** Two unrelated generated groups make the regression fresh-name proof: ownership is
+ * read from config, so neither a familiar directory nor a copied filename can pass the
+ * detector by accident. The artifact inventory also drives every ownership assertion. */
+const GENERATED_FIXTURE_GROUPS = [
+  {
+    name: "bundle",
+    pattern: "derived/**",
+    artifacts: [
+      "derived/application.bin",
+      "derived/routes.bin",
+      "derived/messages.bin",
+      "derived/search.bin",
+    ],
+  },
+  {
+    name: "contract-snapshots",
+    pattern: "contracts/**",
+    artifacts: [
+      "contracts/api.snapshot",
+      "contracts/events.snapshot",
+      "contracts/storage.snapshot",
+    ],
+  },
+] as const;
+
+const COMPACT_SOURCE = "compact.ts";
+const COMPACT_TEST = "compact_test.ts";
+const FENCED_SOURCE = "fenced.ts";
+const FENCED_TEST = "fenced_test.ts";
+
+interface GeneratedFixtureArtifact {
+  path: string;
+  group: string;
+}
+
+function generatedFixtureArtifacts(): GeneratedFixtureArtifact[] {
+  return GENERATED_FIXTURE_GROUPS.flatMap((group) =>
+    group.artifacts.map((path) => ({ path, group: group.name }))
+  );
+}
+
+function generatedFixtureConfig(): string {
+  return [
+    "[project]",
+    'slug = "engine-test"',
+    "",
+    "[coupling]",
+    "in_gate = true",
+    ...GENERATED_FIXTURE_GROUPS.flatMap((group) => [
+      "",
+      `[generated.${group.name}]`,
+      `paths = ${JSON.stringify([group.pattern])}`,
+      'run = "true"',
+    ]),
+    "",
+  ].join("\n");
+}
+
+async function setupGeneratedFixture(dir: string): Promise<void> {
+  await scaffoldEngine(dir);
+  await gitInit(dir);
+  await writeConfig(dir, generatedFixtureConfig());
+  await git(dir, "add", "-A");
+  await git(dir, "commit", "-q", "-m", "generated config", "--no-gpg-sign");
+
+  const resolved = resolveGeneratedGroups(await loadConfig(dir));
+  assertEquals(
+    resolved.map((group) => ({ name: group.name, paths: group.paths })),
+    GENERATED_FIXTURE_GROUPS.map((group) => ({
+      name: group.name,
+      paths: [group.pattern],
+    })),
+    "the fixture's ownership assertions must come from its configured groups",
+  );
+}
+
+/** Histories with both compact and size-fenced baskets. The compact commits prove
+ * generated endpoints disappear while the authored pair remains. Each fenced commit
+ * has 2 authored files plus every declared output: 9 paths before exclusion, 2 after.
+ * Against the 2-file noise population the upper fence is 8, so the authored pair only
+ * survives when ownership filtering happens before basket-size statistics. */
+async function generatedFixtureHistory(dir: string): Promise<void> {
+  const artifacts = generatedFixtureArtifacts();
+  const compactOutputs = GENERATED_FIXTURE_GROUPS.map((group) =>
+    group.artifacts[0]
+  );
+  for (let i = 0; i < 4; i++) {
+    const compact: Record<string, string> = {
+      [COMPACT_SOURCE]: `source-${i}`,
+      [COMPACT_TEST]: `test-${i}`,
+    };
+    for (const path of compactOutputs) {
+      compact[path] = `compact-output-${i}`;
+    }
+    await commit(dir, compact, `compact-${i}`);
+
+    const fenced: Record<string, string> = {
+      [FENCED_SOURCE]: `source-${i}`,
+      [FENCED_TEST]: `test-${i}`,
+    };
+    for (const { path } of artifacts) {
+      fenced[path] = `fenced-output-${i}`;
+    }
+    await commit(dir, fenced, `fenced-${i}`);
+  }
+  await noise(dir, 30, "generated-noise");
 }
 
 Deno.test("a repeated significant coupling surfaces; a one-off co-change does not", async () => {
@@ -268,6 +385,275 @@ Deno.test("the size fence skips sweeping commits, so files coupled only inside t
       [],
       "a pair seen only inside sweeping commits is fenced out, not coupled",
     );
+  });
+});
+
+Deno.test("declared outputs are excluded before every coupling statistic while authored pairs survive", async () => {
+  await withTempDir(async (dir) => {
+    await setupGeneratedFixture(dir);
+    await generatedFixtureHistory(dir);
+
+    const artifacts = generatedFixtureArtifacts();
+    const generatedPaths = new Set(artifacts.map(({ path }) => path));
+
+    // Compact baskets prove declared outputs cannot remain as partners. The authored
+    // source↔test relationship from those same commits remains intact.
+    const compact = await couplingResult(dir, { paths: [COMPACT_SOURCE] });
+    const compactData = compact.data as CouplingData;
+    assertEquals(partnerPaths(compactData), [COMPACT_TEST]);
+    assert(
+      compactData.partners.every((partner) =>
+        !generatedPaths.has(partner.from) && !generatedPaths.has(partner.path)
+      ),
+      `no generated endpoint may survive: ${
+        JSON.stringify(compactData.partners)
+      }`,
+    );
+
+    // Each fenced history basket has 9 paths before ownership filtering and only the
+    // authored pair after it. Seeing the test proves exclusion happened before the
+    // per-repo size fence rather than after a whole commit was discarded.
+    const fenced = (await couplingResult(dir, { paths: [FENCED_SOURCE] }))
+      .data as CouplingData;
+    assertEquals(partnerPaths(fenced), [FENCED_TEST]);
+
+    // Every configured path, across both fresh-name groups, is unpairable as a query
+    // source and carries its authoritative owner instead of a zero-history claim.
+    for (const artifact of artifacts) {
+      const result = await couplingResult(dir, { paths: [artifact.path] });
+      const data = result.data as CouplingData;
+      assertEquals(data.mode, "query");
+      assertEquals(data.target, artifact.path);
+      assertEquals(data.partners, []);
+      assertEquals(data.excluded_generated, [artifact]);
+      assertHasHint(result, HINTS["coupling-generated-exclusion"], artifact);
+    }
+
+    // Either evidence endpoint can be generated. In both directions coupling returns
+    // ownership, omits fabricated counts and commit rows, and emits no no-history hint.
+    const evidenceCases: Array<{
+      paths: [string, string];
+      excluded: GeneratedFixtureArtifact[];
+    }> = GENERATED_FIXTURE_GROUPS.flatMap((group) => {
+      const path = group.artifacts[0];
+      const excluded = [{ path, group: group.name }];
+      return [
+        { paths: [path, COMPACT_SOURCE], excluded },
+        { paths: [COMPACT_SOURCE, path], excluded },
+      ];
+    });
+    const first = artifacts[0];
+    const last = artifacts[artifacts.length - 1];
+    assert(first !== undefined && last !== undefined);
+    evidenceCases.push({
+      paths: [first.path, last.path],
+      excluded: [first, last],
+    });
+
+    for (const evidenceCase of evidenceCases) {
+      const result = await couplingResult(dir, {
+        paths: evidenceCase.paths,
+      });
+      const data = result.data as CouplingData;
+      assertEquals(data.mode, "evidence");
+      assertEquals(data.a, evidenceCase.paths[0]);
+      assertEquals(data.b, evidenceCase.paths[1]);
+      assertEquals(data.partners, []);
+      assertEquals(data.excluded_generated, evidenceCase.excluded);
+      assertEquals(data.together, undefined);
+      assertEquals(data.of_a, undefined);
+      assertEquals(data.of_b, undefined);
+      assertEquals(data.commits, undefined);
+      assertEquals(result.hints?.length, evidenceCase.excluded.length);
+      for (const excluded of evidenceCase.excluded) {
+        assertHasHint(
+          result,
+          HINTS["coupling-generated-exclusion"],
+          excluded,
+        );
+      }
+      assert(
+        !(result.hints ?? []).some((hint) =>
+          hint.includes("have not changed together")
+        ),
+        `generated evidence must not claim zero history: ${result.hints}`,
+      );
+    }
+
+    // The CLI JSON is held to the generated result schema, and the human surfaces say
+    // the same ownership fact without falling through to the ordinary empty result.
+    const cliArtifact = artifacts[0];
+    assert(cliArtifact !== undefined);
+    const json = await runAgent(dir, [
+      "coupling",
+      cliArtifact.path,
+      "--json",
+    ]);
+    assertEquals(json.code, 0, json.output);
+    const parsed = CouplingOutputSchema.safeParse(JSON.parse(json.stdout));
+    assert(
+      parsed.success,
+      `coupling --json drifted from CouplingOutputSchema:\n${
+        JSON.stringify(parsed.success ? [] : parsed.error.issues, null, 2)
+      }\n${json.stdout}`,
+    );
+    assertEquals(parsed.data.data, {
+      mode: "query",
+      target: cliArtifact.path,
+      partners: [],
+      excluded_generated: [cliArtifact],
+    });
+    assertHasHint(
+      parsed.data,
+      HINTS["coupling-generated-exclusion"],
+      cliArtifact,
+    );
+
+    const humanQuery = await runAgent(dir, ["coupling", cliArtifact.path]);
+    assertEquals(humanQuery.code, 0, humanQuery.output);
+    assertStringIncludes(humanQuery.stdout, cliArtifact.path);
+    assertStringIncludes(
+      humanQuery.stdout,
+      `[generated.${cliArtifact.group}]`,
+    );
+    assert(
+      !humanQuery.stdout.includes("No co-change partners found"),
+      humanQuery.stdout,
+    );
+
+    const humanEvidence = await runAgent(dir, [
+      "coupling",
+      COMPACT_SOURCE,
+      cliArtifact.path,
+    ]);
+    assertEquals(humanEvidence.code, 0, humanEvidence.output);
+    assertStringIncludes(humanEvidence.stdout, cliArtifact.path);
+    assertStringIncludes(
+      humanEvidence.stdout,
+      `[generated.${cliArtifact.group}]`,
+    );
+    assert(
+      !humanEvidence.stdout.includes("have not changed together"),
+      humanEvidence.stdout,
+    );
+
+    // Mixed diffs retain only the authored path and its authored missing partner.
+    await Deno.writeTextFile(join(dir, COMPACT_SOURCE), "mixed source\n");
+    await Deno.writeTextFile(join(dir, cliArtifact.path), "mixed output\n");
+    const mixed = await couplingResult(dir);
+    const mixedData = mixed.data as CouplingData;
+    assertEquals(mixedData.changed, [COMPACT_SOURCE]);
+    assertEquals(mixedData.excluded_generated, [cliArtifact]);
+    assertEquals(partnerPaths(mixedData), [COMPACT_TEST]);
+    assertHasHint(
+      mixed,
+      HINTS["coupling-generated-exclusion"],
+      cliArtifact,
+    );
+    await git(
+      dir,
+      "checkout",
+      "--",
+      COMPACT_SOURCE,
+      cliArtifact.path,
+    );
+
+    // Derived-only churn remains explicit on demand and silent in automatic gate and
+    // prepare advice. It never changes either command's verdict.
+    await Deno.writeTextFile(join(dir, cliArtifact.path), "derived only\n");
+    const generatedOnly = await couplingResult(dir);
+    const generatedOnlyData = generatedOnly.data as CouplingData;
+    assertEquals(generatedOnlyData.changed, []);
+    assertEquals(generatedOnlyData.excluded_generated, [cliArtifact]);
+    assertEquals(generatedOnlyData.partners, []);
+    assertHasHint(
+      generatedOnly,
+      HINTS["coupling-generated-exclusion"],
+      cliArtifact,
+    );
+    assertEquals(await couplingGateHints(dir), []);
+
+    for (
+      const automatic of [
+        await prepareResult(dir),
+        await finishResult(dir),
+      ]
+    ) {
+      assertEquals(automatic.ok, true);
+      assertLacksHint(automatic, HINTS["coupling-diff-header"]);
+      assertLacksHint(
+        automatic,
+        HINTS["coupling-generated-exclusion"],
+        cliArtifact,
+      );
+    }
+  });
+});
+
+Deno.test("projects without generated declarations keep generated-looking paths pairable", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    assertEquals(resolveGeneratedGroups(await loadConfig(dir)), []);
+    const projectedLooking = "derived/future-output.bin";
+    for (let i = 0; i < 4; i++) {
+      await commit(
+        dir,
+        { "source.ts": `${i}`, [projectedLooking]: `${i}` },
+        `unowned-${i}`,
+      );
+    }
+    await noise(dir, 6, "unowned-noise");
+
+    const source = (await couplingResult(dir, { paths: ["source.ts"] }))
+      .data as CouplingData;
+    assertEquals(partnerPaths(source), [projectedLooking]);
+    assertEquals(source.excluded_generated, undefined);
+
+    const target = (await couplingResult(dir, { paths: [projectedLooking] }))
+      .data as CouplingData;
+    assertEquals(partnerPaths(target), ["source.ts"]);
+    assertEquals(target.excluded_generated, undefined);
+  });
+});
+
+Deno.test("refresh-owned agent output remains excluded through neutral classification", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    const rendered = await renderAgentFiles(dir);
+    const agentPath = rendered.keys().next().value;
+    assert(
+      agentPath !== undefined,
+      "the configured agents must render an output",
+    );
+    const config = await loadConfig(dir);
+    assertEquals(resolveGeneratedGroups(config), []);
+    assert(
+      isNeutralPath(config, agentPath),
+      `${agentPath} must remain neutral independently of [generated]`,
+    );
+
+    for (let i = 0; i < 4; i++) {
+      await Deno.writeTextFile(join(dir, "authored.ts"), `${i}`);
+      await Deno.writeTextFile(join(dir, "authored_test.ts"), `${i}`);
+      await Deno.writeTextFile(join(dir, agentPath), `compiled-${i}`);
+      await git(dir, "add", "-A");
+      await git(dir, "add", "-f", "--", agentPath);
+      await git(
+        dir,
+        "commit",
+        "-q",
+        "-m",
+        `neutral-output-${i}`,
+        "--no-gpg-sign",
+      );
+    }
+    await noise(dir, 6, "neutral-noise");
+
+    const data = (await couplingResult(dir, { paths: ["authored.ts"] }))
+      .data as CouplingData;
+    assertEquals(partnerPaths(data), ["authored_test.ts"]);
+    assert(!partnerPaths(data).includes(agentPath));
+    assertEquals(data.excluded_generated, undefined);
   });
 });
 

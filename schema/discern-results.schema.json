@@ -8597,6 +8597,24 @@
                     ]
                   }
                 },
+                "excluded_generated": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "group": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "group"
+                    ]
+                  }
+                },
                 "a": {
                   "type": "string"
                 },
