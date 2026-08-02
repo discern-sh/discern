@@ -101,21 +101,26 @@ Materialized skills and provider-local state are ignored by exact registry path,
 
 Git-admin runtime records live under `discern/`; do not commit or edit them.
 
-| Registered path                                | Lifetime   | Purpose                                                 |
-| ---------------------------------------------- | ---------- | ------------------------------------------------------- |
-| `discern/resources/`                           | repository | Resource ledger.                                        |
-| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.  |
-| `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days. |
-| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                   |
-| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                      |
-| `discern/standard-measurements`                | worktree   | Reusable measurements.                                  |
-| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                  |
-| `discern/effort-grant`                         | worktree   | Desk landing grant.                                     |
-| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                              |
-| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                            |
-| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                        |
-| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                   |
-| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                 |
+| Registered path                                | Lifetime   | Purpose                                                                                                             |
+| ---------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| `discern/resources/`                           | repository | Resource ledger.                                                                                                    |
+| `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                              |
+| `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days.                                                             |
+| `discern/crash/`                               | repository | Crash reports.                                                                                                      |
+| `discern/test-slots/`                          | repository | Fleet test-run cap lock files.                                                                                      |
+| `discern/desk/tips.json`                       | repository | Desk tip evidence.                                                                                                  |
+| `discern/temp-artifact-sweep`                  | repository | Temp-retention sweep stamp and cursor.                                                                              |
+| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                                                                               |
+| `discern/last-gate-run`                        | worktree   | Last gate verdict.                                                                                                  |
+| `discern/standard-measurements`                | worktree   | Reusable measurements.                                                                                              |
+| `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                                                                              |
+| `discern/effort-grant`                         | worktree   | Desk landing grant.                                                                                                 |
+| `discern/effort-grant-claims/`                 | worktree   | Claims held by acceptance.                                                                                          |
+| `discern/acceptance-transaction.json`          | worktree   | Acceptance recovery journal.                                                                                        |
+| `discern/acceptance-transaction.lock`          | worktree   | Single-acceptance advisory lock.                                                                                    |
+| `discern/setup-machinery-commit-evidence.json` | worktree   | Setup retry evidence.                                                                                               |
+| `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                                                                             |
+| `discern/shim/`                                | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)). |
 
 Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Await continuation records also have a 7-day time limit and a 512-record repository cap ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)). Guards enforce namespace, lifetime, and reset behavior.
 
@@ -123,9 +128,9 @@ Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-tran
 
 ## Removing it all
 
-`discern uninstall` removes Generated files, discern-owned Shared entries, and the managed `.gitignore` and `.gitattributes` blocks ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes Generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, and the whole `discern/` runtime-state namespace under Git's administrative directories ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
 
-It keeps Project-owned files and `discern.toml`, names Shared settings it cannot clean without bundled templates, and refuses while a worktree is in flight. It is CLI-only. Delete the binary reported by `which discern`.
+It keeps Project-owned files and `discern.toml`, names Shared settings it cannot clean without bundled templates, and refuses while a worktree is in flight or while the resource ledger records provisioned resources — those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. It is CLI-only. Delete the binary reported by `which discern`.
 
 ## Where it lives in code
 
