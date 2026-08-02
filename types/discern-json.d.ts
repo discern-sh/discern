@@ -265,7 +265,7 @@ export type DiscernSetupResult = {
     };
     plan?: Array<{
       path: string;
-      action: "create" | "skip" | "merge" | "append";
+      action: "create" | "skip" | "merge" | "append" | "remove";
       note?: string;
     }>;
     guidance?: string;
@@ -848,6 +848,15 @@ export type DiscernUpgradeResult = {
       path: string;
     }>;
     gitignore_template_available?: boolean;
+    pending_gitattributes_reconciliation?: Array<{
+      kind: "create-block" | "replace-block" | "remove-block";
+      path: string;
+    }>;
+    untranslated_gitattributes_patterns?: Array<{
+      group: string;
+      pattern: string;
+      reason: string;
+    }>;
     changes?: Array<string>;
     issues?: Array<{
       path: string;
@@ -865,6 +874,10 @@ export type DiscernUpgradeResult = {
     }>;
     gitignore_reconciled?: Array<{
       kind: "create-block" | "replace-block";
+      path: string;
+    }>;
+    gitattributes_reconciled?: Array<{
+      kind: "create-block" | "replace-block" | "remove-block";
       path: string;
     }>;
     skills?: {
@@ -1303,7 +1316,7 @@ export type DiscernPresetResult = {
     available?: Array<string>;
     plan?: Array<{
       path: string;
-      action: "create" | "skip" | "merge" | "append";
+      action: "create" | "skip" | "merge" | "append" | "remove";
       note?: string;
     }>;
     config_fills?: boolean;

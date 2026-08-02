@@ -61,7 +61,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 239     | —                | node `adr-discipline`       |
-| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 26      | "File ownership" | node `ownership-buckets`    |
+| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
@@ -1710,7 +1710,7 @@ The numbered decision records in the map, including records later superseded.
 Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
-- Members: 26
+- Members: 27
   - `discern/guidance.md`
   - `discern/map/`
   - `discern/skills`
@@ -1719,6 +1719,7 @@ Every project-tree path discern writes or maintains, with its operational owners
   - `discern/brief.md`
   - `discern.toml`
   - `.gitignore`
+  - `.gitattributes`
   - `.env`
   - `.env.local`
   - `CLAUDE.md`
