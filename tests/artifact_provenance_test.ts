@@ -12,6 +12,7 @@ import {
   writtenArtifactClass,
 } from "../src/lib/artifact_ownership.ts";
 import { canonicalDiscernGitignoreBlock } from "../src/lib/agent_gitignore.ts";
+import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
 import { renderConfigTemplateForConfig } from "../src/lib/config_reconcile.ts";
 import {
   allSkillsDirs,
@@ -31,12 +32,17 @@ import {
 } from "../src/shared/config_schema.ts";
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { withTempDir } from "./helpers.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 const ALL_AGENT_CONFIG: DiscernConfig = parseConfigOrThrow(`
 [project]
 agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
+
+[generated.provenance]
+paths = ["generated/**"]
+run = "sh -c true"
 `);
 
 /** Assert the no opening generator comment. */
@@ -75,6 +81,12 @@ Deno.test("every comment-capable non-context artifact emits the standard marker"
     await Deno.writeTextFile(
       join(root, ".gitignore"),
       canonicalDiscernGitignoreBlock(gitignoreFragment),
+    );
+    await Deno.writeTextFile(
+      join(root, ".gitattributes"),
+      canonicalDiscernGitattributesBlock(
+        resolveGeneratedGroups(ALL_AGENT_CONFIG),
+      ).text,
     );
 
     for (const file of ALL_AGENT_CONFIG.worktree.env_files) {

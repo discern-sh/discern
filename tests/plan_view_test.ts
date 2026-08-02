@@ -100,24 +100,27 @@ Deno.test("renderPlan writes the heading to stderr and one padded row per op to 
   assertStringIncludes(row1, ".gitignore");
 });
 
-Deno.test("renderPlan maps every (seed-era) disposition to its label and renders the note suffix", async () => {
+Deno.test("renderPlan maps every disposition to its label and renders the note suffix", async () => {
   const p = plan([
     op("a", "create"),
     op("b", "skip", { note: "seed present — left as-is" }),
     op(".claude/settings.json", "merge"),
     op(".gitignore", "append"),
+    op(".gitattributes", "remove"),
   ]);
   const { out } = await capture(() => renderPlan(plainLogger(), p, "h"));
-  assertEquals(out.length, 4);
-  const [row0, row1, row2, row3] = out;
+  assertEquals(out.length, 5);
+  const [row0, row1, row2, row3, row4] = out;
   assertExists(row0);
   assertExists(row1);
   assertExists(row2);
   assertExists(row3);
+  assertExists(row4);
   assertStringIncludes(row0, "create");
   assertStringIncludes(row1, "skip");
   assertStringIncludes(row2, "merge");
   assertStringIncludes(row3, "append");
+  assertStringIncludes(row4, "remove");
   // The note is appended after an em-dash on the op that has one.
   assertStringIncludes(row1, "— seed present");
 });

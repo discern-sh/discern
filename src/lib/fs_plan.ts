@@ -29,7 +29,9 @@ import {
   type TokenMap,
 } from "./template.ts";
 import { reconcileDiscernGitignore } from "./agent_gitignore.ts";
+import { planDiscernGitattributesFile } from "./agent_gitattributes.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
+import type { ResolvedGeneratedGroup } from "../shared/generated_artifacts.ts";
 import type { SettingsSeedMerge } from "./settings_merge.ts";
 import {
   providersWithHooks,
@@ -44,12 +46,17 @@ export type OpDisposition =
   | "create" // target absent → will be created
   | "skip" // seed already present, or fully-idempotent no-op
   | "merge" // settings.json deep-merge
-  | "append"; // .gitignore block reconciliation against an existing file
+  | "append" // marked-block reconciliation against an existing file
+  | "remove"; // the managed block was the file's last content
 
 /** A single planned filesystem operation against one target path. */
 export interface PlanOp {
   /** What the op does to the target. */
-  kind: "write" | "merge-settings" | "append-gitignore";
+  kind:
+    | "write"
+    | "merge-settings"
+    | "append-gitignore"
+    | "reconcile-gitattributes";
   /** Target path relative to the destination root (forward-slashed). */
   targetRel: string;
   /** Absolute target path. */
@@ -93,11 +100,11 @@ export class SettingsMergePlanError extends Error {
 /** A filesystem operation failed while applying an otherwise-valid plan. */
 export class PlanApplyError extends Error {
   readonly op: PlanOp;
-  readonly action: "ensure-dir" | "write" | "chmod";
+  readonly action: "ensure-dir" | "write" | "chmod" | "remove";
 
   constructor(
     op: PlanOp,
-    action: "ensure-dir" | "write" | "chmod",
+    action: "ensure-dir" | "write" | "chmod" | "remove",
     cause: unknown,
   ) {
     super(
@@ -149,8 +156,8 @@ async function readBytesIfExists(
  *
  * Every file is a write-once SEED (create-or-skip). The binary's own artifacts
  * (`templates/skills/`, `templates/guidance/`) are skipped — they are
- * materialized/read from the binary, never seeded. `.claude/settings.json`
- * deep-merges; `.gitignore` reconciles the discern block idempotently.
+ * materialized/read from the binary, never seeded. Provider settings deep-merge;
+ * `.gitignore` and `.gitattributes` reconcile their discern-owned blocks.
  *
  * @param templatesDir   absolute path to the `templates/` tree to scaffold from
  * @param destDir        absolute destination root (the project being scaffolded)
@@ -380,6 +387,46 @@ async function planGitignoreAppend(
   };
 }
 
+/** Plan reconciliation of the config-derived `.gitattributes` block. */
+export async function planGitattributesReconcile(
+  destDir: string,
+  groups: readonly ResolvedGeneratedGroup[],
+  builtInCandidates: readonly string[] = [],
+): Promise<PlanOp | undefined> {
+  const reconciled = await planDiscernGitattributesFile(
+    destDir,
+    groups,
+    builtInCandidates,
+  );
+  const changed = reconciled.operations.length > 0;
+  if (!changed && reconciled.existing === undefined) {
+    return undefined;
+  }
+
+  const targetRel = ".gitattributes";
+  return {
+    kind: "reconcile-gitattributes",
+    targetRel,
+    targetAbs: join(destDir, targetRel),
+    disposition: changed
+      ? reconciled.text === ""
+        ? "remove"
+        : reconciled.existing === undefined
+        ? "create"
+        : "append"
+      : "skip",
+    bytes: TEXT_ENCODER.encode(reconciled.text),
+    mode: 0o644,
+    note: changed
+      ? reconciled.text === ""
+        ? "remove empty managed file"
+        : reconciled.existing === undefined
+        ? "create .gitattributes"
+        : "reconcile discern block"
+      : "discern block current",
+  };
+}
+
 /**
  * Build the op for the project brief — a SEED file at its fixed registry
  * location: written once with a short header, never overwritten if already
@@ -425,6 +472,15 @@ export async function applyPlan(plan: Plan): Promise<PlanOp[]> {
   const changed: PlanOp[] = [];
   for (const op of plan.ops) {
     if (op.disposition === "skip") {
+      continue;
+    }
+    if (op.disposition === "remove") {
+      try {
+        await Deno.remove(op.targetAbs);
+      } catch (error) {
+        throw new PlanApplyError(op, "remove", error);
+      }
+      changed.push(op);
       continue;
     }
     try {

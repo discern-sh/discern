@@ -63,6 +63,41 @@ Deno.test("upgrade --check writes nothing", async () => {
   });
 });
 
+Deno.test("upgrade detects and reconciles a stale generated-merge block", async () => {
+  await withTempDir(async (dir) => {
+    await setup(dir);
+    await Deno.writeTextFile(
+      join(dir, "discern.toml"),
+      '\n[generated.bundle]\npaths = ["generated/**"]\nrun = "sh -c true"\n',
+      { append: true },
+    );
+    const refresh = await runCli(["refresh", "--json"], dir);
+    assertEquals(refresh.code, 0, `${refresh.stdout}${refresh.stderr}`);
+    const attributesPath = join(dir, ".gitattributes");
+    const current = await Deno.readTextFile(attributesPath);
+    await Deno.writeTextFile(
+      attributesPath,
+      current.replace("generated/**", "stale/**"),
+    );
+
+    const check = await runCli(["upgrade", "--check", "--json"], dir);
+    assertEquals(check.code, 1, check.stderr);
+    const pending = JSON.parse(check.stdout);
+    assertEquals(pending.ok, false);
+    assertEquals(
+      pending.data.pending_gitattributes_reconciliation,
+      [{ kind: "replace-block", path: ".gitattributes" }],
+    );
+
+    const upgrade = await runCli(["upgrade", "--json"], dir);
+    assertEquals(upgrade.code, 0, upgrade.stderr);
+    assertStringIncludes(
+      await Deno.readTextFile(attributesPath),
+      "generated/** merge=discern-generated",
+    );
+  });
+});
+
 Deno.test("upgrade --check refuses a config from a newer schema", async () => {
   await withTempDir(async (dir) => {
     await setup(dir);

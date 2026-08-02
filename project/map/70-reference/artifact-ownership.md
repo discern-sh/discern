@@ -9,6 +9,7 @@ aliases:
   - files
   - ownership
   - footprint
+  - gitattributes
   - gitignore
   - uninstall
 ---
@@ -72,6 +73,7 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 | `.env`                                 | Shared         | Comment-capable non-context | Apache-2.0                | Worktree environment file. discern maintains inherited entries plus DISCERN_* identity and resource entries; inheritance may create the first configured file. |
 | `.env.local`                           | Shared         | Comment-capable non-context | Apache-2.0                | Worktree environment file. discern maintains inherited entries plus DISCERN_* identity and resource entries; inheritance may create the first configured file. |
 | `.gemini/settings.json`                | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
+| `.gitattributes`                       | Shared         | Comment-capable non-context | Apache-2.0                | Project attributes. discern maintains its marked generated-merge block.                                                                                        |
 | `.github/hooks/discern.json`           | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
 | `.gitignore`                           | Shared         | Comment-capable non-context | Apache-2.0                | Project ignore rules. discern maintains its marked block.                                                                                                      |
 | `.mcp.json`                            | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
@@ -90,6 +92,8 @@ Path overrides preserve ownership: placement grants write consent, not overwrite
 ## How Git treats generated and provider-local paths
 
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
+
+Project lines outside `.gitattributes`' discern markers survive; `refresh` and `upgrade` replace the block from config and the Agent registry. Hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
 Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files alone. Add agent-file ignores outside the managed block if preferred; currency accepts a missing copy.
 
@@ -119,7 +123,7 @@ Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-tran
 
 ## Removing it all
 
-`discern uninstall` removes Generated files, discern-owned Shared entries, and the managed `.gitignore` block ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
+`discern uninstall` removes Generated files, discern-owned Shared entries, and the managed `.gitignore` and `.gitattributes` blocks ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
 
 It keeps Project-owned files and `discern.toml`, names Shared settings it cannot clean without bundled templates, and refuses while a worktree is in flight. It is CLI-only. Delete the binary reported by `which discern`.
 

@@ -175,8 +175,12 @@ import { configEpoch } from "../logbook/epoch.ts";
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
-import { renderAgentFiles } from "../guidance_render.ts";
+import { agentFilePaths, renderAgentFiles } from "../guidance_render.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
+import {
+  DISCERN_GENERATED_MERGE_DRIVER,
+  planDiscernGitattributesBlock,
+} from "../../lib/agent_gitattributes.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate receipt when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
@@ -408,6 +412,16 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   const steps: SetupStepDesc[] = [
     { kind: "git", label: "ensure-branch", note: branch },
   ];
+  if (
+    !(await worktreeSetupComplete(ctx.cwd)) &&
+    await generatedMergeDriverNeeded(ctx)
+  ) {
+    steps.push({
+      kind: "git",
+      label: "configure-generated-merge-driver",
+      note: `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver=true (worktree)`,
+    });
+  }
   if (ctx.config.worktree.inherit_env.length > 0) {
     steps.push({
       kind: "env",
@@ -442,6 +456,46 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   }
   steps.push({ kind: "refresh", label: "refresh agent files" });
   return { branch, steps };
+}
+
+/** Report whether this worktree needs the generated-artifact merge driver. */
+async function generatedMergeDriverNeeded(
+  ctx: LifecycleContext,
+): Promise<boolean> {
+  const attributes = await planDiscernGitattributesBlock(
+    ctx.root,
+    resolveGeneratedGroups(ctx.config),
+    agentFilePaths(ctx.config),
+  );
+  return attributes.patterns.length > 0;
+}
+
+/** Install the worktree-local driver that keeps current generated artifacts. */
+async function installGeneratedMergeDriver(
+  ctx: LifecycleContext,
+): Promise<void> {
+  const run = makeGitRunner(ctx);
+  const commands: readonly string[][] = [
+    ["config", "--local", "extensions.worktreeConfig", "true"],
+    [
+      "config",
+      "--worktree",
+      `merge.${DISCERN_GENERATED_MERGE_DRIVER}.driver`,
+      "true",
+    ],
+  ];
+  for (const args of commands) {
+    const result = await run(args);
+    if (result.success) {
+      continue;
+    }
+    const detail = result.stderr.trim() || result.stdout.trim();
+    throw new WorktreeGitError(
+      `Discern could not configure the generated-artifact merge driver in this worktree${
+        detail === "" ? "." : `: ${detail}`
+      } Re-run \`discern worktree setup\` after correcting the Git configuration.`,
+    );
+  }
 }
 
 /**
@@ -676,6 +730,10 @@ export async function worktreeSetup(
   // non-idempotent phases (resource `create`, `[worktree.setup].steps`) must not
   // re-run. (`worktreeEnsure` gates the session-start path the same way.)
   const configured = await worktreeSetupComplete(ctx.cwd);
+
+  if (!configured && await generatedMergeDriverNeeded(ctx)) {
+    await installGeneratedMergeDriver(ctx);
+  }
 
   // 3. inherit env vars from main — FIRST among the env writers, because it is
   // the one allowed to CREATE the worktree's env file (a declared value must
@@ -3221,17 +3279,19 @@ async function runUpdateGeneratedGroups(
 }
 
 /** Whether `path` was re-derived by a generator that completed successfully. */
-function successfullyRegeneratedPath(
+function successfullyConvergedPath(
   plan: UpdatePlan,
   successful: ReadonlySet<string>,
+  refreshedSharedPaths: ReadonlySet<string>,
   path: string,
 ): boolean {
   const declared = generatedGroupForPath(plan.generatedGroups, path);
   if (declared !== undefined && successful.has(declared.name)) {
     return true;
   }
-  return plan.refreshCompiledPaths.includes(path) &&
-    successful.has(UPDATE_BUILTIN_GENERATED_GROUP);
+  return successful.has(UPDATE_BUILTIN_GENERATED_GROUP) &&
+    (plan.refreshCompiledPaths.includes(path) ||
+      refreshedSharedPaths.has(path));
 }
 
 /** Commit only successfully re-derived paths, leaving unrelated changes alone. */
@@ -3239,6 +3299,7 @@ async function commitUpdateRegeneratedArtifacts(
   ctx: LifecycleContext,
   plan: UpdatePlan,
   successful: ReadonlySet<string>,
+  refreshedSharedPaths: ReadonlySet<string>,
   enabled: boolean,
 ): Promise<{ step: StepResult; diagnostic?: Diagnostic }> {
   const skipped = (note: string): { step: StepResult } => ({
@@ -3282,12 +3343,24 @@ async function commitUpdateRegeneratedArtifacts(
   }
   const paths = new Set<string>();
   for (const entry of parsePorcelainZ(status.stdout)) {
-    if (successfullyRegeneratedPath(plan, successful, entry.path)) {
+    if (
+      successfullyConvergedPath(
+        plan,
+        successful,
+        refreshedSharedPaths,
+        entry.path,
+      )
+    ) {
       paths.add(entry.path);
     }
     if (
       entry.origPath !== undefined &&
-      successfullyRegeneratedPath(plan, successful, entry.origPath)
+      successfullyConvergedPath(
+        plan,
+        successful,
+        refreshedSharedPaths,
+        entry.origPath,
+      )
     ) {
       paths.add(entry.origPath);
     }
@@ -3353,10 +3426,14 @@ async function runUpdateConvergence(
   ctx.log.info("Re-materializing agent files + skills…");
   let refreshOk = true;
   let refreshHints: string[] = hintTexts([]);
+  const refreshedSharedPaths = new Set<string>();
   try {
     const refreshed = await compileGuidelines(ctx.root, ctx.log);
     refreshOk = guidanceRefreshSucceeded(refreshed);
     refreshHints = refreshed.hints;
+    for (const path of refreshed.gitattributesChanged) {
+      refreshedSharedPaths.add(path);
+    }
   } catch {
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
@@ -3378,6 +3455,7 @@ async function runUpdateConvergence(
     ctx,
     plan,
     successful,
+    refreshedSharedPaths,
     opts.commitRegenerated,
   );
   steps.push(committed.step);

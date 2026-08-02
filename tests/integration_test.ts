@@ -51,6 +51,11 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       destDir: dir,
       config: integrationConfig(),
     });
+    assertEquals(
+      plan.ops.some((op) => op.targetRel === ".gitattributes"),
+      false,
+      "a scaffold without declared or tracked generated candidates has no attributes block",
+    );
     await applyPlan(plan);
 
     // 1. discern.toml exists and parses, with our identity substituted.
@@ -137,6 +142,33 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
     await assertAbsent(join(dir, "skills"));
     await assertAbsent(join(dir, "guidance"));
     await assertAbsent(join(dir, SOURCE_PATHS.map.defaultPath));
+  });
+});
+
+Deno.test("init plans the managed attributes block from generated fills", async () => {
+  await withTempDir(async (dir) => {
+    const plan = await assembleInitPlan({
+      templatesDir: REAL_TEMPLATES,
+      destDir: dir,
+      config: integrationConfig(),
+      fills: {
+        generated: {
+          bundle: {
+            paths: ["generated/**"],
+            run: "tool build-generated",
+          },
+        },
+      },
+    });
+    const attributes = plan.ops.find((op) => op.targetRel === ".gitattributes");
+    assert(attributes !== undefined);
+    assertEquals(attributes.kind, "reconcile-gitattributes");
+    assertEquals(attributes.disposition, "create");
+    await applyPlan(plan);
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      "generated/** merge=discern-generated",
+    );
   });
 });
 

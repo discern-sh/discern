@@ -32,6 +32,7 @@ const USER_CLAUDE_SETTINGS =
   `{\n  "permissions": {\n    "deny": [\n      "Read(secret)"\n    ]\n  }\n}\n`;
 const USER_MCP_JSON =
   `{\n  "mcpServers": {\n    "other": {\n      "type": "stdio",\n      "command": "foo",\n      "args": []\n    }\n  }\n}\n`;
+const USER_GITATTRIBUTES = "*.jpg binary\n";
 /** The two co-owned files seeded with user content BEFORE discern wires them —
  * so the round-trip asserts they return to these exact bytes. */
 const PRE_SEEDED = new Set([".claude/settings.json", ".mcp.json"]);
@@ -91,6 +92,7 @@ async function wireFullHarness(dir: string): Promise<void> {
   );
   await Deno.writeTextFile(join(dir, ".mcp.json"), USER_MCP_JSON);
   await Deno.writeTextFile(join(dir, ".gitignore"), "node_modules/\n");
+  await Deno.writeTextFile(join(dir, ".gitattributes"), USER_GITATTRIBUTES);
   await gitInit(dir);
 
   const begin = await runAgent(dir, [
@@ -159,6 +161,10 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
     assert(
       !gitignore.includes("# --- discern ---"),
       "discern block was not removed",
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      USER_GITATTRIBUTES,
     );
 
     // 4. The user's content — the config and the whole discern/ namespace — stays.

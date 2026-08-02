@@ -17,8 +17,9 @@
  * rules, the Copilot hook file); the discern entries inside co-owned files (each
  * provider's MCP server, the session hooks, the permission defaults) — stripping
  * them and leaving the user's own settings byte-for-byte; and the delimited
- * `.gitignore` block. A co-owned file discern created outright empties to nothing
- * and is deleted; one the user shares keeps their content.
+ * `.gitignore` and `.gitattributes` blocks. A co-owned file discern created
+ * outright empties to nothing and is deleted; one the user shares keeps their
+ * content.
  *
  * What it keeps: `discern.toml`, and every path in the `discern/` namespace
  * (guidance, the map, authored skills, project scripts, the ledger, the brief) — plain
@@ -61,6 +62,7 @@ import {
   DISCERN_GITIGNORE_BEGIN,
   DISCERN_GITIGNORE_END,
 } from "../lib/agent_gitignore.ts";
+import { reconcileDiscernGitattributes } from "../lib/agent_gitattributes.ts";
 import { listWorktreeFleet } from "../engine/worktree/git.ts";
 import { canPrompt, confirmProceed } from "../lib/prompts.ts";
 
@@ -367,6 +369,19 @@ async function computeUninstallPlan(
       gitignore,
       stripped,
       "discern .gitignore block",
+    );
+  }
+
+  // 5b. The config-derived `.gitattributes` block.
+  const gitattributes = await readTextIfExists(abs(".gitattributes"));
+  if (gitattributes !== undefined) {
+    const reconciled = reconcileDiscernGitattributes(gitattributes, []);
+    pushCoOwnedOp(
+      plan,
+      ".gitattributes",
+      gitattributes,
+      reconciled.text === "" ? null : reconciled.text,
+      "discern .gitattributes block",
     );
   }
 

@@ -3,12 +3,12 @@
  * battery (ADR 0102). discern writes to a user project ONLY: the root
  * `discern.toml`; the configured source paths (the paths registry, through the
  * resolvers); the agent files, materialized skills dirs, and provider
- * integration files (the provider registry); the delimited `.gitignore` block;
- * and the worktree `.env` upsert. Everything else it records lives inside
- * `.git` (the gate receipt, the ready sentinel, the resource ledger, the
- * ignored-file baseline, the logbook), at a user-typed output path, or in a
- * temp file — outside the project tree and outside this contract. Setup retry
- * evidence is another registry-resolved Git-admin record.
+ * integration files (the provider registry); the delimited `.gitignore` and
+ * `.gitattributes` blocks; and the worktree `.env` upsert. Everything else it
+ * records lives inside `.git` (the gate receipt, the ready sentinel, the
+ * resource ledger, the ignored-file baseline, the logbook), at a user-typed
+ * output path, or in a temp file — outside the project tree and outside this
+ * contract. Setup retry evidence is another registry-resolved Git-admin record.
  *
  * Two legs, so a stray write fails no matter where it hides:
  *
@@ -106,6 +106,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   // the delimited .gitignore block
   ["src/lib/agent_gitignore.ts", "the .gitignore block writer"],
+  ["src/lib/agent_gitattributes.ts", "the .gitattributes block writer"],
   // runtime worktree state
   [
     "src/engine/worktree/env_file.ts",

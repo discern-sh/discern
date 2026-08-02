@@ -244,6 +244,71 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
   });
 });
 
+Deno.test("update commits a regenerated attributes block after generated config changes", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const wt = await addWorktree(dir, "generated-config-change");
+    const configPath = join(dir, "discern.toml");
+    await Deno.writeTextFile(
+      configPath,
+      (await Deno.readTextFile(configPath)).replace(
+        'paths = ["generated/**"]',
+        'paths = ["generated/*.txt"]',
+      ),
+    );
+    await commitAll(dir, "narrow generated paths");
+
+    const result = await runAgent(wt, ["update", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const parsed = parse(result.stdout);
+    assert(
+      parsed.steps?.some((step) =>
+        step.label === "commit regenerated artifacts" &&
+        step.note?.includes(".gitattributes")
+      ),
+      result.stdout,
+    );
+    const attributes = await Deno.readTextFile(join(wt, ".gitattributes"));
+    assertStringIncludes(
+      attributes,
+      "generated/*.txt merge=discern-generated",
+    );
+    assertEquals(attributes.includes("generated/** merge="), false);
+    assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("update never treats project-owned attributes lines as generated conflicts", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const wt = await addWorktree(dir, "project-attributes-conflict");
+    const attributesPath = join(wt, ".gitattributes");
+    await Deno.writeTextFile(
+      attributesPath,
+      `${await Deno.readTextFile(attributesPath)}*.asset binary\n`,
+    );
+    await commitAll(wt, "set branch project attributes");
+
+    const mainAttributesPath = join(dir, ".gitattributes");
+    await Deno.writeTextFile(
+      mainAttributesPath,
+      `${await Deno.readTextFile(mainAttributesPath)}*.asset text\n`,
+    );
+    await commitAll(dir, "set main project attributes");
+
+    const result = await runAgent(wt, ["update", "--json"]);
+    assertEquals(result.code, 1, result.output);
+    const parsed = parse(result.stdout);
+    assertEquals(parsed.error, "precondition_failed");
+    assertStringIncludes(parsed.message ?? "", ".gitattributes");
+    assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+    assertStringIncludes(
+      await Deno.readTextFile(attributesPath),
+      "*.asset binary",
+    );
+  });
+});
+
 Deno.test("update refuses a mixed generated and authored conflict and separates both path lists", async () => {
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);

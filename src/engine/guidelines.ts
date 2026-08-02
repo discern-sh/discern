@@ -22,7 +22,7 @@
 import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import { adrIndexState } from "../lib/adr_index.ts";
-import { loadConfig } from "../shared/config_schema.ts";
+import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { RefreshData } from "../shared/result_schemas.ts";
 import { resolveGuidanceSources } from "../lib/paths.ts";
@@ -43,9 +43,18 @@ import {
   hintTexts,
   mergeHintTexts,
 } from "../shared/hints.ts";
-import { guidanceAgents, renderAgentFiles } from "./guidance_render.ts";
+import {
+  agentFilePaths,
+  guidanceAgents,
+  renderAgentFiles,
+} from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
 import { reconcileReceiptNotesFetch } from "./gate/receipt_notes.ts";
+import {
+  ensureDiscernGitattributesBlock,
+  GITATTRIBUTES_REL,
+} from "../lib/agent_gitattributes.ts";
+import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
@@ -55,6 +64,10 @@ export interface GuidelinesResult {
    * Internal trigger evidence for refresh's commit advisory; the public data shape
    * continues to report paths in its existing per-artifact buckets. */
   trackedArtifactsChanged: string[];
+  /** Managed attributes files whose discern-owned block changed. Kept separate
+   * so update can commit this Shared derived region without treating the whole
+   * file as safe for generated-conflict auto-resolution. */
+  gitattributesChanged: string[];
   /** Project files written wiring each agent's MCP server (`.mcp.json`, settings). */
   mcpWired: string[];
   /** Provider hook/settings files re-seeded with discern's hook groups. */
@@ -110,6 +123,39 @@ export function guidanceRefreshSucceeded(
   result: Pick<GuidelinesResult, "errors">,
 ): boolean {
   return guidanceRefreshErrors(result).length === 0;
+}
+
+/** Reconcile generated merge attributes and reduce failures to refresh errors. */
+async function reconcileGeneratedMergeAttributes(
+  root: string,
+  config: DiscernConfig,
+  log: Logger,
+): Promise<{ changed: string[]; errors: string[] }> {
+  try {
+    const result = await ensureDiscernGitattributesBlock(
+      root,
+      resolveGeneratedGroups(config),
+      agentFilePaths(config),
+    );
+    const changed = result.operations.length > 0 ? [GITATTRIBUTES_REL] : [];
+    if (changed.length > 0) {
+      log.info(`reconciled the discern block in ${GITATTRIBUTES_REL}`);
+    }
+    for (const refused of result.refused) {
+      log.warn(
+        `refresh: [generated.${refused.group}].paths pattern ${
+          JSON.stringify(refused.pattern)
+        } was omitted from ${GITATTRIBUTES_REL}: ${refused.reason}.`,
+      );
+    }
+    return { changed, errors: [] };
+  } catch (error) {
+    const message = `could not maintain ${GITATTRIBUTES_REL}: ${
+      errText(error)
+    }`;
+    log.warn(message);
+    return { changed: [], errors: [message] };
+  }
 }
 
 /** Render the compile summary as the stable `refresh` data payload. */
@@ -376,9 +422,16 @@ export async function compileGuidelines(
     const msg = `could not compute the agent files: ${errText(error)}`;
     log.warn(msg);
     errors.push(msg);
+    const attributes = await reconcileGeneratedMergeAttributes(
+      root,
+      config,
+      log,
+    );
+    errors.push(...attributes.errors);
     return summarize(
       agentsWritten,
       agentFilesChanged,
+      attributes.changed,
       mcpWired,
       hooksWired,
       worktreeAppWired,
@@ -448,9 +501,23 @@ export async function compileGuidelines(
       }`,
     );
   }
+
+  // --- job 4: generated-artifact merge attributes ---------------------------
+  // Agent paths become built-in candidates in the same refresh that writes
+  // them, so reconcile after compilation. Tracked files remain candidates when
+  // a write failed or a configured provider was removed. A scope pattern whose
+  // meaning Git attributes cannot preserve is omitted and reported; doctor
+  // keeps that warning visible after this run.
+  const attributes = await reconcileGeneratedMergeAttributes(
+    root,
+    config,
+    log,
+  );
+  errors.push(...attributes.errors);
   return summarize(
     agentsWritten,
     agentFilesChanged,
+    attributes.changed,
     mcpWired,
     hooksWired,
     worktreeAppWired,
@@ -468,6 +535,7 @@ export async function compileGuidelines(
 function summarize(
   agentsWritten: string[],
   agentFilesChanged: string[],
+  gitattributesChanged: string[],
   mcpWired: string[],
   hooksWired: string[],
   worktreeAppWired: string[],
@@ -483,6 +551,7 @@ function summarize(
     trackedArtifactsChanged: [
       ...new Set([
         ...agentFilesChanged,
+        ...gitattributesChanged,
         ...mcpWired,
         ...hooksWired,
         ...worktreeAppWired,
@@ -490,6 +559,7 @@ function summarize(
         ...adrIndexWritten,
       ]),
     ],
+    gitattributesChanged,
     mcpWired,
     hooksWired,
     worktreeAppWired,

@@ -340,6 +340,16 @@ export async function renderAgentFiles(
   return agentFileContents(guidanceFilesFor(guidanceAgents(cfg)), body);
 }
 
+/** Every compiled Agent-file path the current provider selection can emit. */
+export function agentFilePaths(config: DiscernConfig): string[] {
+  return [
+    ...agentFileContents(
+      guidanceFilesFor(guidanceAgents(config)),
+      "",
+    ).keys(),
+  ];
+}
+
 /** One agent file that does not match what `refresh` would write. */
 export interface GuidanceDriftEntry {
   /** Project-relative path of the generated file. */

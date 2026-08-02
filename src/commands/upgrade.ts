@@ -11,9 +11,10 @@
  *      existing values;
  *   4. reconcile the discern-owned `.gitignore` block against the current
  *      fragment, preserving project ignore rules outside it;
- *   5. recompile the guidelines — which re-materializes the bundled skills into
+ *   5. reconcile the config-derived `.gitattributes` block;
+ *   6. recompile the guidelines — which re-materializes the bundled skills into
  *      `.claude/skills/` and writes the per-provider agent files;
- *   6. stamp the new `[meta].schema_version` into the config.
+ *   7. stamp the new `[meta].schema_version` into the config.
  *
  * Your config values, guidance sources, authored skills, and project scripts are never
  * rewritten. The clean-tree git guard keeps the upgrade revertible.
@@ -45,17 +46,26 @@ import {
   type ConfigIssue,
   ConfigValidationError,
   parseConfig,
+  parseConfigOrThrow,
 } from "../shared/config_schema.ts";
 import {
   compileGuidelines,
   guidanceRefreshErrors,
   type GuidelinesResult,
 } from "../engine/guidelines.ts";
+import { agentFilePaths } from "../engine/guidance_render.ts";
 import {
   ensureDiscernGitignoreBlock,
   type GitignoreReconcileOperation,
   planDiscernGitignoreBlock,
 } from "../lib/agent_gitignore.ts";
+import {
+  ensureDiscernGitattributesBlock,
+  type GitattributesReconcileOperation,
+  planDiscernGitattributesBlock,
+  type RefusedGitattributesPattern,
+} from "../lib/agent_gitattributes.ts";
+import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import {
   fire,
   type FiredHint,
@@ -192,17 +202,30 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   );
   const pendingGitignoreReconciliationJson = currentGitignoreReconciliation
     .operations.map(gitignoreOperationToJson);
+  const initialConfig = parseConfig(tomlText).config;
+  const currentGitattributesReconciliation = initialConfig === undefined
+    ? { operations: [], patterns: [], refused: [] }
+    : await planDiscernGitattributesBlock(
+      destDir,
+      resolveGeneratedGroups(initialConfig),
+      agentFilePaths(initialConfig),
+    );
+  const pendingGitattributesReconciliationJson =
+    currentGitattributesReconciliation.operations.map(
+      gitattributesOperationToJson,
+    );
 
   // --check: report whether config migrations are pending. There is no managed
   // scaffold drift once the schema is current — an install is current iff its
-  // schema, fixed config scaffold, managed banners, and discern-owned .gitignore
-  // block match this build.
+  // schema, fixed config scaffold, managed banners, and discern-owned Git file
+  // blocks match this build.
   if (options.check) {
     const ok = pending.length === 0 &&
       currentReconciliation.operations.length === 0 &&
       currentReconciliation.templateAvailable &&
       currentGitignoreReconciliation.operations.length === 0 &&
-      currentGitignoreReconciliation.templateAvailable;
+      currentGitignoreReconciliation.templateAvailable &&
+      currentGitattributesReconciliation.operations.length === 0;
     if (options.json) {
       log.result({
         ok,
@@ -220,6 +243,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_gitignore_reconciliation: pendingGitignoreReconciliationJson,
           gitignore_template_available:
             currentGitignoreReconciliation.templateAvailable,
+          pending_gitattributes_reconciliation:
+            pendingGitattributesReconciliationJson,
+          untranslated_gitattributes_patterns:
+            currentGitattributesReconciliation.refused,
         },
       });
     } else if (ok) {
@@ -260,6 +287,16 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           "Could not resolve the .gitignore fragment to check scaffold drift.",
         );
       }
+      if (currentGitattributesReconciliation.operations.length > 0) {
+        log.error("Install .gitattributes has a stale discern block.");
+        for (const op of currentGitattributesReconciliation.operations) {
+          log.detail(gitattributesOperationLabel(op));
+        }
+      }
+      renderUntranslatedGitattributes(
+        log,
+        currentGitattributesReconciliation.refused,
+      );
       log.line();
       log.info("Apply it: run `discern upgrade`.");
     }
@@ -279,6 +316,10 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           pending_gitignore_reconciliation: pendingGitignoreReconciliationJson,
           gitignore_template_available:
             currentGitignoreReconciliation.templateAvailable,
+          pending_gitattributes_reconciliation:
+            pendingGitattributesReconciliationJson,
+          untranslated_gitattributes_patterns:
+            currentGitattributesReconciliation.refused,
         },
       });
     } else {
@@ -305,6 +346,17 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
         }
         log.line();
       }
+      if (currentGitattributesReconciliation.operations.length > 0) {
+        log.info("Would reconcile the discern .gitattributes block:");
+        for (const op of currentGitattributesReconciliation.operations) {
+          log.detail(gitattributesOperationLabel(op));
+        }
+        log.line();
+      }
+      renderUntranslatedGitattributes(
+        log,
+        currentGitattributesReconciliation.refused,
+      );
       log.info(
         "Would recompile the agent guidance and re-materialize the bundled skills.",
       );
@@ -476,6 +528,22 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     return 1;
   }
 
+  // 1d. Reconcile the generated-path merge attributes from the validated,
+  // migrated config. The refresh below repeats the same convergence as a no-op;
+  // keeping this step explicit makes upgrade's result account for the file.
+  const reconciledConfig = parseConfigOrThrow(
+    await Deno.readTextFile(newConfigPath),
+  );
+  const gitattributesReconciliation = await ensureDiscernGitattributesBlock(
+    destDir,
+    resolveGeneratedGroups(reconciledConfig),
+    agentFilePaths(reconciledConfig),
+  );
+  renderUntranslatedGitattributes(
+    log,
+    gitattributesReconciliation.refused,
+  );
+
   // 2. Recompile the guidelines (re-materializes skills + writes agent files).
   // A failure here is non-fatal to the upgrade — the
   // schema is still stamped — but it is reported.
@@ -538,6 +606,11 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           gitignoreOperationToJson,
         ),
         gitignore_template_available: gitignoreReconciliation.templateAvailable,
+        gitattributes_reconciled: gitattributesReconciliation.operations.map(
+          gitattributesOperationToJson,
+        ),
+        untranslated_gitattributes_patterns:
+          gitattributesReconciliation.refused,
         skills: guidelines === undefined ? null : {
           copied: guidelines.skillsCopied,
           linked: guidelines.skillsLinked,
@@ -575,6 +648,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     applied.length,
     reconciliation.operations,
     gitignoreReconciliation.operations,
+    gitattributesReconciliation.operations,
     currentSchema,
   );
   return 0;
@@ -642,6 +716,7 @@ function renderUpgradeSummary(
   migrationCount: number,
   reconciliation: ConfigReconcileOperation[],
   gitignoreReconciliation: GitignoreReconcileOperation[],
+  gitattributesReconciliation: GitattributesReconcileOperation[],
   currentSchema: number,
 ): void {
   log.heading("Upgrade summary");
@@ -658,6 +733,12 @@ function renderUpgradeSummary(
     log.ok("gitignore block reconciled");
     for (const op of gitignoreReconciliation) {
       log.detail(gitignoreOperationLabel(op));
+    }
+  }
+  if (gitattributesReconciliation.length > 0) {
+    log.ok("gitattributes block reconciled");
+    for (const op of gitattributesReconciliation) {
+      log.detail(gitattributesOperationLabel(op));
     }
   }
   if (guidelines !== undefined) {
@@ -708,6 +789,14 @@ function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
+/** Return the gitattributes operation to JSON. */
+function gitattributesOperationToJson(op: GitattributesReconcileOperation): {
+  kind: GitattributesReconcileOperation["kind"];
+  path: string;
+} {
+  return { kind: op.kind, path: op.path };
+}
+
 /** Return the operation label. */
 function operationLabel(op: ConfigReconcileOperation): string {
   switch (op.kind) {
@@ -727,6 +816,34 @@ function gitignoreOperationLabel(op: GitignoreReconcileOperation): string {
   return op.kind === "create-block"
     ? "create .gitignore discern block"
     : "replace .gitignore discern block";
+}
+
+/** Return the gitattributes operation label. */
+function gitattributesOperationLabel(
+  op: GitattributesReconcileOperation,
+): string {
+  switch (op.kind) {
+    case "create-block":
+      return "create .gitattributes discern block";
+    case "replace-block":
+      return "replace .gitattributes discern block";
+    case "remove-block":
+      return "remove .gitattributes discern block";
+  }
+}
+
+/** Warn about generated path patterns that cannot map to .gitattributes. */
+function renderUntranslatedGitattributes(
+  log: Logger,
+  refused: readonly RefusedGitattributesPattern[],
+): void {
+  for (const pattern of refused) {
+    log.warn(
+      `[generated.${pattern.group}].paths pattern ${
+        JSON.stringify(pattern.pattern)
+      } was omitted from .gitattributes: ${pattern.reason}.`,
+    );
+  }
 }
 
 /** Return the reconcile config file. */

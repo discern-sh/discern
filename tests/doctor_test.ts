@@ -779,6 +779,59 @@ Deno.test("doctor: generated run probes resolve each leading word without execut
   });
 });
 
+Deno.test("doctor: a stale generated-merge block warns with the refresh remedy", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await disableLogbook(dir);
+    await addGeneratedGroups(dir, [{
+      name: "bundle",
+      paths: ["generated/**"],
+      run: "sh -c true",
+    }]);
+    await Deno.mkdir(join(dir, "generated"));
+    await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
+    await gitInit(dir);
+
+    const stale = await runDoctorJson(dir);
+    assertEquals(stale.code, 0, JSON.stringify(stale.payload.data.checks));
+    const warning = check(stale.payload, "generated: .gitattributes");
+    assertEquals(warning.status, "warn");
+    assertStringIncludes(warning.detail, "does not match");
+    assertStringIncludes(warning.fix ?? "", "discern refresh");
+
+    const refresh = await runCli(["refresh", "--json"], dir);
+    assertEquals(refresh.code, 0, refresh.stderr);
+    const current = await runDoctorJson(dir);
+    assertEquals(
+      current.payload.data.checks.some((candidate) =>
+        candidate.name === "generated: .gitattributes"
+      ),
+      false,
+    );
+  });
+});
+
+Deno.test("doctor: an untranslatable generated glob names the config row", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await disableLogbook(dir);
+    await addGeneratedGroups(dir, [{
+      name: "bundle",
+      paths: ["{schema,reference}/**"],
+      run: "sh -c true",
+    }]);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    const warning = check(payload, "generated: .gitattributes");
+    assertEquals(warning.status, "warn");
+    assertStringIncludes(warning.detail, "[generated.bundle] paths");
+    assertStringIncludes(warning.detail, '"{schema,reference}/**"');
+    assertStringIncludes(warning.detail, "cannot be translated");
+    assertStringIncludes(warning.fix ?? "", "discern refresh");
+  });
+});
+
 Deno.test("doctor: generated path probes distinguish empty, untracked, and ignored groups", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);

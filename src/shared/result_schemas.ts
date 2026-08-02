@@ -1512,7 +1512,7 @@ export const SetupDataSchema = z.strictObject({
   plan: z.array(
     z.strictObject({
       path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append"]),
+      action: z.enum(["create", "skip", "merge", "append", "remove"]),
       note: z.string().optional(),
     }),
   ).optional(),
@@ -1660,7 +1660,7 @@ export const PresetDataSchema = z.strictObject({
   plan: z.array(
     z.strictObject({
       path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append"]),
+      action: z.enum(["create", "skip", "merge", "append", "remove"]),
       note: z.string().optional(),
     }),
   ).optional(),
@@ -1690,6 +1690,17 @@ const gitignoreReconcileOperationSchema = z.strictObject({
   path: z.string(),
 });
 
+const gitattributesReconcileOperationSchema = z.strictObject({
+  kind: z.enum(["create-block", "replace-block", "remove-block"]),
+  path: z.string(),
+});
+
+const refusedGitattributesPatternSchema = z.strictObject({
+  group: z.string(),
+  pattern: z.string(),
+  reason: z.string(),
+});
+
 const upgradeSchemaSnapshotSchema = z.strictObject({
   recorded: z.number().optional(),
   from: z.number().optional(),
@@ -1706,12 +1717,20 @@ export const UpgradeDataSchema = z.strictObject({
   pending_gitignore_reconciliation: z.array(gitignoreReconcileOperationSchema)
     .optional(),
   gitignore_template_available: z.boolean().optional(),
+  pending_gitattributes_reconciliation: z.array(
+    gitattributesReconcileOperationSchema,
+  ).optional(),
+  untranslated_gitattributes_patterns: z.array(
+    refusedGitattributesPatternSchema,
+  ).optional(),
   changes: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
   kit_version: z.string().optional(),
   migrations_applied: z.array(migrationStepSchema).optional(),
   config_reconciled: z.array(configReconcileOperationSchema).optional(),
   gitignore_reconciled: z.array(gitignoreReconcileOperationSchema).optional(),
+  gitattributes_reconciled: z.array(gitattributesReconcileOperationSchema)
+    .optional(),
   skills: z.strictObject({
     copied: z.number(),
     linked: z.number(),

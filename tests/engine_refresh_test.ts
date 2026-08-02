@@ -17,9 +17,28 @@ import {
 import { join } from "@std/path";
 import { ensureDir, exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
+import { agentFilePaths } from "../src/engine/guidance_render.ts";
+import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
+import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
+
+Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git tracking", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: [...AGENT_NAMES] });
+
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+
+    const config = await loadConfig(dir);
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      canonicalDiscernGitattributesBlock([], agentFilePaths(config)).text,
+      "a new provider output must join the managed block in the same refresh that compiles it",
+    );
+  });
+});
 
 Deno.test("engine refresh: a skills-dir failure is isolated — agent files and MCP still refresh (ADR 0065)", async () => {
   await withTempDir(async (dir) => {

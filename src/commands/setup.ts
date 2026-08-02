@@ -51,6 +51,7 @@ import {
   type Plan,
   PlanApplyError,
   planBrief,
+  planGitattributesReconcile,
   SettingsMergePlanError,
 } from "../lib/fs_plan.ts";
 import { planToJson, renderPlan } from "../lib/plan_view.ts";
@@ -62,6 +63,7 @@ import {
 import { diagnosticFormatList } from "../engine/gate/diagnostics.ts";
 import {
   agentFileOwnershipPatterns,
+  agentFilePaths,
   type GuidanceOwnershipPattern,
   matchesGuidanceOwnership,
 } from "../engine/guidance_render.ts";
@@ -80,8 +82,10 @@ import { consentAgentSet, resolveDefaultAgents } from "../lib/detect_agents.ts";
 import {
   type DiscernConfig,
   loadConfig,
+  parseConfigOrThrow,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
+import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -339,6 +343,20 @@ export async function assembleInitPlan(params: {
   }
   if (params.fills) {
     applyFillsToPlan(plan, params.fills);
+  }
+
+  const configOp = freshConfigOp(plan);
+  const finalConfig = configOp === undefined
+    ? await loadConfig(destDir)
+    : parseConfigOrThrow(TEXT_DECODER.decode(configOp.bytes));
+  const gitattributes = await planGitattributesReconcile(
+    destDir,
+    resolveGeneratedGroups(finalConfig),
+    agentFilePaths(finalConfig),
+  );
+  if (gitattributes !== undefined) {
+    plan.ops.push(gitattributes);
+    plan.ops.sort((a, b) => a.targetRel.localeCompare(b.targetRel));
   }
   return plan;
 }
