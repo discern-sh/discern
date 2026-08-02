@@ -297,6 +297,10 @@ export const verbEventSchema = z.looseObject({
   dry_run: z.boolean().optional(),
   /** Wall-clock duration of the whole invocation, in milliseconds. */
   duration_ms: z.number(),
+  /** Time spent waiting for a configured test-run slot, in milliseconds.
+   * Absent on events written before wait accounting and on uncapped runs. New
+   * writers record `0` when slot acquisition was in play without a wait. */
+  waited_ms: z.number().optional(),
   /** The verb's object, when it has one: the canonical `help`/`map` page a
    * successful payload served, the requested target on a miss or human-only
    * read, or the branch a `start` created. */
@@ -337,6 +341,17 @@ export const verbEventSchema = z.looseObject({
 });
 /** One verb event. */
 export type VerbEvent = z.infer<typeof verbEventSchema>;
+
+/**
+ * Execution time for one completed invocation. Historical events predate
+ * separate wait accounting, so an absent wait remains zero rather than
+ * reinterpreting their end-to-end duration.
+ */
+export function executionDurationMs(
+  event: Pick<VerbEvent, "duration_ms" | "waited_ms">,
+): number {
+  return event.duration_ms - (event.waited_ms ?? 0);
+}
 
 /**
  * The config-epoch fingerprint moved between consecutive events on this branch —

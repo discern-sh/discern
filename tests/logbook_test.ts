@@ -21,6 +21,7 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import {
+  executionDurationMs,
   LOGBOOK_OUTCOMES,
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -100,6 +101,7 @@ function sampleEvent(): VerbEvent {
     error: "dirty_worktree",
     failed_stage: "check/test",
     duration_ms: 1234,
+    waited_ms: 234,
     target: "the-gate",
     from: "main",
     flags: ["force"],
@@ -152,6 +154,17 @@ Deno.test("logbook schema: a substrate-era minimal line still parses (fields onl
     epoch: null,
   }));
   assert(parsed.kind === "event", "a minimal substrate-era line must parse");
+  assert(parsed.event.kind === "verb");
+  assertEquals(parsed.event.waited_ms, undefined);
+  assertEquals(
+    executionDurationMs(parsed.event),
+    42,
+    "an event from before wait accounting reads as zero wait",
+  );
+});
+
+Deno.test("logbook schema: execution time excludes a recorded slot wait", () => {
+  assertEquals(executionDurationMs(sampleEvent()), 1_000);
 });
 
 Deno.test("logbook schema: a written line round-trips through the parser", () => {
