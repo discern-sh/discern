@@ -34,6 +34,7 @@ import {
 import type { AgentName } from "../src/lib/config.ts";
 import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
+import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /**
@@ -148,9 +149,11 @@ function shq(s: string): string {
  * spawned by a TEST resolve the command the way a real install (binary on
  * PATH) would. The desk's session marker
  * is designed to be inherited by every descendant process, so a suite launched
- * from inside `discern desk` would leak it into every spawned engine; blanking
- * it here keeps the suite deterministic, and a test that needs the marker sets
- * it via `extra`.
+ * from inside `discern desk` would leak it into every spawned engine. The same
+ * applies to a suite admitted through `discern queue`: each scaffolded fixture
+ * models a separate invocation and must make its own slot decision. Blanking
+ * both markers here keeps the suite deterministic; a test that needs either
+ * marker sets it via `extra`.
  */
 export async function engineEnv(
   extra: Record<string, string> = {},
@@ -169,6 +172,7 @@ export async function engineEnv(
     TMP: tmp,
     TEMP: tmp,
     [DESK_SESSION_ENV]: "",
+    [TEST_RUN_SLOT_ENV]: "",
     ...GIT_ISOLATION,
     ...extra,
   };
