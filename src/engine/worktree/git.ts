@@ -272,7 +272,7 @@ export async function assertOpSide(
   if (side === "worktree" && where === "main-checkout") {
     throw new WorktreeGitError(
       `${label} runs only inside a worktree — a separate checkout and branch for ` +
-        `one change — not the main checkout. Run \`discern start\` from the main ` +
+        `one effort — not the main checkout. Run \`discern start\` from the main ` +
         `checkout, move into the path it prints, then re-run.`,
     );
   }

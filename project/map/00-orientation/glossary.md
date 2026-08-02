@@ -218,7 +218,7 @@ What `discern update` does: merge the latest trunk into the current worktree's b
 
 ### Worktree
 
-A separate checkout and branch for one change, created by `discern start`, so agents never work in the main checkout. Each gets a deterministic dev-server port and any declared [resources](#worktree-resource). Covered in [worktrees](../30-worktrees/).
+A separate checkout and branch for one effort, created by `discern start`, so agents never work in the main checkout. Review feedback and resumed sessions stay in that checkout. Each gets a deterministic dev-server port and any declared [resources](#worktree-resource). Covered in [worktrees](../30-worktrees/).
 
 ### Worktree resource
 

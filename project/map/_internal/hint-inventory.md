@@ -369,7 +369,7 @@ Fix the failure the last run reported, iterating with `discern prepare` or `disc
 Rendered example:
 
 ```text
-Session opened in the main checkout — the trunk every effort lands on. Before editing, run `discern start` and work in the worktree it returns. A worktree is for changes; questions and investigation read from anywhere.
+Session opened in the main checkout, where every effort lands. One worktree lasts for the whole effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern start` again. For a new effort, run `discern start` before editing and work in the worktree it returns. Questions and investigation can read from anywhere.
 ```
 
 ## `failure-recovery`
@@ -390,12 +390,12 @@ Use this result's message or first diagnostic to correct the reported problem be
 - Category: `guardrail`
 - Audience: `agent`
 - Family: —
-- Emitting context: A fleet survey includes worktrees owned by other lines of work.
+- Emitting context: A fleet survey includes a worktree other than the current checkout.
 
 Rendered example:
 
 ```text
-Never work in a fleet worktree you didn't create. Each belongs to another line of work, and a clean tree may still be in use.
+Continue a fleet worktree only if this effort created it. Review feedback and resumed sessions keep that assignment. Never claim a worktree from another effort because it is idle or clean.
 ```
 
 ## `gate-deferred-standards`
@@ -1506,7 +1506,7 @@ Rendered example:
 Rendered example:
 
 ```text
-Re-root or cd into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If you can't change your working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
+One worktree lasts for the whole effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern start` again. Re-root or cd into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If you can't change your working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
 ```
 
 ## `start-name-fallback`
@@ -1545,7 +1545,7 @@ Normalized the worktree name 'Hint Registry' to 'hint-registry'.
 Rendered example:
 
 ```text
-Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
+One worktree lasts for the whole effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern start` again. Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
 ```
 
 ## `start-submodules-empty`
@@ -1831,7 +1831,7 @@ Report this branch to your owner and end with `data.gate_receipt.receipt_line` v
 Rendered example:
 
 ```text
-Run `git switch main` in the main checkout before `discern accept`. The checkout is parked on 'agent/hints', while 'main' is the trunk. New worktrees still fork from the trunk, so you can run `discern start` meanwhile. Never adopt an existing worktree. Each belongs to another line of work.
+One worktree lasts for the whole effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern start` again. Run `git switch main` in the main checkout before `discern accept`. The checkout is parked on 'agent/hints', while 'main' is the trunk. A new effort can still run `discern start`; its worktree forks from the trunk.
 ```
 
 ## `status-start-on-trunk`
@@ -1844,7 +1844,7 @@ Run `git switch main` in the main checkout before `discern accept`. The checkout
 Rendered example:
 
 ```text
-Run `discern start --name "<task>"` from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable. Never adopt an existing worktree: each belongs to another line of work, and a clean tree may still be in use.
+One worktree lasts for the whole effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask which worktree belongs to this effort instead of creating another. Do not call `discern start` again. For a new effort, run `discern start --name "<task>"` from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable.
 ```
 
 ## `status-unlanded-branches`

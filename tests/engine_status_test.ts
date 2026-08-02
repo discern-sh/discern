@@ -481,6 +481,34 @@ Deno.test("status fleet: the ownership rule rides in hints[] for an agent (main 
   });
 });
 
+Deno.test("status: a main-rooted follow-up leads with its existing effort before a new start", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const obj = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const continuity = assertHasHint(obj, HINTS["status-start-on-trunk"]);
+    const ownership = assertHasHint(obj, HINTS["fleet-ownership"]);
+    assertStringIncludes(
+      continuity,
+      "If this effort already has a worktree, continue there using its recorded path",
+    );
+    assertStringIncludes(continuity, "Do not call `discern start` again");
+    assertStringIncludes(
+      ownership,
+      "Continue a fleet worktree only if this effort created it",
+    );
+    const hints = obj.hints ?? [];
+    assert(
+      hints.indexOf(continuity) < hints.indexOf(ownership),
+      `continuity must precede fleet ownership: ${JSON.stringify(hints)}`,
+    );
+  });
+});
+
 Deno.test("status fleet: the ownership rule rides in hints[] under --all from a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -620,7 +648,7 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
     assert(!r.output.includes(expected), r.output);
     // …but the dim caption beneath the fleet table does.
     assert(
-      r.output.includes("Other worktrees are separate lines of work"),
+      r.output.includes("A resumed effort keeps its worktree"),
       `expected the fleet caption in human output: ${r.output}`,
     );
   });
@@ -636,7 +664,7 @@ Deno.test("status fleet (human): representative table rendering is pinned", asyn
     assertEquals(r.code, 0, r.output);
     const start = r.output.indexOf("\n  WORKTREE");
     const caption =
-      "  Other worktrees are separate lines of work — don't start work in one you didn't create.";
+      "  A resumed effort keeps its worktree. Other clean worktrees are not available to claim.";
     const captionStart = r.output.indexOf(caption);
     assert(start >= 0, `fleet header missing: ${r.output}`);
     assert(captionStart >= 0, `fleet caption missing: ${r.output}`);

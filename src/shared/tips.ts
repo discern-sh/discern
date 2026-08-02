@@ -239,7 +239,7 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.startNamed} gives one change its own working copy and line of ` +
+      `${CMD.startNamed} gives one effort its own working copy and line of ` +
       "saved work, keeping it away from other tasks and the main copy.",
   }),
 
