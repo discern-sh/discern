@@ -254,15 +254,13 @@
   # gate  = "make -C native check"
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # [generated.<name>] — committed artifacts wholly owned by one generator, and
-  # the deterministic command that rewrites them from their sources (ADR 0247).
-  # The gate runs each group as a build-stage job (`generated:<name>`) and fails
-  # when regeneration changes a declared path (the artifact was stale — commit
-  # the regeneration) or when the build dirties tracked paths no group owns (the
-  # declaration under-covers — widen `paths`). `discern update` resolves merge
-  # conflicts confined to declared paths by taking a side and regenerating,
-  # instead of refusing. Orthogonal to [scopes]: a scope tunes review; a
-  # generated group names who owns the bytes.
+  # [generated.<name>] — committed artifacts wholly owned by one generator.
+  #   paths    scope-style globs naming every artifact the generator owns
+  #   run      the command, or commands in order, that rewrite those artifacts;
+  #            the same tree must produce the same bytes, and the generator removes
+  #            artifacts absent from its current output
+  #   timeout  optional seconds for the command; replaces [gate].timeout for this
+  #            group only (0 disables the bound)
   # ─────────────────────────────────────────────────────────────────────────────
 
   # The registry-codegen family: every whole-file artifact `deno task codegen`
