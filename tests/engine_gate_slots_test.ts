@@ -326,7 +326,9 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
     // notice is OBSERVED, so the first probe cannot land on a free slot.
     const release = await holdSlot(dir);
     try {
-      const slots = buildTestRunSlots(dir, await loadConfig(dir));
+      const slots = buildTestRunSlots(dir, await loadConfig(dir), {
+        accounted: false,
+      });
       assert(slots !== undefined, "cap=1 must build a slot surface");
       assertEquals(slots.cap, 1);
       const pending = slots.acquire(makeOut(false, { quiet: true }));
@@ -341,6 +343,30 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
     } finally {
       release();
     }
+  });
+});
+
+Deno.test("test slots: an accounted ancestor suppresses the gate slot surface", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    assertEquals(
+      buildTestRunSlots(dir, await loadConfig(dir), { accounted: true }),
+      undefined,
+    );
   });
 });
 

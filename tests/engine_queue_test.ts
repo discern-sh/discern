@@ -353,6 +353,49 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
   });
 });
 
+Deno.test("queue around a capped gate takes one slot total at cap 1", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const observed = join(dir, "reverse-nested-marker");
+    const job = join(dir, "reverse-nested-test.sh");
+    await Deno.writeTextFile(
+      job,
+      `printf '%s' "$DISCERN_TEST_SLOT" > "${observed}"\n`,
+    );
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        `test = "sh ${job}"`,
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const running = await spawnAgent(
+      dir,
+      ["queue", "--", "discern", "test", "--json"],
+      { [TEST_RUN_SLOT_ENV]: "" },
+    );
+    const watchdog = setTimeout(() => running.kill("SIGTERM"), 10_000);
+    try {
+      const result = await running.result;
+      assertEquals(result.code, 0, result.output);
+      assertEquals(await Deno.readTextFile(observed), "1");
+    } finally {
+      clearTimeout(watchdog);
+    }
+  });
+});
+
 Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

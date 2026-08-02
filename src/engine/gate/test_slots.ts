@@ -36,6 +36,7 @@ import type { FiredHint } from "../../shared/hints.ts";
 import type { Out } from "../output.ts";
 import {
   buildTestRunSlotAcquirer,
+  testRunSlotAccounted,
   type TestRunSlotEvent,
   type TestRunSlotHold,
 } from "../test_run_slots.ts";
@@ -61,6 +62,12 @@ export interface TestRunSlots {
   acquire(out: Out, signal?: AbortSignal): Promise<TestRunSlotHold | undefined>;
 }
 
+/** Inputs that let a caller prove an upstream accounting decision explicitly. */
+export interface BuildTestRunSlotsOptions {
+  /** Whether an ancestor already accounted for this run. Defaults to the marker. */
+  readonly accounted?: boolean;
+}
+
 /**
  * Whether a group carries work the cap bounds: a firing test-stage job or a
  * standard's measurement. Derived from the group's own jobs, never from which
@@ -82,7 +89,11 @@ export function groupNeedsTestSlot(group: JobGroup): boolean {
 export function buildTestRunSlots(
   root: string,
   cfg: DiscernConfig,
+  opts: BuildTestRunSlotsOptions = {},
 ): TestRunSlots | undefined {
+  if (opts.accounted ?? testRunSlotAccounted()) {
+    return undefined;
+  }
   const acquirer = buildTestRunSlotAcquirer(root, cfg);
   if (acquirer === undefined) {
     return undefined;
