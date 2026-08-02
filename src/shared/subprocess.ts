@@ -329,7 +329,7 @@ export async function runShell(
       cwd: opts.cwd,
       // `discern` in an operator command resolves to the running engine,
       // whatever the ambient PATH holds (self_shim.ts).
-      env: { ...opts.env, PATH: await selfShimPath(opts.env?.PATH) },
+      env: { ...opts.env, PATH: await selfShimPath(opts.cwd, opts.env?.PATH) },
       stdin: "null",
       stdout: "piped",
       stderr: "piped",
@@ -479,7 +479,7 @@ export async function commandExists(
     const out = await new Deno.Command("sh", {
       args: ["-c", 'command -v "$1" >/dev/null 2>&1', "sh", word],
       ...(opts.cwd !== undefined ? { cwd: opts.cwd } : {}),
-      env: { PATH: await selfShimPath() },
+      env: { PATH: await selfShimPath(opts.cwd) },
       stdout: "null",
       stderr: "null",
     }).output();

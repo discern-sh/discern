@@ -195,7 +195,7 @@ function shq(s: string): string {
 export async function engineEnv(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
-  const shim = await selfShimDir();
+  const shim = await selfShimDir(REPO_ROOT);
   const tmp = await suiteTempDir();
   return {
     NO_COLOR: "1",

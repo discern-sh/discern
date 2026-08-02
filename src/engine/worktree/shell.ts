@@ -144,7 +144,7 @@ export async function runShellRouted(
   const isolatedGroup = Deno.build.os !== "windows";
   // `discern` in an operator command resolves to the running engine, whatever
   // the ambient PATH holds (self_shim.ts).
-  const childEnv = { ...env, PATH: await selfShimPath(env?.PATH) };
+  const childEnv = { ...env, PATH: await selfShimPath(cwd, env?.PATH) };
   try {
     const run = await superviseSpawn(
       () =>

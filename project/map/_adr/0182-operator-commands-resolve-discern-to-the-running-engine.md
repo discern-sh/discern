@@ -1,6 +1,6 @@
 # ADR 0182: Operator commands resolve `discern` to the running engine
 
-> **Identity refinement ([ADR 0249](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)):** The PATH decision stands. The shim now lives at a content-addressed path in the user's cache directory — one directory per engine identity, reused by every process of that engine — and the per-process OS-temp directory described below remains only as the fallback when no cache root resolves.
+> **Identity refinement ([ADR 0249](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)):** The PATH decision stands. The shim now lives under the repository's Git administrative directory at a content-addressed subdirectory — one per engine identity, reused by every process of that engine, removed with the worktree — and the per-process OS-temp directory described below remains only as the fallback for callers with no repository root.
 
 **Status**: accepted
 

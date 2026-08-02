@@ -11,18 +11,15 @@
  * scrub every discern off the base PATH, so they fail on any engine that
  * leans on ambient resolution again.
  *
- * The cache tests guard the population class (ADR 0249): shim dirs are
- * per-identity and reused — an engine that mints one per process regrows an
- * unbounded OS-temp backlog — and stale identities are pruned on churn.
+ * The identity test guards the population class (ADR 0249): shim dirs live
+ * under the repository's Git admin state, one per engine identity, reused by
+ * every process — an engine that mints one OS-temp dir per process regrows
+ * an unbounded backlog the reaper cannot drain.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
-import {
-  pruneStaleCachedShims,
-  selfShimPath,
-} from "../src/shared/self_shim.ts";
-import { TEMP_ARTIFACT_TTL_MS } from "../src/shared/temp_artifacts.ts";
+import { selfShimPath } from "../src/shared/self_shim.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   gitInit,
@@ -55,7 +52,7 @@ async function denoOnlyPath(): Promise<string> {
 Deno.test("self-shim: `discern` runs from a PATH holding no discern", async () => {
   const out = await new Deno.Command("sh", {
     args: ["-c", "discern --version"],
-    env: { PATH: await selfShimPath(SCRUBBED_BASE) },
+    env: { PATH: await selfShimPath(undefined, SCRUBBED_BASE) },
     stdout: "piped",
     stderr: "piped",
   }).output();
@@ -64,7 +61,7 @@ Deno.test("self-shim: `discern` runs from a PATH holding no discern", async () =
   assertStringIncludes(new TextDecoder().decode(out.stdout), "discern");
 });
 
-Deno.test("self-shim: engine processes converge on one cached identity, not one dir each", async () => {
+Deno.test("self-shim: engine processes converge on one git-admin identity, not one temp dir each", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -82,45 +79,17 @@ Deno.test("self-shim: engine processes converge on one cached identity, not one 
       ].join("\n"),
     );
     await gitInit(dir);
-    const home = join(dir, "home");
-    await Deno.mkdir(home);
-    // An empty XDG_CACHE_HOME is not absolute, so the injected HOME decides
-    // the cache root and the developer's real cache stays untouched.
-    const env = { HOME: home, XDG_CACHE_HOME: "" };
     for (let i = 0; i < 2; i++) {
-      const r = await runAgent(dir, ["prepare", "--json"], { env });
+      const r = await runAgent(dir, ["prepare", "--json"]);
       assertEquals(r.code, 0, r.output);
     }
-    const shims = join(home, ".cache", "discern", "shims");
-    const identities = await Array.fromAsync(Deno.readDir(shims));
+    const home = join(dir, ".git", "discern", "shim");
+    const identities = await Array.fromAsync(Deno.readDir(home));
     assertEquals(
       identities.map((entry) => entry.isDirectory),
       [true],
-      "two engine processes of one engine must share one shim identity",
+      "two processes of one engine must share one shim identity under .git",
     );
-  });
-});
-
-Deno.test("self-shim: a stale cached identity is pruned; a fresh or file-shaped entry survives", async () => {
-  await withTempDir(async (root) => {
-    const stale = join(root, "stale-identity");
-    const fresh = join(root, "fresh-identity");
-    for (const dir of [stale, fresh]) {
-      await Deno.mkdir(dir);
-      await Deno.writeTextFile(join(dir, "discern"), "#!/usr/bin/env sh\n");
-    }
-    const fileTrap = join(root, "file-trap");
-    await Deno.writeTextFile(fileTrap, "not a shim dir\n");
-    const then = new Date(Date.now() - TEMP_ARTIFACT_TTL_MS - 60_000);
-    await Deno.utime(stale, then, then);
-    await Deno.utime(fileTrap, then, then);
-
-    assertEquals(await pruneStaleCachedShims(root), 1);
-
-    const survivors = (await Array.fromAsync(Deno.readDir(root)))
-      .map((entry) => entry.name)
-      .sort();
-    assertEquals(survivors, ["file-trap", "fresh-identity"]);
   });
 });
 

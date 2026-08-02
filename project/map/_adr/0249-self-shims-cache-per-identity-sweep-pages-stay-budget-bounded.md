@@ -12,26 +12,29 @@ The retention design needs to hold by construction, not by tuning: production mu
 
 ## Decision
 
-**The self-shim lives at a deterministic, content-addressed path in the user's cache directory, shared by every process of one engine.** The cache root is `XDG_CACHE_HOME`, or `.cache` under the home directory; the shim sits at `discern/shims/<sha256 of its bytes>/discern`. The script's bytes fully encode the engine identity, so processes of one engine converge on one directory and distinct engines cannot collide on one. Creation writes aside and renames into place; reuse verifies the bytes and refreshes the directory's mtime; minting a new identity prunes stale siblings, so the churn that grows the population funds its cleanup. When no cache root resolves, the OS-temp family of ADR 0182 remains as the fallback, and its reaper drains the historical population.
+**The self-shim lives under the repository's Git administrative directory — the registered worktree-scoped `selfShim` entry — at one content-addressed subdirectory per engine identity, shared by every process of that engine.** The script's bytes fully encode the engine identity, so their hash names the subdirectory: processes of one engine converge on one path, distinct engines operating on one worktree (the main checkout's MCP server acting by path beside the worktree's own CLI) each keep their own, and Git's worktree lifecycle removes the whole home with the worktree — no TTL, no prune pass. Creation writes aside and renames into place; reuse verifies the bytes. Every spawn site passes the repository root it already holds; a caller with none (a probe outside any repository, setup before init) keeps the per-process OS-temp directory of ADR 0182, whose reaper drains whatever those short-lived contexts leave.
+
+This keeps the shim inside discern's day-one footprint — the repository, its Git administrative state, and OS temp — and inside the ADR 0165 registry that doctor and uninstall already govern. The administrative directory is repo-owned, which is what makes the deterministic name safe.
 
 **Sweep pages select candidates through bounded heaps.** A page keeps at most one inspection budget of names per side of the cursor while streaming the directory, so its memory and sort work are O(budget) against any population. Cursor rotation, wrap-around, and both budgets are unchanged.
 
 **The engine test suite injects a per-run TMPDIR into every spawned engine.** Suite production leaves the shared OS temp directory entirely, and a scaffolded project's always-due first sweep walks the small suite home instead of the machine-wide population. This is a repository practice rather than an engine behavior; it is recorded here because it closes the remaining production source of the same class.
 
-Explicit noes: no fixed-name artifact directory under shared OS temp, no raised budgets, no daemon, no change to the ADR 0182 PATH-resolution decision itself.
+Explicit noes: no new write location outside the day-one footprint, no fixed-name artifact directory under shared OS temp, no raised budgets, no daemon, no change to the ADR 0182 PATH-resolution decision itself.
 
 ## Consequences
 
-- Shim population is proportional to engine identities (checkouts and binaries), not processes. A suite run that minted thousands of directories now touches a handful of cached ones.
-- The cache directory is user-private, which is what makes the deterministic name safe; the same name under a shared temp directory would be pre-plantable by another local user.
+- Shim population is proportional to engine identities per repository, not processes, and each home dies with its worktree. A suite run that minted thousands of temp directories now touches one subdirectory per scaffold's `.git`.
+- The spawn sites carry their repository root into `selfShimPath`, so the shim's home is an ordinary registered admin-state entry — inventoried, doctor-visible, and covered by the existing uninstall surface.
 - A sweep can no longer be slower than its budgets allow, whatever mess a machine carries.
-- Stale cached shims are pruned only when a new identity is minted. A machine where no new engine ever appears keeps a few idle kilobyte-sized directories until one does.
-- An environment without HOME still works and still pays the old per-process cost — acceptable for the rare launcher that strips the environment.
+- Rootless callers keep the per-process temp cost. They are rare, short-lived, and were never the production source; the gate jobs that were are always rooted.
 
 ## Alternatives considered
 
-**A fixed-name `discern-artifacts` directory under OS temp for all families.** It would shrink scans the same way, but a predictable path in a shared temp directory reintroduces the pre-planting exposure ADR 0216 already rejected for its coordinator lock — and for the shim it would be arbitrary code execution, not just tampering.
+**A content-addressed home under the user's cache directory (`XDG_CACHE_HOME`, `~/.cache/discern`).** Solves the same population math and needs no repository root — but it is a NEW persistent location outside discern's day-one footprint (repository, Git admin state, OS temp), invisible to the uninstall contract of ADR 0104 until separately taught, and that expectation has held since the first release. Rejected by the owner on footprint grounds.
+
+**A deterministic name inside per-user OS temp.** Same footprint class as today and the existing reaper covers it, but its safety rests on judging whether the temp directory is genuinely private (macOS `TMPDIR`, `XDG_RUNTIME_DIR`) — and a wrong yes on a shared `/tmp` is arbitrary code execution. The Git administrative directory needs no such judgment.
+
+**A fixed-name `discern-artifacts` directory under OS temp for all families.** It would shrink scans the same way, but a predictable path in a shared temp directory reintroduces the pre-planting exposure ADR 0216 already rejected for its coordinator lock.
 
 **Raising the budgets or shortening the TTL.** Constants lose to any production growth; the defect class is rate-versus-drain, and only removing the per-process production changes the rate.
-
-**Homing the shim under the Git administrative directory.** Per-worktree lifecycle cleanup would come free, but the shim is resolved from call sites that have no repository root (command-existence probes, verbs outside a repository), and forking the mechanism by context would leave two homes for one fact.

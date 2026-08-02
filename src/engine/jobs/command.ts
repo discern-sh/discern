@@ -174,7 +174,7 @@ export async function spawnJob(
     cwd: opts.cwd,
     // `discern` in a job command resolves to the engine running this gate,
     // whatever the ambient PATH holds (self_shim.ts).
-    env: { ...CAPTURE_ENV, PATH: await selfShimPath() },
+    env: { ...CAPTURE_ENV, PATH: await selfShimPath(opts.cwd) },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

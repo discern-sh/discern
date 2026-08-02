@@ -123,6 +123,12 @@ export const GIT_ADMIN_STATE = {
     kind: "file",
     validation: false,
   },
+  selfShim: {
+    path: "discern/shim",
+    scope: "worktree",
+    kind: "directory",
+    validation: false,
+  },
 } as const satisfies Record<string, GitAdminStateEntry>;
 
 export type GitAdminStateKey = keyof typeof GIT_ADMIN_STATE;

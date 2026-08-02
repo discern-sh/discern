@@ -46,9 +46,9 @@ export type TempArtifactKind = keyof typeof TEMP_ARTIFACT_KINDS;
  * (the self-shim refreshes its mtime on every use), so the TTL only ever
  * collects abandoned ones. */
 export const TEMP_ARTIFACT_DIR_KINDS = {
-  /** The `discern` self-shim's OS-temp fallback, minted only when no user
-   * cache root resolves; the family also drains shims from engines that
-   * predate the cached per-identity home (ADR 0249). */
+  /** The `discern` self-shim's OS-temp fallback, minted only when no
+   * repository root is at hand; the family also drains shims from engines
+   * that predate the git-admin per-identity home (ADR 0249). */
   shim: "discern-self-",
 } as const;
 
