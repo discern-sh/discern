@@ -241,7 +241,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0248 — Crashes leave a report and a distinct exit code](0248-crashes-leave-a-report-and-a-distinct-exit-code.md)
 - [0249 — Self-shims cache per engine identity; sweep pages stay budget-bounded](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)
 - [0250 — Discern-managed human output declares semantic groups](0250-discern-managed-human-output-declares-semantic-groups.md)
-- [0250 — Every authored Deno function declaration carries JSDoc](0250-function-declarations-require-jsdoc.md)
+- [0251 — Every authored Deno function declaration carries JSDoc](0251-function-declarations-require-jsdoc.md)
 
 <!-- END GENERATED: current ADR records -->
 

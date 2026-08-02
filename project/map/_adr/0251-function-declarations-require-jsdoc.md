@@ -1,4 +1,4 @@
-# ADR 0250: Every authored Deno function declaration carries JSDoc
+# ADR 0251: Every authored Deno function declaration carries JSDoc
 
 **Status**: accepted
 
