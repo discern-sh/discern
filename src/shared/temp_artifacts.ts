@@ -50,6 +50,11 @@ export const TEMP_ARTIFACT_DIR_KINDS = {
    * repository root is at hand; the family also drains shims from engines
    * that predate the git-admin per-identity home (ADR 0249). */
   shim: "discern-self-",
+  /** Scaffolds and per-run temp homes discern's own test harness mints
+   * (tests/engine_helpers.ts, tests/helpers.ts). The harness removes them at
+   * process exit; this family collects what a killed run leaves. Matches
+   * nothing outside discern's own development. */
+  testScaffold: "discern-test-",
 } as const;
 
 export type TempArtifactDirKind = keyof typeof TEMP_ARTIFACT_DIR_KINDS;
@@ -72,8 +77,11 @@ const MAX_SWEEP_REMOVALS = 500;
 /** The matching-entry inspection budget. Unlike the removal budget, this also
  * bounds a population that is entirely fresh: at most this many filesystem
  * metadata reads happen in one sweep, and candidate selection keeps at most
- * this many names per side of the cursor in memory. A persisted cursor in
- * the sweep coordinator rotates later passes through the rest. */
+ * this many names per side of the cursor in memory. Directory enumeration
+ * itself stays proportional to the population (a listing cannot resume
+ * mid-stream, and fair rotation must consider every name) — which is why the
+ * coordinator throttles pages to one per repository per hour. A persisted
+ * cursor rotates later passes through the rest. */
 const MAX_SWEEP_INSPECTIONS = 500;
 
 interface SweepCandidate {
