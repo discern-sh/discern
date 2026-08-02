@@ -1963,18 +1963,18 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern provides the gate and isolated worktrees. Prefer its MCP tools to " +
-    "the CLI; read their structured results.",
+    "discern provides the gate and isolated worktrees. Use its MCP tools and " +
+    "read their results.",
     "",
-    "- Start with discern_status for branch, gate, authority, and next step.",
+    "- Start with discern_status for state and next step.",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
     ),
     "",
-    "- Use discern_refresh for stale files/skills; discern_map for the map; " +
-    "discern_docs for the manual; discern_doctor for install/config faults.",
-    "- Use discern_standards for deferred measures/pins; discern_patterns for " +
-    "practice history; discern_improvement for next work.",
+    "- Use discern_refresh for stale files/skills, discern_map for the map, " +
+    "discern_docs for the manual, and discern_doctor for install faults.",
+    "- Use discern_standards for deferred measures, discern_patterns for " +
+    "history, and discern_improvement for next work.",
   ];
   return lines.join("\n");
 }

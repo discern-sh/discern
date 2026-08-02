@@ -27,8 +27,8 @@ export interface OperatingPolicy {
 /** How an agent communicates while one resumable fleet watch is in progress. */
 export const AWAIT_WATCH_POLICY =
   "Do not surface progress updates until it returns. On `data.met: false`, " +
-  "continue with `data.resume` without surfacing an update; repeat with no " +
-  "fixed limit until the condition is met, stopped, or unneeded. Never resume " +
+  "continue with `data.resume` without surfacing an update; repeat without a " +
+  "fixed limit until met, stopped, or unneeded. Never resume " +
   "`ok: false`; follow its recovery hint. Report only when the condition holds, the watch is " +
   "unnecessary, or a refusal/error needs action. Always respond to new user input.";
 
@@ -36,8 +36,8 @@ export const AWAIT_WATCH_POLICY =
 export const WORKTREE_CONTINUITY_CORE =
   "One worktree lasts for the whole effort, including review feedback and " +
   "resumed sessions. If this effort already has a worktree, continue there " +
-  "using its recorded path and pass `path` to discern tools; if that path is unavailable, " +
-  "ask for it instead of creating another.";
+  "using its recorded path and pass `path` to every discern tool. If that path " +
+  "is unavailable, ask for it instead of creating another.";
 
 /** Render the continuity rule with the command name appropriate to its surface. */
 export function worktreeContinuityPolicy(startCommand: string): string {
@@ -62,44 +62,45 @@ export const OPERATING_POLICIES = [
   {
     id: "worktree-first",
     statement:
-      "On the trunk, call discern_start only for a new effort with no worktree. It " +
-      "creates an isolated worktree, re-aiming tools. Re-root file work " +
-      "there; otherwise prefix shell commands with `cd <path> &&` and pass `path` " +
-      "to discern tools. Edits otherwise land on trunk.",
+      "On the trunk, call discern_start only for a new effort with no worktree. " +
+      "It returns an isolated worktree's path and re-aims these tools. You must " +
+      "still move your OWN file operations into that path: re-root there, or if " +
+      "you can't change your working root, prefix every shell command with " +
+      "`cd <path> &&` and pass `path` to every discern tool. Otherwise edits " +
+      "land on the trunk while the gate runs in the worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(own|isolated) worktree/i, /discern_start/],
   },
   {
     id: "never-adopt",
-    statement:
-      "Never adopt another effort's worktree because it is idle or clean.",
+    statement: "Never adopt another effort's idle or clean worktree.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/never (adopt|start work in one)/i, /another effort/i],
   },
   {
     id: "iterate-fast-loop",
     statement:
-      "While iterating, use discern_prepare for fix/check and discern_test for tests.",
+      "Use discern_prepare while iterating; discern_test runs the tests.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/discern_prepare/, /iterat/i],
   },
   {
     id: "done-is-the-bar",
     statement:
-      "Before calling a change done, run discern_done on the final tree.",
+      "Run discern_done on the final tree before calling a change done.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/discern_done/, /final tree/i],
   },
   {
     id: "never-loosen",
-    statement: "discern_done verifies no limit loosened against the trunk.",
+    statement: "discern_done verifies no limit loosened.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/(never loosen|no limit loosened)/i],
   },
   {
     id: "update-behind",
     statement:
-      "When behind the trunk, call discern_update instead of hand-merging or pre-checking.",
+      "When behind, use discern_update instead of hand-merging or pre-checking.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [/discern_update/, /behind/i],
   },
@@ -121,9 +122,8 @@ export const OPERATING_POLICIES = [
   {
     id: "accept-on-handoff",
     statement:
-      "Use discern_accept only with explicit conversation consent to land, or " +
-      "machine-verified authority. A green gate is not permission; otherwise " +
-      "report ready for review and stop.",
+      "Use discern_accept only with explicit consent or machine-verified " +
+      "authority. A green gate is not permission; otherwise report ready for review.",
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
       /explicit\w*[^.\n]{0,80}(consent|hand\s?-?off)/i,

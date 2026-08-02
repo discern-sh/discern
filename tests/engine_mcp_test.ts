@@ -2746,6 +2746,21 @@ Deno.test("generic worktree guidance stays within agent-observable state", () =>
       );
     }
   }
+  for (
+    const [name, text] of Object.entries({
+      "worktree-first operating policy": worktreePolicy.statement,
+      "MCP server instructions": buildInstructions(),
+    })
+  ) {
+    assert(
+      /own file operations/i.test(text),
+      `${name} must distinguish the agent's file operations from discern's re-aimed tools: ${text}`,
+    );
+    assert(
+      /otherwise edits[^.]*trunk[^.]*gate[^.]*worktree/i.test(text),
+      `${name} must spell out the trunk/worktree divergence: ${text}`,
+    );
+  }
 });
 
 /** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */
