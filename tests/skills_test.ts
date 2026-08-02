@@ -122,7 +122,7 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   );
 });
 
-Deno.test("delegate-work keeps the staged-handoff safeguards and dependency contract", async () => {
+Deno.test("delegate-work keeps dispatch ownership and staged dependency contracts", async () => {
   const bundledDir = await resolveBundledSkillsDir();
   const text = await Deno.readTextFile(
     join(bundledDir, "discern-delegate-work", "SKILL.md"),
@@ -142,12 +142,28 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and dependency cont
         "run at once, each in its own worktree",
       ],
       [
+        "a one-brief fan-out has one dispatch owner",
+        "that receiving agent is the handoff's only dispatch owner",
+      ],
+      [
+        "a multi-brief handoff has one dispatch owner",
+        "The agent receiving one of those briefs owns that brief only",
+      ],
+      [
+        "each multi-brief receiver is forbidden from recreating its siblings",
+        "do not launch, dispatch, or supervise the sibling briefs",
+      ],
+      [
+        "fleet-level launch instructions stay outside child prompts",
+        "explain the dispatch topology outside the copyable prompts",
+      ],
+      [
         "the key fixes the landing order in the brief titles",
         "The key fixes the cross-wave landing order once",
       ],
       [
         "each brief names the other in-flight streams",
-        "Say in each brief that other streams are in flight",
+        "Other streams are in flight",
       ],
       [
         "landing authority remains the user's planning-time choice",
