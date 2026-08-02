@@ -34,5 +34,6 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Licenses for project payloads](project-payload-license.md)               | See where Apache-2.0 begins and ends for discern-authored material.                      |
 | [The logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.            |
 | [Crash reports](crash-reports.md)                                         | Find the saved report, exit code, and envelope a bug in discern leaves behind.           |
+| [Temp files & retention](temp-files-and-retention.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.        |
 | [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, env values, identity selectors, and tokens.       |
 | [MCP call duration](mcp-call-duration.md)                                 | Compare safe tool-call bounds and resumable waits across coding agents.                  |
