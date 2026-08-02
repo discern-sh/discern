@@ -30,7 +30,7 @@
  * local user pre-plant it. When no cache root resolves (no HOME in the
  * environment, or environment access denied), the shim falls back to a
  * randomly named OS-temp directory via the temp-artifact registry, whose
- * reaper also drains that family's historical population.
+ * reaper drains whatever that family still holds.
  */
 
 import { dirname, fromFileUrl, isAbsolute, join } from "@std/path";
