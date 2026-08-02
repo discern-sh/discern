@@ -15,11 +15,44 @@ import {
 } from "../src/shared/result.ts";
 import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 import { makeOut } from "../src/engine/output.ts";
-import { groupedSelectOptions } from "../src/lib/prompts.ts";
+import {
+  groupedSelectOptions,
+  withPromptBoundary,
+} from "../src/lib/prompts.ts";
 
 interface BoundaryFinding {
   readonly rule: string;
   readonly offset: number;
+}
+
+/** Find every Cliffy prompt call that bypasses the shared leading boundary.
+ * Imports define the enrollment set, so a newly used prompt class joins the
+ * guard even when it is aliased or has a name this test has never seen. */
+function unboundedPromptFindings(source: string): BoundaryFinding[] {
+  const findings: BoundaryFinding[] = [];
+  const imports = /import\s*{([^}]*)}\s*from\s*(["'])@cliffy\/prompt\2\s*;?/g;
+  for (const imported of source.matchAll(imports)) {
+    const names = imported[1]
+      ?.split(",")
+      .map((part) => part.trim().replace(/^type\s+/, ""))
+      .map((part) => part.split(/\s+as\s+/).at(-1)?.trim() ?? "")
+      .filter((name) => name !== "") ?? [];
+    for (const name of names) {
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const call = new RegExp(
+        `\\b${escaped}\\.prompt(?:<[^>]+>)?\\s*\\(\\s*` +
+          `(?!withPromptBoundary\\s*\\()`,
+        "g",
+      );
+      for (const match of source.matchAll(call)) {
+        findings.push({
+          rule: "unbounded-cliffy-prompt",
+          offset: match.index ?? 0,
+        });
+      }
+    }
+  }
+  return findings;
 }
 
 const MANUAL_BOUNDARY_RULES: readonly {
@@ -102,6 +135,16 @@ Deno.test("human-output boundary detector rejects unrelated future siblings", ()
       "joined-line-output-call",
     ],
   );
+
+  const promptSynthetic = [
+    'import { Secret as Orbit, Toggle } from "@cliffy/prompt";',
+    'Orbit.prompt({ message: "Fresh sibling" });',
+    'Toggle.prompt(withPromptBoundary({ message: "Already grouped" }));',
+  ].join("\n");
+  assertEquals(unboundedPromptFindings(promptSynthetic), [{
+    rule: "unbounded-cliffy-prompt",
+    offset: promptSynthetic.indexOf("Orbit.prompt"),
+  }]);
 });
 
 Deno.test("the text grouping surface owns populated boundaries and identities", () => {
@@ -204,6 +247,26 @@ Deno.test("the prompt grouping surface gives every populated group a heading", (
   );
 });
 
+Deno.test("the prompt grouping surface writes one leading boundary", () => {
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const writes: string[] = [];
+  const options = withPromptBoundary({
+    message: "Fresh sibling",
+    writer: {
+      writeSync: (data: Uint8Array): number => {
+        writes.push(decoder.decode(data));
+        return data.length;
+      },
+    },
+  });
+
+  options.writer.writeSync(encoder.encode("? Fresh sibling"));
+  options.writer.writeSync(encoder.encode("\n  First option"));
+
+  assertEquals(writes, ["\n", "? Fresh sibling", "\n  First option"]);
+});
+
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {
   const offenders: string[] = [];
   for (
@@ -211,6 +274,11 @@ Deno.test("discern-managed human boundaries use the semantic grouping surface", 
   ) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const finding of manualBoundaryFindings(source)) {
+      offenders.push(
+        `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
+      );
+    }
+    for (const finding of unboundedPromptFindings(source)) {
       offenders.push(
         `${rel}:${lineAt(source, finding.offset)} (${finding.rule})`,
       );
