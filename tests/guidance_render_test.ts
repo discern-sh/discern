@@ -433,8 +433,12 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
           "`from` (any ref) — work composes below the trunk",
         ],
         [
+          "await guidance states what the call watches",
+          "watches a sibling or the trunk in one longest-safe call",
+        ],
+        [
           "an active await call produces no progress updates",
-          "do not surface progress updates until it returns",
+          "Do not surface progress updates until it returns",
         ],
         [
           "an unmet await continuation produces no update",
@@ -442,7 +446,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         ],
         [
           "await continuations have no fixed retry count",
-          "Repeat with no fixed retry limit until the condition holds",
+          "Repeat without a fixed limit until the condition holds",
         ],
         [
           "a refusal follows recovery instead of continuing",

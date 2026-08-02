@@ -55,8 +55,8 @@ export interface PlainAccount {
   /** The `why`, retold — present exactly when the node states a `why`. */
   why?: string;
   /**
-   * The agent-experience account, retold — present exactly when the node
-   * states an `agent` account.
+   * The agent-facing benefit, retold — present exactly when the node states
+   * an `agent` account. Describe the resulting experience, not a procedure.
    */
   agent?: string;
 }
@@ -81,10 +81,10 @@ export interface FeatureNode {
   /** What it buys the user — the benefit, stated factually. */
   why?: string;
   /**
-   * The agent-experience account — how the feature reaches the agent as
-   * interaction design: what the agent sees, when it sees it, and what it
-   * never has to think about as a result (ADR 0179). Present only where that
-   * account is distinct from the owner's reading in `why`.
+   * The agent-facing benefit — what the feature lets the agent avoid, notice,
+   * or trust as a result (ADR 0179). Describe the resulting experience, not
+   * operating instructions. Present only where that account is distinct from
+   * the owner's reading in `why`.
    */
   agent?: string;
   /**
@@ -898,7 +898,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
-          "Use one call at its longest safe bound. Once called, do not surface progress updates until it returns. If it returns with `data.met: false`, continue with `data.resume` without surfacing an update. Repeat until the condition holds or the user stops the watch. Never restart the condition or impose a retry-count limit. Report only when the condition holds or the call returns a refusal or error that needs action. Always respond to new user input. Follow the met hint: it chooses start or update for the caller's location and uses an immutable green commit when composing below the trunk.",
+          "Dependent work can wait without choosing a poll interval, filling the chat with unchanged status, or asking the user to relay readiness. When the condition holds, the result identifies the correct worktree action.",
         plain: {
           title: "Waiting for a condition across the tasks",
           what:
@@ -906,7 +906,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person.",
           agent:
-            "Let one request use its full safe time. Once it starts, don't post progress updates until it returns. If it returns before the condition is met, continue from its saved place without posting an update. Keep going until the condition holds or the person stops the watch. Report a completed condition or a problem that needs action, and answer any new message from the person. A met condition comes with the right follow-up: bring in the main shared version, add the passing task beneath an existing copy, or create a fresh copy from it.",
+            "Waiting for another task no longer requires the person in charge to keep checking it. The conversation stays free of repeated status messages, and the result identifies the next step when the dependency is ready.",
         },
         surfaces: ["verb:await"],
         hints: ["await-not-yet"],

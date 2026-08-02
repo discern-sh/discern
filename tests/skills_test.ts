@@ -122,7 +122,7 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   );
 });
 
-Deno.test("delegate-work keeps the staged-handoff safeguards and resumable-wait contract", async () => {
+Deno.test("delegate-work keeps the staged-handoff safeguards and dependency contract", async () => {
   const bundledDir = await resolveBundledSkillsDir();
   const text = await Deno.readTextFile(
     join(bundledDir, "discern-delegate-work", "SKILL.md"),
@@ -182,20 +182,12 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and resumable-wait 
         "keeps its branch for the dependent, and never accepts",
       ],
       [
-        "await uses one longest-safe call",
-        "uses one longest-safe call and returns early",
+        "dependent briefs carry the facts needed to wait",
+        "Name the exact returned branch, the readiness condition, and the composition move from §2",
       ],
       [
-        "a not-yet watch follows resumable state",
-        "Follow the returned resume hint or `--resume` command",
-      ],
-      [
-        "an active await call produces no progress updates",
-        "do not surface progress updates until it returns",
-      ],
-      [
-        "an unmet await continuation produces no update",
-        "continue with `data.resume` without surfacing an update",
+        "the receiving agent's guidance owns the wait procedure",
+        "The receiving agent's built-in guidance owns the wait procedure",
       ],
       [
         "the handoff can launch without a human readiness relay",
@@ -207,6 +199,23 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and resumable-wait 
       text,
       needle,
       `discern-delegate-work lost this instruction: ${meaning}`,
+    );
+  }
+
+  for (
+    const leakedProcedure of [
+      "longest-safe call",
+      "`data.met: false`",
+      "`data.resume`",
+      "`--resume`",
+      "progress updates",
+      "retry limit",
+      "request budget",
+    ]
+  ) {
+    assert(
+      !text.includes(leakedProcedure),
+      `discern-delegate-work re-describes the receiving agent's wait procedure: ${leakedProcedure}`,
     );
   }
 });

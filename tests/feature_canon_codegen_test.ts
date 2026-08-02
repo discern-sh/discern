@@ -185,6 +185,46 @@ Deno.test("agent-experience accounts render marked, indexed, and counted", () =>
   }
 });
 
+const INSTRUCTION_SENTENCE =
+  /^(?:Always|Ask|Await|Call|Check|Choose|Continue|Do|Follow|Invoke|Keep|Let|Never|Pass|Repeat|Report|Respond|Resume|Run|Start|Stop|Use|Wait|Watch)\b/;
+
+function instructionSentences(text: string): string[] {
+  return text.split(/(?<=[.!?])\s+/).filter((sentence) =>
+    INSTRUCTION_SENTENCE.test(sentence)
+  );
+}
+
+Deno.test("agent-experience accounts describe benefits instead of issuing instructions", () => {
+  const failures: string[] = [];
+  for (const { node } of agentExperienceNodes()) {
+    for (
+      const [register, account] of [
+        ["technical", node.agent],
+        ["plain", node.plain.agent],
+      ] as const
+    ) {
+      if (account === undefined) continue;
+      for (const sentence of instructionSentences(account)) {
+        failures.push(`${node.id} ${register}: ${sentence}`);
+      }
+    }
+  }
+  assertEquals(
+    failures,
+    [],
+    "agent-experience accounts state what the feature buys the agent; operating instructions belong in guidance",
+  );
+});
+
+Deno.test("control: agent-benefit detector rejects instructions under an unrelated feature id", () => {
+  assertEquals(
+    instructionSentences(
+      "Run future_wait with its longest timeout. The dependency eventually becomes ready.",
+    ),
+    ["Run future_wait with its longest timeout."],
+  );
+});
+
 // Every `discern <verb>` mention in canon prose must name a live verb — the
 // same command-reference discipline the hint corpus and the map's fenced
 // examples are held to, so a rename fails the canon mechanically.
