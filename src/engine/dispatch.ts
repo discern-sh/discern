@@ -268,7 +268,10 @@ export function attachEngineCommands(
         const { runPrepare } = await import("./gate/prepare.ts");
         return await runPrepare(
           await requireRoot("prepare", o.json ?? false),
-          { json: o.json ?? false },
+          {
+            json: o.json ?? false,
+            plain: plainModeEnabled(),
+          },
         );
       }),
     );
