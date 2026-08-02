@@ -159,14 +159,26 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
   out.raw("second\n");
   out.group("third");
   out.info("third");
+  out.group("fourth", "Fourth");
+  out.raw("fourth\n");
+  assertThrows(
+    () => out.group("invalid-label", " "),
+    Error,
+    "label must not be blank",
+  );
 
-  assertEquals(chunks.join(""), "first\n\nsecond\n\n→ third\n");
+  assertEquals(
+    chunks.join(""),
+    "first\n\nsecond\n\n→ third\n\n  ── Fourth\nfourth\n",
+  );
 
   out.error("failure");
-  out.group("failure-recovery");
-  out.group("same-error-boundary");
+  out.group("failure-recovery", "Recovery");
   out.warn("fix it");
-  assertEquals(errors.join(""), "✗ failure\n\n! fix it\n");
+  assertEquals(
+    errors.join(""),
+    "✗ failure\n\n  ── Recovery\n! fix it\n",
+  );
 });
 
 Deno.test("the prompt grouping surface labels every populated group", () => {

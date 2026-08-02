@@ -5,7 +5,11 @@
  * clean for the single JSON object (ADR 0004).
  */
 
-import { assertHumanOutputGroupId, type RenderSink } from "../shared/result.ts";
+import {
+  assertHumanOutputGroupId,
+  assertHumanOutputGroupLabel,
+  type RenderSink,
+} from "../shared/result.ts";
 
 /** The ANSI palette, mirroring `output.sh`'s C_* variables. */
 export interface Palette {
@@ -124,8 +128,8 @@ export interface Out {
   /** Failure line (red ✗) to stderr, without exiting. */
   error(m: string): void;
   heading(m: string): void;
-  /** Start a new semantic group after one empty line. */
-  group(id: string): void;
+  /** Start a semantic group and optionally give it a visible ruled label. */
+  group(id: string, label?: string): void;
   raw(s: string): void;
 }
 
@@ -158,7 +162,10 @@ export function makeOut(
       warn: noop,
       error: noop,
       heading: noop,
-      group: (id: string): void => assertHumanOutputGroupId(id),
+      group: (id: string, label?: string): void => {
+        assertHumanOutputGroupId(id);
+        if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+      },
       raw: noop,
     };
   }
@@ -187,10 +194,18 @@ export function makeOut(
     warn: (m: string): void => stderr(`${c.yellow}!${c.reset} ${m}\n`),
     error: (m: string): void => stderr(`${c.red}✗${c.reset} ${m}\n`),
     heading: (m: string): void => stdout(`\n${c.bold}${m}${c.reset}\n`),
-    group: (id: string): void => {
+    group: (id: string, label?: string): void => {
       assertHumanOutputGroupId(id);
-      if (!wroteHuman || trailingNewlines >= 2) return;
-      writeHuman("\n".repeat(2 - trailingNewlines), lastStream);
+      if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+      if (wroteHuman && trailingNewlines < 2) {
+        writeHuman("\n".repeat(2 - trailingNewlines), lastStream);
+      }
+      if (label !== undefined) {
+        writeHuman(
+          `  ${c.dim}──${c.reset} ${c.bold}${label}${c.reset}\n`,
+          lastStream,
+        );
+      }
     },
     raw: (s: string): void => stdout(s),
   };

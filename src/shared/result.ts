@@ -533,6 +533,16 @@ export function assertHumanOutputGroupId(id: string): void {
   }
 }
 
+/** Assert one optional user-facing group label. */
+export function assertHumanOutputGroupLabel(id: string, label: string): void {
+  if (label.trim() === "") {
+    throw new Error(`human output group ${id.trim()} label must not be blank`);
+  }
+  if (/\r|\n/.test(label)) {
+    throw new Error(`human output group ${id.trim()} label must be one line`);
+  }
+}
+
 /** Validate semantic group identities and drop groups with no contents. The
  * generic form is shared by text reports and interactive option lists. */
 export function populatedHumanOutputGroups<T>(
@@ -544,12 +554,7 @@ export function populatedHumanOutputGroups<T>(
     const id = group.id.trim();
     assertHumanOutputGroupId(id);
     if (group.label !== undefined) {
-      if (group.label.trim() === "") {
-        throw new Error(`human output group ${id} label must not be blank`);
-      }
-      if (/\r|\n/.test(group.label)) {
-        throw new Error(`human output group ${id} label must be one line`);
-      }
+      assertHumanOutputGroupLabel(id, group.label);
     }
     if (seen.has(id)) {
       throw new Error(`duplicate human output group id: ${id}`);

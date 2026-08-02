@@ -85,9 +85,11 @@ Deno.test("group writes exactly one boundary between populated groups", async ()
     log.group("second-group");
     log.group("same-boundary");
     log.info("second");
+    log.group("third-group", "Third");
+    log.info("third");
   });
   assertEquals(out, []);
-  assertEquals(err, ["→ first", "", "→ second"]);
+  assertEquals(err, ["→ first", "", "→ second", "", "  ── Third", "→ third"]);
 });
 
 Deno.test("bold and dim are identity functions when colour is off", () => {

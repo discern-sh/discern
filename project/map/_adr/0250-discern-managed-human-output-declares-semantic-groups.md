@@ -20,13 +20,13 @@ The shared vocabulary lives in [`src/shared/result.ts`](../../../src/shared/resu
 - `renderHumanOutputGroups` validates identities, rejects duplicates, removes empty groups, strips caller-owned outer line breaks, and places exactly one empty line between populated text groups. A caller may render a label or request one leading boundary.
 - Plans and executed-step results derive group identity and labels from `PlanStep.group`; context and empty-state rows are explicit groups.
 
-The two effectful presentation adapters expose the imperative form. `Out.group(id)` and `Logger.group(id)` start a new group only after output exists and add only the missing newline count, so leading and repeated calls cannot accumulate gaps. Section headings remain an explicit visible boundary. Callers use this form for live narration whose contents cannot be composed before effects run.
+The two effectful presentation adapters expose the imperative form. `Out.group(id, label?)` and `Logger.group(id, label?)` add only the missing newline count, so leading and repeated blank boundaries cannot accumulate gaps. Supplying a label draws a ruled heading on the narration stream. A blank boundary is enough when the following block identifies itself; a long report whose contents do not name the group supplies the label. Callers use this form for live narration whose contents cannot be composed before effects run.
 
 Interactive option lists use `groupedSelectOptions`. It consumes the same group vocabulary and puts a visible ruled label before every populated group, including the first. Task buckets, actions, navigation, docs, scripts, and improvement choices therefore cannot collapse into one framework-owned list.
 
-Existing composed reports use their own semantic data as the authority for membership. Status declares Setup, Checkout, Change, Gate, Landing, Tasks, and Next regions. The desk derives task groups from `DESK_BUCKETS` and keeps desk actions separate. Setup and docs views name their authored regions; repeated search results and map regions enroll through the collection being rendered.
+Existing composed reports use their own semantic data as the authority for membership. Status declares Setup, Checkout, Change, Gate, Landing, Tasks, and Next regions. The desk derives task groups from `DESK_BUCKETS` and keeps desk actions separate. Improvement renders Health, Next action, Areas, each catalog category, logbook findings, and Commands as ruled sections. Setup and docs views name their authored regions; repeated search results and map regions enroll through the collection being rendered.
 
-[`tests/human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) is the class guard. It scans the Git-derived authored TypeScript universe and rejects hand-emitted empty output lines, escaped or doubled-newline writes, joined-line console reports, and direct Cliffy separators outside the shared prompt helper. Its synthetic unrelated functions prove that a new source tree is caught. Shared-renderer tests pin identity validation and exact boundary counts; behavior tests pin plan groups, status regions, and every desk bucket.
+[`tests/human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) is the class guard. It scans the Git-derived authored TypeScript universe and rejects hand-emitted empty output lines, escaped or doubled-newline writes, joined-line console reports, and direct Cliffy separators outside the shared prompt helper. Its synthetic unrelated functions prove that a new source tree is caught. Shared-renderer tests pin identity validation, boundary counts, and ruled labels. Behavior tests pin plan groups, status regions, every desk bucket, and every improvement category returned by the result envelope.
 
 The contract excludes:
 
@@ -43,7 +43,7 @@ Those surfaces retain their own protocol or document structure. A surrounding di
 - A new multi-part report must name its groups. Adding a raw empty line or direct prompt separator fails the gate instead of creating another local convention.
 - Empty conditional groups disappear without leaving double gaps. Repeated imperative boundaries are idempotent, and a block lacking a final newline still receives one complete empty-line boundary.
 - Several human snapshots gain blank lines or ruled labels. JSON, MCP, raw docs, exported docs, scalar outputs, and child-process bytes do not change.
-- The structural detector is deliberately lexical and narrow. It prevents known boundary bypasses; collection-driven behavior tests prove the important closed sets. Meaning itself still requires review when a view decides whether two lines belong to one group.
+- The lexical detector proves that the shared surface owns each boundary; it cannot prove that a blank line creates enough visual hierarchy. Collection-driven behavior tests require visible labels on long closed-set reports such as improvement. Review still decides whether an otherwise self-labeled block needs a rule.
 
 ## Alternatives considered
 

@@ -288,6 +288,9 @@ Deno.test({
           selected.against.excerpt,
           path.name,
         );
+        if (path.name !== "--json") {
+          assertStringIncludes(path.rendered, "── Next action", path.name);
+        }
       }
     });
   },
@@ -409,9 +412,10 @@ Deno.test("improvement: every catalog category is always reviewed; an unknown on
   });
 });
 
-Deno.test("improvement: the human report leads with coaching context", async () => {
+Deno.test("improvement: every human report group has a visible section", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const { payload } = await improvementJson(dir);
     // Non-interactive (the subprocess has no TTY) → the full static report.
     const { code, stdout } = await runAgent(dir, [
       "improvement",
@@ -421,9 +425,24 @@ Deno.test("improvement: the human report leads with coaching context", async () 
     assertStringIncludes(stdout, "discern improvement");
     assertStringIncludes(stdout, "Automated practice health");
     assertStringIncludes(stdout, "improvement reviews open");
-    assertStringIncludes(stdout, "Next action:");
     assertStringIncludes(stdout, "weakest first");
-    assertStringIncludes(stdout, "Quality gate");
+    const labels = [
+      "Health",
+      "Next action",
+      "Areas",
+      ...(payload.data?.categories.map((category) => category.title) ?? []),
+      "Commands",
+    ];
+    let after = 0;
+    for (const label of labels) {
+      const marker = `── ${label}`;
+      const at = stdout.indexOf(marker, after);
+      assert(
+        at >= after,
+        `expected visible section '${marker}' after byte ${after}`,
+      );
+      after = at + marker.length;
+    }
     // A failing rule shows its fix line.
     assertStringIncludes(stdout, "fix:");
     // A subjective rule shows its ask line.

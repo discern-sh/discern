@@ -10,6 +10,7 @@
 import { colors } from "@cliffy/ansi/colors";
 import {
   assertHumanOutputGroupId,
+  assertHumanOutputGroupLabel,
   type DiscernResult,
   type RenderSink,
 } from "../shared/result.ts";
@@ -130,13 +131,19 @@ export class Logger {
     this.writeHuman(`\n${this.paint(colors.bold, text)}`);
   }
 
-  /** Start a new semantic group after one empty line. */
-  group(id: string): void {
+  /** Start a semantic group and optionally give it a visible ruled label. */
+  group(id: string, label?: string): void {
     assertHumanOutputGroupId(id);
-    if (this.json || !this.wroteHuman || this.atGroupBoundary) {
-      return;
+    if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+    if (this.json) return;
+    if (this.wroteHuman && !this.atGroupBoundary) {
+      this.writeHuman("");
     }
-    this.writeHuman("");
+    if (label !== undefined) {
+      this.writeHuman(
+        `  ${this.paint(colors.dim, "──")} ${this.paint(colors.bold, label)}`,
+      );
+    }
   }
 
   /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
