@@ -15,6 +15,14 @@ _Every verb builds one result object; types, runtime validation, generated contr
 
 [`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Human output, `--json`, and the Model Context Protocol (MCP) render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
+## Human CLI groups
+
+Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`. Live output uses `Out.group` or `Logger.group`. An optional label draws a ruled heading. Pickers use `groupedSelectOptions`, which places one empty row before each ruled heading ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
+
+Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
+
+The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct prompt separators across authored TypeScript. Tests cover plan stages, status regions, desk buckets, and every improvement category.
+
 ## The serialized envelope
 
 `serializeResult` emits the wire keys that are present on a result:
@@ -59,6 +67,7 @@ The MCP instructions render the policies required on that surface from the opera
 | Concern                           | Source                                                                                                                                                                                                            |
 | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Result and renderer vocabulary    | [`result.ts`](../../../src/shared/result.ts)                                                                                                                                                                      |
+| Human output adapters             | [`output.ts`](../../../src/engine/output.ts), [`log.ts`](../../../src/lib/log.ts), [`prompts.ts`](../../../src/lib/prompts.ts)                                                                                    |
 | Envelope serialization            | [`result_serialization.ts`](../../../src/shared/result_serialization.ts)                                                                                                                                          |
 | Command references and renderers  | [`command_reference.ts`](../../../src/shared/command_reference.ts), guarded by [`hint_surface_rendering_test.ts`](../../../tests/hint_surface_rendering_test.ts)                                                  |
 | Strict runtime schemas            | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                                                                                                                                                      |

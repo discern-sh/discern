@@ -660,7 +660,7 @@ export function attachEngineCommands(
     .command("start")
     .description(
       "From the main checkout, create a worktree with a separate checkout and branch " +
-        `for one change. Base it on the trunk${trunkName}, the shared landing branch, ` +
+        `for one effort. Base it on the trunk${trunkName}, the shared landing branch, ` +
         "then print its path.",
     )
     .option(
@@ -1219,7 +1219,9 @@ function renderSkillsEjectResult(
   log.ok(
     `Ejected "${data.name}" -> ${data.dest_rel} (it now overrides the built-in).`,
   );
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) log.group("next");
+  for (const hint of hints) {
     log.info(hint);
   }
 }

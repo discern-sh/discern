@@ -466,10 +466,12 @@ function renderFamily(
   }
   const groups = findingsByDetector(familyFindings);
   const c = out.c;
+  out.group(`family:${family}`);
   out.raw(
     `${c.bold}${PATTERNS_FAMILY_SECTIONS[family].heading}${c.reset}\n`,
   );
-  for (const [detector, findings] of groups) {
+  for (const [index, [detector, findings]] of [...groups].entries()) {
+    if (index > 0) out.group(`family:${family}:detector:${detector}`);
     writeWrapped(
       out,
       "  ",
@@ -484,7 +486,6 @@ function renderFamily(
       detectorNextStep(findings),
       width,
     );
-    out.raw("\n");
   }
 
   const crossesBoundary = family === "trajectory" &&
@@ -492,6 +493,7 @@ function renderFamily(
       finding.observed.includes(TRAJECTORY_BOUNDARY_ATTRIBUTION)
     );
   if (crossesBoundary) {
+    out.group(`family:${family}:caveat`);
     writeWrapped(
       out,
       "  ",
@@ -499,7 +501,6 @@ function renderFamily(
       width,
       (line) => `${c.dim}${line}${c.reset}`,
     );
-    out.raw("\n");
   }
 }
 
@@ -520,7 +521,7 @@ function renderAttentionBanner(
   }
 
   const c = out.c;
-  out.raw("\n");
+  out.group("attention");
   out.raw(`  ${c.bold}${PATTERNS_ATTENTION_HEADING}${c.reset}\n`);
   for (const finding of findings) {
     const title = titleById.get(finding.detector) ?? finding.detector;
@@ -543,6 +544,7 @@ function renderClosingAccount(
   width: number,
 ): void {
   const c = out.c;
+  out.group("closing-account");
   const quiet = data.detectors.filter((d) => d.status === "quiet");
   const young = data.detectors.filter((d) =>
     d.status === "insufficient-evidence"
@@ -618,9 +620,9 @@ function renderReport(out: Out, data: PatternsData, slug: string): void {
     );
   }
   renderAttentionBanner(out, data, width, titleById);
-  out.raw("\n");
 
   if (data.logbook.events === 0) {
+    out.group("empty-logbook");
     writeWrapped(
       out,
       "  ",
@@ -1023,6 +1025,7 @@ function statsSection(
   spark?: StatsSpark | undefined,
 ): void {
   const c = out.c;
+  out.group(`stats:${label}`);
   const tail = spark === undefined
     ? ""
     : `  ${c.cyan}${
@@ -1032,7 +1035,6 @@ function statsSection(
   for (const row of rows) {
     writeWrapped(out, "    ", row, width);
   }
-  out.raw("\n");
 }
 
 /** Render the practice-stats card: the practice's countable feats, each
@@ -1056,7 +1058,6 @@ function renderStatsReport(
   const dim = (line: string): string => `${c.dim}${line}${c.reset}`;
   writeWrapped(out, "  ", statsHeaderLine(data, stats), width, dim);
   writeWrapped(out, "  ", STATS_PROVENANCE, width, dim);
-  out.raw("\n");
   const daysPerPoint = stats.series_days_per_point ?? 1;
   statsSection(
     out,
@@ -1264,7 +1265,9 @@ export async function runPatternsReset(
       result.dry_run === true ? " — nothing removed" : ""
     }.\n`,
   );
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     out.raw(`${c.dim}${hint}${c.reset}\n`);
   }
   return 0;

@@ -68,14 +68,28 @@ Deno.test("heading writes a blank-line-prefixed banner to stderr", async () => {
   assertEquals(err[0], "\nSection");
 });
 
-Deno.test("line writes plain text to stdout; default is an empty line", async () => {
+Deno.test("line writes plain text to stdout", async () => {
   const log = new Logger({ json: false, noColor: true });
   const { err, out } = await capture(() => {
     log.line("hello");
-    log.line();
   });
   assertEquals(err, []);
-  assertEquals(out, ["hello", ""]);
+  assertEquals(out, ["hello"]);
+});
+
+Deno.test("group writes exactly one boundary between populated groups", async () => {
+  const log = new Logger({ json: false, noColor: true });
+  const { err, out } = await capture(() => {
+    log.group("leading-group");
+    log.info("first");
+    log.group("second-group");
+    log.group("same-boundary");
+    log.info("second");
+    log.group("third-group", "Third");
+    log.info("third");
+  });
+  assertEquals(out, []);
+  assertEquals(err, ["→ first", "", "→ second", "", "  ── Third", "→ third"]);
 });
 
 Deno.test("bold and dim are identity functions when colour is off", () => {
@@ -104,6 +118,7 @@ Deno.test("JSON mode silences every human method", async () => {
     log.warn("w");
     log.error("e");
     log.heading("h");
+    log.group("g");
     log.detail("d");
     log.line("l");
   });

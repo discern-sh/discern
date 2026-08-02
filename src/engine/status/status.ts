@@ -25,7 +25,12 @@ import {
   loadConfig,
   toCommandList,
 } from "../../shared/config_schema.ts";
-import { dimBlock, type DiscernResult } from "../../shared/result.ts";
+import {
+  dimBlock,
+  type DiscernResult,
+  type HumanOutputGroup,
+  renderHumanOutputGroups,
+} from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   failureRecoveryHintTexts,
@@ -927,14 +932,13 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     hints.push(fire(HINTS["adr-index-stale"], { path: ctx.adrIndex.path }));
   }
 
-  // In the main checkout with worktrees on, the agent has no isolated workspace
-  // yet — lead the next-steps with the loud `discern start` guardrail so it never
-  // squats in another line of work's worktree. Agent channel only: the human
-  // renderer filters this out (a person here is supervising their fleet, not starting
-  // work), so it never nags the CLI. Placed before the fleet-ownership rule — the
-  // constructive action first, the don't-squat caveat after. Suppressed while setup is
-  // unfinished: setup runs in the main checkout (on the `discern-setup` branch), so
-  // "go start a worktree" would contradict the lead "finish setup here" hint.
+  // In the main checkout with worktrees on, the agent may be beginning a new
+  // effort or returning to one whose client/tool root reset between turns. Lead
+  // with the continuity decision before the conditional `discern start` action.
+  // Agent channel only: the human renderer filters this out (a person here is
+  // supervising their fleet), so it never nags the CLI. Suppressed while setup is
+  // unfinished: setup runs in the main checkout (on the `discern-setup` branch),
+  // so worktree entry advice would contradict the lead "finish setup here" hint.
   //
   // Location (main checkout) and branch identity (trunk vs not) are independent
   // axes — the main checkout can sit on a non-trunk branch (a leftover
@@ -1041,9 +1045,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     }
   }
 
-  // The survey holds a line of work other than this one — give the agent the
-  // ownership rule (json/MCP only; humans get the caption under the fleet table).
-  // Location-agnostic: fires from the main checkout and under --all from a worktree.
+  // The survey holds a registered worktree other than the current checkout. Give
+  // the agent the ownership rule that distinguishes this effort's earlier
+  // worktree from somebody else's (json/MCP only; humans get the fleet caption).
+  // Location-agnostic: fires from main and under --all from a worktree.
   if (ctx.fleet !== undefined && !ctx.logbookEnabled) {
     hints.push(fire(HINTS["status-fleet-logbook-disabled"]));
   }
@@ -1363,6 +1368,13 @@ function renderStatusHuman(
   const data = result.data;
   const c = out.c;
   const dot = `  ${c.dim}·${c.reset} `;
+  const setupLines: string[] = [];
+  const checkoutLines: string[] = [];
+  const changeLines: string[] = [];
+  const gateLines: string[] = [];
+  const landingLines: string[] = [];
+  const taskLines: string[] = [];
+  const nextLines: string[] = [];
 
   out.heading(
     `discern status — ${
@@ -1376,28 +1388,24 @@ function renderStatusHuman(
   if (data.setup_unfinished !== undefined) {
     const pending = data.setup_unfinished.pending_markers;
     const jobs = data.setup_unfinished.known_jobs;
-    out.raw(
-      `\n  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}\n`,
-    );
-    out.raw(
-      `  ${c.dim}Work the brief \`discern setup begin\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}\n`,
+    setupLines.push(
+      `  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}`,
+      `  ${c.dim}Work the brief \`discern setup begin\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}`,
     );
     if (pending.length > 0) {
       const shown = pending.slice(0, 6).join(", ");
       const more = pending.length > 6 ? `, +${pending.length - 6} more` : "";
-      out.raw(
-        `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}\n`,
+      setupLines.push(
+        `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}`,
       );
     }
     {
       const wired = jobs.filter((job) => job.wired).map((job) => job.name);
       const unset = jobs.filter((job) => !job.wired).map((job) => job.name);
-      out.raw(
+      setupLines.push(
         `  ${c.dim}Known jobs wired: ${
           wired.length > 0 ? wired.join(", ") : "none yet"
-        }${
-          unset.length > 0 ? ` · unset: ${unset.join(", ")}` : ""
-        }.${c.reset}\n`,
+        }${unset.length > 0 ? ` · unset: ${unset.join(", ")}` : ""}.${c.reset}`,
       );
     }
   }
@@ -1411,46 +1419,46 @@ function renderStatusHuman(
     const versus = g.ahead_trunk === null
       ? `no ${g.trunk} branch to compare against`
       : `${g.ahead_trunk} ahead${behind} ${g.trunk}`;
-    out.raw(
+    checkoutLines.push(
       `  ${label("branch")}${
         g.branch || "(detached)"
-      }${dot}${state}${dot}${versus}\n`,
+      }${dot}${state}${dot}${versus}`,
     );
     // When behind, the hot zone: the files you changed that the incoming main also
     // changed — re-check these on updating (a clean merge can still break them).
     if (g.incoming_overlap !== undefined && g.incoming_overlap.length > 0) {
-      out.raw(
+      checkoutLines.push(
         `  ${label("overlap")}${c.yellow}${
           g.incoming_overlap.join(", ")
-        }${c.reset}${c.dim} (your files ${g.trunk} also changed)${c.reset}\n`,
+        }${c.reset}${c.dim} (your files ${g.trunk} also changed)${c.reset}`,
       );
     }
   } else {
-    out.raw(
+    checkoutLines.push(
       `  ${
         label("git")
-      }${c.dim}unavailable (Git could not read this checkout)${c.reset}\n`,
+      }${c.dim}unavailable (Git could not read this checkout)${c.reset}`,
     );
   }
 
   if (data.worktree !== null) {
     const w = data.worktree;
-    out.raw(`  ${label("worktree")}${w.id}${dot}port ${w.port}\n`);
+    checkoutLines.push(`  ${label("worktree")}${w.id}${dot}port ${w.port}`);
     const resNames = Object.keys(w.resources);
     if (resNames.length > 0) {
-      out.raw(
+      checkoutLines.push(
         `  ${label("resources")}${
           resNames.map((n) => `${n}=${w.resources[n]}`).join("  ")
-        }\n`,
+        }`,
       );
     }
   }
 
   if (data.scopes !== undefined) {
-    out.raw(
+    changeLines.push(
       `  ${label("scopes")}${
         data.scopes.length > 0 ? data.scopes.join(", ") : "(none changed)"
-      }\n`,
+      }`,
     );
   }
 
@@ -1460,69 +1468,66 @@ function renderStatusHuman(
     const sg = g.scope_gates.length > 0
       ? `${dot}scope gates: ${g.scope_gates.join(", ")}`
       : "";
-    out.raw(`  ${label("gate")}${jobs}${sg}\n`);
+    gateLines.push(`  ${label("gate")}${jobs}${sg}`);
   }
 
   const verbose = render.verbose ?? false;
   if (data.landed_receipt !== undefined) {
-    out.raw(
+    landingLines.push(
       `  ${label("receipt")}${
         data.landed_receipt.commit.slice(0, 12)
-      }${dot}${data.landed_receipt.ref}\n`,
+      }${dot}${data.landed_receipt.ref}`,
     );
     if (verbose) {
-      out.raw(
-        `\n${
-          dimBlock(
-            data.landed_receipt.receipt.markdown,
-            outSink(out).dim,
-          )
-        }\n\n`,
+      landingLines.push(
+        dimBlock(
+          data.landed_receipt.receipt.markdown,
+          outSink(out).dim,
+        ),
       );
     }
   }
   if (data.landed_receipt_unsupported !== undefined) {
-    out.raw(
+    landingLines.push(
       `  ${label("receipt")}${
         data.landed_receipt_unsupported.commit.slice(0, 12)
-      }${dot}recorded in a newer format (${data.landed_receipt_unsupported.format}) — upgrade discern to read it\n`,
+      }${dot}recorded in a newer format (${data.landed_receipt_unsupported.format}) — upgrade discern to read it`,
     );
   }
   if (data.gate_receipt !== undefined) {
-    out.raw(
-      `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}\n`,
+    landingLines.push(
+      `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}`,
     );
     // The owner-side pull: --verbose prints the honored receipt page here, from
     // discern's own marker. Unindented so it reads (and pastes) as markdown;
     // dimmed so the quoted page stays visually secondary to the summary lines.
     if (verbose && data.gate_receipt.receipt !== undefined) {
-      out.raw(`\n${dimBlock(data.gate_receipt.receipt, outSink(out).dim)}\n\n`);
+      landingLines.push(
+        dimBlock(data.gate_receipt.receipt, outSink(out).dim),
+      );
     }
   }
 
   if (data.landing_authority !== undefined) {
-    out.raw(
+    landingLines.push(
       `  ${label("authority")}${
         landingAuthoritySummary(data.landing_authority)
-      }\n`,
+      }`,
     );
   }
 
   if (data.standards.length > 0) {
-    out.raw(`  ${label("standards")}${data.standards.join(", ")}\n`);
+    gateLines.push(`  ${label("standards")}${data.standards.join(", ")}`);
   }
 
   if (data.fleet !== undefined) {
-    renderFleetTable(out, data.fleet);
+    taskLines.push(...renderFleetTableLines(out, data.fleet));
     if (verbose) {
       // Each ready row's receipt page, straight from its marker — the supervisor
       // reviews the whole fleet from here without visiting a worktree.
       const receipts = data.fleet.filter((e) => e.receipt !== undefined);
       for (const e of receipts) {
-        out.raw(`\n${dimBlock(e.receipt ?? "", outSink(out).dim)}\n`);
-      }
-      if (receipts.length > 0) {
-        out.raw("\n");
+        taskLines.push(dimBlock(e.receipt ?? "", outSink(out).dim));
       }
     }
   }
@@ -1531,7 +1536,27 @@ function renderStatusHuman(
   // the status-owned hints and the advisory findings appended after them alike,
   // recovering each entry's identity from the envelope's own array.
   for (const hint of interactiveHintTexts(result.hints)) {
-    out.info(hint);
+    nextLines.push(`${c.cyan}→${c.reset} ${hint}`);
+  }
+
+  const groups: HumanOutputGroup<string>[] = [
+    { id: "setup", label: "Setup", items: setupLines },
+    { id: "checkout", label: "Checkout", items: checkoutLines },
+    { id: "change", label: "Change", items: changeLines },
+    { id: "gate", label: "Gate", items: gateLines },
+    { id: "landing", label: "Landing", items: landingLines },
+    { id: "tasks", label: "Tasks", items: taskLines },
+    { id: "next", label: "Next", items: nextLines },
+  ];
+  const rendered = renderHumanOutputGroups(groups, {
+    leadingBoundary: true,
+    renderLabel: (group) =>
+      group.label === undefined
+        ? undefined
+        : `  ${c.dim}──${c.reset} ${c.bold}${group.label}${c.reset}`,
+  });
+  if (rendered !== "") {
+    out.raw(`${rendered}\n`);
   }
 }
 
@@ -1602,7 +1627,10 @@ const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
 
 /** Render the fleet survey as an aligned table whose columns size to their content,
  * so an identifier is always shown in full (see {@link FLEET_COLUMN_SPECS}). */
-function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
+function renderFleetTableLines(
+  out: Out,
+  fleet: StatusFleetEntry[],
+): string[] {
   const c = out.c;
   const columns = fleet.some((entry) => entry.landing_authority !== undefined)
     ? [
@@ -1615,17 +1643,18 @@ function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
     : FLEET_COLUMN_SPECS;
 
   const [header = "", ...rows] = renderAlignedTable(columns, fleet);
-  out.raw(`\n  ${c.dim}${header}${c.reset}\n`);
+  const lines = [`  ${c.dim}${header}${c.reset}`];
   for (const [index, e] of fleet.entries()) {
     const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
-    out.raw(`  ${rows[index] ?? ""}${you}\n`);
+    lines.push(`  ${rows[index] ?? ""}${you}`);
   }
 
-  // The ownership framing for humans (the agent-facing form is the --json-only hint):
-  // only when the survey holds a line of work other than the current one.
+  // The ownership framing for humans (the agent-facing form is the --json-only
+  // hint): only when the survey holds a worktree other than the current checkout.
   if (fleet.some((e) => !e.is_main && !e.is_current)) {
-    out.raw(
-      `  ${c.dim}Other worktrees are separate lines of work — don't start work in one you didn't create.${c.reset}\n`,
+    lines.push(
+      `  ${c.dim}A resumed effort keeps its worktree. Other clean worktrees are not available to claim.${c.reset}`,
     );
   }
+  return lines;
 }

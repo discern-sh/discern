@@ -36,7 +36,7 @@ Deno.test("worktree location errors define the term and end in a recovery", asyn
     await Deno.writeTextFile(`${dir}/README.md`, "fixture\n");
     await gitInit(dir);
     const main = await refusal(() => assertOpSide("update", dir));
-    assertStringIncludes(main, "separate checkout and branch for one change");
+    assertStringIncludes(main, "separate checkout and branch for one effort");
     assertStringIncludes(main, "discern start");
     assertStringIncludes(main, "then re-run");
 

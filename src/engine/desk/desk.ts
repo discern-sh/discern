@@ -17,12 +17,12 @@
  * refuses with a pointer at `status`.
  */
 
-import { Select } from "@cliffy/prompt";
 import { basename } from "@std/path";
 import { DISCERN_MARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { renderHumanOutputGroups } from "../../shared/result.ts";
 import type { StartData, StatusData } from "../../shared/result_schemas.ts";
 import {
   detectAgentBinariesOnPath,
@@ -32,8 +32,10 @@ import { resolveWorktreeRoot } from "../../lib/paths.ts";
 import {
   canPrompt,
   confirmationPrompt,
+  groupedSelectOptions,
   inputPrompt,
   selectPrompt,
+  type SelectPromptGroup,
   type SelectPromptOptions,
 } from "../../lib/prompts.ts";
 import { Logger } from "../../lib/log.ts";
@@ -206,7 +208,8 @@ function clearBoard(out: Out): void {
 /** Hold the board until ↵, so output worth reading (an acceptance's receipt, a
  * drop's summary) isn't wiped by the next survey pass's clear. */
 async function awaitEnter(out: Out): Promise<void> {
-  out.raw(`\n${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
+  out.group("return-to-desk");
+  out.raw(`${out.c.dim}press ↵ to return to the desk${out.c.reset} `);
   const buf = new Uint8Array(64);
   await Deno.stdin.read(buf);
 }
@@ -381,14 +384,21 @@ async function pickAgentLaunch(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<DeskAgentLaunch | undefined> {
-  const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
-    ...row.agentLaunches.map((launch) => ({
-      name: launch.label,
-      value: launch.id,
-    })),
-    Select.separator("─────"),
-    { name: "Back", value: BACK },
-  ];
+  const options = groupedSelectOptions<string>([
+    {
+      id: "agents",
+      label: "Agents",
+      items: row.agentLaunches.map((launch) => ({
+        name: launch.label,
+        value: launch.id,
+      })),
+    },
+    {
+      id: "task-navigation",
+      label: "Task",
+      items: [{ name: "Back", value: BACK }],
+    },
+  ]);
   let id: string;
   try {
     id = await runtime.select({
@@ -410,16 +420,23 @@ async function pickScript(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<ProjectScript | undefined> {
-  const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
-    ...row.scripts.map((script) => ({
-      name: script.description === undefined
-        ? script.name
-        : `${script.name}  ·  ${script.description}`,
-      value: script.name,
-    })),
-    Select.separator("─────"),
-    { name: "Back", value: BACK },
-  ];
+  const options = groupedSelectOptions<string>([
+    {
+      id: "project-scripts",
+      label: "Project Scripts",
+      items: row.scripts.map((script) => ({
+        name: script.description === undefined
+          ? script.name
+          : `${script.name}  ·  ${script.description}`,
+        value: script.name,
+      })),
+    },
+    {
+      id: "task-navigation",
+      label: "Task",
+      items: [{ name: "Back", value: BACK }],
+    },
+  ]);
   let name: string;
   try {
     const search = row.scripts.length > FILTER_THRESHOLD;
@@ -463,6 +480,7 @@ function renderHeader(
     ? "No tasks"
     : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
   const main = (data.fleet ?? []).find((e) => e.is_main);
+  const summaryLines: string[] = [];
   if (main !== undefined) {
     const mainState = main.clean === true
       ? `${main.branch} clean`
@@ -472,52 +490,60 @@ function renderHeader(
       }`
       : `${main.branch} state unknown`;
     const stateColor = main.clean === true ? out.c.green : out.c.yellow;
-    out.raw(
-      `  ${out.c.dim}${taskCount}  ·${out.c.reset}  ${stateColor}${mainState}${out.c.reset}\n`,
+    summaryLines.push(
+      `  ${out.c.dim}${taskCount}  ·${out.c.reset}  ${stateColor}${mainState}${out.c.reset}`,
     );
   } else {
-    out.raw(`  ${out.c.dim}${taskCount}${out.c.reset}\n`);
+    summaryLines.push(`  ${out.c.dim}${taskCount}${out.c.reset}`);
   }
+  const unlandedLines: string[] = [];
   const unlanded = data.unlanded_branches ?? [];
   if (unlanded.length > 0) {
     const branches = `${unlanded.length} branch${
       unlanded.length === 1 ? " has" : "es have"
     } no worktree`;
-    out.raw(
+    unlandedLines.push(
       `  ${out.c.yellow}${branches}${out.c.reset}: ${out.c.dim}${
         unlanded.join(", ")
-      }${out.c.reset}\n`,
+      }${out.c.reset}`,
     );
-    out.raw(
-      `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}\n`,
+    unlandedLines.push(
+      `  ${out.c.dim}Open one with \`discern start --from <branch>\`.${out.c.reset}`,
     );
   }
   // Reclaimed-stage refs are a calm fact, not a warning: their commits ride
   // inside the named live branch, and the refs self-clean through the
   // ordinary prune once that work lands. One dim line, no action offered.
   const containedRefs = data.contained_refs ?? [];
+  const containedLines: string[] = [];
   if (containedRefs.length > 0) {
     const first = containedRefs[0];
     const line = containedRefs.length === 1 && first !== undefined
       ? `${first.branch} rides inside ${first.contained_in} until it lands`
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
-    out.raw(`  ${out.c.dim}${line}.${out.c.reset}\n`);
+    containedLines.push(`  ${out.c.dim}${line}.${out.c.reset}`);
   }
   // The session's tip (ADR 0234): one dim teaching line at the header's foot,
   // wrapped with a hanging indent at the resolved width — never truncated,
   // because the narrow embedded terminals discern's users live in would clip
   // most tips mid-sentence.
+  const tipLines: string[] = [];
   if (tip !== undefined) {
     const indent = " ".repeat(displayWidth(TIP_PREFIX));
     const lines = wrapText(tip, Math.max(1, width - indent.length));
     for (const [index, line] of lines.entries()) {
-      out.raw(
-        `${out.c.dim}${
-          index === 0 ? TIP_PREFIX : indent
-        }${line}${out.c.reset}\n`,
+      tipLines.push(
+        `${out.c.dim}${index === 0 ? TIP_PREFIX : indent}${line}${out.c.reset}`,
       );
     }
   }
+  const rendered = renderHumanOutputGroups([
+    { id: "fleet-summary", items: summaryLines },
+    { id: "unlanded-branches", items: unlandedLines },
+    { id: "contained-branches", items: containedLines },
+    { id: "tip", items: tipLines },
+  ], { leadingBoundary: true });
+  if (rendered !== "") out.raw(`${rendered}\n`);
 }
 
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */
@@ -530,7 +556,7 @@ async function pickRow(
     out.color ? `${out.c.dim}${s}${out.c.reset}` : s;
   const bucketHeading = (bucket: DeskRow["bucket"], count: number): string => {
     if (!out.color) {
-      return `${bucketTitle(bucket)}  ${count}`;
+      return `${bucketTitle(bucket)} · ${count}`;
     }
     const color = bucket === "ready"
       ? out.c.green
@@ -539,7 +565,7 @@ async function pickRow(
       : out.c.cyan;
     return `${out.c.bold}${color}${
       bucketTitle(bucket)
-    }  ${count}${out.c.reset}`;
+    } · ${count}${out.c.reset}`;
   };
   const nameCounts = new Map<string, number>();
   for (const row of rows) {
@@ -565,35 +591,44 @@ async function pickRow(
     0,
     ...[...labels.values()].map((v) => v.plain.length),
   );
-  const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [];
+  const groups: SelectPromptGroup<string>[] = [];
   for (const bucket of DESK_BUCKETS) {
     const members = rows.filter((r) => r.bucket === bucket);
     if (members.length === 0) {
       continue;
     }
-    options.push(Select.separator(bucketHeading(bucket, members.length)));
-    for (const r of members) {
-      const label = labels.get(r.entry.path) ?? {
-        plain: r.task.name,
-        rendered: r.task.name,
-      };
-      options.push({
-        name: `${label.rendered}${
-          " ".repeat(labelWidth - label.plain.length)
-        }  ${dim(r.summary)}`,
-        value: r.entry.path,
-      });
-    }
+    groups.push({
+      id: `tasks-${bucket}`,
+      label: bucketHeading(bucket, members.length),
+      items: members.map((r) => {
+        const label = labels.get(r.entry.path) ?? {
+          plain: r.task.name,
+          rendered: r.task.name,
+        };
+        return {
+          name: `${label.rendered}${
+            " ".repeat(labelWidth - label.plain.length)
+          }  ${dim(r.summary)}`,
+          value: r.entry.path,
+        };
+      }),
+    });
   }
-  options.push(Select.separator(dim("─────")));
-  options.push({
-    name: out.color
-      ? `${out.c.bold}${out.c.cyan}Start a task${out.c.reset}`
-      : "Start a task",
-    value: START_TASK,
+  groups.push({
+    id: "desk-actions",
+    label: out.color ? `${out.c.bold}${out.c.cyan}Desk${out.c.reset}` : "Desk",
+    items: [
+      {
+        name: out.color
+          ? `${out.c.bold}${out.c.cyan}Start a task${out.c.reset}`
+          : "Start a task",
+        value: START_TASK,
+      },
+      { name: dim("Refresh"), value: REFRESH },
+      { name: dim("Quit"), value: QUIT },
+    ],
   });
-  options.push({ name: dim("Refresh"), value: REFRESH });
-  options.push({ name: dim("Quit"), value: QUIT });
+  const options = groupedSelectOptions(groups);
   const search = rows.length > FILTER_THRESHOLD;
   try {
     return await runtime.select({
@@ -926,16 +961,25 @@ async function actOn(
   out.raw(`  ${out.c.dim}${row.summary}${out.c.reset}\n`);
   out.raw(`  ${out.c.dim}Branch ${row.entry.branch}${out.c.reset}\n`);
   while (true) {
-    const options: Parameters<typeof Select.prompt<string>>[0]["options"] = [
-      ...row.actions.map((a) => ({
-        name: actionLabel(a, config.repository.trunk, row.entry.contained_in),
-        value: a as string,
-      })),
-      Select.separator(
-        out.color ? `${out.c.dim}─────${out.c.reset}` : "─────",
-      ),
-      { name: "Back", value: BACK },
-    ];
+    const options = groupedSelectOptions<string>([
+      {
+        id: "actions",
+        label: "Actions",
+        items: row.actions.map((a) => ({
+          name: actionLabel(
+            a,
+            config.repository.trunk,
+            row.entry.contained_in,
+          ),
+          value: a as string,
+        })),
+      },
+      {
+        id: "task-navigation",
+        label: out.color ? `${out.c.dim}Task${out.c.reset}` : "Task",
+        items: [{ name: "Back", value: BACK }],
+      },
+    ]);
     let action: string;
     try {
       action = await runtime.select({

@@ -858,8 +858,9 @@ function renderEvidenceHuman(data: CouplingData, out: Out): void {
     `  ${c.dim}advisory — from git history; recent window${c.reset}\n` +
       `  Changed together in ${c.bold}${together}${c.reset} commit(s) — ` +
       `${together} of ${ofA}${share(together, ofA)} touching ${a}, ` +
-      `${together} of ${ofB}${share(together, ofB)} touching ${b}.\n\n`,
+      `${together} of ${ofB}${share(together, ofB)} touching ${b}.\n`,
   );
+  out.group("commits");
   for (const commit of data.commits ?? []) {
     out.raw(evidenceRow(commit, c));
   }
@@ -920,7 +921,8 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
 
   if (data.mode === "query") {
     out.heading(`Files that usually change with ${data.target ?? ""}`);
-    out.raw(`  ${subtitle}\n\n`);
+    out.raw(`  ${subtitle}\n`);
+    out.group("partners");
     for (const p of data.partners) {
       out.raw(partnerRow(p, "  ", countWidth, c));
     }
@@ -939,7 +941,8 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
       groups.set(p.from, arr);
     }
     for (const [from, partners] of groups) {
-      out.raw(`\n  You changed ${c.bold}${from}${c.reset}, but not:\n`);
+      out.group(`partners:${from}`);
+      out.raw(`  You changed ${c.bold}${from}${c.reset}, but not:\n`);
       for (const p of partners) {
         out.raw(partnerRow(p, "     ", countWidth, c));
       }
@@ -948,8 +951,9 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
 
   const strongest = data.partners[0];
   if (strongest !== undefined && strongest.confidence >= STRONG_CONFIDENCE) {
+    out.group("forcing-function-advice");
     out.raw(
-      `\n  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
+      `  ${c.dim}\`${strongest.from}\` and \`${strongest.path}\` change together ` +
         `almost every time — if that's an essential invariant, lock it with a ` +
         `forcing-function (the discern-cure-a-bug skill).${c.reset}\n`,
     );

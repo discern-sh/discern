@@ -88,6 +88,7 @@ export function renderFailureTail(out: Out, opts: {
 }): void {
   const { verb, headline, diagnostics, gotchas } = opts;
   out.error(`discern ${verb} failed: ${headline}`);
+  out.group("failure-guide");
   out.info(`Failure guide: \`${GATE_FAILURE_HELP_COMMAND}\`.`);
   renderGotchasTail(gotchas, out.color);
   renderFailures(out, diagnostics);

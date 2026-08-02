@@ -140,6 +140,7 @@ import {
 import {
   AWAIT_WATCH_POLICY,
   operatingPolicyStatementsFor,
+  worktreeContinuityPolicy,
 } from "../../shared/operating_policies.ts";
 
 const SERVER_NAME = "discern";
@@ -379,7 +380,7 @@ export const TOOLS: McpTool[] = orderTools([
       "to do next — pure observation, never runs the gate (the project's full " +
       "quality check), tests, or standards (quality numbers that can never get " +
       "worse), and never touches anything. data.location is " +
-      '"worktree" (a separate checkout and branch for one change) or "main"; data.git carries ' +
+      '"worktree" (a separate checkout and branch for one effort) or "main"; data.git carries ' +
       "branch, Git-clean state, changed-files, and ahead/behind the trunk " +
       "(`{{main_branch}}`), the shared landing branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
@@ -528,7 +529,7 @@ export const TOOLS: McpTool[] = orderTools([
       'reach for this to measure a deferred (measure = "on-demand") standard, ' +
       "to re-measure explicitly (it always measures — never replays), or to pin. " +
       "Non-dry-run calls require a clean worktree " +
-      "(a separate checkout and branch for one change) " +
+      "(a separate checkout and branch for one effort) " +
       "unless force is set while authoring or debugging standards. Set dry_run to " +
       "preview which standards would run — it measures nothing, with or without " +
       "pin. Set pin to " +
@@ -874,7 +875,7 @@ export const TOOLS: McpTool[] = orderTools([
     description:
       "Use only when the user explicitly asks to hand off or land this branch. " +
       "Accept THIS worktree's branch onto the trunk (`{{main_branch}}`) — the shared " +
-      "landing branch. A worktree is a separate checkout and branch for one change. " +
+      "landing branch. A worktree is a separate checkout and branch for one effort. " +
       "Tear down the worktree's resources, advance the trunk directly to the branch " +
       "tip, remove the clean worktree, and delete the " +
       "now-merged branch. It then refreshes the trunk checkout it leaves behind, " +
@@ -989,8 +990,11 @@ export const TOOLS: McpTool[] = orderTools([
     outputSchema: StartOutputSchema.shape,
     annotations: MUTATING,
     description:
-      "Create a fresh ISOLATED worktree — a separate checkout and branch for one " +
-      "change — from the main checkout, set it up, and return where it landed " +
+      `${
+        worktreeContinuityPolicy("`discern_start`")
+      } Create a fresh ISOLATED ` +
+      "worktree — a separate checkout and branch for one " +
+      "effort — from the main checkout, set it up, and return where it landed " +
       "(data.path). When the trunk records standing landing scopes, " +
       "data.landing_authority and the matching hint name them prospectively; final " +
       "coverage is always rechecked against the changed paths. The new branch forks " +
@@ -998,10 +1002,9 @@ export const TOOLS: McpTool[] = orderTools([
       "shared landing branch, regardless of what " +
       "branch the main checkout is sitting on — you do NOT need to check or pass " +
       "anything for the normal case. " +
-      "Use this when you are on the trunk (the main checkout) and about to start work: " +
-      "it is the first-class way to get your own workspace, so you NEVER adopt an " +
-      "existing idle worktree (each belongs to another line of work; a clean working " +
-      "tree doesn't mean it's free). On success it RE-AIMS these discern tools at the " +
+      "Use this when you are on the trunk (the main checkout) and beginning a new " +
+      "effort that has no worktree. Never adopt a worktree created for another " +
+      "effort because it is idle or clean. On success it RE-AIMS these discern tools at the " +
       "new worktree automatically — your later discern_done / discern_update / " +
       "discern_accept operate on it with nothing for you to thread. But that moves " +
       "only the discern tools: you MUST still move your OWN file operations into " +
@@ -1016,8 +1019,8 @@ export const TOOLS: McpTool[] = orderTools([
       "discern project (a dependency's repo, another component of a multi-repo " +
       "app)? Pass `path` — any absolute path inside that project — and the " +
       "worktree is created for THAT project, the re-aim following it exactly as " +
-      "for a same-project start. Each call " +
-      "mints a NEW worktree (not idempotent) — call it once per line of work. If you " +
+      "for a same-project start. Each call mints a NEW worktree and is not " +
+      "idempotent. If you " +
       "are already inside a worktree, do NOT call this (you'd create a pointless " +
       'sibling): it refuses (error:"precondition_failed") if invoked anyway. Set ' +
       "dry_run to preview the plan without creating anything.",
@@ -1947,7 +1950,7 @@ function registerResources(
 export function buildInstructions(): string {
   const lines = [
     "discern supplies this project's quality gate (its full quality check) and " +
-    "worktree workflow (a separate checkout and branch for each change), and these tools are the primary " +
+    "worktree workflow (a separate checkout and branch for each effort), and these tools are the primary " +
     "surface for working in it — prefer them over shelling out to the `discern` " +
     "CLI; each returns a structured result you can read directly.",
     "",

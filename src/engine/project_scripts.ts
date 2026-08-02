@@ -20,7 +20,10 @@ import {
 import { resolveScriptsDir } from "../lib/paths.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import { reportUnknownCommand } from "./unknown_command.ts";
-import type { DiscernResult } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
 import type { ScriptsData } from "../shared/result_schemas.ts";
 
 /** One executable Project Script surfaced by discovery. */
@@ -189,10 +192,18 @@ export async function runProjectScriptAt(
   }
 
   if (await pathExists(scriptFile)) {
-    console.error(
-      `discern: script "${name}" exists but is not executable: ${scriptFile}`,
-    );
-    console.error(`       Run: chmod +x "${scriptFile}"`);
+    console.error(renderHumanOutputGroups([
+      {
+        id: "failure",
+        items: [
+          `discern: script "${name}" exists but is not executable: ${scriptFile}`,
+        ],
+      },
+      {
+        id: "recovery",
+        items: [`       Run: chmod +x "${scriptFile}"`],
+      },
+    ]));
     return 1;
   }
 

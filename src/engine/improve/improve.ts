@@ -34,7 +34,11 @@ import type {
   RuleResult,
   RuleStatus,
 } from "./types.ts";
-import { canPrompt, selectPrompt } from "../../lib/prompts.ts";
+import {
+  canPrompt,
+  groupedSelectOptions,
+  selectPrompt,
+} from "../../lib/prompts.ts";
 
 // ── evaluation ──────────────────────────────────────────────────────────────
 
@@ -389,9 +393,8 @@ function renderReviewUnit(
 ): void {
   const c = out.c;
   if (mode === "next-action") {
-    out.raw(
-      wrapLabelled("Next action: ", `${review.title} — ${review.ask}`, "  "),
-    );
+    out.raw(`  ${c.bold}${review.title}${c.reset}\n`);
+    out.raw(wrapLabelled("ask:   ", review.ask, "  "));
   } else {
     out.raw(
       `  ${c.cyan}?${c.reset} ${review.title} ${c.dim}(review)${c.reset}\n`,
@@ -409,7 +412,7 @@ function renderReviewUnit(
   }
   out.raw(
     wrapLabelled(
-      mode === "next-action" ? "Why:        " : "teach: ",
+      mode === "next-action" ? "why:   " : "teach: ",
       review.teach,
       mode === "next-action" ? "  " : "      ",
     ),
@@ -424,6 +427,7 @@ function renderSummary(
 ): void {
   const c = out.c;
   out.heading(`discern improvement${slug ? ` · ${slug}` : ""}`);
+  out.group("health", "Health");
   out.raw(
     `  Automated practice health  ${
       bar(report.score, c, out.color)
@@ -431,7 +435,7 @@ function renderSummary(
   );
   out.raw(`  ${report.weak} objectively weak\n`);
   out.raw(`  ${c.cyan}${report.reviews} improvement reviews open${c.reset}\n`);
-  out.raw("\n");
+  out.group("next-action", "Next action");
   if (report.nextAction.kind === "review") {
     renderReviewUnit(out, {
       title: report.nextAction.title,
@@ -442,16 +446,11 @@ function renderSummary(
         : {}),
     }, "next-action");
   } else {
-    out.raw(
-      wrapLabelled(
-        "Next action: ",
-        `${report.nextAction.title} — ${report.nextAction.action}`,
-        "  ",
-      ),
-    );
-    out.raw(wrapLabelled("Why:        ", report.nextAction.why, "  "));
+    out.raw(`  ${c.bold}${report.nextAction.title}${c.reset}\n`);
+    out.raw(wrapLabelled("do:    ", report.nextAction.action, "  "));
+    out.raw(wrapLabelled("why:   ", report.nextAction.why, "  "));
   }
-  out.raw("\n");
+  out.group("category-summary", "Areas");
   out.raw(`  ${c.dim}weakest first${c.reset}\n`);
   const widest = Math.max(...report.categories.map((x) => x.title.length), 0);
   for (const cat of report.categories) {
@@ -473,7 +472,8 @@ function renderSummary(
  * passing) and each subjective review item (ask + evidence + teach). */
 function renderCategory(out: Out, cat: CategoryResult): void {
   const c = out.c;
-  out.heading(
+  out.group(
+    `category:${cat.name}`,
     `${cat.title}  ${bar(cat.score, c, out.color)}  ${cat.score}/100`,
   );
   for (const r of cat.rules) {
@@ -498,7 +498,7 @@ function renderHistory(out: Out, findings: PatternsFinding[]): void {
     return;
   }
   const c = out.c;
-  out.heading("From the logbook");
+  out.group("history", "From the logbook");
   for (const finding of findings) {
     out.raw(
       `  ${c.cyan}?${c.reset} ${finding.observed} ${c.dim}(${finding.detector})${c.reset}\n`,
@@ -516,15 +516,25 @@ async function interactiveDrilldown(
   const ALL = "\u0000all";
   const DONE = "\u0000done";
   for (;;) {
-    const options = [
-      ...report.categories.map((cat) => ({
-        name:
-          `${cat.title} — ${cat.score}/100 (${cat.weak} to fix, ${cat.reviews.length} to review)`,
-        value: cat.name,
-      })),
-      { name: "Show every category in full", value: ALL },
-      { name: "Done", value: DONE },
-    ];
+    const options = groupedSelectOptions<string>([
+      {
+        id: "areas",
+        label: "Areas",
+        items: report.categories.map((cat) => ({
+          name:
+            `${cat.title} — ${cat.score}/100 (${cat.weak} to fix, ${cat.reviews.length} to review)`,
+          value: cat.name,
+        })),
+      },
+      {
+        id: "report-actions",
+        label: "Report",
+        items: [
+          { name: "Show every category in full", value: ALL },
+          { name: "Done", value: DONE },
+        ],
+      },
+    ]);
     const choice = await selectPrompt({
       message: "Drill into an area",
       options,
@@ -552,8 +562,9 @@ function renderFooter(
   report: ImprovementReport,
   filtered: boolean,
 ): void {
+  if (report.reviews === 0 && filtered) return;
   const c = out.c;
-  out.raw("\n");
+  out.group("report-actions", "Commands");
   if (report.reviews > 0) {
     out.raw(
       `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern improvement --json${c.dim}.${c.reset}\n`,

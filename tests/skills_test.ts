@@ -122,7 +122,7 @@ Deno.test("shipped content names no vendor-specific skills dir (stays provider-n
   );
 });
 
-Deno.test("delegate-work keeps the staged-handoff safeguards and dependency contract", async () => {
+Deno.test("delegate-work keeps dispatch consent and staged dependency contracts", async () => {
   const bundledDir = await resolveBundledSkillsDir();
   const text = await Deno.readTextFile(
     join(bundledDir, "discern-delegate-work", "SKILL.md"),
@@ -142,12 +142,64 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and dependency cont
         "run at once, each in its own worktree",
       ],
       [
+        "the user controls every handoff's dispatch",
+        "The user controls dispatch for every handoff",
+      ],
+      [
+        "preparing briefs grants no authority to launch them",
+        "Preparing or presenting briefs does not authorize you to dispatch them",
+      ],
+      [
+        "launching a prompt is itself user initiation",
+        "Launching a prompt counts as confirmation for the dispatch it describes",
+      ],
+      [
+        "one-brief fan-out waits at the same consent boundary",
+        "after the user dispatches the brief",
+      ],
+      [
+        "single-brief and multi-brief handoffs share one consent rule",
+        "The same consent boundary applies to a one-brief fan-out and a multi-brief set",
+      ],
+      [
+        "the offer makes resource and concurrency costs visible",
+        "State how many sessions, worktrees, and sub-agents will start",
+      ],
+      [
+        "the agent waits for consent before starting effects",
+        "Wait for the user's confirmation before starting any session, worktree, or sub-agent",
+      ],
+      [
+        "the user remains the assumed dispatcher",
+        "Assume the user will launch them",
+      ],
+      [
+        "a capable agent offers rather than dispatching proactively",
+        "offer to dispatch them and wait for explicit confirmation",
+      ],
+      [
+        "dispatch consent is scoped to the plan the user reviewed",
+        "confirmation covers only the described dispatch",
+      ],
+      [
+        "each multi-brief receiving agent owns only its brief",
+        "The agent receiving one of those briefs owns that brief only",
+      ],
+      [
+        "each multi-brief receiver is forbidden from recreating its siblings",
+        "do not launch, dispatch, or supervise the sibling briefs",
+      ],
+      [
+        "fleet-level launch instructions stay outside child prompts",
+        "explain the dispatch topology outside the copyable prompts",
+      ],
+      [
         "the key fixes the landing order in the brief titles",
         "The key fixes the cross-wave landing order once",
       ],
       [
         "each brief names the other in-flight streams",
-        "Say in each brief that other streams are in flight",
+        "Other streams are in flight",
       ],
       [
         "landing authority remains the user's planning-time choice",
@@ -190,8 +242,8 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and dependency cont
         "The receiving agent's built-in guidance owns the wait procedure",
       ],
       [
-        "the handoff can launch without a human readiness relay",
-        "the whole set can dispatch in one sitting",
+        "a confirmed handoff can run without a human readiness relay",
+        "one confirmation can authorize you to do so, without anyone relaying readiness by hand",
       ],
     ] as const
   ) {
@@ -199,6 +251,19 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and dependency cont
       text,
       needle,
       `discern-delegate-work lost this instruction: ${meaning}`,
+    );
+  }
+
+  for (
+    const unauthorizedDispatch of [
+      "that receiving agent is the handoff's only dispatch owner",
+      "the single receiving agent launches its sub-agents",
+      "launch each once from this session",
+    ]
+  ) {
+    assert(
+      !text.includes(unauthorizedDispatch),
+      `discern-delegate-work lets an agent dispatch without the user's initiation or confirmation: ${unauthorizedDispatch}`,
     );
   }
 

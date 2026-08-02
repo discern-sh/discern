@@ -1413,7 +1413,7 @@ async function buildAcceptPlan(
   if (gitDir === gitCommonDir) {
     throw new WorktreeGitError(
       "discern accept runs inside a worktree — a separate checkout and branch for " +
-        "one change — but this is the main checkout. Move into the finished worktree " +
+        "one effort — but this is the main checkout. Move into the finished worktree " +
         "path shown by `discern status`, then re-run.",
     );
   }
@@ -2463,7 +2463,7 @@ async function executeAcceptPlan(
   // so the quoted page stays visually secondary (dim is display-only — a
   // terminal copies the plain text).
   if (receiptMarkdown !== undefined) {
-    ctx.log.line("");
+    ctx.log.group("receipt");
     for (
       const line of dimBlock(receiptMarkdown, loggerSink(ctx.log).dim)
         .split("\n")

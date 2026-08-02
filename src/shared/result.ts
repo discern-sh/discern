@@ -519,6 +519,90 @@ export function capText(s: string): CappedText {
 
 // ── the shared human renderers ──────────────────────────────────────────────
 
+/** One semantic group in a discern-managed human view. `id` is the stable,
+ * non-rendered identity that makes the grouping explicit in code; `label` is
+ * optional user-facing text; `items` are the group's ordered contents. */
+export interface HumanOutputGroup<T> {
+  id: string;
+  label?: string | undefined;
+  items: readonly T[];
+}
+
+/** Assert the non-rendered identity carried by every semantic output group. */
+export function assertHumanOutputGroupId(id: string): void {
+  if (id.trim() === "") {
+    throw new Error("human output group id must not be blank");
+  }
+}
+
+/** Assert one optional user-facing group label. */
+export function assertHumanOutputGroupLabel(id: string, label: string): void {
+  if (label.trim() === "") {
+    throw new Error(`human output group ${id.trim()} label must not be blank`);
+  }
+  if (/\r|\n/.test(label)) {
+    throw new Error(`human output group ${id.trim()} label must be one line`);
+  }
+}
+
+/** Validate semantic group identities and drop groups with no contents. The
+ * generic form is shared by text reports and interactive option lists. */
+export function populatedHumanOutputGroups<T>(
+  groups: readonly HumanOutputGroup<T>[],
+): HumanOutputGroup<T>[] {
+  const seen = new Set<string>();
+  const populated: HumanOutputGroup<T>[] = [];
+  for (const group of groups) {
+    const id = group.id.trim();
+    assertHumanOutputGroupId(id);
+    if (group.label !== undefined) {
+      assertHumanOutputGroupLabel(id, group.label);
+    }
+    if (seen.has(id)) {
+      throw new Error(`duplicate human output group id: ${id}`);
+    }
+    seen.add(id);
+    if (group.items.length > 0) {
+      populated.push(group);
+    }
+  }
+  return populated;
+}
+
+export interface HumanOutputRenderOptions {
+  /** Render one label line above a populated group's items. */
+  renderLabel?:
+    | ((group: HumanOutputGroup<string>) => string | undefined)
+    | undefined;
+  /** Start the first populated group after one empty line. */
+  leadingBoundary?: boolean | undefined;
+}
+
+/** Render text groups with one empty line between each populated group. Leading
+ * and trailing line breaks on individual items are removed so the grouping
+ * helper, rather than a caller's string literal, owns every outer boundary. */
+export function renderHumanOutputGroups(
+  groups: readonly HumanOutputGroup<string>[],
+  options: HumanOutputRenderOptions = {},
+): string {
+  const blocks = populatedHumanOutputGroups(groups).flatMap((group) => {
+    const lines = group.items
+      .map((item) => item.replace(/^(?:\r?\n)+|(?:\r?\n)+$/g, ""))
+      .filter((item) => item !== "");
+    if (lines.length === 0) {
+      return [];
+    }
+    const label = options.renderLabel?.(group);
+    return [[...(label === undefined ? [] : [label]), ...lines].join("\n")];
+  });
+  if (blocks.length === 0) {
+    return "";
+  }
+  return `${options.leadingBoundary === true ? "\n" : ""}${
+    blocks.join("\n\n")
+  }`;
+}
+
 /**
  * The minimal output surface the renderer needs. Implemented by both the gate's
  * `Out` and the installer's `Logger` through `outSink` / `loggerSink` (which live
@@ -554,33 +638,56 @@ const DISPOSITION_LABEL: Record<StepDisposition, string> = {
 
 /**
  * Render a plan as a per-step listing under its heading — the `--dry-run` view.
- * Steps carrying a `group` are printed under a dim group line; ungrouped plans
- * (e.g. accept) list flat.
+ * Every populated section gets one dim label and one clean boundary; steps
+ * without a named `group` collect under "Steps".
  */
 export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
   sink.heading(plan.title);
-  for (const d of plan.details) {
-    sink.line(`  ${sink.dim(d)}`);
-  }
-  if (plan.steps.length === 0) {
-    sink.line(`  ${sink.dim("(nothing to do)")}`);
-    return;
-  }
+  const groups: HumanOutputGroup<string>[] = plan.details.length === 0 ? [] : [{
+    id: "context",
+    label: "Context",
+    items: plan.details.map((detail) => `  ${sink.dim(detail)}`),
+  }];
   let group: string | undefined;
+  let groupItems: string[] = [];
+  const flush = (): void => {
+    if (groupItems.length === 0) return;
+    const namedGroup = group !== undefined && group !== "";
+    groups.push({
+      id: namedGroup ? `steps:${group}` : "steps",
+      label: namedGroup ? group : "Steps",
+      items: groupItems,
+    });
+    groupItems = [];
+  };
   for (const step of plan.steps) {
     if (step.group !== group) {
+      flush();
       group = step.group;
-      if (group !== undefined && group !== "") {
-        sink.line(`  ${sink.dim(group)}`);
-      }
     }
     const indent = step.group !== undefined && step.group !== ""
       ? "    "
       : "  ";
     const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
     const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
-    sink.line(`${indent}${label} ${step.label}${note}`);
+    groupItems.push(`${indent}${label} ${step.label}${note}`);
   }
+  flush();
+  if (plan.steps.length === 0) {
+    groups.push({
+      id: "steps-empty",
+      label: "Steps",
+      items: [`  ${sink.dim("(nothing to do)")}`],
+    });
+  }
+  const rendered = renderHumanOutputGroups(groups, {
+    leadingBoundary: true,
+    renderLabel: (renderedGroup) =>
+      renderedGroup.label === undefined
+        ? undefined
+        : `  ${sink.dim(renderedGroup.label)}`,
+  });
+  for (const line of rendered.split("\n")) sink.line(line);
 }
 
 /** A complete, renderable apply result: a titled executed-step list. */
@@ -635,28 +742,36 @@ function stepResultNote(result: StepResult): string | undefined {
 
 /**
  * Render executed steps as a per-step listing — the apply-mode mirror of
- * {@link renderPlan}. Steps carrying a `group` are printed under a dim group line.
+ * {@link renderPlan}. Named groups keep their label; unnamed steps use "Steps".
  */
 export function renderStepResults(
   sink: RenderSink,
   view: StepResultsView,
 ): void {
   sink.heading(view.title);
-  for (const d of view.details ?? []) {
-    sink.line(`  ${sink.dim(d)}`);
-  }
-  if (view.steps.length === 0) {
-    sink.line(`  ${sink.dim("(nothing ran)")}`);
-    return;
-  }
+  const details = view.details ?? [];
+  const groups: HumanOutputGroup<string>[] = details.length === 0 ? [] : [{
+    id: "context",
+    label: "Context",
+    items: details.map((detail) => `  ${sink.dim(detail)}`),
+  }];
   let group: string | undefined;
+  let groupItems: string[] = [];
+  const flush = (): void => {
+    if (groupItems.length === 0) return;
+    const namedGroup = group !== undefined && group !== "";
+    groups.push({
+      id: namedGroup ? `steps:${group}` : "steps",
+      label: namedGroup ? group : "Steps",
+      items: groupItems,
+    });
+    groupItems = [];
+  };
   for (const result of view.steps) {
     const step = result.step;
     if (step.group !== group) {
+      flush();
       group = step.group;
-      if (group !== undefined && group !== "") {
-        sink.line(`  ${sink.dim(group)}`);
-      }
     }
     const indent = step.group !== undefined && step.group !== ""
       ? "    "
@@ -664,8 +779,24 @@ export function renderStepResults(
     const label = OUTCOME_LABEL[result.outcome].padEnd(8);
     const detail = stepResultNote(result);
     const note = detail !== undefined ? sink.dim(` - ${detail}`) : "";
-    sink.line(`${indent}${label} ${step.label}${note}`);
+    groupItems.push(`${indent}${label} ${step.label}${note}`);
   }
+  flush();
+  if (view.steps.length === 0) {
+    groups.push({
+      id: "steps-empty",
+      label: "Steps",
+      items: [`  ${sink.dim("(nothing ran)")}`],
+    });
+  }
+  const rendered = renderHumanOutputGroups(groups, {
+    leadingBoundary: true,
+    renderLabel: (renderedGroup) =>
+      renderedGroup.label === undefined
+        ? undefined
+        : `  ${sink.dim(renderedGroup.label)}`,
+  });
+  for (const line of rendered.split("\n")) sink.line(line);
 }
 
 // ── the JSON projections ────────────────────────────────────────────────────

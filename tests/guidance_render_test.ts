@@ -68,7 +68,7 @@ Deno.test("renderAgentFiles: Cursor configuration does not change the generic wo
     const agents = files.get("AGENTS.md");
     assert(agents !== undefined);
     assertStringIncludes(agents, "from the main checkout");
-    assertStringIncludes(agents, "create your isolated worktree");
+    assertStringIncludes(agents, "Keep one worktree for the whole effort");
     assertStringIncludes(agents, "Can't change your working root?");
     assert(
       !/(external file protection|approval-gates external edits)/i.test(agents),
@@ -417,8 +417,16 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     for (
       const [meaning, needle] of [
         [
+          "start is reserved for an effort with no worktree",
+          "only for an effort without a worktree",
+        ],
+        [
           "start explains how to move the agent into the returned checkout",
           "re-root into the returned path: cd in, or start a session there",
+        ],
+        [
+          "later fixes and sessions keep the returned checkout",
+          "Continue there through later fixes and sessions",
         ],
         [
           "the no-re-root fallback applies to every shell command and discern tool",
@@ -461,8 +469,8 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
           "run `discern_done` once on the clean HEAD — acceptance honors that receipt",
         ],
         [
-          "another clean worktree remains somebody else's line of work",
-          "other efforts in flight, not a pool to claim from",
+          "another effort's clean worktree remains off limits",
+          "Never adopt another effort's worktree because it is idle or clean",
         ],
       ] as const
     ) {

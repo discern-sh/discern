@@ -20,6 +20,10 @@ import { emitResult } from "../shared/emit.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
+import {
+  type HumanOutputGroup,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
 import { runGit } from "../shared/subprocess.ts";
 import {
   SETUP_BRANCH,
@@ -127,7 +131,7 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
       });
       return 0;
     }
-    console.log(abandonedSetupWelcome().join("\n"));
+    console.log(renderHumanOutputGroups(abandonedSetupWelcomeGroups()));
     return 0;
   }
 
@@ -187,10 +191,12 @@ export async function runSetupWelcome(opts: WelcomeOptions): Promise<number> {
 
   switch (phase) {
     case "fresh":
-      console.log(renderFreshWelcome(style, { gitRepo }).join("\n"));
+      console.log(
+        renderHumanOutputGroups(freshWelcomeGroups(style, { gitRepo })),
+      );
       break;
     case "in_progress":
-      console.log(inProgressWelcome(progress).join("\n"));
+      console.log(renderHumanOutputGroups(inProgressWelcomeGroups(progress)));
       break;
     case "done":
       console.log(
@@ -369,20 +375,75 @@ const PLAIN_NON_GIT_NOTE: readonly string[] = [
   "    git is what makes setup isolated, reversible, and easy to undo.",
 ];
 
+const PLAIN_FRESH_GROUP_IDS = [
+  "orientation",
+  "setup-state",
+  "human-overview",
+  "human-action",
+  "reversibility",
+  "model-guidance",
+  "agent-overview",
+  "agent-next-action",
+  "agent-command",
+  "agent-handoff",
+] as const;
+
+/** Give every authored plain-welcome block a stable semantic identity. The
+ * source stays WYSIWYG, but a new blank-delimited block cannot ship unnamed. */
+function namedWelcomeGroups(
+  lines: readonly string[],
+  ids: readonly string[],
+): HumanOutputGroup<string>[] {
+  const blocks: string[][] = [];
+  let items: string[] = [];
+  for (const line of lines) {
+    if (line === "") {
+      if (items.length > 0) blocks.push(items);
+      items = [];
+    } else {
+      items.push(line);
+    }
+  }
+  if (items.length > 0) blocks.push(items);
+  if (blocks.length !== ids.length) {
+    throw new Error(
+      `fresh welcome has ${blocks.length} blocks but ${ids.length} semantic group ids`,
+    );
+  }
+  return blocks.map((block, index) => ({
+    id: ids[index] ?? "",
+    items: block,
+  }));
+}
+
+/** Model the fresh welcome's semantic regions. The decorated TTY box is one
+ * self-structured frame; the plain view names each textual region directly. */
+function freshWelcomeGroups(
+  style: WelcomeStyleMode,
+  ctx: WelcomeContext = { gitRepo: true },
+): HumanOutputGroup<string>[] {
+  if (style.tty) {
+    return [{
+      id: "welcome-frame",
+      items: [styledFreshWelcome(ctx).join("\n")],
+    }];
+  }
+  const lines = [...PLAIN_FRESH_WELCOME];
+  const ids: string[] = [...PLAIN_FRESH_GROUP_IDS];
+  if (!ctx.gitRepo) {
+    const at = lines.indexOf("This project isn't set up yet.") + 1;
+    lines.splice(at, 0, ...PLAIN_NON_GIT_NOTE);
+    ids.splice(2, 0, "git-prerequisite");
+  }
+  return namedWelcomeGroups(lines, ids);
+}
+
 /** Render the fresh-install welcome in either plain or TTY-decorated form. */
 export function renderFreshWelcome(
   style: WelcomeStyleMode,
   ctx: WelcomeContext = { gitRepo: true },
 ): string[] {
-  if (style.tty) {
-    return styledFreshWelcome(ctx);
-  }
-  const lines = [...PLAIN_FRESH_WELCOME];
-  if (!ctx.gitRepo) {
-    const at = lines.indexOf("This project isn't set up yet.") + 1;
-    lines.splice(at, 0, ...PLAIN_NON_GIT_NOTE);
-  }
-  return lines;
+  return renderHumanOutputGroups(freshWelcomeGroups(style, ctx)).split("\n");
 }
 
 /** Compose the TTY welcome, including the Git prerequisite warning when needed. */
@@ -509,43 +570,82 @@ function styledFreshWelcome(ctx: WelcomeContext): string[] {
  * work, but the current branch has no config — the resume is to check the branch
  * out, never to re-enter the fresh funnel (whose re-scaffold would pollute the
  * half-finished install). */
-function abandonedSetupWelcome(): string[] {
+function abandonedSetupWelcomeGroups(): HumanOutputGroup<string>[] {
   return [
-    "discern setup is IN PROGRESS here — not yet finished.",
-    "",
-    `A \`${SETUP_BRANCH}\` branch exists carrying setup's work so far, but you are`,
-    "not on it.",
-    "",
-    "Agents: resume the setup there — do NOT start setup again from this branch",
-    "(that would re-scaffold over the half-finished install). Your next actions:",
-    "",
-    `    git checkout ${SETUP_BRANCH}`,
-    "    discern setup begin        (reprints the brief; idempotent)",
-    "",
-    "Then continue the brief and run `discern setup done` to finish.",
-    "",
-    `Humans: your coding agent left setup half-done on the \`${SETUP_BRANCH}\``,
-    "branch. It can pick up right where it left off — or roll everything back:",
-    "delete that branch, then `discern uninstall` sweeps out the generated files.",
+    {
+      id: "setup-state",
+      items: ["discern setup is IN PROGRESS here — not yet finished."],
+    },
+    {
+      id: "branch-location",
+      items: [
+        `A \`${SETUP_BRANCH}\` branch exists carrying setup's work so far, but you are`,
+        "not on it.",
+      ],
+    },
+    {
+      id: "agent-resume",
+      items: [
+        "Agents: resume the setup there — do NOT start setup again from this branch",
+        "(that would re-scaffold over the half-finished install). Your next actions:",
+      ],
+    },
+    {
+      id: "resume-commands",
+      items: [
+        `    git checkout ${SETUP_BRANCH}`,
+        "    discern setup begin        (reprints the brief; idempotent)",
+      ],
+    },
+    {
+      id: "completion-action",
+      items: [
+        "Then continue the brief and run `discern setup done` to finish.",
+      ],
+    },
+    {
+      id: "human-recovery",
+      items: [
+        `Humans: your coding agent left setup half-done on the \`${SETUP_BRANCH}\``,
+        "branch. It can pick up right where it left off — or roll everything back:",
+        "delete that branch, then `discern uninstall` sweeps out the generated files.",
+      ],
+    },
   ];
 }
 
 /** The in-progress welcome, as lines: the resume view. Lead with DERIVED progress
  * (what's left, unfakeable), then the agent's path to finish and the human's
  * reassurance. */
-function inProgressWelcome(progress: SetupProgress | undefined): string[] {
+function inProgressWelcomeGroups(
+  progress: SetupProgress | undefined,
+): HumanOutputGroup<string>[] {
   return [
-    "discern setup is IN PROGRESS here — not yet finished.",
-    "",
-    ...(progress !== undefined ? [...renderProgressLines(progress), ""] : []),
-    "Agents: this is YOUR job to finish, not a status to report back. Continue the",
-    "setup brief, then run `discern setup done` to validate and record completion.",
-    "Reprint the full brief any time with `discern setup begin` (idempotent — it",
-    "won't touch your work). Don't tell the user setup is done until `done` passes.",
-    "",
-    "Humans: your coding agent is mid-setup on the `discern-setup` branch. Follow",
-    "along — roll it all back by deleting that branch, then `discern uninstall`",
-    "to sweep out any generated files.",
+    {
+      id: "setup-state",
+      items: ["discern setup is IN PROGRESS here — not yet finished."],
+    },
+    {
+      id: "setup-progress",
+      items: progress === undefined ? [] : renderProgressLines(progress),
+    },
+    {
+      id: "agent-resume",
+      items: [
+        "Agents: this is YOUR job to finish, not a status to report back. Continue the",
+        "setup brief, then run `discern setup done` to validate and record completion.",
+        "Reprint the full brief any time with `discern setup begin` (idempotent — it",
+        "won't touch your work). Don't tell the user setup is done until `done` passes.",
+      ],
+    },
+    {
+      id: "human-recovery",
+      items: [
+        "Humans: your coding agent is mid-setup on the `discern-setup` branch. Follow",
+        "along — roll it all back by deleting that branch, then `discern uninstall`",
+        "to sweep out any generated files.",
+      ],
+    },
   ];
 }
 

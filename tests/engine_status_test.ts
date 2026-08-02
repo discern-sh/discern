@@ -482,6 +482,34 @@ Deno.test("status fleet: the ownership rule rides in hints[] for an agent (main 
   });
 });
 
+Deno.test("status: a main-rooted follow-up leads with its existing effort before a new start", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+
+    const obj = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const continuity = assertHasHint(obj, HINTS["status-start-on-trunk"]);
+    const ownership = assertHasHint(obj, HINTS["fleet-ownership"]);
+    assertStringIncludes(
+      continuity,
+      "If this effort already has a worktree, continue there using its recorded path",
+    );
+    assertStringIncludes(continuity, "Do not call `discern start` again");
+    assertStringIncludes(
+      ownership,
+      "Continue a fleet worktree only if this effort created it",
+    );
+    const hints = obj.hints ?? [];
+    assert(
+      hints.indexOf(continuity) < hints.indexOf(ownership),
+      `continuity must precede fleet ownership: ${JSON.stringify(hints)}`,
+    );
+  });
+});
+
 Deno.test("status fleet: the ownership rule rides in hints[] under --all from a worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -564,6 +592,25 @@ Deno.test("status: the discern start guardrail does NOT fire from a worktree (it
   });
 });
 
+Deno.test("status human output separates its semantic groups", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, statusGateFactsConfig(["lint", "test"]));
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "grouped-status");
+
+    const human = await runAgent(wt, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    for (const section of ["Checkout", "Change", "Gate", "Landing"]) {
+      assertStringIncludes(
+        human.stdout,
+        `\n\n  ── ${section}\n`,
+        `${section} must start after a visible group boundary:\n${human.stdout}`,
+      );
+    }
+  });
+});
+
 Deno.test("status: while setup is unfinished, the main-checkout worktree next-steps are suppressed (no contradiction)", async () => {
   // Setup runs in the main checkout (on the `discern-setup` branch). Until it is
   // recorded, the only correct "what now" is "finish setup here" — so the
@@ -602,7 +649,7 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
     assert(!r.output.includes(expected), r.output);
     // …but the dim caption beneath the fleet table does.
     assert(
-      r.output.includes("Other worktrees are separate lines of work"),
+      r.output.includes("A resumed effort keeps its worktree"),
       `expected the fleet caption in human output: ${r.output}`,
     );
   });
@@ -618,7 +665,7 @@ Deno.test("status fleet (human): representative table rendering is pinned", asyn
     assertEquals(r.code, 0, r.output);
     const start = r.output.indexOf("\n  WORKTREE");
     const caption =
-      "  Other worktrees are separate lines of work — don't start work in one you didn't create.";
+      "  A resumed effort keeps its worktree. Other clean worktrees are not available to claim.";
     const captionStart = r.output.indexOf(caption);
     assert(start >= 0, `fleet header missing: ${r.output}`);
     assert(captionStart >= 0, `fleet caption missing: ${r.output}`);

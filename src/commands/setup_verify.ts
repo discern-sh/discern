@@ -43,6 +43,10 @@ import { resolveSetupRoot } from "./setup.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
 import { runGit } from "../shared/subprocess.ts";
 import {
+  type HumanOutputGroup,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
+import {
   SETUP_BRANCH,
   setupBranchExists,
   setupPhaseOf,
@@ -286,37 +290,40 @@ function printPreflight(p: {
       p.effectiveAgents.join(", ")
     }`;
 
-  const lines: string[] = [
-    "discern setup — preflight (read-only; nothing is written until `begin`)",
-    "",
-    ...humanOffRampLines(),
-    "",
-    "What's in this project right now:",
-    `  • Git ........... ${gitSummary(p.git)}`,
-    `  • Docs .......... ${docs}`,
-    `  • Instructions .. ${instructions}`,
-    `  • Agents ........ ${agents}`,
-    "  • Worktrees ..... will live beside this repo at:",
-    `                    ${p.worktreePath}`,
+  const groups: HumanOutputGroup<string>[] = [
+    {
+      id: "preflight-heading",
+      items: [
+        "discern setup — preflight (read-only; nothing is written until `begin`)",
+      ],
+    },
+    { id: "audience-off-ramp", items: humanOffRampLines() },
+    {
+      id: "project-findings",
+      items: [
+        "What's in this project right now:",
+        `  • Git ........... ${gitSummary(p.git)}`,
+        `  • Docs .......... ${docs}`,
+        `  • Instructions .. ${instructions}`,
+        `  • Agents ........ ${agents}`,
+        "  • Worktrees ..... will live beside this repo at:",
+        `                    ${p.worktreePath}`,
+      ],
+    },
+    {
+      id: "conflicts",
+      items: p.conflicts.map((conflict) => `  ⚠ ${conflict.detail}`),
+    },
   ];
-
-  if (p.conflicts.length > 0) {
-    lines.push("");
-    for (const c of p.conflicts) {
-      lines.push(`  ⚠ ${c.detail}`);
-    }
-  }
 
   // The consent block carries its own framing, the fenced message to relay, and the
   // exact next command (including `--confirmed`) — so nothing more is appended here.
-  lines.push(
-    "",
-    RULE,
-    "",
-    p.guidance,
+  groups.push(
+    { id: "consent-divider", items: [RULE] },
+    { id: "consent-guidance", items: [p.guidance] },
   );
 
-  console.log(lines.join("\n"));
+  console.log(renderHumanOutputGroups(groups));
 }
 
 /** A one-line git-state summary for the human findings list. */

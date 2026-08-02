@@ -5,7 +5,11 @@
  * clean for the single JSON object (ADR 0004).
  */
 
-import type { RenderSink } from "../shared/result.ts";
+import {
+  assertHumanOutputGroupId,
+  assertHumanOutputGroupLabel,
+  type RenderSink,
+} from "../shared/result.ts";
 
 /** The ANSI palette, mirroring `output.sh`'s C_* variables. */
 export interface Palette {
@@ -124,6 +128,8 @@ export interface Out {
   /** Failure line (red ✗) to stderr, without exiting. */
   error(m: string): void;
   heading(m: string): void;
+  /** Start a semantic group and optionally give it a visible ruled label. */
+  group(id: string, label?: string): void;
   raw(s: string): void;
 }
 
@@ -137,7 +143,13 @@ export interface Out {
  */
 export function makeOut(
   color: boolean,
-  opts: { quiet?: boolean } = {},
+  opts: {
+    quiet?: boolean;
+    /** Test seam for the stdout byte writer. */
+    stdout?: ((text: string) => void) | undefined;
+    /** Test seam for the stderr byte writer. */
+    stderr?: ((text: string) => void) | undefined;
+  } = {},
 ): Out {
   const c = color ? ANSI : PLAIN;
   if (opts.quiet ?? false) {
@@ -150,18 +162,52 @@ export function makeOut(
       warn: noop,
       error: noop,
       heading: noop,
+      group: (id: string, label?: string): void => {
+        assertHumanOutputGroupId(id);
+        if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+      },
       raw: noop,
     };
   }
+  const writeHumanStdout = opts.stdout ?? writeStdout;
+  const writeHumanStderr = opts.stderr ?? writeStderr;
+  let wroteHuman = false;
+  let trailingNewlines = 0;
+  let lastStream: "stdout" | "stderr" = "stdout";
+  const writeHuman = (text: string, stream: "stdout" | "stderr"): void => {
+    if (text === "") return;
+    (stream === "stdout" ? writeHumanStdout : writeHumanStderr)(text);
+    wroteHuman = true;
+    lastStream = stream;
+    const suffix = text.match(/\n+$/)?.[0] ?? "";
+    trailingNewlines = suffix.length === text.length
+      ? Math.min(2, trailingNewlines + suffix.length)
+      : Math.min(2, suffix.length);
+  };
+  const stdout = (text: string): void => writeHuman(text, "stdout");
+  const stderr = (text: string): void => writeHuman(text, "stderr");
   return {
     c,
     color,
-    info: (m: string): void => writeStdout(`${c.cyan}→${c.reset} ${m}\n`),
-    ok: (m: string): void => writeStdout(`${c.green}✓${c.reset} ${m}\n`),
-    warn: (m: string): void => writeStderr(`${c.yellow}!${c.reset} ${m}\n`),
-    error: (m: string): void => writeStderr(`${c.red}✗${c.reset} ${m}\n`),
-    heading: (m: string): void => writeStdout(`\n${c.bold}${m}${c.reset}\n`),
-    raw: (s: string): void => writeStdout(s),
+    info: (m: string): void => stdout(`${c.cyan}→${c.reset} ${m}\n`),
+    ok: (m: string): void => stdout(`${c.green}✓${c.reset} ${m}\n`),
+    warn: (m: string): void => stderr(`${c.yellow}!${c.reset} ${m}\n`),
+    error: (m: string): void => stderr(`${c.red}✗${c.reset} ${m}\n`),
+    heading: (m: string): void => stdout(`\n${c.bold}${m}${c.reset}\n`),
+    group: (id: string, label?: string): void => {
+      assertHumanOutputGroupId(id);
+      if (label !== undefined) assertHumanOutputGroupLabel(id, label);
+      if (wroteHuman && trailingNewlines < 2) {
+        writeHuman("\n".repeat(2 - trailingNewlines), lastStream);
+      }
+      if (label !== undefined) {
+        writeHuman(
+          `  ${c.dim}──${c.reset} ${c.bold}${label}${c.reset}\n`,
+          lastStream,
+        );
+      }
+    },
+    raw: (s: string): void => stdout(s),
   };
 }
 

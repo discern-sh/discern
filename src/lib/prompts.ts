@@ -21,6 +21,10 @@ import { PROVIDERS } from "./providers.ts";
 import type { Logger } from "./log.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import type { EnvReader } from "../shared/env.ts";
+import {
+  type HumanOutputGroup,
+  populatedHumanOutputGroups,
+} from "../shared/result.ts";
 
 /** Process-wide CLI choice set once by `main` from the global `--plain` flag. */
 let plainMode = false;
@@ -97,6 +101,25 @@ export function interactionAllowed(
 export type SelectPromptOptions<T> = Parameters<typeof Select.prompt<T>>[0];
 export type CheckboxPromptOptions<T> = Parameters<typeof Checkbox.prompt<T>>[0];
 export type InputPromptOptions = Parameters<typeof Input.prompt>[0];
+export type SelectPromptOption<T> = SelectPromptOptions<T>["options"][number];
+export type SelectPromptGroup<T> =
+  & HumanOutputGroup<SelectPromptOption<T>>
+  & { label: string };
+
+/** Build a prompt's option list from named semantic groups. Every populated
+ * group receives a ruled heading with one empty row above it, including the
+ * first, so task rows and navigation/actions never collapse into one flat list. */
+export function groupedSelectOptions<T>(
+  groups: readonly SelectPromptGroup<T>[],
+  decorateRule: (rule: string) => string = (rule) => rule,
+): SelectPromptOption<T>[] {
+  return populatedHumanOutputGroups(groups).flatMap((group) => [
+    Select.separator(
+      `\n  ${decorateRule(`── ${group.label} ──`)}`,
+    ) as SelectPromptOption<T>,
+    ...group.items,
+  ]);
+}
 
 /** Refuse a named prompt unless terminal input and output are available. */
 function requireInteraction(name: string): void {

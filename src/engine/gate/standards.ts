@@ -1658,8 +1658,10 @@ function renderStandardsResult(
     });
   }
   if (!result.ok && result.message !== undefined) {
+    out.group("failure");
     out.error(result.message);
   }
+  if ((result.diagnostics ?? []).length > 0) out.group("diagnostics");
   for (const diagnostic of result.diagnostics ?? []) {
     if (diagnostic.output !== undefined && diagnostic.output !== "") {
       out.raw(
@@ -1670,7 +1672,9 @@ function renderStandardsResult(
     }
     out.error(diagnostic.message);
   }
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     if (hint.startsWith("Standards limits are UNVERIFIED")) {
       out.warn(hint);
     } else {
@@ -1685,9 +1689,11 @@ function renderStandardsResult(
       step.step.kind === "standard"
     ).length;
     if (count > 0) {
+      out.group("verdict");
       out.ok(`All ${count} standard(s) held.`);
     }
   } else if (!result.ok && result.message === undefined) {
+    out.group("verdict");
     out.error("One or more standards failed.");
   }
 }

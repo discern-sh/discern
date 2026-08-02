@@ -1186,7 +1186,7 @@ function renderExecutionModel(
   const hintIndent = " ".repeat(HINT_COL);
   // The opt-in pointer, emitted at the top and foot of the section when hints are off.
   const showPointer = (): void => {
-    log.humanLine("");
+    log.group("execution-model-pointer");
     log.humanLine(`  ${log.cyan("→")} ${log.bold(VERBOSE_HINT_POINTER)}`);
   };
 
@@ -1308,7 +1308,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
     renderExecutionModel(log, buildExecutionModel(cfg), options.verbose);
   }
   renderDoctorChecks(log, checks);
-  log.line();
+  log.group("doctor-verdict");
   if (healthy) {
     const advisories = checks.filter((c) => c.status === "warn").length;
     log.ok(
@@ -1325,7 +1325,7 @@ export async function runDoctor(options: DoctorOptions): Promise<number> {
   // Mid-setup, an unqualified all-clear reads as "setup worked" — the exact
   // misreading `status` guards against. Qualify the verdict, naming the next step.
   if (midSetup(cfg)) {
-    log.line();
+    log.group("setup-next-step");
     log.warn(fire(HINTS["setup-unfinished-doctor"]).text);
   }
   return healthy ? 0 : 1;

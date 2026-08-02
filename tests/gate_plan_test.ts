@@ -466,6 +466,19 @@ Deno.test("renderPlan: groups its steps and marks dispositions", () => {
   assert(/run\s+format/.test(text), text);
   assert(/skip\s+scope:gadget/.test(text), text);
   assert(/check\s+merge-check/.test(text), text);
+  for (
+    const group of [
+      ...new Set(plan.steps.map((step) => step.group).filter(Boolean)),
+    ]
+  ) {
+    const index = lines.indexOf(`  ${group}`);
+    assert(index > 0, `missing rendered group ${group}:\n${text}`);
+    assertEquals(
+      lines[index - 1],
+      "",
+      `group ${group} must have a visible boundary before it:\n${text}`,
+    );
+  }
 });
 
 Deno.test("renderPlan: an empty plan says so", () => {
@@ -534,6 +547,15 @@ Deno.test("renderStepResults: groups outcomes and renders result metadata", () =
   assert(/skipped\s+scope:map/.test(text), text);
   assert(/failed\s+coverage/.test(text), text);
   assert(/cancelled\s+typecheck/.test(text), text);
+  for (const group of ["Fix", "Scopes"]) {
+    const index = lines.indexOf(`  ${group}`);
+    assert(index > 0, `missing rendered group ${group}:\n${text}`);
+    assertEquals(
+      lines[index - 1],
+      "",
+      `group ${group} must have a visible boundary before it:\n${text}`,
+    );
+  }
 });
 
 Deno.test("renderStepResults: an empty apply says nothing ran", () => {
