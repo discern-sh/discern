@@ -48,6 +48,8 @@ export interface CliCommand {
   aliases: string[];
   hidden: boolean;
   args: CliArg[];
+  /** An explicit Cliffy usage suffix, or an empty string for derived usage. */
+  usage: string;
   /** Own + inherited-global options, exactly as Cliffy resolves them. */
   options: CliOption[];
   children: CliCommand[];
@@ -64,6 +66,7 @@ interface CommandView {
   getName(): string;
   getDescription(): string;
   getAliases(): string[];
+  getUsage(): string;
   getArguments(): ReadonlyArray<{
     name: string;
     optional: boolean;
@@ -86,6 +89,7 @@ function walkCommand(
   path: string[],
   hidden: boolean,
 ): CliCommand {
+  const args = cmd.getArguments();
   const visibleChildren = new Set(
     cmd.getCommands(false).map((c) => c.getName()),
   );
@@ -94,7 +98,8 @@ function walkCommand(
     description: cmd.getDescription(),
     aliases: cmd.getAliases(),
     hidden,
-    args: cmd.getArguments().map((a) => ({
+    usage: args.length === 0 ? cmd.getUsage() : "",
+    args: args.map((a) => ({
       name: a.name,
       optional: a.optional,
       variadic: a.variadic,
@@ -179,6 +184,9 @@ function valueSpec(typeDefinition: string): string {
 /** The full usage line for one command, e.g. `discern map [target] [options]`. */
 function usageLine(node: CliCommand): string {
   if (isHelpOnlyGroup(node)) return commandHeadingLabel(node);
+  if (node.usage !== "") {
+    return ["discern", ...node.path, node.usage].join(" ");
+  }
   const words = ["discern", ...node.path, ...node.args.map(argLabel)];
   if (node.options.some((o) => !o.hidden)) {
     words.push("[options]");
@@ -276,7 +284,7 @@ export function renderCliReferenceDoc(root: unknown): string {
     "",
     "## Global options",
     "",
-    "Accepted by every command.",
+    "These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.",
     "",
     "| Option | Description |",
     "| --- | --- |",

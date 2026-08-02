@@ -365,6 +365,8 @@ export interface DiscernResult<TData = unknown> {
   plan?: EnginePlan | undefined;
   /** Apply: the steps that ran and how each turned out. */
   steps?: StepResult[] | undefined;
+  /** Milliseconds spent waiting for a configured test-run slot. */
+  waitedMs?: number | undefined;
   /** Normalized failures — the structured "why" for an agent's act→fix loop. */
   diagnostics?: Diagnostic[] | undefined;
   /** Verb-specific payload that doesn't fit steps (checks, schema versions, file lists). */

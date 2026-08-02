@@ -449,6 +449,11 @@ export const CLI_JSON_CONTRACT_EXCLUSIONS = [
       "long-lived JSON-RPC stdio server; its stream is the MCP protocol, not one CLI result",
   },
   {
+    command: "queue",
+    reason:
+      "exec-style wrapper; the child owns stdout, stderr, arguments, and exit status",
+  },
+  {
     command: "worktree hook",
     reason:
       "hidden namespace grouping the provider hook entry points; the group itself only routes",

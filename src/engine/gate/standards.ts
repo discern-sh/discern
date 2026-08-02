@@ -74,6 +74,7 @@ import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
 import { type JobEvaluators, runGroup } from "./execute.ts";
 import { buildTestRunSlots, type TestRunSlots } from "./test_slots.ts";
+import { renderSlotWait } from "./slot_wait_render.ts";
 import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
 import {
   type TrunkLimitsVerification,
@@ -1201,7 +1202,11 @@ interface StandardsResultBuild {
 function standardsBuild(
   result: DiscernResult,
   firedHints: FiredHint[] = [],
+  waitedMs?: number,
 ): StandardsResultBuild {
+  if (waitedMs !== undefined) {
+    result.waitedMs = waitedMs;
+  }
   return { result, firedHints };
 }
 
@@ -1342,10 +1347,14 @@ async function pinStandardsResult(
   // A red standard blocks the whole pin: don't capture a state the gate wouldn't hold.
   if (!ok) {
     const failing = outcomes.filter((o) => !o.held).map((o) => o.standard.name);
-    return standardsBuild(standardExecutionResult(execution), [
-      ...slotWaits,
-      fire(HINTS["standards-pin-blocked"], { failingNames: failing }),
-    ]);
+    return standardsBuild(
+      standardExecutionResult(execution),
+      [
+        ...slotWaits,
+        fire(HINTS["standards-pin-blocked"], { failingNames: failing }),
+      ],
+      slots?.waitedMs,
+    );
   }
 
   const considered = filter === undefined
@@ -1381,35 +1390,47 @@ async function pinStandardsResult(
   }
 
   if (pins.length === 0) {
-    return standardsBuild({
-      ...appliedResult("standards", steps),
-      ...(execution.readings.length > 0
-        ? { data: { standards: execution.readings } satisfies StandardsData }
-        : {}),
-    }, [
-      ...slotWaits,
-      ...(reuseHint !== undefined ? [reuseHint] : []),
-      fire(HINTS["standards-pin-no-slack"]),
-    ]);
+    return standardsBuild(
+      {
+        ...appliedResult("standards", steps),
+        ...(execution.readings.length > 0
+          ? { data: { standards: execution.readings } satisfies StandardsData }
+          : {}),
+      },
+      [
+        ...slotWaits,
+        ...(reuseHint !== undefined ? [reuseHint] : []),
+        fire(HINTS["standards-pin-no-slack"]),
+      ],
+      slots?.waitedMs,
+    );
   }
 
   const treeChanged = await pinTreeChangeMessage(root, treePin);
   if (treeChanged !== undefined) {
-    return standardsBuild({
-      ok: false,
-      verb: "standards",
-      error: "pin_failed",
-      message: treeChanged,
-    });
+    return standardsBuild(
+      {
+        ok: false,
+        verb: "standards",
+        error: "pin_failed",
+        message: treeChanged,
+      },
+      [],
+      slots?.waitedMs,
+    );
   }
   const failure = await applyPinEdits(root, pins, writeAuthority);
   if (failure !== undefined) {
-    return standardsBuild({
-      ok: false,
-      verb: "standards",
-      error: "pin_failed",
-      message: failure,
-    });
+    return standardsBuild(
+      {
+        ok: false,
+        verb: "standards",
+        error: "pin_failed",
+        message: failure,
+      },
+      [],
+      slots?.waitedMs,
+    );
   }
 
   // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
@@ -1420,26 +1441,30 @@ async function pinStandardsResult(
     priorReceipt?.status === "honored",
   );
   const carried = receipt?.status === "recorded";
-  return standardsBuild({
-    ...appliedResult("standards", steps),
-    data: {
-      ...(execution.readings.length > 0
-        ? { standards: execution.readings }
-        : {}),
-      pinned: pins.map((p) => ({
-        name: p.standard.name,
-        from: p.standard.limit,
-        to: p.newLimit,
-        measured: p.measured,
-      })),
-    } satisfies StandardsData,
-  }, [
-    ...slotWaits,
-    ...(reuseHint !== undefined ? [reuseHint] : []),
-    carried
-      ? fire(HINTS["standards-pin-carried-receipt"])
-      : fire(HINTS["standards-pin-no-receipt"]),
-  ]);
+  return standardsBuild(
+    {
+      ...appliedResult("standards", steps),
+      data: {
+        ...(execution.readings.length > 0
+          ? { standards: execution.readings }
+          : {}),
+        pinned: pins.map((p) => ({
+          name: p.standard.name,
+          from: p.standard.limit,
+          to: p.newLimit,
+          measured: p.measured,
+        })),
+      } satisfies StandardsData,
+    },
+    [
+      ...slotWaits,
+      ...(reuseHint !== undefined ? [reuseHint] : []),
+      carried
+        ? fire(HINTS["standards-pin-carried-receipt"])
+        : fire(HINTS["standards-pin-no-receipt"]),
+    ],
+    slots?.waitedMs,
+  );
 }
 
 /** Fire an advisory only when the trunk limits could not be verified. */
@@ -1577,6 +1602,9 @@ export async function standardsResult(
           firedHints.push(...(slots?.waits ?? []));
           const { outcomes } = execution;
           result = standardExecutionResult(execution);
+          if (slots?.waitedMs !== undefined) {
+            result.waitedMs = slots.waitedMs;
+          }
           const receipted = await recordCheckMeasurements(
             root,
             writePreflight.authority,
@@ -1672,6 +1700,7 @@ function renderStandardsResult(
     }
     out.error(diagnostic.message);
   }
+  renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
   for (const hint of hints) {

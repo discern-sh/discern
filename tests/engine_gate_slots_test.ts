@@ -20,7 +20,7 @@
  * demand the notice without reintroducing a race.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import {
@@ -33,7 +33,10 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  DENO_JSON,
+  engineEnv,
   gitInit,
+  MAIN_TS,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -44,6 +47,7 @@ const QUEUED_TEXT = "Tests queued";
 interface SlotEnvelope {
   ok: boolean;
   hints?: string[];
+  waited_ms?: number;
   data?: { failed_stage?: string | null };
 }
 
@@ -326,7 +330,9 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
     // notice is OBSERVED, so the first probe cannot land on a free slot.
     const release = await holdSlot(dir);
     try {
-      const slots = buildTestRunSlots(dir, await loadConfig(dir));
+      const slots = buildTestRunSlots(dir, await loadConfig(dir), {
+        accounted: false,
+      });
       assert(slots !== undefined, "cap=1 must build a slot surface");
       assertEquals(slots.cap, 1);
       const pending = slots.acquire(makeOut(false, { quiet: true }));
@@ -337,10 +343,67 @@ Deno.test("test slots: a queued acquire fires the wait notice, then resolves whe
       release();
       const hold = await pending;
       assert(hold !== undefined, "acquire resolves once the slot frees");
+      assert(
+        (slots.waitedMs ?? 0) > 0,
+        "a contended acquire records its wait",
+      );
       hold.release();
     } finally {
       release();
     }
+  });
+});
+
+Deno.test("test slots: an immediate capped acquire records zero wait", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const slots = buildTestRunSlots(dir, await loadConfig(dir), {
+      accounted: false,
+    });
+    assert(slots !== undefined, "cap=1 must build a slot surface");
+    assertEquals(slots.waitedMs, undefined, "no acquire has been attempted");
+    const hold = await slots.acquire(makeOut(false, { quiet: true }));
+    assert(hold !== undefined);
+    assertEquals(slots.waitedMs, 0);
+    hold.release();
+  });
+});
+
+Deno.test("test slots: an accounted ancestor suppresses the gate slot surface", async () => {
+  await withTempDir(async (dir) => {
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    assertEquals(
+      buildTestRunSlots(dir, await loadConfig(dir), { accounted: true }),
+      undefined,
+    );
   });
 });
 
@@ -412,6 +475,99 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
   });
 });
 
+Deno.test("gate slots: a contended done displays slot wait beside run timings", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        'test = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const release = await holdSlot(dir);
+    const child = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        MAIN_TS,
+        "done",
+      ],
+      cwd: dir,
+      env: await engineEnv(),
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    let stdoutText = "";
+    let stderrText = "";
+    const stdout = (async (): Promise<string> => {
+      const decoder = new TextDecoder();
+      for await (const chunk of child.stdout) {
+        stdoutText += decoder.decode(chunk, { stream: true });
+      }
+      stdoutText += decoder.decode();
+      return stdoutText;
+    })();
+    const stderr = (async (): Promise<string> => {
+      const decoder = new TextDecoder();
+      for await (const chunk of child.stderr) {
+        stderrText += decoder.decode(chunk, { stream: true });
+      }
+      stderrText += decoder.decode();
+      return stderrText;
+    })();
+    const status = child.status;
+    let settled = false;
+    try {
+      await pollUntil(
+        "done to report its queue wait",
+        () => `${stdoutText}${stderrText}`.includes(QUEUED_TEXT),
+      );
+      release();
+      const [exit, out, err] = await Promise.all([status, stdout, stderr]);
+      settled = true;
+      assertEquals(exit.code, 0, `${out}${err}`);
+      const output = `${out}${err}`;
+      assertMatch(
+        output,
+        /^→ Waited [1-9][0-9]*(?:h|m|s)(?: [0-9]+(?:m|s))* for a test-run slot\.$/mu,
+      );
+      assertEquals(
+        output.split("\n").some((line) =>
+          line.includes("── test") && line.includes("Waited")
+        ),
+        false,
+        "slot wait stays outside the run and step timings",
+      );
+    } finally {
+      release();
+      if (!settled) {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Already settled.
+        }
+        await Promise.all([status, stdout, stderr]);
+      }
+    }
+  });
+});
+
 Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
   await withTempDir(async (dir) => {
     const aux = await Deno.makeTempDir({ prefix: "discern-slots-aux-" });
@@ -466,6 +622,8 @@ Deno.test("gate slots: cap=2 lets two test runs overlap", async () => {
         0,
         `run B failed — did cap=2 serialize?\n${b.output}`,
       );
+      assertEquals(parseEnvelope(a.stdout, "cap=2 run A").waited_ms, 0);
+      assertEquals(parseEnvelope(b.stdout, "cap=2 run B").waited_ms, 0);
     } finally {
       await Deno.remove(aux, { recursive: true });
     }
@@ -509,6 +667,7 @@ Deno.test("gate slots: a check failure fails fast without ever waiting for a slo
         // Under a cap the plan splits check from test, so the red stage is the
         // check stage itself — the fail-fast happened before any slot wait.
         assertEquals(envelope.data?.failed_stage, "check");
+        assertEquals(envelope.waited_ms, undefined);
         assertEquals(
           await logLines(logPath),
           [],
@@ -555,6 +714,7 @@ Deno.test("gate slots: prepare never draws a slot", async () => {
       assertEquals(r.code, 0, r.output);
       assertEquals(envelope.ok, true);
       assertEquals(hasQueuedHint(envelope), false);
+      assertEquals(envelope.waited_ms, undefined);
     } finally {
       release();
     }
@@ -648,6 +808,7 @@ Deno.test("gate slots: the default (0, uncapped) leaves no slot files behind", a
     await gitInit(dir);
     const r = await runAgent(dir, ["test", "--json"]);
     assertEquals(r.code, 0, r.output);
+    assertEquals(parseEnvelope(r.stdout, "uncapped test").waited_ms, undefined);
     let exists = true;
     try {
       await Deno.stat(slotDirOf(dir));

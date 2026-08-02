@@ -242,7 +242,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0249 — Self-shims cache per engine identity; sweep pages stay budget-bounded](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)
 - [0250 — Discern-managed human output declares semantic groups](0250-discern-managed-human-output-declares-semantic-groups.md)
 - [0251 — Every authored Deno function declaration carries JSDoc](0251-function-declarations-require-jsdoc.md)
-- [0252 — MCP startup visibility has a bounded gateway and an opt-in server override](0252-mcp-startup-visibility-has-a-bounded-gateway-and-opt-in-server-override.md)
+- [0252 — The fleet test-run cap is enforced at the test command boundary](0252-fleet-test-run-cap-at-test-command-boundary.md)
 
 <!-- END GENERATED: current ADR records -->
 

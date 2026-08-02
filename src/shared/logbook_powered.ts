@@ -72,7 +72,7 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
     key: "test-wait-estimate",
     phrase: "wait estimates when concurrent test runs queue",
     surface: "the queued-tests notice under `[gate].concurrent_test_runs`",
-    readers: ["src/engine/gate/test_slots.ts"],
+    readers: ["src/engine/test_run_slots.ts"],
   },
   {
     key: "contained-idle-check",

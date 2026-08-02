@@ -105,6 +105,8 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   mcp: "a long-running transport server, not a finite execution plan",
   patterns: READ_ONLY_ABSENCE,
   preset: INSTALLER_ABSENCE,
+  queue:
+    "an exec-style resource wrapper whose child command is supplied at invocation time",
   refresh:
     "one direct convergence operation already shown inside modeled workflows",
   scripts:

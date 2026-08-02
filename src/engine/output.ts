@@ -228,6 +228,19 @@ export function compactDuration(ms: number): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+/** A run-summary duration with seconds retained: `45s`, `3m 12s`, `2h 4m 9s`. */
+export function elapsedDuration(ms: number): string {
+  const totalSeconds = ms > 0 ? Math.max(1, Math.round(ms / 1000)) : 0;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return [
+    ...(hours > 0 ? [`${hours}h`] : []),
+    ...(minutes > 0 ? [`${minutes}m`] : []),
+    ...(seconds > 0 || totalSeconds === 0 ? [`${seconds}s`] : []),
+  ].join(" ");
+}
+
 /** Adapt the gate's `Out` to a {@link RenderSink} (writes to its info stream). */
 export function outSink(out: Out): RenderSink {
   return {

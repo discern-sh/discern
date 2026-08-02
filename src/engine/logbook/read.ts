@@ -13,6 +13,7 @@ import { join } from "@std/path";
 import { logbookDir, MONTH_FILE_RE } from "./store.ts";
 import {
   type BeginEvent,
+  executionDurationMs,
   type LogbookEvent,
   type LogbookOutcome,
   parseLogbookLine,
@@ -44,7 +45,7 @@ export interface InFlightAction {
 
 /** One verb's project-wide duration evidence from the bounded event tail. */
 export interface DurationPrior {
-  /** Median completion time, used where "typical" is the user-facing fact. */
+  /** Median execution time, used where "typical" is the user-facing fact. */
   medianMs: number;
   /** Nearest-rank 90th percentile, used for an upper-bound wait. */
   p90Ms: number;
@@ -103,14 +104,14 @@ export function byBranch<T extends { branch: string | null }>(
   return groups;
 }
 
-/** Median and P90 duration, rounded for the integer-millisecond wire contract. */
+/** Median and P90 execution time, excluding any recorded slot wait. */
 function durationPrior(
   events: readonly VerbEvent[],
 ): DurationPrior | undefined {
   if (events.length === 0) {
     return undefined;
   }
-  const values = events.map((event) => event.duration_ms).sort((a, b) => a - b);
+  const values = events.map(executionDurationMs).sort((a, b) => a - b);
   const middle = Math.floor(values.length / 2);
   const high = values[middle];
   if (high === undefined) {

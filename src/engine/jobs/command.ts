@@ -24,6 +24,8 @@ import {
 export interface SpawnOptions {
   /** Project root in which the configured command must execute. */
   cwd: string;
+  /** Environment values added to the command's inherited environment. */
+  env?: Readonly<Record<string, string>>;
   /** Abort to cancel the job: it is tree-killed and resolves as a failure. */
   signal?: AbortSignal;
   /** Stream output live (line-prefixed) instead of buffering it. */
@@ -174,7 +176,11 @@ export async function spawnJob(
     cwd: opts.cwd,
     // `discern` in a job command resolves to the engine running this gate,
     // whatever the ambient PATH holds (self_shim.ts).
-    env: { ...CAPTURE_ENV, PATH: await selfShimPath(opts.cwd) },
+    env: {
+      ...CAPTURE_ENV,
+      ...(opts.env ?? {}),
+      PATH: await selfShimPath(opts.cwd),
+    },
     stdin: "null",
     stdout: "piped",
     stderr: "piped",

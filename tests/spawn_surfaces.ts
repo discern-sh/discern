@@ -88,7 +88,12 @@ export const SPAWN_HOMES = [
     sites: 1,
     may: ["other"],
     interrupt: {
-      surfaces: ["project-script", "with-gotchas", "desk-interactive"],
+      surfaces: [
+        "project-script",
+        "queue",
+        "with-gotchas",
+        "desk-interactive",
+      ],
     },
   },
   {

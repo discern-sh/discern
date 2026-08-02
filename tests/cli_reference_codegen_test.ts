@@ -103,6 +103,20 @@ Deno.test("the reference documents every visible flag of every visible command",
   }
 });
 
+Deno.test("exec-style queue advertises no inherited JSON surface", () => {
+  const queue = model.children.find((node) => node.path[0] === "queue");
+  assert(queue !== undefined, "the live command tree lost discern queue");
+  assertEquals(
+    queue.options.some((option) => option.flags.includes("--json")),
+    false,
+    "discern queue must not advertise the result-envelope option it does not implement",
+  );
+  assert(
+    !rendered.includes("Accepted by every command."),
+    "the root option account must preserve exec-surface exemptions",
+  );
+});
+
 Deno.test("the generated reference carries valid published frontmatter and searchable command aliases", () => {
   assertEquals(validateFrontmatter(rendered), []);
   const frontmatter = rendered.split("\n---\n")[0] ?? "";

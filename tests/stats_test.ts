@@ -197,9 +197,9 @@ Deno.test("stats: first-try green counts branches whose first `done` came back g
 
 Deno.test("stats: check hours sum done, prepare, and test wall clocks and nothing else", () => {
   const b = stats(run([
-    { verb: "done", duration_ms: 3_600_000 },
-    { verb: "prepare", duration_ms: 1_800_000 },
-    { verb: "test", duration_ms: 1_800_000 },
+    { verb: "done", duration_ms: 3_600_000, waited_ms: 1_800_000 },
+    { verb: "prepare", duration_ms: 1_800_000, waited_ms: 600_000 },
+    { verb: "test", duration_ms: 1_800_000, waited_ms: 900_000 },
     // A slow read-only verb is not a check.
     { verb: "status", duration_ms: 7_200_000 },
   ]));

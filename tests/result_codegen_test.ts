@@ -340,6 +340,7 @@ Deno.test("CLI JSON exclusions are intentional non-result surfaces with reasons"
     [
       "help",
       "mcp",
+      "queue",
       "worktree hook",
       "worktree hook create",
       "worktree hook remove",

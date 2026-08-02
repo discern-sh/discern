@@ -155,7 +155,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
       agent:
         "The coding agent can run the check as often as it needs without asking anyone to trust an old result. Discern works the answer out afresh every time, and a failed result includes the instructions that make it pass.",
     },
-    surfaces: ["verb:done", "config:jobs", "config:gate"],
+    surfaces: ["verb:done", "verb:queue", "config:jobs", "config:gate"],
     children: [
       {
         id: "jobs-table",

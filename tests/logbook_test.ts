@@ -21,6 +21,7 @@ import {
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
 import {
+  executionDurationMs,
   LOGBOOK_OUTCOMES,
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
@@ -100,6 +101,7 @@ function sampleEvent(): VerbEvent {
     error: "dirty_worktree",
     failed_stage: "check/test",
     duration_ms: 1234,
+    waited_ms: 234,
     target: "the-gate",
     from: "main",
     flags: ["force"],
@@ -152,6 +154,17 @@ Deno.test("logbook schema: a substrate-era minimal line still parses (fields onl
     epoch: null,
   }));
   assert(parsed.kind === "event", "a minimal substrate-era line must parse");
+  assert(parsed.event.kind === "verb");
+  assertEquals(parsed.event.waited_ms, undefined);
+  assertEquals(
+    executionDurationMs(parsed.event),
+    42,
+    "an event from before wait accounting reads as zero wait",
+  );
+});
+
+Deno.test("logbook schema: execution time excludes a recorded slot wait", () => {
+  assertEquals(executionDurationMs(sampleEvent()), 1_000);
 });
 
 Deno.test("logbook schema: a written line round-trips through the parser", () => {
@@ -653,6 +666,7 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
       invocation: "current-finish-a",
       verb: "done",
       duration_ms: 240_000,
+      waited_ms: 180_000,
       epoch: currentEpoch,
     },
     {
@@ -662,6 +676,7 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
       outcome: "failed",
       failed_stage: "test",
       duration_ms: 360_000,
+      waited_ms: 300_000,
       epoch: currentEpoch,
     },
     {
@@ -681,8 +696,8 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
 
   const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
   assertEquals(derived.durationPriors.get("done"), {
-    medianMs: 300_000,
-    p90Ms: 360_000,
+    medianMs: 60_000,
+    p90Ms: 60_000,
     samples: 2,
   });
   assertEquals(derived.byBranch.get("main"), {

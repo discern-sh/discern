@@ -37,7 +37,7 @@
   "tasks": {
     "dev": "deno run --allow-read --allow-write --allow-env --allow-run src/main.ts",
     "build": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build.ts",
-    "test": "deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+    "test": "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
     "fmt": "deno fmt",
     "lint": "deno lint",
     "lint-suppressions": "deno run --allow-read --allow-run=git scripts/lint_suppressions.ts",

@@ -44,6 +44,9 @@ import { LOGBOOK_EFFECTFUL_VERBS } from "../src/shared/verbs.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
 
+/** Pre-Cliffy exec boundaries that call `recordedRun` directly. */
+const LOGBOOK_DIRECT_CLI_VERBS: ReadonlySet<string> = new Set(["queue"]);
+
 Deno.test("Cliffy registrations cover EXACTLY the engine-verb SSOT (verb → handler)", () => {
   // Attach the engine commands to a fresh root (every verb is unconditional, ADR
   // 0101), then read back the registered command names. They must be
@@ -135,7 +138,7 @@ Deno.test("every MCP tool maps to a real verb, with explicit non-engine addition
   );
 });
 
-Deno.test("every CLI verb routes through the logbook recording wrapper", () => {
+Deno.test("every CLI verb routes through an action or direct logbook recording boundary", () => {
   // The logbook's CLI interceptor (`recordedExit`) registers each verb it wraps
   // at CLI-build time. Building the full CLI must therefore register EXACTLY the
   // verb SSOT: a new verb whose action skips the wrapper never records to the
@@ -144,10 +147,10 @@ Deno.test("every CLI verb routes through the logbook recording wrapper", () => {
   buildCli(false);
   const missing = [...KNOWN_VERBS].filter((v) => !RECORDED_CLI_VERBS.has(v));
   assertEquals(
-    missing,
-    [],
+    sorted(missing),
+    sorted(LOGBOOK_DIRECT_CLI_VERBS),
     "CLI verbs whose actions bypass the logbook recording wrapper — wrap each " +
-      "action in recordedExit(<verb>, …) so the invocation records an event",
+      "action in recordedExit(<verb>, …), or record a reviewed direct boundary",
   );
   const stray = [...RECORDED_CLI_VERBS].filter((v) => !KNOWN_VERBS.has(v));
   assertEquals(
@@ -161,11 +164,11 @@ Deno.test("every CLI verb routes through the logbook recording wrapper", () => {
 Deno.test("every effectful CLI verb auto-enrols in begin recording", () => {
   buildCli(false);
   assertEquals(
-    sorted(BEGIN_RECORDED_CLI_VERBS),
+    sorted([...BEGIN_RECORDED_CLI_VERBS, ...LOGBOOK_DIRECT_CLI_VERBS]),
     sorted(LOGBOOK_EFFECTFUL_VERBS),
     "effectful CLI verbs have drifted from logbook begin recording — register " +
-      "the action through recordedExit with its canonical display-form verb, or " +
-      "classify a pure-observation verb in shared/verbs.ts",
+      "the action through recordedExit, record its direct boundary, or classify " +
+      "a pure-observation verb in shared/verbs.ts",
   );
 });
 
@@ -225,6 +228,7 @@ Deno.test("SUGGESTABLE_ENGINE_COMMANDS is the engine verbs minus command groups,
     "worktree",
     "skills", // a command group, not a single suggested action
     "scripts", // a namespace; project script names are suggested separately
+    "queue", // an exec wrapper; the wrapped command is already explicit
     "mcp", // the server entry point, not a suggested action
     "desk", // interactive-only (ADR 0119)
   ]);

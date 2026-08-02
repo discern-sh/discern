@@ -22,6 +22,7 @@ import {
   groupNeedsTestSlot,
   type TestRunSlots,
 } from "./test_slots.ts";
+import { TEST_RUN_SLOT_ENV, TEST_RUN_SLOT_VALUE } from "../test_run_slots.ts";
 
 /** A post-settle verdict for one gate job, keyed by label — how a standard's
  * measurement rewrites its job result from the captured output (see
@@ -87,14 +88,27 @@ export async function runGroup(
   // The fleet test-run cap: a capped group waits for a slot BEFORE its heading
   // prints (the wait line explains the pause), and releases when it settles —
   // pass or fail — so a red suite frees the machine for the next run.
-  const hold = slots !== undefined && groupNeedsTestSlot(group)
+  const accountsForTestRun = slots !== undefined && groupNeedsTestSlot(group);
+  const hold = accountsForTestRun
     ? await slots.acquire(out, runOpts.signal)
     : undefined;
+  // The marker records the accounting decision, not a successfully held lock.
+  // Keep it set after fail-open so a wrapped job does not probe the same broken
+  // slot surface again and turn a deliberate fallback into a second wait.
+  const groupRunOpts: RunOptions = accountsForTestRun
+    ? {
+      ...runOpts,
+      env: {
+        ...(runOpts.env ?? {}),
+        [TEST_RUN_SLOT_ENV]: TEST_RUN_SLOT_VALUE,
+      },
+    }
+    : runOpts;
   try {
     out.heading(group.heading);
     const r = group.mode === "serial"
-      ? await runSerial(jobs, runOpts)
-      : await runParallel(jobs, runOpts);
+      ? await runSerial(jobs, groupRunOpts)
+      : await runParallel(jobs, groupRunOpts);
     for (const res of r.results) {
       results.set(res.label, res);
     }

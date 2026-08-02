@@ -35,6 +35,8 @@ export interface JobRunObserver {
 export interface RunOptions {
   /** Resolved project root in which every configured job executes. */
   cwd: string;
+  /** Environment values added to every job's inherited environment. */
+  env?: Readonly<Record<string, string>>;
   /** Stream each job's output live (line-prefixed) instead of buffering it. */
   stream: boolean;
   /** Cancel in-flight siblings the moment one job fails (on by default in finish). */
@@ -121,6 +123,7 @@ function spawnOptions(
   const timeoutS = job.timeoutS ?? opts.timeoutS;
   return {
     cwd: opts.cwd,
+    ...(opts.env !== undefined ? { env: opts.env } : {}),
     signal,
     stream,
     write,

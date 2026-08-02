@@ -409,6 +409,9 @@ function canonicalReceipt(receipt: Receipt): Receipt {
     files_total: receipt.files_total,
     insertions: receipt.insertions,
     deletions: receipt.deletions,
+    ...(receipt.waited_ms !== undefined
+      ? { waited_ms: receipt.waited_ms }
+      : {}),
     line: receipt.line,
     markdown: receipt.markdown,
   };

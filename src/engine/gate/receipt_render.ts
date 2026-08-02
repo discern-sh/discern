@@ -35,6 +35,7 @@ import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
 import { isWorktreeFullyClean } from "./receipt.ts";
 import { fmtRate } from "./standards.ts";
+import { slotWaitSegment, slotWaitSentence } from "./slot_wait_render.ts";
 
 /** The facts half of a {@link Receipt} — everything but the two renderings. */
 type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
@@ -174,9 +175,11 @@ export function renderReceiptLine(
   limits?: StandardsLimitsData,
 ): string {
   const standardsSegment = lineStandardsSegment(standards, limits);
+  const waitSegment = slotWaitSegment(facts.waited_ms);
   const segments = [
     `gate passed on ${facts.branch} @ ${facts.head}`,
     `${diffstat(facts)} vs ${facts.trunk}`,
+    ...(waitSegment !== undefined ? [waitSegment] : []),
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
     "full receipt: discern status --verbose",
   ];
@@ -222,6 +225,11 @@ export function renderReceiptMarkdown(
     `diff vs ${code(facts.trunk)}: ${diffstat(facts)}`,
   ];
 
+  const waitSentence = slotWaitSentence(facts.waited_ms);
+  if (waitSentence !== undefined) {
+    lines.push("", waitSentence);
+  }
+
   lines.push(...standardsSection(standards, limits));
 
   lines.push("");
@@ -266,6 +274,7 @@ export async function buildGateReceipt(
   steps: StepResult[],
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
+  waitedMs?: number,
 ): Promise<Receipt | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
@@ -296,6 +305,7 @@ export async function buildGateReceipt(
     files_total: delta.filesTotal,
     insertions: delta.insertions,
     deletions: delta.deletions,
+    ...(waitedMs !== undefined ? { waited_ms: waitedMs } : {}),
   };
   return {
     ...facts,

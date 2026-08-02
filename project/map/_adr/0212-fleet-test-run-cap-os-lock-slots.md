@@ -1,5 +1,7 @@
 # ADR 0212: The fleet test-run cap is N OS-file-lock slots under the git common dir
 
+> **Resource-boundary and telemetry amendment ([ADR 0252](0252-fleet-test-run-cap-at-test-command-boundary.md)):** Direct test commands now enrol through `discern queue`, and the clause “The begin event precedes the wait, and the recorded duration includes it” is superseded. Begin still precedes the wait and `duration_ms` remains end-to-end; optional `waited_ms` separates queue time, and duration priors use execution time.
+
 **Status**: accepted. Extends the git-admin-state registry ([ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md)); consumes the begin events and duration priors of [ADR 0210](0210-effectful-verb-starts-are-paired-logbook-events.md); bound by the advisory-only logbook boundary of [ADR 0160](0160-local-logbook-advisory-readers.md).
 
 ## Context
