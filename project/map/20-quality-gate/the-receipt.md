@@ -17,11 +17,11 @@ _A clean green gate records what ran and identifies the exact branch state ready
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
 
-On a TTY, `done` uses the shared gate-job table. Planned jobs appear immediately as `JOB` / `COMMAND` / `RESULT` rows, then move from `pending` to `running` and their outcomes with durations. The highlighted receipt line follows the completed table. `prepare` uses the same table for fix and check jobs. Its success line says that build and test did not run. It never creates review evidence. `[gate].stream = true` streams output. `--plain` keeps the table static. Pipes get the receipt page from `done`. `--no-color` removes styling.
+`done` and `prepare` share the TTY job table: planned rows move from `pending` through `running` to outcomes and durations. `done` highlights its receipt. `prepare` states build and test did not run and produces no review evidence. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` receipt page. `--no-color` removes styling.
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
-A qualifying receipt may carry one `Logbook:` advisory from `hints[]` after a detector clears its unsolicited-presentation margin. `discern patterns` holds the evidence and next step. The advisory does not change the stored receipt, `ok`, or acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+A qualifying receipt may carry one `Logbook:` advisory from `hints[]`. `discern patterns` holds its evidence and next step. The advisory changes neither the stored receipt, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## When a receipt is recorded
 
