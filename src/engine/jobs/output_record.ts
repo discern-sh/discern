@@ -14,7 +14,7 @@ const DIAGNOSTIC_LABEL_RE =
   /\b(?:fatal error|error|warning)(?:\[[^\]\s]+\])?:/i;
 const CARET_LINE_RE = /^\s*(?:\^+~*|~{2,})(?:\s|$)/;
 
-/** Write every value. */
+/** Persist an entire output chunk across partial writes and reject a zero-byte write. */
 async function writeAll(file: Deno.FsFile, chunk: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < chunk.length) {
@@ -26,7 +26,7 @@ async function writeAll(file: Deno.FsFile, chunk: Uint8Array): Promise<void> {
   }
 }
 
-/** Return whether the value is error like output line. */
+/** Classify a normalized output line using the gate's diagnostic signal patterns. */
 export function isErrorLikeOutputLine(line: string): boolean {
   const visible = normalizeCapturedOutput(line);
   return DIAGNOSTIC_LABEL_RE.test(visible) || CARET_LINE_RE.test(visible);

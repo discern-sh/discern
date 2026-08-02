@@ -45,7 +45,7 @@ export interface SiteSmokeResult {
   inconclusiveExternal: string[];
 }
 
-/** Return the parallel. */
+/** Run bounded workers over a shared cursor until every crawl target is checked. */
 async function parallel<T>(
   values: readonly T[],
   work: (value: T) => Promise<void>,
@@ -61,7 +61,7 @@ async function parallel<T>(
   );
 }
 
-/** Return whether the sequence values match. */
+/** Require exact order and membership while reporting missing and extra route values. */
 function sameSequence(
   label: string,
   actual: readonly string[],
@@ -83,7 +83,7 @@ function sameSequence(
   );
 }
 
-/** Return whether the items values match. */
+/** Compare guidance routes in order and then verify each route's displayed title. */
 function sameItems(
   label: string,
   actual: readonly GuidanceItem[],
@@ -108,13 +108,13 @@ function sameItems(
   }
 }
 
-/** Return whether the bytes values match. */
+/** Compare two response bodies byte-for-byte without decoding them. */
 function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
   return actual.length === expected.length &&
     actual.every((value, index) => value === expected[index]);
 }
 
-/** Return the security failures. */
+/** Report missing or incorrect browser security headers on one response. */
 function securityFailures(response: Response, label: string): string[] {
   const failures: string[] = [];
   const csp = response.headers.get("content-security-policy") ?? "";
@@ -148,7 +148,7 @@ function securityFailures(response: Response, label: string): string[] {
   return failures;
 }
 
-/** Return the redirect destination. */
+/** Resolve redirects to production canonicals or the self-hosted test origin. */
 function redirectDestination(base: URL, route: string): string {
   return base.hostname === "discern.sh" || base.hostname === "www.discern.sh"
     ? canonicalUrl(route)
@@ -640,7 +640,7 @@ export async function runSiteSmoke(
   };
 }
 
-/** Return the self hosted options. */
+/** Serve the real handler on an ephemeral port and crawl it before shutdown. */
 async function selfHostedOptions(
   externalLinks: boolean,
 ): Promise<SiteSmokeResult> {

@@ -43,7 +43,7 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
-/** Return the receipt config. */
+/** Render a minimal project configured for local or fetched receipt-note discovery. */
 function receiptConfig(mode: "local" | "fetch"): string {
   return [
     "[project]",
@@ -66,7 +66,7 @@ interface Landing {
   readonly result: DiscernResult<AcceptData>;
 }
 
-/** Return the land. */
+/** Create, gate, and accept one branch, returning both its target commit and parsed receipt. */
 async function land(
   main: string,
   name: string,
@@ -127,7 +127,7 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
   return payload.proof;
 }
 
-/** Return the notes identity. */
+/** Read author and committer identity fields from the receipt-notes ref. */
 async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
   string[]
 > {
@@ -140,17 +140,17 @@ async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
   )).split("\0");
 }
 
-/** Return the receipt fetch mapping. */
+/** Render the wildcard refspec that fetches every namespaced Discern receipt note. */
 function receiptFetchMapping(remote: string): string {
   return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
 }
 
-/** Return the legacy receipt fetch mapping. */
+/** Render the former single-ref mapping used to test migration cleanup. */
 function legacyReceiptFetchMapping(remote: string): string {
   return `+refs/notes/discern:refs/discern/remotes/${remote}/notes`;
 }
 
-/** Return the local config values. */
+/** Read all repository-local values for a Git config key, treating an unset key as empty. */
 async function localConfigValues(
   root: string,
   key: string,
@@ -635,7 +635,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
   });
 });
 
-/** Return the synthetic receipt. */
+/** Build a branch-bound receipt with a shortened commit for note verification cases. */
 function syntheticReceipt(commit: string, branch: string): Receipt {
   return {
     branch,
@@ -649,7 +649,7 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
   };
 }
 
-/** Return the encoded proof payload. */
+/** Serialize proof data as standard or unpadded URL-safe Base64. */
 function encodedProofPayload(
   value: unknown,
   alphabet: "standard" | "url-safe" = "standard",

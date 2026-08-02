@@ -256,7 +256,7 @@ function retrospectiveViolations(unit: CommentUnit): CommentViolation[] {
   return out;
 }
 
-/** Return the suppression violation. */
+/** Project a malformed or unused suppression annotation into the common violation shape. */
 function suppressionViolation(
   annotation: SuppressionAnnotation,
   rule: Exclude<CommentViolationRule, "retrospective">,
@@ -316,7 +316,7 @@ export function scanHashSource(src: string): CommentViolation[] {
   return scanUnits(extractHashComments(src));
 }
 
-/** Render the violation. */
+/** Render a located violation with the corrective action specific to its rule. */
 function renderViolation(rel: string, violation: CommentViolation): string {
   const label = violation.rule === "retrospective"
     ? `${violation.rule}:${violation.marker}`

@@ -764,7 +764,7 @@ Deno.test("re-entry (B46): a machinery-commit failure on the first begin is retr
   });
 });
 
-/** Return the begin with rejected machinery commit. */
+/** Run setup behind a rejecting commit hook and capture the exact generated machinery left uncommitted. */
 async function beginWithRejectedMachineryCommit(
   dir: string,
 ): Promise<{ hook: string; machinery: string[] }> {
@@ -832,7 +832,7 @@ async function beginWithRejectedMachineryCommit(
   return { hook, machinery };
 }
 
-/** Return the retry setup. */
+/** Repeat setup through the JSON surface and return its effect-accounting data. */
 async function retrySetup(dir: string): Promise<Record<string, unknown>> {
   const retried = await runAgent(dir, [
     "setup",
@@ -846,7 +846,7 @@ async function retrySetup(dir: string): Promise<Record<string, unknown>> {
   return JSON.parse(retried.stdout).data;
 }
 
-/** Assert the retry was not attributed. */
+/** Prove a changed retry authored no commit and claimed no prior setup provenance. */
 async function assertRetryWasNotAttributed(
   dir: string,
   data: Record<string, unknown>,

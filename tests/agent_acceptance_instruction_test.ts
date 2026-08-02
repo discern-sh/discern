@@ -60,7 +60,7 @@ const VERIFIED_AUTHORITY_HINT_IDS = new Set([
   "status-fleet-authorized-landings",
 ]);
 
-/** Return the files under. */
+/** Flatten either a file or a directory tree into the concrete surfaces the guard scans. */
 async function filesUnder(path: string): Promise<string[]> {
   const stat = await Deno.stat(path);
   if (stat.isFile) {
@@ -74,7 +74,7 @@ async function filesUnder(path: string): Promise<string[]> {
   return files;
 }
 
-/** Return the acceptance violations. */
+/** Locate the first line matching each instruction pattern that overstates landing authority. */
 function acceptanceViolations(label: string, text: string): string[] {
   const violations: string[] = [];
   for (const { name, pattern } of MISLEADING_ACCEPTANCE_PATTERNS) {

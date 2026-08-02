@@ -12,7 +12,7 @@ interface DriverResult {
   readonly success: boolean;
 }
 
-/** Return the run driver. */
+/** Exercise owned-child signal forwarding in a subprocess and decode its structured observations. */
 async function runDriver(
   signal: "SIGINT" | "SIGTERM",
   ignore = false,

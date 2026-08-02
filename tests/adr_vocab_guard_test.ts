@@ -48,7 +48,7 @@ const ADR_0120_AMENDMENT =
 const ADR_0137_AMENDMENT =
   "[ADR 0137](0137-project-scripts-live-under-the-script-command.md)";
 
-/** Return the citations in. */
+/** Collect both numbered ADR citations and internal ADR path references from shipped text. */
 function citationsIn(text: string): string[] {
   return [
     ...(text.match(ADR_CITATION) ?? []),

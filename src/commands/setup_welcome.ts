@@ -208,49 +208,49 @@ const ACTION_BOX_WIDTH = 56;
 const ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
-/** Return the SGR. */
+/** Wrap text in an ANSI style while reopening that style after nested resets. */
 function sgr(text: string, open: number, close: number): string {
   const start = `${ESC}[${open}m`;
   const end = `${ESC}[${close}m`;
   return `${start}${text.replaceAll(end, start)}${end}`;
 }
 
-/** Return the bold. */
+/** Apply bold ANSI styling with the matching intensity reset. */
 function bold(text: string): string {
   return sgr(text, 1, 22);
 }
 
-/** Return the dim. */
+/** Apply dim ANSI styling with the matching intensity reset. */
 function dim(text: string): string {
   return sgr(text, 2, 22);
 }
 
-/** Return the cyan. */
+/** Apply the cyan foreground used for the welcome frame. */
 function cyan(text: string): string {
   return sgr(text, 36, 39);
 }
 
-/** Return the green. */
+/** Apply the green foreground used for the setup action. */
 function green(text: string): string {
   return sgr(text, 32, 39);
 }
 
-/** Return the yellow. */
+/** Apply the yellow foreground used for the non-Git warning. */
 function yellow(text: string): string {
   return sgr(text, 33, 39);
 }
 
-/** Return the visible length. */
+/** Measure terminal columns after removing the ANSI styles emitted here. */
 function visibleLength(text: string): number {
   return text.replace(ANSI_PATTERN, "").length;
 }
 
-/** Return the pad visible. */
+/** Right-pad styled text to a requested visible terminal width. */
 function padVisible(text: string, width: number): string {
   return `${text}${" ".repeat(Math.max(0, width - visibleLength(text)))}`;
 }
 
-/** Return the center visible. */
+/** Center styled text using visible width rather than escape-sequence bytes. */
 function centerVisible(text: string, width: number): string {
   const padding = Math.max(0, width - visibleLength(text));
   const left = Math.floor(padding / 2);
@@ -258,41 +258,41 @@ function centerVisible(text: string, width: number): string {
   return `${" ".repeat(left)}${text}${" ".repeat(right)}`;
 }
 
-/** Return the border. */
+/** Apply the shared dim-cyan style to one box-drawing fragment. */
 function border(text: string): string {
   return dim(cyan(text));
 }
 
-/** Return the box top. */
+/** Draw the fixed-width upper edge of the welcome frame. */
 function boxTop(): string {
   return border(`╭${"─".repeat(TTY_BOX_WIDTH - 2)}╮`);
 }
 
-/** Return the box bottom. */
+/** Draw the fixed-width lower edge of the welcome frame. */
 function boxBottom(): string {
   return border(`╰${"─".repeat(TTY_BOX_WIDTH - 2)}╯`);
 }
 
-/** Return the box rule. */
+/** Draw a labeled divider across the welcome frame. */
 function boxRule(label: string): string {
   const dashes = "─".repeat(Math.max(1, TTY_BOX_WIDTH - label.length - 5));
   return `${border("├─ ")}${bold(label)}${border(` ${dashes}┤`)}`;
 }
 
-/** Return the box line. */
+/** Fit one styled content row between the welcome frame's side borders. */
 function boxLine(text = ""): string {
   return `${border("│")} ${padVisible(text, TTY_BOX_INNER_WIDTH)} ${
     border("│")
   }`;
 }
 
-/** Return the action box line. */
+/** Fit one styled row inside the narrower green action panel. */
 function actionBoxLine(text: string): string {
   const innerWidth = ACTION_BOX_WIDTH - 4;
   return `${green("│")} ${padVisible(text, innerWidth)} ${green("│")}`;
 }
 
-/** Return the action box. */
+/** Build the centered panel containing the sentence a user gives their agent. */
 function actionBox(): string[] {
   const quote = '"Run `discern setup` in this project."';
   return [
@@ -385,7 +385,7 @@ export function renderFreshWelcome(
   return lines;
 }
 
-/** Return the styled fresh welcome. */
+/** Compose the TTY welcome, including the Git prerequisite warning when needed. */
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
   return [
     boxTop(),

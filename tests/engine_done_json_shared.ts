@@ -15,7 +15,7 @@ export interface LooseEnvelope {
   [key: string]: any;
 }
 
-/** Parse the JSON text. */
+/** Decode a done envelope into the shared loose assertion shape. */
 export function parseJson(stdout: string): LooseEnvelope {
   return JSON.parse(stdout.trim()) as LooseEnvelope;
 }
@@ -41,7 +41,7 @@ export interface JsonDiagnostic {
   tool: string;
 }
 
-/** Assert the failed steps have diagnostics. */
+/** Require every genuinely failed job or scope step to have a matching diagnostic tool. */
 export function assertFailedStepsHaveDiagnostics(obj: {
   steps?: JsonStep[];
   diagnostics?: JsonDiagnostic[];
@@ -61,7 +61,7 @@ export function assertFailedStepsHaveDiagnostics(obj: {
   }
 }
 
-/** Return whether the path exists. */
+/** Distinguish an absent path from other filesystem failures in gate side-effect assertions. */
 export async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -74,7 +74,7 @@ export async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** Return whether the value has dropped C0 control. */
+/** Detect forbidden C0 bytes while allowing JSON-safe newlines and tabs. */
 export function hasDroppedC0Control(s: string): boolean {
   return s.split("").some((ch) => {
     const code = ch.charCodeAt(0);

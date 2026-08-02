@@ -17,7 +17,7 @@ import { escapedDaemonCommand } from "./helpers.ts";
 
 const CWD = Deno.cwd();
 
-/** Return whether the value has dropped C0 control. */
+/** Detect forbidden C0 bytes while allowing captured newlines and tabs. */
 function hasDroppedC0Control(s: string): boolean {
   return s.split("").some((ch) => {
     const code = ch.charCodeAt(0);

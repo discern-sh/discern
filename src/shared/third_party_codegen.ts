@@ -125,7 +125,7 @@ export interface PackageRef {
   readonly version: string;
 }
 
-/** Return the deno info JSON. */
+/** Query Deno's resolver and decode its compile-graph JSON. */
 async function denoInfoJson(
   repoRoot: string,
   extraArgs: readonly string[],
@@ -210,7 +210,7 @@ function npmClosureOf(graph: CompileGraph): (PackageRef & {
 /** LICENSE, LICENCE, or COPYING, bare or with an extension. */
 const LICENSE_FILE_RE = /^(licen[cs]e|copying)([._-].*)?$/i;
 
-/** Find the license file. */
+/** Select the shortest deterministic LICENSE, LICENCE, or COPYING filename. */
 async function findLicenseFile(dir: string): Promise<string | undefined> {
   const names: string[] = [];
   try {
@@ -246,7 +246,7 @@ async function declaredNpmLicense(dir: string): Promise<string | undefined> {
   return undefined;
 }
 
-/** Normalize the license text. */
+/** Convert CRLF to LF and remove trailing whitespace without altering the body. */
 function normalizeLicenseText(text: string): string {
   return text.replaceAll("\r\n", "\n").trimEnd();
 }
@@ -286,7 +286,7 @@ async function globalNpmStoreDir(repoRoot: string): Promise<string> {
   return join(base, "registry.npmjs.org");
 }
 
-/** Resolve the npm component. */
+/** Load an npm package's declared license and verbatim text from its extracted store. */
 async function resolveNpmComponent(
   pkg: PackageRef & { readonly localPath?: string },
   storeDir: () => Promise<string>,
@@ -330,7 +330,7 @@ async function resolveNpmComponent(
   };
 }
 
-/** Resolve the jsr component. */
+/** Resolve JSR license text from an override, committed cache, or allowed fetch. */
 async function resolveJsrComponent(
   pkg: PackageRef,
   cache: Readonly<Record<string, string>>,
@@ -369,7 +369,7 @@ async function resolveJsrComponent(
   };
 }
 
-/** Resolve the vendored wasm component. */
+/** Extract the license embedded inside a bundled dprint Wasm plugin. */
 async function resolveVendoredWasmComponent(
   repoRoot: string,
   component: (typeof VENDORED_WASM_COMPONENTS)[number],

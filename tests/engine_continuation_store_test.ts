@@ -11,13 +11,13 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
-/** Return the bytes. */
+/** Create a deterministic entropy source that fills handles with one chosen byte. */
 function bytes(value: number): (length: number) => Uint8Array {
   return (length: number): Uint8Array =>
     new Uint8Array(Array.from({ length }, () => value));
 }
 
-/** Return the init repo. */
+/** Seed and initialize a repository whose continuation store can be shared by worktrees. */
 async function initRepo(dir: string): Promise<void> {
   await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
   await gitInit(dir);

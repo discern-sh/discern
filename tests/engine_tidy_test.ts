@@ -21,7 +21,7 @@ import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
-/** Return the fenced blocks. */
+/** Extract complete backtick or tilde fences while respecting each opener's character and width. */
 function fencedBlocks(text: string): string[] {
   const lines = text.split("\n");
   const blocks: string[] = [];
@@ -45,18 +45,18 @@ function fencedBlocks(text: string): string[] {
   return blocks;
 }
 
-/** Return the comment lines. */
+/** Select TOML comment rows so tidy can be checked without comparing owner values. */
 function commentLines(text: string): string[] {
   return text.split("\n").filter((line) => line.trimStart().startsWith("#"));
 }
 
-/** Write the requested value. */
+/** Create parent directories before materializing a deliberately untidy fixture file. */
 async function write(path: string, text: string): Promise<void> {
   await ensureDir(dirname(path));
   await Deno.writeTextFile(path, text);
 }
 
-/** Seed the tidy project. */
+/** Create deliberately noncanonical config, guidance, skill, map, and TODO fixtures for one tidy pass. */
 async function seedTidyProject(root: string): Promise<void> {
   await write(
     join(root, "discern.toml"),

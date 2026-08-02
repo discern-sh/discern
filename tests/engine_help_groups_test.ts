@@ -47,7 +47,7 @@ function fullRoot(): Command {
   return buildCli(false) as unknown as Command;
 }
 
-/** Return the child. */
+/** Resolve a named command including hidden children and fail with its missing name. */
 function child(parent: Command, name: string): Command {
   const found = parent.getCommands(true).find((command) =>
     command.getName() === name

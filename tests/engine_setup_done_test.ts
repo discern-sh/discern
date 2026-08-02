@@ -30,7 +30,7 @@ import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
 
-/** Return the ready for done. */
+/** Replace setup skeletons with substantive fixtures and configure the gate command under test. */
 async function readyForDone(
   dir: string,
   cmd: string,

@@ -55,7 +55,7 @@ paths = ["gadget/**"]
 gate = "echo gadget"
 `);
 
-/** Return the job result. */
+/** Fill zero output counters into a job outcome unless the case supplies them. */
 function jobResult(
   fields:
     & Omit<JobResult, "outputLines" | "errorLikeLines">

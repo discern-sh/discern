@@ -562,7 +562,7 @@ const REPORT_STANDARD_NAMES = Array.from(
   (_, index) => `metric-${String(index + 1).padStart(2, "0")}`,
 );
 
-/** Report the standards. */
+/** Generate varied up/down standard readings so the report must rank and collapse a large set. */
 function reportStandards(reading: number, total: number): unknown[] {
   return REPORT_STANDARD_NAMES.map((name, index) => {
     switch (index % 3) {
@@ -772,12 +772,12 @@ async function seedLongTrajectoryLogbook(dir: string): Promise<number[]> {
   return values;
 }
 
-/** Return the normalized. */
+/** Collapse presentation whitespace before comparing wrapped human reports. */
 function normalized(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
-/** Return the occurrences. */
+/** Count literal report fragments while defining an empty needle as no match. */
 function occurrences(haystack: string, needle: string): number {
   if (needle === "") {
     return 0;

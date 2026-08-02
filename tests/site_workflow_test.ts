@@ -27,12 +27,12 @@ interface WorkflowPage {
   readonly raw: string;
 }
 
-/** Return the requested value. */
+/** Serve a workflow route through the production handler with browser defaults or chosen headers. */
 function get(path: string, headers = BROWSER): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
 }
 
-/** Return the workflow pages. */
+/** Load published pages with raw Markdown and keep those declaring a Workflow directive. */
 async function workflowPages(): Promise<readonly WorkflowPage[]> {
   const site = await loadDocsSite();
   const pages = await Promise.all(

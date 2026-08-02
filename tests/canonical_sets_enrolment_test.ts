@@ -45,12 +45,12 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
-/** Return whether the value is conventional guard. */
+/** Recognize guard tests by the filename suffixes that trigger automatic enrollment. */
 function isConventionalGuard(rel: string): boolean {
   return CONVENTIONAL_GUARD_SUFFIXES.some((suffix) => rel.endsWith(suffix));
 }
 
-/** Return the file text. */
+/** Read an enrolled artifact when committed, leaving absence for the guard to diagnose. */
 async function fileText(rel: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(join(REPO_ROOT, rel));

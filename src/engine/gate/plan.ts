@@ -401,7 +401,7 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
   return r.code === 0 ? "ok" : "failed";
 }
 
-/** Return the loud success hint. */
+/** Fire the advisory for a passing job whose error-like output still needs inspection. */
 function loudSuccessHint(
   job: PlannedJob,
   result: JobResult,
@@ -420,12 +420,12 @@ function loudSuccessHint(
   });
 }
 
-/** Return whether the value has fix stage job. */
+/** Check whether the plan contains an executable formatter or fixer. */
 function hasFixStageJob(groups: JobGroup[]): boolean {
   return groups.some((g) => g.stage === "fix" && g.jobs.some((j) => j.willRun));
 }
 
-/** Return the fix available for. */
+/** Identify the fix-stage job that can repair a failed check when one exists. */
 function fixAvailableFor(
   job: PlannedJob,
   fixStageWired: boolean,
@@ -436,7 +436,7 @@ function fixAvailableFor(
     : undefined;
 }
 
-/** Return the with fix available. */
+/** Annotate a failed check with the matching fix command without changing its verdict. */
 function withFixAvailable(
   diagnostics: Diagnostic[],
   fixAvailable: true | undefined,

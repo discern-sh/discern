@@ -151,7 +151,7 @@ export const VALIDATION_ADMIN_STATE_KEYS = GIT_ADMIN_STATE_KEYS.filter(
   (key) => GIT_ADMIN_STATE[key].validation,
 ) as ValidationAdminStateKey[];
 
-/** Return the git path. */
+/** Resolve a Git-reported administrative path to an absolute filesystem path. */
 async function gitPath(
   cwd: string,
   args: string[],

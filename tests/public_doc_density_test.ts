@@ -18,7 +18,7 @@ import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { MANUAL_SECTION_REGISTRY } from "../src/lib/paths.ts";
 
-/** Return the registry section. */
+/** Resolve the configured manual directory for one published audience tier. */
 function registrySection(audience: "public" | "contributor"): string {
   const section = MANUAL_SECTION_REGISTRY.find(
     (entry) => entry.audience === audience,

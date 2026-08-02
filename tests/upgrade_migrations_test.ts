@@ -18,7 +18,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
-/** Return the setup. */
+/** Create a current named installation that migration cases can deliberately age. */
 async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
@@ -62,7 +62,7 @@ async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
   return (await upgradeJsonIn(dir, registry)).code;
 }
 
-/** Upgrade the JSON in. */
+/** Capture one applying upgrade's JSON envelope without leaking its console output. */
 async function upgradeJsonIn(
   dir: string,
   registry?: Migration[],
@@ -91,7 +91,7 @@ async function upgradeJsonIn(
   }
 }
 
-/** Upgrade the check JSON in. */
+/** Capture a read-only migration check's JSON envelope without applying the plan. */
 async function upgradeCheckJsonIn(
   dir: string,
   registry?: Migration[],
@@ -123,7 +123,7 @@ async function upgradeCheckJsonIn(
   }
 }
 
-/** Upgrade the dry run JSON in. */
+/** Capture a synthetic migration preview's JSON envelope while preserving the filesystem. */
 async function upgradeDryRunJsonIn(
   dir: string,
   registry: Migration[],

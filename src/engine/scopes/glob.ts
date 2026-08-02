@@ -26,7 +26,7 @@ const GLOB_META = /[*?[\]{}]/;
  * matched against every changed path. */
 const COMPILED = new Map<string, RegExp>();
 
-/** Return the compiled glob. */
+/** Cache a normalized scope glob so repeated path classification shares one matcher. */
 function compiledGlob(pat: string): RegExp {
   let re = COMPILED.get(pat);
   if (re === undefined) {

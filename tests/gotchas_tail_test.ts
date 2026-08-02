@@ -22,7 +22,7 @@ const TEMPLATE_GOTCHAS = join(
   "done-gate-gotchas.md",
 );
 
-/** Return the failed job. */
+/** Build a failed lint result whose exit code selects a gotcha-tail scenario. */
 function failedJob(code: number): JobResult {
   return {
     label: "lint",

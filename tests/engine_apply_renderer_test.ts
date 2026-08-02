@@ -6,7 +6,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
-/** Count the matches. */
+/** Count non-overlapping literal occurrences when asserting one shared rendering call site. */
 function countMatches(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }

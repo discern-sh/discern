@@ -85,17 +85,17 @@ const ANNOTATION_KEYS = new Set([
   "writeOnly",
 ]);
 
-/** Return whether the value is an object. */
+/** Narrow a schema value to a non-null, non-array JSON object. */
 function isObject(value: JsonValue | undefined): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Return the JSON representation. */
+/** Serialize an optional schema fragment for exact structural comparison and diagnostics. */
 function json(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
-/** Return whether the JSON values match. */
+/** Compare schema fragments by their stable JSON serialization. */
 function sameJson(
   left: JsonValue | undefined,
   right: JsonValue | undefined,
@@ -103,14 +103,14 @@ function sameJson(
   return json(left) === json(right);
 }
 
-/** Return the path key. */
+/** Append a property to a readable schema path using dot or bracket notation. */
 function pathKey(path: string, key: string): string {
   return /^[A-Za-z_$][A-Za-z0-9_$-]*$/.test(key)
     ? `${path}.${key}`
     : `${path}[${JSON.stringify(key)}]`;
 }
 
-/** Return the string set. */
+/** Validate an all-string JSON array and sort it for set comparison. */
 function stringSet(value: JsonValue | undefined): string[] | undefined {
   if (
     !Array.isArray(value) ||
@@ -121,7 +121,7 @@ function stringSet(value: JsonValue | undefined): string[] | undefined {
   return value.map((member) => member as string).sort();
 }
 
-/** Compare the string sets. */
+/** Report members added to or removed from an enum-like string collection. */
 function compareStringSets(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -150,12 +150,12 @@ function compareStringSets(
   }
 }
 
-/** Return the schema type set. */
+/** Normalize a scalar or array `type` keyword into a comparable collection. */
 function schemaTypeSet(value: JsonValue | undefined): string[] | undefined {
   return typeof value === "string" ? [value] : stringSet(value);
 }
 
-/** Compare the type set inclusion. */
+/** Report type constraints that narrow the instances accepted by the trunk schema. */
 function compareTypeSetInclusion(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -186,7 +186,7 @@ function compareTypeSetInclusion(
   }
 }
 
-/** Compare the required. */
+/** Report newly required fields and result fields whose requiredness was weakened. */
 function compareRequired(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -214,7 +214,7 @@ function compareRequired(
   }
 }
 
-/** Compare the map. */
+/** Recursively compare existing object members and report removals. */
 function compareMap(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -241,14 +241,14 @@ function compareMap(
   }
 }
 
-/** Return whether the value is unconstrained schema. */
+/** Recognize `true` or an annotation-only object as accepting every instance. */
 function isUnconstrainedSchema(value: JsonValue | undefined): boolean {
   return value === true ||
     (isObject(value) &&
       Object.keys(value).every((key) => ANNOTATION_KEYS.has(key)));
 }
 
-/** Compare the properties. */
+/** Check existing properties and reject additions that narrow an open trunk object. */
 function compareProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -321,7 +321,7 @@ function compareProperties(
   }
 }
 
-/** Return the alternative identity. */
+/** Derive a stable matching key for reordered schema alternatives. */
 function alternativeIdentity(value: JsonValue): string {
   if (isObject(value)) {
     if (typeof value.$ref === "string") {
@@ -337,7 +337,7 @@ function alternativeIdentity(value: JsonValue): string {
   return `schema:${json(value)}`;
 }
 
-/** Return the reference alternative. */
+/** Extract a pure `$ref` alternative whose other fields are annotations. */
 function referenceAlternative(value: JsonValue): string | undefined {
   if (
     !isObject(value) ||
@@ -351,7 +351,7 @@ function referenceAlternative(value: JsonValue): string | undefined {
   return value.$ref;
 }
 
-/** Return the matching contract reference role. */
+/** Identify the single contract role containing every referenced alternative. */
 function matchingContractReferenceRole(
   alternatives: readonly JsonValue[],
   references: ContractReferenceSets,
@@ -366,7 +366,7 @@ function matchingContractReferenceRole(
   return matchingRoles.length === 1 ? matchingRoles[0] : undefined;
 }
 
-/** Return the transparent role aggregate alternatives. */
+/** Unwrap a `oneOf` aggregate whose other fields add no instance constraints. */
 function transparentRoleAggregateAlternatives(
   definition: JsonValue | undefined,
 ): readonly JsonValue[] | undefined {
@@ -385,7 +385,7 @@ function transparentRoleAggregateAlternatives(
   return definition.oneOf;
 }
 
-/** Return the contract aggregator role. */
+/** Confirm that a canonical aggregate still contains references from its prior role. */
 function contractAggregatorRole(
   path: string,
   alternatives: readonly JsonValue[],
@@ -403,7 +403,7 @@ function contractAggregatorRole(
     : undefined;
 }
 
-/** Compare the alternatives. */
+/** Match reordered alternatives and authorize only registry-backed result additions. */
 function compareAlternatives(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -478,7 +478,7 @@ function compareAlternatives(
   });
 }
 
-/** Compare the prefix items. */
+/** Compare tuple positions in order and report removed or appended slots. */
 function comparePrefixItems(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -509,12 +509,12 @@ function comparePrefixItems(
   });
 }
 
-/** Return the contract id. */
+/** Read a string contract ID from one registry metadata record. */
 function contractId(value: JsonValue): string | undefined {
   return isObject(value) && typeof value.id === "string" ? value.id : undefined;
 }
 
-/** Return the contract schema reference. */
+/** Read a contract role field only when it points into root `$defs`. */
 function contractSchemaReference(
   value: JsonValue,
   field: string,
@@ -529,12 +529,12 @@ function contractSchemaReference(
     : undefined;
 }
 
-/** Return the contract records. */
+/** Treat absent or malformed contract metadata as an empty registry. */
 function contractRecords(value: JsonValue | undefined): JsonValue[] {
   return Array.isArray(value) ? value : [];
 }
 
-/** Return the contract reference sets. */
+/** Index every contract definition reference by its CLI or MCP role. */
 function contractReferenceSets(
   contracts: readonly JsonValue[],
 ): Record<ResultContractReferenceRole, Set<string>> {
@@ -555,7 +555,7 @@ function contractReferenceSets(
   return references;
 }
 
-/** Return the definition name. */
+/** Decode a single-segment root `$defs` JSON Pointer reference. */
 function definitionName(reference: string): string | undefined {
   const prefix = "#/$defs/";
   if (!reference.startsWith(prefix)) {
@@ -568,7 +568,7 @@ function definitionName(reference: string): string | undefined {
   return encoded.replaceAll("~1", "/").replaceAll("~0", "~");
 }
 
-/** Return the definition reference. */
+/** Encode a definition name as a root `$defs` JSON Pointer reference. */
 function definitionReference(name: string): string {
   return `#/$defs/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
 }
@@ -636,7 +636,7 @@ type ContractAggregateReach = readonly [
   ResultContractReferenceRole,
 ];
 
-/** Return the reachable contract aggregates. */
+/** Traverse same-instance schema links to find acyclic role aggregates. */
 function reachableContractAggregates(
   entrypoint: JsonValue,
   definitions: JsonObject,
@@ -694,7 +694,7 @@ function reachableContractAggregates(
   return aggregates;
 }
 
-/** Return whether the references values match. */
+/** Require two schema-reference sets to contain exactly the same members. */
 function sameReferences(
   left: ReadonlySet<string>,
   right: ReadonlySet<string>,
@@ -703,7 +703,7 @@ function sameReferences(
     [...left].every((reference) => right.has(reference));
 }
 
-/** Return the aggregate contains exactly. */
+/** Verify an aggregate contains each expected reference once and nothing else. */
 function aggregateContainsExactly(
   definition: JsonValue | undefined,
   references: ReadonlySet<string>,
@@ -730,7 +730,7 @@ function aggregateContainsExactly(
   return seen.size === references.size;
 }
 
-/** Return the new role aggregate entrypoints. */
+/** Authorize entrypoints that add a complete aggregate for a role absent from the baseline. */
 function newRoleAggregateEntrypoints(
   current: JsonObject,
   previousDefinitions: JsonObject,
@@ -795,7 +795,7 @@ function newRoleAggregateEntrypoints(
   return authorized;
 }
 
-/** Return the comparison context. */
+/** Derive definitions and contract-role metadata that govern one comparison. */
 function comparisonContext(
   previous: JsonObject,
   current: JsonObject,
@@ -887,7 +887,7 @@ function comparisonContext(
   };
 }
 
-/** Compare the contracts. */
+/** Compare contract metadata while permitting additive, uniquely identified records. */
 function compareContracts(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -1041,7 +1041,7 @@ function compareDiscriminator(
   }
 }
 
-/** Compare the additional properties. */
+/** Reject object catchall changes that admit fewer instances than trunk. */
 function compareAdditionalProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -1060,7 +1060,7 @@ function compareAdditionalProperties(
   }
 }
 
-/** Compare the node. */
+/** Apply keyword-specific compatibility rules recursively to one schema node. */
 function compareNode(
   previous: JsonValue,
   current: JsonValue,
@@ -1202,7 +1202,7 @@ export function publicSchemaCompatibilityIssues(
   return issues;
 }
 
-/** Return the public schema validity issues. */
+/** Compile a draft-2020-12 schema and turn validation failure into one issue. */
 function publicSchemaValidityIssues(
   schema: JsonObject,
   label: string,
@@ -1230,7 +1230,7 @@ interface PublicSchemaIdentity {
 const PUBLIC_SCHEMA_ID_PATTERN =
   /^https:\/\/discern\.sh\/schema\/v([1-9][0-9]*)\/([^/?#]+\.json)$/;
 
-/** Parse the public schema identity. */
+/** Validate and split discern's versioned public schema URL into major and name. */
 function parsePublicSchemaIdentity(
   value: JsonValue | undefined,
   path: string,
@@ -1258,7 +1258,7 @@ function parsePublicSchemaIdentity(
   return { major, name };
 }
 
-/** Return the public schema compatibility policy. */
+/** Validate the root compatibility-policy extension against the public canon. */
 function publicSchemaCompatibilityPolicy(
   schema: JsonObject,
   issues: string[],

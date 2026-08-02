@@ -180,14 +180,14 @@ const ConfigIssueDataSchema = z.strictObject({
   issues: z.array(ConfigIssueSchema),
 });
 
-/** Return the data schema with config issues. */
+/** Permit a verb's normal payload or the shared config-validation payload. */
 function dataSchemaWithConfigIssues<T extends z.ZodType>(
   dataSchema: T,
 ): z.ZodUnion<[T, typeof ConfigIssueDataSchema]> {
   return z.union([dataSchema, ConfigIssueDataSchema]);
 }
 
-/** Return the result output schema. */
+/** Bind a verb literal to its optional typed data in a strict result envelope. */
 function resultOutputSchema<T extends z.ZodType>(
   verb: string,
   dataSchema: T,
@@ -204,7 +204,7 @@ function resultOutputSchema<T extends z.ZodType>(
   });
 }
 
-/** Return the dataless result output schema. */
+/** Bind a data-less verb while retaining the shared config-issue escape path. */
 function datalessResultOutputSchema(
   verb: string,
 ): z.ZodObject<

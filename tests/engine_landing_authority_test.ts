@@ -53,7 +53,7 @@ const EXACT_CONFIG = [
   "",
 ].join("\n");
 
-/** Return the classified. */
+/** Pair one changed path with the standing scopes that cover it for pure resolver cases. */
 function classified(
   path: string,
   scopes: string[],

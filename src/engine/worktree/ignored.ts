@@ -148,7 +148,7 @@ export async function inspectIgnoredFileChanges(
   };
 }
 
-/** Return the unavailable. */
+/** Represent an unreadable ignored-file comparison without alleging drift. */
 function unavailable(): IgnoredFileChangeSummary {
   return {
     status: "unavailable",
@@ -158,7 +158,7 @@ function unavailable(): IgnoredFileChangeSummary {
   };
 }
 
-/** Read the baseline. */
+/** Load a versioned ignored-root baseline only when every fingerprint is valid. */
 async function readBaseline(
   path: string,
 ): Promise<IgnoredBaseline | undefined> {
@@ -186,7 +186,7 @@ async function readBaseline(
   }
 }
 
-/** Return whether the value is fingerprint. */
+/** Validate the complete persisted shape of one ignored-root fingerprint. */
 function isFingerprint(value: unknown): value is IgnoredRootFingerprint {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -201,7 +201,7 @@ function isFingerprint(value: unknown): value is IgnoredRootFingerprint {
     typeof root.bytes === "number";
 }
 
-/** Return the snapshot ignored roots. */
+/** Fingerprint Git's current ignored roots, promoting eligible roots to bounded content hashes. */
 async function snapshotIgnoredRoots(
   cwd: string,
   baseline?: IgnoredBaseline,
@@ -217,7 +217,7 @@ async function snapshotIgnoredRoots(
   return await contentFingerprintWithinBudget(cwd, metadata, baseline);
 }
 
-/** List the ignored roots. */
+/** Read Git's NUL-delimited ignored entries and return stable root labels. */
 async function listIgnoredRoots(cwd: string): Promise<string[] | undefined> {
   const run = await runGit([
     "status",
@@ -242,7 +242,7 @@ async function listIgnoredRoots(cwd: string): Promise<string[] | undefined> {
   return [...roots].sort();
 }
 
-/** Return the collapse changed root. */
+/** Collapse nested ignored changes to their top-level directory for concise reporting. */
 function collapseChangedRoot(raw: string): string {
   const cleaned = raw.replace(/^\.\//, "");
   const slash = cleaned.indexOf("/");
@@ -252,7 +252,7 @@ function collapseChangedRoot(raw: string): string {
   return cleaned;
 }
 
-/** Return the fingerprint root. */
+/** Describe an ignored root by kind and either bounded content or stable metadata. */
 async function fingerprintRoot(
   cwd: string,
   label: string,
@@ -348,12 +348,12 @@ async function fingerprintRoot(
   };
 }
 
-/** Ensure the dir label. */
+/** Keep directory fingerprint labels distinguishable with a trailing slash. */
 function ensureDirLabel(label: string): string {
   return label.endsWith("/") ? label : `${label}/`;
 }
 
-/** Return the metadata fingerprint directory. */
+/** Hash a deterministic recursive inventory without reading file contents. */
 async function metadataFingerprintDirectory(
   absRoot: string,
   relRoot: string,
@@ -362,7 +362,7 @@ async function metadataFingerprintDirectory(
   let files = 0;
   let bytes = 0;
 
-  /** Walk the requested operation. */
+  /** Record a stable metadata entry for every descendant without reading contents. */
   async function walk(abs: string, rel: string): Promise<void> {
     let entries: Deno.DirEntry[];
     try {
@@ -416,14 +416,14 @@ async function metadataFingerprintDirectory(
   };
 }
 
-/** Return the file metadata part. */
+/** Encode size, modification time, and inode into one deterministic file record. */
 function fileMetadataPart(path: string, stat: Deno.FileInfo): string {
   return `file\0${path}\0${stat.size}\0${stat.mtime?.getTime() ?? "unknown"}\0${
     stat.ino ?? "unknown"
   }`;
 }
 
-/** Return the content fingerprint within budget. */
+/** Spend one global I/O budget on the smallest eligible ignored roots first. */
 async function contentFingerprintWithinBudget(
   cwd: string,
   metadata: IgnoredRootFingerprint[],
@@ -478,7 +478,7 @@ async function contentFingerprintWithinBudget(
     .sort((a, b) => a.path.localeCompare(b.path));
 }
 
-/** Return the content fingerprint directory. */
+/** Hash a directory's contents deterministically or abandon it when the budget or a read fails. */
 async function contentFingerprintDirectory(
   absRoot: string,
   relRoot: string,
@@ -489,7 +489,7 @@ async function contentFingerprintDirectory(
   let files = 0;
   let bytes = 0;
 
-  /** Walk the requested operation. */
+  /** Read descendants within the reserved budget and abort on any unstable input. */
   async function walk(abs: string, rel: string): Promise<boolean> {
     let entries: Deno.DirEntry[];
     try {
@@ -561,7 +561,7 @@ async function contentFingerprintDirectory(
   };
 }
 
-/** Hash the bytes. */
+/** Hash bytes with an optional domain-separating prefix. */
 async function hashBytes(bytes: Uint8Array, prefix = ""): Promise<string> {
   if (prefix === "") {
     return await sha256Hex(bytes);
@@ -573,12 +573,12 @@ async function hashBytes(bytes: Uint8Array, prefix = ""): Promise<string> {
   return await sha256Hex(combined);
 }
 
-/** Hash the text. */
+/** Encode text as UTF-8 before computing its stable SHA-256 digest. */
 async function hashText(text: string): Promise<string> {
   return await sha256Hex(new TextEncoder().encode(text));
 }
 
-/** Return the SHA-256 hex. */
+/** Copy input onto a stable buffer and render its SHA-256 digest in lowercase hex. */
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const stable = new Uint8Array(bytes.byteLength);
   stable.set(bytes);

@@ -229,7 +229,7 @@ export interface AdrIndexBlocks {
   superseded: string;
 }
 
-/** Return the first markdown heading. */
+/** Extract the text of the first ATX heading, tolerating closing markers. */
 function firstMarkdownHeading(markdown: string): string | undefined {
   for (const raw of markdown.split(/\r?\n/)) {
     const match = raw.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
@@ -269,7 +269,7 @@ export class AdrIndexMarkerError extends Error {
   }
 }
 
-/** Return the ADR record title. */
+/** Read and validate an ADR heading before deriving its index label. */
 async function adrRecordTitle(record: AdrRecord): Promise<string> {
   const heading = firstMarkdownHeading(
     await Deno.readTextFile(record.entry.absPath),
@@ -293,7 +293,7 @@ async function adrRecordTitle(record: AdrRecord): Promise<string> {
   return title;
 }
 
-/** Render the ADR index block. */
+/** Render one generated record list between its authored marker pair. */
 async function renderAdrIndexBlock(
   records: readonly AdrRecord[],
   superseded: boolean,
@@ -344,7 +344,7 @@ export async function renderAdrIndexBlocks(
   };
 }
 
-/** Replace the ADR index block. */
+/** Replace a complete marker-delimited list or reject a mangled pair. */
 function replaceAdrIndexBlock(
   document: string,
   startMarker: string,

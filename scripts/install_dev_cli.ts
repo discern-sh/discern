@@ -29,7 +29,7 @@ import {
   writeExecutable,
 } from "./cli_install.ts";
 
-/** Run this module's main operation. */
+/** Install a repository-bound development shim at the resolved CLI destination and report PATH setup. */
 async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const bakedCheckout = await resolveBakedCheckout(repoRoot);

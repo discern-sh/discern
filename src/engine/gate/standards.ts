@@ -539,7 +539,7 @@ interface StandardExecution {
   diagnostics: Diagnostic[];
 }
 
-/** Return the standard plan integrity result. */
+/** Represent a plan-to-step cardinality mismatch as a failed internal step. */
 function standardPlanIntegrityResult(
   plan: StandardPlan,
   steps: readonly PlanStep[],
@@ -556,7 +556,7 @@ function standardPlanIntegrityResult(
   };
 }
 
-/** Return the standard plan integrity failure. */
+/** Refuse execution when projected standard steps differ from the plan. */
 export function standardPlanIntegrityFailure(
   plan: StandardPlan,
   steps: readonly PlanStep[],
@@ -966,7 +966,7 @@ function pinStep(name: string, note: string): StepResult {
   };
 }
 
-/** Return the err text. */
+/** Preserve an Error message and stringify non-Error standards failures. */
 function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -1023,7 +1023,7 @@ type PinWritePreflight =
   | { ok: true; authority: PinWriteAuthority }
   | WritePreflightFailure;
 
-/** Return the absolute from root. */
+/** Resolve Git-reported relative paths against the repository root. */
 function absoluteFromRoot(root: string, path: string): string {
   return isAbsolute(path) ? path : join(root, path);
 }
@@ -1075,7 +1075,7 @@ async function preflightPinWrites(root: string): Promise<PinWritePreflight> {
   };
 }
 
-/** Return the standards write access failure. */
+/** Return the shared write-preflight refusal with a reproducible diagnostic. */
 function standardsWriteAccessFailure(
   failure: WritePreflightFailure,
   reproduceCmd: string,
@@ -1197,7 +1197,7 @@ interface StandardsResultBuild {
   firedHints: FiredHint[];
 }
 
-/** Return the standards build. */
+/** Pair a standards result with the fired hints its surface must observe. */
 function standardsBuild(
   result: DiscernResult,
   firedHints: FiredHint[] = [],
@@ -1442,7 +1442,7 @@ async function pinStandardsResult(
   ]);
 }
 
-/** Return the unverified trunk hint. */
+/** Fire an advisory only when the trunk limits could not be verified. */
 function unverifiedTrunkHint(
   verification: TrunkLimitsVerification,
 ): FiredHint | undefined {
@@ -1726,7 +1726,7 @@ export async function runStandards(
   return result.ok ? 0 : 1;
 }
 
-/** Return the standards clean tree message. */
+/** Explain why standalone measurements need committed state and how to recover. */
 async function standardsCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {

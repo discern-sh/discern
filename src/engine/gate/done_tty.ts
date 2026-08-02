@@ -44,7 +44,7 @@ interface DoneRow {
   tone: DoneRowTone;
 }
 
-/** Report the width. */
+/** Bound the report to the usable terminal width while retaining a readable minimum. */
 function reportWidth(width: number): number {
   const terminal = Number.isFinite(width) ? Math.floor(width) : 80;
   return Math.max(
@@ -53,7 +53,7 @@ function reportWidth(width: number): number {
   );
 }
 
-/** Return the done rows. */
+/** Project completed jobs and standards into the common report-row model. */
 function doneRows(steps: readonly StepResult[]): DoneRow[] {
   return steps
     .filter((result) =>
@@ -75,7 +75,7 @@ function doneRows(steps: readonly StepResult[]): DoneRow[] {
     });
 }
 
-/** Return the job outcome. */
+/** Map scheduler status and exit code to the human outcome vocabulary. */
 function jobOutcome(result: JobResult): StepOutcome {
   if (result.cancelled === true) {
     return "cancelled";
@@ -83,7 +83,7 @@ function jobOutcome(result: JobResult): StepOutcome {
   return result.code === 0 ? "ok" : "failed";
 }
 
-/** Return the planned rows. */
+/** Project dry-run steps into rows without implying they executed. */
 function plannedRows(
   plan: GatePlan,
   running: ReadonlySet<string>,
@@ -129,7 +129,7 @@ function plannedRows(
   );
 }
 
-/** Return the row style. */
+/** Choose the glyph and ANSI treatment associated with one outcome. */
 function rowStyle(
   tone: DoneRowTone,
   color: boolean,
@@ -153,7 +153,7 @@ function rowStyle(
   }
 }
 
-/** Return the styled. */
+/** Apply a row style only when color output is enabled. */
 function styled(
   value: string,
   style: string,
@@ -162,12 +162,12 @@ function styled(
   return style === "" ? value : `${style}${value}${reset}`;
 }
 
-/** Return the rule. */
+/** Draw a horizontal divider sized to the active report width. */
 function rule(width: number, c: Palette): string {
   return `${INDENT}${styled("─".repeat(width), c.dim, c.reset)}`;
 }
 
-/** Render the compact table. */
+/** Render narrow terminals as stacked label-value rows without truncation. */
 function renderCompactTable(
   rows: readonly DoneRow[],
   width: number,
@@ -202,7 +202,7 @@ function renderCompactTable(
   return lines;
 }
 
-/** Render the three column table. */
+/** Render status, job, and detail columns within the measured width budget. */
 function renderThreeColumnTable(
   rows: readonly DoneRow[],
   width: number,
@@ -264,7 +264,7 @@ function renderThreeColumnTable(
   return lines;
 }
 
-/** Render the rows. */
+/** Choose the compact or 3-column layout from available terminal width. */
 function renderRows(
   rows: readonly DoneRow[],
   options: DoneTtyOptions,
@@ -397,7 +397,7 @@ export function createDoneTtyProgress(
   };
 }
 
-/** Render the receipt panel. */
+/** Show the commit-bound gate receipt and its validity window after success. */
 function renderReceiptPanel(
   line: string,
   options: DoneTtyOptions,

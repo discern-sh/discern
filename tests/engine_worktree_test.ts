@@ -58,7 +58,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
-/** Return the leave tracked and untracked wip. */
+/** Plant both modified tracked data and an untracked file to exercise safe removal refusal. */
 async function leaveTrackedAndUntrackedWip(wt: string): Promise<void> {
   await Deno.writeTextFile(join(wt, "tracked.txt"), "committed\n");
   await git(wt, "add", "-A");
@@ -68,7 +68,7 @@ async function leaveTrackedAndUntrackedWip(wt: string): Promise<void> {
   await Deno.writeTextFile(join(wt, "untracked.txt"), "untracked wip\n");
 }
 
-/** Commit the current worktree. */
+/** Commit all fixture state, allowing an empty commit at a worktree lifecycle boundary. */
 async function commitCurrentWorktree(
   wt: string,
   message = "commit worktree state",
@@ -135,7 +135,7 @@ async function runCheckoutEngine(
   return { code, stdout: out, stderr: err, output: out + err };
 }
 
-/** Commit the guidance marker. */
+/** Add a unique authored guidance heading and commit it on the accepting branch. */
 async function commitGuidanceMarker(
   wt: string,
   marker: string,
@@ -154,7 +154,7 @@ async function commitGuidanceMarker(
   await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
 }
 
-/** Assert the landing guidance refreshed. */
+/** Prove acceptance compiled the branch's guidance into main without leaving generated drift. */
 async function assertLandingGuidanceRefreshed(
   dir: string,
   marker: string,

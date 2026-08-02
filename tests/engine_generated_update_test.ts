@@ -34,7 +34,7 @@ const BUILTIN_REFRESH_GROUP = "discern:refresh";
 const GENERATED_PATH = "generated/bundle.txt";
 const GROUP_NAME = "bundle";
 
-/** Parse the requested input. */
+/** Validate update output against its public schema before returning typed fixture data. */
 function parse(stdout: string): UpdateJson {
   const raw = JSON.parse(stdout);
   const parsed = UpdateOutputSchema.safeParse(raw);
@@ -47,13 +47,13 @@ function parse(stdout: string): UpdateJson {
   return parsed.data as UpdateJson;
 }
 
-/** Write the requested value. */
+/** Create parent directories before materializing a generated-update fixture file. */
 async function write(path: string, body: string): Promise<void> {
   await Deno.mkdir(dirname(path), { recursive: true });
   await Deno.writeTextFile(path, body);
 }
 
-/** Return the regenerate. */
+/** Run the fixture's declared generator and surface stderr if it cannot rebuild outputs. */
 async function regenerate(root: string): Promise<void> {
   const run = new Deno.Command("sh", {
     args: ["tools/generate.sh"],
@@ -68,7 +68,7 @@ async function regenerate(root: string): Promise<void> {
   );
 }
 
-/** Return the expected bundle. */
+/** Derive the generated bundle directly from both authoritative source files. */
 async function expectedBundle(root: string): Promise<string> {
   const left = (await Deno.readTextFile(join(root, "source/left.txt"))).trim();
   const right = (await Deno.readTextFile(join(root, "source/right.txt")))
@@ -76,7 +76,7 @@ async function expectedBundle(root: string): Promise<string> {
   return `left=${left}|right=${right}\n`;
 }
 
-/** Return the scaffold generated project. */
+/** Create a repository whose declared generator owns a conflictable output tree. */
 async function scaffoldGeneratedProject(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await writeConfig(
@@ -116,20 +116,20 @@ async function scaffoldGeneratedProject(dir: string): Promise<void> {
   await gitInit(dir);
 }
 
-/** Commit all. */
+/** Commit the complete fixture tree at a named integration boundary. */
 async function commitAll(root: string, message: string): Promise<void> {
   await git(root, "add", "-A");
   await git(root, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-/** Return the configured group names. */
+/** Resolve generated group names through the production config loader. */
 async function configuredGroupNames(root: string): Promise<string[]> {
   return resolveGeneratedGroups(await loadConfig(root)).map((group) =>
     group.name
   );
 }
 
-/** Assert the configured groups ran. */
+/** Require update results to account for every configured generated group. */
 function assertConfiguredGroupsRan(
   data: UpdateData,
   configured: readonly string[],

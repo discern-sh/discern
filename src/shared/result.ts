@@ -401,7 +401,7 @@ export interface CappedText {
   fullText: string;
 }
 
-/** Return the collapse carriage returns. */
+/** Model terminal repaint semantics by keeping text after each lone carriage return. */
 function collapseCarriageReturns(s: string): string {
   return s.replaceAll("\r\n", "\n").split("\n")
     .map((line) => {
@@ -411,7 +411,7 @@ function collapseCarriageReturns(s: string): string {
     .join("\n");
 }
 
-/** Strip the terminal escapes. */
+/** Remove CSI and OSC control sequences before output enters result envelopes. */
 function stripTerminalEscapes(s: string): string {
   let out = "";
   for (let i = 0; i < s.length; i += 1) {
@@ -600,7 +600,7 @@ const OUTCOME_LABEL: Record<StepOutcome, string> = {
   cancelled: "cancelled",
 };
 
-/** Return the step result note. */
+/** Combine an authored step note with bounded timing and output metadata. */
 function stepResultNote(result: StepResult): string | undefined {
   const parts: string[] = [];
   if (result.step.note !== undefined) {

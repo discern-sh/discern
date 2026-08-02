@@ -117,19 +117,19 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-/** Return the newer discern hint. */
+/** Fire the advisory for a project created by a newer discern release. */
 function newerDiscernHint(): FiredHint {
   return fire(HINTS["upgrade-newer-discern"], {
     updateChannel: UPDATE_CHANNEL,
   });
 }
 
-/** Return the pending upgrade hint. */
+/** Fire the advisory that a checked upgrade still needs to be applied. */
 function pendingUpgradeHint(): FiredHint {
   return fire(HINTS["upgrade-check-pending"]);
 }
 
-/** Return the restart agents hint. */
+/** Fire the advisory that running agents still hold pre-upgrade instructions. */
 function restartAgentsHint(): FiredHint {
   return fire(HINTS["upgrade-restart-session"]);
 }
@@ -654,7 +654,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   return 0;
 }
 
-/** Return the refuse newer schema. */
+/** Emit the surface-appropriate refusal for a config schema newer than this binary. */
 function refuseNewerSchema(
   log: Logger,
   recorded: number,
@@ -679,7 +679,7 @@ type ConfigValidity =
   | { ok: true }
   | { ok: false; message: string; issues?: ConfigIssue[] };
 
-/** Validate the migrated config. */
+/** Re-read migrated TOML and retain structured schema issues for the refusal. */
 async function validateMigratedConfig(
   configPath: string,
 ): Promise<ConfigValidity> {
@@ -773,7 +773,7 @@ async function stampSchema(
   await writeDiscernToml(configPath, editor.toString());
 }
 
-/** Return the operation to JSON. */
+/** Project a config reconciliation operation onto its public JSON fields. */
 function operationToJson(op: ConfigReconcileOperation): {
   kind: ConfigReconcileOperation["kind"];
   path: string;
@@ -781,7 +781,7 @@ function operationToJson(op: ConfigReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
-/** Return the gitignore operation to JSON. */
+/** Project a `.gitignore` reconciliation operation onto its public JSON fields. */
 function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
   kind: GitignoreReconcileOperation["kind"];
   path: string;
@@ -789,7 +789,7 @@ function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
-/** Return the gitattributes operation to JSON. */
+/** Project a `.gitattributes` reconciliation operation onto its public JSON fields. */
 function gitattributesOperationToJson(op: GitattributesReconcileOperation): {
   kind: GitattributesReconcileOperation["kind"];
   path: string;
@@ -797,7 +797,7 @@ function gitattributesOperationToJson(op: GitattributesReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
-/** Return the operation label. */
+/** Describe a config reconciliation operation for the human upgrade summary. */
 function operationLabel(op: ConfigReconcileOperation): string {
   switch (op.kind) {
     case "section":
@@ -811,14 +811,14 @@ function operationLabel(op: ConfigReconcileOperation): string {
   }
 }
 
-/** Return the gitignore operation label. */
+/** Describe a managed `.gitignore` block change for the human summary. */
 function gitignoreOperationLabel(op: GitignoreReconcileOperation): string {
   return op.kind === "create-block"
     ? "create .gitignore discern block"
     : "replace .gitignore discern block";
 }
 
-/** Return the gitattributes operation label. */
+/** Describe a managed `.gitattributes` block change for the human summary. */
 function gitattributesOperationLabel(
   op: GitattributesReconcileOperation,
 ): string {
@@ -846,7 +846,7 @@ function renderUntranslatedGitattributes(
   }
 }
 
-/** Return the reconcile config file. */
+/** Apply template reconciliation to config bytes when the template is available. */
 async function reconcileConfigFile(
   configPath: string,
 ): Promise<{

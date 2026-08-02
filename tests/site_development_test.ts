@@ -33,12 +33,12 @@ interface ConfigEntry {
 const ROOT = dirname(fromFileUrl(import.meta.url));
 const REPO = dirname(ROOT);
 
-/** Read the config. */
+/** Decode one root or workspace Deno configuration for development-policy checks. */
 async function readConfig(path: string): Promise<DenoConfig> {
   return JSON.parse(await Deno.readTextFile(path)) as DenoConfig;
 }
 
-/** Return the development configs. */
+/** Load the root config and every declared workspace member as labeled entries. */
 async function developmentConfigs(): Promise<ConfigEntry[]> {
   const rootPath = join(REPO, "deno.json");
   const root = await readConfig(rootPath);
@@ -53,7 +53,7 @@ async function developmentConfigs(): Promise<ConfigEntry[]> {
   return entries;
 }
 
-/** Return the unignored watched build output overlaps. */
+/** Report generated outputs nested under watched inputs unless explicitly ignored. */
 function unignoredWatchedBuildOutputOverlaps(
   inputs: readonly string[],
   outputs: readonly string[],
@@ -74,7 +74,7 @@ function unignoredWatchedBuildOutputOverlaps(
   });
 }
 
-/** Return the wildcard serve tasks. */
+/** Find development servers that bind beyond a loopback interface. */
 function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   const loopbackHost =
     /--host(?:=|\s+)(?:localhost|127\.0\.0\.1|::1|\[::1\])(?:\s|$)/;
@@ -89,7 +89,7 @@ function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   return offenders;
 }
 
-/** Return the site dev env masking offenders. */
+/** Find site-dev tasks allowed to override the production NODE_ENV contract. */
 function siteDevEnvMaskingOffenders(
   entries: readonly ConfigEntry[],
 ): string[] {

@@ -1071,7 +1071,7 @@ function renderSetupPaths(
     .replaceAll("{{diagnostic_formats}}", diagnosticFormatList());
 }
 
-/** Return the git top level. */
+/** Ask Git for the repository root around `start`, accepting non-repositories. */
 async function gitTopLevel(start: string): Promise<string | undefined> {
   const root = await runGit(["rev-parse", "--show-toplevel"], { cwd: start });
   if (!root.success) {

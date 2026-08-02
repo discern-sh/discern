@@ -44,7 +44,7 @@ function canonical(value: unknown): unknown {
   return value;
 }
 
-/** Return the deep equal. */
+/** Compare JSON-compatible values after recursively sorting object keys. */
 function deepEqual(a: unknown, b: unknown): boolean {
   return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 }

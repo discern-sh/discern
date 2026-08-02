@@ -583,19 +583,19 @@ export function atImportPointer(canonicalPath: string): string {
 
 // ── small JSON helpers (read-or-empty, write pretty) ────────────────────────
 
-/** Return whether the value is an object. */
+/** Narrow unknown configuration data to a non-null, non-array object. */
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
-/** Return the as string array. */
+/** Keep only string members from an unknown array-shaped setting. */
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v)
     ? v.filter((x): x is string => typeof x === "string")
     : [];
 }
 
-/** Parse the TOML object. */
+/** Parse optional TOML leniently for provider registration, falling back to empty. */
 function parseTomlObject(text: string | undefined): Record<string, unknown> {
   if (text === undefined || text.trim() === "") {
     return {};
@@ -608,7 +608,7 @@ function parseTomlObject(text: string | undefined): Record<string, unknown> {
   }
 }
 
-/** Return the object path. */
+/** Traverse nested configuration objects without throwing on a scalar segment. */
 function objectPath(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -623,7 +623,7 @@ function objectPath(
   return current;
 }
 
-/** Return the string array at. */
+/** Read a nested setting as a filtered string array. */
 function stringArrayAt(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -631,7 +631,7 @@ function stringArrayAt(
   return asStringArray(objectPath(root, path));
 }
 
-/** Return the string at. */
+/** Read a nested setting only when its terminal value is a string. */
 function stringAt(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -640,7 +640,7 @@ function stringAt(
   return typeof value === "string" ? value : undefined;
 }
 
-/** Return the append unique. */
+/** Append an integration entry without mutating or duplicating the existing array. */
 function appendUnique(base: readonly string[], addition: string): string[] {
   return base.includes(addition) ? [...base] : [...base, addition];
 }
@@ -947,7 +947,7 @@ function codexWritableWorktreeRoot(
   return relative(join(root, dirname(CODEX_CONFIG_FILE)), worktreeRoot);
 }
 
-/** Return the codex worktree placement base root. */
+/** Find the main checkout so Codex places sibling worktrees beside the repository. */
 async function codexWorktreePlacementBaseRoot(root: string): Promise<string> {
   const run = await runGit(["worktree", "list", "--porcelain"], { cwd: root });
   if (!run.success) {
@@ -1026,7 +1026,7 @@ async function registerCodexProjectConfig(
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };
 }
 
-/** Return whether write codex env script should happen. */
+/** Claim a Codex environment script key only while absent or still set to Discern's default. */
 function shouldWriteCodexEnvScript(
   current: string | undefined,
   discernOwned: string,

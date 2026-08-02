@@ -12,7 +12,7 @@ import { buildSearchIndex, type SearchSource } from "../site/search.ts";
 import { renderBrowserSearchModule } from "../src/lib/docs_search.ts";
 import { searchPages } from "../site/pages/assets/search.js";
 
-/** Return the entry. */
+/** Build a published document entry while varying only the search signals under test. */
 function entry(
   slug: string,
   overrides: Partial<DocEntry> = {},

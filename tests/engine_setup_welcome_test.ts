@@ -56,17 +56,17 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "Don't hand this back as a report",
 ];
 
-/** Strip the ANSI. */
+/** Remove terminal escape sequences so styled and plain welcome content can be compared. */
 function stripAnsi(text: string): string {
   return text.replace(ANSI_ESCAPES, "");
 }
 
-/** Assert the no ANSI. */
+/** Require machine and non-TTY setup output to remain free of terminal control sequences. */
 function assertNoAnsi(text: string, label: string): void {
   assert(!ANSI_ESCAPE.test(text), `${label} must not contain ANSI escapes`);
 }
 
-/** Assert the fresh welcome facts. */
+/** Require every canonical first-run fact on each setup welcome surface. */
 function assertFreshWelcomeFacts(text: string, label: string): void {
   for (const fact of FRESH_WELCOME_FACTS) {
     assertStringIncludes(text, fact, `${label} missing ${fact}`);

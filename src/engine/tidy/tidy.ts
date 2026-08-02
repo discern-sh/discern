@@ -115,7 +115,7 @@ class InvalidTidyTypeError extends Error {
   }
 }
 
-/** Return the selected types. */
+/** Resolve CLI format flags to the file kinds this tidy run owns. */
 function selectedTypes(type: string | undefined): readonly TidyType[] {
   if (type === undefined) {
     return TIDY_TYPES;
@@ -126,7 +126,7 @@ function selectedTypes(type: string | undefined): readonly TidyType[] {
   throw new InvalidTidyTypeError(type);
 }
 
-/** Return the display path. */
+/** Prefer a repository-relative path in diagnostics, falling back to absolute. */
 function displayPath(root: string, abs: string): string {
   const rel = relative(root, abs);
   if (rel === "") {
@@ -135,7 +135,7 @@ function displayPath(root: string, abs: string): string {
   return rel.startsWith("..") || isAbsolute(rel) ? abs : rel;
 }
 
-/** Return the stat or missing. */
+/** Read file metadata while representing a missing target without throwing. */
 async function statOrMissing(path: string): Promise<Deno.FileInfo | undefined> {
   try {
     return await Deno.stat(path);
@@ -147,13 +147,13 @@ async function statOrMissing(path: string): Promise<Deno.FileInfo | undefined> {
   }
 }
 
-/** Return whether the value is within. */
+/** Check whether a relative path stays inside a configured directory boundary. */
 function isWithin(path: string, directory: string): boolean {
   const rel = relative(directory, path);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
-/** Return the markdown targets. */
+/** Discover authored Markdown while excluding generated and private boundaries. */
 async function markdownTargets(root: string): Promise<string[]> {
   const config = await loadConfig(root);
   const map = resolveMapDir(root, config);
@@ -210,7 +210,7 @@ async function markdownTargets(root: string): Promise<string[]> {
   return [...targets].sort();
 }
 
-/** Format the target. */
+/** Format one target according to its kind and report whether bytes changed. */
 async function formatTarget(
   root: string,
   type: TidyType,
@@ -316,7 +316,7 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
   };
 }
 
-/** Return the tidy diagnostic. */
+/** Turn a formatter refusal into a source-located gate diagnostic. */
 function tidyDiagnostic(
   type: TidyType,
   display: string,
@@ -343,7 +343,7 @@ const TABLES_MESSAGE =
   'unchanged. A raw "|" separates table cells even inside a code span: ' +
   'escape each in-span pipe as "\\|" in the listed rows, then rerun.';
 
-/** Return the diagram diagnostic. */
+/** Convert one box-drawing geometry violation into a repairable diagnostic. */
 function diagramDiagnostic(finding: DiagramFinding): Diagnostic {
   return {
     tool: "tidy md",
@@ -377,7 +377,7 @@ function withDiagramFindings(
   };
 }
 
-/** Return the table diagnostic. */
+/** Convert one Markdown table-integrity violation into a repairable diagnostic. */
 function tableDiagnostic(finding: TableFinding): Diagnostic {
   return {
     tool: "tidy md",

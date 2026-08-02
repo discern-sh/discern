@@ -73,7 +73,7 @@ const TOKEN_PATTERN = /⟦discern-cmd:([^⟦⟧]*)⟧/g;
  * backtick, or a newline — each would corrupt the rendered prose. */
 const FORBIDDEN_PART = /[⟦⟧`\r\n]/;
 
-/** Assert the part. */
+/** Reject characters that would break a serialized command-reference token. */
 function assertPart(kind: string, value: string): void {
   if (FORBIDDEN_PART.test(value)) {
     throw new Error(
@@ -116,7 +116,7 @@ export function endOfFlags(): CommandRefArg {
   return { endOfFlags: true };
 }
 
-/** Build the reference. */
+/** Validate a live verb and serialize its ordered arguments into a branded token. */
 function buildReference(
   words: string,
   args: readonly CommandRefArg[],
@@ -240,7 +240,7 @@ export function renderMcpReference(
     : `\`${tool}\` (${params.join(", ")})`;
 }
 
-/** Parse the payload. */
+/** Decode a token payload and reject references missing their required structure. */
 function parsePayload(payload: string): CommandReference {
   const parsed = JSON.parse(payload) as CommandReference;
   if (typeof parsed.words !== "string" || !Array.isArray(parsed.args)) {

@@ -282,7 +282,7 @@ function emitDryRun(
   renderPlan(loggerSink(ctx.log), plan);
 }
 
-/** Apply the result title. */
+/** Choose the human result heading for each worktree lifecycle verb. */
 function applyResultTitle(verb: string): string {
   switch (verb) {
     case "start":
@@ -1568,7 +1568,7 @@ const ACCEPT_AWAITING_CONSENT_BASE =
   "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
   "or at the desk are checked automatically.";
 
-/** Return the accept awaiting consent message. */
+/** Combine uncovered paths and authority warnings into a no-effects consent refusal. */
 function acceptAwaitingConsentMessage(
   authority: LandingAuthorityResolution,
 ): string {
@@ -1633,7 +1633,7 @@ function landingConsentForApply(
   return { source: "conversation" };
 }
 
-/** Return the available landing consent. */
+/** Prefer recorded authority and fall back to an explicit conversation attestation. */
 function availableLandingConsent(
   authority: LandingAuthorityResolution,
   confirmed: boolean,
@@ -1644,7 +1644,7 @@ function availableLandingConsent(
   return confirmed ? { source: "conversation" } : undefined;
 }
 
-/** Return the fresh accept landing state. */
+/** Initialize every durable acceptance effect as not yet performed. */
 function freshAcceptLandingState(): AcceptLandingState {
   return {
     recovery_performed: false,
@@ -1654,14 +1654,14 @@ function freshAcceptLandingState(): AcceptLandingState {
   };
 }
 
-/** Return the clone landing state. */
+/** Snapshot acceptance effects before publishing them in a result envelope. */
 function cloneLandingState(
   landing: AcceptLandingState,
 ): AcceptLandingState {
   return { ...landing };
 }
 
-/** Return the clone landing consent. */
+/** Copy consent scopes before exposing them through acceptance result data. */
 function cloneLandingConsent(consent: LandingConsent): AcceptData["consent"] {
   return {
     source: consent.source,
@@ -1699,7 +1699,7 @@ interface AcceptExecutionProgress {
   readonly authorityWarnings: string[];
 }
 
-/** Return the fresh accept execution progress. */
+/** Initialize mutable acceptance progress with caller-supplied steps and scopes. */
 function freshAcceptExecutionProgress(
   steps: StepResult[] = [],
   scopesChanged: string[] = [],
@@ -1714,7 +1714,7 @@ function freshAcceptExecutionProgress(
   };
 }
 
-/** Return the partial acceptance result. */
+/** Publish the exact durable effects and recovery evidence after an interrupted acceptance. */
 function partialAcceptanceResult(
   root: string,
   consent: LandingConsent,
@@ -1760,7 +1760,7 @@ function partialAcceptanceResult(
   return result;
 }
 
-/** Throw the partial acceptance. */
+/** Stop acceptance with a structured partial-effects result instead of losing recovery state. */
 function throwPartialAcceptance(
   root: string,
   consent: LandingConsent,
@@ -1771,7 +1771,7 @@ function throwPartialAcceptance(
   throw new WorktreeResultError(message, result);
 }
 
-/** Return the recovery step. */
+/** Represent journal reconciliation as an ordinary acceptance step result. */
 function recoveryStep(outcome: StepOutcome): StepResult {
   return {
     step: {
@@ -1829,7 +1829,7 @@ function movedDuringAcceptanceRefusal(
     `${worktreePath}, then \`discern accept\` again.`;
 }
 
-/** Assert the accept branch still current. */
+/** Refuse removal when the gated branch fell behind or lost its configured trunk. */
 async function assertAcceptBranchStillCurrent(
   cwd: string,
   trunkBranch: string,
@@ -2745,7 +2745,7 @@ async function executeAcceptResult(
   }
 }
 
-/** Return the ignored file change detail. */
+/** Render bounded ignored-file drift evidence only when acceptance should surface it. */
 function ignoredFileChangeDetail(
   summary: AcceptPlan["ignoredFileChanges"],
 ): string | undefined {
@@ -2776,7 +2776,7 @@ export function remapWorktreeLocalTemplatesDir(
   return undefined;
 }
 
-/** Return the directory exists. */
+/** Treat missing, unreadable, and nondirectory paths as unavailable template roots. */
 async function directoryExists(path: string): Promise<boolean> {
   try {
     return (await Deno.stat(path)).isDirectory;
@@ -2785,7 +2785,7 @@ async function directoryExists(path: string): Promise<boolean> {
   }
 }
 
-/** Return the post landing refresh templates dir. */
+/** Remap worktree-local templates into the landed checkout when that directory exists. */
 async function postLandingRefreshTemplatesDir(
   worktreePath: string,
   mainRepo: string,
@@ -2806,7 +2806,7 @@ async function postLandingRefreshTemplatesDir(
     : undefined;
 }
 
-/** Compile the guidelines for landing refresh. */
+/** Temporarily bind remapped templates while compiling the landed checkout, then restore the environment. */
 async function compileGuidelinesForLandingRefresh(
   root: string,
   logger: Logger,

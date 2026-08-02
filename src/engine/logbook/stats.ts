@@ -61,7 +61,7 @@ interface SeriesSpan {
   daysPerPoint: number;
 }
 
-/** Return the series span. */
+/** Derive the inclusive date span and folding width for a bounded cadence series. */
 function seriesSpan(verbs: readonly VerbEvent[]): SeriesSpan | undefined {
   const first = verbs[0];
   const last = verbs[verbs.length - 1];
@@ -279,7 +279,7 @@ interface StandardTrack {
   readings: { at: string; value: number }[];
 }
 
-/** Return the standard tracks. */
+/** Collect oriented standard readings by name in event-stream order. */
 function standardTracks(facts: StreamFacts): StandardTrack[] {
   const byName = new Map<
     string,

@@ -44,13 +44,13 @@ export type SetupMachineryEvidenceRead =
   | { readonly status: "invalid" }
   | { readonly status: "unavailable" };
 
-/** Return whether the value is OID. */
+/** Accept SHA-1 and SHA-256 hexadecimal object IDs emitted by Git. */
 function isOid(value: unknown): value is string {
   return typeof value === "string" &&
     /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
 }
 
-/** Parse the evidence. */
+/** Validate persisted retry evidence and sort its unique stage-0 entries by path. */
 function parseEvidence(raw: string): SetupMachineryCommitEvidence | undefined {
   let value: unknown;
   try {
@@ -109,14 +109,14 @@ function parseEvidence(raw: string): SetupMachineryCommitEvidence | undefined {
   };
 }
 
-/** Return the current branch. */
+/** Read the attached branch name, rejecting detached or failed lookups. */
 async function currentBranch(root: string): Promise<string | undefined> {
   const result = await runGit(["branch", "--show-current"], { cwd: root });
   const branch = result.stdout.trim();
   return result.success && branch !== "" ? branch : undefined;
 }
 
-/** Return the current head. */
+/** Resolve HEAD while preserving the distinct unborn-branch state. */
 async function currentHead(
   root: string,
 ): Promise<string | null | undefined> {
@@ -130,14 +130,14 @@ async function currentHead(
   return result.code === 1 ? null : undefined;
 }
 
-/** Return the current index tree. */
+/** Materialize the current index as a tree object for whole-index comparison. */
 async function currentIndexTree(root: string): Promise<string | undefined> {
   const result = await runGit(["write-tree"], { cwd: root });
   const oid = result.stdout.trim();
   return result.success && isOid(oid) ? oid : undefined;
 }
 
-/** Return the staged paths. */
+/** List staged paths in stable order without rename interpretation. */
 async function stagedPaths(root: string): Promise<string[] | undefined> {
   const result = await runGit(
     ["diff", "--cached", "--name-only", "--no-renames", "-z", "--"],
@@ -146,7 +146,7 @@ async function stagedPaths(root: string): Promise<string[] | undefined> {
   return result.success ? splitNulRecords(result.stdout).sort() : undefined;
 }
 
-/** Parse the index entries. */
+/** Validate NUL-delimited stage-0 index records and reject duplicate paths. */
 function parseIndexEntries(
   stdout: string,
 ): SetupMachineryIndexEntry[] | undefined {
@@ -176,7 +176,7 @@ function parseIndexEntries(
   return entries;
 }
 
-/** Return the index entries. */
+/** Read the stage-0 mode and clean-filtered blob for each candidate path. */
 async function indexEntries(
   root: string,
   paths: readonly string[],
@@ -188,7 +188,7 @@ async function indexEntries(
   return result.success ? parseIndexEntries(result.stdout) : undefined;
 }
 
-/** Return the raw worktree OID. */
+/** Hash worktree bytes without clean filters for exact retry comparison. */
 async function rawWorktreeOid(
   root: string,
   path: string,
@@ -201,7 +201,7 @@ async function rawWorktreeOid(
   return result.success && isOid(oid) ? oid : undefined;
 }
 
-/** Return whether the strings values match. */
+/** Compare ordered path lists exactly so changed setup evidence cannot be attributed. */
 function sameStrings(
   left: readonly string[],
   right: readonly string[],
@@ -210,7 +210,7 @@ function sameStrings(
     left.every((value, index) => value === right[index]);
 }
 
-/** Return whether the entries values match. */
+/** Compare ordered setup evidence by path, mode, and object identity. */
 function sameEntries(
   left: readonly SetupMachineryIndexEntry[],
   right: readonly SetupMachineryEvidenceEntry[],
@@ -225,7 +225,7 @@ function sameEntries(
     });
 }
 
-/** Return the worktree matches. */
+/** Verify that every candidate still has the raw bytes captured before refusal. */
 async function worktreeMatches(
   root: string,
   entries: readonly SetupMachineryEvidenceEntry[],
@@ -238,7 +238,7 @@ async function worktreeMatches(
   return true;
 }
 
-/** Write the evidence. */
+/** Atomically replace repository-local retry evidence through a temporary sibling. */
 async function writeEvidence(
   root: string,
   evidence: SetupMachineryCommitEvidence,

@@ -35,7 +35,7 @@ import {
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
-/** Parse the JSON text. */
+/** Decode consent-gated lifecycle output for authority and no-effect assertions. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());

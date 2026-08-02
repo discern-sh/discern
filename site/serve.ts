@@ -85,7 +85,7 @@ export function wantsText(req: Request): boolean {
   return accept.includes("text/plain");
 }
 
-/** Serve the file. */
+/** Read a bundled file and respond with its inferred content type and cache policy. */
 async function serveFile(
   relPath: string,
   extraHeaders?: HeadersInit,
@@ -129,7 +129,7 @@ async function llmsFullTxt(site: DocsSite): Promise<Response> {
   });
 }
 
-/** Return the not found. */
+/** Negotiate a plain-text or HTML 404 from the request's text preference. */
 function notFound(asText: boolean): Response {
   if (asText) {
     return new Response(
@@ -180,7 +180,7 @@ export function liveHtmlRoutes(site: DocsSite): string[] {
   ];
 }
 
-/** Load the site routing. */
+/** Assemble live routes and validate every static and authored redirect against them. */
 async function loadSiteRouting(): Promise<SiteRouting> {
   const site = await loadDocsSite();
   const liveRoutes = liveHtmlRoutes(site);
@@ -195,7 +195,7 @@ async function loadSiteRouting(): Promise<SiteRouting> {
   return { site, liveRoutes, redirects };
 }
 
-/** Return the site routing. */
+/** Share one routing snapshot across requests for the process lifetime. */
 function siteRouting(): Promise<SiteRouting> {
   routingPromise ??= loadSiteRouting();
   return routingPromise;
@@ -221,7 +221,7 @@ function canonicalPathVariant(
   return addressable.has(value) ? value : original;
 }
 
-/** Return the redirect location. */
+/** Preserve the query while targeting the production canonical or self-hosted origin. */
 function redirectLocation(url: URL, path: string): string {
   const productionHost = url.hostname === "discern.sh" ||
     url.hostname === "www.discern.sh";
@@ -231,13 +231,13 @@ function redirectLocation(url: URL, path: string): string {
   return destination.href;
 }
 
-/** Return whether the value needs domain redirect. */
+/** Require HTTPS on the apex production host and remove the `www` alias. */
 function needsDomainRedirect(url: URL): boolean {
   return url.hostname === "www.discern.sh" ||
     (url.hostname === "discern.sh" && url.protocol !== "https:");
 }
 
-/** Return the permanent redirect. */
+/** Respond with a cacheable 308 and no body. */
 function permanentRedirect(location: string): Response {
   return new Response(null, {
     status: 308,
@@ -248,7 +248,7 @@ function permanentRedirect(location: string): Response {
   });
 }
 
-/** Return the route response. */
+/** Dispatch schemas, installer, docs, fixed pages, and declared assets. */
 async function routeResponse(
   req: Request,
   path: string,
@@ -311,7 +311,7 @@ async function routeResponse(
   return notFound(wantsText(req));
 }
 
-/** Finalize the response. */
+/** Add canonical and security headers, decorate HTML, and honor HEAD semantics. */
 async function finalizeResponse(
   response: Response,
   path: string,

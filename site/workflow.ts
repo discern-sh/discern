@@ -100,7 +100,7 @@ type DirectiveRenderer = (
   heading?: { readonly id: string; readonly html: string },
 ) => string;
 
-/** Return the component class. */
+/** Validate a workflow component ID before deriving its semantic CSS class. */
 function componentClass(
   component: string,
   element?: string,
@@ -117,7 +117,7 @@ function componentClass(
   });
 }
 
-/** Trim the blank lines. */
+/** Remove leading and trailing blank rows without disturbing internal spacing. */
 function trimBlankLines(lines: readonly string[]): string[] {
   let start = 0;
   let end = lines.length;
@@ -126,12 +126,12 @@ function trimBlankLines(lines: readonly string[]): string[] {
   return lines.slice(start, end);
 }
 
-/** Raise a failure. */
+/** Raise a workflow parse error that retains the originating documentation source. */
 function fail(source: string, message: string): never {
   throw new Error(`docs workflow: ${source}: ${message}`);
 }
 
-/** Return the bold field. */
+/** Parse a required `**Label:** value` field or raise a source-located error. */
 function boldField(
   line: string,
   source: string,
@@ -143,7 +143,7 @@ function boldField(
   return { label: match[1], value: match[2] };
 }
 
-/** Return the inline HTML. */
+/** Render one inline Markdown paragraph and reject block-level content. */
 function inlineHtml(
   markdown: string,
   options: MarkdownHtmlOptions,
@@ -160,7 +160,7 @@ function inlineHtml(
   return match[1];
 }
 
-/** Parse the procedure. */
+/** Validate a procedure's title, prerequisites, ordered steps, and completion. */
 function parseProcedure(body: string, source: string): ProcedureModel {
   const lines = trimBlankLines(body.split("\n"));
   const heading = /^##\s+(.+?)\s*$/.exec(lines[0] ?? "");
@@ -236,7 +236,7 @@ function parseProcedure(body: string, source: string): ProcedureModel {
   };
 }
 
-/** Parse the command. */
+/** Parse a shell fence with optional run context and required outcome guidance. */
 function parseCommand(body: string, source: string): CommandModel {
   const lines = trimBlankLines(body.split("\n"));
   const opening = lines.findIndex((line) =>
@@ -281,7 +281,7 @@ function parseCommand(body: string, source: string): CommandModel {
   };
 }
 
-/** Parse the result summary. */
+/** Require the 2-field failed fact and next action used by result summaries. */
 function parseResultSummary(body: string, source: string): ResultSummaryModel {
   const lines = trimBlankLines(body.split("\n")).filter((line) =>
     line.trim() !== ""
@@ -300,13 +300,13 @@ function parseResultSummary(body: string, source: string): ResultSummaryModel {
   return { fact: fact.value, nextAction: next.value };
 }
 
-/** Split the table row. */
+/** Split a simple authored Markdown table row into trimmed cells. */
 function splitTableRow(line: string): string[] {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   return trimmed.split("|").map((cell) => cell.trim());
 }
 
-/** Parse the artifact table. */
+/** Validate ownership-table columns, row widths, paths, and ownership terms. */
 function parseArtifactTable(body: string, source: string): ArtifactTableModel {
   const lines = trimBlankLines(
     body.split("\n").filter((line) => !line.trim().startsWith("<!--")),
@@ -347,7 +347,7 @@ function parseArtifactTable(body: string, source: string): ArtifactTableModel {
   return { headers, rows, pathColumn, ownershipColumn };
 }
 
-/** Parse the branch choice. */
+/** Parse a titled set of at least 2 labeled workflow routes. */
 function parseBranchChoice(body: string, source: string): BranchChoiceModel {
   const lines = trimBlankLines(body.split("\n")).filter((line) =>
     line.trim() !== ""
@@ -369,7 +369,7 @@ function parseBranchChoice(body: string, source: string): BranchChoiceModel {
   return { title, choices };
 }
 
-/** Render the procedure. */
+/** Render validated prerequisites, steps, and completion as accessible HTML. */
 function renderProcedure(
   model: ProcedureModel,
   options: MarkdownHtmlOptions,
@@ -437,7 +437,7 @@ function renderProcedure(
   </section>`;
 }
 
-/** Render the command. */
+/** Render a command panel with context, expected outcome, and failure guidance. */
 function renderCommand(
   model: CommandModel,
   options: MarkdownHtmlOptions,
@@ -481,7 +481,7 @@ function renderCommand(
   </figure>`;
 }
 
-/** Render the result summary. */
+/** Render a failed-state fact beside its required next action. */
 function renderResultSummary(
   model: ResultSummaryModel,
   options: MarkdownHtmlOptions,
@@ -502,7 +502,7 @@ function renderResultSummary(
   </article>`;
 }
 
-/** Split the path. */
+/** Separate a path's directory prefix from its final visible segment. */
 function splitPath(path: string): readonly [string, string] {
   const trailingSeparator = /[\\/]$/.test(path);
   const searchFrom = trailingSeparator ? path.length - 2 : path.length - 1;
@@ -515,7 +515,7 @@ function splitPath(path: string): readonly [string, string] {
     : [path.slice(0, separator + 1), path.slice(separator + 1)];
 }
 
-/** Return the path reference. */
+/** Render a full accessible path while visually emphasizing its final segment. */
 function pathReference(path: string): string {
   const [prefix, suffix] = splitPath(path);
   return `<span class="${componentClass("path-reference")}">
@@ -537,7 +537,7 @@ function pathReference(path: string): string {
   </span>`;
 }
 
-/** Return the ownership badge. */
+/** Render a normalized ownership term as a neutral semantic badge. */
 function ownershipBadge(value: string): string {
   const ownership = value.toLowerCase();
   return `<span class="${componentClass("badge")} ${
@@ -547,7 +547,7 @@ function ownershipBadge(value: string): string {
   }">${escapeHtml(value)}</span>`;
 }
 
-/** Render the artifact table. */
+/** Render ownership rows with semantic path references and badges. */
 function renderArtifactTable(
   model: ArtifactTableModel,
   options: MarkdownHtmlOptions,
@@ -571,7 +571,7 @@ function renderArtifactTable(
   return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-/** Render the branch choice. */
+/** Render labeled workflow alternatives as an accessible grouped list. */
 function renderBranchChoice(
   model: BranchChoiceModel,
   options: MarkdownHtmlOptions,
@@ -626,19 +626,19 @@ const RENDERERS = {
     renderBranchChoice(model as BranchChoiceModel, options),
 } as const satisfies Record<WorkflowDirectiveId, DirectiveRenderer>;
 
-/** Return the directive id. */
+/** Resolve authored directive text against the closed workflow registry. */
 function directiveId(value: string, source: string): WorkflowDirectiveId {
   const definition = WORKFLOW_DIRECTIVES.find((entry) => entry.id === value);
   if (definition === undefined) fail(source, `unknown directive ${value}`);
   return definition.id;
 }
 
-/** Return the placeholder. */
+/** Encode a projection ID in a fenced marker the Markdown renderer preserves. */
 function placeholder(id: string): string {
   return `\`\`\`${PLACEHOLDER_LANGUAGE}\n${id}\n\`\`\``;
 }
 
-/** Prepare the workflow markdown. */
+/** Parse directive blocks into models and replace them with stable placeholders. */
 function prepareWorkflowMarkdown(
   markdown: string,
   source: string,
@@ -687,12 +687,12 @@ function prepareWorkflowMarkdown(
   return { markdown: output.join("\n"), projections };
 }
 
-/** Return the placeholder HTML. */
+/** Find the exact HTML fence emitted for one projection placeholder. */
 function placeholderHtml(id: string): string {
   return `<pre><code class="language-${PLACEHOLDER_LANGUAGE}">${id}</code></pre>`;
 }
 
-/** Replace the procedure. */
+/** Replace one placeholder while carrying its reserved heading into the component. */
 function replaceProcedure(
   html: string,
   projection: PreparedProjection<ProjectionModel>,

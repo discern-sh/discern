@@ -10,7 +10,7 @@ import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { formatTomlText } from "../src/lib/tidy_format.ts";
 
-/** Return the rendered template. */
+/** Render the real template against a minimal project so reconciliation tests start from production output. */
 async function renderedTemplate(): Promise<string> {
   const template = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
@@ -23,7 +23,7 @@ async function renderedTemplate(): Promise<string> {
   return renderConfigTemplateForConfig(template, config);
 }
 
-/** Return the without section. */
+/** Remove one complete TOML section block without disturbing adjacent sections. */
 function withoutSection(text: string, section: string): string {
   const block = sectionBlockFromTemplate(text, section);
   assert(block !== undefined, `expected [${section}] in template`);
@@ -315,7 +315,7 @@ Deno.test("banner reconciliation leaves a current banner untouched", () => {
   assertEquals(result.text, config);
 });
 
-/** Return the future record member fixture. */
+/** Model a newly introduced record-table member with either current or stale managed documentation. */
 function futureRecordMemberFixture(
   family: (typeof RECORD_CONFIG_PATHS)[number],
   stale: boolean,

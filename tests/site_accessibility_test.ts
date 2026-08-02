@@ -21,14 +21,14 @@ interface AxeWindow extends Window {
   eval(source: string): unknown;
 }
 
-/** Return the requested value. */
+/** Serve a browser-negotiated route through the production handler for accessibility auditing. */
 function get(path: string): Promise<Response> {
   return handler(
     new Request(`https://discern.sh${path}`, { headers: BROWSER }),
   );
 }
 
-/** Return the serious axe findings. */
+/** Audit a served page and its opened search modal against WCAG, retaining serious and critical evidence. */
 async function seriousAxeFindings(path: string): Promise<string[]> {
   const response = await get(path);
   const dom = new JSDOM(await response.text(), {

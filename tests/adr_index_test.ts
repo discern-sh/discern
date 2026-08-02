@@ -27,7 +27,7 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const ADR_DIR = join(REPO_AUTHORED_PATHS.map, "_adr");
 
-/** Return the ADR records in. */
+/** Discover an ADR directory through the production map reader before deriving index records. */
 async function adrRecordsIn(dir: string): Promise<AdrRecord[]> {
   const tree = await discoverDocs({
     cwd: dir,
@@ -275,7 +275,7 @@ interface NumberedAdrPath {
   path: string;
 }
 
-/** Return the duplicate ADR number offenders. */
+/** Report every later path that reuses an ADR number together with its first owner. */
 function duplicateAdrNumberOffenders(
   records: readonly NumberedAdrPath[],
 ): string[] {

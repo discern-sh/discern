@@ -45,7 +45,7 @@ type JsonValue =
 
 type JsonObject = { [key: string]: JsonValue };
 
-/** Return whether the value is an object. */
+/** Narrow a JSON value to a non-null, non-array object. */
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -78,7 +78,7 @@ function generatedSchema(schema: z.ZodType, hoisted: JsonObject): JsonObject {
   return body;
 }
 
-/** Return the pascal case. */
+/** Turn camel-cased or punctuated contract IDs into PascalCase segments. */
 function pascalCase(id: string): string {
   const words = id
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -88,22 +88,22 @@ function pascalCase(id: string): string {
     .join("");
 }
 
-/** Return the type name. */
+/** Derive the exported CLI result type name for a registered contract. */
 function typeName(contract: ResultContract): string {
   return `Discern${pascalCase(contract.id)}Result`;
 }
 
-/** Return the MCP type name. */
+/** Derive the exported MCP wrapper type name for a registered contract. */
 function mcpTypeName(contract: ResultContract): string {
   return `Discern${pascalCase(contract.id)}McpToolResult`;
 }
 
-/** Return the ref for. */
+/** Point a JSON Schema reference at a named root definition. */
 function refFor(name: string): JsonObject {
   return { $ref: `#/$defs/${name}` };
 }
 
-/** Return the MCP tool result schema. */
+/** Describe the MCP text-content envelope around a structured result contract. */
 function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   return {
     type: "object",
@@ -128,20 +128,20 @@ function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   };
 }
 
-/** Return the public schema. */
+/** Relax a strict runtime schema to the additive compatibility policy we publish. */
 function publicSchema(schema: JsonObject): JsonObject {
   const rewritten = rewritePublicOutput(schema);
   return isObject(rewritten) ? rewritten : schema;
 }
 
-/** Return whether the value is error slug enum. */
+/** Recognize the runtime's closed error-slug enum by ordered canonical membership. */
 function isErrorSlugEnum(value: JsonObject): boolean {
   return Array.isArray(value.enum) &&
     value.enum.length === ERROR_SLUGS.length &&
     value.enum.every((member, index) => member === ERROR_SLUGS[index]);
 }
 
-/** Return the rewrite public output. */
+/** Recursively permit additive fields and future error slugs in public output. */
 function rewritePublicOutput(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(rewritePublicOutput);
@@ -163,7 +163,7 @@ function rewritePublicOutput(value: JsonValue): JsonValue {
   return out;
 }
 
-/** Return the CLI union schema. */
+/** Describe every CLI result as a verb-discriminated union of contract definitions. */
 function cliUnionSchema(): JsonObject {
   return {
     title: "DiscernCliJsonResult",
@@ -184,7 +184,7 @@ function cliUnionSchema(): JsonObject {
   };
 }
 
-/** Return the MCP union schema. */
+/** Describe every MCP result wrapper as a union of registered tool contracts. */
 function mcpUnionSchema(): JsonObject {
   return {
     title: "DiscernMcpJsonResult",
@@ -209,7 +209,7 @@ function placeHoistedDefs(defs: JsonObject, hoisted: JsonObject): void {
   }
 }
 
-/** Build the result JSON schema. */
+/** Compile the result registry into the published draft-2020-12 schema document. */
 export function buildResultJsonSchema(): JsonObject {
   const defs: JsonObject = {};
   const hoisted: JsonObject = {};
@@ -258,7 +258,7 @@ export function buildResultJsonSchema(): JsonObject {
   }) as JsonObject;
 }
 
-/** Render the result JSON schema. */
+/** Serialize the published result schema with stable indentation and a final newline. */
 export function renderResultJsonSchema(): string {
   return `${JSON.stringify(buildResultJsonSchema(), null, 2)}\n`;
 }
@@ -322,17 +322,17 @@ export function buildProofNoteJsonSchema(): JsonObject {
   }) as JsonObject;
 }
 
-/** Render the proof note JSON schema. */
+/** Serialize the proof-envelope schema with stable indentation and a final newline. */
 export function renderProofNoteJsonSchema(): string {
   return `${JSON.stringify(buildProofNoteJsonSchema(), null, 2)}\n`;
 }
 
-/** Return the literal. */
+/** Serialize a JSON value into the equivalent TypeScript literal spelling. */
 function literal(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
-/** Return the ref type name. */
+/** Convert a local `$defs` reference into its generated type name. */
 function refTypeName(ref: string): string {
   const prefix = "#/$defs/";
   if (!ref.startsWith(prefix)) {
@@ -341,12 +341,12 @@ function refTypeName(ref: string): string {
   return ref.slice(prefix.length);
 }
 
-/** Return the property name. */
+/** Emit a bare TypeScript property identifier when safe, otherwise a string literal. */
 function propertyName(name: string): string {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : literal(name);
 }
 
-/** Return the union. */
+/** Deduplicate union members and handle the empty and singleton cases. */
 function union(parts: string[]): string {
   const unique = [...new Set(parts)];
   if (unique.length === 0) {
@@ -358,7 +358,7 @@ function union(parts: string[]): string {
   return unique.join(" | ");
 }
 
-/** Return the union parts. */
+/** Split a one-line union when it can be wrapped member by member. */
 function unionParts(type: string): string[] | undefined {
   if (type.includes("\n") || !type.includes(" | ")) {
     return undefined;
@@ -366,7 +366,7 @@ function unionParts(type: string): string[] | undefined {
   return type.split(" | ");
 }
 
-/** Render the property. */
+/** Format one object property, wrapping long unions beneath its declaration. */
 function renderProperty(
   name: string,
   optional: string,
@@ -387,7 +387,7 @@ function renderProperty(
   return `${prefix}${type};`;
 }
 
-/** Return the type from type keyword. */
+/** Translate JSON Schema primitive type keywords into TypeScript primitives. */
 function typeFromTypeKeyword(type: JsonValue): string | undefined {
   if (typeof type === "string") {
     switch (type) {
@@ -414,7 +414,7 @@ function typeFromTypeKeyword(type: JsonValue): string | undefined {
   return undefined;
 }
 
-/** Return the object type. */
+/** Render declared properties and an optional index signature as an object type. */
 function objectType(schema: JsonObject, level: number): string {
   const props = isObject(schema.properties) ? schema.properties : {};
   const required = new Set(
@@ -448,7 +448,7 @@ function objectType(schema: JsonObject, level: number): string {
   return lines.join("\n");
 }
 
-/** Return the schema to type. */
+/** Recursively translate the supported JSON Schema vocabulary into TypeScript. */
 function schemaToType(schema: JsonObject, level = 0): string {
   if (typeof schema.$ref === "string") {
     return refTypeName(schema.$ref);
@@ -493,7 +493,7 @@ function schemaToType(schema: JsonObject, level = 0): string {
   return "unknown";
 }
 
-/** Map the interface. */
+/** Render an interface whose rows map literal keys to generated result types. */
 function mapInterface(
   name: string,
   rows: Array<[string, string]>,
@@ -505,7 +505,7 @@ function mapInterface(
   ].join("\n");
 }
 
-/** Render the union type alias. */
+/** Keep a union alias on one line when it fits, or put each member on its own line. */
 function renderUnionTypeAlias(name: string, parts: string[]): string {
   const type = union(parts);
   const line = `export type ${name} = ${type};`;
@@ -520,7 +520,7 @@ function renderUnionTypeAlias(name: string, parts: string[]): string {
   ].join("\n");
 }
 
-/** Render the generic type alias. */
+/** Wrap a generic alias's inner type when the declaration exceeds the width budget. */
 function renderGenericTypeAlias(
   name: string,
   genericName: string,
@@ -533,7 +533,7 @@ function renderGenericTypeAlias(
   return `export type ${name} = ${genericName}<\n  ${innerType}\n>;`;
 }
 
-/** Render the result types dts. */
+/** Generate the complete public declaration file from the result contract registry. */
 export function renderResultTypesDts(): string {
   const schema = buildResultJsonSchema();
   const defs = isObject(schema.$defs) ? schema.$defs : {};

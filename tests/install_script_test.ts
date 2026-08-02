@@ -19,12 +19,12 @@ interface InstallRun {
   target: string;
 }
 
-/** Quote a value for the shell. */
+/** Single-quote fixture paths safely for generated POSIX shell wrappers. */
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
-/** Return the command path. */
+/** Resolve a required host utility and fail with its missing command name. */
 async function commandPath(command: string): Promise<string> {
   const result = await new Deno.Command("which", {
     args: [command],
@@ -37,14 +37,14 @@ async function commandPath(command: string): Promise<string> {
   return DECODER.decode(result.stdout).trim();
 }
 
-/** Return the release asset. */
+/** Derive the binary asset name for the test host's supported architecture and OS. */
 function releaseAsset(): string {
   const arch = Deno.build.arch === "x86_64" ? "x86_64" : "aarch64";
   const os = Deno.build.os === "darwin" ? "apple-darwin" : "unknown-linux-gnu";
   return `discern-${arch}-${os}`;
 }
 
-/** Return the SHA-256. */
+/** Hash the local release fixture exactly as the installer checksum manifest does. */
 async function sha256(path: string): Promise<string> {
   const digest = new Uint8Array(
     await crypto.subtle.digest("SHA-256", await Deno.readFile(path)),
@@ -53,19 +53,19 @@ async function sha256(path: string): Promise<string> {
     .join("");
 }
 
-/** Return the registered downloaders. */
+/** Read the installer's canonical downloader list from its shell registry. */
 function registeredDownloaders(): string[] {
   const match = installSource.match(/^DOWNLOADERS="([^"]+)"$/m);
   assert(match !== null, "install.sh declares its downloader registry");
   return match[1]?.split(/\s+/).filter(Boolean) ?? [];
 }
 
-/** Return the link tool. */
+/** Expose one real host utility inside the installer's deliberately minimal PATH. */
 async function linkTool(dir: string, command: string): Promise<void> {
   await Deno.symlink(await commandPath(command), join(dir, command));
 }
 
-/** Return the run installer. */
+/** Execute the installer against a local release fixture with controlled downloader, checksum, and PATH conditions. */
 async function runInstaller(
   downloader: string,
   options: { badChecksum?: boolean; binOnPath?: boolean } = {},

@@ -62,7 +62,7 @@ export interface SupervisedRun<T> {
   readonly interruptedBy: Deno.Signal | null;
 }
 
-/** Signal the direct child. */
+/** Forward cancellation to the spawned process while tolerating an exited child. */
 function signalDirectChild(
   child: Deno.ChildProcess,
   signal: Deno.Signal,

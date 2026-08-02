@@ -35,7 +35,7 @@ interface TipCoverageFixture {
   readonly absences: Readonly<Record<string, string>>;
 }
 
-/** Return the coverage offenders. */
+/** Report every feature and known verb that is neither taught by a tip nor deliberately absent. */
 function coverageOffenders(fixture: TipCoverageFixture): string[] {
   const nodes = allFeatureNodes(fixture.tree);
   const nodesById = new Map(nodes.map(({ node }) => [node.id, node]));
@@ -76,7 +76,7 @@ function coverageOffenders(fixture: TipCoverageFixture): string[] {
   return offenders;
 }
 
-/** Return the live fixture. */
+/** Bind the guard to the production feature tree, verb registry, tip registry, and absence ledger. */
 function liveFixture(): TipCoverageFixture {
   return {
     tree: FEATURE_CANON,

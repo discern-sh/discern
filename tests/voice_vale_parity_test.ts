@@ -89,7 +89,7 @@ async function stylePatterns(): Promise<{ file: string; pattern: string }[]> {
   return patterns;
 }
 
-/** Unquote the requested operation. */
+/** Strip balanced YAML scalar quotes before compiling Vale vocabulary patterns in JavaScript. */
 function unquote(s: string): string {
   const t = s.trim();
   return (t.startsWith("'") && t.endsWith("'")) ||

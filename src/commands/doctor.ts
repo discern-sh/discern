@@ -128,7 +128,7 @@ function checkStatus(check: DraftCheck): Check["status"] {
   return check.status ?? (!check.ok ? "fail" : check.warn ? "warn" : "ok");
 }
 
-/** Normalize the check. */
+/** Derive status and legacy compatibility fields for one doctor diagnostic. */
 function normalizeCheck(check: DraftCheck): Check {
   const status = checkStatus(check);
   return {
@@ -141,7 +141,7 @@ function normalizeCheck(check: DraftCheck): Check {
   };
 }
 
-/** Normalize the checks. */
+/** Finalize every draft diagnostic before it enters the result envelope. */
 function normalizeChecks(checks: DraftCheck[]): Check[] {
   return checks.map(normalizeCheck);
 }
@@ -237,7 +237,7 @@ interface GeneratedFileInventory {
   readonly untrackedOrIgnored: readonly string[];
 }
 
-/** Return the generated file inventory. */
+/** Ask Git for tracked, untracked, and ignored paths used by declaration checks. */
 async function generatedFileInventory(
   root: string,
 ): Promise<GeneratedFileInventory | undefined> {
@@ -277,7 +277,7 @@ function generatedGroupMatchesPath(
   return generatedGroupForPath([group], path) !== undefined;
 }
 
-/** Return the generated field. */
+/** Name a generated-group field in the spelling used by repair diagnostics. */
 function generatedField(
   group: ResolvedGeneratedGroup,
   field: "paths" | "run",

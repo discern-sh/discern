@@ -431,7 +431,7 @@ function liftData(data: unknown): LiftedData {
   return lifted;
 }
 
-/** Return the landing changed. */
+/** Detect any recorded acceptance effect that makes a failed result partial. */
 function landingChanged(
   landing: VerbEvent["landing"] | undefined,
 ): boolean {

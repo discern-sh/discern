@@ -232,7 +232,7 @@ function tokensOf(source: string): Token[] {
   return tokens;
 }
 
-/** Return the previous direct. */
+/** Find the nearest preceding token that shares the requested syntactic parent. */
 function previousDirect(
   tokens: readonly Token[],
   before: number,
@@ -244,7 +244,7 @@ function previousDirect(
   return undefined;
 }
 
-/** Return the property before. */
+/** Recover an object-literal property name immediately preceding a value token. */
 function propertyBefore(
   tokens: readonly Token[],
   valueIndex: number,
@@ -257,7 +257,7 @@ function propertyBefore(
   return token?.kind === "identifier" ? token.text : undefined;
 }
 
-/** Return the assignment targets hints. */
+/** Recognize assignments whose left side is the hints binding or its property. */
 function assignmentTargetsHints(
   tokens: readonly Token[],
   operator: number,
@@ -284,7 +284,7 @@ function assignmentTargetsHints(
   return last !== undefined && tokens[last]?.text === "hints";
 }
 
-/** Return the array targets hints. */
+/** Prove an array literal initializes a hints property or binding in its container. */
 function arrayTargetsHints(
   tokens: readonly Token[],
   open: number,
@@ -305,7 +305,7 @@ function arrayTargetsHints(
   return false;
 }
 
-/** Return the call pushes hints. */
+/** Recognize push calls whose receiver is the enrolled hints accumulator. */
 function callPushesHints(
   tokens: readonly Token[],
   open: number,
@@ -319,7 +319,7 @@ function callPushesHints(
   return receiver !== undefined && tokens[receiver]?.text === "hints";
 }
 
-/** Return the object has fired hint fields. */
+/** Detect object literals that record both a fired hint identifier and its values. */
 function objectHasFiredHintFields(
   tokens: readonly Token[],
   open: number,

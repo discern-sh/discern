@@ -99,19 +99,19 @@ interface FakeOptions {
   version?: string;
 }
 
-/** Quote a value for the shell. */
+/** Single-quote fixture paths safely for generated POSIX shell commands. */
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
-/** Truncate the after marker. */
+/** Model a release artifact cut off immediately after a required integrity marker. */
 function truncateAfterMarker(text: string, marker: string): string {
   const markerIndex = text.indexOf(marker);
   assert(markerIndex >= 0, `fixture text is missing ${marker}`);
   return text.slice(0, markerIndex + marker.length);
 }
 
-/** Write the fake discern. */
+/** Create an executable release binary fixture with controlled version, docs, and legal metadata. */
 async function writeFakeDiscern(
   dir: string,
   options: FakeOptions = {},

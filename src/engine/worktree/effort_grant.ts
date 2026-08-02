@@ -21,12 +21,12 @@ export type EffortGrantRead =
   | { readonly status: "invalid"; readonly reason: string }
   | { readonly status: "unavailable"; readonly reason: string };
 
-/** Return the effort grant failure reason. */
+/** Preserve an Error message while giving non-Error failures stable text. */
 export function effortGrantFailureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Parse the effort grant. */
+/** Validate the persisted branch-bound grant and its ISO-8601 grant time. */
 export function parseEffortGrant(raw: string): EffortGrantRead {
   let value: unknown;
   try {

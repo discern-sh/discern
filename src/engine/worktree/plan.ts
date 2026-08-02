@@ -164,7 +164,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   };
 }
 
-/** Return the ignored file details. */
+/** Render bounded ignored-file drift evidence for an acceptance plan. */
 function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
   if (summary.status !== "changed" || summary.changed_total === 0) {
     return [];
@@ -465,7 +465,7 @@ export interface PrunePlan {
   reclaimContained: boolean;
 }
 
-/** Prune the branches to delete. */
+/** Combine branches released by worktree removal with independently stale branches. */
 function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
   return [
     ...scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== ""),

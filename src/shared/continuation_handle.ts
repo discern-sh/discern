@@ -18,7 +18,7 @@ export const CONTINUATION_HANDLE_PATTERN =
 /** Test seam for deterministic collision and checksum coverage. */
 export type ContinuationRandomBytes = (length: number) => Uint8Array;
 
-/** Return the checksum. */
+/** Fold Crockford symbols into the 2-symbol substitution-and-transposition check. */
 function checksum(data: string): number {
   let value = 0;
   for (const symbol of data) {
@@ -31,14 +31,14 @@ function checksum(data: string): number {
   return value;
 }
 
-/** Encode the checksum. */
+/** Encode the bounded numeric check as 2 Crockford Base32 symbols. */
 function encodeChecksum(value: number): string {
   return `${CROCKFORD_BASE32[Math.floor(value / 32)] ?? ""}${
     CROCKFORD_BASE32[value % 32] ?? ""
   }`;
 }
 
-/** Return the system random bytes. */
+/** Fill a byte array from the platform cryptographic random source. */
 function systemRandomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));
 }

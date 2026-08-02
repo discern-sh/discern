@@ -29,7 +29,7 @@ export interface GeneratedBuildDrift {
   readonly candidates: readonly ResolvedGeneratedGroup[];
 }
 
-/** Hash the bytes. */
+/** Compute a lowercase SHA-256 digest for generated-file comparison. */
 async function hashBytes(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -40,7 +40,7 @@ async function hashBytes(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
-/** Return the fingerprint. */
+/** Classify a path and fingerprint file bytes or symlink destinations. */
 async function fingerprint(root: string, path: string): Promise<string> {
   const absolute = join(root, path);
   let stat: Deno.FileInfo;
@@ -66,7 +66,7 @@ async function fingerprint(root: string, path: string): Promise<string> {
   return "other";
 }
 
-/** Return the fingerprint entries. */
+/** Capture path-fingerprint pairs concurrently while retaining input order. */
 async function fingerprintEntries(
   root: string,
   paths: readonly string[],
@@ -76,7 +76,7 @@ async function fingerprintEntries(
   );
 }
 
-/** Return the paths from status. */
+/** Decode porcelain status, include rename sources, and remove the repository prefix. */
 function pathsFromStatus(stdout: string, prefix: string): string[] {
   const paths: string[] = [];
   for (const entry of parsePorcelainZ(stdout)) {
@@ -88,7 +88,7 @@ function pathsFromStatus(stdout: string, prefix: string): string[] {
   return [...new Set(stripRepoPathPrefix(paths, prefix))];
 }
 
-/** Return whether the value matches group. */
+/** Check a path against every declared glob owned by a generated group. */
 function matchesGroup(path: string, group: ResolvedGeneratedGroup): boolean {
   return group.paths.some((pattern) => pathMatchesPattern(path, pattern));
 }
@@ -144,7 +144,7 @@ export async function captureGeneratedBuildSnapshot(
   };
 }
 
-/** Return the changed artifact paths. */
+/** Find sorted paths whose generated fingerprints differ across build boundaries. */
 function changedArtifactPaths(
   before: ReadonlyMap<string, string>,
   after: ReadonlyMap<string, string>,
@@ -173,13 +173,13 @@ export function generatedBuildDrift(
   return { groups: attributed, unownedPaths, candidates: groups };
 }
 
-/** Return the bounded paths. */
+/** Keep a diagnostic's inline path sample to 10 entries and count the remainder. */
 function boundedPaths(paths: readonly string[]): string {
   const shown = paths.slice(0, 10).join(", ");
   return paths.length > 10 ? `${shown}, … (+${paths.length - 10} more)` : shown;
 }
 
-/** Group the drift diagnostic. */
+/** Explain which declared outputs a green generator left stale and how to reproduce it. */
 async function groupDriftDiagnostic(
   drift: GeneratedGroupDrift,
 ): Promise<Diagnostic> {
@@ -203,7 +203,7 @@ async function groupDriftDiagnostic(
   };
 }
 
-/** Return the undercoverage diagnostic. */
+/** Report build outputs that no generated-group declaration owns. */
 async function undercoverageDiagnostic(
   drift: GeneratedBuildDrift,
 ): Promise<Diagnostic> {

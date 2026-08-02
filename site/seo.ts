@@ -69,7 +69,7 @@ export function boundedDescription(title: string, description: string): string {
   return `${value.slice(0, wordEnd).replace(/[,:;\s]+$/, "")}…`;
 }
 
-/** Return the HTML escape. */
+/** Escape text for safe insertion into HTML attributes and element content. */
 function htmlEscape(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -78,7 +78,7 @@ function htmlEscape(value: string): string {
     .replaceAll('"', "&quot;");
 }
 
-/** Decode the HTML text. */
+/** Decode the entity spellings that appear in generated title and meta tags. */
 function decodeHtmlText(value: string): string {
   return value
     .replaceAll("&amp;", "&")
@@ -88,7 +88,7 @@ function decodeHtmlText(value: string): string {
     .replaceAll("&#39;", "'");
 }
 
-/** Return the requested attribute. */
+/** Extract a quoted HTML attribute from one already-selected tag. */
 function attr(tag: string, name: string): string | undefined {
   const match = tag.match(
     new RegExp(`\\b${name}\\s*=\\s*(["'])(.*?)\\1`, "i"),
@@ -96,7 +96,7 @@ function attr(tag: string, name: string): string | undefined {
   return match?.[2];
 }
 
-/** Return the page title. */
+/** Extract and normalize the document's title element. */
 function pageTitle(html: string): string | undefined {
   const value = /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1];
   return value === undefined
@@ -104,7 +104,7 @@ function pageTitle(html: string): string | undefined {
     : decodeHtmlText(value.replace(/\s+/g, " ").trim());
 }
 
-/** Return the page description. */
+/** Extract the decoded content of the document's description meta tag. */
 function pageDescription(html: string): string | undefined {
   for (const match of html.matchAll(/<meta\s+[^>]*>/gi)) {
     const tag = match[0];
@@ -116,23 +116,23 @@ function pageDescription(html: string): string | undefined {
   return undefined;
 }
 
-/** Return the JSON for HTML. */
+/** Serialize JSON-LD while escaping characters that could terminate its script tag. */
 function jsonForHtml(value: unknown): string {
   return JSON.stringify(value).replaceAll("<", "\\u003c");
 }
 
-/** Return the route label. */
+/** Turn a route segment into the human label used by breadcrumb data. */
 function routeLabel(segment: string): string {
   if (segment === "docs") return "Documentation";
   return segment.replaceAll("-", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** Return the breadcrumb title. */
+/** Remove the site suffix from a document title for its breadcrumb label. */
 function breadcrumbTitle(title: string): string {
   return title.replace(/ · discern\.sh docs$/, "");
 }
 
-/** Return the structured data. */
+/** Build route-specific Schema.org data for the page and its breadcrumbs. */
 function structuredData(
   route: string,
   title: string,
@@ -180,7 +180,7 @@ function structuredData(
   };
 }
 
-/** Return the metadata markup. */
+/** Render canonical, social, and JSON-LD metadata for a completed HTML page. */
 function metadataMarkup(
   route: string,
   title: string,
@@ -301,7 +301,7 @@ export function responseNonce(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-/** Return the markdown route. */
+/** Derive the pristine Markdown edition beside a canonical HTML route. */
 function markdownRoute(route: string): string {
   return `${route}.md`;
 }
@@ -401,7 +401,7 @@ export function sitemapXml(routes: readonly string[]): string {
     `\n</urlset>\n`;
 }
 
-/** Return the robots txt. */
+/** Publish crawler access and the canonical sitemap location. */
 export function robotsTxt(): string {
   return `User-agent: *\nAllow: /\nSitemap: ${canonicalUrl("/sitemap.xml")}\n`;
 }

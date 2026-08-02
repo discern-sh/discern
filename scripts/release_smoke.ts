@@ -13,12 +13,12 @@ interface CommandOutput {
   stdout: string;
 }
 
-/** Return whether the value is a record. */
+/** Narrow decoded JSON to a non-null, non-array record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Run the requested operation. */
+/** Run a release probe without color, capturing both streams and throwing with full failure evidence. */
 async function run(
   command: string,
   args: string[],
@@ -43,7 +43,7 @@ async function run(
   return { stdout, stderr };
 }
 
-/** Return the result envelope. */
+/** Parse a binary's JSON stdout and require a green result envelope. */
 function resultEnvelope(
   stdout: string,
   label: string,
@@ -62,7 +62,7 @@ function resultEnvelope(
   return value;
 }
 
-/** Assert the bundled docs. */
+/** Require the compiled docs result to include the manual's root page. */
 function assertBundledDocs(envelope: Record<string, unknown>): void {
   const data = envelope.data;
   if (!isRecord(data) || !Array.isArray(data.docs)) {
@@ -76,7 +76,7 @@ function assertBundledDocs(envelope: Record<string, unknown>): void {
   }
 }
 
-/** Assert the bundled first party licenses. */
+/** Byte-match every embedded first-party legal document to its repository source. */
 async function assertBundledFirstPartyLicenses(
   envelope: Record<string, unknown>,
 ): Promise<void> {
@@ -130,7 +130,7 @@ async function assertBundledFirstPartyLicenses(
   }
 }
 
-/** Assert the bundled third party notices. */
+/** Require human license output to contain the complete committed notices document. */
 async function assertBundledThirdPartyNotices(output: string): Promise<void> {
   const notices = await Deno.readTextFile(
     join(REPO_ROOT, "THIRD_PARTY_NOTICES"),
@@ -261,7 +261,7 @@ export async function smokeReleaseBinary(
   }
 }
 
-/** Run this module's main operation. */
+/** Smoke-test the requested binary and version before reporting the artifact as releasable. */
 async function main(): Promise<void> {
   const binary = Deno.args[0];
   const expectedVersion = Deno.args[1];

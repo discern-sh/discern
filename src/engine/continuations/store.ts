@@ -57,12 +57,12 @@ interface LiveEntry {
   readonly mtime: number;
 }
 
-/** Record the path. */
+/** Place one opaque continuation handle inside the repository-local store. */
 function recordPath(directory: string, handle: string): string {
   return join(directory, `${handle}${RECORD_SUFFIX}`);
 }
 
-/** Write every value. */
+/** Advance through partial filesystem writes until the entire continuation record is persisted. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -70,7 +70,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
-/** Serialize the record. */
+/** Encode a bounded continuation record as compact JSON with a final newline. */
 function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   let json: string;
   try {
@@ -82,7 +82,7 @@ function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   return bytes.length <= CONTINUATION_RECORD_MAX_BYTES ? bytes : undefined;
 }
 
-/** Parse the record. */
+/** Validate a stored record's version, kind, and payload structure. */
 function parseRecord(text: string): ContinuationRecord | undefined {
   let parsed: unknown;
   try {
@@ -114,7 +114,7 @@ function parseRecord(text: string): ContinuationRecord | undefined {
   };
 }
 
-/** Read the record. */
+/** Reject non-files and records outside the store's byte limit before parsing. */
 async function readRecord(
   path: string,
 ): Promise<ContinuationRecord | undefined> {
@@ -127,7 +127,7 @@ async function readRecord(
   return parseRecord(await Deno.readTextFile(path));
 }
 
-/** Return the with store lock. */
+/** Serialize store mutations through an exclusive repository-local lock file. */
 async function withStoreLock<T>(
   root: string,
   run: (directory: string) => Promise<T>,
@@ -154,7 +154,7 @@ async function withStoreLock<T>(
   }
 }
 
-/** Remove the if expired. */
+/** Delete a record only when its filesystem age exceeds the configured TTL. */
 async function removeIfExpired(
   path: string,
   now: number,
@@ -175,7 +175,7 @@ async function removeIfExpired(
   }
 }
 
-/** Prune the for create. */
+/** Reap expired records and evict the oldest before allocating another. */
 async function pruneForCreate(
   directory: string,
   now: number,
@@ -234,7 +234,7 @@ async function pruneForCreate(
   }
 }
 
-/** Replace the record. */
+/** Atomically replace a continuation through a uniquely named temporary sibling. */
 async function replaceRecord(
   directory: string,
   handle: string,
@@ -262,7 +262,7 @@ async function replaceRecord(
   }
 }
 
-/** Create the record. */
+/** Allocate a collision-checked handle and persist its bytes with create-new semantics. */
 async function createRecord(
   directory: string,
   bytes: Uint8Array,

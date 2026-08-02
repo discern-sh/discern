@@ -57,7 +57,7 @@ function termVariants(term: string): string[] {
     .filter((v) => v.length > 0);
 }
 
-/** Escape text for a regular expression. */
+/** Quote glossary term text before composing plural-aware reference patterns. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

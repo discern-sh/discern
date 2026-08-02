@@ -92,7 +92,7 @@ function hasUnclosedSpan(cell: string): boolean {
   return false;
 }
 
-/** Check the row. */
+/** Report overflow cells and code spans torn apart by unescaped pipes. */
 function checkRow(
   line: string,
   lineNo: number,

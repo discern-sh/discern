@@ -403,12 +403,12 @@ Deno.test("MCP tools use the same schemas as the public result registry", () => 
   }
 });
 
-/** Return whether the value is a record. */
+/** Narrow generated schema data to a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Return the refs from one of. */
+/** Require a discriminated union to consist exclusively of schema references. */
 function refsFromOneOf(schema: Record<string, unknown>): string[] {
   assert(Array.isArray(schema.oneOf), "schema should carry oneOf");
   return schema.oneOf.map((entry) => {
@@ -418,7 +418,7 @@ function refsFromOneOf(schema: Record<string, unknown>): string[] {
   });
 }
 
-/** Collect the closed output markers. */
+/** Walk a schema and record every node that closes unknown output properties. */
 function collectClosedOutputMarkers(
   value: unknown,
   path: string,
@@ -441,7 +441,7 @@ function collectClosedOutputMarkers(
   }
 }
 
-/** Return the pascal case. */
+/** Convert mixed identifier separators into the exported type-name form used by codegen. */
 function pascalCase(id: string): string {
   const words = id
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")

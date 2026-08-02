@@ -45,7 +45,7 @@ paths = ["generated/**"]
 run = "sh -c true"
 `);
 
-/** Assert the no opening generator comment. */
+/** Reject opening comments that falsely present a human-authored artifact as generated. */
 function assertNoOpeningGeneratorComment(
   text: string,
   path: string,

@@ -19,7 +19,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
-/** Parse the JSON text. */
+/** Decode dry-run and apply envelopes before comparing their effect plans. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());

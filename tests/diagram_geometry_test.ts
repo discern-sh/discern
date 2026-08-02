@@ -25,12 +25,12 @@ import {
 } from "../src/lib/diagram_geometry.ts";
 import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
 
-/** Return the fenced. */
+/** Wrap fixture rows in the Markdown fence required to activate diagram scanning. */
 function fenced(...lines: string[]): string {
   return ["```", ...lines, "```", ""].join("\n");
 }
 
-/** Return the at. */
+/** Reduce geometry findings to stable line, column, and glyph evidence for assertions. */
 function at(violations: DiagramViolation[]): string[] {
   return violations.map((v) => `${v.line}:${v.column} ${v.glyph}`);
 }

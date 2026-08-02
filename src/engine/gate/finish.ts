@@ -347,7 +347,7 @@ function adrIndexInvalidRemedy(
   }
 }
 
-/** Return the ADR index diagnostic. */
+/** Turn an ADR index marker or title failure into an actionable map diagnostic. */
 async function adrIndexDiagnostic(
   state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
 ): Promise<Diagnostic> {
@@ -379,7 +379,7 @@ async function adrIndexDiagnostic(
   };
 }
 
-/** Return the tracked artifacts diagnostic. */
+/** Explain which discern-managed ignored artifacts Git tracks and how to repair them. */
 async function trackedArtifactsDiagnostic(
   tracked: TrackedDiscernIgnoredArtifacts,
 ): Promise<Diagnostic> {
@@ -1116,7 +1116,7 @@ async function runGate(
   };
 }
 
-/** Return the gate receipt hint. */
+/** Fire the post-gate hint that identifies the receipt bound to clean HEAD. */
 function gateReceiptHint(
   receipt: NonNullable<GateData["gate_receipt"]>,
   failedStage: FailedStage | null,

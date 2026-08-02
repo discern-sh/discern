@@ -55,7 +55,7 @@ interface DenoInfo {
   readonly modules?: readonly { readonly specifier?: string }[];
 }
 
-/** Return the react runtime modules. */
+/** Select runtime React dependencies while excluding type-only package declarations. */
 function reactRuntimeModules(specifiers: readonly string[]): string[] {
   return specifiers.filter((specifier) =>
     !specifier.startsWith("npm:/@types/") &&
@@ -63,7 +63,7 @@ function reactRuntimeModules(specifiers: readonly string[]): string[] {
   );
 }
 
-/** Return the module specifiers. */
+/** Read Deno's resolved module graph for one site entrypoint. */
 async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["info", "--json", entrypoint],
@@ -80,7 +80,7 @@ async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   );
 }
 
-/** Return the git. */
+/** Run a repository-scoped Git probe with captured output for design-system provenance checks. */
 async function git(args: string[]): Promise<Deno.CommandOutput> {
   return await new Deno.Command("git", {
     args,
@@ -90,7 +90,7 @@ async function git(args: string[]): Promise<Deno.CommandOutput> {
   }).output();
 }
 
-/** Walk the requested operation. */
+/** Recursively enumerate every generated bundle file for tracked-output and provenance checks. */
 async function walk(directory: string): Promise<string[]> {
   const files: string[] = [];
   for await (const entry of Deno.readDir(directory)) {
@@ -101,12 +101,12 @@ async function walk(directory: string): Promise<string[]> {
   return files;
 }
 
-/** Return the bundle root. */
+/** Resolve one declared design-system bundle's generated output directory. */
 function bundleRoot(name: DesignSystemBundleName): string {
   return join(ROOT, "site", DESIGN_SYSTEM_BUNDLES[name].output);
 }
 
-/** Return the CSS rule body. */
+/** Extract a required selector's declarations and fail on a missing or unterminated rule. */
 function cssRuleBody(css: string, selector: string): string {
   const start = css.indexOf(`${selector} {`);
   assert(start >= 0, `missing CSS rule for ${selector}`);
@@ -116,7 +116,7 @@ function cssRuleBody(css: string, selector: string): string {
   return css.slice(bodyStart, end);
 }
 
-/** Return the bundle manifest. */
+/** Decode the runtime manifest emitted beside a selected design-system bundle. */
 async function bundleManifest(
   name: DesignSystemBundleName,
 ): Promise<RuntimeManifest> {
@@ -125,7 +125,7 @@ async function bundleManifest(
   ) as RuntimeManifest;
 }
 
-/** Return the resolved selection. */
+/** Expand configured component groups and transitive dependencies in canonical manifest order. */
 function resolvedSelection(name: DesignSystemBundleName): string[] {
   const selection = DESIGN_SYSTEM_BUNDLES[name];
   const seeds = new Set<string>(selection.components);
@@ -157,7 +157,7 @@ function resolvedSelection(name: DesignSystemBundleName): string[] {
   return resolved;
 }
 
-/** Return the component owned selectors. */
+/** Collect CSS rule preludes that mention classes owned by selected components. */
 function componentOwnedSelectors(
   source: string,
   ownedClasses: ReadonlySet<string>,

@@ -174,7 +174,7 @@ const RETIRED_COMMAND_TOKENS = [
   "`worktree:*`",
 ];
 
-/** Return the maybe text file. */
+/** Read an optional repository-relative text surface without making absence a scan failure. */
 async function maybeTextFile(
   rel: string,
 ): Promise<[string, string] | undefined> {
@@ -185,7 +185,7 @@ async function maybeTextFile(
   }
 }
 
-/** Return the maybe configured text file. */
+/** Read an optional configured text surface and retain its repository-relative label. */
 async function maybeConfiguredTextFile(
   path: string,
 ): Promise<[string, string] | undefined> {
@@ -196,7 +196,7 @@ async function maybeConfiguredTextFile(
   }
 }
 
-/** Return the command surface files. */
+/** Assemble every authored, generated, and configured text surface that can publish command vocabulary. */
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
   for (

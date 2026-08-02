@@ -1267,7 +1267,7 @@ function label(text: string): string {
   return text.padEnd(11);
 }
 
-/** Return the gate receipt summary. */
+/** Explain whether HEAD has a current green gate receipt and what invalidated it. */
 function gateReceiptSummary(
   receipt: GateReceiptCheckData,
   verbose: boolean,
@@ -1535,7 +1535,7 @@ function renderStatusHuman(
   }
 }
 
-/** Return the landing authority summary. */
+/** Summarize the verified grant or conversation consent still needed to land. */
 function landingAuthoritySummary(
   authority: NonNullable<StatusData["landing_authority"]>,
 ): string {

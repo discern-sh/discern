@@ -88,7 +88,7 @@ const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
 const MCP_STDIN_CLOSE_GRACE_MS = 1_000;
 const MCP_PROCESS_EXIT_GRACE_MS = 5_000;
 
-/** Return the settled within. */
+/** Race an MCP operation against a bounded timer and cancel the timer after either outcome. */
 async function settledWithin<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -288,7 +288,7 @@ class McpClient {
   }
 }
 
-/** Return the spawn MCP. */
+/** Start a line-framed MCP server with the fixture engine environment and piped stdio. */
 async function spawnMcp(
   dir: string,
   extraEnv: Record<string, string> = {},
@@ -355,7 +355,7 @@ async function readMcpVerbEvents(
   return events;
 }
 
-/** Commit the worktree for acceptance. */
+/** Create a clean accepted HEAD while allowing an empty fixture commit. */
 async function commitWorktreeForAcceptance(
   dir: string,
   message = "prepare acceptance",

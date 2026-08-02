@@ -27,7 +27,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
-/** Commit the current worktree. */
+/** Commit all fixture state, allowing an empty commit at a resource lifecycle boundary. */
 async function commitCurrentWorktree(
   wt: string,
   message = "commit worktree state",

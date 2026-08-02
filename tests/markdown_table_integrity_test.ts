@@ -31,12 +31,12 @@ import {
 } from "../src/lib/table_integrity.ts";
 import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
 
-/** Return the table. */
+/** Terminate fixture rows as a complete Markdown table block. */
 function table(...rows: string[]): string {
   return [...rows, ""].join("\n");
 }
 
-/** Return the at. */
+/** Reduce table findings to stable line-and-rule evidence for assertions. */
 function at(violations: TableViolation[]): string[] {
   return violations.map((v) => `${v.line}:${v.kind}`);
 }

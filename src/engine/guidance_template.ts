@@ -144,7 +144,7 @@ function parse(tokens: readonly Token[]): Node[] {
     return { nodes, stop: undefined };
   }
 
-  /** Parse the if. */
+  /** Parse a template condition and reject unknown features or malformed syntax. */
   function parseIf(name: string): Node {
     const thenPart = parseNodes();
     if (thenPart.stop === undefined) {

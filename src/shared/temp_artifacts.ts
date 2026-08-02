@@ -89,6 +89,7 @@ interface SweepCandidate {
   readonly isDirectory: boolean;
 }
 
+/** Order sweep candidates by name so cursor paging remains deterministic. */
 function byName(a: SweepCandidate, b: SweepCandidate): number {
   return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
 }

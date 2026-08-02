@@ -81,7 +81,7 @@ function limitOf(configText: string, name: string): string | undefined {
   return section?.match(/^\s*limit\s*=\s*(\S+)/m)?.[1];
 }
 
-/** Return the receipt file. */
+/** Resolve the gate-receipt fixture through its registered Git-admin location. */
 function receiptFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.gateReceipt.path);
 }
@@ -93,7 +93,7 @@ async function seedReceipt(dir: string, sha?: string): Promise<void> {
   await Deno.writeTextFile(receiptFile(dir), `${head}\n`);
 }
 
-/** Read the receipt. */
+/** Read a trimmed gate receipt while preserving missing state as absence. */
 async function readReceipt(dir: string): Promise<string | undefined> {
   try {
     return (await Deno.readTextFile(receiptFile(dir))).trim();
@@ -102,7 +102,7 @@ async function readReceipt(dir: string): Promise<string | undefined> {
   }
 }
 
-/** Read the config. */
+/** Read the project config after pinning so exact limit edits can be asserted. */
 async function readConfig(dir: string): Promise<string> {
   return await Deno.readTextFile(join(dir, "discern.toml"));
 }
@@ -938,7 +938,7 @@ async function measureCount(dir: string): Promise<number> {
   }
 }
 
-/** Return the measurements file. */
+/** Resolve the standard-measurement cache through its registered Git-admin location. */
 function measurementsFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.standardMeasurements.path);
 }

@@ -29,7 +29,7 @@ export interface HintAsserts {
 export function hintAssertsWithResolver(
   resolveText: (authored: string) => string,
 ): HintAsserts {
-  /** Return the rendered. */
+  /** Render a registered hint against fixture values before exact copy assertions. */
   function rendered<P>(def: HintDef<P>, params: readonly unknown[]): string {
     const value = params.length === 0 ? def.example : params[0] as P;
     return resolveText(def.template(value));

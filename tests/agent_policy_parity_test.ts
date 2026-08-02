@@ -45,7 +45,7 @@ interface PolicySurfaceText {
   readonly rendered: boolean;
 }
 
-/** Return the registry failures. */
+/** Check policy identifiers, statements, probes, and enrolled surfaces for registry contradictions. */
 function registryFailures(
   policies: readonly OperatingPolicy[],
 ): string[] {
@@ -85,7 +85,7 @@ function registryFailures(
   return failures;
 }
 
-/** Return the parity failures. */
+/** Prove every enrolled surface renders each policy statement and its semantic probes. */
 function parityFailures(
   policies: readonly OperatingPolicy[],
   surfaces: Readonly<Record<OperatingPolicySurface, PolicySurfaceText>>,
@@ -130,7 +130,7 @@ const AWAIT_CALLING_REQUIREMENTS = [
   },
 ] as const;
 
-/** Return the await calling failures. */
+/** Report await instructions that omit a required persistence or recovery contract. */
 function awaitCallingFailures(
   surfaces: readonly { readonly label: string; readonly text: string }[],
 ): string[] {

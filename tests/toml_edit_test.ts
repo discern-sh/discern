@@ -35,18 +35,18 @@ run   = ":"   # e.g. "vitest run"
 # native = "make -C native check"
 `;
 
-/** Return the parsed project slug. */
+/** Parse the edited document and read the semantic project slug rather than matching text. */
 function parsedProjectSlug(text: string): unknown {
   const parsed = parseToml(text) as { project?: { slug?: unknown } };
   return parsed.project?.slug;
 }
 
-/** Count the project slug assignments. */
+/** Count concrete slug assignments to catch duplicate-key edits. */
 function countProjectSlugAssignments(text: string): number {
   return text.split(/\r?\n/).filter((line) => /^\s*slug\s*=/.test(line)).length;
 }
 
-/** Assert the only line ending. */
+/** Require every newline to use the fixture's original LF or CRLF convention. */
 function assertOnlyLineEnding(text: string, lineEnding: "\n" | "\r\n"): void {
   if (lineEnding === "\r\n") {
     assert(

@@ -59,7 +59,7 @@ interface GateJson {
   };
 }
 
-/** Return the generated config. */
+/** Render production-shaped generated groups, including optional per-group timeouts. */
 function generatedConfig(groups: readonly GeneratedGroupFixture[]): string {
   const lines = [
     "[project]",
@@ -83,7 +83,7 @@ function generatedConfig(groups: readonly GeneratedGroupFixture[]): string {
   return lines.join("\n");
 }
 
-/** Write the file. */
+/** Create parent directories before materializing a generated-artifact fixture. */
 async function writeFile(
   root: string,
   path: string,
@@ -94,7 +94,7 @@ async function writeFile(
   await Deno.writeTextFile(absolute, contents);
 }
 
-/** Return whether the path exists. */
+/** Distinguish a missing generated artifact from other filesystem failures. */
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.lstat(path);
@@ -107,12 +107,12 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-/** Parse the gate. */
+/** Decode the done envelope used by generated-artifact gate assertions. */
 function parseGate(stdout: string): GateJson {
   return JSON.parse(stdout.trim()) as GateJson;
 }
 
-/** Return the diagnostic text. */
+/** Combine a diagnostic's summary and captured output for end-to-end evidence checks. */
 function diagnosticText(diagnostic: GateJsonDiagnostic): string {
   return `${diagnostic.message}\n${diagnostic.output ?? ""}`;
 }

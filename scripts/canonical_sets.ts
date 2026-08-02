@@ -1885,7 +1885,7 @@ export const REGISTRY_ATLAS_PAGE_REL: string = join(
   "registry-atlas.md",
 );
 
-/** Return the source line. */
+/** Describe a canonical set's module export or authored-table authority. */
 function sourceLine(source: SetSource): string {
   if (source.kind === "module") {
     return `- Source: \`${source.module}\` — \`${source.exportName}\``;
@@ -1893,7 +1893,7 @@ function sourceLine(source: SetSource): string {
   return `- Source: \`${source.path}\` (authored table)`;
 }
 
-/** Return the glossary line. */
+/** Describe how a set is named in the glossary, including recorded exclusions. */
 function glossaryLine(enrolment: GlossaryEnrolment): string {
   if ("term" in enrolment) {
     return `- Glossary: the "${enrolment.term}" entry carries the concept`;
@@ -1904,7 +1904,7 @@ function glossaryLine(enrolment: GlossaryEnrolment): string {
   return `- Glossary: not enrolled — ${enrolment.absent}`;
 }
 
-/** Return the canon line. */
+/** Describe the feature-canon node or surface that claims a set. */
 function canonLine(enrolment: CanonEnrolment): string {
   if ("surfaceSet" in enrolment) {
     return `- Feature canon: claimed as the \`${enrolment.surfaceSet}\` surface set`;
@@ -1915,7 +1915,7 @@ function canonLine(enrolment: CanonEnrolment): string {
   return `- Feature canon: not enrolled — ${enrolment.absent}`;
 }
 
-/** Return the path list. */
+/** Join repository paths as inline-code items for atlas prose. */
 function pathList(paths: readonly string[]): string {
   return paths.map((path) => `\`${path}\``).join(", ");
 }
@@ -1943,7 +1943,7 @@ function setLink(entry: CanonicalSetEntry): string {
   return `[\`${entry.id}\`](#${headingAnchor(setHeading(entry))})`;
 }
 
-/** Return the source cell. */
+/** Format a set's authority as a compact atlas-table cell. */
 function sourceCell(source: SetSource): string {
   if (source.kind === "module") {
     return `\`${source.module}#${source.exportName}\``;
@@ -1951,21 +1951,21 @@ function sourceCell(source: SetSource): string {
   return `\`${source.path}\` (authored)`;
 }
 
-/** Return the glossary cell. */
+/** Format direct, per-member, or absent glossary enrollment for the atlas. */
 function glossaryCell(enrolment: GlossaryEnrolment): string {
   if ("term" in enrolment) return `"${enrolment.term}"`;
   if ("perMember" in enrolment) return "per member";
   return "—";
 }
 
-/** Return the canon cell. */
+/** Format surface-set, node, or absent feature-canon enrollment for the atlas. */
 function canonCell(enrolment: CanonEnrolment): string {
   if ("surfaceSet" in enrolment) return `surface \`${enrolment.surfaceSet}\``;
   if ("nodeId" in enrolment) return `node \`${enrolment.nodeId}\``;
   return "—";
 }
 
-/** Return the stray lines. */
+/** Render path-and-reason exceptions as Markdown bullets. */
 function strayLines(record: Readonly<Record<string, string>>): string[] {
   return Object.entries(record).map(
     ([path, reason]) => `- \`${path}\` — ${reason}`,

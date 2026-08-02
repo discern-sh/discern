@@ -32,7 +32,7 @@ const MARKED_README = [
   "",
 ].join("\n");
 
-/** Write the ADR dir. */
+/** Create a configured ADR directory with a chosen index and minimal record headings. */
 async function writeAdrDir(
   dir: string,
   readme: string,

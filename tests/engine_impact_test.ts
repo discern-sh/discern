@@ -23,7 +23,7 @@ import {
 } from "../src/engine/scopes/scopes.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 
-/** Return the scaffold with widget. */
+/** Create a minimal project with one gated widget scope for impact classification. */
 async function scaffoldWithWidget(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await writeConfig(

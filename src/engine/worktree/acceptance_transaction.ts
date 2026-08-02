@@ -200,12 +200,12 @@ export async function withAcceptanceTransactionLock<T>(
   }
 }
 
-/** Return whether the value is a plain object. */
+/** Narrow decoded journal data to a non-null, non-array record. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Return the contains control character. */
+/** Reject C0 and DEL bytes that make persisted ref text unsafe. */
 function containsControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
@@ -216,13 +216,13 @@ function containsControlCharacter(value: string): boolean {
   return false;
 }
 
-/** Return whether the value is ref name. */
+/** Accept nonempty journal ref text only when it contains no control characters. */
 function isRefName(value: unknown): value is string {
   return typeof value === "string" && value !== "" &&
     !containsControlCharacter(value);
 }
 
-/** Parse the landing consent. */
+/** Validate a journaled consent source and restrict scoped authority to standing grants. */
 function parseLandingConsent(value: unknown): LandingConsent | undefined {
   if (!isPlainObject(value)) {
     return undefined;
@@ -253,7 +253,7 @@ function parseLandingConsent(value: unknown): LandingConsent | undefined {
   };
 }
 
-/** Parse the acceptance transaction. */
+/** Decode and validate the versioned journal that binds authority to one expected-to-target transition. */
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
   try {
@@ -304,7 +304,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     : { version: 2, ...base, consent: consent as LandingConsent };
 }
 
-/** Read the acceptance transaction. */
+/** Classify the recovery journal as missing, valid, or unusable without hiding read failures. */
 async function readAcceptanceTransaction(
   cwd: string,
 ): Promise<AcceptanceTransactionRead> {
@@ -343,7 +343,7 @@ async function readAcceptanceTransaction(
   }
 }
 
-/** Remove the journal. */
+/** Delete a recovery journal while treating prior cleanup as success. */
 async function removeJournal(path: string): Promise<boolean> {
   try {
     await Deno.remove(path);
@@ -353,7 +353,7 @@ async function removeJournal(path: string): Promise<boolean> {
   }
 }
 
-/** Write every value. */
+/** Persist every byte, retrying partial writes and rejecting a zero-byte write. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -365,7 +365,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
-/** Write the acceptance transaction. */
+/** Sync and atomically publish a unique journal before authority or refs can change. */
 async function writeAcceptanceTransaction(
   cwd: string,
   input: Omit<AcceptanceTransactionBase, "id"> & {
@@ -424,7 +424,7 @@ async function writeAcceptanceTransaction(
   return { path: current.path, transaction };
 }
 
-/** Return the transition retains journal. */
+/** Keep recovery evidence whenever the ref moved or checkout rollback failed. */
 function transitionRetainsJournal(
   outcome: CheckedOutFastForwardResult,
 ): boolean {
@@ -497,7 +497,7 @@ export async function performAcceptanceTransition(
   };
 }
 
-/** Return the canonical path. */
+/** Resolve symlinks for repository identity checks while preserving a missing path. */
 async function canonicalPath(path: string): Promise<string> {
   try {
     return await Deno.realPath(path);
@@ -506,7 +506,7 @@ async function canonicalPath(path: string): Promise<string> {
   }
 }
 
-/** Return the restore recorded claim. */
+/** Restore an unconsumed effort claim, accepting an already-restored marker. */
 async function restoreRecordedClaim(
   cwd: string,
   transaction: AcceptanceTransaction,
@@ -526,7 +526,7 @@ async function restoreRecordedClaim(
     : false;
 }
 
-/** Return the consume recorded claim. */
+/** Consume one-shot effort authority after the journaled landing became durable. */
 async function consumeRecordedClaim(
   cwd: string,
   transaction: AcceptanceTransaction,
@@ -535,14 +535,14 @@ async function consumeRecordedClaim(
     await consumeEffortGrantClaimById(cwd, transaction.id);
 }
 
-/** Return the effort consumed clause. */
+/** Explain grant consumption only for transactions that claimed one-shot authority. */
 function effortConsumedClause(transaction: AcceptanceTransaction): string {
   return transaction.effort_claim
     ? " Its effort grant was consumed and will not be replayed."
     : "";
 }
 
-/** Return the clone consent. */
+/** Copy consent scopes so recovery state cannot alias caller-owned arrays. */
 function cloneConsent(consent: LandingConsent): LandingConsent {
   return {
     source: consent.source,
@@ -615,14 +615,14 @@ export async function inspectInterruptedAcceptance(
   };
 }
 
-/** Return the clear recovered journal. */
+/** Remove a reconciled journal after its recorded effects converge. */
 async function clearRecoveredJournal(
   recorded: RecordedAcceptanceTransaction,
 ): Promise<boolean> {
   return await removeJournal(recorded.path);
 }
 
-/** Return the journal cleanup failure. */
+/** Explain the idempotent retry when recovery succeeded but journal deletion failed. */
 function journalCleanupFailure(
   recorded: RecordedAcceptanceTransaction,
 ): string {
@@ -631,7 +631,7 @@ function journalCleanupFailure(
     "idempotent cleanup before starting another landing.";
 }
 
-/** Return the stopped recovery. */
+/** Record a recovery stop together with the irreversible effects already observed. */
 function stoppedRecovery(
   message: string,
   recoveryPerformed: boolean,

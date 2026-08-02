@@ -52,7 +52,7 @@ async function fileAged(
   return path;
 }
 
-/** Return whether the path exists. */
+/** Treat an inaccessible fixture path as absent when checking whether the sweep reaped it. */
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);

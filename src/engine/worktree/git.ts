@@ -375,7 +375,7 @@ export type AcceptanceTransactionMarkerRead =
 const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
   "refs/worktree/discern/acceptance-transactions";
 
-/** Return the acceptance transaction marker ref. */
+/** Derive the per-worktree proof ref coupled to one acceptance transaction. */
 export function acceptanceTransactionMarkerRef(
   transactionId: string,
 ): string {
@@ -405,7 +405,7 @@ export async function readAcceptanceTransactionMarker(
   };
 }
 
-/** Return the checkout paths collide. */
+/** Detect equal or nested paths that a tracked checkout update could replace. */
 function checkoutPathsCollide(left: string, right: string): boolean {
   return left === right ||
     left.startsWith(`${right}/`) ||
@@ -462,7 +462,7 @@ async function ignoredCheckoutCollisions(
   );
 }
 
-/** Return the ignored collision detail. */
+/** Bound ignored-data collision evidence to three quoted paths and an overflow count. */
 function ignoredCollisionDetail(paths: readonly string[]): string {
   const shown = paths.slice(0, 3).map((path) => JSON.stringify(path)).join(
     ", ",
@@ -471,7 +471,7 @@ function ignoredCollisionDetail(paths: readonly string[]): string {
   return `the landing would overwrite ignored checkout data at ${shown}${more}`;
 }
 
-/** Return the acceptance reflog message. */
+/** Tag a fast-forward or rollback with its transaction when recovery evidence exists. */
 function acceptanceReflogMessage(
   transactionId: string | undefined,
   action: "fast-forward" | "rollback",
@@ -482,7 +482,7 @@ function acceptanceReflogMessage(
     : `discern accept transaction ${transactionId}: ${action} ${branch}`;
 }
 
-/** Update the ref transaction. */
+/** Submit ref commands through Git's prepared all-or-nothing stdin transaction. */
 function updateRefTransaction(
   cwd: string,
   message: string,
@@ -497,7 +497,7 @@ function updateRefTransaction(
   );
 }
 
-/** Return the rollback checked out branch ref. */
+/** Compare-and-swap the branch back and atomically clear its transaction marker. */
 function rollbackCheckedOutBranchRef(
   cwd: string,
   branch: string,
@@ -526,7 +526,7 @@ function rollbackCheckedOutBranchRef(
   );
 }
 
-/** Return the index matches tree. */
+/** Distinguish an exact index-to-commit match from a mismatch or Git failure. */
 async function indexMatchesTree(
   cwd: string,
   commit: string,
@@ -535,7 +535,7 @@ async function indexMatchesTree(
   return diff.code === 0 ? true : diff.code === 1 ? false : undefined;
 }
 
-/** Return the worktree matches index. */
+/** Distinguish an exact checkout-to-index match from a mismatch or Git failure. */
 async function worktreeMatchesIndex(
   cwd: string,
 ): Promise<boolean | undefined> {
@@ -2557,7 +2557,7 @@ export async function worktreePathForBranch(
   return match === undefined ? undefined : await realPathOr(match.path);
 }
 
-/** Return the short branch name. */
+/** Strip the local-head namespace while preserving detached and nonlocal refs. */
 function shortBranchName(ref: string): string {
   return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
 }
@@ -2609,12 +2609,12 @@ async function worktreeKeepReasons(
   return keepReasons;
 }
 
-/** Return the checkout path from git dir. */
+/** Recover a checkout path from either a main .git directory or linked gitdir. */
 function checkoutPathFromGitDir(gitDir: string): string {
   return basename(gitDir) === ".git" ? dirname(gitDir) : gitDir;
 }
 
-/** Return the stale metadata for record. */
+/** Correlate a prunable worktree record with its exact administrative back-pointer. */
 async function staleMetadataForRecord(
   commonGitDir: string,
   rec: WorktreeRecord,
@@ -2964,7 +2964,7 @@ export async function pruneGitWorktrees(
   return { removed, branchesDeleted, staleMetadata: [], failed };
 }
 
-/** Return the stale metadata still matches. */
+/** Revalidate that a scanned admin entry still points to an absent checkout before deletion. */
 async function staleMetadataStillMatches(
   entry: StaleWorktreeMetadata,
 ): Promise<boolean> {
@@ -3042,7 +3042,7 @@ export interface SweepResult {
   failed: boolean;
 }
 
-/** Return the inspect orphan worktree. */
+/** Keep an orphan checkout unless its HEAD is merged and its working tree is clean. */
 async function inspectOrphanWorktree(
   repoRoot: string,
   dir: string,

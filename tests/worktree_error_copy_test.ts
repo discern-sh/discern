@@ -15,7 +15,7 @@ import { addWorktree, git, gitInit } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 import { NO_PROJECT_MESSAGE } from "../src/shared/env.ts";
 
-/** Return the refusal. */
+/** Require a worktree operation to throw its domain error and return the user-facing recovery copy. */
 async function refusal(run: () => Promise<void | string>): Promise<string> {
   try {
     await run();

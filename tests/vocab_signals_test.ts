@@ -35,7 +35,7 @@ const FIXTURE: GlossaryEntry[] = [
   },
 ];
 
-/** Return the fixture map. */
+/** Materialize an isolated documentation corpus and return its temporary map root. */
 async function fixtureMap(files: Record<string, string>): Promise<string> {
   const dir = await Deno.makeTempDir({ prefix: "vocab_signals_" });
   for (const [rel, text] of Object.entries(files)) {

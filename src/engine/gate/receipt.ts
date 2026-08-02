@@ -171,7 +171,7 @@ export async function preflightAdminStateWrites(
   };
 }
 
-/** Return the authority path. */
+/** Resolve the worktree-local validation marker through the admin-state registry. */
 function authorityPath(
   cwd: string,
   authority: AdminStateWriteAuthority,
@@ -238,7 +238,7 @@ function describeDirtyPaths(paths: readonly string[]): string {
   return ` — uncommitted: ${shown}${more}`;
 }
 
-/** Return the failure reason. */
+/** Summarize the first failed step or diagnostic that prevents a receipt. */
 function failureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -281,7 +281,7 @@ export async function pinValidatedTree(cwd: string): Promise<ValidatedTreePin> {
   } as ValidatedTreePin;
 }
 
-/** Return the receipt record. */
+/** Bind a green gate result to HEAD, config, plan, trunk, and measured standards. */
 function receiptRecord(
   status: GateReceiptRecordData["status"],
   fields: Omit<GateReceiptRecordData, "status"> = {},

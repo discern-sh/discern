@@ -50,7 +50,7 @@ export class TomlFormatError extends Error {
 let markdownFormatter: Promise<Formatter> | undefined;
 let tomlFormatter: Promise<Formatter> | undefined;
 
-/** Load the formatter. */
+/** Instantiate an embedded Wasm formatter and reject invalid bundled options. */
 async function loadFormatter(
   asset: string,
   pluginConfig: Readonly<Record<string, unknown>>,
@@ -71,7 +71,7 @@ async function loadFormatter(
   return formatter;
 }
 
-/** Return the markdown. */
+/** Lazily share the configured Markdown formatter across tidy calls. */
 async function markdown(): Promise<Formatter> {
   markdownFormatter ??= loadFormatter(
     `markdown-${MARKDOWN_PLUGIN_VERSION}.wasm`,
@@ -80,7 +80,7 @@ async function markdown(): Promise<Formatter> {
   return await markdownFormatter;
 }
 
-/** Return the TOML. */
+/** Lazily share the configured TOML formatter across tidy calls. */
 async function toml(): Promise<Formatter> {
   tomlFormatter ??= loadFormatter(
     `toml-${TOML_PLUGIN_VERSION}.wasm`,
@@ -161,7 +161,7 @@ interface ProtectedFencedCode {
   blocks: Array<{ marker: string; lines: string[] }>;
 }
 
-/** Return the protect fenced code. */
+/** Replace fenced blocks with collision-free markers so formatting cannot alter them. */
 function protectFencedCode(fileText: string): ProtectedFencedCode {
   let namespace = "tidy-fenced-code-block";
   while (fileText.includes(namespace)) {

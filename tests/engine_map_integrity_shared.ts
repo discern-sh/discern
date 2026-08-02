@@ -21,12 +21,12 @@ export interface GateJson {
   data: { failed_stage: string | null };
 }
 
-/** Parse the JSON text. */
+/** Decode a done envelope for shared map-integrity failure assertions. */
 export function parseJson(stdout: string): GateJson {
   return JSON.parse(stdout.trim()) as GateJson;
 }
 
-/** Return the diag for. */
+/** Select the diagnostic emitted by one map-integrity subtool from a gate envelope. */
 export function diagFor(
   obj: GateJson,
   tool: string,

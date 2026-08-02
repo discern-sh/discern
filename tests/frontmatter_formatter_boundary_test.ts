@@ -28,7 +28,7 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
-/** Return the fmt exclude. */
+/** Read Deno's formatter exclusions that protect frontmatter-contracted source trees. */
 async function fmtExclude(): Promise<string[]> {
   const denoJson = JSON.parse(
     await Deno.readTextFile(join(REPO_ROOT, "deno.json")),

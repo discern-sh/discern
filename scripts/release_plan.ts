@@ -40,7 +40,7 @@ export function releasePlan(
   };
 }
 
-/** Run this module's main operation. */
+/** Validate the release tag and append its version and native build matrix to GitHub output. */
 async function main(): Promise<void> {
   const tag = Deno.args[0];
   const githubOutput = Deno.args[1];

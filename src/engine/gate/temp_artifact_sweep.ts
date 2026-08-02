@@ -43,7 +43,7 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 const MAX_STATE_BYTES = 4_096;
 
-/** Read the state. */
+/** Read the repository throttle cursor, treating missing or malformed state as a fresh sweep. */
 async function readState(
   file: Deno.FsFile,
 ): Promise<TempArtifactSweepState | undefined> {
@@ -84,7 +84,7 @@ async function readState(
   }
 }
 
-/** Write every value. */
+/** Advance through partial filesystem writes until the complete sweep state is persisted. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -92,7 +92,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
-/** Write the state. */
+/** Atomically persist the next sweep time and cursor through a temporary sibling. */
 async function writeState(
   file: Deno.FsFile,
   state: TempArtifactSweepState,

@@ -72,7 +72,7 @@ export async function localHandler(request: Request): Promise<Response> {
   return await handler(request);
 }
 
-/** Start the site server. */
+/** Start the production route handler on the local development port. */
 function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
   return Deno.serve(
     {
@@ -88,7 +88,7 @@ function startSiteServer(port: number): Deno.HttpServer<Deno.NetAddr> {
   );
 }
 
-/** Watch the site build inputs. */
+/** Rebuild after debounced source changes, queuing one repeat when changes overlap. */
 async function watchSiteBuildInputs(): Promise<never> {
   const watcher = Deno.watchFs(siteBuildInputPaths());
   let debounce: ReturnType<typeof setTimeout> | undefined;

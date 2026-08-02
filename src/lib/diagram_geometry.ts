@@ -147,7 +147,7 @@ function connects(glyph: string | undefined, side: Side): boolean {
   return claims !== undefined && claims.includes(side);
 }
 
-/** Return the neighbour at. */
+/** Read the grid cell one step from a coordinate in the requested direction. */
 function neighbourAt(
   grid: readonly (readonly string[])[],
   row: number,
@@ -160,7 +160,7 @@ function neighbourAt(
   return grid[row]?.[col + 1];
 }
 
-/** Return the describe. */
+/** Describe a neighboring glyph for a precise geometry diagnostic. */
 function describe(glyph: string | undefined): string {
   if (glyph === undefined) return "the edge of the block";
   if (glyph === " ") return "only space";
@@ -186,7 +186,7 @@ export function scanMarkdownDiagrams(md: string): DiagramViolation[] {
   return out;
 }
 
-/** Scan the grid. */
+/** Report tabs and box-drawing connections whose neighboring cells disagree. */
 function scanGrid(
   grid: readonly (readonly string[])[],
   startLine: number,

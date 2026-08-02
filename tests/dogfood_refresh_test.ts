@@ -18,12 +18,12 @@ import {
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
-/** Return whether the value is JSON object. */
+/** Narrow decoded provider configuration to a non-null, non-array record. */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Return the command strings. */
+/** Recursively collect executable command and bash strings from provider hook JSON. */
 function commandStrings(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.flatMap(commandStrings);
@@ -42,19 +42,19 @@ function commandStrings(value: unknown): string[] {
   return found;
 }
 
-/** Return the worktree commands. */
+/** Select legacy or canonical worktree lifecycle invocations from hook commands. */
 function worktreeCommands(value: unknown): string[] {
   return commandStrings(value).filter((command) =>
     /\bworktree\s+(ensure|create|remove|teardown)\b/.test(command)
   );
 }
 
-/** Read the JSON. */
+/** Decode a dogfooded provider artifact relative to the repository root. */
 async function readJson(rel: string): Promise<unknown> {
   return JSON.parse(await Deno.readTextFile(join(REPO, rel)));
 }
 
-/** Return the hook event shape errors. */
+/** Report hook events whose command groups are not represented as arrays. */
 function hookEventShapeErrors(rel: string, value: unknown): string[] {
   if (!isJsonObject(value) || !isJsonObject(value.hooks)) {
     return [];

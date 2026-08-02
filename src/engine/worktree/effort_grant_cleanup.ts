@@ -30,7 +30,7 @@ export type EffortGrantClaimRead =
 const CLAIM_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-/** Return the effort grant claim path. */
+/** Resolve a transaction-owned claim path only for a valid UUID. */
 async function effortGrantClaimPath(
   cwd: string,
   claimId: string,
@@ -42,7 +42,7 @@ async function effortGrantClaimPath(
   return claimsDir === undefined ? undefined : join(claimsDir, claimId);
 }
 
-/** Parse the claim. */
+/** Validate a persisted grant and prove that it belongs to the accepting branch. */
 function parseClaim(
   path: string,
   raw: string,

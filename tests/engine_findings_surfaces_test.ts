@@ -182,12 +182,12 @@ async function receiptBranch(
   return worktree;
 }
 
-/** Parse the requested input. */
+/** Decode a command result whose historical-finding projection is compared across surfaces. */
 function parse(stdout: string): ResultEnvelope {
   return JSON.parse(stdout) as ResultEnvelope;
 }
 
-/** Return the history. */
+/** Extract historical findings from an envelope while treating an absent group as empty. */
 function history(result: ResultEnvelope): HistoricalFinding[] {
   const group = result.data?.history as
     | { findings?: HistoricalFinding[] }
@@ -195,7 +195,7 @@ function history(result: ResultEnvelope): HistoricalFinding[] {
   return group?.findings ?? [];
 }
 
-/** Return the without history. */
+/** Remove the history projection from a clone so unrelated envelope data can be compared. */
 function withoutHistory(data: Record<string, unknown> | undefined): unknown {
   if (data === undefined) {
     return undefined;

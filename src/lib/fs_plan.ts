@@ -81,7 +81,7 @@ export interface Plan {
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
-/** Return the error text. */
+/** Preserve an Error's message and stringify non-Error failures for diagnostics. */
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

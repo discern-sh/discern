@@ -16,7 +16,7 @@ import {
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
 
-/** Return the absolute from. */
+/** Resolve Git's possibly relative admin path against the command checkout. */
 function absoluteFrom(cwd: string, path: string): string {
   return isAbsolute(path) ? path : join(cwd, path);
 }

@@ -1262,7 +1262,7 @@ Deno.test("standards result is faithful (dry-run plan and applied steps)", async
   });
 });
 
-/** Commit the files. */
+/** Materialize and commit a chosen integration change set for lifecycle schema cases. */
 async function commitFiles(
   dir: string,
   files: Record<string, string>,

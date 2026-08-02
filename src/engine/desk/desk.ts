@@ -190,7 +190,7 @@ function shellWord(word: string): string {
     : `'${word.replaceAll("'", `'\\''`)}'`;
 }
 
-/** Return the displayed command. */
+/** Format recorded command words for the desk's compact activity view. */
 function displayedCommand(command: string, args: readonly string[]): string {
   return [command, ...args].map(shellWord).join(" ");
 }

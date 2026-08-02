@@ -38,7 +38,7 @@ import {
 } from "../src/engine/gate/receipt.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
-/** Return the receipt authority. */
+/** Run the real admin-state preflight and expose its proven write capability to receipt tests. */
 async function receiptAuthority(
   dir: string,
 ): Promise<AdminStateWriteAuthority> {
@@ -84,7 +84,7 @@ const CHECK_NO_TABOO = [
   "",
 ].join("\n");
 
-/** Parse the JSON text. */
+/** Decode acceptance or gate output for receipt and refusal assertions. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
@@ -126,7 +126,7 @@ async function commitBranchWork(wt: string): Promise<void> {
   await git(wt, "commit", "-q", "-m", "feat: work", "--no-gpg-sign");
 }
 
-/** Commit the current worktree. */
+/** Commit all current fixture state, allowing an empty commit to establish a new accepted HEAD. */
 async function commitCurrentWorktree(
   wt: string,
   message = "chore: clean updated tree",

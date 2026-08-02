@@ -181,7 +181,7 @@ async function renderMapRegions(root: string): Promise<string> {
     );
 }
 
-/** Return the builtin guidance. */
+/** Load bundled operating guidance in canonical section order. */
 async function builtinGuidance(
   config: DiscernConfig,
   mapRegions: string,
@@ -241,7 +241,7 @@ async function composeGuidanceBodyWithMapRegions(
   return body;
 }
 
-/** Return the compose guidance body. */
+/** Combine built-in policy and authored project guidance for provider rendering. */
 export async function composeGuidanceBody(
   root: string,
   config: DiscernConfig,

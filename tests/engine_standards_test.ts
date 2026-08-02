@@ -46,7 +46,7 @@ interface StandardsJson {
   }>;
 }
 
-/** Parse the standards JSON. */
+/** Decode a standards envelope and assert the standalone verb produced it. */
 function parseStandardsJson(stdout: string): StandardsJson {
   const obj = JSON.parse(stdout.trim()) as StandardsJson;
   assertEquals(obj.verb, "standards");

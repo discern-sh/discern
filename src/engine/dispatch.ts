@@ -1128,12 +1128,12 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   return 0;
 }
 
-/** Return the thrown message. */
+/** Preserve an Error message and stringify non-Error failures at the CLI boundary. */
 function thrownMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Return the skills eject result. */
+/** Plan and apply authored copies for selected bundled skills. */
 async function skillsEjectResult(
   root: string,
   name: string,
@@ -1199,7 +1199,7 @@ async function skillsEjectResult(
   }
 }
 
-/** Render the skills eject result. */
+/** Present ejected, skipped, and refused skill paths for the human CLI. */
 function renderSkillsEjectResult(
   log: Logger,
   result: DiscernResult<SkillsEjectData>,

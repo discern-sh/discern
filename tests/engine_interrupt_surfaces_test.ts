@@ -95,7 +95,7 @@ function alive(pid: number): boolean {
   }
 }
 
-/** Kill the for cleanup. */
+/** Best-effort kill a planted process group, falling back to its leader when needed. */
 function killForCleanup(pid: number): void {
   if (Deno.build.os !== "windows") {
     try {
@@ -112,7 +112,7 @@ function killForCleanup(pid: number): void {
   }
 }
 
-/** Return the port is open. */
+/** Probe a loopback port in a separate Deno process without leaking a connection. */
 function portIsOpen(port: number): boolean {
   const source = [
     "try {",
@@ -129,7 +129,7 @@ function portIsOpen(port: number): boolean {
   }).outputSync().success;
 }
 
-/** Return the pending tree shutdown. */
+/** List every leader, descendant, or listening port that survived interruption. */
 function pendingTreeShutdown(
   leaderPid: number,
   descendantPid: number,

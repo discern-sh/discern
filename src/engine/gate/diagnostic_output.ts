@@ -7,7 +7,7 @@ export interface DiagnosticOutputFields {
   output_path?: string;
 }
 
-/** Write the full output. */
+/** Persist uncapped diagnostic text in the temp-artifact registry when possible. */
 async function writeFullOutput(fullText: string): Promise<string | undefined> {
   try {
     const path = await makeTempArtifact("diag");

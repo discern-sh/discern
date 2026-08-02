@@ -34,7 +34,7 @@ interface StatusJson {
   hints?: string[];
 }
 
-/** Return the status JSON. */
+/** Run status successfully and decode the fleet truth asserted by each broken-state case. */
 async function statusJson(dir: string): Promise<StatusJson> {
   const r = await runAgent(dir, ["status", "--json"]);
   assertEquals(r.code, 0, r.output);

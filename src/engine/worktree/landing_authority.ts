@@ -90,7 +90,7 @@ export interface LandingAuthorityProjection {
   readonly warnings?: string[];
 }
 
-/** Return the unique. */
+/** Deduplicate scope names while preserving their first-seen order. */
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
@@ -187,7 +187,7 @@ export function resolveLandingAuthority(
   };
 }
 
-/** Return the conversation required. */
+/** Resolve the empty-authority case while retaining warnings and a blocking reason. */
 function conversationRequired(
   warnings: readonly string[] = [],
   blockingReason?: string,
@@ -202,7 +202,7 @@ function conversationRequired(
   });
 }
 
-/** Return the schema failure. */
+/** Parse trunk configuration against the current schema and return its first actionable failure. */
 function schemaFailure(
   text: string,
   path: string,
@@ -233,7 +233,7 @@ function schemaFailure(
   };
 }
 
-/** Return the effort warnings. */
+/** Explain why a missing, invalid, unreadable, or branch-mismatched effort grant cannot authorize landing. */
 function effortWarnings(
   status: Awaited<ReturnType<typeof readEffortGrant>>,
   branch: string | undefined,

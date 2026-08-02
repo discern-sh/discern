@@ -28,7 +28,7 @@ interface PublicDocMetrics {
   words: number;
 }
 
-/** Return the word count. */
+/** Count Unicode word tokens while retaining apostrophes and hyphens within words. */
 function wordCount(text: string): number {
   return text.match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu)?.length ?? 0;
 }
@@ -38,7 +38,7 @@ function docTopLevel(entry: DocEntry): string {
   return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
 }
 
-/** Measure the public docs. */
+/** Count words and non-index leaves in the published documentation projection. */
 async function measurePublicDocs(
   repoRoot: string,
   docsDir: string,

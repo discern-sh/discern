@@ -32,7 +32,7 @@ interface BaselineFile {
   roots: BaselineRoot[];
 }
 
-/** Return the init ignored repo. */
+/** Create ignored fixture data under one rule before initializing the repository. */
 async function initIgnoredRepo(
   dir: string,
   rule: string,
@@ -47,14 +47,14 @@ async function initIgnoredRepo(
   await gitInit(dir);
 }
 
-/** Return the baseline path. */
+/** Resolve the ignored-file baseline through the production Git-admin registry. */
 async function baselinePath(dir: string): Promise<string> {
   const path = await gitAdminStatePath(dir, "ignoredBaseline");
   assert(path !== undefined, "ignored baseline path must resolve inside Git");
   return path;
 }
 
-/** Read the baseline. */
+/** Decode the persisted ignored-root fingerprints written by setup-time capture. */
 async function readBaseline(dir: string): Promise<BaselineFile> {
   return JSON.parse(
     await Deno.readTextFile(await baselinePath(dir)),

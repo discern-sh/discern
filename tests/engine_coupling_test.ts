@@ -104,7 +104,7 @@ function partnerPaths(data: CouplingData): string[] {
   return data.partners.map((p) => p.path);
 }
 
-/** Return the ranked hub history. */
+/** Build a commit history with deliberately tiered co-change rates around one hub file. */
 async function rankedHubHistory(dir: string): Promise<void> {
   for (let i = 0; i < 20; i++) {
     const files: Record<string, string> = { "hub.ts": `hub-${i}` };

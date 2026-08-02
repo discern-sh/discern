@@ -35,13 +35,13 @@ import {
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
 
-/** Return the t. */
+/** Produce stable hourly timestamps from the cohort fixture's fixed UTC epoch. */
 function t(hours: number): string {
   return new Date(Date.parse("2026-07-01T00:00:00.000Z") + hours * 3_600_000)
     .toISOString();
 }
 
-/** Return the verb. */
+/** Build a valid baseline logbook event and apply the facts relevant to one case. */
 function verb(over: Partial<VerbEvent>): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
@@ -88,7 +88,7 @@ function runs(agent: string, n: number): VerbEvent[] {
   );
 }
 
-/** Return the event units. */
+/** Feed events to the cohort splitter as independent one-event analysis units. */
 function eventUnits(events: VerbEvent[]): CohortSplit<VerbEvent> {
   return splitByCohort(events, (e: VerbEvent) => [e]);
 }

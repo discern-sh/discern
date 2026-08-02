@@ -41,7 +41,7 @@ const TIP_REGISTER_ALLOWLIST: Readonly<Record<string, string>> = {
     'The desk action is labeled "Run a Project Script"; the tip quotes that exact label.',
 };
 
-/** Register the hits. */
+/** Find unquoted jargon in beginner tip prose and recommend its registered plain-language term. */
 function registerHits(id: string, text: string): string[] {
   const stripped = stripCodeSpans(text);
   const hits: string[] = [];

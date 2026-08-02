@@ -84,7 +84,7 @@ function assertEnvelopeOnly(
   return obj;
 }
 
-/** Return whether the value is a record. */
+/** Narrow decoded command output to a non-null, non-array envelope record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -128,7 +128,7 @@ interface PurityCase {
   readonly args: readonly string[];
 }
 
-/** Return the top level verb. */
+/** Select the registry verb that owns a possibly nested CLI command path. */
 function topLevelVerb(commandPath: string): string {
   return commandPath.split(" ")[0] ?? commandPath;
 }
@@ -346,7 +346,7 @@ const PREDICATE_FIXTURES: readonly PredicateFixture[] = [
   },
 ];
 
-/** Return the predicate args. */
+/** Place a predicate value according to its registered positional or option contract. */
 function predicateArgs(
   contract: RegisteredCliJsonPredicateContract,
   value: string,
@@ -357,7 +357,7 @@ function predicateArgs(
     : [...args, contract.option, value];
 }
 
-/** Return the predicate mode args. */
+/** Insert the JSON flag at the invocation position each predicate mode promises. */
 function predicateModeArgs(
   mode: CliPredicateInvocationMode,
   args: readonly string[],
@@ -372,7 +372,7 @@ function predicateModeArgs(
   }
 }
 
-/** Return the value at path. */
+/** Traverse decoded envelope data defensively, yielding absence at the first non-record segment. */
 function valueAtPath(
   value: unknown,
   path: readonly string[],
@@ -502,7 +502,7 @@ function unenrolledVerbs(
   return [...registry].filter((verb) => !covered.has(verb)).sort();
 }
 
-/** Return the set difference. */
+/** Return unique uncovered registry members in stable order. */
 function setDifference(
   candidates: Iterable<string>,
   covered: Iterable<string>,

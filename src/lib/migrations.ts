@@ -79,7 +79,7 @@ export function createMigrationContext(
 ): MigrationContext {
   const abs = (rel: string): string => join(destDir, rel);
 
-  /** Return whether the path exists. */
+  /** Check a migration-relative path under the destination install, treating any inaccessible target as absent. */
   async function exists(rel: string): Promise<boolean> {
     try {
       await Deno.stat(abs(rel));
@@ -89,7 +89,7 @@ export function createMigrationContext(
     }
   }
 
-  /** Read the text. */
+  /** Read a migration-relative file, mapping absence to `undefined`. */
   async function readText(rel: string): Promise<string | undefined> {
     try {
       return await Deno.readTextFile(abs(rel));
@@ -101,7 +101,7 @@ export function createMigrationContext(
     }
   }
 
-  /** Write the text. */
+  /** Create parents and write text, using canonical TOML formatting for config. */
   async function writeText(rel: string, content: string): Promise<void> {
     await ensureDir(dirname(abs(rel)));
     if (rel === CONFIG_REL) {
@@ -111,7 +111,7 @@ export function createMigrationContext(
     await Deno.writeTextFile(abs(rel), content);
   }
 
-  /** Remove the requested operation. */
+  /** Delete one migration-relative path idempotently while surfacing failures other than absence. */
   async function remove(rel: string): Promise<void> {
     try {
       await Deno.remove(abs(rel));
@@ -122,7 +122,7 @@ export function createMigrationContext(
     }
   }
 
-  /** Remove all. */
+  /** Recursively remove a migration-relative path while accepting absence. */
   async function removeAll(rel: string): Promise<void> {
     try {
       await Deno.remove(abs(rel), { recursive: true });
@@ -133,7 +133,7 @@ export function createMigrationContext(
     }
   }
 
-  /** Return the rename. */
+  /** Move an existing path after creating its destination parent. */
   async function rename(from: string, to: string): Promise<void> {
     if (!(await exists(from))) {
       return;
@@ -142,7 +142,7 @@ export function createMigrationContext(
     await Deno.rename(abs(from), abs(to));
   }
 
-  /** Return the rewrite. */
+  /** Transform an existing text file and avoid a write when bytes do not change. */
   async function rewrite(
     rel: string,
     fn: (text: string) => string,
@@ -157,12 +157,12 @@ export function createMigrationContext(
     }
   }
 
-  /** Read the config. */
+  /** Read the installation's root config through the migration-relative accessor. */
   async function readConfig(): Promise<string | undefined> {
     return await readText(CONFIG_REL);
   }
 
-  /** Return the edit TOML. */
+  /** Apply a structural TOML edit when the installation has a config file. */
   async function editToml(fn: (editor: TomlEditor) => void): Promise<void> {
     const text = await readConfig();
     if (text === undefined) {
@@ -173,7 +173,7 @@ export function createMigrationContext(
     await writeDiscernToml(abs(CONFIG_REL), editor.toString());
   }
 
-  /** Merge the settings into. */
+  /** Merge migrated values into Claude settings while preserving unrelated keys. */
   async function mergeSettingsInto(
     incoming: Record<string, unknown>,
   ): Promise<void> {

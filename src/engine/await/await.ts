@@ -157,12 +157,12 @@ const LEGACY_AWAIT_RESUME_KEYS = new Set([
   "repository",
 ]);
 
-/** Return whether the value is await condition. */
+/** Narrow unknown input to one of the closed continuation wait conditions. */
 function isAwaitCondition(value: unknown): value is AwaitConditionKind {
   return AWAIT_CONDITIONS.some((condition) => condition === value);
 }
 
-/** Parse the await continuation payload. */
+/** Validate persisted wait targets, condition, and progress needed to resume polling. */
 function parseAwaitContinuationPayload(
   decoded: unknown,
 ): AwaitContinuationPayload | undefined {
@@ -221,7 +221,7 @@ function parseAwaitContinuationPayload(
   };
 }
 
-/** Decode the legacy resume token. */
+/** Decode the former inline token so stored-handle migration remains resumable. */
 function decodeLegacyResumeToken(
   token: string,
 ): LegacyAwaitResumePayload | undefined {
@@ -281,7 +281,7 @@ interface Evaluation {
   via?: "receipt" | "landed" | "trunk";
 }
 
-/** Return the refusal. */
+/** Build a failed await result with the recovery hint appropriate to its cause. */
 function refusal(
   error:
     | "invalid_arguments"

@@ -28,7 +28,7 @@ export interface SrcCoverage {
   files: FileCoverage[];
 }
 
-/** Return the percentage. */
+/** Convert hit and found counts to a percentage, defining an empty sample as zero. */
 function pct(hit: number, found: number): number {
   return found === 0 ? 0 : (hit / found) * 100;
 }

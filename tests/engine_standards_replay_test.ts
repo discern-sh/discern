@@ -103,7 +103,7 @@ async function measurementRuns(dir: string): Promise<number> {
   return raw === "" ? 0 : raw.trim().split("\n").length;
 }
 
-/** Commit the docs change. */
+/** Commit a docs-only change that must not invalidate a source-scoped measurement. */
 async function commitDocsChange(dir: string): Promise<void> {
   await Deno.mkdir(join(dir, "docs"), { recursive: true });
   await Deno.writeTextFile(join(dir, "docs/note.md"), `note ${Date.now()}\n`);
@@ -111,7 +111,7 @@ async function commitDocsChange(dir: string): Promise<void> {
   await git(dir, "commit", "-qm", "docs only", "--no-gpg-sign");
 }
 
-/** Parse the gate. */
+/** Decode the done envelope used to inspect replay source and measurement facts. */
 function parseGate(stdout: string): GateJson {
   return JSON.parse(stdout.trim()) as GateJson;
 }

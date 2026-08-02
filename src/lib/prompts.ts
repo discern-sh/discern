@@ -98,7 +98,7 @@ export type SelectPromptOptions<T> = Parameters<typeof Select.prompt<T>>[0];
 export type CheckboxPromptOptions<T> = Parameters<typeof Checkbox.prompt<T>>[0];
 export type InputPromptOptions = Parameters<typeof Input.prompt>[0];
 
-/** Return the require interaction. */
+/** Refuse a named prompt unless terminal input and output are available. */
 function requireInteraction(name: string): void {
   if (!canPrompt(false)) {
     throw new Error(
@@ -107,7 +107,7 @@ function requireInteraction(name: string): void {
   }
 }
 
-/** Select the prompt. */
+/** Guard interactive policy before delegating to Cliffy's single-choice prompt. */
 export function selectPrompt<T>(
   options: SelectPromptOptions<T>,
 ): ReturnType<typeof Select.prompt<T>> {
@@ -115,7 +115,7 @@ export function selectPrompt<T>(
   return Select.prompt<T>(options);
 }
 
-/** Return the checkbox prompt. */
+/** Guard interactive policy before delegating to Cliffy's multi-choice prompt. */
 export function checkboxPrompt<T>(
   options: CheckboxPromptOptions<T>,
 ): ReturnType<typeof Checkbox.prompt<T>> {
@@ -123,13 +123,13 @@ export function checkboxPrompt<T>(
   return Checkbox.prompt<T>(options);
 }
 
-/** Return the input prompt. */
+/** Guard interactive policy before asking for free-form text. */
 export function inputPrompt(options: InputPromptOptions): Promise<string> {
   requireInteraction("this question");
   return Input.prompt(options);
 }
 
-/** Return the confirmation prompt. */
+/** Guard interactive policy before asking a yes-or-no question with a default. */
 export function confirmationPrompt(
   message: string,
   defaultTo: boolean,

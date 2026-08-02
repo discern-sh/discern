@@ -14,7 +14,7 @@ interface ActionUse {
   line: number;
 }
 
-/** Return the remote action uses. */
+/** Extract external workflow action references with their source lines, excluding local actions. */
 function remoteActionUses(source: string): ActionUse[] {
   const uses: ActionUse[] = [];
   for (const [index, line] of source.split("\n").entries()) {
@@ -27,7 +27,7 @@ function remoteActionUses(source: string): ActionUse[] {
   return uses;
 }
 
-/** Return whether the value is pinned. */
+/** Require an action reference to end in an immutable full commit SHA. */
 function isPinned(action: string): boolean {
   const separator = action.lastIndexOf("@");
   return separator > 0 && SHA.test(action.slice(separator + 1));

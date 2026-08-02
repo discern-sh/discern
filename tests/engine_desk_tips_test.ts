@@ -40,7 +40,7 @@ const CONFIG = configSchema.parse({
   repository: { trunk: "main" },
 });
 
-/** Return the fleet entry. */
+/** Build a clean worktree row and override only the status facts a tip predicate needs. */
 function fleetEntry(
   branch: string,
   patch: Partial<StatusFleetEntry> = {},
@@ -58,7 +58,7 @@ function fleetEntry(
   };
 }
 
-/** Return the context of. */
+/** Construct a tip survey with a canonical main row plus chosen standards and worktrees. */
 function contextOf(
   patch: { standards?: string[]; fleet?: StatusFleetEntry[] } = {},
 ): TipContext {
@@ -76,7 +76,7 @@ function contextOf(
   return { data, config: CONFIG };
 }
 
-/** Return the tip of. */
+/** Register a minimal deterministic tip while allowing cadence or predicate variation. */
 function tipOf(
   id: string,
   patch: Partial<Pick<TipDef, "predicate" | "since">> = {},
@@ -91,7 +91,7 @@ function tipOf(
   });
 }
 
-/** Return the seen. */
+/** Replay timestamped displays through the production seen-state transition. */
 function seen(
   base: TipSeenState,
   shown: ReadonlyArray<readonly [string, string]>,

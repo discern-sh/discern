@@ -47,7 +47,7 @@ interface SlotEnvelope {
   data?: { failed_stage?: string | null };
 }
 
-/** Parse the envelope. */
+/** Decode a slot-probe envelope and retain its command context in parse failures. */
 function parseEnvelope(stdout: string, context: string): SlotEnvelope {
   try {
     return JSON.parse(stdout) as SlotEnvelope;

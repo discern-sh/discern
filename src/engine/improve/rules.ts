@@ -74,7 +74,7 @@ export async function countAdrs(
   mapDir = SOURCE_PATHS.map.defaultPath,
 ): Promise<number> {
   let count = 0;
-  /** Scan the requested operation. */
+  /** Recursively count numbered ADR files, ignoring the template and treating an absent subtree as empty. */
   async function scan(dir: string): Promise<void> {
     try {
       for await (const entry of Deno.readDir(dir)) {

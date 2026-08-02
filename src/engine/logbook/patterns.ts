@@ -244,7 +244,7 @@ export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
 
-/** Return the plural. */
+/** Format a count with its singular or supplied plural noun. */
 function plural(
   value: number,
   singular: string,
@@ -294,7 +294,7 @@ function driversLine(population: PatternsPopulation): string {
   } · unknown ${formatHumanNumber(population.unknown)}`;
 }
 
-/** Return the scoreboard line. */
+/** Summarize fired, quiet, and evidence-limited detectors in one report line. */
 function scoreboardLine(data: PatternsData): string {
   const spoke = data.detectors.filter((d) => d.status === "fired").length;
   const clear = data.detectors.filter((d) => d.status === "quiet").length;
@@ -318,7 +318,7 @@ function preAuthorizedLandingOverview(
   );
 }
 
-/** Write the wrapped. */
+/** Wrap prose after a fixed prefix and align every continuation line beneath it. */
 function writeWrapped(
   out: Out,
   prefix: string,
@@ -338,7 +338,7 @@ function writeWrapped(
   }
 }
 
-/** Return the tone glyph. */
+/** Render the canonical glyph and color assigned to a finding tone. */
 function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
   const presentation = PATTERNS_TONE_GLYPHS[tone];
   return `${palette[presentation.color]}${presentation.glyph}${palette.reset}`;
@@ -349,7 +349,7 @@ interface FindingRow {
   renderedSeries: string;
 }
 
-/** Render the finding rows. */
+/** Align finding subjects and sparklines before wrapping their explanatory prose. */
 function renderFindingRows(
   out: Out,
   findings: readonly PatternsFinding[],
@@ -398,7 +398,7 @@ function renderFindingRows(
   }
 }
 
-/** Return the detector next step. */
+/** Deduplicate next actions and combine compatible standard-pin findings. */
 function detectorNextStep(findings: readonly PatternsFinding[]): string {
   const pinFindings = findings.filter((finding) =>
     finding.detector === "standard-trajectory" &&
@@ -434,7 +434,7 @@ function detectorNextStep(findings: readonly PatternsFinding[]): string {
   return steps.join(" ");
 }
 
-/** Return the findings by detector. */
+/** Group findings by detector while preserving their ranked input order. */
 function findingsByDetector(
   findings: readonly PatternsFinding[],
 ): Map<string, PatternsFinding[]> {
@@ -450,7 +450,7 @@ function findingsByDetector(
   return groups;
 }
 
-/** Render the family. */
+/** Render one detector family with its findings, evidence, and next actions. */
 function renderFamily(
   out: Out,
   family: DetectorFamily,
@@ -503,7 +503,7 @@ function renderFamily(
   }
 }
 
-/** Render the attention banner. */
+/** Point to the strongest bounded set of attention findings near the report top. */
 function renderAttentionBanner(
   out: Out,
   data: PatternsData,
@@ -536,7 +536,7 @@ function renderAttentionBanner(
   }
 }
 
-/** Render the closing account. */
+/** Account for quiet and evidence-limited detectors after the detailed findings. */
 function renderClosingAccount(
   out: Out,
   data: PatternsData,
@@ -657,7 +657,7 @@ export const STATS_SECTIONS = {
   breadth: "Breadth",
 } as const;
 
-/** Return the percent. */
+/** Render a count pair as a rounded percentage for the stats card. */
 function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`;
 }
@@ -686,7 +686,7 @@ interface StatsSpark {
   label: string;
 }
 
-/** Return the stats spark. */
+/** Keep a cadence series only when it spans multiple nonzero points. */
 function statsSpark(
   series: readonly number[] | undefined,
   label: string,

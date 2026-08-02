@@ -25,7 +25,7 @@ const RUN_OPTS: RunOptions = {
   quiet: true,
 };
 
-/** Return the job. */
+/** Build a runnable custom check job with a chosen label and command. */
 function job(label: string, command = "true"): PlannedJob {
   return {
     label,
@@ -36,7 +36,7 @@ function job(label: string, command = "true"): PlannedJob {
   };
 }
 
-/** Group the requested operation. */
+/** Place chosen jobs in one parallel check-stage group for scheduler unit cases. */
 function group(jobs: PlannedJob[]): JobGroup {
   return {
     stage: "check",

@@ -14,7 +14,7 @@ import { renderTable, srcLineCoverage } from "../scripts/coverage_lib.ts";
 
 const ROOT = "/repo/checkout";
 
-/** Record the requested operation. */
+/** Render one LCOV source record with chosen found and hit line counts. */
 function record(path: string, found: number, hit: number): string {
   return [`SF:${path}`, `LF:${found}`, `LH:${hit}`, "end_of_record"].join(
     "\n",

@@ -37,7 +37,7 @@ interface ModuleGraph {
   }[];
 }
 
-/** Return the local module. */
+/** Map a file URL into the shipped repository graph while excluding external modules. */
 function localModule(root: string, specifier: string): string | undefined {
   if (!specifier.startsWith("file:")) return undefined;
   const rel = relative(root, fromFileUrl(specifier)).replaceAll("\\", "/");
@@ -81,7 +81,7 @@ async function shippedModuleGraph(
   return { modules, edges };
 }
 
-/** Return the writer boundary offenders. */
+/** Validate capability-boundary uniqueness, graph presence, and authorized importer sets. */
 function writerBoundaryOffenders(
   graph: ModuleGraph,
   boundaries: readonly RestrictedWriterModule[],

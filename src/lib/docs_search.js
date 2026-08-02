@@ -30,12 +30,18 @@ export const SEARCH_FIELD_WEIGHT = Object.freeze({
   body: 10,
 });
 
-/** @param {string} value @returns {string} */
+/**
+ * Fold case and whitespace so every search field shares one lexical form.
+ * @param {string} value
+ * @returns {string}
+ */
 function normalize(value) {
   return value.toLocaleLowerCase().replace(/\s+/g, " ").trim();
 }
 
 /**
+ * Use the highest-priority field containing the complete query phrase.
+ *
  * @param {SearchPage} page
  * @param {string} phrase
  * @returns {number}
@@ -58,6 +64,8 @@ function phraseWeight(page, phrase) {
 }
 
 /**
+ * Select the first heading containing the phrase or every individual term.
+ *
  * @param {SearchPage} page
  * @param {string[]} terms
  * @param {string} phrase
@@ -71,6 +79,9 @@ function matchingHeading(page, terms, phrase) {
 }
 
 /**
+ * Crop body text around the phrase or first matching term, falling back to the
+ * page description when neither appears.
+ *
  * @param {SearchPage} page
  * @param {string[]} terms
  * @param {string} phrase

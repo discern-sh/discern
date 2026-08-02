@@ -69,7 +69,7 @@ function pin(
   };
 }
 
-/** Return the stats. */
+/** Derive production stream facts before computing aggregate pattern statistics for fixtures. */
 function stats(events: LogbookEvent[]): PatternsStats {
   return computeStats(buildStreamFacts(events, "main"));
 }

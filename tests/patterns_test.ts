@@ -90,7 +90,7 @@ const DELIBERATELY_UNREAD_DRIVER_SIGNALS: Readonly<
   Record<string, string>
 > = {};
 
-/** Escape text for a regular expression. */
+/** Quote event and driver field names before scanning reader source. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -149,7 +149,7 @@ function readerCoverageOffenders(
   return offenders;
 }
 
-/** Return the logbook reader source. */
+/** Combine every enrolled logbook reader module for closed-set consumption checks. */
 async function logbookReaderSource(): Promise<string> {
   return (await Promise.all(
     LOGBOOK_READER_MODULES.map((path) =>
@@ -370,7 +370,7 @@ function measuredHints(): MeasuredHint[] {
 
 type EpisodeVerdict = "followed" | "not-followed";
 
-/** Return the fired hint. */
+/** Construct the event shape that fires a hint's declared follow-through rule. */
 function firedHint(
   hint: MeasuredHint,
   over: Partial<VerbEvent> = {},
@@ -487,7 +487,7 @@ function followThroughFixture(
   return run(events);
 }
 
-/** Return the measured hint. */
+/** Resolve a registered hint that declares observable follow-through, failing if it does not. */
 function measuredHint(id: string): MeasuredHint {
   const hint = measuredHints().find((entry) => entry.id === id);
   assert(hint !== undefined, `${id} carries no follow-through rule`);
@@ -514,7 +514,7 @@ function measuredTips(
   );
 }
 
-/** Return the shown tip. */
+/** Record a desk event that displayed one adoption-measured tip. */
 function shownTip(
   tip: MeasuredTip,
   over: Partial<VerbEvent> = {},
@@ -522,7 +522,7 @@ function shownTip(
   return { verb: "desk", tip_ids: [tip.id], ...over };
 }
 
-/** Return the tipped verb. */
+/** Build the first declared adoption action for a measured tip. */
 function tippedVerb(
   tip: MeasuredTip,
   over: Partial<VerbEvent> = {},
@@ -571,7 +571,7 @@ function tipAdoptionFixture(
   return run(events);
 }
 
-/** Return the measured tip. */
+/** Resolve a registered tip that declares observable adoption, failing if it does not. */
 function measuredTip(id: string): MeasuredTip {
   const tip = measuredTips().find((entry) => entry.id === id);
   assert(tip !== undefined, `${id} carries no adoption rule`);
@@ -1298,14 +1298,14 @@ Deno.test("patterns registry: every detector supplies its three fixtures", () =>
 
 // ── the three behaviours, parameterized ─────────────────────────────────────
 
-/** Return the fixtures of. */
+/** Require the firing, quiet, and evidence-limited fixtures enrolled for one detector. */
 function fixturesOf(d: Detector): DetectorFixtures {
   const fixtures = FIXTURES[d.id];
   assert(fixtures !== undefined, `no fixtures for ${d.id}`);
   return fixtures;
 }
 
-/** Build the report. */
+/** Build detector-specific stream facts, including configured agents, before evaluating a fixture. */
 function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   return runDetector(
     d,
@@ -1313,7 +1313,7 @@ function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   );
 }
 
-/** Return the detector. */
+/** Resolve a detector from the canonical registry and fail with its missing identifier. */
 function detector(id: string): Detector {
   const found = DETECTORS.find((entry) => entry.id === id);
   assert(found !== undefined, `no detector ${id}`);

@@ -845,12 +845,12 @@ interface HtmlListNode {
   children: HtmlListNode[];
 }
 
-/** Return the HTML list tag. */
+/** Choose an unordered or ordered HTML container from the parsed marker. */
 function htmlListTag(item: Pick<HtmlListNode, "marker">): "ul" | "ol" {
   return item.marker === "•" ? "ul" : "ol";
 }
 
-/** Render the HTML list nodes. */
+/** Emit nested list nodes while grouping adjacent siblings by container type. */
 function renderHtmlListNodes(
   nodes: HtmlListNode[],
   out: string[],
@@ -878,7 +878,7 @@ function renderHtmlListNodes(
   }
 }
 
-/** List to HTML. */
+/** Rebuild the flat depth-annotated items into a tree before emitting HTML. */
 function listToHtml(
   items: ListItem[],
   out: string[],
@@ -904,7 +904,7 @@ function listToHtml(
   renderHtmlListNodes(roots, out, options);
 }
 
-/** Return the table to HTML. */
+/** Emit the first row as a table head and the remaining rows as its body. */
 function tableToHtml(
   rows: string[][],
   out: string[],

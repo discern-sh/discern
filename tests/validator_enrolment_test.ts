@@ -131,7 +131,7 @@ function shippedClosure(universe: Universe): Set<string> {
   return shipped;
 }
 
-/** Remove block and line comments from source text. */
+/** Remove comments before scanning exports and imports so inert examples cannot enroll validators. */
 function stripComments(text: string): string {
   return text.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
 }
@@ -230,7 +230,7 @@ interface GraphFacts {
   readonly uses: ReadonlyMap<string, readonly string[]>;
 }
 
-/** Return the key of. */
+/** Identify one validator capability by its module and exported function pair. */
 function keyOf(row: EnrolledValidator): string {
   return `${row.module}#${row.exportName}`;
 }
@@ -479,7 +479,7 @@ function fixtureUniverse(options: { wired: boolean }): Universe {
   return files;
 }
 
-/** Return the fixture facts. */
+/** Derive shipped closure, validator candidates, and live consumers from an injected module universe. */
 function fixtureFacts(universe: Universe): GraphFacts {
   const shipped = shippedClosure(universe);
   const functions = libFunctionExports(universe);

@@ -65,7 +65,7 @@ async function buildHostBinary(
   return code === 0;
 }
 
-/** Print the live banner. */
+/** Warn that PATH now resolves to the compiled binary and explain restoration. */
 function printLiveBanner(dest: string, triple: string): void {
   const rule = yellow("─".repeat(68));
   console.error("");
@@ -150,7 +150,7 @@ export function holdCompiledLease(opts: {
   return new Promise<never>(() => {});
 }
 
-/** Run this module's main operation. */
+/** Build and atomically install the host binary for one interactive hold, restoring the development shim afterward. */
 async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const triple = Deno.build.target;

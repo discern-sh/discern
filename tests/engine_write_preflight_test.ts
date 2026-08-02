@@ -26,13 +26,13 @@ import {
   VALIDATION_ADMIN_STATE_KEYS,
 } from "../src/shared/git_admin_state.ts";
 
-/** Parse the JSON text. */
+/** Decode a preflight refusal envelope before asserting that no later effect ran. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-/** Return whether the path exists. */
+/** Distinguish an absent preflight artifact from unexpected filesystem failures. */
 async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -45,7 +45,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
-/** Return the directory entry names. */
+/** Read directory members in stable order when asserting a refusal left no debris. */
 async function directoryEntryNames(path: string): Promise<string[]> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(path)) {
@@ -66,7 +66,7 @@ async function gitAdminPath(
   return path;
 }
 
-/** Return the with unwritable git admin. */
+/** Make the receipt directory read-only for one operation and always restore its original mode. */
 async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,
@@ -84,7 +84,7 @@ async function withUnwritableGitAdmin(
   }
 }
 
-/** Return the slow standard config. */
+/** Render a measurement job whose marker proves whether preflight failed before gate execution. */
 function slowStandardConfig(marker: string): string {
   return [
     "[project]",

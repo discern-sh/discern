@@ -577,7 +577,7 @@ function followThroughFamilies(): FollowThroughFamily[] {
   }));
 }
 
-/** Return the fires family. */
+/** Check whether an event emitted any hint belonging to a follow-through family. */
 function firesFamily(
   event: VerbEvent,
   family: FollowThroughFamily,
@@ -585,7 +585,7 @@ function firesFamily(
   return (event.hint_ids ?? []).some((id) => family.hintIds.has(id));
 }
 
-/** Return whether the recorded session values match. */
+/** Compare invocation sessions only when both events record one on the same command surface. */
 function sameRecordedSession(
   firing: VerbEvent,
   candidate: VerbEvent,
@@ -601,7 +601,7 @@ function sameRecordedSession(
   return session === candidateSession;
 }
 
-/** Return the branch action outcome. */
+/** Classify whether a hinted branch action occurred before its boundary verb. */
 function branchActionOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -628,7 +628,7 @@ function branchActionOutcome(
   return "censored";
 }
 
-/** Return the repeated hint outcome. */
+/** Classify whether the same session acted before a hint family fired again. */
 function repeatedHintOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -666,7 +666,7 @@ function repeatedHintOutcome(
   return "censored";
 }
 
-/** Return the main worktree outcome. */
+/** Classify whether a session started isolation before making trunk dirty. */
 function mainWorktreeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -701,7 +701,7 @@ function mainWorktreeOutcome(
   return "censored";
 }
 
-/** Return the episode outcome. */
+/** Dispatch a hint episode to the follow-through rule declared by its family. */
 function episodeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -882,7 +882,7 @@ function tipAdoptionSetup(
   return `${event.epoch}\u0000${event.writer}\u0000${clientVersion ?? ""}`;
 }
 
-/** Return the tip episode outcome. */
+/** Classify whether a comparable setup acted before the same tip reappeared. */
 function tipEpisodeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -933,7 +933,7 @@ interface TipAdoptionCounts extends FollowThroughCounts {
 
 const TIP_ADOPTION_RESOLVED_THRESHOLD = 3;
 
-/** Return the tip adoption next step. */
+/** Choose the most repeatedly ignored tip and turn it into one concrete next action. */
 function tipAdoptionNextStep(
   familyCounts: readonly TipAdoptionCounts[],
 ): string {
@@ -1302,18 +1302,18 @@ function recordedLanding(event: VerbEvent): boolean {
       (event.outcome === "partial" && event.landing?.trunk_landed === true));
 }
 
-/** Return the pre authorized. */
+/** Recognize landings backed by standing or effort-scoped machine authority. */
 function preAuthorized(event: VerbEvent): boolean {
   return event.consent?.source === "standing-grant" ||
     event.consent?.source === "effort-grant";
 }
 
-/** Return the percent. */
+/** Convert a count pair to a rounded percentage, including an empty denominator. */
 function percent(part: number, whole: number): number {
   return whole === 0 ? 0 : Math.round((part / whole) * 100);
 }
 
-/** Return the grant source label. */
+/** Translate a recorded grant source into human report vocabulary. */
 function grantSourceLabel(source: string): string {
   return source === "standing-grant" ? "standing grant" : "effort grant";
 }

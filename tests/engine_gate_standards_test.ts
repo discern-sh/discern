@@ -73,7 +73,7 @@ interface GateJson {
   };
 }
 
-/** Parse the gate JSON. */
+/** Decode a gate envelope and assert the fixture actually exercised the done verb. */
 function parseGateJson(stdout: string): GateJson {
   const obj = JSON.parse(stdout.trim()) as GateJson;
   assertEquals(obj.verb, "done");

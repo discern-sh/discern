@@ -27,7 +27,7 @@ const active = new Set<AbortController>();
 const installed = new Map<Deno.Signal, () => void>();
 let received: Deno.Signal | null = null;
 
-/** Return the install. */
+/** Install process-level signal handlers that fan cancellation into active jobs. */
 function install(): void {
   if (installed.size > 0) {
     return;
@@ -44,7 +44,7 @@ function install(): void {
   }
 }
 
-/** Return the uninstall. */
+/** Remove shared signal handlers once no runner needs interruption fan-out. */
 function uninstall(): void {
   for (const [sig, handler] of installed) {
     Deno.removeSignalListener(sig, handler);

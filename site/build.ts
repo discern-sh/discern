@@ -49,7 +49,7 @@ const COMPOSITION_ASSET_ROOT = new URL(
   SITE_ROOT,
 );
 
-/** Remove the if present. */
+/** Remove an output URL recursively while accepting a missing destination. */
 async function removeIfPresent(url: URL): Promise<void> {
   try {
     await Deno.remove(url, { recursive: true });
@@ -58,7 +58,7 @@ async function removeIfPresent(url: URL): Promise<void> {
   }
 }
 
-/** Write the generated copy. */
+/** Copy source text into the composition bundle with a provenance banner. */
 async function writeGeneratedCopy(
   source: string,
   destination: string,
@@ -70,7 +70,7 @@ async function writeGeneratedCopy(
   );
 }
 
-/** Emit the bundle. */
+/** Generate one selected design-system bundle and return its build summary. */
 async function emitBundle(name: DesignSystemBundleName): Promise<BuildSummary> {
   const selection = DESIGN_SYSTEM_BUNDLES[name];
   return await emitDesignSystemRuntime({

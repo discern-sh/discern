@@ -67,7 +67,7 @@ function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
 
-/** Render the landing hero. */
+/** Introduce the product promise and provider coverage, then route visitors to install or read. */
 function LandingHero() {
   return (
     <header className="discern-article-header discern-article-header--canvas landing-header">
@@ -111,7 +111,7 @@ function LandingHero() {
   );
 }
 
-/** Render the landing page. */
+/** Compose accessible site chrome and the marketing sections into the static homepage. */
 function LandingPage() {
   return (
     <>

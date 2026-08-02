@@ -35,28 +35,28 @@ const MANAGED_REMOTE_KEY = "discern.receiptNotesFetchRemote";
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
-/** Return the fetch ref. */
+/** Derive the private tracking ref that holds one remote's fetched proof notes. */
 function fetchRef(remote: string): string {
   return `${RECEIPT_NOTES_TRACKING_PREFIX}/${remote}/notes`;
 }
 
-/** Return the fetch mapping. */
+/** Render the wildcard refspec that fetches proof notes without requiring their existence. */
 function fetchMapping(remote: string): string {
   return `+${RECEIPT_NOTES_REF}*:${fetchRef(remote)}*`;
 }
 
-/** Return the legacy fetch mapping. */
+/** Render the former exact proof-note refspec for upgrade cleanup. */
 function legacyFetchMapping(remote: string): string {
   return `+${RECEIPT_NOTES_REF}:${fetchRef(remote)}`;
 }
 
-/** Return the git reason. */
+/** Prefer Git's stderr or stdout detail and fall back to its exit status. */
 function gitReason(result: GitResult): string {
   const detail = result.stderr.trim() || result.stdout.trim();
   return detail === "" ? `git exited with status ${result.code}` : detail;
 }
 
-/** Return the config values. */
+/** Read every local Git config value while distinguishing absence from command failure. */
 async function configValues(
   root: string,
   key: string,
@@ -75,7 +75,7 @@ async function configValues(
   return { values: [], error: gitReason(result) };
 }
 
-/** Remove the fixed config value. */
+/** Remove one literal local config value and accept that it is already absent. */
 async function removeFixedConfigValue(
   root: string,
   key: string,
@@ -91,7 +91,7 @@ async function removeFixedConfigValue(
   return gitReason(result);
 }
 
-/** Replace the fixed config value. */
+/** Replace one literal local config value and return Git's failure detail. */
 async function replaceFixedConfigValue(
   root: string,
   key: string,
@@ -113,21 +113,21 @@ async function replaceFixedConfigValue(
   return result.success ? undefined : gitReason(result);
 }
 
-/** Return the push unique. */
+/** Append a changed config key only once to the result inventory. */
 function pushUnique(values: string[], value: string): void {
   if (!values.includes(value)) {
     values.push(value);
   }
 }
 
-/** Return the shell argument. */
+/** Leave safe Git arguments bare and single-quote every other value. */
 function shellArgument(value: string): string {
   return /^[A-Za-z0-9._/@%+=:,~-]+$/.test(value)
     ? value
     : `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
-/** Return the legacy mapping error. */
+/** Give the exact removal command for an unmarked legacy proof-note refspec. */
 function legacyMappingError(
   remote: string,
   key: string,
@@ -142,7 +142,7 @@ function legacyMappingError(
     }\`, then run \`discern refresh\` again.`;
 }
 
-/** Remove the managed remote. */
+/** Remove discern-owned note refspecs and their ownership marker for one remote. */
 async function removeManagedRemote(
   root: string,
   remote: string,
@@ -561,7 +561,7 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   };
 }
 
-/** Return the receipt tracking refs. */
+/** List fetched proof-note tracking refs in stable order. */
 async function receiptTrackingRefs(root: string): Promise<string[]> {
   const result = await runGit(
     [
@@ -580,7 +580,7 @@ async function receiptTrackingRefs(root: string): Promise<string[]> {
   ).sort();
 }
 
-/** Return the notes identity. */
+/** Supply discern's Git note author identity only when attribution is enabled. */
 function notesIdentity(
   env: EnvReader,
 ): Record<string, string> | undefined {
@@ -766,7 +766,7 @@ export type LandedReceiptReading =
   }
   | { readonly status: "missing" };
 
-/** Return the note content from tracking ref. */
+/** Resolve a commit's fan-out note path and read its blob from one tracking ref. */
 async function noteContentFromTrackingRef(
   root: string,
   ref: string,

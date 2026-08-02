@@ -96,7 +96,7 @@ export type DiscernCommitOptions =
     readonly stagedProof: DiscernStagedCommitProof;
   };
 
-/** Return the refused commit. */
+/** Represent a policy refusal as the same structured failure Git callers consume. */
 function refusedCommit(
   site: DiscernAuthoredCommitSite,
   reason: string,
@@ -109,7 +109,7 @@ function refusedCommit(
   };
 }
 
-/** Return the git value. */
+/** Run a Git query and accept only nonempty stdout from a successful command. */
 async function gitValue(
   cwd: string,
   args: string[],
@@ -119,7 +119,7 @@ async function gitValue(
   return result.success && value !== "" ? value : undefined;
 }
 
-/** Return the head value. */
+/** Resolve HEAD, distinguishing an unborn branch from an unreadable repository. */
 async function headValue(cwd: string): Promise<string | null | undefined> {
   const result = await runGit(["rev-parse", "--verify", "-q", "HEAD"], {
     cwd,
@@ -131,7 +131,7 @@ async function headValue(cwd: string): Promise<string | null | undefined> {
   return result.code === 1 ? null : undefined;
 }
 
-/** Return the ref value. */
+/** Resolve a ref, distinguishing an absent ref from an indeterminate lookup. */
 async function refValue(
   cwd: string,
   ref: string,
@@ -158,7 +158,7 @@ interface CommitInvocationProof {
   readonly indexTreeBefore?: string;
 }
 
-/** Return the authored commit object. */
+/** Read a commit's parents and tree only when both Git queries agree on its identity. */
 async function authoredCommitObject(
   cwd: string,
   oid: string,
@@ -217,7 +217,7 @@ async function authoredCommitFromReflog(
   return authored;
 }
 
-/** Return the changed paths. */
+/** List paths introduced against a parent, including the root-commit case. */
 async function changedPaths(
   cwd: string,
   parent: string | null,
@@ -253,12 +253,12 @@ interface GitTreeEntry {
   readonly oid: string;
 }
 
-/** Return the literal pathspec. */
+/** Force Git to interpret an arbitrary repository path without pathspec magic. */
 function literalPathspec(path: string): string {
   return `:(literal)${path}`;
 }
 
-/** Parse the tree entry. */
+/** Decode one NUL-delimited `ls-tree` record and validate its path, mode, and OID. */
 function parseTreeEntry(
   stdout: string,
   path: string,
@@ -288,7 +288,7 @@ function parseTreeEntry(
   return { mode, oid };
 }
 
-/** Return the tree entry. */
+/** Look up one literal path in a committed tree, preserving absent and failed states. */
 async function treeEntry(
   cwd: string,
   treeish: string,
@@ -301,7 +301,7 @@ async function treeEntry(
   return result.success ? parseTreeEntry(result.stdout, path) : undefined;
 }
 
-/** Return the index entry. */
+/** Read one stage-0 index entry and reject ambiguous or malformed Git output. */
 async function indexEntry(
   cwd: string,
   path: string,
@@ -340,7 +340,7 @@ async function indexEntry(
   return { mode, oid };
 }
 
-/** Return whether the tree entry values match. */
+/** Compare Git tree absence or the exact mode-and-object pair needed for safe index restoration. */
 function sameTreeEntry(
   left: GitTreeEntry | null,
   right: GitTreeEntry | null,

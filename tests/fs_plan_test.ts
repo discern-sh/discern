@@ -349,7 +349,7 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
   });
 });
 
-/** Write the op. */
+/** Build a deterministic create-file operation for partial-plan recovery cases. */
 function writeOp(targetAbs: string, targetRel: string): PlanOp {
   return {
     kind: "write",

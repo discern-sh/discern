@@ -30,12 +30,12 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
-/** Return the clone. */
+/** Deep-copy a JSON Schema fixture so each mutation case remains isolated. */
 function clone(value: JsonObject): JsonObject {
   return structuredClone(value);
 }
 
-/** Return the accepts. */
+/** Compile a schema and test one instance through the production validator dialect. */
 function accepts(schema: JsonObject, value: JsonValue): boolean {
   const result = new Ajv2020({
     allErrors: true,
@@ -48,7 +48,7 @@ function accepts(schema: JsonObject, value: JsonValue): boolean {
   return result;
 }
 
-/** Compile the error. */
+/** Require schema compilation to fail and preserve its diagnostic message. */
 function compileError(schema: JsonObject): string {
   const error = assertThrows(() =>
     new Ajv2020({
@@ -60,7 +60,7 @@ function compileError(schema: JsonObject): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Compile the error or undefined. */
+/** Capture a schema compilation failure without turning success into an exception. */
 function compileErrorOrUndefined(
   schema: JsonObject,
 ): string | undefined {

@@ -34,12 +34,12 @@ export interface ProviderHooksRefreshResult {
   readonly errors: string[];
 }
 
-/** Return the err text. */
+/** Preserve an Error's message and stringify non-Error hook failures. */
 function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Return the hook providers for config. */
+/** Resolve configured agents to the providers that declare hook integrations. */
 function hookProvidersForConfig(config: DiscernConfig): Provider[] {
   const providers: Provider[] = [];
   for (const agent of resolveConfiguredAgents(config)) {
@@ -51,7 +51,7 @@ function hookProvidersForConfig(config: DiscernConfig): Provider[] {
   return providers;
 }
 
-/** Read the text if exists. */
+/** Read a hook settings file, mapping absence to `undefined`. */
 async function readTextIfExists(path: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(path);
@@ -63,7 +63,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
-/** Return the canonical JSON. */
+/** Recursively sort object keys so JSON equality ignores property order. */
 function canonicalJson(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalJson);
@@ -78,7 +78,7 @@ function canonicalJson(value: unknown): unknown {
   return value;
 }
 
-/** Return the semantically equal JSON. */
+/** Compare parsed JSON values without treating object-key order as drift. */
 function semanticallyEqualJson(left: string, right: string): boolean {
   const parsedLeft: unknown = JSON.parse(left);
   const parsedRight: unknown = JSON.parse(right);
@@ -86,7 +86,7 @@ function semanticallyEqualJson(left: string, right: string): boolean {
     JSON.stringify(canonicalJson(parsedRight));
 }
 
-/** Return the desired hook text. */
+/** Merge a provider's hook seed with the current settings into desired bytes. */
 async function desiredHookText(
   root: string,
   templatesDir: string,
@@ -103,7 +103,7 @@ async function desiredHookText(
   return { rel, existing, desired: merge(existing, template) };
 }
 
-/** Return the hook text current. */
+/** Compare JSON hook files semantically and other formats byte for byte. */
 function hookTextCurrent(
   rel: string,
   existing: string | undefined,

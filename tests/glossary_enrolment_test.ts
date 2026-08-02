@@ -35,7 +35,7 @@ const CLOSED_SETS: Readonly<Record<ClosedSet, readonly string[]>> = {
   verb: [...KNOWN_VERBS].sort(),
 };
 
-/** Escape text for a regular expression. */
+/** Quote closed-set member names before matching backticked glossary mentions. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -54,7 +54,7 @@ function escapeRegExp(value: string): string {
 /** The fields the naming predicate reads — fixtures need supply no more. */
 type NamedByEntry = Pick<GlossaryEntry, "term" | "definition">;
 
-/** Return the named by. */
+/** Accept a closed-set member only when its glossary family names or explicitly mentions it. */
 function namedBy(
   glossary: readonly NamedByEntry[],
   set: ClosedSet,

@@ -57,12 +57,12 @@ const STANDING_CONFIG = [
   "",
 ].join("\n");
 
-/** Parse the result. */
+/** Decode a lifecycle envelope while preserving its command-specific data type. */
 function parseResult<T>(stdout: string): DiscernResult<T> {
   return JSON.parse(stdout.trim()) as DiscernResult<T>;
 }
 
-/** Commit the path. */
+/** Create and commit one classified path on the acceptance branch. */
 async function commitPath(
   worktree: string,
   path: string,
@@ -82,7 +82,7 @@ async function commitPath(
   );
 }
 
-/** Return the fleet row. */
+/** Select a branch from status fleet data and fail with the missing branch name. */
 function fleetRow(
   status: DiscernResult<StatusData>,
   branch: string,
@@ -92,7 +92,7 @@ function fleetRow(
   return row;
 }
 
-/** Return the MCP tool. */
+/** Resolve a tool from the canonical MCP registry so new surface metadata is tested in place. */
 function mcpTool(name: string): (typeof TOOLS)[number] {
   const tool = TOOLS.find((entry) => entry.name === name);
   assert(tool !== undefined, `expected MCP tool ${name}`);

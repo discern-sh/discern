@@ -47,7 +47,7 @@ Deno.test("every acceptance transaction boundary has interruption fixtures", () 
   );
 });
 
-/** Return the authority config. */
+/** Render the minimal acceptance config with optional standing grants for authority cases. */
 function authorityConfig(grants: string[] = []): string {
   return [
     "[meta]",
@@ -79,7 +79,7 @@ function authorityConfig(grants: string[] = []): string {
   ].join("\n");
 }
 
-/** Commit the paths. */
+/** Materialize and commit one exact changed-path set on the worktree under test. */
 async function commitPaths(
   worktree: string,
   paths: Readonly<Record<string, string>>,
@@ -100,7 +100,7 @@ async function commitPaths(
   );
 }
 
-/** Return the ready worktree. */
+/** Scaffold a repository, create an isolated branch, and commit its authority fixture. */
 async function readyWorktree(
   dir: string,
   config: string,
@@ -115,7 +115,7 @@ async function readyWorktree(
   return worktree;
 }
 
-/** Return the accept events. */
+/** Read every logbook shard and retain only recorded acceptance verb events. */
 async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
   const logDir = join(dir, ".git", "discern", "logbook");
   const events: LogbookEvent[] = [];
@@ -135,7 +135,7 @@ async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
 
 const ACCEPT_READINESS_TIMEOUT_MS = 180_000;
 
-/** Return the wait for path. */
+/** Wait for an acceptance boundary artifact while failing if the operation settles first. */
 async function waitForPath<T>(
   path: string,
   pending: Promise<T>,
@@ -218,7 +218,7 @@ async function injectInterruptedAcceptance(
   return { id, journal };
 }
 
-/** Return the inject committed acceptance marker. */
+/** Record the per-worktree proof ref for an interrupted transaction and verify its target. */
 async function injectCommittedAcceptanceMarker(
   worktree: string,
   fixture: InterruptedAcceptanceFixture,

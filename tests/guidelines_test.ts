@@ -160,7 +160,7 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
   }
 });
 
-/** Return the source files. */
+/** Enumerate authored guidance fragments in stable compilation order. */
 async function* sourceFiles(dir: string): AsyncGenerator<string> {
   for await (const entry of Deno.readDir(dir)) {
     const path = join(dir, entry.name);

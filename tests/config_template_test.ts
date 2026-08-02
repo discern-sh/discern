@@ -44,7 +44,7 @@ Deno.test("the bundled template is depth-indented (a fixpoint of indentToml)", a
   );
 });
 
-/** Return the agent target pairs. */
+/** Decode the human-readable agent-to-guidance mappings embedded in the template comment. */
 function agentTargetPairs(
   comment: string,
 ): Array<{ name: string; target: string }> {

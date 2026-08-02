@@ -46,7 +46,7 @@ const FULL_GATE_POST_READY_CEILING_MS = 15_000;
 const OVERRIDE_WATCHDOG_CEILING_MS = 15_000;
 const TIMEOUT_READY_FILE = ".discern-timeout-ready";
 
-/** Return the wait for readiness. */
+/** Wait for a planted readiness marker and fail if the engine operation settles before it appears. */
 async function waitForReadiness<T>(
   path: string,
   pending: Promise<T>,
@@ -86,7 +86,7 @@ async function waitForReadiness<T>(
   );
 }
 
-/** Return the settle after readiness. */
+/** Measure only the shutdown interval after a timed job proves it has started. */
 async function settleAfterReadiness<T>(
   path: string,
   pending: Promise<T>,
@@ -98,14 +98,14 @@ async function settleAfterReadiness<T>(
   return { result, elapsedMs: performance.now() - started };
 }
 
-/** Return the ready then. */
+/** Prefix a shell fixture with the marker that starts the timeout assertion clock. */
 function readyThen(command: string): string {
   return `: > ${TIMEOUT_READY_FILE} && ${command}`;
 }
 
 const RUN_AGENT_CALL = ["run", "Agent("].join("");
 
-/** Return the pre readiness agent timers. */
+/** Find agent invocations whose test timer incorrectly starts before a readiness boundary. */
 function preReadinessAgentTimers(source: string): string[] {
   const lines = source.split("\n");
   const offenders: string[] = [];

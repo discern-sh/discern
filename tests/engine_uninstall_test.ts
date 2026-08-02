@@ -37,7 +37,7 @@ const USER_GITATTRIBUTES = "*.jpg binary\n";
  * so the round-trip asserts they return to these exact bytes. */
 const PRE_SEEDED = new Set([".claude/settings.json", ".mcp.json"]);
 
-/** Return whether the path exists. */
+/** Treat any inaccessible fixture path as absent when verifying uninstall cleanup. */
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.lstat(path);

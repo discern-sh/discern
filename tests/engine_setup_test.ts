@@ -145,7 +145,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
   });
 });
 
-/** Return the setup text files under. */
+/** Enumerate seeded text files from either a single file target or a whole setup directory. */
 async function setupTextFilesUnder(
   root: string,
   rel: string,

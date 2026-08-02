@@ -74,7 +74,7 @@ interface Transcript {
   stderr: string[];
 }
 
-/** Return the transcript. */
+/** Capture desk narration in ordered stdout and stderr arrays without a terminal. */
 function transcript(): Transcript {
   const stdout: string[] = [];
   const stderr: string[] = [];
@@ -94,7 +94,7 @@ function transcript(): Transcript {
   };
 }
 
-/** Return the fleet entry. */
+/** Build a clean fleet row while letting each runtime case override only relevant status facts. */
 function fleetEntry(
   branch: string,
   path: string,
@@ -114,7 +114,7 @@ function fleetEntry(
   };
 }
 
-/** Return the status data. */
+/** Build a minimal status survey for a chosen location and fleet. */
 function statusData(
   fleet: StatusFleetEntry[] = [],
   location: StatusData["location"] = "main",
@@ -136,7 +136,7 @@ const CONTEXT: LifecycleContext = {
   log: new Logger({ json: true, noColor: true }),
 };
 
-/** Return the scripted runtime. */
+/** Provide deterministic desk dependencies whose behavior can be selectively overridden. */
 function scriptedRuntime(
   output: Transcript,
   patch: Partial<DeskRuntime> = {},
@@ -193,7 +193,7 @@ function scriptedRuntime(
   };
 }
 
-/** Return the joined. */
+/** Combine both captured desk streams for order-insensitive message assertions. */
 function joined(output: Transcript): string {
   return [...output.stdout, ...output.stderr].join("\n");
 }
@@ -215,7 +215,7 @@ function renderedTipBlock(id: string, width: number): string {
     .join("");
 }
 
-/** Count the occurrences. */
+/** Count overlapping candidate positions to prove a tip is narrated exactly once. */
 function countOccurrences(haystack: string, needle: string): number {
   let count = 0;
   let index = haystack.indexOf(needle);

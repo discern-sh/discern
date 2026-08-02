@@ -57,7 +57,7 @@ const SCOPE_CONFIG = [
   "",
 ].join("\n");
 
-/** Return the status gate facts config. */
+/** Render known jobs, a custom check, and a scoped gate for status truth-table cases. */
 function statusGateFactsConfig(
   wiredKnownJobs: readonly KnownJob[],
 ): string {

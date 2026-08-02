@@ -27,7 +27,7 @@ const root = buildCli(false) as unknown as Command;
 const rendered = renderCliReferenceDoc(root);
 const model = cliCommandModel(root);
 
-/** Return the committed reference. */
+/** Read the configured map's checked-in CLI reference for generator parity. */
 async function committedReference(): Promise<string> {
   return await Deno.readTextFile(
     `${REPO_AUTHORED_PATHS.map}/70-reference/cli-reference.md`,

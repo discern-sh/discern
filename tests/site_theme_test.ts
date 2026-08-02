@@ -20,7 +20,7 @@ interface ThemeWindow extends Window {
   eval(source: string): unknown;
 }
 
-/** Return the inline theme bootstrap. */
+/** Select the inline script that resolves the system color scheme before first paint. */
 function inlineThemeBootstrap(html: string): string {
   const scripts = [
     ...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g),

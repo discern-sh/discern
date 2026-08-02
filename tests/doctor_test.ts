@@ -221,7 +221,7 @@ interface GeneratedGroupFixture {
   readonly run: string;
 }
 
-/** Return the add generated groups. */
+/** Append production-shaped generated-artifact groups to a scaffolded test config. */
 async function addGeneratedGroups(
   dir: string,
   groups: readonly GeneratedGroupFixture[],
@@ -247,7 +247,7 @@ async function disableLogbook(dir: string): Promise<void> {
   );
 }
 
-/** Return whether the path exists. */
+/** Treat any stat failure as absence when checking doctor's repair side effects. */
 async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);

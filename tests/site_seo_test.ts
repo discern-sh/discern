@@ -32,7 +32,7 @@ const BROWSER = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
 };
 
-/** Return the request. */
+/** Serve one production-origin route with browser defaults unless a redirect case overrides them. */
 function request(
   path: string,
   init: RequestInit = { headers: BROWSER },
@@ -40,7 +40,7 @@ function request(
   return handler(new Request(`${SITE_ORIGIN}${path}`, init));
 }
 
-/** Return the requested attribute. */
+/** Select an SEO tag and extract one quoted attribute from it. */
 function attr(
   html: string,
   selector: RegExp,
@@ -50,14 +50,14 @@ function attr(
   return tag?.match(new RegExp(`\\b${name}=(["'])(.*?)\\1`, "i"))?.[2];
 }
 
-/** Return the title of. */
+/** Extract and decode the document title emitted by the SEO renderer. */
 function titleOf(html: string): string {
   return decodeHtml(
     /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "",
   );
 }
 
-/** Return the description of. */
+/** Extract and decode the named description meta tag's content. */
 function descriptionOf(html: string): string {
   return decodeHtml(
     attr(
@@ -68,7 +68,7 @@ function descriptionOf(html: string): string {
   );
 }
 
-/** Decode the HTML. */
+/** Decode the entity subset emitted in site metadata before semantic comparison. */
 function decodeHtml(value: string): string {
   return value
     .replaceAll("&amp;", "&")
@@ -78,7 +78,7 @@ function decodeHtml(value: string): string {
     .replaceAll("&#39;", "'");
 }
 
-/** Return the canonical of. */
+/** Extract the canonical link target, treating an absent tag as empty evidence. */
 function canonicalOf(html: string): string {
   return attr(
     html,

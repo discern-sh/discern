@@ -7,7 +7,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { searchAgentPages, type SearchPage } from "../src/lib/docs_search.ts";
 
-/** Return the page. */
+/** Build a minimal searchable page while letting each ranking case override only its signal. */
 function page(
   route: string,
   overrides: Partial<SearchPage> = {},
