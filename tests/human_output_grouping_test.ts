@@ -7,12 +7,7 @@
  * collapse into flat lists.
  */
 
-import {
-  assert,
-  assertEquals,
-  assertStringIncludes,
-  assertThrows,
-} from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { join } from "@std/path";
 import {
   populatedHumanOutputGroups,
@@ -181,7 +176,7 @@ Deno.test("the live output grouping surface writes exactly one complete boundary
   );
 });
 
-Deno.test("the prompt grouping surface labels every populated group", () => {
+Deno.test("the prompt grouping surface gives every populated group a heading", () => {
   const options = groupedSelectOptions<string>([
     {
       id: "orbit",
@@ -196,11 +191,15 @@ Deno.test("the prompt grouping surface labels every populated group", () => {
     },
   ]);
 
-  assertEquals(options.length, 4);
-  const serialized = JSON.stringify(options);
-  assertStringIncludes(serialized, "── Orbit ──");
-  assertStringIncludes(serialized, "── Harbor ──");
-  assert(!serialized.includes("Canopy"));
+  assertEquals(
+    JSON.stringify(options),
+    JSON.stringify([
+      { name: "\n  ── Orbit ──" },
+      { name: "First", value: "first" },
+      { name: "\n  ── Harbor ──" },
+      { name: "Second", value: "second" },
+    ]),
+  );
 });
 
 Deno.test("discern-managed human boundaries use the semantic grouping surface", async () => {

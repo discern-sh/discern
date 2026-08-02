@@ -107,15 +107,15 @@ export type SelectPromptGroup<T> =
   & { label: string };
 
 /** Build a prompt's option list from named semantic groups. Every populated
- * group receives a visible ruled label, including the first, so task rows and
- * navigation/actions never collapse into one flat list. */
+ * group receives a ruled heading with one empty row above it, including the
+ * first, so task rows and navigation/actions never collapse into one flat list. */
 export function groupedSelectOptions<T>(
   groups: readonly SelectPromptGroup<T>[],
   decorateRule: (rule: string) => string = (rule) => rule,
 ): SelectPromptOption<T>[] {
   return populatedHumanOutputGroups(groups).flatMap((group) => [
     Select.separator(
-      decorateRule(`── ${group.label} ──`),
+      `\n  ${decorateRule(`── ${group.label} ──`)}`,
     ) as SelectPromptOption<T>,
     ...group.items,
   ]);
