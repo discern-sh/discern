@@ -35,6 +35,8 @@ import {
 } from "../scripts/canonical_sets.ts";
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
+import { loadConfig, toCommandList } from "../src/shared/config_schema.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 import {
   REGISTRY_ATLAS_REL,
@@ -381,6 +383,46 @@ Deno.test("every recorded codegen stray carries a reason and is still written", 
         "longer writes it — delete the stale record",
     );
   }
+});
+
+Deno.test("[generated.codegen] declares exactly the whole-file codegen targets", async () => {
+  const config = await loadConfig(REPO_ROOT);
+  const group = resolveGeneratedGroups(config).find((candidate) =>
+    candidate.name === "codegen"
+  );
+  assert(
+    group !== undefined,
+    "discern.toml no longer declares [generated.codegen] — the gate's " +
+      "build-stage regeneration and update's conflict resolution both hang " +
+      "off that declaration",
+  );
+  const wholeFile = new Set(Object.keys(UNAFFILIATED_CODEGEN_TARGETS));
+  for (const entry of CANONICAL_SETS) {
+    for (const artifact of entry.artifacts) {
+      if (artifact.kind === "generated-file") {
+        wholeFile.add(artifact.path);
+      }
+    }
+  }
+  assertEquals(
+    [...group.paths].sort(),
+    [...wholeFile].sort(),
+    "discern.toml's [generated.codegen].paths and the meta-registry's " +
+      "whole-file write targets have drifted apart — declare the artifact in " +
+      "both places, or delete the stale path. Maintained-block pages stay " +
+      "undeclared: they are part-authored, so update must never resolve " +
+      "their conflicts by regeneration",
+  );
+  assertEquals(
+    group.run,
+    "deno task codegen",
+    "[generated.codegen].run and the write chokepoint have drifted apart",
+  );
+  assert(
+    !toCommandList(config.jobs.build).includes(group.run),
+    "[jobs].build still carries the codegen command — the generated group " +
+      "already runs it in the build stage, so the gate would pay it twice",
+  );
 });
 
 // --- Enrolments: every reference names a live member of the enrolling registry.

@@ -162,7 +162,9 @@
 
 [jobs]
   format = ["deno fmt", "discern tidy"]
-  build = ["deno task codegen", "deno task site:build"]
+  # `deno task codegen` runs as the [generated.codegen] group below — one
+  # command, one home; the build job keeps only the uncommitted site output.
+  build = "deno task site:build"
   lint = "deno lint"
   typecheck = "deno check"
   # Local gates default to JUnit for per-test Tier-1 diagnostics (file, line,
@@ -246,10 +248,57 @@
     paths = ["site/**"]
     previewable = true
 
-# A sub-component with its own self-contained gate:
-# [scopes.native]
-# paths = ["native/**"]
-# gate  = "make -C native check"
+  # A sub-component with its own self-contained gate:
+  # [scopes.native]
+  # paths = ["native/**"]
+  # gate  = "make -C native check"
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # [generated.<name>] — committed artifacts wholly owned by one generator, and
+  # the deterministic command that rewrites them from their sources (ADR 0247).
+  # The gate runs each group as a build-stage job (`generated:<name>`) and fails
+  # when regeneration changes a declared path (the artifact was stale — commit
+  # the regeneration) or when the build dirties tracked paths no group owns (the
+  # declaration under-covers — widen `paths`). `discern update` resolves merge
+  # conflicts confined to declared paths by taking a side and regenerating,
+  # instead of refusing. Orthogonal to [scopes]: a scope tunes review; a
+  # generated group names who owns the bytes.
+  # ─────────────────────────────────────────────────────────────────────────────
+
+  # The registry-codegen family: every whole-file artifact `deno task codegen`
+  # derives from the canonical registries. The list mirrors the meta-registry's
+  # enrolled write targets (`codegenWriteTargets()` in scripts/canonical_sets.ts);
+  # tests/canonical_sets_enrolment_test.ts holds the two equal, so a new codegen
+  # target must be declared here in the same change. The three maintained-block
+  # pages codegen also edits (artifact-ownership.md, mcp-and-results.md,
+  # install-surface.md) are deliberately undeclared: they are part-authored, so
+  # a merge conflict there still needs judgment, not regeneration.
+  [generated.codegen]
+    paths = [
+      "schema/discern-config.schema.json",
+      "schema/discern-setup-config.schema.json",
+      "schema/discern-results.schema.json",
+      "schema/discern-proof-note.schema.json",
+      "types/discern-json.d.ts",
+      "${map.dir}00-orientation/glossary.md",
+      "${map.dir}70-reference/cli-reference.md",
+      "${map.dir}70-reference/config-reference.md",
+      "${map.dir}_internal/feature-canon.md",
+      "${map.dir}_internal/feature-canon-plain.md",
+      "${map.dir}_internal/hint-inventory.md",
+      "${map.dir}_internal/registry-atlas.md",
+      "${map.dir}_internal/tip-inventory.md",
+      "site/pages/assets/search.js",
+      ".github/cla-assistant/metadata",
+      "THIRD_PARTY_NOTICES",
+      "src/lib/first_party_license_bundle.ts",
+      "src/lib/third_party_bundle.ts",
+      "scripts/jsr_license_cache.json",
+    ]
+    run = "deno task codegen"
+    # Warm runs finish in seconds; a compile-graph change re-fetches third-party
+    # license metadata, so the group gets two minutes instead of the global ten.
+    timeout = 120
 
 # ─────────────────────────────────────────────────────────────────────────────
 # [acceptance] — standing grants for landing. Each entry names a scope whose
