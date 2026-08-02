@@ -74,6 +74,7 @@ export async function countAdrs(
   mapDir = SOURCE_PATHS.map.defaultPath,
 ): Promise<number> {
   let count = 0;
+  /** Scan the requested operation. */
   async function scan(dir: string): Promise<void> {
     try {
       for await (const entry of Deno.readDir(dir)) {

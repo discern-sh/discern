@@ -164,6 +164,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   };
 }
 
+/** Return the ignored file details. */
 function ignoredFileDetails(summary: IgnoredFileChangeSummary): string[] {
   if (summary.status !== "changed" || summary.changed_total === 0) {
     return [];
@@ -464,6 +465,7 @@ export interface PrunePlan {
   reclaimContained: boolean;
 }
 
+/** Prune the branches to delete. */
 function pruneBranchesToDelete(scan: GitWorktreePruneScan): string[] {
   return [
     ...scan.worktreesToRemove.map((w) => w.branch).filter((b) => b !== ""),

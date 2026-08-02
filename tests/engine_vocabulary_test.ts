@@ -18,6 +18,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
+/** Return the first top level redirect. */
 function firstTopLevelRedirect(): [string, string] {
   const entry = Object.entries(RETIRED_COMMAND_REDIRECTS).find(([command]) =>
     !command.includes(" ")

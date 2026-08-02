@@ -22,6 +22,7 @@ Deno.test("adrNumberOf: non-record files carry no number", () => {
   assertEquals(adrNumberOf("map/_adr/0184.md"), undefined);
 });
 
+/** Return the scaffold adrs. */
 async function scaffoldAdrs(
   dir: string,
   files: string[],

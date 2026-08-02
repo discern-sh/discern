@@ -145,6 +145,7 @@ export const VALIDATION_ADMIN_STATE_KEYS = GIT_ADMIN_STATE_KEYS.filter(
   (key) => GIT_ADMIN_STATE[key].validation,
 ) as ValidationAdminStateKey[];
 
+/** Return the git path. */
 async function gitPath(
   cwd: string,
   args: string[],

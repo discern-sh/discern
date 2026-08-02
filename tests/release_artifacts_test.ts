@@ -99,16 +99,19 @@ interface FakeOptions {
   version?: string;
 }
 
+/** Quote a value for the shell. */
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", "'\"'\"'")}'`;
 }
 
+/** Truncate the after marker. */
 function truncateAfterMarker(text: string, marker: string): string {
   const markerIndex = text.indexOf(marker);
   assert(markerIndex >= 0, `fixture text is missing ${marker}`);
   return text.slice(0, markerIndex + marker.length);
 }
 
+/** Write the fake discern. */
 async function writeFakeDiscern(
   dir: string,
   options: FakeOptions = {},

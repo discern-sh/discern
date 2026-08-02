@@ -50,6 +50,7 @@ import {
 import { writeReceiptNote } from "../src/engine/gate/receipt_notes.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
+/** Return the delay. */
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }

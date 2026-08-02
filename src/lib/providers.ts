@@ -583,16 +583,19 @@ export function atImportPointer(canonicalPath: string): string {
 
 // ── small JSON helpers (read-or-empty, write pretty) ────────────────────────
 
+/** Return whether the value is an object. */
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+/** Return the as string array. */
 function asStringArray(v: unknown): string[] {
   return Array.isArray(v)
     ? v.filter((x): x is string => typeof x === "string")
     : [];
 }
 
+/** Parse the TOML object. */
 function parseTomlObject(text: string | undefined): Record<string, unknown> {
   if (text === undefined || text.trim() === "") {
     return {};
@@ -605,6 +608,7 @@ function parseTomlObject(text: string | undefined): Record<string, unknown> {
   }
 }
 
+/** Return the object path. */
 function objectPath(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -619,6 +623,7 @@ function objectPath(
   return current;
 }
 
+/** Return the string array at. */
 function stringArrayAt(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -626,6 +631,7 @@ function stringArrayAt(
   return asStringArray(objectPath(root, path));
 }
 
+/** Return the string at. */
 function stringAt(
   root: Record<string, unknown>,
   path: readonly string[],
@@ -634,6 +640,7 @@ function stringAt(
   return typeof value === "string" ? value : undefined;
 }
 
+/** Return the append unique. */
 function appendUnique(base: readonly string[], addition: string): string[] {
   return base.includes(addition) ? [...base] : [...base, addition];
 }
@@ -940,6 +947,7 @@ function codexWritableWorktreeRoot(
   return relative(join(root, dirname(CODEX_CONFIG_FILE)), worktreeRoot);
 }
 
+/** Return the codex worktree placement base root. */
 async function codexWorktreePlacementBaseRoot(root: string): Promise<string> {
   const run = await runGit(["worktree", "list", "--porcelain"], { cwd: root });
   if (!run.success) {
@@ -1018,6 +1026,7 @@ async function registerCodexProjectConfig(
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };
 }
 
+/** Return whether write codex env script should happen. */
 function shouldWriteCodexEnvScript(
   current: string | undefined,
   discernOwned: string,

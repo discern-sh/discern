@@ -43,6 +43,7 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
+/** Return the receipt config. */
 function receiptConfig(mode: "local" | "fetch"): string {
   return [
     "[project]",
@@ -65,6 +66,7 @@ interface Landing {
   readonly result: DiscernResult<AcceptData>;
 }
 
+/** Return the land. */
 async function land(
   main: string,
   name: string,
@@ -125,6 +127,7 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
   return payload.proof;
 }
 
+/** Return the notes identity. */
 async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
   string[]
 > {
@@ -137,14 +140,17 @@ async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
   )).split("\0");
 }
 
+/** Return the receipt fetch mapping. */
 function receiptFetchMapping(remote: string): string {
   return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
 }
 
+/** Return the legacy receipt fetch mapping. */
 function legacyReceiptFetchMapping(remote: string): string {
   return `+refs/notes/discern:refs/discern/remotes/${remote}/notes`;
 }
 
+/** Return the local config values. */
 async function localConfigValues(
   root: string,
   key: string,
@@ -629,6 +635,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
   });
 });
 
+/** Return the synthetic receipt. */
 function syntheticReceipt(commit: string, branch: string): Receipt {
   return {
     branch,
@@ -642,6 +649,7 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
   };
 }
 
+/** Return the encoded proof payload. */
 function encodedProofPayload(
   value: unknown,
   alphabet: "standard" | "url-safe" = "standard",

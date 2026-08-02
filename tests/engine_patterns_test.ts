@@ -562,6 +562,7 @@ const REPORT_STANDARD_NAMES = Array.from(
   (_, index) => `metric-${String(index + 1).padStart(2, "0")}`,
 );
 
+/** Report the standards. */
 function reportStandards(reading: number, total: number): unknown[] {
   return REPORT_STANDARD_NAMES.map((name, index) => {
     switch (index % 3) {
@@ -771,10 +772,12 @@ async function seedLongTrajectoryLogbook(dir: string): Promise<number[]> {
   return values;
 }
 
+/** Return the normalized. */
 function normalized(text: string): string {
   return text.replace(/\s+/g, " ").trim();
 }
 
+/** Return the occurrences. */
 function occurrences(haystack: string, needle: string): number {
   if (needle === "") {
     return 0;

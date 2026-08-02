@@ -190,6 +190,7 @@ function shellWord(word: string): string {
     : `'${word.replaceAll("'", `'\\''`)}'`;
 }
 
+/** Return the displayed command. */
 function displayedCommand(command: string, args: readonly string[]): string {
   return [command, ...args].map(shellWord).join(" ");
 }

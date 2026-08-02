@@ -69,6 +69,7 @@ function pin(
   };
 }
 
+/** Return the stats. */
 function stats(events: LogbookEvent[]): PatternsStats {
   return computeStats(buildStreamFacts(events, "main"));
 }

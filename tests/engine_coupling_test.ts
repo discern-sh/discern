@@ -95,6 +95,7 @@ function partnerPaths(data: CouplingData): string[] {
   return data.partners.map((p) => p.path);
 }
 
+/** Return the ranked hub history. */
 async function rankedHubHistory(dir: string): Promise<void> {
   for (let i = 0; i < 20; i++) {
     const files: Record<string, string> = { "hub.ts": `hub-${i}` };

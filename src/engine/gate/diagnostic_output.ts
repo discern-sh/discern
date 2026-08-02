@@ -7,6 +7,7 @@ export interface DiagnosticOutputFields {
   output_path?: string;
 }
 
+/** Write the full output. */
 async function writeFullOutput(fullText: string): Promise<string | undefined> {
   try {
     const path = await makeTempArtifact("diag");

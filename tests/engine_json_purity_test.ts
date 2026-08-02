@@ -84,6 +84,7 @@ function assertEnvelopeOnly(
   return obj;
 }
 
+/** Return whether the value is a record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -127,6 +128,7 @@ interface PurityCase {
   readonly args: readonly string[];
 }
 
+/** Return the top level verb. */
 function topLevelVerb(commandPath: string): string {
   return commandPath.split(" ")[0] ?? commandPath;
 }
@@ -344,6 +346,7 @@ const PREDICATE_FIXTURES: readonly PredicateFixture[] = [
   },
 ];
 
+/** Return the predicate args. */
 function predicateArgs(
   contract: RegisteredCliJsonPredicateContract,
   value: string,
@@ -354,6 +357,7 @@ function predicateArgs(
     : [...args, contract.option, value];
 }
 
+/** Return the predicate mode args. */
 function predicateModeArgs(
   mode: CliPredicateInvocationMode,
   args: readonly string[],
@@ -368,6 +372,7 @@ function predicateModeArgs(
   }
 }
 
+/** Return the value at path. */
 function valueAtPath(
   value: unknown,
   path: readonly string[],
@@ -497,6 +502,7 @@ function unenrolledVerbs(
   return [...registry].filter((verb) => !covered.has(verb)).sort();
 }
 
+/** Return the set difference. */
 function setDifference(
   candidates: Iterable<string>,
   covered: Iterable<string>,

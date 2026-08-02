@@ -44,6 +44,7 @@ interface AgentPathException extends AgentPathHit {
 
 const AGENT_PATH_EXCEPTIONS: readonly AgentPathException[] = [];
 
+/** Return the provider path fragments. */
 function providerPathFragments(): string[] {
   const paths: string[] = [];
   for (const provider of Object.values(PROVIDERS)) {
@@ -78,6 +79,7 @@ function providerPathFragments(): string[] {
   });
 }
 
+/** Return the forbidden fragment for. */
 function forbiddenFragmentFor(path: string): string | undefined {
   const parts = path.split("/").filter((part) => part.length > 0);
   const first = parts[0];
@@ -91,6 +93,7 @@ function forbiddenFragmentFor(path: string): string | undefined {
   return first;
 }
 
+/** Return the forbidden agent path fragments. */
 function forbiddenAgentPathFragments(): string[] {
   const fragments: string[] = [];
   for (const fragment of providerPathFragments()) {
@@ -101,6 +104,7 @@ function forbiddenAgentPathFragments(): string[] {
   return fragments;
 }
 
+/** Return the agent path hits. */
 function agentPathHits(rel: string, source: string): AgentPathHit[] {
   const literals = stringLiterals(source);
   return FORBIDDEN_AGENT_PATHS.flatMap((fragment) =>
@@ -118,12 +122,14 @@ Deno.test("the agent-path detector distinguishes property access from constructe
   );
 });
 
+/** Return whether the value is exception. */
 function isException(hit: AgentPathHit): boolean {
   return AGENT_PATH_EXCEPTIONS.some((exception) =>
     exception.rel === hit.rel && exception.fragment === hit.fragment
   );
 }
 
+/** Assert the exceptions are live. */
 function assertExceptionsAreLive(
   hits: readonly AgentPathHit[],
   scannedRels: ReadonlySet<string>,

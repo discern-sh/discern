@@ -127,6 +127,7 @@ function checkStatus(check: DraftCheck): Check["status"] {
   return check.status ?? (!check.ok ? "fail" : check.warn ? "warn" : "ok");
 }
 
+/** Normalize the check. */
 function normalizeCheck(check: DraftCheck): Check {
   const status = checkStatus(check);
   return {
@@ -139,6 +140,7 @@ function normalizeCheck(check: DraftCheck): Check {
   };
 }
 
+/** Normalize the checks. */
 function normalizeChecks(checks: DraftCheck[]): Check[] {
   return checks.map(normalizeCheck);
 }
@@ -234,6 +236,7 @@ interface GeneratedFileInventory {
   readonly untrackedOrIgnored: readonly string[];
 }
 
+/** Return the generated file inventory. */
 async function generatedFileInventory(
   root: string,
 ): Promise<GeneratedFileInventory | undefined> {
@@ -273,6 +276,7 @@ function generatedGroupMatchesPath(
   return generatedGroupForPath([group], path) !== undefined;
 }
 
+/** Return the generated field. */
 function generatedField(
   group: ResolvedGeneratedGroup,
   field: "paths" | "run",

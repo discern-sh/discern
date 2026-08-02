@@ -35,23 +35,28 @@ const MANAGED_REMOTE_KEY = "discern.receiptNotesFetchRemote";
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 
+/** Return the fetch ref. */
 function fetchRef(remote: string): string {
   return `${RECEIPT_NOTES_TRACKING_PREFIX}/${remote}/notes`;
 }
 
+/** Return the fetch mapping. */
 function fetchMapping(remote: string): string {
   return `+${RECEIPT_NOTES_REF}*:${fetchRef(remote)}*`;
 }
 
+/** Return the legacy fetch mapping. */
 function legacyFetchMapping(remote: string): string {
   return `+${RECEIPT_NOTES_REF}:${fetchRef(remote)}`;
 }
 
+/** Return the git reason. */
 function gitReason(result: GitResult): string {
   const detail = result.stderr.trim() || result.stdout.trim();
   return detail === "" ? `git exited with status ${result.code}` : detail;
 }
 
+/** Return the config values. */
 async function configValues(
   root: string,
   key: string,
@@ -70,6 +75,7 @@ async function configValues(
   return { values: [], error: gitReason(result) };
 }
 
+/** Remove the fixed config value. */
 async function removeFixedConfigValue(
   root: string,
   key: string,
@@ -85,6 +91,7 @@ async function removeFixedConfigValue(
   return gitReason(result);
 }
 
+/** Replace the fixed config value. */
 async function replaceFixedConfigValue(
   root: string,
   key: string,
@@ -106,18 +113,21 @@ async function replaceFixedConfigValue(
   return result.success ? undefined : gitReason(result);
 }
 
+/** Return the push unique. */
 function pushUnique(values: string[], value: string): void {
   if (!values.includes(value)) {
     values.push(value);
   }
 }
 
+/** Return the shell argument. */
 function shellArgument(value: string): string {
   return /^[A-Za-z0-9._/@%+=:,~-]+$/.test(value)
     ? value
     : `'${value.replaceAll("'", `'\\''`)}'`;
 }
 
+/** Return the legacy mapping error. */
 function legacyMappingError(
   remote: string,
   key: string,
@@ -132,6 +142,7 @@ function legacyMappingError(
     }\`, then run \`discern refresh\` again.`;
 }
 
+/** Remove the managed remote. */
 async function removeManagedRemote(
   root: string,
   remote: string,
@@ -550,6 +561,7 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   };
 }
 
+/** Return the receipt tracking refs. */
 async function receiptTrackingRefs(root: string): Promise<string[]> {
   const result = await runGit(
     [
@@ -568,6 +580,7 @@ async function receiptTrackingRefs(root: string): Promise<string[]> {
   ).sort();
 }
 
+/** Return the notes identity. */
 function notesIdentity(
   env: EnvReader,
 ): Record<string, string> | undefined {
@@ -753,6 +766,7 @@ export type LandedReceiptReading =
   }
   | { readonly status: "missing" };
 
+/** Return the note content from tracking ref. */
 async function noteContentFromTrackingRef(
   root: string,
   ref: string,

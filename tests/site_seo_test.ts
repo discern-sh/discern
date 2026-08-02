@@ -32,6 +32,7 @@ const BROWSER = {
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605.1.15",
 };
 
+/** Return the request. */
 function request(
   path: string,
   init: RequestInit = { headers: BROWSER },
@@ -39,6 +40,7 @@ function request(
   return handler(new Request(`${SITE_ORIGIN}${path}`, init));
 }
 
+/** Return the requested attribute. */
 function attr(
   html: string,
   selector: RegExp,
@@ -48,12 +50,14 @@ function attr(
   return tag?.match(new RegExp(`\\b${name}=(["'])(.*?)\\1`, "i"))?.[2];
 }
 
+/** Return the title of. */
 function titleOf(html: string): string {
   return decodeHtml(
     /<title>([\s\S]*?)<\/title>/i.exec(html)?.[1]?.trim() ?? "",
   );
 }
 
+/** Return the description of. */
 function descriptionOf(html: string): string {
   return decodeHtml(
     attr(
@@ -64,6 +68,7 @@ function descriptionOf(html: string): string {
   );
 }
 
+/** Decode the HTML. */
 function decodeHtml(value: string): string {
   return value
     .replaceAll("&amp;", "&")
@@ -73,6 +78,7 @@ function decodeHtml(value: string): string {
     .replaceAll("&#39;", "'");
 }
 
+/** Return the canonical of. */
 function canonicalOf(html: string): string {
   return attr(
     html,

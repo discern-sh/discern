@@ -74,6 +74,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
   },
 ];
 
+/** Return the environment artifacts. */
 function environmentArtifacts(
   config: DiscernConfig,
 ): WrittenArtifactPathEntry[] {
@@ -90,6 +91,7 @@ function environmentArtifacts(
   }));
 }
 
+/** Return the value at. */
 function valueAt(config: DiscernConfig, dotted: string): unknown {
   let value: unknown = config;
   for (const segment of dotted.split(".")) {
@@ -101,6 +103,7 @@ function valueAt(config: DiscernConfig, dotted: string): unknown {
   return value;
 }
 
+/** Return the source artifact path. */
 function sourceArtifactPath(
   entry: SourcePathEntry,
   config: DiscernConfig,
@@ -125,6 +128,7 @@ function sourceArtifactPath(
   }
 }
 
+/** Return the source artifacts. */
 function sourceArtifacts(config: DiscernConfig): ArtifactPathEntry[] {
   return SOURCE_PATH_NAMES.map((name) => {
     const entry = SOURCE_PATHS[name];
@@ -138,6 +142,7 @@ function sourceArtifacts(config: DiscernConfig): ArtifactPathEntry[] {
   });
 }
 
+/** Return the provider artifacts. */
 function providerArtifacts(): ArtifactPathEntry[] {
   const entries: ArtifactPathEntry[] = [];
   for (const name of AGENT_NAMES) {
@@ -220,6 +225,7 @@ function providerArtifacts(): ArtifactPathEntry[] {
   return entries;
 }
 
+/** Merge the description. */
 function mergeDescription(current: string, incoming: string): string {
   if (current === incoming || current.includes(incoming)) {
     return current;
@@ -227,6 +233,7 @@ function mergeDescription(current: string, incoming: string): string {
   return `${current} ${incoming}`;
 }
 
+/** Normalize the artifacts. */
 function normalizeArtifacts(
   declarations: readonly ArtifactPathEntry[],
 ): ArtifactPathEntry[] {
@@ -353,10 +360,12 @@ const WRITTEN_ARTIFACT_LABELS: Readonly<Record<WrittenArtifactClass, string>> =
     "comment-capable-non-context": "Comment-capable non-context",
   };
 
+/** Return the markdown cell. */
 function markdownCell(value: string): string {
   return value.replaceAll("|", "\\|").replaceAll("\n", " ");
 }
 
+/** Return the displayed path. */
 function displayedPath(entry: ArtifactPathEntry): string {
   const path = entry.pathKind === "directory"
     ? `${entry.path.replace(/\/$/, "")}/**`
@@ -364,6 +373,7 @@ function displayedPath(entry: ArtifactPathEntry): string {
   return `\`${path}\``;
 }
 
+/** Render the markdown table. */
 function renderMarkdownTable(
   headings: readonly string[],
   rows: readonly (readonly string[])[],

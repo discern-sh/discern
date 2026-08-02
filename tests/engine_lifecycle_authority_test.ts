@@ -57,10 +57,12 @@ const STANDING_CONFIG = [
   "",
 ].join("\n");
 
+/** Parse the result. */
 function parseResult<T>(stdout: string): DiscernResult<T> {
   return JSON.parse(stdout.trim()) as DiscernResult<T>;
 }
 
+/** Commit the path. */
 async function commitPath(
   worktree: string,
   path: string,
@@ -80,6 +82,7 @@ async function commitPath(
   );
 }
 
+/** Return the fleet row. */
 function fleetRow(
   status: DiscernResult<StatusData>,
   branch: string,
@@ -89,6 +92,7 @@ function fleetRow(
   return row;
 }
 
+/** Return the MCP tool. */
 function mcpTool(name: string): (typeof TOOLS)[number] {
   const tool = TOOLS.find((entry) => entry.name === name);
   assert(tool !== undefined, `expected MCP tool ${name}`);

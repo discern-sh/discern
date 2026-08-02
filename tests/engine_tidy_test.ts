@@ -21,6 +21,7 @@ import { assertDiscernTomlTidy } from "./tidy_helpers.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 
+/** Return the fenced blocks. */
 function fencedBlocks(text: string): string[] {
   const lines = text.split("\n");
   const blocks: string[] = [];
@@ -44,15 +45,18 @@ function fencedBlocks(text: string): string[] {
   return blocks;
 }
 
+/** Return the comment lines. */
 function commentLines(text: string): string[] {
   return text.split("\n").filter((line) => line.trimStart().startsWith("#"));
 }
 
+/** Write the requested value. */
 async function write(path: string, text: string): Promise<void> {
   await ensureDir(dirname(path));
   await Deno.writeTextFile(path, text);
 }
 
+/** Seed the tidy project. */
 async function seedTidyProject(root: string): Promise<void> {
   await write(
     join(root, "discern.toml"),

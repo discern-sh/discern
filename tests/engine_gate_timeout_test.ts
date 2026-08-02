@@ -46,6 +46,7 @@ const FULL_GATE_POST_READY_CEILING_MS = 15_000;
 const OVERRIDE_WATCHDOG_CEILING_MS = 15_000;
 const TIMEOUT_READY_FILE = ".discern-timeout-ready";
 
+/** Return the wait for readiness. */
 async function waitForReadiness<T>(
   path: string,
   pending: Promise<T>,
@@ -85,6 +86,7 @@ async function waitForReadiness<T>(
   );
 }
 
+/** Return the settle after readiness. */
 async function settleAfterReadiness<T>(
   path: string,
   pending: Promise<T>,
@@ -96,12 +98,14 @@ async function settleAfterReadiness<T>(
   return { result, elapsedMs: performance.now() - started };
 }
 
+/** Return the ready then. */
 function readyThen(command: string): string {
   return `: > ${TIMEOUT_READY_FILE} && ${command}`;
 }
 
 const RUN_AGENT_CALL = ["run", "Agent("].join("");
 
+/** Return the pre readiness agent timers. */
 function preReadinessAgentTimers(source: string): string[] {
   const lines = source.split("\n");
   const offenders: string[] = [];

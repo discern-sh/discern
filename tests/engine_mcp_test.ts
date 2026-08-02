@@ -88,6 +88,7 @@ const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
 const MCP_STDIN_CLOSE_GRACE_MS = 1_000;
 const MCP_PROCESS_EXIT_GRACE_MS = 5_000;
 
+/** Return the settled within. */
 async function settledWithin<T>(
   promise: Promise<T>,
   timeoutMs: number,
@@ -287,6 +288,7 @@ class McpClient {
   }
 }
 
+/** Return the spawn MCP. */
 async function spawnMcp(
   dir: string,
   extraEnv: Record<string, string> = {},
@@ -353,6 +355,7 @@ async function readMcpVerbEvents(
   return events;
 }
 
+/** Commit the worktree for acceptance. */
 async function commitWorktreeForAcceptance(
   dir: string,
   message = "prepare acceptance",

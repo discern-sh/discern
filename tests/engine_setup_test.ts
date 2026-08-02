@@ -145,6 +145,7 @@ Deno.test("setup begin reports apply failures cleanly and reruns from the partia
   });
 });
 
+/** Return the setup text files under. */
 async function setupTextFilesUnder(
   root: string,
   rel: string,

@@ -375,6 +375,7 @@ export type AcceptanceTransactionMarkerRead =
 const ACCEPTANCE_TRANSACTION_MARKER_PREFIX =
   "refs/worktree/discern/acceptance-transactions";
 
+/** Return the acceptance transaction marker ref. */
 export function acceptanceTransactionMarkerRef(
   transactionId: string,
 ): string {
@@ -404,6 +405,7 @@ export async function readAcceptanceTransactionMarker(
   };
 }
 
+/** Return the checkout paths collide. */
 function checkoutPathsCollide(left: string, right: string): boolean {
   return left === right ||
     left.startsWith(`${right}/`) ||
@@ -460,6 +462,7 @@ async function ignoredCheckoutCollisions(
   );
 }
 
+/** Return the ignored collision detail. */
 function ignoredCollisionDetail(paths: readonly string[]): string {
   const shown = paths.slice(0, 3).map((path) => JSON.stringify(path)).join(
     ", ",
@@ -468,6 +471,7 @@ function ignoredCollisionDetail(paths: readonly string[]): string {
   return `the landing would overwrite ignored checkout data at ${shown}${more}`;
 }
 
+/** Return the acceptance reflog message. */
 function acceptanceReflogMessage(
   transactionId: string | undefined,
   action: "fast-forward" | "rollback",
@@ -478,6 +482,7 @@ function acceptanceReflogMessage(
     : `discern accept transaction ${transactionId}: ${action} ${branch}`;
 }
 
+/** Update the ref transaction. */
 function updateRefTransaction(
   cwd: string,
   message: string,
@@ -492,6 +497,7 @@ function updateRefTransaction(
   );
 }
 
+/** Return the rollback checked out branch ref. */
 function rollbackCheckedOutBranchRef(
   cwd: string,
   branch: string,
@@ -520,6 +526,7 @@ function rollbackCheckedOutBranchRef(
   );
 }
 
+/** Return the index matches tree. */
 async function indexMatchesTree(
   cwd: string,
   commit: string,
@@ -528,6 +535,7 @@ async function indexMatchesTree(
   return diff.code === 0 ? true : diff.code === 1 ? false : undefined;
 }
 
+/** Return the worktree matches index. */
 async function worktreeMatchesIndex(
   cwd: string,
 ): Promise<boolean | undefined> {
@@ -2549,6 +2557,7 @@ export async function worktreePathForBranch(
   return match === undefined ? undefined : await realPathOr(match.path);
 }
 
+/** Return the short branch name. */
 function shortBranchName(ref: string): string {
   return ref.startsWith("refs/heads/") ? ref.slice("refs/heads/".length) : ref;
 }
@@ -2600,10 +2609,12 @@ async function worktreeKeepReasons(
   return keepReasons;
 }
 
+/** Return the checkout path from git dir. */
 function checkoutPathFromGitDir(gitDir: string): string {
   return basename(gitDir) === ".git" ? dirname(gitDir) : gitDir;
 }
 
+/** Return the stale metadata for record. */
 async function staleMetadataForRecord(
   commonGitDir: string,
   rec: WorktreeRecord,
@@ -2953,6 +2964,7 @@ export async function pruneGitWorktrees(
   return { removed, branchesDeleted, staleMetadata: [], failed };
 }
 
+/** Return the stale metadata still matches. */
 async function staleMetadataStillMatches(
   entry: StaleWorktreeMetadata,
 ): Promise<boolean> {
@@ -3030,6 +3042,7 @@ export interface SweepResult {
   failed: boolean;
 }
 
+/** Return the inspect orphan worktree. */
 async function inspectOrphanWorktree(
   repoRoot: string,
   dir: string,

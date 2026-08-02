@@ -60,6 +60,7 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 // deno-lint-ignore no-explicit-any
 type Json = any;
 
+/** Parse the requested input. */
 function parse(stdout: string): Json {
   return JSON.parse(stdout.trim());
 }
@@ -128,6 +129,7 @@ interface TreeSnapshot {
   logbook: Map<string, string>;
 }
 
+/** Hash the bytes. */
 async function hashBytes(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -138,6 +140,7 @@ async function hashBytes(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
+/** Walk into. */
 async function walkInto(
   snapshot: TreeSnapshot,
   absRoot: string,
@@ -244,6 +247,7 @@ const FIXTURE_PRESETS = fromFileUrl(
   new URL("./fixtures/presets", import.meta.url),
 );
 
+/** Return the main with worktree. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
   await scaffoldEngine(dir);
   await gitInit(dir);

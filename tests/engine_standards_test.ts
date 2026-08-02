@@ -46,6 +46,7 @@ interface StandardsJson {
   }>;
 }
 
+/** Parse the standards JSON. */
 function parseStandardsJson(stdout: string): StandardsJson {
   const obj = JSON.parse(stdout.trim()) as StandardsJson;
   assertEquals(obj.verb, "standards");

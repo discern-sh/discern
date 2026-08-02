@@ -59,6 +59,7 @@ interface GateJson {
   };
 }
 
+/** Return the generated config. */
 function generatedConfig(groups: readonly GeneratedGroupFixture[]): string {
   const lines = [
     "[project]",
@@ -82,6 +83,7 @@ function generatedConfig(groups: readonly GeneratedGroupFixture[]): string {
   return lines.join("\n");
 }
 
+/** Write the file. */
 async function writeFile(
   root: string,
   path: string,
@@ -92,6 +94,7 @@ async function writeFile(
   await Deno.writeTextFile(absolute, contents);
 }
 
+/** Return whether the path exists. */
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.lstat(path);
@@ -104,10 +107,12 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/** Parse the gate. */
 function parseGate(stdout: string): GateJson {
   return JSON.parse(stdout.trim()) as GateJson;
 }
 
+/** Return the diagnostic text. */
 function diagnosticText(diagnostic: GateJsonDiagnostic): string {
   return `${diagnostic.message}\n${diagnostic.output ?? ""}`;
 }

@@ -74,6 +74,7 @@ export interface Plan {
 const TEXT_DECODER = new TextDecoder();
 const TEXT_ENCODER = new TextEncoder();
 
+/** Return the error text. */
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

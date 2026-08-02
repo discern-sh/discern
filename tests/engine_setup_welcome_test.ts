@@ -56,14 +56,17 @@ const FRESH_WELCOME_FACTS: readonly string[] = [
   "Don't hand this back as a report",
 ];
 
+/** Strip the ANSI. */
 function stripAnsi(text: string): string {
   return text.replace(ANSI_ESCAPES, "");
 }
 
+/** Assert the no ANSI. */
 function assertNoAnsi(text: string, label: string): void {
   assert(!ANSI_ESCAPE.test(text), `${label} must not contain ANSI escapes`);
 }
 
+/** Assert the fresh welcome facts. */
 function assertFreshWelcomeFacts(text: string, label: string): void {
   for (const fact of FRESH_WELCOME_FACTS) {
     assertStringIncludes(text, fact, `${label} missing ${fact}`);

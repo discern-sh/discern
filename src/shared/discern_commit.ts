@@ -96,6 +96,7 @@ export type DiscernCommitOptions =
     readonly stagedProof: DiscernStagedCommitProof;
   };
 
+/** Return the refused commit. */
 function refusedCommit(
   site: DiscernAuthoredCommitSite,
   reason: string,
@@ -108,6 +109,7 @@ function refusedCommit(
   };
 }
 
+/** Return the git value. */
 async function gitValue(
   cwd: string,
   args: string[],
@@ -117,6 +119,7 @@ async function gitValue(
   return result.success && value !== "" ? value : undefined;
 }
 
+/** Return the head value. */
 async function headValue(cwd: string): Promise<string | null | undefined> {
   const result = await runGit(["rev-parse", "--verify", "-q", "HEAD"], {
     cwd,
@@ -128,6 +131,7 @@ async function headValue(cwd: string): Promise<string | null | undefined> {
   return result.code === 1 ? null : undefined;
 }
 
+/** Return the ref value. */
 async function refValue(
   cwd: string,
   ref: string,
@@ -154,6 +158,7 @@ interface CommitInvocationProof {
   readonly indexTreeBefore?: string;
 }
 
+/** Return the authored commit object. */
 async function authoredCommitObject(
   cwd: string,
   oid: string,
@@ -212,6 +217,7 @@ async function authoredCommitFromReflog(
   return authored;
 }
 
+/** Return the changed paths. */
 async function changedPaths(
   cwd: string,
   parent: string | null,
@@ -247,10 +253,12 @@ interface GitTreeEntry {
   readonly oid: string;
 }
 
+/** Return the literal pathspec. */
 function literalPathspec(path: string): string {
   return `:(literal)${path}`;
 }
 
+/** Parse the tree entry. */
 function parseTreeEntry(
   stdout: string,
   path: string,
@@ -280,6 +288,7 @@ function parseTreeEntry(
   return { mode, oid };
 }
 
+/** Return the tree entry. */
 async function treeEntry(
   cwd: string,
   treeish: string,
@@ -292,6 +301,7 @@ async function treeEntry(
   return result.success ? parseTreeEntry(result.stdout, path) : undefined;
 }
 
+/** Return the index entry. */
 async function indexEntry(
   cwd: string,
   path: string,
@@ -330,6 +340,7 @@ async function indexEntry(
   return { mode, oid };
 }
 
+/** Return whether the tree entry values match. */
 function sameTreeEntry(
   left: GitTreeEntry | null,
   right: GitTreeEntry | null,

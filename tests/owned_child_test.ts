@@ -12,6 +12,7 @@ interface DriverResult {
   readonly success: boolean;
 }
 
+/** Return the run driver. */
 async function runDriver(
   signal: "SIGINT" | "SIGTERM",
   ignore = false,

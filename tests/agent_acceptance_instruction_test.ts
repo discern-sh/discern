@@ -60,6 +60,7 @@ const VERIFIED_AUTHORITY_HINT_IDS = new Set([
   "status-fleet-authorized-landings",
 ]);
 
+/** Return the files under. */
 async function filesUnder(path: string): Promise<string[]> {
   const stat = await Deno.stat(path);
   if (stat.isFile) {
@@ -73,6 +74,7 @@ async function filesUnder(path: string): Promise<string[]> {
   return files;
 }
 
+/** Return the acceptance violations. */
 function acceptanceViolations(label: string, text: string): string[] {
   const violations: string[] = [];
   for (const { name, pattern } of MISLEADING_ACCEPTANCE_PATTERNS) {

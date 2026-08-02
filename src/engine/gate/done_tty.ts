@@ -44,6 +44,7 @@ interface DoneRow {
   tone: DoneRowTone;
 }
 
+/** Report the width. */
 function reportWidth(width: number): number {
   const terminal = Number.isFinite(width) ? Math.floor(width) : 80;
   return Math.max(
@@ -52,6 +53,7 @@ function reportWidth(width: number): number {
   );
 }
 
+/** Return the done rows. */
 function doneRows(steps: readonly StepResult[]): DoneRow[] {
   return steps
     .filter((result) =>
@@ -73,6 +75,7 @@ function doneRows(steps: readonly StepResult[]): DoneRow[] {
     });
 }
 
+/** Return the job outcome. */
 function jobOutcome(result: JobResult): StepOutcome {
   if (result.cancelled === true) {
     return "cancelled";
@@ -80,6 +83,7 @@ function jobOutcome(result: JobResult): StepOutcome {
   return result.code === 0 ? "ok" : "failed";
 }
 
+/** Return the planned rows. */
 function plannedRows(
   plan: GatePlan,
   running: ReadonlySet<string>,
@@ -125,6 +129,7 @@ function plannedRows(
   );
 }
 
+/** Return the row style. */
 function rowStyle(
   tone: DoneRowTone,
   color: boolean,
@@ -148,6 +153,7 @@ function rowStyle(
   }
 }
 
+/** Return the styled. */
 function styled(
   value: string,
   style: string,
@@ -156,10 +162,12 @@ function styled(
   return style === "" ? value : `${style}${value}${reset}`;
 }
 
+/** Return the rule. */
 function rule(width: number, c: Palette): string {
   return `${INDENT}${styled("─".repeat(width), c.dim, c.reset)}`;
 }
 
+/** Render the compact table. */
 function renderCompactTable(
   rows: readonly DoneRow[],
   width: number,
@@ -194,6 +202,7 @@ function renderCompactTable(
   return lines;
 }
 
+/** Render the three column table. */
 function renderThreeColumnTable(
   rows: readonly DoneRow[],
   width: number,
@@ -255,6 +264,7 @@ function renderThreeColumnTable(
   return lines;
 }
 
+/** Render the rows. */
 function renderRows(
   rows: readonly DoneRow[],
   options: DoneTtyOptions,
@@ -387,6 +397,7 @@ export function createDoneTtyProgress(
   };
 }
 
+/** Render the receipt panel. */
 function renderReceiptPanel(
   line: string,
   options: DoneTtyOptions,

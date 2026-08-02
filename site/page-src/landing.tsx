@@ -67,6 +67,7 @@ function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
 
+/** Render the landing hero. */
 function LandingHero() {
   return (
     <header className="discern-article-header discern-article-header--canvas landing-header">
@@ -110,6 +111,7 @@ function LandingHero() {
   );
 }
 
+/** Render the landing page. */
 function LandingPage() {
   return (
     <>

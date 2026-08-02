@@ -65,6 +65,7 @@ const fragmentIgnoresFile = (path: string) =>
 const fragmentIgnoresDir = (dir: string) =>
   ignoreCovers(FRAGMENT_LINES, dir, true);
 
+/** Return the svg aspect ratio. */
 function svgAspectRatio(svg: string, path: string): number {
   const match = svg.match(/<svg\b[^>]*\bviewBox=["']([^"']+)["']/i);
   assert(match !== null, `${path}: SVG root must declare a viewBox`);
@@ -81,6 +82,7 @@ function svgAspectRatio(svg: string, path: string): number {
   return width / height;
 }
 
+/** Return the rendered full canvas rects. */
 function renderedFullCanvasRects(svg: string, path: string): string[] {
   const viewBox = svg.match(/<svg\b[^>]*\bviewBox=["']([^"']+)["']/i);
   assert(viewBox !== null, `${path}: SVG root must declare a viewBox`);

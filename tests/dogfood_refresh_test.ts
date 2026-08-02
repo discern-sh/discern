@@ -18,10 +18,12 @@ import {
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 
+/** Return whether the value is JSON object. */
 function isJsonObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Return the command strings. */
 function commandStrings(value: unknown): string[] {
   if (Array.isArray(value)) {
     return value.flatMap(commandStrings);
@@ -40,16 +42,19 @@ function commandStrings(value: unknown): string[] {
   return found;
 }
 
+/** Return the worktree commands. */
 function worktreeCommands(value: unknown): string[] {
   return commandStrings(value).filter((command) =>
     /\bworktree\s+(ensure|create|remove|teardown)\b/.test(command)
   );
 }
 
+/** Read the JSON. */
 async function readJson(rel: string): Promise<unknown> {
   return JSON.parse(await Deno.readTextFile(join(REPO, rel)));
 }
 
+/** Return the hook event shape errors. */
 function hookEventShapeErrors(rel: string, value: unknown): string[] {
   if (!isJsonObject(value) || !isJsonObject(value.hooks)) {
     return [];

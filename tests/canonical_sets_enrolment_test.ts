@@ -45,10 +45,12 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const REGISTRY_MODULE = "scripts/canonical_sets.ts";
 
+/** Return whether the value is conventional guard. */
 function isConventionalGuard(rel: string): boolean {
   return CONVENTIONAL_GUARD_SUFFIXES.some((suffix) => rel.endsWith(suffix));
 }
 
+/** Return the file text. */
 async function fileText(rel: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(join(REPO_ROOT, rel));

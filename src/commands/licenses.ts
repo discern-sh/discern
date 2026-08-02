@@ -32,6 +32,7 @@ interface FirstPartyBundle {
   readonly documents: readonly FirstPartyLegalDocument[];
 }
 
+/** Decode the bundle. */
 function decodeBundle<T>(encoded: string): T {
   return JSON.parse(
     new TextDecoder().decode(
@@ -43,6 +44,7 @@ function decodeBundle<T>(encoded: string): T {
 }
 
 let cachedThirdParty: ThirdPartyBundle | undefined;
+/** Return the third party bundle. */
 function thirdPartyBundle(): ThirdPartyBundle {
   // atob instead of @std/encoding keeps the decoder out of the compiled graph;
   // the binary_size standard holds the ceiling the extra module would break.
@@ -51,6 +53,7 @@ function thirdPartyBundle(): ThirdPartyBundle {
 }
 
 let cachedFirstParty: FirstPartyBundle | undefined;
+/** Return the first party bundle. */
 function firstPartyBundle(): FirstPartyBundle {
   cachedFirstParty ??= decodeBundle<FirstPartyBundle>(
     FIRST_PARTY_LICENSE_BUNDLE_B64,
@@ -58,6 +61,7 @@ function firstPartyBundle(): FirstPartyBundle {
   return cachedFirstParty;
 }
 
+/** Return the public document. */
 function publicDocument(
   document: FirstPartyLegalDocument,
 ): LicensesData["documents"][number] {
@@ -73,6 +77,7 @@ function publicDocument(
 
 const RULE = "-".repeat(78);
 
+/** Return the human report. */
 function humanReport(): string {
   const lines = [
     "discern - Licenses and Notices",

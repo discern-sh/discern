@@ -29,6 +29,7 @@ import {
   writeExecutable,
 } from "./cli_install.ts";
 
+/** Run this module's main operation. */
 async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const bakedCheckout = await resolveBakedCheckout(repoRoot);

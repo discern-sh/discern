@@ -14,6 +14,7 @@ interface ActionUse {
   line: number;
 }
 
+/** Return the remote action uses. */
 function remoteActionUses(source: string): ActionUse[] {
   const uses: ActionUse[] = [];
   for (const [index, line] of source.split("\n").entries()) {
@@ -26,6 +27,7 @@ function remoteActionUses(source: string): ActionUse[] {
   return uses;
 }
 
+/** Return whether the value is pinned. */
 function isPinned(action: string): boolean {
   const separator = action.lastIndexOf("@");
   return separator > 0 && SHA.test(action.slice(separator + 1));

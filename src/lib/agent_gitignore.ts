@@ -274,12 +274,14 @@ export async function untrackedGuidanceFiles(root: string): Promise<string[]> {
   return unique(splitNul(run.stdout)).sort();
 }
 
+/** Return the untracked guidance files hint. */
 export function untrackedGuidanceFilesHint(
   paths: readonly string[],
 ): FiredHint {
   return fire(HINTS["untracked-agent-files"], { paths });
 }
 
+/** Return the tracked discern ignored artifacts hint. */
 export function trackedDiscernIgnoredArtifactsHint(
   tracked: TrackedDiscernIgnoredArtifacts,
 ): FiredHint {
@@ -289,14 +291,17 @@ export function trackedDiscernIgnoredArtifactsHint(
   });
 }
 
+/** Return the git rm cached command. */
 export function gitRmCachedCommand(paths: readonly string[]): string {
   return `git rm -r --cached -- ${paths.map(shellQuote).join(" ")}`;
 }
 
+/** Return the git ls files command. */
 export function gitLsFilesCommand(paths: readonly string[]): string {
   return `git ls-files -- ${paths.map(shellQuote).join(" ")}`;
 }
 
+/** Read the text if exists. */
 async function readTextIfExists(path: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(path);
@@ -308,6 +313,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
+/** Normalize the line endings. */
 function normalizeLineEndings(text: string): string {
   return text.replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
@@ -319,6 +325,7 @@ interface ManagedIgnoreRule {
   wildcardChildren: boolean;
 }
 
+/** Return the managed ignore rules. */
 function managedIgnoreRules(block: string): ManagedIgnoreRule[] {
   return block.split("\n").flatMap((line) => {
     const rule = parseManagedIgnoreRule(line);
@@ -326,6 +333,7 @@ function managedIgnoreRules(block: string): ManagedIgnoreRule[] {
   });
 }
 
+/** Parse the managed ignore rule. */
 function parseManagedIgnoreRule(line: string): ManagedIgnoreRule | undefined {
   const withoutComment = line.split("#", 1)[0]?.trim() ?? "";
   if (withoutComment === "") {
@@ -345,12 +353,14 @@ function parseManagedIgnoreRule(line: string): ManagedIgnoreRule | undefined {
   return { negated, path, directory, wildcardChildren };
 }
 
+/** Return the tracked candidate roots. */
 function trackedCandidateRoots(rules: readonly ManagedIgnoreRule[]): string[] {
   return unique(
     rules.filter((rule) => !rule.negated).map((rule) => rule.path),
   );
 }
 
+/** Return whether the value is ignored by managed rules. */
 function isIgnoredByManagedRules(
   path: string,
   rules: readonly ManagedIgnoreRule[],
@@ -364,6 +374,7 @@ function isIgnoredByManagedRules(
   return ignored;
 }
 
+/** Return the path matches rule. */
 function pathMatchesRule(path: string, rule: ManagedIgnoreRule): boolean {
   if (rule.directory || rule.wildcardChildren) {
     return path === rule.path || path.startsWith(`${rule.path}/`);
@@ -371,6 +382,7 @@ function pathMatchesRule(path: string, rule: ManagedIgnoreRule): boolean {
   return path === rule.path;
 }
 
+/** Return the repair targets for. */
 function repairTargetsFor(
   paths: readonly string[],
   artifacts: AgentArtifactPosture,
@@ -405,6 +417,7 @@ function repairTargetsFor(
   return targets;
 }
 
+/** Summarize the paths. */
 function summarizePaths(paths: readonly string[], limit = 8): string {
   const shown = paths.slice(0, limit).join(", ");
   return paths.length <= limit
@@ -412,20 +425,24 @@ function summarizePaths(paths: readonly string[], limit = 8): string {
     : `${shown}, +${paths.length - limit} more`;
 }
 
+/** Return the git path needs quoting. */
 function gitPathNeedsQuoting(path: string): boolean {
   return !/^[A-Za-z0-9_./:@%+=,-]+$/.test(path);
 }
 
+/** Quote a value for the shell. */
 function shellQuote(path: string): string {
   return gitPathNeedsQuoting(path)
     ? `'${path.replaceAll("'", "'\\''")}'`
     : path;
 }
 
+/** Split the NUL. */
 function splitNul(text: string): string[] {
   return text.split("\0").filter((part) => part !== "");
 }
 
+/** Return the unique. */
 function unique(values: readonly string[]): string[] {
   const out: string[] = [];
   for (const value of values) {
@@ -434,12 +451,14 @@ function unique(values: readonly string[]): string[] {
   return out;
 }
 
+/** Return the push unique. */
 function pushUnique(values: string[], value: string): void {
   if (!values.includes(value)) {
     values.push(value);
   }
 }
 
+/** Trim the final split. */
 function trimFinalSplit(text: string): string[] {
   const lines = text.split("\n");
   if (lines[lines.length - 1] === "") {
@@ -448,6 +467,7 @@ function trimFinalSplit(text: string): string[] {
   return lines;
 }
 
+/** Return whether the value is blank. */
 function isBlank(line: string): boolean {
   return line.trim() === "";
 }
@@ -457,6 +477,7 @@ interface StripResult {
   insertionIndex?: number;
 }
 
+/** Strip the discern owned lines. */
 function stripDiscernOwnedLines(
   lines: string[],
   canonical: string,
@@ -517,6 +538,7 @@ function stripDiscernOwnedLines(
     : { lines: kept, insertionIndex };
 }
 
+/** Find the closing marker. */
 function findClosingMarker(lines: string[], start: number): number {
   for (let i = start; i < lines.length; i++) {
     if ((lines[i] ?? "").trim() === DISCERN_GITIGNORE_END) {
@@ -526,6 +548,7 @@ function findClosingMarker(lines: string[], start: number): number {
   return -1;
 }
 
+/** Return whether the value is legacy block owned line. */
 function isLegacyBlockOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
@@ -543,6 +566,7 @@ function isLegacyBlockOwnedLine(
     isDiscernOwnedRule(trimmed, artifacts);
 }
 
+/** Return whether the value is standalone discern owned line. */
 function isStandaloneDiscernOwnedLine(
   line: string,
   canonicalOwned: Set<string>,
@@ -555,22 +579,26 @@ function isStandaloneDiscernOwnedLine(
       isDiscernOwnedRule(trimmed, artifacts));
 }
 
+/** Return whether the value is section marker. */
 function isSectionMarker(line: string): boolean {
   return /^# --- .+ ---$/.test(line) &&
     line !== DISCERN_GITIGNORE_BEGIN &&
     line !== DISCERN_GITIGNORE_END;
 }
 
+/** Return whether the value is legacy discern marker. */
 function isLegacyDiscernMarker(line: string): boolean {
   return /^# discern:/.test(line);
 }
 
+/** Return whether the value is legacy discern comment. */
 function isLegacyDiscernComment(line: string): boolean {
   return isLegacyDiscernMarker(line) ||
     line ===
       "# Per-branch work evidence captured by the gate (runtime store, not source).";
 }
 
+/** Return whether the value is discern owned rule. */
 function isDiscernOwnedRule(
   line: string,
   artifacts: AgentArtifactPosture,
@@ -609,6 +637,7 @@ function isDiscernOwnedRule(
   return ownedPaths.has(parsed.path);
 }
 
+/** Normalize the rule. */
 function normalizeRule(
   line: string,
 ): { negated: boolean; path: string } | undefined {

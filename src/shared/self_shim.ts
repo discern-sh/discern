@@ -46,6 +46,7 @@ function selfInvocation(): string {
   } -A ${shellQuote(join(repoRoot, "src", "main.ts"))} "$@"`;
 }
 
+/** Return whether the value is file. */
 async function isFile(path: string): Promise<boolean> {
   try {
     return (await Deno.stat(path)).isFile;

@@ -160,6 +160,7 @@ Deno.test("compileGuidelines honours [skills].exclude: an excluded bundled set m
   }
 });
 
+/** Return the source files. */
 async function* sourceFiles(dir: string): AsyncGenerator<string> {
   for await (const entry of Deno.readDir(dir)) {
     const path = join(dir, entry.name);

@@ -539,6 +539,7 @@ interface StandardExecution {
   diagnostics: Diagnostic[];
 }
 
+/** Return the standard plan integrity result. */
 function standardPlanIntegrityResult(
   plan: StandardPlan,
   steps: readonly PlanStep[],
@@ -555,6 +556,7 @@ function standardPlanIntegrityResult(
   };
 }
 
+/** Return the standard plan integrity failure. */
 export function standardPlanIntegrityFailure(
   plan: StandardPlan,
   steps: readonly PlanStep[],
@@ -964,6 +966,7 @@ function pinStep(name: string, note: string): StepResult {
   };
 }
 
+/** Return the err text. */
 function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -1020,6 +1023,7 @@ type PinWritePreflight =
   | { ok: true; authority: PinWriteAuthority }
   | WritePreflightFailure;
 
+/** Return the absolute from root. */
 function absoluteFromRoot(root: string, path: string): string {
   return isAbsolute(path) ? path : join(root, path);
 }
@@ -1071,6 +1075,7 @@ async function preflightPinWrites(root: string): Promise<PinWritePreflight> {
   };
 }
 
+/** Return the standards write access failure. */
 function standardsWriteAccessFailure(
   failure: WritePreflightFailure,
   reproduceCmd: string,
@@ -1192,6 +1197,7 @@ interface StandardsResultBuild {
   firedHints: FiredHint[];
 }
 
+/** Return the standards build. */
 function standardsBuild(
   result: DiscernResult,
   firedHints: FiredHint[] = [],
@@ -1436,6 +1442,7 @@ async function pinStandardsResult(
   ]);
 }
 
+/** Return the unverified trunk hint. */
 function unverifiedTrunkHint(
   verification: TrunkLimitsVerification,
 ): FiredHint | undefined {
@@ -1719,6 +1726,7 @@ export async function runStandards(
   return result.ok ? 0 : 1;
 }
 
+/** Return the standards clean tree message. */
 async function standardsCleanTreeMessage(
   root: string,
 ): Promise<string | undefined> {

@@ -57,10 +57,12 @@ interface LiveEntry {
   readonly mtime: number;
 }
 
+/** Record the path. */
 function recordPath(directory: string, handle: string): string {
   return join(directory, `${handle}${RECORD_SUFFIX}`);
 }
 
+/** Write every value. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -68,6 +70,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
+/** Serialize the record. */
 function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   let json: string;
   try {
@@ -79,6 +82,7 @@ function serializeRecord(record: ContinuationRecord): Uint8Array | undefined {
   return bytes.length <= CONTINUATION_RECORD_MAX_BYTES ? bytes : undefined;
 }
 
+/** Parse the record. */
 function parseRecord(text: string): ContinuationRecord | undefined {
   let parsed: unknown;
   try {
@@ -110,6 +114,7 @@ function parseRecord(text: string): ContinuationRecord | undefined {
   };
 }
 
+/** Read the record. */
 async function readRecord(
   path: string,
 ): Promise<ContinuationRecord | undefined> {
@@ -122,6 +127,7 @@ async function readRecord(
   return parseRecord(await Deno.readTextFile(path));
 }
 
+/** Return the with store lock. */
 async function withStoreLock<T>(
   root: string,
   run: (directory: string) => Promise<T>,
@@ -148,6 +154,7 @@ async function withStoreLock<T>(
   }
 }
 
+/** Remove the if expired. */
 async function removeIfExpired(
   path: string,
   now: number,
@@ -168,6 +175,7 @@ async function removeIfExpired(
   }
 }
 
+/** Prune the for create. */
 async function pruneForCreate(
   directory: string,
   now: number,
@@ -226,6 +234,7 @@ async function pruneForCreate(
   }
 }
 
+/** Replace the record. */
 async function replaceRecord(
   directory: string,
   handle: string,
@@ -253,6 +262,7 @@ async function replaceRecord(
   }
 }
 
+/** Create the record. */
 async function createRecord(
   directory: string,
   bytes: Uint8Array,

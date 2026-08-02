@@ -157,10 +157,12 @@ const LEGACY_AWAIT_RESUME_KEYS = new Set([
   "repository",
 ]);
 
+/** Return whether the value is await condition. */
 function isAwaitCondition(value: unknown): value is AwaitConditionKind {
   return AWAIT_CONDITIONS.some((condition) => condition === value);
 }
 
+/** Parse the await continuation payload. */
 function parseAwaitContinuationPayload(
   decoded: unknown,
 ): AwaitContinuationPayload | undefined {
@@ -219,6 +221,7 @@ function parseAwaitContinuationPayload(
   };
 }
 
+/** Decode the legacy resume token. */
 function decodeLegacyResumeToken(
   token: string,
 ): LegacyAwaitResumePayload | undefined {
@@ -278,6 +281,7 @@ interface Evaluation {
   via?: "receipt" | "landed" | "trunk";
 }
 
+/** Return the refusal. */
 function refusal(
   error:
     | "invalid_arguments"

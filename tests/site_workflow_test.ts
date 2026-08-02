@@ -27,10 +27,12 @@ interface WorkflowPage {
   readonly raw: string;
 }
 
+/** Return the requested value. */
 function get(path: string, headers = BROWSER): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
 }
 
+/** Return the workflow pages. */
 async function workflowPages(): Promise<readonly WorkflowPage[]> {
   const site = await loadDocsSite();
   const pages = await Promise.all(

@@ -90,6 +90,7 @@ const DELIBERATELY_UNREAD_DRIVER_SIGNALS: Readonly<
   Record<string, string>
 > = {};
 
+/** Escape text for a regular expression. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -148,6 +149,7 @@ function readerCoverageOffenders(
   return offenders;
 }
 
+/** Return the logbook reader source. */
 async function logbookReaderSource(): Promise<string> {
   return (await Promise.all(
     LOGBOOK_READER_MODULES.map((path) =>
@@ -368,6 +370,7 @@ function measuredHints(): MeasuredHint[] {
 
 type EpisodeVerdict = "followed" | "not-followed";
 
+/** Return the fired hint. */
 function firedHint(
   hint: MeasuredHint,
   over: Partial<VerbEvent> = {},
@@ -484,6 +487,7 @@ function followThroughFixture(
   return run(events);
 }
 
+/** Return the measured hint. */
 function measuredHint(id: string): MeasuredHint {
   const hint = measuredHints().find((entry) => entry.id === id);
   assert(hint !== undefined, `${id} carries no follow-through rule`);
@@ -510,6 +514,7 @@ function measuredTips(
   );
 }
 
+/** Return the shown tip. */
 function shownTip(
   tip: MeasuredTip,
   over: Partial<VerbEvent> = {},
@@ -517,6 +522,7 @@ function shownTip(
   return { verb: "desk", tip_ids: [tip.id], ...over };
 }
 
+/** Return the tipped verb. */
 function tippedVerb(
   tip: MeasuredTip,
   over: Partial<VerbEvent> = {},
@@ -565,6 +571,7 @@ function tipAdoptionFixture(
   return run(events);
 }
 
+/** Return the measured tip. */
 function measuredTip(id: string): MeasuredTip {
   const tip = measuredTips().find((entry) => entry.id === id);
   assert(tip !== undefined, `${id} carries no adoption rule`);
@@ -1291,12 +1298,14 @@ Deno.test("patterns registry: every detector supplies its three fixtures", () =>
 
 // ── the three behaviours, parameterized ─────────────────────────────────────
 
+/** Return the fixtures of. */
 function fixturesOf(d: Detector): DetectorFixtures {
   const fixtures = FIXTURES[d.id];
   assert(fixtures !== undefined, `no fixtures for ${d.id}`);
   return fixtures;
 }
 
+/** Build the report. */
 function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   return runDetector(
     d,
@@ -1304,6 +1313,7 @@ function report(d: Detector, events: LogbookEvent[]): DetectorReport {
   );
 }
 
+/** Return the detector. */
 function detector(id: string): Detector {
   const found = DETECTORS.find((entry) => entry.id === id);
   assert(found !== undefined, `no detector ${id}`);

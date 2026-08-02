@@ -89,6 +89,7 @@ async function stylePatterns(): Promise<{ file: string; pattern: string }[]> {
   return patterns;
 }
 
+/** Unquote the requested operation. */
 function unquote(s: string): string {
   const t = s.trim();
   return (t.startsWith("'") && t.endsWith("'")) ||

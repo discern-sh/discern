@@ -18,6 +18,7 @@ import { assertHasHint } from "./hint_asserts.ts";
 
 const SYNTHETIC_CURRENT_SCHEMA = SCHEMA_VERSION + 1;
 
+/** Return the setup. */
 async function setup(dir: string): Promise<void> {
   assertEquals(
     (await runCli([
@@ -61,6 +62,7 @@ async function upgradeIn(dir: string, registry?: Migration[]): Promise<number> {
   return (await upgradeJsonIn(dir, registry)).code;
 }
 
+/** Upgrade the JSON in. */
 async function upgradeJsonIn(
   dir: string,
   registry?: Migration[],
@@ -89,6 +91,7 @@ async function upgradeJsonIn(
   }
 }
 
+/** Upgrade the check JSON in. */
 async function upgradeCheckJsonIn(
   dir: string,
   registry?: Migration[],
@@ -120,6 +123,7 @@ async function upgradeCheckJsonIn(
   }
 }
 
+/** Upgrade the dry run JSON in. */
 async function upgradeDryRunJsonIn(
   dir: string,
   registry: Migration[],

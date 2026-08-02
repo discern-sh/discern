@@ -39,6 +39,7 @@ export function stripGeneratedArtifactMarker(
   return text.split(/\r?\n/).filter((line) => line !== marker).join(eol);
 }
 
+/** Return the co author identity. */
 function coAuthorIdentity<
   const Name extends string,
   const Email extends string,

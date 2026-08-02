@@ -79,6 +79,7 @@ export function createMigrationContext(
 ): MigrationContext {
   const abs = (rel: string): string => join(destDir, rel);
 
+  /** Return whether the path exists. */
   async function exists(rel: string): Promise<boolean> {
     try {
       await Deno.stat(abs(rel));
@@ -88,6 +89,7 @@ export function createMigrationContext(
     }
   }
 
+  /** Read the text. */
   async function readText(rel: string): Promise<string | undefined> {
     try {
       return await Deno.readTextFile(abs(rel));
@@ -99,6 +101,7 @@ export function createMigrationContext(
     }
   }
 
+  /** Write the text. */
   async function writeText(rel: string, content: string): Promise<void> {
     await ensureDir(dirname(abs(rel)));
     if (rel === CONFIG_REL) {
@@ -108,6 +111,7 @@ export function createMigrationContext(
     await Deno.writeTextFile(abs(rel), content);
   }
 
+  /** Remove the requested operation. */
   async function remove(rel: string): Promise<void> {
     try {
       await Deno.remove(abs(rel));
@@ -118,6 +122,7 @@ export function createMigrationContext(
     }
   }
 
+  /** Remove all. */
   async function removeAll(rel: string): Promise<void> {
     try {
       await Deno.remove(abs(rel), { recursive: true });
@@ -128,6 +133,7 @@ export function createMigrationContext(
     }
   }
 
+  /** Return the rename. */
   async function rename(from: string, to: string): Promise<void> {
     if (!(await exists(from))) {
       return;
@@ -136,6 +142,7 @@ export function createMigrationContext(
     await Deno.rename(abs(from), abs(to));
   }
 
+  /** Return the rewrite. */
   async function rewrite(
     rel: string,
     fn: (text: string) => string,
@@ -150,10 +157,12 @@ export function createMigrationContext(
     }
   }
 
+  /** Read the config. */
   async function readConfig(): Promise<string | undefined> {
     return await readText(CONFIG_REL);
   }
 
+  /** Return the edit TOML. */
   async function editToml(fn: (editor: TomlEditor) => void): Promise<void> {
     const text = await readConfig();
     if (text === undefined) {
@@ -164,6 +173,7 @@ export function createMigrationContext(
     await writeDiscernToml(abs(CONFIG_REL), editor.toString());
   }
 
+  /** Merge the settings into. */
   async function mergeSettingsInto(
     incoming: Record<string, unknown>,
   ): Promise<void> {

@@ -19,10 +19,12 @@ interface InstallRun {
   target: string;
 }
 
+/** Quote a value for the shell. */
 function shellQuote(value: string): string {
   return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
+/** Return the command path. */
 async function commandPath(command: string): Promise<string> {
   const result = await new Deno.Command("which", {
     args: [command],
@@ -35,12 +37,14 @@ async function commandPath(command: string): Promise<string> {
   return DECODER.decode(result.stdout).trim();
 }
 
+/** Return the release asset. */
 function releaseAsset(): string {
   const arch = Deno.build.arch === "x86_64" ? "x86_64" : "aarch64";
   const os = Deno.build.os === "darwin" ? "apple-darwin" : "unknown-linux-gnu";
   return `discern-${arch}-${os}`;
 }
 
+/** Return the SHA-256. */
 async function sha256(path: string): Promise<string> {
   const digest = new Uint8Array(
     await crypto.subtle.digest("SHA-256", await Deno.readFile(path)),
@@ -49,16 +53,19 @@ async function sha256(path: string): Promise<string> {
     .join("");
 }
 
+/** Return the registered downloaders. */
 function registeredDownloaders(): string[] {
   const match = installSource.match(/^DOWNLOADERS="([^"]+)"$/m);
   assert(match !== null, "install.sh declares its downloader registry");
   return match[1]?.split(/\s+/).filter(Boolean) ?? [];
 }
 
+/** Return the link tool. */
 async function linkTool(dir: string, command: string): Promise<void> {
   await Deno.symlink(await commandPath(command), join(dir, command));
 }
 
+/** Return the run installer. */
 async function runInstaller(
   downloader: string,
   options: { badChecksum?: boolean; binOnPath?: boolean } = {},

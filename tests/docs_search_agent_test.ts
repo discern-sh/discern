@@ -7,6 +7,7 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { searchAgentPages, type SearchPage } from "../src/lib/docs_search.ts";
 
+/** Return the page. */
 function page(
   route: string,
   overrides: Partial<SearchPage> = {},

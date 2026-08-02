@@ -13,6 +13,7 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 const rendered = renderHintInventoryDoc();
 const defs = Object.values(HINTS) as unknown as readonly HintDef<unknown>[];
 
+/** Return the committed inventory. */
 async function committedInventory(): Promise<string> {
   return await Deno.readTextFile(
     `${REPO_AUTHORED_PATHS.map}/_internal/hint-inventory.md`,

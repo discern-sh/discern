@@ -65,6 +65,7 @@ async function buildHostBinary(
   return code === 0;
 }
 
+/** Print the live banner. */
 function printLiveBanner(dest: string, triple: string): void {
   const rule = yellow("─".repeat(68));
   console.error("");
@@ -149,6 +150,7 @@ export function holdCompiledLease(opts: {
   return new Promise<never>(() => {});
 }
 
+/** Run this module's main operation. */
 async function main(): Promise<number> {
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const triple = Deno.build.target;

@@ -34,10 +34,12 @@ export interface ProviderHooksRefreshResult {
   readonly errors: string[];
 }
 
+/** Return the err text. */
 function errText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Return the hook providers for config. */
 function hookProvidersForConfig(config: DiscernConfig): Provider[] {
   const providers: Provider[] = [];
   for (const agent of resolveConfiguredAgents(config)) {
@@ -49,6 +51,7 @@ function hookProvidersForConfig(config: DiscernConfig): Provider[] {
   return providers;
 }
 
+/** Read the text if exists. */
 async function readTextIfExists(path: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(path);
@@ -60,6 +63,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
+/** Return the canonical JSON. */
 function canonicalJson(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.map(canonicalJson);
@@ -74,6 +78,7 @@ function canonicalJson(value: unknown): unknown {
   return value;
 }
 
+/** Return the semantically equal JSON. */
 function semanticallyEqualJson(left: string, right: string): boolean {
   const parsedLeft: unknown = JSON.parse(left);
   const parsedRight: unknown = JSON.parse(right);
@@ -81,6 +86,7 @@ function semanticallyEqualJson(left: string, right: string): boolean {
     JSON.stringify(canonicalJson(parsedRight));
 }
 
+/** Return the desired hook text. */
 async function desiredHookText(
   root: string,
   templatesDir: string,
@@ -97,6 +103,7 @@ async function desiredHookText(
   return { rel, existing, desired: merge(existing, template) };
 }
 
+/** Return the hook text current. */
 function hookTextCurrent(
   rel: string,
   existing: string | undefined,

@@ -90,6 +90,7 @@ export interface LandingAuthorityProjection {
   readonly warnings?: string[];
 }
 
+/** Return the unique. */
 function unique(values: readonly string[]): string[] {
   return [...new Set(values)];
 }
@@ -186,6 +187,7 @@ export function resolveLandingAuthority(
   };
 }
 
+/** Return the conversation required. */
 function conversationRequired(
   warnings: readonly string[] = [],
   blockingReason?: string,
@@ -200,6 +202,7 @@ function conversationRequired(
   });
 }
 
+/** Return the schema failure. */
 function schemaFailure(
   text: string,
   path: string,
@@ -230,6 +233,7 @@ function schemaFailure(
   };
 }
 
+/** Return the effort warnings. */
 function effortWarnings(
   status: Awaited<ReturnType<typeof readEffortGrant>>,
   branch: string | undefined,

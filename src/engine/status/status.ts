@@ -1267,6 +1267,7 @@ function label(text: string): string {
   return text.padEnd(11);
 }
 
+/** Return the gate receipt summary. */
 function gateReceiptSummary(
   receipt: GateReceiptCheckData,
   verbose: boolean,
@@ -1534,6 +1535,7 @@ function renderStatusHuman(
   }
 }
 
+/** Return the landing authority summary. */
 function landingAuthoritySummary(
   authority: NonNullable<StatusData["landing_authority"]>,
 ): string {

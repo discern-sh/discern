@@ -19,6 +19,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 
+/** Parse the JSON text. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());

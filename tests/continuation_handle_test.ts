@@ -12,6 +12,7 @@ import { ContinuationHandleSchema } from "../src/shared/result_schemas.ts";
 const ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const SYMBOL_POSITIONS = [3, 4, 5, 6, 8, 9, 10, 11, 13, 14] as const;
 
+/** Return the deterministic bytes. */
 function deterministicBytes(): Uint8Array {
   return new Uint8Array([1, 7, 12, 18, 23, 27, 29, 31]);
 }

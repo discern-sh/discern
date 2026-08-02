@@ -1885,6 +1885,7 @@ export const REGISTRY_ATLAS_PAGE_REL: string = join(
   "registry-atlas.md",
 );
 
+/** Return the source line. */
 function sourceLine(source: SetSource): string {
   if (source.kind === "module") {
     return `- Source: \`${source.module}\` — \`${source.exportName}\``;
@@ -1892,6 +1893,7 @@ function sourceLine(source: SetSource): string {
   return `- Source: \`${source.path}\` (authored table)`;
 }
 
+/** Return the glossary line. */
 function glossaryLine(enrolment: GlossaryEnrolment): string {
   if ("term" in enrolment) {
     return `- Glossary: the "${enrolment.term}" entry carries the concept`;
@@ -1902,6 +1904,7 @@ function glossaryLine(enrolment: GlossaryEnrolment): string {
   return `- Glossary: not enrolled — ${enrolment.absent}`;
 }
 
+/** Return the canon line. */
 function canonLine(enrolment: CanonEnrolment): string {
   if ("surfaceSet" in enrolment) {
     return `- Feature canon: claimed as the \`${enrolment.surfaceSet}\` surface set`;
@@ -1912,6 +1915,7 @@ function canonLine(enrolment: CanonEnrolment): string {
   return `- Feature canon: not enrolled — ${enrolment.absent}`;
 }
 
+/** Return the path list. */
 function pathList(paths: readonly string[]): string {
   return paths.map((path) => `\`${path}\``).join(", ");
 }
@@ -1939,6 +1943,7 @@ function setLink(entry: CanonicalSetEntry): string {
   return `[\`${entry.id}\`](#${headingAnchor(setHeading(entry))})`;
 }
 
+/** Return the source cell. */
 function sourceCell(source: SetSource): string {
   if (source.kind === "module") {
     return `\`${source.module}#${source.exportName}\``;
@@ -1946,18 +1951,21 @@ function sourceCell(source: SetSource): string {
   return `\`${source.path}\` (authored)`;
 }
 
+/** Return the glossary cell. */
 function glossaryCell(enrolment: GlossaryEnrolment): string {
   if ("term" in enrolment) return `"${enrolment.term}"`;
   if ("perMember" in enrolment) return "per member";
   return "—";
 }
 
+/** Return the canon cell. */
 function canonCell(enrolment: CanonEnrolment): string {
   if ("surfaceSet" in enrolment) return `surface \`${enrolment.surfaceSet}\``;
   if ("nodeId" in enrolment) return `node \`${enrolment.nodeId}\``;
   return "—";
 }
 
+/** Return the stray lines. */
 function strayLines(record: Readonly<Record<string, string>>): string[] {
   return Object.entries(record).map(
     ([path, reason]) => `- \`${path}\` — ${reason}`,

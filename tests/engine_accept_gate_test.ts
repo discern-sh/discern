@@ -38,6 +38,7 @@ import {
 } from "../src/engine/gate/receipt.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 
+/** Return the receipt authority. */
 async function receiptAuthority(
   dir: string,
 ): Promise<AdminStateWriteAuthority> {
@@ -83,13 +84,14 @@ const CHECK_NO_TABOO = [
   "",
 ].join("\n");
 
+/** Parse the JSON text. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
-// Every successful acceptance path carries the same two-form landing record:
-// the page for a PR body and the system-rendered line an agent relays verbatim.
+/** Every successful acceptance path carries the same two-form landing record:
+ * the page for a PR body and the system-rendered line an agent relays verbatim. */
 // deno-lint-ignore no-explicit-any
 function assertLandingReceiptRelay(obj: any, branch: string): void {
   assertStringIncludes(
@@ -124,6 +126,7 @@ async function commitBranchWork(wt: string): Promise<void> {
   await git(wt, "commit", "-q", "-m", "feat: work", "--no-gpg-sign");
 }
 
+/** Commit the current worktree. */
 async function commitCurrentWorktree(
   wt: string,
   message = "chore: clean updated tree",

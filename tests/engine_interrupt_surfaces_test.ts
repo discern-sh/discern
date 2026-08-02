@@ -95,6 +95,7 @@ function alive(pid: number): boolean {
   }
 }
 
+/** Kill the for cleanup. */
 function killForCleanup(pid: number): void {
   if (Deno.build.os !== "windows") {
     try {
@@ -111,6 +112,7 @@ function killForCleanup(pid: number): void {
   }
 }
 
+/** Return the port is open. */
 function portIsOpen(port: number): boolean {
   const source = [
     "try {",
@@ -127,6 +129,7 @@ function portIsOpen(port: number): boolean {
   }).outputSync().success;
 }
 
+/** Return the pending tree shutdown. */
 function pendingTreeShutdown(
   leaderPid: number,
   descendantPid: number,

@@ -25,10 +25,12 @@ import {
 } from "../src/lib/diagram_geometry.ts";
 import { REPO_ROOT, TRACKED_MD_FILES } from "./repo_authored_paths.ts";
 
+/** Return the fenced. */
 function fenced(...lines: string[]): string {
   return ["```", ...lines, "```", ""].join("\n");
 }
 
+/** Return the at. */
 function at(violations: DiagramViolation[]): string[] {
   return violations.map((v) => `${v.line}:${v.column} ${v.glyph}`);
 }

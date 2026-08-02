@@ -1128,6 +1128,7 @@ async function assertAbsent(path: string): Promise<void> {
   assert(!present, `expected ${path} to be absent`);
 }
 
+/** Return the expected codex discern rules. */
 function expectedCodexDiscernRules(): string {
   return `${generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules)}
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.

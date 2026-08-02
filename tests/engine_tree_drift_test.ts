@@ -33,6 +33,7 @@ import {
 import { jobStage, STAGES } from "../src/shared/capabilities.ts";
 import { parsePorcelainZ } from "../src/shared/git_paths.ts";
 
+/** Parse the JSON text. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());

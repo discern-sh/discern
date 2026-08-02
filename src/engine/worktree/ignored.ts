@@ -148,6 +148,7 @@ export async function inspectIgnoredFileChanges(
   };
 }
 
+/** Return the unavailable. */
 function unavailable(): IgnoredFileChangeSummary {
   return {
     status: "unavailable",
@@ -157,6 +158,7 @@ function unavailable(): IgnoredFileChangeSummary {
   };
 }
 
+/** Read the baseline. */
 async function readBaseline(
   path: string,
 ): Promise<IgnoredBaseline | undefined> {
@@ -184,6 +186,7 @@ async function readBaseline(
   }
 }
 
+/** Return whether the value is fingerprint. */
 function isFingerprint(value: unknown): value is IgnoredRootFingerprint {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -198,6 +201,7 @@ function isFingerprint(value: unknown): value is IgnoredRootFingerprint {
     typeof root.bytes === "number";
 }
 
+/** Return the snapshot ignored roots. */
 async function snapshotIgnoredRoots(
   cwd: string,
   baseline?: IgnoredBaseline,
@@ -213,6 +217,7 @@ async function snapshotIgnoredRoots(
   return await contentFingerprintWithinBudget(cwd, metadata, baseline);
 }
 
+/** List the ignored roots. */
 async function listIgnoredRoots(cwd: string): Promise<string[] | undefined> {
   const run = await runGit([
     "status",
@@ -237,6 +242,7 @@ async function listIgnoredRoots(cwd: string): Promise<string[] | undefined> {
   return [...roots].sort();
 }
 
+/** Return the collapse changed root. */
 function collapseChangedRoot(raw: string): string {
   const cleaned = raw.replace(/^\.\//, "");
   const slash = cleaned.indexOf("/");
@@ -246,6 +252,7 @@ function collapseChangedRoot(raw: string): string {
   return cleaned;
 }
 
+/** Return the fingerprint root. */
 async function fingerprintRoot(
   cwd: string,
   label: string,
@@ -341,10 +348,12 @@ async function fingerprintRoot(
   };
 }
 
+/** Ensure the dir label. */
 function ensureDirLabel(label: string): string {
   return label.endsWith("/") ? label : `${label}/`;
 }
 
+/** Return the metadata fingerprint directory. */
 async function metadataFingerprintDirectory(
   absRoot: string,
   relRoot: string,
@@ -353,6 +362,7 @@ async function metadataFingerprintDirectory(
   let files = 0;
   let bytes = 0;
 
+  /** Walk the requested operation. */
   async function walk(abs: string, rel: string): Promise<void> {
     let entries: Deno.DirEntry[];
     try {
@@ -406,12 +416,14 @@ async function metadataFingerprintDirectory(
   };
 }
 
+/** Return the file metadata part. */
 function fileMetadataPart(path: string, stat: Deno.FileInfo): string {
   return `file\0${path}\0${stat.size}\0${stat.mtime?.getTime() ?? "unknown"}\0${
     stat.ino ?? "unknown"
   }`;
 }
 
+/** Return the content fingerprint within budget. */
 async function contentFingerprintWithinBudget(
   cwd: string,
   metadata: IgnoredRootFingerprint[],
@@ -466,6 +478,7 @@ async function contentFingerprintWithinBudget(
     .sort((a, b) => a.path.localeCompare(b.path));
 }
 
+/** Return the content fingerprint directory. */
 async function contentFingerprintDirectory(
   absRoot: string,
   relRoot: string,
@@ -476,6 +489,7 @@ async function contentFingerprintDirectory(
   let files = 0;
   let bytes = 0;
 
+  /** Walk the requested operation. */
   async function walk(abs: string, rel: string): Promise<boolean> {
     let entries: Deno.DirEntry[];
     try {
@@ -547,6 +561,7 @@ async function contentFingerprintDirectory(
   };
 }
 
+/** Hash the bytes. */
 async function hashBytes(bytes: Uint8Array, prefix = ""): Promise<string> {
   if (prefix === "") {
     return await sha256Hex(bytes);
@@ -558,10 +573,12 @@ async function hashBytes(bytes: Uint8Array, prefix = ""): Promise<string> {
   return await sha256Hex(combined);
 }
 
+/** Hash the text. */
 async function hashText(text: string): Promise<string> {
   return await sha256Hex(new TextEncoder().encode(text));
 }
 
+/** Return the SHA-256 hex. */
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const stable = new Uint8Array(bytes.byteLength);
   stable.set(bytes);

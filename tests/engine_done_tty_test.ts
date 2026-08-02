@@ -45,6 +45,7 @@ const FAILING_CONFIG = CONFIG.replace(
   'format = "false"\ntest = "true"',
 );
 
+/** Return the committed worktree. */
 async function committedWorktree(
   main: string,
   name: string,

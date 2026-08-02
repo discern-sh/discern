@@ -35,15 +35,18 @@ run   = ":"   # e.g. "vitest run"
 # native = "make -C native check"
 `;
 
+/** Return the parsed project slug. */
 function parsedProjectSlug(text: string): unknown {
   const parsed = parseToml(text) as { project?: { slug?: unknown } };
   return parsed.project?.slug;
 }
 
+/** Count the project slug assignments. */
 function countProjectSlugAssignments(text: string): number {
   return text.split(/\r?\n/).filter((line) => /^\s*slug\s*=/.test(line)).length;
 }
 
+/** Assert the only line ending. */
 function assertOnlyLineEnding(text: string, lineEnding: "\n" | "\r\n"): void {
   if (lineEnding === "\r\n") {
     assert(

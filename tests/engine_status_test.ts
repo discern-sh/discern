@@ -57,6 +57,7 @@ const SCOPE_CONFIG = [
   "",
 ].join("\n");
 
+/** Return the status gate facts config. */
 function statusGateFactsConfig(
   wiredKnownJobs: readonly KnownJob[],
 ): string {

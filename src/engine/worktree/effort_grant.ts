@@ -21,10 +21,12 @@ export type EffortGrantRead =
   | { readonly status: "invalid"; readonly reason: string }
   | { readonly status: "unavailable"; readonly reason: string };
 
+/** Return the effort grant failure reason. */
 export function effortGrantFailureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Parse the effort grant. */
 export function parseEffortGrant(raw: string): EffortGrantRead {
   let value: unknown;
   try {

@@ -53,6 +53,7 @@ const ISSUE_CONFIG = join(ISSUE_TEMPLATE_DIR, "config.yml");
 const GATE_WORKFLOW = join(REPO_ROOT, ".github", "workflows", "gate.yml");
 const DISCERN_CONFIG = join(REPO_ROOT, "discern.toml");
 
+/** Assert the file. */
 async function assertFile(
   path: string,
   source: string,
@@ -67,6 +68,7 @@ async function assertFile(
   );
 }
 
+/** Return the YAML record. */
 function yamlRecord(yaml: string, source: string): Record<string, unknown> {
   const parsed: unknown = parseYaml(yaml);
   assert(
@@ -76,6 +78,7 @@ function yamlRecord(yaml: string, source: string): Record<string, unknown> {
   return parsed as Record<string, unknown>;
 }
 
+/** Return the SHA-256 hex. */
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
   return Array.from(new Uint8Array(digest))
@@ -83,6 +86,7 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
+/** Return the require baseline ref. */
 async function requireBaselineRef(ref: string): Promise<void> {
   const output = await new Deno.Command("git", {
     cwd: REPO_ROOT,
@@ -97,6 +101,7 @@ async function requireBaselineRef(ref: string): Promise<void> {
   }
 }
 
+/** Read the git file at ref. */
 async function readGitFileAtRef(
   ref: string,
   path: string,

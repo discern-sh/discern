@@ -18,6 +18,7 @@ import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { MANUAL_SECTION_REGISTRY } from "../src/lib/paths.ts";
 
+/** Return the registry section. */
 function registrySection(audience: "public" | "contributor"): string {
   const section = MANUAL_SECTION_REGISTRY.find(
     (entry) => entry.audience === audience,

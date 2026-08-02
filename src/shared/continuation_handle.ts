@@ -18,6 +18,7 @@ export const CONTINUATION_HANDLE_PATTERN =
 /** Test seam for deterministic collision and checksum coverage. */
 export type ContinuationRandomBytes = (length: number) => Uint8Array;
 
+/** Return the checksum. */
 function checksum(data: string): number {
   let value = 0;
   for (const symbol of data) {
@@ -30,12 +31,14 @@ function checksum(data: string): number {
   return value;
 }
 
+/** Encode the checksum. */
 function encodeChecksum(value: number): string {
   return `${CROCKFORD_BASE32[Math.floor(value / 32)] ?? ""}${
     CROCKFORD_BASE32[value % 32] ?? ""
   }`;
 }
 
+/** Return the system random bytes. */
 function systemRandomBytes(length: number): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(length));
 }

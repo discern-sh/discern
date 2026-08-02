@@ -58,6 +58,7 @@ export type PublicSchemaCompatibility =
   | typeof CONFIG_SCHEMA_COMPATIBILITY_POLICY
   | typeof RESULT_SCHEMA_COMPATIBILITY_POLICY;
 
+/** Return whether the value is public schema compatibility. */
 export function isPublicSchemaCompatibility(
   value: unknown,
 ): value is PublicSchemaCompatibility {
@@ -115,6 +116,7 @@ export const PUBLIC_SCHEMA_REFERENCE_START =
 export const PUBLIC_SCHEMA_REFERENCE_END =
   "<!-- END GENERATED: public schema publications -->";
 
+/** Return the compatibility contract. */
 function compatibilityContract(
   policy: PublicSchemaCompatibility,
 ): string {

@@ -73,6 +73,7 @@ interface GateJson {
   };
 }
 
+/** Parse the gate JSON. */
 function parseGateJson(stdout: string): GateJson {
   const obj = JSON.parse(stdout.trim()) as GateJson;
   assertEquals(obj.verb, "done");

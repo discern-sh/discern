@@ -57,6 +57,7 @@ function termVariants(term: string): string[] {
     .filter((v) => v.length > 0);
 }
 
+/** Escape text for a regular expression. */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }

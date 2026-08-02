@@ -34,6 +34,7 @@ interface StatusJson {
   hints?: string[];
 }
 
+/** Return the status JSON. */
 async function statusJson(dir: string): Promise<StatusJson> {
   const r = await runAgent(dir, ["status", "--json"]);
   assertEquals(r.code, 0, r.output);

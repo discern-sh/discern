@@ -46,6 +46,7 @@ async function fileAged(
   return path;
 }
 
+/** Return whether the path exists. */
 async function exists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);

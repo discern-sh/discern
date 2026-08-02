@@ -27,6 +27,7 @@ async function mainWithWorktree(dir: string, name: string): Promise<string> {
   return await addWorktree(dir, name);
 }
 
+/** Commit the current worktree. */
 async function commitCurrentWorktree(
   wt: string,
   message = "commit worktree state",

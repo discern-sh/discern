@@ -27,6 +27,7 @@ const active = new Set<AbortController>();
 const installed = new Map<Deno.Signal, () => void>();
 let received: Deno.Signal | null = null;
 
+/** Return the install. */
 function install(): void {
   if (installed.size > 0) {
     return;
@@ -43,6 +44,7 @@ function install(): void {
   }
 }
 
+/** Return the uninstall. */
 function uninstall(): void {
   for (const [sig, handler] of installed) {
     Deno.removeSignalListener(sig, handler);

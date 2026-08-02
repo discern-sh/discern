@@ -431,6 +431,7 @@ function liftData(data: unknown): LiftedData {
   return lifted;
 }
 
+/** Return the landing changed. */
 function landingChanged(
   landing: VerbEvent["landing"] | undefined,
 ): boolean {

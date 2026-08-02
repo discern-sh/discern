@@ -21,10 +21,12 @@ export interface GateJson {
   data: { failed_stage: string | null };
 }
 
+/** Parse the JSON text. */
 export function parseJson(stdout: string): GateJson {
   return JSON.parse(stdout.trim()) as GateJson;
 }
 
+/** Return the diag for. */
 export function diagFor(
   obj: GateJson,
   tool: string,

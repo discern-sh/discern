@@ -174,6 +174,7 @@ const RETIRED_COMMAND_TOKENS = [
   "`worktree:*`",
 ];
 
+/** Return the maybe text file. */
 async function maybeTextFile(
   rel: string,
 ): Promise<[string, string] | undefined> {
@@ -184,6 +185,7 @@ async function maybeTextFile(
   }
 }
 
+/** Return the maybe configured text file. */
 async function maybeConfiguredTextFile(
   path: string,
 ): Promise<[string, string] | undefined> {
@@ -194,6 +196,7 @@ async function maybeConfiguredTextFile(
   }
 }
 
+/** Return the command surface files. */
 async function commandSurfaceFiles(): Promise<Array<[string, string]>> {
   const out: Array<[string, string]> = [];
   for (

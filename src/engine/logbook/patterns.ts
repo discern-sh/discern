@@ -244,6 +244,7 @@ export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
 
+/** Return the plural. */
 function plural(
   value: number,
   singular: string,
@@ -293,6 +294,7 @@ function driversLine(population: PatternsPopulation): string {
   } · unknown ${formatHumanNumber(population.unknown)}`;
 }
 
+/** Return the scoreboard line. */
 function scoreboardLine(data: PatternsData): string {
   const spoke = data.detectors.filter((d) => d.status === "fired").length;
   const clear = data.detectors.filter((d) => d.status === "quiet").length;
@@ -316,6 +318,7 @@ function preAuthorizedLandingOverview(
   );
 }
 
+/** Write the wrapped. */
 function writeWrapped(
   out: Out,
   prefix: string,
@@ -335,6 +338,7 @@ function writeWrapped(
   }
 }
 
+/** Return the tone glyph. */
 function toneGlyph(tone: PatternFindingTone, palette: Palette): string {
   const presentation = PATTERNS_TONE_GLYPHS[tone];
   return `${palette[presentation.color]}${presentation.glyph}${palette.reset}`;
@@ -345,6 +349,7 @@ interface FindingRow {
   renderedSeries: string;
 }
 
+/** Render the finding rows. */
 function renderFindingRows(
   out: Out,
   findings: readonly PatternsFinding[],
@@ -393,6 +398,7 @@ function renderFindingRows(
   }
 }
 
+/** Return the detector next step. */
 function detectorNextStep(findings: readonly PatternsFinding[]): string {
   const pinFindings = findings.filter((finding) =>
     finding.detector === "standard-trajectory" &&
@@ -428,6 +434,7 @@ function detectorNextStep(findings: readonly PatternsFinding[]): string {
   return steps.join(" ");
 }
 
+/** Return the findings by detector. */
 function findingsByDetector(
   findings: readonly PatternsFinding[],
 ): Map<string, PatternsFinding[]> {
@@ -443,6 +450,7 @@ function findingsByDetector(
   return groups;
 }
 
+/** Render the family. */
 function renderFamily(
   out: Out,
   family: DetectorFamily,
@@ -495,6 +503,7 @@ function renderFamily(
   }
 }
 
+/** Render the attention banner. */
 function renderAttentionBanner(
   out: Out,
   data: PatternsData,
@@ -527,6 +536,7 @@ function renderAttentionBanner(
   }
 }
 
+/** Render the closing account. */
 function renderClosingAccount(
   out: Out,
   data: PatternsData,
@@ -647,6 +657,7 @@ export const STATS_SECTIONS = {
   breadth: "Breadth",
 } as const;
 
+/** Return the percent. */
 function percent(part: number, whole: number): string {
   return `${Math.round((part / whole) * 100)}%`;
 }
@@ -675,6 +686,7 @@ interface StatsSpark {
   label: string;
 }
 
+/** Return the stats spark. */
 function statsSpark(
   series: readonly number[] | undefined,
   label: string,

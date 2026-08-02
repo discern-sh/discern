@@ -85,14 +85,17 @@ const ANNOTATION_KEYS = new Set([
   "writeOnly",
 ]);
 
+/** Return whether the value is an object. */
 function isObject(value: JsonValue | undefined): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Return the JSON representation. */
 function json(value: JsonValue | undefined): string {
   return JSON.stringify(value);
 }
 
+/** Return whether the JSON values match. */
 function sameJson(
   left: JsonValue | undefined,
   right: JsonValue | undefined,
@@ -100,12 +103,14 @@ function sameJson(
   return json(left) === json(right);
 }
 
+/** Return the path key. */
 function pathKey(path: string, key: string): string {
   return /^[A-Za-z_$][A-Za-z0-9_$-]*$/.test(key)
     ? `${path}.${key}`
     : `${path}[${JSON.stringify(key)}]`;
 }
 
+/** Return the string set. */
 function stringSet(value: JsonValue | undefined): string[] | undefined {
   if (
     !Array.isArray(value) ||
@@ -116,6 +121,7 @@ function stringSet(value: JsonValue | undefined): string[] | undefined {
   return value.map((member) => member as string).sort();
 }
 
+/** Compare the string sets. */
 function compareStringSets(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -144,10 +150,12 @@ function compareStringSets(
   }
 }
 
+/** Return the schema type set. */
 function schemaTypeSet(value: JsonValue | undefined): string[] | undefined {
   return typeof value === "string" ? [value] : stringSet(value);
 }
 
+/** Compare the type set inclusion. */
 function compareTypeSetInclusion(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -178,6 +186,7 @@ function compareTypeSetInclusion(
   }
 }
 
+/** Compare the required. */
 function compareRequired(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -205,6 +214,7 @@ function compareRequired(
   }
 }
 
+/** Compare the map. */
 function compareMap(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -231,12 +241,14 @@ function compareMap(
   }
 }
 
+/** Return whether the value is unconstrained schema. */
 function isUnconstrainedSchema(value: JsonValue | undefined): boolean {
   return value === true ||
     (isObject(value) &&
       Object.keys(value).every((key) => ANNOTATION_KEYS.has(key)));
 }
 
+/** Compare the properties. */
 function compareProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -309,6 +321,7 @@ function compareProperties(
   }
 }
 
+/** Return the alternative identity. */
 function alternativeIdentity(value: JsonValue): string {
   if (isObject(value)) {
     if (typeof value.$ref === "string") {
@@ -324,6 +337,7 @@ function alternativeIdentity(value: JsonValue): string {
   return `schema:${json(value)}`;
 }
 
+/** Return the reference alternative. */
 function referenceAlternative(value: JsonValue): string | undefined {
   if (
     !isObject(value) ||
@@ -337,6 +351,7 @@ function referenceAlternative(value: JsonValue): string | undefined {
   return value.$ref;
 }
 
+/** Return the matching contract reference role. */
 function matchingContractReferenceRole(
   alternatives: readonly JsonValue[],
   references: ContractReferenceSets,
@@ -351,6 +366,7 @@ function matchingContractReferenceRole(
   return matchingRoles.length === 1 ? matchingRoles[0] : undefined;
 }
 
+/** Return the transparent role aggregate alternatives. */
 function transparentRoleAggregateAlternatives(
   definition: JsonValue | undefined,
 ): readonly JsonValue[] | undefined {
@@ -369,6 +385,7 @@ function transparentRoleAggregateAlternatives(
   return definition.oneOf;
 }
 
+/** Return the contract aggregator role. */
 function contractAggregatorRole(
   path: string,
   alternatives: readonly JsonValue[],
@@ -386,6 +403,7 @@ function contractAggregatorRole(
     : undefined;
 }
 
+/** Compare the alternatives. */
 function compareAlternatives(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -460,6 +478,7 @@ function compareAlternatives(
   });
 }
 
+/** Compare the prefix items. */
 function comparePrefixItems(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -490,10 +509,12 @@ function comparePrefixItems(
   });
 }
 
+/** Return the contract id. */
 function contractId(value: JsonValue): string | undefined {
   return isObject(value) && typeof value.id === "string" ? value.id : undefined;
 }
 
+/** Return the contract schema reference. */
 function contractSchemaReference(
   value: JsonValue,
   field: string,
@@ -508,10 +529,12 @@ function contractSchemaReference(
     : undefined;
 }
 
+/** Return the contract records. */
 function contractRecords(value: JsonValue | undefined): JsonValue[] {
   return Array.isArray(value) ? value : [];
 }
 
+/** Return the contract reference sets. */
 function contractReferenceSets(
   contracts: readonly JsonValue[],
 ): Record<ResultContractReferenceRole, Set<string>> {
@@ -532,6 +555,7 @@ function contractReferenceSets(
   return references;
 }
 
+/** Return the definition name. */
 function definitionName(reference: string): string | undefined {
   const prefix = "#/$defs/";
   if (!reference.startsWith(prefix)) {
@@ -544,6 +568,7 @@ function definitionName(reference: string): string | undefined {
   return encoded.replaceAll("~1", "/").replaceAll("~0", "~");
 }
 
+/** Return the definition reference. */
 function definitionReference(name: string): string {
   return `#/$defs/${name.replaceAll("~", "~0").replaceAll("/", "~1")}`;
 }
@@ -611,6 +636,7 @@ type ContractAggregateReach = readonly [
   ResultContractReferenceRole,
 ];
 
+/** Return the reachable contract aggregates. */
 function reachableContractAggregates(
   entrypoint: JsonValue,
   definitions: JsonObject,
@@ -668,6 +694,7 @@ function reachableContractAggregates(
   return aggregates;
 }
 
+/** Return whether the references values match. */
 function sameReferences(
   left: ReadonlySet<string>,
   right: ReadonlySet<string>,
@@ -676,6 +703,7 @@ function sameReferences(
     [...left].every((reference) => right.has(reference));
 }
 
+/** Return the aggregate contains exactly. */
 function aggregateContainsExactly(
   definition: JsonValue | undefined,
   references: ReadonlySet<string>,
@@ -702,6 +730,7 @@ function aggregateContainsExactly(
   return seen.size === references.size;
 }
 
+/** Return the new role aggregate entrypoints. */
 function newRoleAggregateEntrypoints(
   current: JsonObject,
   previousDefinitions: JsonObject,
@@ -766,6 +795,7 @@ function newRoleAggregateEntrypoints(
   return authorized;
 }
 
+/** Return the comparison context. */
 function comparisonContext(
   previous: JsonObject,
   current: JsonObject,
@@ -857,6 +887,7 @@ function comparisonContext(
   };
 }
 
+/** Compare the contracts. */
 function compareContracts(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -1010,6 +1041,7 @@ function compareDiscriminator(
   }
 }
 
+/** Compare the additional properties. */
 function compareAdditionalProperties(
   previous: JsonValue | undefined,
   current: JsonValue | undefined,
@@ -1028,6 +1060,7 @@ function compareAdditionalProperties(
   }
 }
 
+/** Compare the node. */
 function compareNode(
   previous: JsonValue,
   current: JsonValue,
@@ -1169,6 +1202,7 @@ export function publicSchemaCompatibilityIssues(
   return issues;
 }
 
+/** Return the public schema validity issues. */
 function publicSchemaValidityIssues(
   schema: JsonObject,
   label: string,
@@ -1196,6 +1230,7 @@ interface PublicSchemaIdentity {
 const PUBLIC_SCHEMA_ID_PATTERN =
   /^https:\/\/discern\.sh\/schema\/v([1-9][0-9]*)\/([^/?#]+\.json)$/;
 
+/** Parse the public schema identity. */
 function parsePublicSchemaIdentity(
   value: JsonValue | undefined,
   path: string,
@@ -1223,6 +1258,7 @@ function parsePublicSchemaIdentity(
   return { major, name };
 }
 
+/** Return the public schema compatibility policy. */
 function publicSchemaCompatibilityPolicy(
   schema: JsonObject,
   issues: string[],

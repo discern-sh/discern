@@ -40,6 +40,7 @@ export function releasePlan(
   };
 }
 
+/** Run this module's main operation. */
 async function main(): Promise<void> {
   const tag = Deno.args[0];
   const githubOutput = Deno.args[1];

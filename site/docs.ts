@@ -147,6 +147,7 @@ export function sectionSlugOf(dir: string): string {
   return dir.replace(/^\d+-/, "");
 }
 
+/** Build the docs site. */
 async function buildDocsSite(): Promise<DocsSite> {
   const tree = await discoverDocs({ cwd: REPO_ROOT, dir: MAP_DIR });
   if (!tree) throw new Error("docs: no map tree found");
@@ -513,6 +514,7 @@ export interface GlossaryMention {
   text: string;
 }
 
+/** Escape text for a regular expression. */
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -566,6 +568,7 @@ const glossarySummariesCache = new WeakMap<
   ReadonlyMap<string, string>
 >();
 
+/** Return the glossary summaries. */
 function glossarySummaries(site: DocsSite): ReadonlyMap<string, string> {
   const cached = glossarySummariesCache.get(site);
   if (cached !== undefined) return cached;
@@ -588,6 +591,7 @@ function glossarySummaries(site: DocsSite): ReadonlyMap<string, string> {
   return summaries;
 }
 
+/** Return the glossary term HTML. */
 function glossaryTermHtml(
   visible: string,
   entry: GlossaryEntry,
@@ -687,6 +691,7 @@ export async function renderDoc(
 
 // ── The shell ──────────────────────────────────────────────────────────────
 
+/** Escape text for output. */
 function esc(text: string): string {
   return text
     .replaceAll("&", "&amp;")
@@ -700,6 +705,7 @@ function sectionIndexOf(dir: string): string {
   return /^(\d+)-/.exec(dir)?.[1] ?? "§";
 }
 
+/** Return the nav HTML. */
 function navHtml(site: DocsSite, current: DocsPage | null): string {
   const sections = site.sections.map((section) => {
     const leaves = section.pages.map((page) => {
@@ -719,6 +725,7 @@ function navHtml(site: DocsSite, current: DocsPage | null): string {
   return `<div id="docs-nav-sections" data-nav-sections>${sections}</div>`;
 }
 
+/** Return the toc HTML. */
 function tocHtml(toc: TocItem[]): string {
   if (toc.length === 0) return "";
   let sectionNumber = 0;
@@ -737,6 +744,7 @@ function tocHtml(toc: TocItem[]): string {
   return `<nav class="discern-table-of-contents docs-toc" aria-label="On this page"><strong class="discern-table-of-contents__title">On this page</strong><ol>${items}</ol></nav>`;
 }
 
+/** Return the pager HTML. */
 function pagerHtml(site: DocsSite, page: DocsPage): string {
   const i = site.pages.findIndex((p) => p.route === page.route);
   const prev = i > 0 ? site.pages[i - 1] : undefined;
@@ -1090,6 +1098,7 @@ export function docsIndexShell(site: DocsSite): string {
   });
 }
 
+/** Return the history label HTML. */
 function historyLabelHtml(superseded: boolean): string {
   const status = superseded
     ? `<strong class="docs-history-status">Superseded record.</strong> `
@@ -1102,6 +1111,7 @@ function historyLabelHtml(superseded: boolean): string {
   </aside>`;
 }
 
+/** Return the decision list HTML. */
 function decisionListHtml(pages: readonly DecisionPage[]): string {
   return `<ol class="docs-decision-list">${
     pages.map((page) =>
@@ -1196,6 +1206,7 @@ export function docsLlmsSection(site: DocsSite): string {
 
 let searchIndexCache: string | undefined;
 
+/** Return the search index JSON. */
 async function searchIndexJson(site: DocsSite): Promise<string> {
   if (searchIndexCache !== undefined) return searchIndexCache;
   const index = await buildSearchIndex([
@@ -1216,6 +1227,7 @@ async function searchIndexJson(site: DocsSite): Promise<string> {
   return searchIndexCache;
 }
 
+/** Respond to the request. */
 function respond(body: string, contentType: string, vary = false): Response {
   const headers = new Headers({
     "content-type": contentType,
@@ -1225,6 +1237,7 @@ function respond(body: string, contentType: string, vary = false): Response {
   return new Response(body, { status: 200, headers });
 }
 
+/** Return the documentation not-found response. */
 function docsNotFound(asText: boolean): Response {
   if (asText) {
     return new Response(

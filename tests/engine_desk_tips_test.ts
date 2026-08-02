@@ -40,6 +40,7 @@ const CONFIG = configSchema.parse({
   repository: { trunk: "main" },
 });
 
+/** Return the fleet entry. */
 function fleetEntry(
   branch: string,
   patch: Partial<StatusFleetEntry> = {},
@@ -57,6 +58,7 @@ function fleetEntry(
   };
 }
 
+/** Return the context of. */
 function contextOf(
   patch: { standards?: string[]; fleet?: StatusFleetEntry[] } = {},
 ): TipContext {
@@ -74,6 +76,7 @@ function contextOf(
   return { data, config: CONFIG };
 }
 
+/** Return the tip of. */
 function tipOf(
   id: string,
   patch: Partial<Pick<TipDef, "predicate" | "since">> = {},
@@ -88,6 +91,7 @@ function tipOf(
   });
 }
 
+/** Return the seen. */
 function seen(
   base: TipSeenState,
   shown: ReadonlyArray<readonly [string, string]>,

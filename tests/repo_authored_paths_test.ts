@@ -36,6 +36,7 @@ import { withTempDir } from "./helpers.ts";
 const PROJECT_DIR = join(REPO_ROOT, "project");
 const config = await loadConfig(REPO_ROOT);
 
+/** Return the value at. */
 function valueAt(dotted: string): unknown {
   let value: unknown = config;
   for (const segment of dotted.split(".")) {

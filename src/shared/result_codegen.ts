@@ -45,6 +45,7 @@ type JsonValue =
 
 type JsonObject = { [key: string]: JsonValue };
 
+/** Return whether the value is an object. */
 function isObject(value: unknown): value is JsonObject {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -77,6 +78,7 @@ function generatedSchema(schema: z.ZodType, hoisted: JsonObject): JsonObject {
   return body;
 }
 
+/** Return the pascal case. */
 function pascalCase(id: string): string {
   const words = id
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
@@ -86,18 +88,22 @@ function pascalCase(id: string): string {
     .join("");
 }
 
+/** Return the type name. */
 function typeName(contract: ResultContract): string {
   return `Discern${pascalCase(contract.id)}Result`;
 }
 
+/** Return the MCP type name. */
 function mcpTypeName(contract: ResultContract): string {
   return `Discern${pascalCase(contract.id)}McpToolResult`;
 }
 
+/** Return the ref for. */
 function refFor(name: string): JsonObject {
   return { $ref: `#/$defs/${name}` };
 }
 
+/** Return the MCP tool result schema. */
 function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   return {
     type: "object",
@@ -122,17 +128,20 @@ function mcpToolResultSchema(structuredContentRef: JsonObject): JsonObject {
   };
 }
 
+/** Return the public schema. */
 function publicSchema(schema: JsonObject): JsonObject {
   const rewritten = rewritePublicOutput(schema);
   return isObject(rewritten) ? rewritten : schema;
 }
 
+/** Return whether the value is error slug enum. */
 function isErrorSlugEnum(value: JsonObject): boolean {
   return Array.isArray(value.enum) &&
     value.enum.length === ERROR_SLUGS.length &&
     value.enum.every((member, index) => member === ERROR_SLUGS[index]);
 }
 
+/** Return the rewrite public output. */
 function rewritePublicOutput(value: JsonValue): JsonValue {
   if (Array.isArray(value)) {
     return value.map(rewritePublicOutput);
@@ -154,6 +163,7 @@ function rewritePublicOutput(value: JsonValue): JsonValue {
   return out;
 }
 
+/** Return the CLI union schema. */
 function cliUnionSchema(): JsonObject {
   return {
     title: "DiscernCliJsonResult",
@@ -174,6 +184,7 @@ function cliUnionSchema(): JsonObject {
   };
 }
 
+/** Return the MCP union schema. */
 function mcpUnionSchema(): JsonObject {
   return {
     title: "DiscernMcpJsonResult",
@@ -198,6 +209,7 @@ function placeHoistedDefs(defs: JsonObject, hoisted: JsonObject): void {
   }
 }
 
+/** Build the result JSON schema. */
 export function buildResultJsonSchema(): JsonObject {
   const defs: JsonObject = {};
   const hoisted: JsonObject = {};
@@ -246,6 +258,7 @@ export function buildResultJsonSchema(): JsonObject {
   }) as JsonObject;
 }
 
+/** Render the result JSON schema. */
 export function renderResultJsonSchema(): string {
   return `${JSON.stringify(buildResultJsonSchema(), null, 2)}\n`;
 }
@@ -309,14 +322,17 @@ export function buildProofNoteJsonSchema(): JsonObject {
   }) as JsonObject;
 }
 
+/** Render the proof note JSON schema. */
 export function renderProofNoteJsonSchema(): string {
   return `${JSON.stringify(buildProofNoteJsonSchema(), null, 2)}\n`;
 }
 
+/** Return the literal. */
 function literal(value: JsonValue): string {
   return JSON.stringify(value);
 }
 
+/** Return the ref type name. */
 function refTypeName(ref: string): string {
   const prefix = "#/$defs/";
   if (!ref.startsWith(prefix)) {
@@ -325,10 +341,12 @@ function refTypeName(ref: string): string {
   return ref.slice(prefix.length);
 }
 
+/** Return the property name. */
 function propertyName(name: string): string {
   return /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) ? name : literal(name);
 }
 
+/** Return the union. */
 function union(parts: string[]): string {
   const unique = [...new Set(parts)];
   if (unique.length === 0) {
@@ -340,6 +358,7 @@ function union(parts: string[]): string {
   return unique.join(" | ");
 }
 
+/** Return the union parts. */
 function unionParts(type: string): string[] | undefined {
   if (type.includes("\n") || !type.includes(" | ")) {
     return undefined;
@@ -347,6 +366,7 @@ function unionParts(type: string): string[] | undefined {
   return type.split(" | ");
 }
 
+/** Render the property. */
 function renderProperty(
   name: string,
   optional: string,
@@ -367,6 +387,7 @@ function renderProperty(
   return `${prefix}${type};`;
 }
 
+/** Return the type from type keyword. */
 function typeFromTypeKeyword(type: JsonValue): string | undefined {
   if (typeof type === "string") {
     switch (type) {
@@ -393,6 +414,7 @@ function typeFromTypeKeyword(type: JsonValue): string | undefined {
   return undefined;
 }
 
+/** Return the object type. */
 function objectType(schema: JsonObject, level: number): string {
   const props = isObject(schema.properties) ? schema.properties : {};
   const required = new Set(
@@ -426,6 +448,7 @@ function objectType(schema: JsonObject, level: number): string {
   return lines.join("\n");
 }
 
+/** Return the schema to type. */
 function schemaToType(schema: JsonObject, level = 0): string {
   if (typeof schema.$ref === "string") {
     return refTypeName(schema.$ref);
@@ -470,6 +493,7 @@ function schemaToType(schema: JsonObject, level = 0): string {
   return "unknown";
 }
 
+/** Map the interface. */
 function mapInterface(
   name: string,
   rows: Array<[string, string]>,
@@ -481,6 +505,7 @@ function mapInterface(
   ].join("\n");
 }
 
+/** Render the union type alias. */
 function renderUnionTypeAlias(name: string, parts: string[]): string {
   const type = union(parts);
   const line = `export type ${name} = ${type};`;
@@ -495,6 +520,7 @@ function renderUnionTypeAlias(name: string, parts: string[]): string {
   ].join("\n");
 }
 
+/** Render the generic type alias. */
 function renderGenericTypeAlias(
   name: string,
   genericName: string,
@@ -507,6 +533,7 @@ function renderGenericTypeAlias(
   return `export type ${name} = ${genericName}<\n  ${innerType}\n>;`;
 }
 
+/** Render the result types dts. */
 export function renderResultTypesDts(): string {
   const schema = buildResultJsonSchema();
   const defs = isObject(schema.$defs) ? schema.$defs : {};

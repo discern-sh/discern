@@ -25,6 +25,7 @@ const RUN_OPTS: RunOptions = {
   quiet: true,
 };
 
+/** Return the job. */
 function job(label: string, command = "true"): PlannedJob {
   return {
     label,
@@ -35,6 +36,7 @@ function job(label: string, command = "true"): PlannedJob {
   };
 }
 
+/** Group the requested operation. */
 function group(jobs: PlannedJob[]): JobGroup {
   return {
     stage: "check",

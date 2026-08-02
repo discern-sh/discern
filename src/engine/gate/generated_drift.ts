@@ -29,6 +29,7 @@ export interface GeneratedBuildDrift {
   readonly candidates: readonly ResolvedGeneratedGroup[];
 }
 
+/** Hash the bytes. */
 async function hashBytes(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -39,6 +40,7 @@ async function hashBytes(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
+/** Return the fingerprint. */
 async function fingerprint(root: string, path: string): Promise<string> {
   const absolute = join(root, path);
   let stat: Deno.FileInfo;
@@ -64,6 +66,7 @@ async function fingerprint(root: string, path: string): Promise<string> {
   return "other";
 }
 
+/** Return the fingerprint entries. */
 async function fingerprintEntries(
   root: string,
   paths: readonly string[],
@@ -73,6 +76,7 @@ async function fingerprintEntries(
   );
 }
 
+/** Return the paths from status. */
 function pathsFromStatus(stdout: string, prefix: string): string[] {
   const paths: string[] = [];
   for (const entry of parsePorcelainZ(stdout)) {
@@ -84,6 +88,7 @@ function pathsFromStatus(stdout: string, prefix: string): string[] {
   return [...new Set(stripRepoPathPrefix(paths, prefix))];
 }
 
+/** Return whether the value matches group. */
 function matchesGroup(path: string, group: ResolvedGeneratedGroup): boolean {
   return group.paths.some((pattern) => pathMatchesPattern(path, pattern));
 }
@@ -139,6 +144,7 @@ export async function captureGeneratedBuildSnapshot(
   };
 }
 
+/** Return the changed artifact paths. */
 function changedArtifactPaths(
   before: ReadonlyMap<string, string>,
   after: ReadonlyMap<string, string>,
@@ -167,11 +173,13 @@ export function generatedBuildDrift(
   return { groups: attributed, unownedPaths, candidates: groups };
 }
 
+/** Return the bounded paths. */
 function boundedPaths(paths: readonly string[]): string {
   const shown = paths.slice(0, 10).join(", ");
   return paths.length > 10 ? `${shown}, … (+${paths.length - 10} more)` : shown;
 }
 
+/** Group the drift diagnostic. */
 async function groupDriftDiagnostic(
   drift: GeneratedGroupDrift,
 ): Promise<Diagnostic> {
@@ -195,6 +203,7 @@ async function groupDriftDiagnostic(
   };
 }
 
+/** Return the undercoverage diagnostic. */
 async function undercoverageDiagnostic(
   drift: GeneratedBuildDrift,
 ): Promise<Diagnostic> {

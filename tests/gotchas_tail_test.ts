@@ -22,6 +22,7 @@ const TEMPLATE_GOTCHAS = join(
   "done-gate-gotchas.md",
 );
 
+/** Return the failed job. */
 function failedJob(code: number): JobResult {
   return {
     label: "lint",

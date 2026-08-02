@@ -321,6 +321,7 @@ const guidanceSourcePath = z.string().regex(
   { message: "concrete sources must be portable project-relative file paths" },
 );
 
+/** Return the project paths are unique. */
 function projectPathsAreUnique(values: readonly string[]): boolean {
   const identities = values.map((value) =>
     value.normalize("NFC").toLowerCase()
@@ -931,6 +932,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 /** The live schema as a JSON Schema, computed once for path checks. */
 let liveJsonSchema: Record<string, unknown> | undefined;
+/** Return the live schema JSON. */
 function liveSchemaJson(): Record<string, unknown> {
   if (liveJsonSchema === undefined) {
     liveJsonSchema = z.toJSONSchema(configSchema, { io: "input" }) as Record<
@@ -1052,6 +1054,7 @@ export type ConfigValueKind =
   | { kind: "table" }
   | { kind: "mixed" };
 
+/** Return the settable config value kind. */
 export function settableConfigValueKind(
   dotted: string,
 ): ConfigValueKind | undefined {

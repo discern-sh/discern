@@ -232,6 +232,7 @@ function tokensOf(source: string): Token[] {
   return tokens;
 }
 
+/** Return the previous direct. */
 function previousDirect(
   tokens: readonly Token[],
   before: number,
@@ -243,6 +244,7 @@ function previousDirect(
   return undefined;
 }
 
+/** Return the property before. */
 function propertyBefore(
   tokens: readonly Token[],
   valueIndex: number,
@@ -255,6 +257,7 @@ function propertyBefore(
   return token?.kind === "identifier" ? token.text : undefined;
 }
 
+/** Return the assignment targets hints. */
 function assignmentTargetsHints(
   tokens: readonly Token[],
   operator: number,
@@ -281,6 +284,7 @@ function assignmentTargetsHints(
   return last !== undefined && tokens[last]?.text === "hints";
 }
 
+/** Return the array targets hints. */
 function arrayTargetsHints(
   tokens: readonly Token[],
   open: number,
@@ -301,6 +305,7 @@ function arrayTargetsHints(
   return false;
 }
 
+/** Return the call pushes hints. */
 function callPushesHints(
   tokens: readonly Token[],
   open: number,
@@ -314,6 +319,7 @@ function callPushesHints(
   return receiver !== undefined && tokens[receiver]?.text === "hints";
 }
 
+/** Return the object has fired hint fields. */
 function objectHasFiredHintFields(
   tokens: readonly Token[],
   open: number,

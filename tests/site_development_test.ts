@@ -33,10 +33,12 @@ interface ConfigEntry {
 const ROOT = dirname(fromFileUrl(import.meta.url));
 const REPO = dirname(ROOT);
 
+/** Read the config. */
 async function readConfig(path: string): Promise<DenoConfig> {
   return JSON.parse(await Deno.readTextFile(path)) as DenoConfig;
 }
 
+/** Return the development configs. */
 async function developmentConfigs(): Promise<ConfigEntry[]> {
   const rootPath = join(REPO, "deno.json");
   const root = await readConfig(rootPath);
@@ -51,6 +53,7 @@ async function developmentConfigs(): Promise<ConfigEntry[]> {
   return entries;
 }
 
+/** Return the unignored watched build output overlaps. */
 function unignoredWatchedBuildOutputOverlaps(
   inputs: readonly string[],
   outputs: readonly string[],
@@ -71,6 +74,7 @@ function unignoredWatchedBuildOutputOverlaps(
   });
 }
 
+/** Return the wildcard serve tasks. */
 function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   const loopbackHost =
     /--host(?:=|\s+)(?:localhost|127\.0\.0\.1|::1|\[::1\])(?:\s|$)/;
@@ -85,6 +89,7 @@ function wildcardServeTasks(entries: readonly ConfigEntry[]): string[] {
   return offenders;
 }
 
+/** Return the site dev env masking offenders. */
 function siteDevEnvMaskingOffenders(
   entries: readonly ConfigEntry[],
 ): string[] {

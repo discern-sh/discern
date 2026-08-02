@@ -110,12 +110,14 @@ const GLOSSARY_PAGE = join(
   "glossary.md",
 );
 
+/** Return the structurally exempt. */
 function structurallyExempt(rel: string): boolean {
   return rel === GLOSSARY_PAGE ||
     isRepoMapPath(rel, "_adr") ||
     isRepoMapPath(rel, "_private");
 }
 
+/** Return the allowed for. */
 function allowedFor(synonym: RetiredSynonym, rel: string): boolean {
   return (synonym.allowed ?? []).some((a) =>
     rel === a.path || rel.startsWith(a.path)

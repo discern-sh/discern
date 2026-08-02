@@ -47,6 +47,7 @@ const BROWSER = {
 const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 
+/** Return the help record route. */
 function helpRecordRoute(path: string): string {
   const rel = path.replace(/^(?:map|docs)\//, "");
   if (rel === "README.md") return "/docs";
@@ -58,10 +59,12 @@ function helpRecordRoute(path: string): string {
     : `/docs/${section}/${filename.replace(/\.md$/, "")}`;
 }
 
+/** Return the requested value. */
 function get(path: string, headers: Record<string, string>): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
 }
 
+/** Return the fixture entry. */
 function fixtureEntry(
   relToDocs: string,
   section: string,
@@ -83,6 +86,7 @@ function fixtureEntry(
   };
 }
 
+/** Return the HTML esc. */
 function htmlEsc(text: string): string {
   return text
     .replaceAll("&", "&amp;")

@@ -16,6 +16,7 @@ import {
   REPO_ROOT,
 } from "./repo_authored_paths.ts";
 
+/** Return the absolute from. */
 function absoluteFrom(cwd: string, path: string): string {
   return isAbsolute(path) ? path : join(cwd, path);
 }

@@ -120,6 +120,7 @@ interface UninstallPlan {
 const BINARY_HINT =
   "discern itself is a single binary outside your repo — remove it by deleting the file `which discern` reports.";
 
+/** Return whether the path exists. */
 async function pathExists(abs: string): Promise<boolean> {
   try {
     await Deno.lstat(abs);
@@ -132,6 +133,7 @@ async function pathExists(abs: string): Promise<boolean> {
   }
 }
 
+/** Read the text if exists. */
 async function readTextIfExists(abs: string): Promise<string | undefined> {
   try {
     return await Deno.readTextFile(abs);

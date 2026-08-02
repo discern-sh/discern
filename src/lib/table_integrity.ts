@@ -92,6 +92,7 @@ function hasUnclosedSpan(cell: string): boolean {
   return false;
 }
 
+/** Check the row. */
 function checkRow(
   line: string,
   lineNo: number,

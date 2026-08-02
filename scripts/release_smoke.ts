@@ -13,10 +13,12 @@ interface CommandOutput {
   stdout: string;
 }
 
+/** Return whether the value is a record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Run the requested operation. */
 async function run(
   command: string,
   args: string[],
@@ -41,6 +43,7 @@ async function run(
   return { stdout, stderr };
 }
 
+/** Return the result envelope. */
 function resultEnvelope(
   stdout: string,
   label: string,
@@ -59,6 +62,7 @@ function resultEnvelope(
   return value;
 }
 
+/** Assert the bundled docs. */
 function assertBundledDocs(envelope: Record<string, unknown>): void {
   const data = envelope.data;
   if (!isRecord(data) || !Array.isArray(data.docs)) {
@@ -72,6 +76,7 @@ function assertBundledDocs(envelope: Record<string, unknown>): void {
   }
 }
 
+/** Assert the bundled first party licenses. */
 async function assertBundledFirstPartyLicenses(
   envelope: Record<string, unknown>,
 ): Promise<void> {
@@ -125,6 +130,7 @@ async function assertBundledFirstPartyLicenses(
   }
 }
 
+/** Assert the bundled third party notices. */
 async function assertBundledThirdPartyNotices(output: string): Promise<void> {
   const notices = await Deno.readTextFile(
     join(REPO_ROOT, "THIRD_PARTY_NOTICES"),
@@ -255,6 +261,7 @@ export async function smokeReleaseBinary(
   }
 }
 
+/** Run this module's main operation. */
 async function main(): Promise<void> {
   const binary = Deno.args[0];
   const expectedVersion = Deno.args[1];

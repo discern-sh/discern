@@ -39,6 +39,7 @@ const ALL_AGENT_CONFIG: DiscernConfig = parseConfigOrThrow(`
 agents = ["claude_code", "codex", "gemini", "cursor", "copilot"]
 `);
 
+/** Assert the no opening generator comment. */
 function assertNoOpeningGeneratorComment(
   text: string,
   path: string,

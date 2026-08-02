@@ -144,6 +144,7 @@ function parse(tokens: readonly Token[]): Node[] {
     return { nodes, stop: undefined };
   }
 
+  /** Parse the if. */
   function parseIf(name: string): Node {
     const thenPart = parseNodes();
     if (thenPart.stop === undefined) {

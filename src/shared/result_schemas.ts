@@ -180,12 +180,14 @@ const ConfigIssueDataSchema = z.strictObject({
   issues: z.array(ConfigIssueSchema),
 });
 
+/** Return the data schema with config issues. */
 function dataSchemaWithConfigIssues<T extends z.ZodType>(
   dataSchema: T,
 ): z.ZodUnion<[T, typeof ConfigIssueDataSchema]> {
   return z.union([dataSchema, ConfigIssueDataSchema]);
 }
 
+/** Return the result output schema. */
 function resultOutputSchema<T extends z.ZodType>(
   verb: string,
   dataSchema: T,
@@ -202,6 +204,7 @@ function resultOutputSchema<T extends z.ZodType>(
   });
 }
 
+/** Return the dataless result output schema. */
 function datalessResultOutputSchema(
   verb: string,
 ): z.ZodObject<

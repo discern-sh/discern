@@ -81,6 +81,7 @@ function limitOf(configText: string, name: string): string | undefined {
   return section?.match(/^\s*limit\s*=\s*(\S+)/m)?.[1];
 }
 
+/** Return the receipt file. */
 function receiptFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.gateReceipt.path);
 }
@@ -92,6 +93,7 @@ async function seedReceipt(dir: string, sha?: string): Promise<void> {
   await Deno.writeTextFile(receiptFile(dir), `${head}\n`);
 }
 
+/** Read the receipt. */
 async function readReceipt(dir: string): Promise<string | undefined> {
   try {
     return (await Deno.readTextFile(receiptFile(dir))).trim();
@@ -100,6 +102,7 @@ async function readReceipt(dir: string): Promise<string | undefined> {
   }
 }
 
+/** Read the config. */
 async function readConfig(dir: string): Promise<string> {
   return await Deno.readTextFile(join(dir, "discern.toml"));
 }
@@ -935,6 +938,7 @@ async function measureCount(dir: string): Promise<number> {
   }
 }
 
+/** Return the measurements file. */
 function measurementsFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.standardMeasurements.path);
 }

@@ -115,6 +115,7 @@ class InvalidTidyTypeError extends Error {
   }
 }
 
+/** Return the selected types. */
 function selectedTypes(type: string | undefined): readonly TidyType[] {
   if (type === undefined) {
     return TIDY_TYPES;
@@ -125,6 +126,7 @@ function selectedTypes(type: string | undefined): readonly TidyType[] {
   throw new InvalidTidyTypeError(type);
 }
 
+/** Return the display path. */
 function displayPath(root: string, abs: string): string {
   const rel = relative(root, abs);
   if (rel === "") {
@@ -133,6 +135,7 @@ function displayPath(root: string, abs: string): string {
   return rel.startsWith("..") || isAbsolute(rel) ? abs : rel;
 }
 
+/** Return the stat or missing. */
 async function statOrMissing(path: string): Promise<Deno.FileInfo | undefined> {
   try {
     return await Deno.stat(path);
@@ -144,11 +147,13 @@ async function statOrMissing(path: string): Promise<Deno.FileInfo | undefined> {
   }
 }
 
+/** Return whether the value is within. */
 function isWithin(path: string, directory: string): boolean {
   const rel = relative(directory, path);
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+/** Return the markdown targets. */
 async function markdownTargets(root: string): Promise<string[]> {
   const config = await loadConfig(root);
   const map = resolveMapDir(root, config);
@@ -205,6 +210,7 @@ async function markdownTargets(root: string): Promise<string[]> {
   return [...targets].sort();
 }
 
+/** Format the target. */
 async function formatTarget(
   root: string,
   type: TidyType,
@@ -310,6 +316,7 @@ export function tidyPlanToEngine(plan: TidyPlan): EnginePlan {
   };
 }
 
+/** Return the tidy diagnostic. */
 function tidyDiagnostic(
   type: TidyType,
   display: string,
@@ -336,6 +343,7 @@ const TABLES_MESSAGE =
   'unchanged. A raw "|" separates table cells even inside a code span: ' +
   'escape each in-span pipe as "\\|" in the listed rows, then rerun.';
 
+/** Return the diagram diagnostic. */
 function diagramDiagnostic(finding: DiagramFinding): Diagnostic {
   return {
     tool: "tidy md",
@@ -369,6 +377,7 @@ function withDiagramFindings(
   };
 }
 
+/** Return the table diagnostic. */
 function tableDiagnostic(finding: TableFinding): Diagnostic {
   return {
     tool: "tidy md",

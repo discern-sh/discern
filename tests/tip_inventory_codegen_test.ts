@@ -16,6 +16,7 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 const rendered = renderTipInventoryDoc();
 
+/** Return the committed inventory. */
 async function committedInventory(): Promise<string> {
   return await Deno.readTextFile(
     `${REPO_AUTHORED_PATHS.map}/_internal/tip-inventory.md`,

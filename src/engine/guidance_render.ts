@@ -181,6 +181,7 @@ async function renderMapRegions(root: string): Promise<string> {
     );
 }
 
+/** Return the builtin guidance. */
 async function builtinGuidance(
   config: DiscernConfig,
   mapRegions: string,
@@ -240,6 +241,7 @@ async function composeGuidanceBodyWithMapRegions(
   return body;
 }
 
+/** Return the compose guidance body. */
 export async function composeGuidanceBody(
   root: string,
   config: DiscernConfig,

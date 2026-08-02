@@ -42,10 +42,12 @@ export type WritePreflightResult =
   | WritePreflightSuccess
   | WritePreflightFailure;
 
+/** Return the error text. */
 function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Remove the probe. */
 async function removeProbe(path: string | undefined): Promise<void> {
   if (path === undefined) {
     return;

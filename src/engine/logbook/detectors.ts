@@ -577,6 +577,7 @@ function followThroughFamilies(): FollowThroughFamily[] {
   }));
 }
 
+/** Return the fires family. */
 function firesFamily(
   event: VerbEvent,
   family: FollowThroughFamily,
@@ -584,6 +585,7 @@ function firesFamily(
   return (event.hint_ids ?? []).some((id) => family.hintIds.has(id));
 }
 
+/** Return whether the recorded session values match. */
 function sameRecordedSession(
   firing: VerbEvent,
   candidate: VerbEvent,
@@ -599,6 +601,7 @@ function sameRecordedSession(
   return session === candidateSession;
 }
 
+/** Return the branch action outcome. */
 function branchActionOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -625,6 +628,7 @@ function branchActionOutcome(
   return "censored";
 }
 
+/** Return the repeated hint outcome. */
 function repeatedHintOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -662,6 +666,7 @@ function repeatedHintOutcome(
   return "censored";
 }
 
+/** Return the main worktree outcome. */
 function mainWorktreeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -696,6 +701,7 @@ function mainWorktreeOutcome(
   return "censored";
 }
 
+/** Return the episode outcome. */
 function episodeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -876,6 +882,7 @@ function tipAdoptionSetup(
   return `${event.epoch}\u0000${event.writer}\u0000${clientVersion ?? ""}`;
 }
 
+/** Return the tip episode outcome. */
 function tipEpisodeOutcome(
   events: readonly VerbEvent[],
   index: number,
@@ -926,6 +933,7 @@ interface TipAdoptionCounts extends FollowThroughCounts {
 
 const TIP_ADOPTION_RESOLVED_THRESHOLD = 3;
 
+/** Return the tip adoption next step. */
 function tipAdoptionNextStep(
   familyCounts: readonly TipAdoptionCounts[],
 ): string {
@@ -1294,15 +1302,18 @@ function recordedLanding(event: VerbEvent): boolean {
       (event.outcome === "partial" && event.landing?.trunk_landed === true));
 }
 
+/** Return the pre authorized. */
 function preAuthorized(event: VerbEvent): boolean {
   return event.consent?.source === "standing-grant" ||
     event.consent?.source === "effort-grant";
 }
 
+/** Return the percent. */
 function percent(part: number, whole: number): number {
   return whole === 0 ? 0 : Math.round((part / whole) * 100);
 }
 
+/** Return the grant source label. */
 function grantSourceLabel(source: string): string {
   return source === "standing-grant" ? "standing grant" : "effort grant";
 }

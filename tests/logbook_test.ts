@@ -362,6 +362,7 @@ Deno.test("epoch: canonical JSON ignores key declaration order", () => {
 
 // ── the store ───────────────────────────────────────────────────────────────
 
+/** Return the verb event at. */
 function verbEventAt(at: string): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,

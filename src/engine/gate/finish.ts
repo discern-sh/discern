@@ -347,6 +347,7 @@ function adrIndexInvalidRemedy(
   }
 }
 
+/** Return the ADR index diagnostic. */
 async function adrIndexDiagnostic(
   state: Extract<AdrIndexState, { kind: "stale" | "invalid" }>,
 ): Promise<Diagnostic> {
@@ -378,6 +379,7 @@ async function adrIndexDiagnostic(
   };
 }
 
+/** Return the tracked artifacts diagnostic. */
 async function trackedArtifactsDiagnostic(
   tracked: TrackedDiscernIgnoredArtifacts,
 ): Promise<Diagnostic> {
@@ -1114,6 +1116,7 @@ async function runGate(
   };
 }
 
+/** Return the gate receipt hint. */
 function gateReceiptHint(
   receipt: NonNullable<GateData["gate_receipt"]>,
   failedStage: FailedStage | null,

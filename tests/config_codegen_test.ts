@@ -39,6 +39,7 @@ import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 import { generatedArtifactMarkerBody } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 
+/** Return the schema node at. */
 function schemaNodeAt(
   schema: Record<string, unknown>,
   dottedPath: string,
@@ -54,6 +55,7 @@ function schemaNodeAt(
   return node;
 }
 
+/** Assert the schema accepts. */
 function assertSchemaAccepts(
   validate: ReturnType<Ajv2020["compile"]>,
   value: unknown,

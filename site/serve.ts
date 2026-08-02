@@ -85,6 +85,7 @@ export function wantsText(req: Request): boolean {
   return accept.includes("text/plain");
 }
 
+/** Serve the file. */
 async function serveFile(
   relPath: string,
   extraHeaders?: HeadersInit,
@@ -128,6 +129,7 @@ async function llmsFullTxt(site: DocsSite): Promise<Response> {
   });
 }
 
+/** Return the not found. */
 function notFound(asText: boolean): Response {
   if (asText) {
     return new Response(
@@ -178,6 +180,7 @@ export function liveHtmlRoutes(site: DocsSite): string[] {
   ];
 }
 
+/** Load the site routing. */
 async function loadSiteRouting(): Promise<SiteRouting> {
   const site = await loadDocsSite();
   const liveRoutes = liveHtmlRoutes(site);
@@ -192,6 +195,7 @@ async function loadSiteRouting(): Promise<SiteRouting> {
   return { site, liveRoutes, redirects };
 }
 
+/** Return the site routing. */
 function siteRouting(): Promise<SiteRouting> {
   routingPromise ??= loadSiteRouting();
   return routingPromise;
@@ -217,6 +221,7 @@ function canonicalPathVariant(
   return addressable.has(value) ? value : original;
 }
 
+/** Return the redirect location. */
 function redirectLocation(url: URL, path: string): string {
   const productionHost = url.hostname === "discern.sh" ||
     url.hostname === "www.discern.sh";
@@ -226,11 +231,13 @@ function redirectLocation(url: URL, path: string): string {
   return destination.href;
 }
 
+/** Return whether the value needs domain redirect. */
 function needsDomainRedirect(url: URL): boolean {
   return url.hostname === "www.discern.sh" ||
     (url.hostname === "discern.sh" && url.protocol !== "https:");
 }
 
+/** Return the permanent redirect. */
 function permanentRedirect(location: string): Response {
   return new Response(null, {
     status: 308,
@@ -241,6 +248,7 @@ function permanentRedirect(location: string): Response {
   });
 }
 
+/** Return the route response. */
 async function routeResponse(
   req: Request,
   path: string,
@@ -303,6 +311,7 @@ async function routeResponse(
   return notFound(wantsText(req));
 }
 
+/** Finalize the response. */
 async function finalizeResponse(
   response: Response,
   path: string,

@@ -28,6 +28,7 @@ interface PublicDocMetrics {
   words: number;
 }
 
+/** Return the word count. */
 function wordCount(text: string): number {
   return text.match(/[\p{L}\p{N}][\p{L}\p{N}'-]*/gu)?.length ?? 0;
 }
@@ -37,6 +38,7 @@ function docTopLevel(entry: DocEntry): string {
   return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
 }
 
+/** Measure the public docs. */
 async function measurePublicDocs(
   repoRoot: string,
   docsDir: string,

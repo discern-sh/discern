@@ -28,6 +28,7 @@ export interface SrcCoverage {
   files: FileCoverage[];
 }
 
+/** Return the percentage. */
 function pct(hit: number, found: number): number {
   return found === 0 ? 0 : (hit / found) * 100;
 }

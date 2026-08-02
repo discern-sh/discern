@@ -10,6 +10,7 @@
 import { parse as parseToml } from "@std/toml";
 import { tomlSyntaxHint } from "../shared/config_read.ts";
 
+/** Return whether the value has control character. */
 function hasControlCharacter(value: string): boolean {
   for (const char of value) {
     const codePoint = char.codePointAt(0);

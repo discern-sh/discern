@@ -328,6 +328,7 @@ const TOOL_PRIORITY = [
   "discern_improvement",
 ] as const;
 
+/** Return the order tools. */
 function orderTools(tools: McpTool[]): McpTool[] {
   const priority = new Map<string, number>(
     TOOL_PRIORITY.map((name, index) => [name, index]),
@@ -1278,6 +1279,7 @@ function appendHint(result: DiscernResult, hint: FiredHint): DiscernResult {
  * created once at startup in {@link runMcpServer}.
  */
 let sharedInstalledVersion: (() => Promise<string | undefined>) | undefined;
+/** Return the default installed version. */
 function defaultInstalledVersion(): Promise<string | undefined> {
   sharedInstalledVersion ??= createInstalledVersionResolver();
   return sharedInstalledVersion();

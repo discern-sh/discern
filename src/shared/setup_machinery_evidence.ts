@@ -44,11 +44,13 @@ export type SetupMachineryEvidenceRead =
   | { readonly status: "invalid" }
   | { readonly status: "unavailable" };
 
+/** Return whether the value is OID. */
 function isOid(value: unknown): value is string {
   return typeof value === "string" &&
     /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(value);
 }
 
+/** Parse the evidence. */
 function parseEvidence(raw: string): SetupMachineryCommitEvidence | undefined {
   let value: unknown;
   try {
@@ -107,12 +109,14 @@ function parseEvidence(raw: string): SetupMachineryCommitEvidence | undefined {
   };
 }
 
+/** Return the current branch. */
 async function currentBranch(root: string): Promise<string | undefined> {
   const result = await runGit(["branch", "--show-current"], { cwd: root });
   const branch = result.stdout.trim();
   return result.success && branch !== "" ? branch : undefined;
 }
 
+/** Return the current head. */
 async function currentHead(
   root: string,
 ): Promise<string | null | undefined> {
@@ -126,12 +130,14 @@ async function currentHead(
   return result.code === 1 ? null : undefined;
 }
 
+/** Return the current index tree. */
 async function currentIndexTree(root: string): Promise<string | undefined> {
   const result = await runGit(["write-tree"], { cwd: root });
   const oid = result.stdout.trim();
   return result.success && isOid(oid) ? oid : undefined;
 }
 
+/** Return the staged paths. */
 async function stagedPaths(root: string): Promise<string[] | undefined> {
   const result = await runGit(
     ["diff", "--cached", "--name-only", "--no-renames", "-z", "--"],
@@ -140,6 +146,7 @@ async function stagedPaths(root: string): Promise<string[] | undefined> {
   return result.success ? splitNulRecords(result.stdout).sort() : undefined;
 }
 
+/** Parse the index entries. */
 function parseIndexEntries(
   stdout: string,
 ): SetupMachineryIndexEntry[] | undefined {
@@ -169,6 +176,7 @@ function parseIndexEntries(
   return entries;
 }
 
+/** Return the index entries. */
 async function indexEntries(
   root: string,
   paths: readonly string[],
@@ -180,6 +188,7 @@ async function indexEntries(
   return result.success ? parseIndexEntries(result.stdout) : undefined;
 }
 
+/** Return the raw worktree OID. */
 async function rawWorktreeOid(
   root: string,
   path: string,
@@ -192,6 +201,7 @@ async function rawWorktreeOid(
   return result.success && isOid(oid) ? oid : undefined;
 }
 
+/** Return whether the strings values match. */
 function sameStrings(
   left: readonly string[],
   right: readonly string[],
@@ -200,6 +210,7 @@ function sameStrings(
     left.every((value, index) => value === right[index]);
 }
 
+/** Return whether the entries values match. */
 function sameEntries(
   left: readonly SetupMachineryIndexEntry[],
   right: readonly SetupMachineryEvidenceEntry[],
@@ -214,6 +225,7 @@ function sameEntries(
     });
 }
 
+/** Return the worktree matches. */
 async function worktreeMatches(
   root: string,
   entries: readonly SetupMachineryEvidenceEntry[],
@@ -226,6 +238,7 @@ async function worktreeMatches(
   return true;
 }
 
+/** Write the evidence. */
 async function writeEvidence(
   root: string,
   evidence: SetupMachineryCommitEvidence,

@@ -401,6 +401,7 @@ function stepOutcome(r: JobResult | undefined): StepOutcome {
   return r.code === 0 ? "ok" : "failed";
 }
 
+/** Return the loud success hint. */
 function loudSuccessHint(
   job: PlannedJob,
   result: JobResult,
@@ -419,10 +420,12 @@ function loudSuccessHint(
   });
 }
 
+/** Return whether the value has fix stage job. */
 function hasFixStageJob(groups: JobGroup[]): boolean {
   return groups.some((g) => g.stage === "fix" && g.jobs.some((j) => j.willRun));
 }
 
+/** Return the fix available for. */
 function fixAvailableFor(
   job: PlannedJob,
   fixStageWired: boolean,
@@ -433,6 +436,7 @@ function fixAvailableFor(
     : undefined;
 }
 
+/** Return the with fix available. */
 function withFixAvailable(
   diagnostics: Diagnostic[],
   fixAvailable: true | undefined,

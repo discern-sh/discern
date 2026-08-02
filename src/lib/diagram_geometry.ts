@@ -147,6 +147,7 @@ function connects(glyph: string | undefined, side: Side): boolean {
   return claims !== undefined && claims.includes(side);
 }
 
+/** Return the neighbour at. */
 function neighbourAt(
   grid: readonly (readonly string[])[],
   row: number,
@@ -159,6 +160,7 @@ function neighbourAt(
   return grid[row]?.[col + 1];
 }
 
+/** Return the describe. */
 function describe(glyph: string | undefined): string {
   if (glyph === undefined) return "the edge of the block";
   if (glyph === " ") return "only space";
@@ -184,6 +186,7 @@ export function scanMarkdownDiagrams(md: string): DiagramViolation[] {
   return out;
 }
 
+/** Scan the grid. */
 function scanGrid(
   grid: readonly (readonly string[])[],
   startLine: number,

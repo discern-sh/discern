@@ -23,6 +23,7 @@ import {
 } from "../src/engine/scopes/scopes.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 
+/** Return the scaffold with widget. */
 async function scaffoldWithWidget(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await writeConfig(

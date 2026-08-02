@@ -35,6 +35,7 @@ interface TipCoverageFixture {
   readonly absences: Readonly<Record<string, string>>;
 }
 
+/** Return the coverage offenders. */
 function coverageOffenders(fixture: TipCoverageFixture): string[] {
   const nodes = allFeatureNodes(fixture.tree);
   const nodesById = new Map(nodes.map(({ node }) => [node.id, node]));
@@ -75,6 +76,7 @@ function coverageOffenders(fixture: TipCoverageFixture): string[] {
   return offenders;
 }
 
+/** Return the live fixture. */
 function liveFixture(): TipCoverageFixture {
   return {
     tree: FEATURE_CANON,

@@ -10,6 +10,7 @@ import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { formatTomlText } from "../src/lib/tidy_format.ts";
 
+/** Return the rendered template. */
 async function renderedTemplate(): Promise<string> {
   const template = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
@@ -22,6 +23,7 @@ async function renderedTemplate(): Promise<string> {
   return renderConfigTemplateForConfig(template, config);
 }
 
+/** Return the without section. */
 function withoutSection(text: string, section: string): string {
   const block = sectionBlockFromTemplate(text, section);
   assert(block !== undefined, `expected [${section}] in template`);
@@ -313,6 +315,7 @@ Deno.test("banner reconciliation leaves a current banner untouched", () => {
   assertEquals(result.text, config);
 });
 
+/** Return the future record member fixture. */
 function futureRecordMemberFixture(
   family: (typeof RECORD_CONFIG_PATHS)[number],
   stale: boolean,

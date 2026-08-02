@@ -45,6 +45,7 @@ interface PolicySurfaceText {
   readonly rendered: boolean;
 }
 
+/** Return the registry failures. */
 function registryFailures(
   policies: readonly OperatingPolicy[],
 ): string[] {
@@ -84,6 +85,7 @@ function registryFailures(
   return failures;
 }
 
+/** Return the parity failures. */
 function parityFailures(
   policies: readonly OperatingPolicy[],
   surfaces: Readonly<Record<OperatingPolicySurface, PolicySurfaceText>>,
@@ -128,6 +130,7 @@ const AWAIT_CALLING_REQUIREMENTS = [
   },
 ] as const;
 
+/** Return the await calling failures. */
 function awaitCallingFailures(
   surfaces: readonly { readonly label: string; readonly text: string }[],
 ): string[] {

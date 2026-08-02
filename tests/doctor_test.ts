@@ -221,6 +221,7 @@ interface GeneratedGroupFixture {
   readonly run: string;
 }
 
+/** Return the add generated groups. */
 async function addGeneratedGroups(
   dir: string,
   groups: readonly GeneratedGroupFixture[],
@@ -246,6 +247,7 @@ async function disableLogbook(dir: string): Promise<void> {
   );
 }
 
+/** Return whether the path exists. */
 async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);

@@ -32,6 +32,7 @@ interface BaselineFile {
   roots: BaselineRoot[];
 }
 
+/** Return the init ignored repo. */
 async function initIgnoredRepo(
   dir: string,
   rule: string,
@@ -46,12 +47,14 @@ async function initIgnoredRepo(
   await gitInit(dir);
 }
 
+/** Return the baseline path. */
 async function baselinePath(dir: string): Promise<string> {
   const path = await gitAdminStatePath(dir, "ignoredBaseline");
   assert(path !== undefined, "ignored baseline path must resolve inside Git");
   return path;
 }
 
+/** Read the baseline. */
 async function readBaseline(dir: string): Promise<BaselineFile> {
   return JSON.parse(
     await Deno.readTextFile(await baselinePath(dir)),

@@ -30,10 +30,12 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { runGit } from "../src/shared/subprocess.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 
+/** Return the clone. */
 function clone(value: JsonObject): JsonObject {
   return structuredClone(value);
 }
 
+/** Return the accepts. */
 function accepts(schema: JsonObject, value: JsonValue): boolean {
   const result = new Ajv2020({
     allErrors: true,
@@ -46,6 +48,7 @@ function accepts(schema: JsonObject, value: JsonValue): boolean {
   return result;
 }
 
+/** Compile the error. */
 function compileError(schema: JsonObject): string {
   const error = assertThrows(() =>
     new Ajv2020({
@@ -57,6 +60,7 @@ function compileError(schema: JsonObject): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Compile the error or undefined. */
 function compileErrorOrUndefined(
   schema: JsonObject,
 ): string | undefined {

@@ -55,6 +55,7 @@ interface DenoInfo {
   readonly modules?: readonly { readonly specifier?: string }[];
 }
 
+/** Return the react runtime modules. */
 function reactRuntimeModules(specifiers: readonly string[]): string[] {
   return specifiers.filter((specifier) =>
     !specifier.startsWith("npm:/@types/") &&
@@ -62,6 +63,7 @@ function reactRuntimeModules(specifiers: readonly string[]): string[] {
   );
 }
 
+/** Return the module specifiers. */
 async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   const output = await new Deno.Command(Deno.execPath(), {
     args: ["info", "--json", entrypoint],
@@ -78,6 +80,7 @@ async function moduleSpecifiers(entrypoint: string): Promise<string[]> {
   );
 }
 
+/** Return the git. */
 async function git(args: string[]): Promise<Deno.CommandOutput> {
   return await new Deno.Command("git", {
     args,
@@ -87,6 +90,7 @@ async function git(args: string[]): Promise<Deno.CommandOutput> {
   }).output();
 }
 
+/** Walk the requested operation. */
 async function walk(directory: string): Promise<string[]> {
   const files: string[] = [];
   for await (const entry of Deno.readDir(directory)) {
@@ -97,10 +101,12 @@ async function walk(directory: string): Promise<string[]> {
   return files;
 }
 
+/** Return the bundle root. */
 function bundleRoot(name: DesignSystemBundleName): string {
   return join(ROOT, "site", DESIGN_SYSTEM_BUNDLES[name].output);
 }
 
+/** Return the CSS rule body. */
 function cssRuleBody(css: string, selector: string): string {
   const start = css.indexOf(`${selector} {`);
   assert(start >= 0, `missing CSS rule for ${selector}`);
@@ -110,6 +116,7 @@ function cssRuleBody(css: string, selector: string): string {
   return css.slice(bodyStart, end);
 }
 
+/** Return the bundle manifest. */
 async function bundleManifest(
   name: DesignSystemBundleName,
 ): Promise<RuntimeManifest> {
@@ -118,6 +125,7 @@ async function bundleManifest(
   ) as RuntimeManifest;
 }
 
+/** Return the resolved selection. */
 function resolvedSelection(name: DesignSystemBundleName): string[] {
   const selection = DESIGN_SYSTEM_BUNDLES[name];
   const seeds = new Set<string>(selection.components);
@@ -149,6 +157,7 @@ function resolvedSelection(name: DesignSystemBundleName): string[] {
   return resolved;
 }
 
+/** Return the component owned selectors. */
 function componentOwnedSelectors(
   source: string,
   ownedClasses: ReadonlySet<string>,

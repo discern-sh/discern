@@ -22,6 +22,7 @@ const BROWSER = {
 };
 const CURL = { accept: "*/*", "user-agent": "curl/8.6.0" };
 
+/** Return the requested value. */
 function get(path: string, headers: Record<string, string>): Promise<Response> {
   return handler(new Request(`https://discern.sh${path}`, { headers }));
 }

@@ -47,6 +47,7 @@ interface SlotEnvelope {
   data?: { failed_stage?: string | null };
 }
 
+/** Parse the envelope. */
 function parseEnvelope(stdout: string, context: string): SlotEnvelope {
   try {
     return JSON.parse(stdout) as SlotEnvelope;

@@ -107,16 +107,19 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
   }
 }
 
+/** Return the newer discern hint. */
 function newerDiscernHint(): FiredHint {
   return fire(HINTS["upgrade-newer-discern"], {
     updateChannel: UPDATE_CHANNEL,
   });
 }
 
+/** Return the pending upgrade hint. */
 function pendingUpgradeHint(): FiredHint {
   return fire(HINTS["upgrade-check-pending"]);
 }
 
+/** Return the restart agents hint. */
 function restartAgentsHint(): FiredHint {
   return fire(HINTS["upgrade-restart-session"]);
 }
@@ -577,6 +580,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   return 0;
 }
 
+/** Return the refuse newer schema. */
 function refuseNewerSchema(
   log: Logger,
   recorded: number,
@@ -601,6 +605,7 @@ type ConfigValidity =
   | { ok: true }
   | { ok: false; message: string; issues?: ConfigIssue[] };
 
+/** Validate the migrated config. */
 async function validateMigratedConfig(
   configPath: string,
 ): Promise<ConfigValidity> {
@@ -687,6 +692,7 @@ async function stampSchema(
   await writeDiscernToml(configPath, editor.toString());
 }
 
+/** Return the operation to JSON. */
 function operationToJson(op: ConfigReconcileOperation): {
   kind: ConfigReconcileOperation["kind"];
   path: string;
@@ -694,6 +700,7 @@ function operationToJson(op: ConfigReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
+/** Return the gitignore operation to JSON. */
 function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
   kind: GitignoreReconcileOperation["kind"];
   path: string;
@@ -701,6 +708,7 @@ function gitignoreOperationToJson(op: GitignoreReconcileOperation): {
   return { kind: op.kind, path: op.path };
 }
 
+/** Return the operation label. */
 function operationLabel(op: ConfigReconcileOperation): string {
   switch (op.kind) {
     case "section":
@@ -714,12 +722,14 @@ function operationLabel(op: ConfigReconcileOperation): string {
   }
 }
 
+/** Return the gitignore operation label. */
 function gitignoreOperationLabel(op: GitignoreReconcileOperation): string {
   return op.kind === "create-block"
     ? "create .gitignore discern block"
     : "replace .gitignore discern block";
 }
 
+/** Return the reconcile config file. */
 async function reconcileConfigFile(
   configPath: string,
 ): Promise<{

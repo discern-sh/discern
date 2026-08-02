@@ -61,6 +61,7 @@ interface SeriesSpan {
   daysPerPoint: number;
 }
 
+/** Return the series span. */
 function seriesSpan(verbs: readonly VerbEvent[]): SeriesSpan | undefined {
   const first = verbs[0];
   const last = verbs[verbs.length - 1];
@@ -278,6 +279,7 @@ interface StandardTrack {
   readings: { at: string; value: number }[];
 }
 
+/** Return the standard tracks. */
 function standardTracks(facts: StreamFacts): StandardTrack[] {
   const byName = new Map<
     string,

@@ -208,40 +208,49 @@ const ACTION_BOX_WIDTH = 56;
 const ESC = String.fromCharCode(27);
 const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
+/** Return the SGR. */
 function sgr(text: string, open: number, close: number): string {
   const start = `${ESC}[${open}m`;
   const end = `${ESC}[${close}m`;
   return `${start}${text.replaceAll(end, start)}${end}`;
 }
 
+/** Return the bold. */
 function bold(text: string): string {
   return sgr(text, 1, 22);
 }
 
+/** Return the dim. */
 function dim(text: string): string {
   return sgr(text, 2, 22);
 }
 
+/** Return the cyan. */
 function cyan(text: string): string {
   return sgr(text, 36, 39);
 }
 
+/** Return the green. */
 function green(text: string): string {
   return sgr(text, 32, 39);
 }
 
+/** Return the yellow. */
 function yellow(text: string): string {
   return sgr(text, 33, 39);
 }
 
+/** Return the visible length. */
 function visibleLength(text: string): number {
   return text.replace(ANSI_PATTERN, "").length;
 }
 
+/** Return the pad visible. */
 function padVisible(text: string, width: number): string {
   return `${text}${" ".repeat(Math.max(0, width - visibleLength(text)))}`;
 }
 
+/** Return the center visible. */
 function centerVisible(text: string, width: number): string {
   const padding = Math.max(0, width - visibleLength(text));
   const left = Math.floor(padding / 2);
@@ -249,34 +258,41 @@ function centerVisible(text: string, width: number): string {
   return `${" ".repeat(left)}${text}${" ".repeat(right)}`;
 }
 
+/** Return the border. */
 function border(text: string): string {
   return dim(cyan(text));
 }
 
+/** Return the box top. */
 function boxTop(): string {
   return border(`╭${"─".repeat(TTY_BOX_WIDTH - 2)}╮`);
 }
 
+/** Return the box bottom. */
 function boxBottom(): string {
   return border(`╰${"─".repeat(TTY_BOX_WIDTH - 2)}╯`);
 }
 
+/** Return the box rule. */
 function boxRule(label: string): string {
   const dashes = "─".repeat(Math.max(1, TTY_BOX_WIDTH - label.length - 5));
   return `${border("├─ ")}${bold(label)}${border(` ${dashes}┤`)}`;
 }
 
+/** Return the box line. */
 function boxLine(text = ""): string {
   return `${border("│")} ${padVisible(text, TTY_BOX_INNER_WIDTH)} ${
     border("│")
   }`;
 }
 
+/** Return the action box line. */
 function actionBoxLine(text: string): string {
   const innerWidth = ACTION_BOX_WIDTH - 4;
   return `${green("│")} ${padVisible(text, innerWidth)} ${green("│")}`;
 }
 
+/** Return the action box. */
 function actionBox(): string[] {
   const quote = '"Run `discern setup` in this project."';
   return [
@@ -369,6 +385,7 @@ export function renderFreshWelcome(
   return lines;
 }
 
+/** Return the styled fresh welcome. */
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
   return [
     boxTop(),

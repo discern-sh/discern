@@ -6,6 +6,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 
+/** Count the matches. */
 function countMatches(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }

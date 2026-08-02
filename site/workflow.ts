@@ -100,6 +100,7 @@ type DirectiveRenderer = (
   heading?: { readonly id: string; readonly html: string },
 ) => string;
 
+/** Return the component class. */
 function componentClass(
   component: string,
   element?: string,
@@ -116,6 +117,7 @@ function componentClass(
   });
 }
 
+/** Trim the blank lines. */
 function trimBlankLines(lines: readonly string[]): string[] {
   let start = 0;
   let end = lines.length;
@@ -124,10 +126,12 @@ function trimBlankLines(lines: readonly string[]): string[] {
   return lines.slice(start, end);
 }
 
+/** Raise a failure. */
 function fail(source: string, message: string): never {
   throw new Error(`docs workflow: ${source}: ${message}`);
 }
 
+/** Return the bold field. */
 function boldField(
   line: string,
   source: string,
@@ -139,6 +143,7 @@ function boldField(
   return { label: match[1], value: match[2] };
 }
 
+/** Return the inline HTML. */
 function inlineHtml(
   markdown: string,
   options: MarkdownHtmlOptions,
@@ -155,6 +160,7 @@ function inlineHtml(
   return match[1];
 }
 
+/** Parse the procedure. */
 function parseProcedure(body: string, source: string): ProcedureModel {
   const lines = trimBlankLines(body.split("\n"));
   const heading = /^##\s+(.+?)\s*$/.exec(lines[0] ?? "");
@@ -230,6 +236,7 @@ function parseProcedure(body: string, source: string): ProcedureModel {
   };
 }
 
+/** Parse the command. */
 function parseCommand(body: string, source: string): CommandModel {
   const lines = trimBlankLines(body.split("\n"));
   const opening = lines.findIndex((line) =>
@@ -274,6 +281,7 @@ function parseCommand(body: string, source: string): CommandModel {
   };
 }
 
+/** Parse the result summary. */
 function parseResultSummary(body: string, source: string): ResultSummaryModel {
   const lines = trimBlankLines(body.split("\n")).filter((line) =>
     line.trim() !== ""
@@ -292,11 +300,13 @@ function parseResultSummary(body: string, source: string): ResultSummaryModel {
   return { fact: fact.value, nextAction: next.value };
 }
 
+/** Split the table row. */
 function splitTableRow(line: string): string[] {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   return trimmed.split("|").map((cell) => cell.trim());
 }
 
+/** Parse the artifact table. */
 function parseArtifactTable(body: string, source: string): ArtifactTableModel {
   const lines = trimBlankLines(
     body.split("\n").filter((line) => !line.trim().startsWith("<!--")),
@@ -337,6 +347,7 @@ function parseArtifactTable(body: string, source: string): ArtifactTableModel {
   return { headers, rows, pathColumn, ownershipColumn };
 }
 
+/** Parse the branch choice. */
 function parseBranchChoice(body: string, source: string): BranchChoiceModel {
   const lines = trimBlankLines(body.split("\n")).filter((line) =>
     line.trim() !== ""
@@ -358,6 +369,7 @@ function parseBranchChoice(body: string, source: string): BranchChoiceModel {
   return { title, choices };
 }
 
+/** Render the procedure. */
 function renderProcedure(
   model: ProcedureModel,
   options: MarkdownHtmlOptions,
@@ -425,6 +437,7 @@ function renderProcedure(
   </section>`;
 }
 
+/** Render the command. */
 function renderCommand(
   model: CommandModel,
   options: MarkdownHtmlOptions,
@@ -468,6 +481,7 @@ function renderCommand(
   </figure>`;
 }
 
+/** Render the result summary. */
 function renderResultSummary(
   model: ResultSummaryModel,
   options: MarkdownHtmlOptions,
@@ -488,6 +502,7 @@ function renderResultSummary(
   </article>`;
 }
 
+/** Split the path. */
 function splitPath(path: string): readonly [string, string] {
   const trailingSeparator = /[\\/]$/.test(path);
   const searchFrom = trailingSeparator ? path.length - 2 : path.length - 1;
@@ -500,6 +515,7 @@ function splitPath(path: string): readonly [string, string] {
     : [path.slice(0, separator + 1), path.slice(separator + 1)];
 }
 
+/** Return the path reference. */
 function pathReference(path: string): string {
   const [prefix, suffix] = splitPath(path);
   return `<span class="${componentClass("path-reference")}">
@@ -521,6 +537,7 @@ function pathReference(path: string): string {
   </span>`;
 }
 
+/** Return the ownership badge. */
 function ownershipBadge(value: string): string {
   const ownership = value.toLowerCase();
   return `<span class="${componentClass("badge")} ${
@@ -530,6 +547,7 @@ function ownershipBadge(value: string): string {
   }">${escapeHtml(value)}</span>`;
 }
 
+/** Render the artifact table. */
 function renderArtifactTable(
   model: ArtifactTableModel,
   options: MarkdownHtmlOptions,
@@ -553,6 +571,7 @@ function renderArtifactTable(
   return `<table><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+/** Render the branch choice. */
 function renderBranchChoice(
   model: BranchChoiceModel,
   options: MarkdownHtmlOptions,
@@ -607,16 +626,19 @@ const RENDERERS = {
     renderBranchChoice(model as BranchChoiceModel, options),
 } as const satisfies Record<WorkflowDirectiveId, DirectiveRenderer>;
 
+/** Return the directive id. */
 function directiveId(value: string, source: string): WorkflowDirectiveId {
   const definition = WORKFLOW_DIRECTIVES.find((entry) => entry.id === value);
   if (definition === undefined) fail(source, `unknown directive ${value}`);
   return definition.id;
 }
 
+/** Return the placeholder. */
 function placeholder(id: string): string {
   return `\`\`\`${PLACEHOLDER_LANGUAGE}\n${id}\n\`\`\``;
 }
 
+/** Prepare the workflow markdown. */
 function prepareWorkflowMarkdown(
   markdown: string,
   source: string,
@@ -665,10 +687,12 @@ function prepareWorkflowMarkdown(
   return { markdown: output.join("\n"), projections };
 }
 
+/** Return the placeholder HTML. */
 function placeholderHtml(id: string): string {
   return `<pre><code class="language-${PLACEHOLDER_LANGUAGE}">${id}</code></pre>`;
 }
 
+/** Replace the procedure. */
 function replaceProcedure(
   html: string,
   projection: PreparedProjection<ProjectionModel>,

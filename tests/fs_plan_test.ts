@@ -321,6 +321,7 @@ Deno.test("dry-run plan writes nothing to disk", async () => {
   });
 });
 
+/** Write the op. */
 function writeOp(targetAbs: string, targetRel: string): PlanOp {
   return {
     kind: "write",

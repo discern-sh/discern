@@ -200,10 +200,12 @@ export async function withAcceptanceTransactionLock<T>(
   }
 }
 
+/** Return whether the value is a plain object. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Return the contains control character. */
 function containsControlCharacter(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
     const code = value.charCodeAt(index);
@@ -214,11 +216,13 @@ function containsControlCharacter(value: string): boolean {
   return false;
 }
 
+/** Return whether the value is ref name. */
 function isRefName(value: unknown): value is string {
   return typeof value === "string" && value !== "" &&
     !containsControlCharacter(value);
 }
 
+/** Parse the landing consent. */
 function parseLandingConsent(value: unknown): LandingConsent | undefined {
   if (!isPlainObject(value)) {
     return undefined;
@@ -249,6 +253,7 @@ function parseLandingConsent(value: unknown): LandingConsent | undefined {
   };
 }
 
+/** Parse the acceptance transaction. */
 function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
   let parsed: unknown;
   try {
@@ -299,6 +304,7 @@ function parseAcceptanceTransaction(raw: string): AcceptanceTransaction {
     : { version: 2, ...base, consent: consent as LandingConsent };
 }
 
+/** Read the acceptance transaction. */
 async function readAcceptanceTransaction(
   cwd: string,
 ): Promise<AcceptanceTransactionRead> {
@@ -337,6 +343,7 @@ async function readAcceptanceTransaction(
   }
 }
 
+/** Remove the journal. */
 async function removeJournal(path: string): Promise<boolean> {
   try {
     await Deno.remove(path);
@@ -346,6 +353,7 @@ async function removeJournal(path: string): Promise<boolean> {
   }
 }
 
+/** Write every value. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -357,6 +365,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
+/** Write the acceptance transaction. */
 async function writeAcceptanceTransaction(
   cwd: string,
   input: Omit<AcceptanceTransactionBase, "id"> & {
@@ -415,6 +424,7 @@ async function writeAcceptanceTransaction(
   return { path: current.path, transaction };
 }
 
+/** Return the transition retains journal. */
 function transitionRetainsJournal(
   outcome: CheckedOutFastForwardResult,
 ): boolean {
@@ -487,6 +497,7 @@ export async function performAcceptanceTransition(
   };
 }
 
+/** Return the canonical path. */
 async function canonicalPath(path: string): Promise<string> {
   try {
     return await Deno.realPath(path);
@@ -495,6 +506,7 @@ async function canonicalPath(path: string): Promise<string> {
   }
 }
 
+/** Return the restore recorded claim. */
 async function restoreRecordedClaim(
   cwd: string,
   transaction: AcceptanceTransaction,
@@ -514,6 +526,7 @@ async function restoreRecordedClaim(
     : false;
 }
 
+/** Return the consume recorded claim. */
 async function consumeRecordedClaim(
   cwd: string,
   transaction: AcceptanceTransaction,
@@ -522,12 +535,14 @@ async function consumeRecordedClaim(
     await consumeEffortGrantClaimById(cwd, transaction.id);
 }
 
+/** Return the effort consumed clause. */
 function effortConsumedClause(transaction: AcceptanceTransaction): string {
   return transaction.effort_claim
     ? " Its effort grant was consumed and will not be replayed."
     : "";
 }
 
+/** Return the clone consent. */
 function cloneConsent(consent: LandingConsent): LandingConsent {
   return {
     source: consent.source,
@@ -600,12 +615,14 @@ export async function inspectInterruptedAcceptance(
   };
 }
 
+/** Return the clear recovered journal. */
 async function clearRecoveredJournal(
   recorded: RecordedAcceptanceTransaction,
 ): Promise<boolean> {
   return await removeJournal(recorded.path);
 }
 
+/** Return the journal cleanup failure. */
 function journalCleanupFailure(
   recorded: RecordedAcceptanceTransaction,
 ): string {
@@ -614,6 +631,7 @@ function journalCleanupFailure(
     "idempotent cleanup before starting another landing.";
 }
 
+/** Return the stopped recovery. */
 function stoppedRecovery(
   message: string,
   recoveryPerformed: boolean,

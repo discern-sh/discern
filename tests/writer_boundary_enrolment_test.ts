@@ -37,6 +37,7 @@ interface ModuleGraph {
   }[];
 }
 
+/** Return the local module. */
 function localModule(root: string, specifier: string): string | undefined {
   if (!specifier.startsWith("file:")) return undefined;
   const rel = relative(root, fromFileUrl(specifier)).replaceAll("\\", "/");
@@ -80,6 +81,7 @@ async function shippedModuleGraph(
   return { modules, edges };
 }
 
+/** Return the writer boundary offenders. */
 function writerBoundaryOffenders(
   graph: ModuleGraph,
   boundaries: readonly RestrictedWriterModule[],

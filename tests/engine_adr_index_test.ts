@@ -32,6 +32,7 @@ const MARKED_README = [
   "",
 ].join("\n");
 
+/** Write the ADR dir. */
 async function writeAdrDir(
   dir: string,
   readme: string,

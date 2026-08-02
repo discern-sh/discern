@@ -70,6 +70,7 @@ async function githubYaml(): Promise<GithubYaml[]> {
   return documents;
 }
 
+/** Return whether the value is full gate command. */
 function isFullGateCommand(value: unknown): boolean {
   return typeof value === "string" &&
     /(?:^|\s)(?:discern done|deno task (?:dev done|gate))(?:\s|$)/.test(
@@ -77,6 +78,7 @@ function isFullGateCommand(value: unknown): boolean {
     );
 }
 
+/** Return the missing pretty reporter. */
 function missingPrettyReporter(document: GithubYaml): string[] {
   return document.mappings
     .filter(({ value }) => isFullGateCommand(value.run))
@@ -91,6 +93,7 @@ function missingPrettyReporter(document: GithubYaml): string[] {
     );
 }
 
+/** Return the job. */
 function job(source: string, name: string, next: string): string {
   const start = source.indexOf(`  ${name}:`);
   const end = source.indexOf(`  ${next}:`, start + 1);

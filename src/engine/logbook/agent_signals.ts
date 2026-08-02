@@ -48,6 +48,7 @@ export interface AgentSignalOptions {
   readonly mcpClient?: RecordedMcpClient | undefined;
 }
 
+/** Return whether the value is a record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

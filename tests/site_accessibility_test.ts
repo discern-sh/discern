@@ -21,12 +21,14 @@ interface AxeWindow extends Window {
   eval(source: string): unknown;
 }
 
+/** Return the requested value. */
 function get(path: string): Promise<Response> {
   return handler(
     new Request(`https://discern.sh${path}`, { headers: BROWSER }),
   );
 }
 
+/** Return the serious axe findings. */
 async function seriousAxeFindings(path: string): Promise<string[]> {
   const response = await get(path);
   const dom = new JSDOM(await response.text(), {

@@ -35,11 +35,13 @@ import {
   type VerbEvent,
 } from "../src/engine/logbook/schema.ts";
 
+/** Return the t. */
 function t(hours: number): string {
   return new Date(Date.parse("2026-07-01T00:00:00.000Z") + hours * 3_600_000)
     .toISOString();
 }
 
+/** Return the verb. */
 function verb(over: Partial<VerbEvent>): VerbEvent {
   return {
     schema: LOGBOOK_SCHEMA_VERSION,
@@ -86,6 +88,7 @@ function runs(agent: string, n: number): VerbEvent[] {
   );
 }
 
+/** Return the event units. */
 function eventUnits(events: VerbEvent[]): CohortSplit<VerbEvent> {
   return splitByCohort(events, (e: VerbEvent) => [e]);
 }

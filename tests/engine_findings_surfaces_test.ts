@@ -182,10 +182,12 @@ async function receiptBranch(
   return worktree;
 }
 
+/** Parse the requested input. */
 function parse(stdout: string): ResultEnvelope {
   return JSON.parse(stdout) as ResultEnvelope;
 }
 
+/** Return the history. */
 function history(result: ResultEnvelope): HistoricalFinding[] {
   const group = result.data?.history as
     | { findings?: HistoricalFinding[] }
@@ -193,6 +195,7 @@ function history(result: ResultEnvelope): HistoricalFinding[] {
   return group?.findings ?? [];
 }
 
+/** Return the without history. */
 function withoutHistory(data: Record<string, unknown> | undefined): unknown {
   if (data === undefined) {
     return undefined;

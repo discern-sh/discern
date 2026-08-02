@@ -233,6 +233,7 @@ Deno.test("trackedDiscernIgnoredArtifacts flags forced materialized/local paths 
   });
 });
 
+/** Assert the one discern block. */
 function assertOneDiscernBlock(text: string): void {
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_BEGIN, "g"))?.length, 1);
   assertEquals(text.match(new RegExp(DISCERN_GITIGNORE_END, "g"))?.length, 1);

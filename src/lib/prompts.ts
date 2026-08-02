@@ -98,6 +98,7 @@ export type SelectPromptOptions<T> = Parameters<typeof Select.prompt<T>>[0];
 export type CheckboxPromptOptions<T> = Parameters<typeof Checkbox.prompt<T>>[0];
 export type InputPromptOptions = Parameters<typeof Input.prompt>[0];
 
+/** Return the require interaction. */
 function requireInteraction(name: string): void {
   if (!canPrompt(false)) {
     throw new Error(
@@ -106,6 +107,7 @@ function requireInteraction(name: string): void {
   }
 }
 
+/** Select the prompt. */
 export function selectPrompt<T>(
   options: SelectPromptOptions<T>,
 ): ReturnType<typeof Select.prompt<T>> {
@@ -113,6 +115,7 @@ export function selectPrompt<T>(
   return Select.prompt<T>(options);
 }
 
+/** Return the checkbox prompt. */
 export function checkboxPrompt<T>(
   options: CheckboxPromptOptions<T>,
 ): ReturnType<typeof Checkbox.prompt<T>> {
@@ -120,11 +123,13 @@ export function checkboxPrompt<T>(
   return Checkbox.prompt<T>(options);
 }
 
+/** Return the input prompt. */
 export function inputPrompt(options: InputPromptOptions): Promise<string> {
   requireInteraction("this question");
   return Input.prompt(options);
 }
 
+/** Return the confirmation prompt. */
 export function confirmationPrompt(
   message: string,
   defaultTo: boolean,

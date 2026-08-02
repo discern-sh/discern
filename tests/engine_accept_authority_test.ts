@@ -47,6 +47,7 @@ Deno.test("every acceptance transaction boundary has interruption fixtures", () 
   );
 });
 
+/** Return the authority config. */
 function authorityConfig(grants: string[] = []): string {
   return [
     "[meta]",
@@ -78,6 +79,7 @@ function authorityConfig(grants: string[] = []): string {
   ].join("\n");
 }
 
+/** Commit the paths. */
 async function commitPaths(
   worktree: string,
   paths: Readonly<Record<string, string>>,
@@ -98,6 +100,7 @@ async function commitPaths(
   );
 }
 
+/** Return the ready worktree. */
 async function readyWorktree(
   dir: string,
   config: string,
@@ -112,6 +115,7 @@ async function readyWorktree(
   return worktree;
 }
 
+/** Return the accept events. */
 async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
   const logDir = join(dir, ".git", "discern", "logbook");
   const events: LogbookEvent[] = [];
@@ -131,6 +135,7 @@ async function acceptEvents(dir: string): Promise<LogbookEvent[]> {
 
 const ACCEPT_READINESS_TIMEOUT_MS = 180_000;
 
+/** Return the wait for path. */
 async function waitForPath<T>(
   path: string,
   pending: Promise<T>,
@@ -213,6 +218,7 @@ async function injectInterruptedAcceptance(
   return { id, journal };
 }
 
+/** Return the inject committed acceptance marker. */
 async function injectCommittedAcceptanceMarker(
   worktree: string,
   fixture: InterruptedAcceptanceFixture,

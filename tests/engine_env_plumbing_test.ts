@@ -313,6 +313,7 @@ Deno.test("env values round-trip through the quote writer and reader", () => {
 
 // ── the port re-roll (D7): a freshly-minted id avoids a live sibling's port ──────
 
+/** Return the stub generator. */
 function stubGenerator(ids: string[]): (name?: string) => MintedWorktreeId {
   let call = 0;
   return () => {

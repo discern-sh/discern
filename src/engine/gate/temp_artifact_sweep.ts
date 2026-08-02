@@ -43,6 +43,7 @@ const ENCODER = new TextEncoder();
 const DECODER = new TextDecoder();
 const MAX_STATE_BYTES = 4_096;
 
+/** Read the state. */
 async function readState(
   file: Deno.FsFile,
 ): Promise<TempArtifactSweepState | undefined> {
@@ -83,6 +84,7 @@ async function readState(
   }
 }
 
+/** Write every value. */
 async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.length) {
@@ -90,6 +92,7 @@ async function writeAll(file: Deno.FsFile, bytes: Uint8Array): Promise<void> {
   }
 }
 
+/** Write the state. */
 async function writeState(
   file: Deno.FsFile,
   state: TempArtifactSweepState,

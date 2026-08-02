@@ -149,6 +149,7 @@ export type SettingsSeedMerge = (
   incomingText: string,
 ) => string;
 
+/** Parse the JSON settings text. */
 function parseJsonSettingsText(text: string, label: string): unknown {
   try {
     return JSON.parse(text);

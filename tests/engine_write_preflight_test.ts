@@ -26,11 +26,13 @@ import {
   VALIDATION_ADMIN_STATE_KEYS,
 } from "../src/shared/git_admin_state.ts";
 
+/** Parse the JSON text. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
 }
 
+/** Return whether the path exists. */
 async function pathExists(path: string): Promise<boolean> {
   try {
     await Deno.stat(path);
@@ -43,6 +45,7 @@ async function pathExists(path: string): Promise<boolean> {
   }
 }
 
+/** Return the directory entry names. */
 async function directoryEntryNames(path: string): Promise<string[]> {
   const names: string[] = [];
   for await (const entry of Deno.readDir(path)) {
@@ -63,6 +66,7 @@ async function gitAdminPath(
   return path;
 }
 
+/** Return the with unwritable git admin. */
 async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,
@@ -80,6 +84,7 @@ async function withUnwritableGitAdmin(
   }
 }
 
+/** Return the slow standard config. */
 function slowStandardConfig(marker: string): string {
   return [
     "[project]",

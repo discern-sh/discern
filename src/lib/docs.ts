@@ -229,6 +229,7 @@ export interface AdrIndexBlocks {
   superseded: string;
 }
 
+/** Return the first markdown heading. */
 function firstMarkdownHeading(markdown: string): string | undefined {
   for (const raw of markdown.split(/\r?\n/)) {
     const match = raw.match(/^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$/);
@@ -268,6 +269,7 @@ export class AdrIndexMarkerError extends Error {
   }
 }
 
+/** Return the ADR record title. */
 async function adrRecordTitle(record: AdrRecord): Promise<string> {
   const heading = firstMarkdownHeading(
     await Deno.readTextFile(record.entry.absPath),
@@ -291,6 +293,7 @@ async function adrRecordTitle(record: AdrRecord): Promise<string> {
   return title;
 }
 
+/** Render the ADR index block. */
 async function renderAdrIndexBlock(
   records: readonly AdrRecord[],
   superseded: boolean,
@@ -341,6 +344,7 @@ export async function renderAdrIndexBlocks(
   };
 }
 
+/** Replace the ADR index block. */
 function replaceAdrIndexBlock(
   document: string,
   startMarker: string,

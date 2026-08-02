@@ -845,10 +845,12 @@ interface HtmlListNode {
   children: HtmlListNode[];
 }
 
+/** Return the HTML list tag. */
 function htmlListTag(item: Pick<HtmlListNode, "marker">): "ul" | "ol" {
   return item.marker === "•" ? "ul" : "ol";
 }
 
+/** Render the HTML list nodes. */
 function renderHtmlListNodes(
   nodes: HtmlListNode[],
   out: string[],
@@ -876,6 +878,7 @@ function renderHtmlListNodes(
   }
 }
 
+/** List to HTML. */
 function listToHtml(
   items: ListItem[],
   out: string[],
@@ -901,6 +904,7 @@ function listToHtml(
   renderHtmlListNodes(roots, out, options);
 }
 
+/** Return the table to HTML. */
 function tableToHtml(
   rows: string[][],
   out: string[],

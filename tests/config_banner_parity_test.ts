@@ -14,6 +14,7 @@ import { RECORD_ENTRY_SCHEMAS } from "../src/shared/config_schema.ts";
 import { RECORD_CONFIG_PATHS } from "../src/lib/config_reconcile.ts";
 import { managedBannersFromTemplate } from "../src/lib/config_template.ts";
 
+/** Return the template. */
 function template(): Promise<string> {
   return Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),

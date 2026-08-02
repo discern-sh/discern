@@ -45,6 +45,7 @@ export interface SiteSmokeResult {
   inconclusiveExternal: string[];
 }
 
+/** Return the parallel. */
 async function parallel<T>(
   values: readonly T[],
   work: (value: T) => Promise<void>,
@@ -60,6 +61,7 @@ async function parallel<T>(
   );
 }
 
+/** Return whether the sequence values match. */
 function sameSequence(
   label: string,
   actual: readonly string[],
@@ -81,6 +83,7 @@ function sameSequence(
   );
 }
 
+/** Return whether the items values match. */
 function sameItems(
   label: string,
   actual: readonly GuidanceItem[],
@@ -105,11 +108,13 @@ function sameItems(
   }
 }
 
+/** Return whether the bytes values match. */
 function sameBytes(actual: Uint8Array, expected: Uint8Array): boolean {
   return actual.length === expected.length &&
     actual.every((value, index) => value === expected[index]);
 }
 
+/** Return the security failures. */
 function securityFailures(response: Response, label: string): string[] {
   const failures: string[] = [];
   const csp = response.headers.get("content-security-policy") ?? "";
@@ -143,6 +148,7 @@ function securityFailures(response: Response, label: string): string[] {
   return failures;
 }
 
+/** Return the redirect destination. */
 function redirectDestination(base: URL, route: string): string {
   return base.hostname === "discern.sh" || base.hostname === "www.discern.sh"
     ? canonicalUrl(route)
@@ -634,6 +640,7 @@ export async function runSiteSmoke(
   };
 }
 
+/** Return the self hosted options. */
 async function selfHostedOptions(
   externalLinks: boolean,
 ): Promise<SiteSmokeResult> {

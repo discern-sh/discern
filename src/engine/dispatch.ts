@@ -1128,10 +1128,12 @@ async function runSkillsList(opts: { json: boolean }): Promise<number> {
   return 0;
 }
 
+/** Return the thrown message. */
 function thrownMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Return the skills eject result. */
 async function skillsEjectResult(
   root: string,
   name: string,
@@ -1197,6 +1199,7 @@ async function skillsEjectResult(
   }
 }
 
+/** Render the skills eject result. */
 function renderSkillsEjectResult(
   log: Logger,
   result: DiscernResult<SkillsEjectData>,

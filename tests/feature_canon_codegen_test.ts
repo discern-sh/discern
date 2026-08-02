@@ -188,6 +188,7 @@ Deno.test("agent-experience accounts render marked, indexed, and counted", () =>
 const INSTRUCTION_SENTENCE =
   /^(?:Always|Ask|Await|Call|Check|Choose|Continue|Do|Follow|Invoke|Keep|Let|Never|Pass|Repeat|Report|Respond|Resume|Run|Start|Stop|Use|Wait|Watch)\b/;
 
+/** Return the instruction sentences. */
 function instructionSentences(text: string): string[] {
   return text.split(/(?<=[.!?])\s+/).filter((sentence) =>
     INSTRUCTION_SENTENCE.test(sentence)
@@ -231,6 +232,7 @@ Deno.test("control: agent-benefit detector rejects instructions under an unrelat
 
 const COMMAND_MENTION = /`discern ([a-z][a-z-]*)/g;
 
+/** Return the mentioned verbs. */
 function mentionedVerbs(text: string): string[] {
   return [...text.matchAll(COMMAND_MENTION)].map((m) => m[1] ?? "");
 }

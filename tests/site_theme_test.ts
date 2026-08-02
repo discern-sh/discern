@@ -20,6 +20,7 @@ interface ThemeWindow extends Window {
   eval(source: string): unknown;
 }
 
+/** Return the inline theme bootstrap. */
 function inlineThemeBootstrap(html: string): string {
   const scripts = [
     ...html.matchAll(/<script(?: [^>]*)?>([\s\S]*?)<\/script>/g),
