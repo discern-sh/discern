@@ -1755,6 +1755,8 @@ export const UninstallDataSchema = z.strictObject({
   kept: z.array(z.string()).optional(),
   binary_hint: z.string().optional(),
   worktrees: z.array(z.string()).optional(),
+  /** Ledger-recorded resources blocking an uninstall (`provisioned_resources`). */
+  resources: z.array(z.string()).optional(),
 });
 export type UninstallData = z.infer<typeof UninstallDataSchema>;
 

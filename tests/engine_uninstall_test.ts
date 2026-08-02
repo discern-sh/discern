@@ -270,6 +270,85 @@ Deno.test("uninstall --dry-run reports the plan and changes nothing", async () =
   });
 });
 
+Deno.test("uninstall refuses while the resource ledger records provisioned resources", async () => {
+  await withTempDir(async (dir) => {
+    await wireFullHarness(dir);
+    // A schema-valid ledger entry: the ownership proof and frozen destroy
+    // command for an external resource whose worktree is already gone.
+    const ledgerDir = join(dir, ".git", "discern", "resources");
+    await ensureDir(ledgerDir);
+    const entryPath = join(ledgerDir, "orphan--db.json");
+    await Deno.writeTextFile(
+      entryPath,
+      JSON.stringify({
+        schema: 1,
+        seq: 0,
+        project_slug: "engine-test",
+        git_key: "orphan",
+        worktree_id: "orphan",
+        worktree_path: join(dir, "gone"),
+        resource_name: "db",
+        resource_identity: "engine_test_orphan",
+        destroy_command: "true",
+        token_map: {},
+        retries: 0,
+        gc: true,
+        created_at: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+
+    const refused = await runAgent(dir, ["uninstall", "--json"]);
+    assertEquals(refused.code, 1, refused.output);
+    const envelope = JSON.parse(refused.stdout);
+    assertEquals(envelope.error, "provisioned_resources");
+    assertEquals(envelope.data.resources.length, 1);
+    assert(
+      await exists(join(dir, ".git", "discern")),
+      "a refused uninstall must leave the runtime state untouched",
+    );
+
+    // With the ledger reclaimed, the same uninstall proceeds.
+    await Deno.remove(entryPath);
+    const applied = await runAgent(dir, ["uninstall", "--json"]);
+    assertEquals(applied.code, 0, applied.output);
+    assertEquals(await exists(join(dir, ".git", "discern")), false);
+  });
+});
+
+Deno.test("uninstall needs confirmation when only runtime state remains", async () => {
+  await withTempDir(async (dir) => {
+    await wireFullHarness(dir);
+    const first = await runAgent(dir, ["uninstall", "--json"]);
+    assertEquals(first.code, 0, first.output);
+
+    // A later verb recreates runtime records under .git — the only removable
+    // thing left. Human-mode uninstall must still gate on consent, and must
+    // not simultaneously claim there is nothing to remove.
+    const status = await runAgent(dir, ["status"]);
+    assertEquals(status.code, 0, status.output);
+    assert(
+      await exists(join(dir, ".git", "discern")),
+      "status should re-record runtime state under .git",
+    );
+
+    const unconfirmed = await runAgent(dir, ["uninstall"]);
+    assertEquals(unconfirmed.code, 1, unconfirmed.output);
+    assert(
+      unconfirmed.output.includes("needs confirmation"),
+      unconfirmed.output,
+    );
+    assert(
+      !unconfirmed.output.includes("nothing to remove"),
+      unconfirmed.output,
+    );
+    assert(await exists(join(dir, ".git", "discern")));
+
+    const confirmed = await runAgent(dir, ["uninstall", "--yes"]);
+    assertEquals(confirmed.code, 0, confirmed.output);
+    assertEquals(await exists(join(dir, ".git", "discern")), false);
+  });
+});
+
 Deno.test("uninstall refuses while a linked worktree is still active", async () => {
   await withTempDir(async (dir) => {
     await wireFullHarness(dir);

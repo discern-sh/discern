@@ -308,6 +308,7 @@ export const ERROR_SLUGS = [
   "partial_refresh",
   "pin_failed",
   "precondition_failed",
+  "provisioned_resources",
   "read_error",
   "renamed_command",
   "renamed_config_key",

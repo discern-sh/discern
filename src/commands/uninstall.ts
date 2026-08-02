@@ -32,7 +32,8 @@
  * Deliberately CLI-only, NOT an MCP tool: uninstalling discern is a human's
  * decision, not something an agent should reach for mid-session. It refuses while
  * linked worktrees are still in flight, so it never pulls the wiring out from
- * under work in progress.
+ * under work in progress — and while the resource ledger records provisioned
+ * resources, whose entries hold their only frozen destroy commands.
  */
 
 import { dirname, join } from "@std/path";
@@ -68,7 +69,11 @@ import {
   DISCERN_GITIGNORE_END,
 } from "../lib/agent_gitignore.ts";
 import { reconcileDiscernGitattributes } from "../lib/agent_gitattributes.ts";
-import { listWorktreeFleet } from "../engine/worktree/git.ts";
+import {
+  listWorktreeFleet,
+  resolveCommonGitDir,
+} from "../engine/worktree/git.ts";
+import { listEntries } from "../engine/worktree/resources.ts";
 import { canPrompt, confirmProceed } from "../lib/prompts.ts";
 
 /** Options accepted by the `uninstall` command. */
@@ -502,7 +507,10 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
   const rewrites = plan.ops.filter((o) => o.action === "rewrite");
 
   log.heading(applied ? "Uninstalled discern" : "Uninstall plan (--dry-run)");
-  if (deletes.length === 0 && rewrites.length === 0) {
+  if (
+    deletes.length === 0 && rewrites.length === 0 &&
+    plan.gitAdminDirs.length === 0
+  ) {
     log.info("No discern wiring found here — nothing to remove.");
   }
   if (deletes.length > 0) {
@@ -621,6 +629,38 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     return 1;
   }
 
+  // Refuse while the resource ledger still records provisioned resources: each
+  // entry holds the ONLY destroy command (frozen at create time) for an
+  // external resource, so removing the runtime-state namespace would leak the
+  // resource for good. `discern worktree prune` reclaims GC-eligible orphans;
+  // an entry marked `gc = false` needs its project's own teardown.
+  const commonGitDir = await resolveCommonGitDir(root);
+  const ledger = commonGitDir === undefined
+    ? []
+    : await listEntries(commonGitDir);
+  if (ledger.length > 0) {
+    const labels = ledger.map(({ entry }) =>
+      `${entry.resource_name} (${entry.resource_identity}) — worktree ${entry.worktree_id}`
+    );
+    const message =
+      `refusing to uninstall while the resource ledger records ${ledger.length} provisioned resource(s) — the entries hold their only destroy commands. Run \`discern worktree prune\` to reclaim them, then uninstall.`;
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "uninstall",
+        error: "provisioned_resources",
+        message,
+        data: { resources: labels },
+      });
+    } else {
+      log.error(message);
+      for (const label of labels) {
+        log.detail(label);
+      }
+    }
+    return 1;
+  }
+
   // Load config (for the Codex writable-root recomputation and the kept-paths
   // resolution). A broken config still uninstalls — fall back to defaults.
   let config: DiscernConfig;
@@ -647,8 +687,9 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   }
 
   // Confirm before removing anything discern created that git may not recover
-  // (an uncommitted generated file). Non-interactive callers must say --yes.
-  if (!options.json && plan.ops.length > 0) {
+  // (an uncommitted generated file, the runtime records under .git).
+  // Non-interactive callers must say --yes.
+  if (!options.json && (plan.ops.length > 0 || plan.gitAdminDirs.length > 0)) {
     if (!options.yes && !canPrompt(false)) {
       renderPlan(log, plan, false);
       log.error(
