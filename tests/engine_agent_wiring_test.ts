@@ -15,7 +15,7 @@ import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
+import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
@@ -335,6 +335,33 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body",
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
     assertStringIncludes(agents, "# Working in Engine Test");
     assertStringIncludes(agents, "discern_status");
+  });
+});
+
+Deno.test("refresh projects [mcp].always_load into shared .mcp.json and removes it when disabled", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "copilot"] });
+    const config = (alwaysLoad: boolean): string =>
+      [
+        "[project]",
+        'agents = ["claude_code", "copilot"]',
+        "",
+        "[mcp]",
+        `always_load = ${alwaysLoad}`,
+        "",
+      ].join("\n");
+
+    await writeConfig(dir, config(true));
+    const enabled = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(enabled.code, 0, enabled.output);
+    let mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.alwaysLoad, true);
+
+    await writeConfig(dir, config(false));
+    const disabled = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(disabled.code, 0, disabled.output);
+    mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.alwaysLoad, undefined);
   });
 });
 

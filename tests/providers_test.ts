@@ -285,6 +285,56 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
   });
 });
 
+Deno.test("shared .mcp.json derives whole-server alwaysLoad from config and removes it when disabled", async () => {
+  await withTempDir(async (dir) => {
+    const enabled = parseConfigOrThrow("[mcp]\nalways_load = true\n");
+    const disabled = parseConfigOrThrow("[mcp]\nalways_load = false\n");
+
+    for (
+      const order of [
+        ["claude_code", "copilot"],
+        ["copilot", "claude_code"],
+      ] as const
+    ) {
+      const first = await wireProviderMcp(
+        dir,
+        order,
+        DISCERN_MCP_SERVER,
+        enabled,
+      );
+      assert(first.written.includes(".mcp.json"));
+      const loaded = JSON.parse(
+        await Deno.readTextFile(join(dir, ".mcp.json")),
+      );
+      assertEquals(loaded.mcpServers.discern.alwaysLoad, true);
+
+      const off = await wireProviderMcp(
+        dir,
+        order,
+        DISCERN_MCP_SERVER,
+        disabled,
+      );
+      assert(off.written.includes(".mcp.json"));
+      const deferred = JSON.parse(
+        await Deno.readTextFile(join(dir, ".mcp.json")),
+      );
+      assertEquals(deferred.mcpServers.discern.alwaysLoad, undefined);
+    }
+
+    const cursor = await wireProviderMcp(
+      dir,
+      ["cursor"],
+      DISCERN_MCP_SERVER,
+      enabled,
+    );
+    assert(cursor.written.includes(".cursor/mcp.json"));
+    const cursorConfig = JSON.parse(
+      await Deno.readTextFile(join(dir, ".cursor/mcp.json")),
+    );
+    assertEquals(cursorConfig.mcpServers.discern.alwaysLoad, undefined);
+  });
+});
+
 Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other servers", async () => {
   await withTempDir(async (dir) => {
     // A project that already has its own MCP server configured.

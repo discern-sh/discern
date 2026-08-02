@@ -153,7 +153,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "mcp-tools",
     title: "MCP tools",
     what:
-      "The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfaces cannot drift.",
+      "The MCP tool table, including each tool's internal Claude Code startup-loading toggle; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to vendor metadata.",
     source: {
       kind: "module",
       module: "src/engine/mcp/server.ts",
@@ -161,6 +161,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     guards: [
       "tests/engine_verb_parity_test.ts",
+      "tests/engine_mcp_test.ts",
       "tests/result_codegen_test.ts",
       "tests/guidance_corpus_guard_test.ts",
     ],
@@ -176,6 +177,29 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("../src/engine/mcp/server.ts")).TOOLS.map(
         (tool) => tool.name,
       ),
+  },
+  {
+    id: "mcp-core-lifecycle",
+    title: "MCP core lifecycle",
+    what:
+      "The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.",
+    source: {
+      kind: "module",
+      module: "src/engine/mcp/server.ts",
+      exportName: "MCP_CORE_LIFECYCLE",
+    },
+    guards: ["tests/engine_mcp_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the members are existing verb terms; the sequence is an MCP delivery contract, not a new reader-facing noun",
+      },
+      featureCanon: { nodeId: "mcp-surface" },
+    },
+    members: async () => [
+      ...(await import("../src/engine/mcp/server.ts")).MCP_CORE_LIFECYCLE,
+    ],
   },
   {
     id: "operating-policies",

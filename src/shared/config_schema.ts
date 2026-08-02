@@ -369,6 +369,14 @@ const projectSection = z.strictObject({
   ),
 }).prefault({}).describe("Project identity and authored project paths.");
 
+const mcpSection = z.strictObject({
+  always_load: z.boolean().default(false).describe(
+    "When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared .mcp.json entry, so Claude Code loads every discern tool schema at session start. When false, Claude Code can defer every tool except discern's internally selected startup tools. Other provider files are unchanged.",
+  ),
+}).prefault({}).describe(
+  "Model Context Protocol (MCP) loading policy for provider integrations.",
+);
+
 const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
     "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.",
@@ -590,6 +598,7 @@ const scriptsSection = z.strictObject({
 export const configSchema = z.strictObject({
   meta: metaSection,
   project: projectSection,
+  mcp: mcpSection,
   repository: repositorySection,
   guidance: guidanceSection,
   skills: skillsSection,

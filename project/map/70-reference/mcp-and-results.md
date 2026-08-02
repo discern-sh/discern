@@ -71,6 +71,12 @@ Every project-operating tool accepts an optional `path` that selects the discern
 
 Tools that require completed setup return a controlled `not_set_up` result until setup finishes. A tool rejects undeclared input keys instead of dropping them.
 
+### Startup discovery
+
+MCP returns complete tool definitions from `tools/list`; each client decides how much of that surface enters the model context at startup. discern keeps its server instructions within a 2KB UTF-8 budget and puts the core lifecycle first: status, start, prepare/test, done, update/await, accept.
+
+Claude Code defers most schemas through Tool Search. discern marks `discern_status` for startup through the tool's vendor `_meta`, leaving it available as the gateway to the next tool. Set `[mcp].always_load = true` and run `discern refresh` to add whole-server `alwaysLoad` to `.mcp.json`; the default is `false`. Other provider files do not receive that property. See [Claude Code integration](../60-agent-integrations/claude-code.md#tool-discovery) for the context and version trade-offs.
+
 ### Find a map or manual page
 
 `discern_map` and `discern_docs` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):

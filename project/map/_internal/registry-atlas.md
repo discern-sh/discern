@@ -15,7 +15,8 @@ One row per set, in registry order; the sections below follow the same order and
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 31      | per member       | surface `verb`              |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
-| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 8       | —                | —                           |
+| [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
+| [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 9       | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
 | [`consent-gated-verbs`](#consent-gated-verbs--consent-gated-verbs)                                                    | `src/shared/consent.ts#CONSENT_GATED_VERBS`                                       | 2       | —                | node `consent-attestations` |
 | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                        | `src/shared/consent.ts#LANDING_CONSENT_SOURCES`                                   | 3       | —                | node `consent-attestations` |
@@ -29,7 +30,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
 | [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 18      | —                | node `doctor`               |
-| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
+| [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 16      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 8       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
@@ -60,7 +61,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 242     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 243     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -71,9 +72,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 60      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 61      | —                | node `canonical-sets`       |
 
-60 sets · 88 guard tests · 26 committed artifacts.
+61 sets · 89 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -110,6 +111,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_landing_authority_test.ts`          | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_lifecycle_authority_test.ts`        | [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_logbook_test.ts`                    | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`hints`](#hints--hints), [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes), [`logbook-events`](#logbook-events--logbook-events)                                                                                                                                                                                                                                                              |
+| `tests/engine_mcp_test.ts`                        | [`mcp-tools`](#mcp-tools--mcp-tools), [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_nested_root_test.ts`                | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs)                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_nondefault_paths_test.ts`           | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_patterns_test.ts`                   | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                        |
@@ -278,19 +280,19 @@ Every command path that registers --dry-run — the plan/apply verbs whose previ
 
 ## `mcp-tools` — MCP tools
 
-The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfaces cannot drift.
+The MCP tool table, including each tool's internal Claude Code startup-loading toggle; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to vendor metadata.
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
 - Members: 17
   - `discern_status`
   - `discern_start`
-  - `discern_done`
   - `discern_prepare`
   - `discern_test`
+  - `discern_done`
   - `discern_update`
   - `discern_await`
-  - `discern_standards`
   - `discern_accept`
+  - `discern_standards`
   - `discern_impact`
   - `discern_coupling`
   - `discern_patterns`
@@ -299,8 +301,26 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
   - `discern_docs`
   - `discern_doctor`
   - `discern_improvement`
-- Guards: `tests/engine_verb_parity_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
+- Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_mcp_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
+- Feature canon: described by the `mcp-surface` node
+
+## `mcp-core-lifecycle` — MCP core lifecycle
+
+The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.
+
+- Source: `src/engine/mcp/server.ts` — `MCP_CORE_LIFECYCLE`
+- Members: 8
+  - `discern_status`
+  - `discern_start`
+  - `discern_prepare`
+  - `discern_test`
+  - `discern_done`
+  - `discern_update`
+  - `discern_await`
+  - `discern_accept`
+- Guards: `tests/engine_mcp_test.ts`
+- Glossary: not enrolled — the members are existing verb terms; the sequence is an MCP delivery contract, not a new reader-facing noun
 - Feature canon: described by the `mcp-surface` node
 
 ## `operating-policies` — Operating policies
@@ -308,14 +328,15 @@ The MCP tool table; verb parity ties every tool to a CLI verb, so the two surfac
 The core policy statements carried by the bundled guidance and MCP server instructions, with the probes that recognize each authored restatement.
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
-- Members: 8
+- Members: 9
   - `worktree-continuity`
   - `worktree-first`
   - `never-adopt`
-  - `done-is-the-bar`
   - `iterate-fast-loop`
-  - `await-longest-safe`
+  - `done-is-the-bar`
   - `never-loosen`
+  - `update-behind`
+  - `await-longest-safe`
   - `accept-on-handoff`
 - Guards: `tests/agent_policy_parity_test.ts`
 - Glossary: not enrolled — policy ids are internal; existing glossary entries define each reader-facing concept
@@ -535,9 +556,10 @@ The result-step operation vocabulary — what a step does; the doctor's annotati
 The top-level tables of the config schema — the whole configuration surface.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
-- Members: 15
+- Members: 16
   - `meta`
   - `project`
+  - `mcp`
   - `repository`
   - `guidance`
   - `skills`
@@ -1465,7 +1487,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 242
+- Members: 243
   - `0003`
   - `0005`
   - `0006`
@@ -1690,6 +1712,7 @@ The numbered decision records in the map, including records later superseded.
   - `0249`
   - `0250`
   - `0251`
+  - `0252`
   - `0001`
   - `0002`
   - `0004`
@@ -1899,10 +1922,11 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 60
+- Members: 61
   - `verbs`
   - `dry-run-verbs`
   - `mcp-tools`
+  - `mcp-core-lifecycle`
   - `operating-policies`
   - `command-groups`
   - `consent-gated-verbs`

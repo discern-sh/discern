@@ -51,6 +51,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // `agents` is OPTIONAL (no default): an absent key stays undefined so the
   // resolver can tell "unset" (→ default pair) from an explicit `[]` (→ no agents).
   assertEquals(c.project.agents, undefined);
+  assertEquals(c.mcp.always_load, false);
   assertEquals(c.meta.bootstrapped, false);
   // records default to empty
   assertEquals(c.jobs, {});
@@ -65,6 +66,16 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.worktree.ignored_file_drift, true);
   assertEquals(c.worktree.port, false);
   assertEquals(c.coupling.in_gate, true);
+});
+
+Deno.test("[mcp].always_load is an opt-in boolean", () => {
+  assertEquals(
+    parseConfigOrThrow("[mcp]\nalways_load = true\n").mcp.always_load,
+    true,
+  );
+  const wrongType = parseConfig('[mcp]\nalways_load = "yes"\n');
+  assertEquals(wrongType.config, undefined);
+  assert(wrongType.issues.some((issue) => issue.path === "mcp.always_load"));
 });
 
 Deno.test("projectDisplayName: [project].name, else the slug verbatim, else a neutral stand-in", () => {

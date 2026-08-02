@@ -10,7 +10,7 @@ aliases:
 
 # Claude Code integration
 
-discern's Claude Code integration is project-local and registry-driven. It writes or co-manages the files below when Claude Code is enabled in `[project].agents`:
+When Claude Code is enabled in `[project].agents`, discern writes or co-manages these project-local files:
 
 | File                    | Role                                             | Ownership             |
 | ----------------------- | ------------------------------------------------ | --------------------- |
@@ -19,7 +19,7 @@ discern's Claude Code integration is project-local and registry-driven. It write
 | `.mcp.json`             | Project MCP server entry                         | Shared, tracked       |
 | `.claude/settings.json` | Hooks, MCP pre-approval, and permission defaults | Shared, tracked       |
 
-Claude Code may also create `.claude/settings.local.json` for machine-local permission grants and overrides. discern does not seed or track that file; the shipped `.gitignore` keeps it ignored so local approvals do not create permanent porcelain noise.
+Claude Code may create `.claude/settings.local.json` for machine-local permissions. discern neither seeds nor tracks it; the shipped `.gitignore` keeps it local.
 
 ## Guidance and skills
 
@@ -29,7 +29,7 @@ Claude Code reads `CLAUDE.md`, not `AGENTS.md`, so discern writes `CLAUDE.md` as
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical agent file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains canonical. discern compiles its built-in guidance and `[guidance].sources` there; edit the sources, then run `discern refresh`.
 
 Claude Code does not read the cross-tool `.agents/skills/` directory. discern therefore materializes the effective skill set into `.claude/skills/` for Claude Code, while other agents can share `.agents/skills/`.
 
@@ -52,7 +52,22 @@ Claude Code does not read the cross-tool `.agents/skills/` directory. discern th
 
 The same `.mcp.json` file can also be used by GitHub Copilot. Claude Code and Copilot share one writer for this entry, so the `discern` server is byte-identical whichever provider wires it first.
 
-The one-hour client timeout gives `discern_await` a 55-minute call, with five minutes left for delivery and cancellation. A condition that becomes true returns immediately. A longer watch continues from the returned 15-character resume handle. Claude Code's own [`MCP_TOOL_TIMEOUT`](https://code.claude.com/docs/en/env-vars) defaults to about 28 hours; the value above is discern's shared Claude-and-Copilot transport budget, not a Claude Code maximum.
+### Tool discovery
+
+[Claude Code's MCP Tool Search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) is on by default. A session starts with tool names and server instructions; most schemas load after a search selects them. Claude Code owns this loading policy. MCP `tools/list` still carries each full definition and allows vendor fields in `_meta`.
+
+discern keeps its server instructions below Claude Code's 2KB limit, with the core lifecycle first. It also marks `discern_status` with `_meta["anthropic/alwaysLoad"] = true`, keeping the gateway schema visible while other tools remain deferred. The status result names the appropriate next MCP action.
+
+To load every discern schema at session start, set:
+
+```toml
+[mcp]
+  always_load = true
+```
+
+Run `discern refresh`. The shared `.mcp.json` entry gains `"alwaysLoad": true`; switching the setting off removes it. Whole-server loading requires Claude Code 2.1.121 or later, consumes context for every schema, and waits for the server during startup. The default stays off.
+
+The one-hour client timeout gives `discern_await` a 55-minute call, with five minutes left for delivery and cancellation. A condition that becomes true returns immediately. A longer watch continues from the returned 15-character resume handle. The value above is discern's shared Claude-and-Copilot transport budget. Claude Code's own [`MCP_TOOL_TIMEOUT`](https://code.claude.com/docs/en/env-vars) defaults to about 28 hours.
 
 ## `.claude/settings.json`
 
@@ -105,11 +120,11 @@ The Claude Code settings seed includes the worktree hooks and a conservative per
 
 ## Runtime behavior and gotchas
 
-Claude Code is the only supported agent with a worktree lifecycle hook contract: `WorktreeCreate` and `WorktreeRemove` run the `discern worktree hook` verbs, and `SessionStart` runs `discern worktree ensure`.
+Claude Code alone has a worktree lifecycle hook contract: `WorktreeCreate` and `WorktreeRemove` run `discern worktree hook`; `SessionStart` runs `discern worktree ensure`.
 
-Claude Code can also re-root a running session with `EnterWorktree`. That moves Claude Code's shell and instruction-file context, but a stdio MCP process still has the process cwd it started with. When the worktree is created through `discern_start`, the live discern MCP server re-aims its own logical working root to the new worktree; a native cwd move alone does not move a generic MCP process.
+`EnterWorktree` re-roots Claude Code's shell and instruction context, but a stdio MCP process keeps its launch cwd. `discern_start` re-aims discern's live MCP root to its new worktree; a native cwd move does not move a generic server.
 
-Claude Code shell cwd persists across tool calls, so a `cd` in one shell call can affect later calls. Agents should still prefer opening or launching a session in the intended worktree when a task is meant to stay isolated.
+Claude Code's shell cwd persists across calls, so one `cd` affects later calls. Open or launch the session in the intended worktree when the task must stay isolated.
 
 discern does not emit Claude Code sandbox settings. If Claude Code's native sandbox is enabled by the user, it is the only native agent sandbox among the modeled agents that understands linked-worktree Git metadata automatically.
 
