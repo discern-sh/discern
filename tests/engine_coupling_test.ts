@@ -164,12 +164,14 @@ interface GeneratedFixtureArtifact {
   group: string;
 }
 
+/** Flatten the generated fixture groups into path and owner pairs. */
 function generatedFixtureArtifacts(): GeneratedFixtureArtifact[] {
   return GENERATED_FIXTURE_GROUPS.flatMap((group) =>
     group.artifacts.map((path) => ({ path, group: group.name }))
   );
 }
 
+/** Render the fixture configuration for generated artifact ownership. */
 function generatedFixtureConfig(): string {
   return [
     "[project]",
@@ -187,6 +189,7 @@ function generatedFixtureConfig(): string {
   ].join("\n");
 }
 
+/** Scaffold and commit a project configured with the generated fixture groups. */
 async function setupGeneratedFixture(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await gitInit(dir);

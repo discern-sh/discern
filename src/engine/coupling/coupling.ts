@@ -126,6 +126,7 @@ interface PathPairability {
   excludedGenerated: GeneratedExclusion | undefined;
 }
 
+/** Classify a path for coupling and name the generated owner that excludes it. */
 function pairabilityForPath(
   config: DiscernConfig,
   generatedGroups: readonly ResolvedGeneratedGroup[],
