@@ -73,9 +73,9 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 ### Startup discovery
 
-MCP returns complete tool definitions from `tools/list`; each client decides how much of that surface enters the model context at startup. discern keeps its server instructions within a 2KB UTF-8 budget and puts the core lifecycle first: status, start, prepare/test, done, update/await, accept.
+MCP `tools/list` returns complete definitions; clients choose the startup context. discern's server instructions stay below 2KB UTF-8 and lead with: status, start, prepare/test, done, update/await, accept.
 
-Claude Code defers most schemas through Tool Search. discern marks `discern_status` for startup through the tool's vendor `_meta`, leaving it available as the gateway to the next tool. Set `[mcp].always_load = true` and run `discern refresh` to add whole-server `alwaysLoad` to `.mcp.json`; the default is `false`. Other provider files do not receive that property. See [Claude Code integration](../60-agent-integrations/claude-code.md#tool-discovery) for the context and version trade-offs.
+Claude Code's Tool Search defers most schemas; vendor `_meta` keeps `discern_status` loaded as the gateway. `[mcp].always_load = true` plus `discern refresh` writes whole-server `alwaysLoad` to `.mcp.json`. It defaults to `false`; other provider files are unchanged. See [Claude Code integration](../60-agent-integrations/claude-code.md#tool-discovery) for version and context costs.
 
 ### Find a map or manual page
 

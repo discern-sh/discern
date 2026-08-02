@@ -137,11 +137,11 @@ Project identity and authored project paths.
 
 ## `[mcp]`
 
-Model Context Protocol (MCP) loading policy for provider integrations.
+MCP startup loading.
 
-| Key           | Type    | Default | Description                                                                                                                                                                                                                                                                                                  |
-| ------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `always_load` | boolean | `false` | When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared .mcp.json entry, so Claude Code loads every discern tool schema at session start. When false, Claude Code can defer every tool except discern's internally selected startup tools. Other provider files are unchanged. |
+| Key           | Type    | Default | Description                                                                                                                            |
+| ------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `always_load` | boolean | `false` | When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared `.mcp.json`; no other provider file receives it. |
 
 ## `[repository]`
 

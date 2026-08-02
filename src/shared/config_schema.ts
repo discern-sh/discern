@@ -371,10 +371,10 @@ const projectSection = z.strictObject({
 
 const mcpSection = z.strictObject({
   always_load: z.boolean().default(false).describe(
-    "When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared .mcp.json entry, so Claude Code loads every discern tool schema at session start. When false, Claude Code can defer every tool except discern's internally selected startup tools. Other provider files are unchanged.",
+    "When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared `.mcp.json`; no other provider file receives it.",
   ),
 }).prefault({}).describe(
-  "Model Context Protocol (MCP) loading policy for provider integrations.",
+  "MCP startup loading.",
 );
 
 const repositorySection = z.strictObject({
