@@ -19,6 +19,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const QUEUED_TEXT = "Tests queued";
 const UNAVAILABLE_TEXT = "The concurrent test-run cap is not enforced";
@@ -437,6 +438,30 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       clearTimeout(watchdog);
     }
   });
+});
+
+Deno.test("the repository's habitual and targeted test commands stay queue-wrapped", async () => {
+  const denoConfig = JSON.parse(
+    await Deno.readTextFile(join(REPO_ROOT, "deno.json")),
+  ) as { tasks?: Record<string, string> };
+  assertEquals(
+    denoConfig.tasks?.test,
+    "discern queue -- deno test --allow-read --allow-write --allow-env --allow-run --parallel",
+  );
+
+  const testingGuide = await Deno.readTextFile(
+    join(REPO_AUTHORED_PATHS.map, "80-development", "testing.md"),
+  );
+  assertEquals(
+    /^deno test(?:\s|$)/m.exec(testingGuide),
+    null,
+    "testing guidance must send runnable examples through the wrapped task",
+  );
+  assertStringIncludes(
+    testingGuide,
+    "deno task test tests/upgrade_migrations_test.ts",
+  );
+  assertStringIncludes(testingGuide, 'deno task test --filter "convergence"');
 });
 
 Deno.test("a capped gate exports the marker after its slots fail open", async () => {

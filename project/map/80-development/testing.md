@@ -17,12 +17,12 @@ The `test` job in `discern.toml` is what the `done` gate runs; this doc explains
 The suite is plain `deno test`, wired as the `test` job:
 
 ```sh
-deno task test                          # full suite (what the gate runs)
-deno test tests/upgrade_migrations_test.ts # a single file while iterating
-deno test --filter "convergence"        # a filtered subset by test name
+deno task test                                   # full suite (what the gate runs)
+deno task test tests/upgrade_migrations_test.ts  # a single file while iterating
+deno task test --filter "convergence"            # a filtered subset by test name
 ```
 
-`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. Local discern gates use JUnit for structured diagnostics. Hosted gates and bare tasks use Deno's pretty reporter. Both run the same tests. The suite invokes the engine through `deno run src/main.ts` and shells out to `git`. Deno runs test modules in parallel; tests inside one module remain serial.
+`deno task test` runs the suite with `--parallel` and `--allow-read --allow-write --allow-env --allow-run`. It enters the fleet cap through `discern queue`; Deno appends a file or `--filter` argument to the wrapped command. Local discern gates use JUnit for structured diagnostics. Hosted gates and bare tasks use Deno's pretty reporter. Both run the same tests. The suite invokes the engine through `deno run src/main.ts` and shells out to `git`. Deno runs test modules in parallel; tests inside one module remain serial.
 
 This repository sets `[gate].concurrent_test_runs = 2`. Across the main checkout and every linked worktree, at most two `done`, `test`, or measuring `standards` test-stage groups run at once. The cap schedules whole runs; Deno's worker parallelism inside either run is unchanged.
 

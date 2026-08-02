@@ -39,9 +39,9 @@ Put that boundary in the canonical test task so full and targeted forms are capp
 test: discern queue -- your-test-runner --single-run
 ```
 
-`queue` holds one slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A zero or absent cap—and no `discern.toml`—touches no slot files. Unusable slots warn once, then run uncapped.
+`queue` holds one slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. With a zero or absent cap, or without `discern.toml`, it touches no slot files. Unusable slots warn once, then run uncapped.
 
-The gate sets `DISCERN_TEST_SLOT=1` when it has accounted the cap, including after fail-open. Any non-empty marker makes `queue` skip acquisition; every wrapper passes `1` onward. Gate-driven and nested wrappers therefore consume one slot. The advisory marker makes this cooperative back-pressure, not a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
+The gate sets `DISCERN_TEST_SLOT=1` when it has accounted the cap, including after fail-open. Both the gate and `queue` treat any non-empty marker as upstream accounting. Every wrapper passes `1` onward. Gate-to-wrapper, wrapper-to-gate, and wrapper-to-wrapper nesting therefore consume one slot. The advisory marker establishes cooperative back-pressure. It cannot enforce a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 The wrapped task should remain the canonical test command.[^raw-test-task]
 
@@ -75,6 +75,6 @@ A slot is an OS advisory lock under the shared git administrative directory. Pro
 
 ## Current state & gotchas
 
-- Advisory locks do not promise fairness; the cap bounds concurrency, not arrival order.
+- Advisory locks do not promise fairness. The cap bounds concurrency, while arrival order may vary.
 - During a config transition, the loosest branch value in flight wins until branches converge.
 - Slot files stay in place to preserve lock identity; files above a lowered cap are inert.
