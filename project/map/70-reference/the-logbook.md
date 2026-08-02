@@ -31,6 +31,7 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - `tip-adoption` counts — whether each shown tip's invited verb ran before that tip appeared again
 - advisory findings on `status`, the `done` receipt, and `improvement`
 - wait estimates when concurrent test runs queue
+- separate execution-time and slot-contention readings for capped runs
 - the in-flight check on the contained-worktree offer — a logbook-off install falls back to a one-hour quiet period
 
 ## Where findings appear
@@ -65,8 +66,9 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 | `outcome`      | `"ok"`, `"failed"`, `"partial"`, or `"refused"` |
 | `failed_stage` | the gate stage that went red                    |
 | `crash`        | error class name and one code location          |
-| `duration_ms`  | wall-clock milliseconds                         |
-| `target`       | `map`/`docs` page served, miss, or new branch   |
+| `duration_ms`  | end-to-end wall-clock milliseconds              |
+| `waited_ms`    | test-run slot-wait milliseconds on capped runs  |
+| `target`       | page served, miss, new branch, or queued command |
 | `flags`        | `["force"]` — names, never values               |
 | `change`       | files/insertions/deletions/commits vs the trunk |
 | `scopes`       | the configured scopes touched                   |
@@ -81,7 +83,7 @@ Names and numbers only. No code, no prompts, no command output, no file contents
 
 `partial` marks an error after an irreversible effect. `crash` appears only when the run died on an unexpected throw (a bug in discern) and holds the error's class name, such as `"TypeError"`, plus one trimmed code location. The logbook omits the message and stack; a saved [crash report file](crash-reports.md) holds the full error text. `tip_ids` appears only when the desk showed a tip and carries the registry id verbatim. The tip-adoption reader joins that id to the tip's declared verbs. The landing-authority detectors that read `consent` are covered in [practice patterns](../20-quality-gate/patterns.md).
 
-Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
+Each line carries a schema version. Readers skip unknown lines, and fields only accrete. `begin` carries the writer, verb, surface, driver evidence, branch, commit, config epoch, and invocation id; completion adds outcome and duration. A capped run also adds `waited_ms`, including `0` for immediate admission. Uncapped and older events omit it, and readers treat absence as zero wait. Execution time is `duration_ms - waited_ms`. Duration priors and suite-health readings use that difference. End-to-end statistics keep the wall-clock duration. Rarer kinds are `config-change` (section names, never values), `pin` (old bound, new bound, measured value), and rotation's `prune`.
 
 ### Possible agent identity signals
 

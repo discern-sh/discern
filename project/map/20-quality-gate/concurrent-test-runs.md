@@ -49,15 +49,43 @@ The wrapped task should remain the canonical test command.[^raw-test-task]
 
 ## What a queued run looks like
 
-The run explains its wait once:
+The run explains its wait once. A gate queued behind a wrapped command can name
+that holder because an unmarked `queue` invocation joins the logbook before it
+waits:
 
 ```text
 Tests queued: 1 of 1 concurrent test runs in use across this repository's
 checkouts ([gate].concurrent_test_runs); the tests start the moment a slot
-frees. In flight: done on agent/fix-upload-retry, typically ~3m.
+frees. In flight: queue on agent/profile-tests, typically ~3m.
 ```
 
-The [logbook](patterns.md) supplies names and the duration estimate; disabling it omits both. The same text reaches result `hints[]`, including JSON and Model Context Protocol surfaces. A passing queued run stays green, with the wait in its recorded duration.
+The [logbook](patterns.md) supplies names and the duration estimate; disabling it omits both. The same text reaches result `hints[]`, including JSON and Model Context Protocol surfaces. A passing queued run stays green.
+
+Wait accounting keeps three facts distinct:
+
+- `duration_ms` remains end-to-end wall time, from invocation to completion.
+- `waited_ms` records time spent waiting for test-run slots. Capped runs record
+  `0` when admission is immediate and sum the waits when one run acquires more
+  than once. Uncapped runs and older events omit the field; readers treat its
+  absence as zero wait.
+- Execution time is `duration_ms - waited_ms`. Duration priors, including the
+  wait line's `typically ~3m`, use execution time. Historical queue delay stays
+  in `waited_ms`.
+
+A positive wait appears beside the run and step timings, as its own summary
+item:
+
+```text
+Tests passed.
+
+Waited 1m 10s for a test-run slot.
+```
+
+An unmarked `queue` run writes its completion after the child exits. A
+marker-bypassed descendant writes no queue events because its parent gate or
+wrapper owns the record. ADR 0252 preserves ADR 0212's end-to-end duration and
+supersedes its use of that combined duration for priors
+([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 ## Crash safety
 
