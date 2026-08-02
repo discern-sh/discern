@@ -40,6 +40,10 @@ export const DISCERN_AUTHORED_COMMIT_SITES = {
     id: "standards-pin",
     callerModule: "src/engine/gate/standards.ts",
   },
+  updateRegeneration: {
+    id: "update-regeneration",
+    callerModule: "src/engine/worktree/git.ts",
+  },
 } as const satisfies Readonly<
   Record<string, DiscernAuthoredCommitSiteDefinition>
 >;

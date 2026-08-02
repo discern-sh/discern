@@ -34,7 +34,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 8       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
-| [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 3       | —                | —                           |
+| [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
@@ -620,13 +620,14 @@ The staged-setup handshake's sub-verb sequence.
 
 ## `authored-commit-sites` — Discern-authored commit sites
 
-The workflows whose diffs discern composes and commits: setup wiring, setup completion, and standards pinning. Every member must route through the attributed, pathspec-limited commit boundary.
+The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.
 
 - Source: `src/shared/discern_commit.ts` — `DISCERN_AUTHORED_COMMIT_SITES`
-- Members: 3
+- Members: 4
   - `scaffold-wiring`
   - `setup-completion`
   - `standards-pin`
+  - `update-regeneration`
 - Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
 - Glossary: not enrolled — an internal provenance boundary over existing commands, not product vocabulary
 - Feature canon: not enrolled — cross-cutting commit metadata for setup and standards, not a separate product feature

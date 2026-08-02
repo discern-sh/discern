@@ -38,7 +38,17 @@ import {
 } from "../lib/providers.ts";
 import { isKnownJob, KNOWN_JOBS } from "../shared/capabilities.ts";
 import { classifyKnownJob } from "../shared/setup_assurance.ts";
-import { commandExists, leadingCommandWord } from "../shared/subprocess.ts";
+import {
+  commandExists,
+  leadingCommandWord,
+  runGit,
+} from "../shared/subprocess.ts";
+import { splitNulRecords } from "../shared/git_paths.ts";
+import {
+  generatedGroupForPath,
+  type ResolvedGeneratedGroup,
+  resolveGeneratedGroups,
+} from "../shared/generated_artifacts.ts";
 import {
   gitVersion,
   hasAnyCommit,
@@ -213,6 +223,61 @@ async function fileExists(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Git's file classes needed to verify a generated-artifact declaration without
+ * running its generator. `undefined` means Git could not answer; the dedicated
+ * Git/repository checks report that prerequisite failure, so the path probes stay
+ * silent rather than inventing a verdict. */
+interface GeneratedFileInventory {
+  readonly tracked: readonly string[];
+  readonly untrackedOrIgnored: readonly string[];
+}
+
+async function generatedFileInventory(
+  root: string,
+): Promise<GeneratedFileInventory | undefined> {
+  const [tracked, untracked, ignored] = await Promise.all([
+    runGit(["ls-files", "-z", "--cached"], { cwd: root }),
+    runGit(["ls-files", "-z", "--others", "--exclude-standard"], {
+      cwd: root,
+    }),
+    runGit([
+      "ls-files",
+      "-z",
+      "--others",
+      "--ignored",
+      "--exclude-standard",
+    ], { cwd: root }),
+  ]);
+  if (!tracked.success || !untracked.success || !ignored.success) {
+    return undefined;
+  }
+  return {
+    tracked: splitNulRecords(tracked.stdout).sort(),
+    untrackedOrIgnored: [
+      ...new Set([
+        ...splitNulRecords(untracked.stdout),
+        ...splitNulRecords(ignored.stdout),
+      ]),
+    ].sort(),
+  };
+}
+
+/** Match through the shared generated-artifact accessor so doctor uses the same
+ * scope-glob dialect as every other `[generated]` consumer. */
+function generatedGroupMatchesPath(
+  group: ResolvedGeneratedGroup,
+  path: string,
+): boolean {
+  return generatedGroupForPath([group], path) !== undefined;
+}
+
+function generatedField(
+  group: ResolvedGeneratedGroup,
+  field: "paths" | "run",
+): string {
+  return `\`[generated.${group.name}] ${field}\``;
 }
 
 /** Run the installer-level checks against `destDir`. `cwd` is where the caller
@@ -487,6 +552,114 @@ export async function runChecks(
           fix: "install the tool, or fix the command under [jobs]",
         },
     );
+  }
+
+  // 5b. generated-artifact declarations — probe the command and Git ownership
+  // facts the gate and update rely on, without running a generator or writing a
+  // file. The block emits nothing when `[generated]` is unused. Its file lists
+  // come from Git once, then every group is matched through the shared accessor.
+  {
+    const groups = resolveGeneratedGroups(config);
+    if (groups.length > 0) {
+      for (const group of groups) {
+        const word = leadingCommandWord(group.run);
+        if (word === undefined) {
+          checks.push({
+            name: `generated: ${group.name} run`,
+            ok: true,
+            detail:
+              "`run` has no static leading word, so doctor did not probe it",
+          });
+        } else if (await commandExists(word, { cwd: destDir })) {
+          checks.push({
+            name: `generated: ${group.name} run`,
+            ok: true,
+            detail:
+              `\`run\` leading word \`${word}\` resolves from the project root`,
+          });
+        } else {
+          checks.push({
+            name: `generated: ${group.name} run`,
+            ok: false,
+            detail:
+              `\`run\` leading word \`${word}\` does not resolve from the project root`,
+            fix: `edit ${
+              generatedField(group, "run")
+            } in discern.toml to name a command whose leading word resolves from the project root`,
+          });
+        }
+      }
+
+      const inventory = await generatedFileInventory(destDir);
+      if (inventory !== undefined) {
+        for (const group of groups) {
+          const tracked = inventory.tracked.filter((path) =>
+            generatedGroupMatchesPath(group, path)
+          );
+          const outsideIndex = inventory.untrackedOrIgnored.filter((path) =>
+            generatedGroupMatchesPath(group, path)
+          );
+          const patterns = JSON.stringify(group.paths);
+          if (tracked.length > 0) {
+            checks.push({
+              name: `generated: ${group.name} paths`,
+              ok: true,
+              detail:
+                `paths ${patterns} match ${tracked.length} git-tracked file${
+                  tracked.length === 1 ? "" : "s"
+                }`,
+            });
+          } else if (outsideIndex.length > 0) {
+            checks.push({
+              name: `generated: ${group.name} paths`,
+              ok: true,
+              status: "warn" as const,
+              detail: `paths ${patterns} match ${outsideIndex.length} file${
+                outsideIndex.length === 1 ? "" : "s"
+              }, all untracked or ignored. This group is inert because untracked artifacts never conflict and never drift. Track them or drop the group`,
+              fix: `edit ${
+                generatedField(group, "paths")
+              } in discern.toml to name committed artifacts, or remove \`[generated.${group.name}]\` if its outputs should remain untracked`,
+            });
+          } else {
+            checks.push({
+              name: `generated: ${group.name} paths`,
+              ok: true,
+              status: "warn" as const,
+              detail:
+                `paths ${patterns} match no git-tracked, untracked, or ignored files`,
+              fix: `check ${
+                generatedField(group, "paths")
+              } in discern.toml for a typo, or keep this warning until the first generated artifacts are committed`,
+            });
+          }
+        }
+
+        for (const path of inventory.tracked) {
+          const owners = groups.filter((group) =>
+            generatedGroupMatchesPath(group, path)
+          );
+          if (owners.length < 2) {
+            continue;
+          }
+          checks.push({
+            name: `generated ownership: ${path}`,
+            ok: true,
+            status: "warn" as const,
+            detail: `git-tracked path \`${path}\` is claimed by ${
+              owners.map((group) => `\`[generated.${group.name}]\``).join(
+                ", ",
+              )
+            }`,
+            fix: `edit ${
+              owners.map((group) => generatedField(group, "paths")).join(
+                " or ",
+              )
+            } in discern.toml so their ownership does not overlap`,
+          });
+        }
+      }
+    }
   }
 
   // 6. Project script contract — a script reads config via `discern config get`,
