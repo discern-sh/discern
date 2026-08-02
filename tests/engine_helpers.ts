@@ -18,6 +18,7 @@
  * test-specific capabilities/checks/scopes/standards.
  */
 
+import { tmpdir } from "os";
 import { dirname, fromFileUrl, join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { assembleInitPlan } from "../src/commands/setup.ts";
@@ -103,6 +104,74 @@ export function defaultMapPath(root: string, ...parts: string[]): string {
   return join(root, SOURCE_PATHS.map.defaultPath, ...parts);
 }
 
+/** Leftover suite temp homes and scaffolds this old are swept at startup. */
+const SUITE_LEFTOVER_TTL_MS = 24 * 60 * 60 * 1000;
+/** Startup sweep ceiling — a big backlog drains across later suite runs. */
+const SUITE_LEFTOVER_MAX_REMOVALS = 200;
+
+/**
+ * Remove `discern-test-` entries in the REAL OS temp dir left by earlier
+ * suite processes that died before their cleanup ran. Anything younger than
+ * the TTL is a live run's and survives. Best-effort throughout: two suites
+ * racing over one leftover simply skip it.
+ */
+async function pruneStaleSuiteLeftovers(): Promise<void> {
+  let removed = 0;
+  try {
+    for await (const entry of Deno.readDir(tmpdir())) {
+      if (removed >= SUITE_LEFTOVER_MAX_REMOVALS) {
+        return;
+      }
+      if (!entry.name.startsWith("discern-test-")) {
+        continue;
+      }
+      const path = join(tmpdir(), entry.name);
+      try {
+        const mtime = (await Deno.stat(path)).mtime?.getTime();
+        if (
+          mtime === undefined || Date.now() - mtime < SUITE_LEFTOVER_TTL_MS
+        ) {
+          continue;
+        }
+        await Deno.remove(path, { recursive: true });
+        removed++;
+      } catch {
+        // Raced away by a sibling suite, or unreadable — skip it.
+      }
+    }
+  } catch {
+    // An unreadable temp dir fails the tests themselves soon enough.
+  }
+}
+
+let suiteTempPromise: Promise<string> | undefined;
+
+/**
+ * The suite-scoped temp home injected as every spawned engine's TMPDIR: job
+ * and diagnostic artifacts, fallback shims — everything the engines mint in
+ * "OS temp" — land here instead of the shared temp dir, so parallel suites
+ * neither pollute the machine nor scan each other's litter, and a scaffolded
+ * project's due retention sweep walks this small directory rather than the
+ * machine-wide population (ADR 0249). One home per test process, removed on
+ * process unload; a process killed too hard to unload leaves a
+ * `discern-test-` entry the next suite start prunes by age.
+ */
+export function suiteTempDir(): Promise<string> {
+  suiteTempPromise ??= (async (): Promise<string> => {
+    await pruneStaleSuiteLeftovers();
+    const dir = await Deno.makeTempDir({ prefix: "discern-test-tmp-" });
+    globalThis.addEventListener("unload", () => {
+      try {
+        Deno.removeSync(dir, { recursive: true });
+      } catch {
+        // Best-effort: the startup prune collects what unload cannot.
+      }
+    });
+    return dir;
+  })();
+  return suiteTempPromise;
+}
+
 /** Shell-quote a path for a command string handed to a PTY shell. */
 function shq(s: string): string {
   return `'${s.replaceAll("'", "'\\''")}'`;
@@ -110,7 +179,8 @@ function shq(s: string): string {
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated,
- * the engine's own `discern` self-shim on PATH, plus any caller overrides.
+ * TMPDIR pointed at the suite temp home ({@link suiteTempDir}), the engine's
+ * own `discern` self-shim on PATH, plus any caller overrides.
  * The shim (src/shared/self_shim.ts) is the same one the engine gives its
  * operator commands — this suite runs from the same checkout, so consuming it
  * keeps one definition of "re-invoke this engine" — and it lets a project script
@@ -126,12 +196,18 @@ export async function engineEnv(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
   const shim = await selfShimDir();
+  const tmp = await suiteTempDir();
   return {
     NO_COLOR: "1",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
+    // All three spellings so the engine's temp resolution lands in the suite
+    // home on every platform.
+    TMPDIR: tmp,
+    TMP: tmp,
+    TEMP: tmp,
     [DESK_SESSION_ENV]: "",
     ...GIT_ISOLATION,
     ...extra,

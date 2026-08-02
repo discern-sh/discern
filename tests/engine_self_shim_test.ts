@@ -28,6 +28,7 @@ import {
   gitInit,
   runAgent,
   scaffoldEngine,
+  suiteTempDir,
   writeConfig,
 } from "./engine_helpers.ts";
 
@@ -42,7 +43,11 @@ const SCRUBBED_BASE = "/usr/bin:/bin";
  * would live and quietly satisfy the test.
  */
 async function denoOnlyPath(): Promise<string> {
-  const dir = await Deno.makeTempDir({ prefix: "discern-deno-only-" });
+  // Under the suite temp home so the symlink dir is cleaned with the run.
+  const dir = await Deno.makeTempDir({
+    dir: await suiteTempDir(),
+    prefix: "deno-only-",
+  });
   await Deno.symlink(Deno.execPath(), join(dir, "deno"));
   return `${dir}:${SCRUBBED_BASE}`;
 }
