@@ -61,6 +61,7 @@ const MANUAL_BOUNDARY_RULES: readonly {
   },
 ];
 
+/** Locate every manual output-boundary pattern with its rule and source offset. */
 function manualBoundaryFindings(source: string): BoundaryFinding[] {
   return MANUAL_BOUNDARY_RULES.flatMap(({ id, pattern }) => {
     pattern.lastIndex = 0;
@@ -71,6 +72,7 @@ function manualBoundaryFindings(source: string): BoundaryFinding[] {
   });
 }
 
+/** Convert a source offset to the one-based line number used in diagnostics. */
 function lineAt(source: string, offset: number): number {
   return source.slice(0, offset).split("\n").length;
 }

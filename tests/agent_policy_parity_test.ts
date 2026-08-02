@@ -171,6 +171,7 @@ interface NamedText {
   readonly text: string;
 }
 
+/** Resolve one operating policy's semantic probes into labeled requirements. */
 function policyRequirements(id: string): readonly {
   readonly meaning: string;
   readonly pattern: RegExp;
@@ -185,6 +186,7 @@ function policyRequirements(id: string): readonly {
   }));
 }
 
+/** Report each named surface that omits one of its required policy meanings. */
 function requirementFailures(
   requirements: readonly {
     readonly meaning: string;
@@ -203,6 +205,7 @@ function requirementFailures(
   return failures;
 }
 
+/** Render matching hint examples into named CLI-text surfaces for parity checks. */
 function renderedHintSurfaces(
   predicate: (hint: HintDef<unknown>) => boolean,
 ): NamedText[] {
