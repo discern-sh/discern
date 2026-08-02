@@ -144,6 +144,9 @@ export interface StepResult {
  *  - `scope_gates` — a changed scope's self-contained gate failed;
  *  - `tree_drift` — a gate stage left uncommitted changes on committed-clean
  *    tracked files (ADR 0047, extended to every stage by ADR 0148);
+ *  - `generated_drift` — a declared generator changed one of its committed
+ *    artifacts when re-run, meaning the committed regeneration is stale or the
+ *    command does not produce the same bytes from the same tree (ADR 0247);
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
  *  - `guidance` / `skills` — an agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
@@ -183,6 +186,7 @@ export const FAILED_STAGES = [
   "check/test",
   "scope_gates",
   "tree_drift",
+  "generated_drift",
   "tracked_artifacts",
   "guidance",
   "skills",

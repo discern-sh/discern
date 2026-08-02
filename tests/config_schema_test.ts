@@ -55,6 +55,7 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   // records default to empty
   assertEquals(c.jobs, {});
   assertEquals(c.scopes, {});
+  assertEquals(c.generated, {});
   assertEquals(c.acceptance.pre_authorized, []);
   assertEquals(c.standards, {});
   assertEquals(c.worktree.resources, {});

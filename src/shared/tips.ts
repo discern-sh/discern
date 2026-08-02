@@ -827,6 +827,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "This is an internal safety check with no separate beginner action.",
   "feature:fail-open-classification":
     "This is internal scope-classification safety with no separate human action.",
+  "feature:generated-artifact-declarations":
+    "Generated-artifact configuration is an advanced authoring choice taught by the config reference, not a beginner desk action.",
   "feature:diagnostics":
     "Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.",
   "feature:gotchas-pointer":

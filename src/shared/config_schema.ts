@@ -220,6 +220,21 @@ const scopeValue = z.strictObject({
   timeout: jobTimeout,
 });
 
+/** A `[generated.<name>]` table — one generator's committed artifacts and the
+ * deterministic command that re-derives them (ADR 0247). */
+const generatedValue = z.strictObject({
+  paths: z.array(z.string()).describe(
+    "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path.",
+  ),
+  run: commandOrList.refine(
+    (run) => toCommandList(run).length > 0,
+    { message: "generated run must contain at least one command." },
+  ).describe(
+    "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.",
+  ),
+  timeout: jobTimeout,
+});
+
 /** A `[standards.<name>]` table — one never-loosen metric floor/ceiling. */
 const standardValue = z.strictObject({
   metric: z.string().optional().describe(
@@ -440,6 +455,13 @@ const scopesSection = z.record(z.string().regex(NAME_RE), scopeValue).default(
     "[scopes.<name>] — named regions of the repo. `paths` globs define a scope; the optional flags tune the gate for changes there. Classification fails OPEN: a path matching no scope counts as a real code change.",
   );
 
+const generatedSection = z.record(
+  z.string().regex(NAME_RE),
+  generatedValue,
+).default({}).describe(
+  "[generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.",
+);
+
 const acceptanceSection = z.strictObject({
   pre_authorized: z.array(z.string()).default([]).describe(
     "Scope names whose changes may land without a per-landing conversation. This is an owner decision recorded on the trunk: widening a named scope widens its grant. An empty list, or an absent [acceptance] section, means every landing needs the owner's acceptance.",
@@ -471,8 +493,7 @@ const resourceValue = z.strictObject({
 
 /**
  * The Zod entry schema for each record-table family — the single source of truth
- * for the knobs a `[standards.<name>]` / `[jobs.<name>]` / `[scopes.<name>]` /
- * `[worktree.resources.<name>]` table accepts. Keyed by record family so the
+ * for the knobs each open `<name>` table accepts. Keyed by record family so the
  * managed-banner guard (ADR 0138) can assert every knob is documented in that
  * family's banner — the only channel by which a newly-added knob reaches an
  * existing install. A field added here auto-enrols in that check.
@@ -480,6 +501,7 @@ const resourceValue = z.strictObject({
 export const RECORD_ENTRY_SCHEMAS = {
   jobs: customJobValue,
   scopes: scopeValue,
+  generated: generatedValue,
   standards: standardValue,
   "worktree.resources": resourceValue,
 } as const;
@@ -573,6 +595,7 @@ export const configSchema = z.strictObject({
   map: mapSection,
   jobs: jobsSection,
   scopes: scopesSection,
+  generated: generatedSection,
   acceptance: acceptanceSection,
   worktree: worktreeSection,
   standards: standardsSection,
@@ -626,6 +649,8 @@ export function projectDisplayName(config: DiscernConfig): string {
 
 /** One `[scopes.<name>]` entry, fully defaulted. */
 export type ScopeConfig = z.infer<typeof scopeValue>;
+/** One `[generated.<name>]` entry, fully defaulted. */
+export type GeneratedConfig = z.infer<typeof generatedValue>;
 /** One `[standards.<name>]` entry, fully defaulted. */
 export type StandardConfig = z.infer<typeof standardValue>;
 /** One `[worktree.resources.<name>]` entry, fully defaulted. */
@@ -685,12 +710,16 @@ export const configDocSchema = z.strictObject({
   scopes: z.record(z.string().regex(NAME_RE), scopeValue).optional().describe(
     "[scopes.<name>] tables — a named region defined by `paths`, with optional attributes.",
   ),
+  generated: z.record(z.string().regex(NAME_RE), generatedValue).optional()
+    .describe(
+      "[generated.<name>] tables — committed artifacts, their deterministic regeneration command, and an optional timeout.",
+    ),
   standards: z.record(z.string().regex(NAME_RE), standardValue).optional()
     .describe(
       "[standards.<name>] tables. Coverage is just a conventional name.",
     ),
 }).describe(
-  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
+  "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional.",
 );
 
 /** The config-document shape — the *input* view (what an author writes, before

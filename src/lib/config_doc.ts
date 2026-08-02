@@ -6,7 +6,7 @@
  *   - `discern setup --config <file>` — drives a fresh, non-interactive install.
  *   - a preset's `preset.json` — the config half of an `preset` overlay.
  *
- * Both apply the document's `jobs` / `scopes` / `standards` to
+ * Both apply the document's `jobs` / `scopes` / `generated` / `standards` to
  * a project's `discern.toml` through the comment-preserving `TomlEditor`.
  * Because this shape is a published contract (a JSON Schema ships at
  * `schema/discern-setup-config.schema.json`), it carries an optional `version`
@@ -19,6 +19,7 @@ import {
   type CommandValue,
   CONFIG_DOC_VERSION,
   type DiscernConfigDoc,
+  toCommandList,
 } from "../shared/config_schema.ts";
 import type { InitFlags } from "./prompts.ts";
 import { TomlEditor } from "./toml_edit.ts";
@@ -144,13 +145,13 @@ export function docHasFills(doc: DiscernConfigDoc): boolean {
 }
 
 /**
- * Apply a document's `jobs`/`scopes`/`standards` fills to a
+ * Apply a document's `jobs`/`scopes`/`generated`/`standards` fills to a
  * `TomlEditor` over a project's `discern.toml`. Validates names and
  * enum-ish values (known job name, stage, direction) the same way the `config`
  * subcommand does; throws on bad input so the caller can report it.
  *
  * With `skipExisting`, a fill whose target already carries a real value (a set
- * key, or a present `[jobs.*]`/`[scopes.*]`/`[standards.*]` table) is skipped
+ * key, or a present named-record table) is skipped
  * and reported instead of replacing it — a present value is the user's, so a
  * preset overlays config the way it overlays files: create-or-skip, never
  * overwrite. The default (used by `setup --config` over a freshly generated
@@ -259,6 +260,38 @@ export function applyConfigDoc(
     });
   }
 
+  // Generated artifacts: ownership globs, a deterministic regeneration command,
+  // and an optional time budget.
+  for (const [name, spec] of Object.entries(doc.generated ?? {})) {
+    assertName("generated group", name);
+    if (!Array.isArray(spec.paths)) {
+      throw new Error(
+        `generated group "${name}": paths must be an array of globs`,
+      );
+    }
+    const run = spec.run as unknown;
+    if (!isCommandOrList(run) || toCommandList(run).length === 0) {
+      throw new Error(
+        `generated group "${name}": run must contain at least one command`,
+      );
+    }
+    if (
+      spec.timeout !== undefined &&
+      (typeof spec.timeout !== "number" || spec.timeout < 0)
+    ) {
+      throw new Error(
+        `generated group "${name}": timeout must be zero or a positive number`,
+      );
+    }
+    write(`generated.${name}`, editor.hasSection(`generated.${name}`), () => {
+      editor.setStringArray(`generated.${name}.paths`, spec.paths);
+      setCommand(editor, `generated.${name}.run`, run);
+      if (spec.timeout !== undefined) {
+        editor.setNumber(`generated.${name}.timeout`, spec.timeout);
+      }
+    });
+  }
+
   // Standards: direction, run (emits the metric), and limit are required; metric
   // defaults to the standard name.
   for (const [name, spec] of Object.entries(doc.standards ?? {})) {
@@ -322,6 +355,12 @@ function setCommand(
 /** True for a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Whether a loosely parsed value has the command-or-list wire shape. */
+function isCommandOrList(value: unknown): value is CommandOrList {
+  return typeof value === "string" ||
+    (Array.isArray(value) && value.every((item) => typeof item === "string"));
 }
 
 /** Throw if `name` is not a TOML-bare-key-shaped identifier. */

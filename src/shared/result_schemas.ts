@@ -828,8 +828,10 @@ const updateRangeSchema = z.strictObject({
  * `files` it landed (each capped, with the pre-cap `*_total` and a `*_truncated`
  * flag), which of the branch's own files `overlap` them (re-read these for semantic
  * conflicts a clean merge can't catch), the fire-scopes the incoming change touches
- * (`scopes_incoming`), and the `range` anchors for drilling in. Present only when
- * something was — or, in a preview, would be — updated (omitted on a no-op). */
+ * (`scopes_incoming`), generated paths resolved without textual merging
+ * (`auto_resolved`), generated groups re-run after the merge (`regenerated`), and
+ * the `range` anchors for drilling in. Present only when something was — or, in a
+ * preview, would be — updated (omitted on a no-op). */
 export const UpdateDataSchema = z.strictObject({
   behind: z.number(),
   fast_forward: z.boolean(),
@@ -842,6 +844,8 @@ export const UpdateDataSchema = z.strictObject({
   overlap: z.array(z.string()),
   overlap_total: z.number(),
   scopes_incoming: z.array(z.string()),
+  auto_resolved: z.array(z.string()).optional(),
+  regenerated: z.array(z.string()).optional(),
   range: updateRangeSchema,
 });
 export type UpdateData = z.infer<typeof UpdateDataSchema>;

@@ -442,6 +442,50 @@
         "additionalProperties": false
       }
     },
+    "generated": {
+      "description": "[generated.<name>] tables — committed artifacts, their deterministic regeneration command, and an optional timeout.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path."
+          },
+          "run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits."
+          },
+          "timeout": {
+            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "paths",
+          "run"
+        ],
+        "additionalProperties": false
+      }
+    },
     "standards": {
       "description": "[standards.<name>] tables. Coverage is just a conventional name.",
       "type": "object",
@@ -595,5 +639,5 @@
     }
   },
   "additionalProperties": false,
-  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/standards are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
+  "description": "The declarative config shape consumed by `discern setup --config <file>` and by a preset's `preset.json`. Its jobs/scopes/generated/standards records are written into a project's discern.toml via the comment-preserving editor. Every field is optional."
 }

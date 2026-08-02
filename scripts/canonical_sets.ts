@@ -29,6 +29,7 @@
 import { dirname, fromFileUrl, join } from "@std/path";
 
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
+import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -1915,15 +1916,6 @@ function pathList(paths: readonly string[]): string {
   return paths.map((path) => `\`${path}\``).join(", ");
 }
 
-/** A Markdown code span using a fence longer than any run in its value. */
-function codeSpan(value: string): string {
-  const runs = value.match(/`+/g) ?? [];
-  const fenceLength = Math.max(1, ...runs.map((run) => run.length + 1));
-  const fence = "`".repeat(fenceLength);
-  const padding = value.startsWith("`") || value.endsWith("`") ? " " : "";
-  return `${fence}${padding}${value}${padding}${fence}`;
-}
-
 /** The heading a set's atlas section renders under. */
 function setHeading(entry: CanonicalSetEntry): string {
   return `\`${entry.id}\` — ${entry.title}`;
@@ -2067,7 +2059,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
       );
     } else {
       lines.push(`- Members: ${members.length}`);
-      lines.push(...members.map((member) => `  - ${codeSpan(member)}`));
+      lines.push(...members.map((member) => `  - ${markdownCodeSpan(member)}`));
     }
     lines.push(`- Guards: ${pathList(entry.guards)}`);
     if (entry.artifacts.length > 0) {

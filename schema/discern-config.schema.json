@@ -541,6 +541,51 @@
         "additionalProperties": false
       }
     },
+    "generated": {
+      "default": {},
+      "description": "[generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.",
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_-]+$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path."
+          },
+          "run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits."
+          },
+          "timeout": {
+            "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "paths",
+          "run"
+        ],
+        "additionalProperties": false
+      }
+    },
     "acceptance": {
       "description": "Recorded standing grants for landing. The owner edits these grants on the trunk; each entry names a [scopes.<name>] region whose changes may land without a per-landing conversation.",
       "default": {},

@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md)._
 
-10 pillars · 124 nodes · 11 benefit statements · 37 agent-experience accounts · 69 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 125 nodes · 11 benefit statements · 38 agent-experience accounts · 70 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -23,7 +23,7 @@ _Every product feature and benefit, enumerated once, at every resolution. Creati
 
 _The nodes carrying an agent-experience account — the interaction design an agent meets directly. Each account renders inline at its node, marked **Agent:**._
 
-- **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Normalized diagnostics · The gotchas pointer · The receipt · A rerun on an unchanged tree is attested
+- **The quality gate** — the pillar itself · Job time budgets · Write authority proven first · Generated artifact declarations · Normalized diagnostics · The gotchas pointer · The receipt · A rerun on an unchanged tree is attested
 - **Standards** — Input-keyed replay
 - **Isolated worktrees** — the pillar itself · Start · Update · Accept · Per-worktree resources · Crash-safe provisioning · Orphan reclamation · The fleet view · Awaiting a fleet condition
 - **The map** — The discovery funnel · The docs integrity preflight
@@ -58,6 +58,7 @@ _The repo, not the agent, decides what done means. An agent's confidence has no 
 - **Write authority proven first** — Before project work, the gate performs the smallest real write of each class it will later need — a create/rename/remove round-trip in the Git admin area, an open-for-write on an existing marker — because sandbox permission metadata can approve an operation the sandbox then denies. A denial is a structured failure naming the blocked path, with a reproduce command. _A sandbox denial costs a few filesystem operations up front instead of a discarded gate run at the end._ **Agent:** _The agent learns about a missing permission while retrying is still cheap: one re-run with escalated authority, and no half-recorded state to clean up. In the engine, a branded authority token means a state writer cannot compile without the probe._
 - **Scopes** — `[scopes.<name>]` names a region of the repository by path globs. A scope can be `neutral` (changes there need no gate), `previewable` (worth a preview link), or carry its own `gate` command that runs only when the region changed. _A docs edit doesn't pay for a compile, and a sub-component's own checks fire only when it moved._
   - **Fail-open classification** — A path matching no scope counts as a real code change, so an unknown path runs more gates, never fewer. _Misconfiguration errs toward checking too much, never too little._
+- **Generated artifact declarations** — `[generated.<name>]` declares scope-style path globs for the committed artifacts one generator owns, the deterministic `run` command that rewrites them, and an optional `timeout`. The generator removes artifacts it no longer emits. _Artifact ownership and regeneration live in one machine-readable record, so consumers read the same paths and command._ **Agent:** _A coding agent can resolve an artifact path to its named generator group and read the command that rebuilds it. The declaration also says which tool must remove an orphaned artifact._
 - **The fast inner loop** — `discern prepare` runs the fix-stage jobs then the check-stage jobs, and never builds or tests — the quick pass while iterating, before the full `discern done`. _Cheap feedback while the change is still moving._
 - **Tests on their own** — `discern test` runs the configured test job (and `smoke`) outside the full gate, and reports a trivial pass with a note when no test command is configured.
 - **Normalized diagnostics** — A failed job returns structured diagnostics: the tool, file and line when available, the message, and the exact command to reproduce it. Oversized captured output is normalized and offloaded to a file instead of flooding the result. _The fix starts at the cause; nothing needs re-running to see what failed._ **Agent:** _The capture window keeps the head and the tail of oversized output, so the first compiler error and the final summary both survive, and the full text offloads to a named file only when the inline view was clipped. A failure a configured fixer might resolve is flagged as such, and a job that passed while printing error-like lines fires a hint naming its output._ (hints: `gate-job-loud-success`)
@@ -281,6 +282,7 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `acceptance` — consent-attestations
 - `coupling` — insight
 - `gate` — gate
+- `generated` — generated-artifact-declarations
 - `guidance` — guidance
 - `jobs` — gate
 - `map` — map

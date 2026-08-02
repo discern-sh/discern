@@ -18,6 +18,7 @@
 import type { DiscernResult, FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import type { LandingConsentSource } from "./consent.ts";
+import { markdownCodeSpan } from "./markdown_code.ts";
 import {
   type CommandRef,
   discernCommand,
@@ -376,6 +377,14 @@ const GATE_CHECK_TEST_REMEDY_CORE =
 const GATE_REPRODUCE_REMEDY_CORE =
   "Fix the problems in the diagnostics and confirm with each diagnostic's " +
   `reproduce command, then re-run ${CMD.done}.`;
+
+/** Runtime facts needed to render a generated-artifact drift remedy. */
+export interface GeneratedDriftRemedyParams {
+  /** The `<name>` from the failed `[generated.<name>]` group. */
+  readonly group: string;
+  /** The resolved command declared by that group's `run`. */
+  readonly run: string;
+}
 
 /** Maximum names rendered in one hint summary. */
 const HINT_NAME_CAP = 3;
@@ -1972,6 +1981,26 @@ export const HINTS = {
       "Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.",
   }),
 
+  /** A declared generator changed one or more artifacts it owns. */
+  "gate-failure-generated-drift": defineHint<GeneratedDriftRemedyParams>({
+    id: "gate-failure-generated-drift",
+    category: "next-step",
+    audience: "all",
+    when:
+      "A declared generator changes one or more committed artifacts it owns.",
+    family: "gate-failure-remedy",
+    example: {
+      group: "reference",
+      run: "tool write-reference --source source/ --output reference/",
+    },
+    template: ({ group, run }): string =>
+      `Generated group ${
+        markdownCodeSpan(`[generated.${group}]`)
+      } drifted. Run ${
+        markdownCodeSpan(run)
+      }, commit the regeneration, then re-run ${CMD.done}. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.`,
+  }),
+
   /** Discern-managed ignored output was committed to the repository. */
   "gate-failure-tracked-artifacts": defineHint({
     id: "gate-failure-tracked-artifacts",
@@ -3145,10 +3174,17 @@ export function withFailureRecoveryHint<TData>(
   };
 }
 
-/**
- * Failed-stage lookup into the registry. Total over {@link FailedStage}, so a new
- * stage cannot compile until its remedy is registered and enrolled here.
- */
+/** Bind a parameterized entry to its example for parameterless totality audits. */
+function exampleBoundHint<P>(def: HintDef<P>): HintDef<undefined> {
+  return {
+    ...def,
+    example: undefined,
+    template: (): string => def.template(def.example),
+  };
+}
+
+/** Failed-stage lookup into the registry. Total over {@link FailedStage}, so a
+ * new stage cannot compile until its remedy is registered and enrolled here. */
 export const GATE_FAILURE_REMEDIES = {
   fix: HINTS["gate-failure-fix"],
   build: HINTS["gate-failure-build"],
@@ -3157,6 +3193,7 @@ export const GATE_FAILURE_REMEDIES = {
   "check/test": HINTS["gate-failure-check-test"],
   scope_gates: HINTS["gate-failure-scope-gates"],
   tree_drift: HINTS["gate-failure-tree-drift"],
+  generated_drift: exampleBoundHint(HINTS["gate-failure-generated-drift"]),
   tracked_artifacts: HINTS["gate-failure-tracked-artifacts"],
   guidance: HINTS["gate-failure-guidance"],
   skills: HINTS["gate-failure-skills"],
@@ -3169,8 +3206,16 @@ export const GATE_FAILURE_REMEDIES = {
   write_access: HINTS["gate-failure-write-access"],
 } as const satisfies Record<FailedStage, HintDef<undefined>>;
 
-/** Fire the registered remedy for a failed gate stage. */
-export function gateFailureRemedy(stage: FailedStage): FiredHint {
+/** Fire the registered remedy for a failed gate stage. Generated-drift callers
+ * pass the owning group; the example fallback keeps closed-set audits total
+ * before the stage gains its wave-2 producer. */
+export function gateFailureRemedy(
+  stage: FailedStage,
+  generated?: GeneratedDriftRemedyParams,
+): FiredHint {
+  if (stage === "generated_drift" && generated !== undefined) {
+    return fire(HINTS["gate-failure-generated-drift"], generated);
+  }
   return fire(GATE_FAILURE_REMEDIES[stage]);
 }
 

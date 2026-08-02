@@ -424,6 +424,26 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         ],
       },
       {
+        id: "generated-artifact-declarations",
+        title: "Generated artifact declarations",
+        what:
+          "`[generated.<name>]` declares scope-style path globs for the committed artifacts one generator owns, the deterministic `run` command that rewrites them, and an optional `timeout`. The generator removes artifacts it no longer emits.",
+        why:
+          "Artifact ownership and regeneration live in one machine-readable record, so consumers read the same paths and command.",
+        agent:
+          "A coding agent can resolve an artifact path to its named generator group and read the command that rebuilds it. The declaration also says which tool must remove an orphaned artifact.",
+        plain: {
+          title: "Files made by a tool",
+          what:
+            "`[generated.<name>]` records which saved files one tool makes, the instruction that makes them again, and an optional `timeout` time limit. Given the same project files, the instruction must write the same contents and remove old files the tool no longer makes.",
+          why:
+            "Each reader gets the file list and the instruction that makes it from one settings entry.",
+          agent:
+            "A coding agent can find which named entry owns a file and read the instruction that makes it again.",
+        },
+        surfaces: ["config:generated"],
+      },
+      {
         id: "prepare",
         title: "The fast inner loop",
         what:

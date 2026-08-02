@@ -50,6 +50,11 @@ aliases:
   - scopes.<name>.previewable
   - scopes.<name>.gate
   - scopes.<name>.timeout
+  - generated
+  - generated.<name>
+  - generated.<name>.paths
+  - generated.<name>.run
+  - generated.<name>.timeout
   - acceptance
   - acceptance.pre_authorized
   - worktree
@@ -100,7 +105,7 @@ The file that configures a discern install.
 
 Every section, key, type, and default below is generated from the canonical schema (`src/shared/config_schema.ts`). A **Default** is the value discern uses when the key is absent; the gate, worktree workflow, and standards all read this shape through one typed loader, so the documentation matches what the engine enforces.
 
-The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[standards.<name>]`, `[worktree.resources.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
+The named-table sections (`[jobs.<name>]` for custom jobs, `[scopes.<name>]`, `[generated.<name>]`, `[worktree.resources.<name>]`, `[standards.<name>]`) are repeatable: declare as many as you like, each with its own `<name>`.
 
 Fresh setup seeds `[scopes.map]` with the map and deferred-work ledger. `[scopes.guidance]` carries the project brief, guidance sources, authored skills, and materialized skills directories. The `[acceptance]` example names only `map`, so agent-instruction changes require owner review. Upgrade leaves existing named scopes unchanged; owners of earlier installs split their scope manually to adopt this boundary.
 
@@ -199,6 +204,16 @@ A custom job. Its name is open, but its stage and command are explicit.
 | `previewable` | boolean            | `false` | true: a person could see changes here — worth a preview link.                                                                                                        |
 | `gate`        | string \| string[] | —       | A command discern done runs when this scope changed (a sub-component with its own self-contained gate).                                                              |
 | `timeout`     | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.              |
+
+## `[generated.<name>]`
+
+[generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.
+
+| Key       | Type               | Default | Description                                                                                                                                                                                                                                     |
+| --------- | ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paths`   | string[]           | —       | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. |
+| `run`     | string \| string[] | —       | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.                                                               |
+| `timeout` | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                         |
 
 ## `[acceptance]`
 

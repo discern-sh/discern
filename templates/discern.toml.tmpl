@@ -231,6 +231,24 @@
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# [generated.<name>] — committed artifacts wholly owned by one generator.
+#   paths    scope-style globs naming every artifact the generator owns
+#   run      the command, or commands in order, that rewrite those artifacts;
+#            the same tree must produce the same bytes, and the generator removes
+#            artifacts absent from its current output
+#   timeout  optional seconds for the command; replaces [gate].timeout for this
+#            group only (0 disables the bound)
+# ─────────────────────────────────────────────────────────────────────────────
+
+[generated]
+# A tool that writes a committed reference from source:
+# [generated.reference]
+# paths   = ["reference/**"]
+# run     = "tool write-reference --source source/ --output reference/"
+# timeout = 120
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # [acceptance] — standing grants for landing. Each entry names a scope whose
 # changes may land without a per-landing conversation. The owner records this
 # decision on the trunk. Scope definitions become consent-bearing: widening a

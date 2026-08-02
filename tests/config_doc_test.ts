@@ -146,7 +146,7 @@ Deno.test("loadConfigDoc rejects a non-object top-level JSON value", async () =>
 
 // ---- applyConfigDoc: happy path --------------------------------------------
 
-Deno.test("applyConfigDoc writes map, jobs, scopes and standards", () => {
+Deno.test("applyConfigDoc writes map, jobs, scopes, generated groups and standards", () => {
   const ed = editor();
   applyConfigDoc(ed, {
     map: { dir: "docs/discern/" },
@@ -158,6 +158,13 @@ Deno.test("applyConfigDoc writes map, jobs, scopes and standards", () => {
     scopes: {
       native: { paths: ["native/**"], gate: "make -C native check" },
       docs: { paths: ["docs/"], neutral: true },
+    },
+    generated: {
+      reference: {
+        paths: ["reference/**"],
+        run: "tool write-reference",
+        timeout: 120,
+      },
     },
     standards: {
       coverage: {
@@ -181,6 +188,10 @@ Deno.test("applyConfigDoc writes map, jobs, scopes and standards", () => {
   assert(out.includes('["native/**"]'));
   assert(out.includes('gate = "make -C native check"'));
   assert(out.includes("neutral = true"));
+  // A generated group carries ownership, regeneration, and its time budget.
+  assert(out.includes('["reference/**"]'));
+  assert(out.includes('run = "tool write-reference"'));
+  assert(out.includes("timeout = 120"));
   // A standard inlines its run.
   assert(out.includes('direction = "down"'));
   assert(out.includes("limit = 80"));
@@ -204,6 +215,13 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
       windows: {
         paths: ["src\\win\\**", 'quote"/**', "unicode/é/**"],
         gate: ["echo \\d+", "echo trailing\\"],
+      },
+    },
+    generated: {
+      reference: {
+        paths: ["reference\\win\\**", 'quote"/**', "unicode/é/**"],
+        run: ["tool write-reference --filter=\\d+", "echo trailing\\"],
+        timeout: 90,
       },
     },
     standards: {
@@ -234,6 +252,16 @@ Deno.test("applyConfigDoc writes TOML that re-parses to the intended config valu
     "unicode/é/**",
   ]);
   assertEquals(config.scopes.windows?.gate, ["echo \\d+", "echo trailing\\"]);
+  assertEquals(config.generated.reference?.paths, [
+    "reference\\win\\**",
+    'quote"/**',
+    "unicode/é/**",
+  ]);
+  assertEquals(config.generated.reference?.run, [
+    "tool write-reference --filter=\\d+",
+    "echo trailing\\",
+  ]);
+  assertEquals(config.generated.reference?.timeout, 90);
   assertEquals(config.standards.coverage?.run, "deno coverage --filter=\\d+");
 });
 
@@ -284,6 +312,9 @@ const FULL_FILL_DOC: DiscernConfigDoc = {
     c1: { stage: "check", run: "run-c1" },
   },
   scopes: { s1: { paths: ["s1/**"] } },
+  generated: {
+    reference: { paths: ["reference/**"], run: "tool write-reference" },
+  },
   standards: {
     r1: { direction: "up", limit: 1, run: "measure-r1" },
   },
@@ -440,6 +471,37 @@ Deno.test("applyConfigDoc rejects a non-array scope paths value", () => {
     Error,
     'scope "web": paths must be an array of globs',
   );
+});
+
+Deno.test("applyConfigDoc rejects malformed generated groups", () => {
+  assertThrows(
+    () =>
+      applyConfigDoc(
+        editor(),
+        {
+          generated: {
+            reference: {
+              paths: "reference/**" as unknown as string[],
+              run: "tool reference",
+            },
+          },
+        },
+      ),
+    Error,
+    'generated group "reference": paths must be an array of globs',
+  );
+  for (const run of ["", []]) {
+    assertThrows(
+      () =>
+        applyConfigDoc(editor(), {
+          generated: {
+            reference: { paths: ["reference/**"], run },
+          },
+        }),
+      Error,
+      'generated group "reference": run must contain at least one command',
+    );
+  }
 });
 
 Deno.test("applyConfigDoc rejects a standard with no run, and a bad direction", () => {

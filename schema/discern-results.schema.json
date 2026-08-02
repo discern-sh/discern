@@ -5781,6 +5781,7 @@
                         "check/test",
                         "scope_gates",
                         "tree_drift",
+                        "generated_drift",
                         "tracked_artifacts",
                         "guidance",
                         "skills",
@@ -12682,6 +12683,18 @@
                   "type": "number"
                 },
                 "scopes_incoming": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "auto_resolved": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "regenerated": {
                   "type": "array",
                   "items": {
                     "type": "string"

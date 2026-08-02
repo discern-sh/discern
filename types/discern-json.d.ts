@@ -1814,6 +1814,7 @@ export type DiscernDoneResult = {
       | "check/test"
       | "scope_gates"
       | "tree_drift"
+      | "generated_drift"
       | "tracked_artifacts"
       | "guidance"
       | "skills"
@@ -3815,6 +3816,8 @@ export type DiscernUpdateResult = {
     overlap: Array<string>;
     overlap_total: number;
     scopes_incoming: Array<string>;
+    auto_resolved?: Array<string>;
+    regenerated?: Array<string>;
     range: {
       base: string;
       before: string;

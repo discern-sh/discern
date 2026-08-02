@@ -59,6 +59,7 @@ export interface ConfigReconcileResult {
 export const RECORD_CONFIG_PATHS = [
   "jobs",
   "scopes",
+  "generated",
   "standards",
   "worktree.resources",
 ] as const;

@@ -476,6 +476,19 @@ Rendered example:
 Fix the problems in the diagnostics — each carries the command to reproduce it — and iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
 ```
 
+## `gate-failure-generated-drift`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: A declared generator changes one or more committed artifacts it owns.
+
+Rendered example:
+
+```text
+Generated group `[generated.reference]` drifted. Run `tool write-reference --source source/ --output reference/`, commit the regeneration, then re-run `discern done`. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.
+```
+
 ## `gate-failure-gotcha-matched`
 
 - Category: `next-step`

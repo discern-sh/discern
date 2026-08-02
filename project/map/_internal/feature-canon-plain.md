@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._
 
-10 main areas · 124 detailed entries · 11 statements of benefit · 37 accounts of what the coding agent experiences · 69 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 125 detailed entries · 11 statements of benefit · 38 accounts of what the coding agent experiences · 70 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -23,7 +23,7 @@ _Every feature and benefit appears here once, in plain language, at every level 
 
 _The entries below directly describe what a coding agent experiences. Each full account also appears beside the feature it belongs to, marked **Coding agent:**._
 
-- **The final quality check** — the main area itself · Time limits for each piece of work · Proving permission to write first · Clear and consistent failure reports · A pointer to known traps · The proof-of-completion summary · A repeat check on unchanged work is a recorded choice
+- **The final quality check** — the main area itself · Time limits for each piece of work · Proving permission to write first · Files made by a tool · Clear and consistent failure reports · A pointer to known traps · The proof-of-completion summary · A repeat check on unchanged work is a recorded choice
 - **Quality rules** — Reusing a measurement when nothing it reads has changed
 - **Separate working copies** — the main area itself · Start · Update · Accept · Separate supporting services for each copy · Safe setup even when interrupted · Cleaning up leftovers · The overview of all work in progress · Waiting for a condition across the tasks
 - **The project guide** — Finding the right page · Checking that the guide still works
@@ -58,6 +58,7 @@ _The project itself, not the coding agent, decides when the work counts as finis
 - **Proving permission to write first** — Before the real work, the check tries the smallest genuine example of every kind of file change it will later need — briefly creating, renaming, and removing something in the version history's housekeeping area, and opening an existing marker file for writing — because a permission list can say yes and the computer can still say no. A refusal becomes a clear failure naming the blocked place, with an instruction that reproduces it. _A denied permission costs a few tiny file actions up front instead of a whole thrown-away run at the end._ **Coding agent:** _The coding agent learns about a missing permission while trying again is still cheap: one re-run with stronger permission, and no half-recorded state to clean up. Inside Discern's own construction, a part that writes saved state will not even build without proof that this check ran._
 - **Areas of the project** — `[scopes.<name>]` names one part of the project by the file locations it covers. An area can be `neutral` (changes there need no check), `previewable` (a person could usefully preview it), or carry its own `gate` instruction that runs only when that area changed. _A change to written guidance does not pay the cost of preparing the whole app, and a smaller part's private checks run only when that part moved._
   - **Choosing safety when a file is unknown** — A file matching no named area counts as a real program change, so an unknown file causes more checking. _A settings mistake errs toward checking too much._
+- **Files made by a tool** — `[generated.<name>]` records which saved files one tool makes, the instruction that makes them again, and an optional `timeout` time limit. Given the same project files, the instruction must write the same contents and remove old files the tool no longer makes. _Each reader gets the file list and the instruction that makes it from one settings entry._ **Coding agent:** _A coding agent can find which named entry owns a file and read the instruction that makes it again._
 - **The quick check while work is still moving** — `discern prepare` runs the tidying steps and then the read-only checks, and never prepares the app or runs the trials — the fast pass to use while working, before the complete `discern done`. _Cheap feedback while the change is still taking shape._
 - **Running the trials by themselves** — `discern test` runs the project's listed trials (and the quick `smoke` readiness trial) outside the complete check, and reports a simple pass with a note when the project has no trial instruction set up.
 - **Clear and consistent failure reports** — A failed piece of work reports the tool involved, the file and line when known, the message, and the exact instruction that reproduces the failure. Discern tidies output too long to show whole into a named file instead of flooding the result. _Work on the fix starts at the cause, and nothing needs re-running to see what went wrong._ **Coding agent:** _When output runs long, the beginning and the end are both kept, so the first error and the final summary survive — the complete text goes to a separate named file only when the short view lost lines. Discern marks a failure that a listed tidying tool might fix, and a piece of work that claimed success while printing error-like lines produces an advice note naming those lines._ (advice note: `gate-job-loud-success`)
@@ -281,6 +282,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `acceptance` — consent-attestations
 - `coupling` — insight
 - `gate` — gate
+- `generated` — generated-artifact-declarations
 - `guidance` — guidance
 - `jobs` — gate
 - `map` — map
