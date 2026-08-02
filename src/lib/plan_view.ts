@@ -14,6 +14,7 @@ const DISPOSITION_LABEL: Record<OpDisposition, string> = {
   skip: "skip",
   merge: "merge",
   append: "append",
+  remove: "remove",
 };
 
 /** Render the full plan as a per-file listing under a heading (used by --dry-run). */
@@ -49,7 +50,8 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   // agent's seeded config is grouped here without editing this view.
   const agentPrefixes = agentIntegrationPrefixes();
   const integration = pick((o) =>
-    o.targetRel === ".gitignore" || o.targetRel === ".mcp.json" ||
+    o.targetRel === ".gitignore" || o.targetRel === ".gitattributes" ||
+    o.targetRel === ".mcp.json" ||
     agentPrefixes.some((p) => o.targetRel.startsWith(p))
   );
   const integrationSet = new Set(integration);
@@ -93,7 +95,11 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
       const what = op.disposition === "merge"
         ? "merged into your existing settings"
         : op.disposition === "append"
-        ? "the discern section reconciled in your .gitignore"
+        ? op.targetRel === ".gitignore"
+          ? "the discern section reconciled in your .gitignore"
+          : `the discern section reconciled in ${op.targetRel}`
+        : op.disposition === "remove"
+        ? "the empty managed file removed"
         : "created";
       log.line(row(log, op.targetRel, what));
     }

@@ -29,7 +29,8 @@ import {
   toCommandList,
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
-import { renderAgentFiles } from "../engine/guidance_render.ts";
+import { agentFilePaths, renderAgentFiles } from "../engine/guidance_render.ts";
+import { planDiscernGitattributesBlock } from "../lib/agent_gitattributes.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import {
   allGuidanceFilePaths,
@@ -561,6 +562,35 @@ export async function runChecks(
   {
     const groups = resolveGeneratedGroups(config);
     if (groups.length > 0) {
+      const attributes = await planDiscernGitattributesBlock(
+        destDir,
+        groups,
+        agentFilePaths(config),
+      );
+      if (attributes.operations.length > 0 || attributes.refused.length > 0) {
+        const details: string[] = [];
+        if (attributes.operations.length > 0) {
+          details.push(
+            ".gitattributes does not match the current generated-path declarations",
+          );
+        }
+        for (const refused of attributes.refused) {
+          details.push(
+            `\`[generated.${refused.group}] paths\` pattern ${
+              JSON.stringify(refused.pattern)
+            } cannot be translated: ${refused.reason}`,
+          );
+        }
+        checks.push({
+          name: "generated: .gitattributes",
+          ok: true,
+          status: "warn" as const,
+          detail: details.join("; "),
+          fix: attributes.refused.length > 0
+            ? "edit the named [generated] paths, then run `discern refresh` to reconcile .gitattributes"
+            : "run `discern refresh` to reconcile .gitattributes",
+        });
+      }
       for (const group of groups) {
         const word = leadingCommandWord(group.run);
         if (word === undefined) {

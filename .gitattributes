@@ -1,0 +1,6 @@
+# --- discern ---
+# discern | generated from [generated] in discern.toml and the provider registry | hand edits to this discern-owned content are overwritten | https://discern.sh
+/CLAUDE.md merge=discern-generated
+/AGENTS.md merge=discern-generated
+/GEMINI.md merge=discern-generated
+# --- /discern ---

@@ -72,6 +72,17 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
     ),
     description: "Project ignore rules. discern maintains its marked block.",
   },
+  {
+    id: "fixed:gitattributes",
+    path: ".gitattributes",
+    pathKind: "file",
+    ownership: { shared: true },
+    writtenArtifact: commentCapableNonContextArtifact(
+      ARTIFACT_PROVENANCE_SOURCES.gitattributes,
+    ),
+    description:
+      "Project attributes. discern maintains its marked generated-merge block.",
+  },
 ];
 
 function environmentArtifacts(
