@@ -108,6 +108,7 @@
     ]
   },
   "lint": {
+    "plugins": ["./scripts/function_docblock_lint.ts"],
     "rules": {
       "include": [
         "eqeqeq",
