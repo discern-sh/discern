@@ -487,7 +487,8 @@
   # a broken check still fails fast), says what it is waiting for, and continues
   # the moment a slot frees. A killed run's slot is released by the operating
   # system, so a crash never blocks the others. 0 (the default) means no cap;
-  # 1 runs every suite at full speed, one after another.
+  # 1 runs every suite at full speed, one after another. Wrap the project's own
+  # test task with `discern queue -- <command>` so direct invocations share it.
   concurrent_test_runs = 0
 
 

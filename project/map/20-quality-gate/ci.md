@@ -84,6 +84,10 @@ The full commit hashes keep remote action code immutable within a reviewed workf
 
 The toolchain step belongs before the gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
 
+## Wrapped test tasks
+
+The workflow above already installs discern, so a wrapped test task works unchanged and acquires immediately in a fresh checkout. Any other workflow that invokes that task must install discern first.
+
 ## Require the result
 
 In the repository's rule set or branch-protection settings, require pull requests and the `gate` job before merge. The workflow reports a status. The repository rule turns that status into policy. Keep the push trigger so landed commits also produce a record.
@@ -94,7 +98,7 @@ In the repository's rule set or branch-protection settings, require pull request
 
 ## Cloud-agent changes
 
-A cloud coding agent may start from a clone without the discern binary or materialized skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's gate before the change can merge. Install discern in the agent environment as well when you want Model Context Protocol tools and skills during the work.
+A cloud coding agent may start from a clone without the discern binary or materialized skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed; this also supplies Model Context Protocol tools and skills.
 
 ## Where it lives in code
 
