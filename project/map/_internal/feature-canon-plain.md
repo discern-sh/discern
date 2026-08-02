@@ -4,7 +4,7 @@
 
 _Every feature and benefit appears here once, in plain language, at every level of detail. Anyone writing, building, or promoting the product reads this guide (or the master list in `scripts/feature_registry.ts`, where every entry sits beside its technical twin) instead of making a new feature list. The same guide in technical language is [feature-canon.md](feature-canon.md)._
 
-10 main areas · 125 detailed entries · 11 statements of benefit · 38 accounts of what the coding agent experiences · 71 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
+10 main areas · 125 detailed entries · 11 statements of benefit · 38 accounts of what the coding agent experiences · 72 claims about lists with a fixed membership. The top level gives the shortest account, and the deepest level gives the fullest one.
 
 ## At a glance
 
@@ -247,6 +247,7 @@ Every member of the product's official fixed lists appears below beside the feat
 - `patterns` — patterns
 - `prepare` — prepare
 - `preset` — presets
+- `queue` — gate
 - `refresh` — guidance
 - `scripts` — project-scripts
 - `setup` — setup

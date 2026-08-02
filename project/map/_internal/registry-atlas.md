@@ -12,7 +12,7 @@ One row per set, in registry order; the sections below follow the same order and
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 31      | per member       | surface `verb`              |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 32      | per member       | surface `verb`              |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
@@ -47,7 +47,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
-| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 31      | "Patterns"       | node `patterns`             |
+| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 32      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 125     | —                | —                           |
@@ -61,7 +61,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 243     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 244     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -210,7 +210,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 31
+- Members: 32
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -224,6 +224,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
   - `done`
   - `prepare`
   - `test`
+  - `queue`
   - `await`
   - `improvement`
   - `standards`
@@ -1006,7 +1007,7 @@ The presentation-only vocabulary a patterns finding uses to distinguish favorabl
 Every detector the patterns verb runs over the logbook, in stable registry order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
-- Members: 31
+- Members: 32
   - `done-thrash`
   - `refusal-loop`
   - `hint-follow-through`
@@ -1027,6 +1028,7 @@ Every detector the patterns verb runs over the logbook, in stable registry order
   - `guidance-parity`
   - `dominant-stage`
   - `generator-gate-share`
+  - `slot-contention`
   - `duration-creep`
   - `fix-stage-idle`
   - `recurring-diagnostic`
@@ -1487,7 +1489,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 243
+- Members: 244
   - `0003`
   - `0005`
   - `0006`
@@ -1712,6 +1714,7 @@ The numbered decision records in the map, including records later superseded.
   - `0249`
   - `0250`
   - `0251`
+  - `0252`
   - `0252`
   - `0001`
   - `0002`
@@ -2002,6 +2005,7 @@ Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
+- `tests/await_readiness_guard_test.ts` — sweeps authored await tests for elapsed-time readiness assumptions; this is a test timing rule with no member vocabulary
 
 ### Codegen targets compiling from no registry
 
