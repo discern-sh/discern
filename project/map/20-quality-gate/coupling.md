@@ -12,7 +12,7 @@ aliases:
 
 _`discern coupling` names files that usually move together, with the history behind each suggestion._
 
-Use [coupling](../00-orientation/glossary.md#coupling) when a change may have a habitual sibling: a schema and its validator, a registry and its consumers, or an implementation and its test. The command mines the repository's own git history and reports the strongest relationships it finds. It is an [advisory](../00-orientation/glossary.md#advisory), so you decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
+`discern coupling` mines git history for habitual siblings such as a schema and its validator or an implementation and its test. It reports relationships and evidence. The result is an [advisory](../00-orientation/glossary.md#advisory). You decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## Choose a mode
 
@@ -28,7 +28,7 @@ discern coupling src/shared/result.ts src/shared/result_schemas.ts
 | 1 path     | Query      | The file's strongest co-change partners, useful before editing it.              |
 | 2 paths    | Evidence   | The recent commits where both files changed, with each file's own commit count. |
 
-Diff-aware mode compares the branch with trunk and includes worktree edits. A clean worktree can still produce suggestions when the branch has commits ahead. Evidence mode lets you inspect subjects and dates before turning a pattern into a rule.
+Diff-aware mode includes commits ahead of trunk and worktree edits. Evidence mode shows subjects and dates before you turn a pattern into a rule.
 
 ## Read the evidence
 
@@ -41,7 +41,9 @@ Each partner carries plain counts:
 - `confidence`, the share represented by `cochanges`;
 - `lift`, the association relative to the partner's background frequency.
 
-The model reads a bounded window of recent non-merge commits. It removes neutral paths, drops sweeping outlier commits, requires repeated co-change and statistical significance, ranks the survivors, and caps the result. These choices keep generated documentation and repository-wide formatting commits from manufacturing a recommendation.
+Before the `<2` check, basket-size fence, or counts, coupling removes neutral paths and paths owned by `[generated.<name>]`. It removes paths from a commit, preserving authored pairs beside a declared output. Neutrality comes from scope rules. Generated ownership remains separate and applies to non-neutral paths.
+
+Declared outputs are projections and never candidate siblings. Explicit queries name the owner in `excluded_generated`. Evidence omits counts and commit rows when a generated group owns either argument. The model drops sweeping commits, requires repeated and statistically significant co-change, ranks, and caps results ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
 ## Keep it in the gate
 
@@ -52,7 +54,7 @@ Fresh configs append the diff-aware advisory to green `discern prepare` and `dis
 in_gate = true
 ```
 
-Automatic gate hints use a stricter evidence threshold and show fewer partners than a direct query. They appear at the end of a successful, fully set-up run and only add `hints[]`. Set `in_gate = false` to keep the standalone command available without running the advisory in the gate ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
+Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and only add `hints[]`. Set `in_gate = false` to keep the standalone command without the gate advisory ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
 
 ## Decide what to enforce
 
