@@ -67,7 +67,12 @@ import {
   splitByCohort,
 } from "./cohorts.ts";
 import { effectiveAgentSignals } from "./agent_identity.ts";
-import type { LogbookEvent, PruneDigest, VerbEvent } from "./schema.ts";
+import {
+  executionDurationMs,
+  type LogbookEvent,
+  type PruneDigest,
+  type VerbEvent,
+} from "./schema.ts";
 import { byBranch } from "./read.ts";
 
 /** Stable marker carried in standard observations when their series crosses
@@ -2308,8 +2313,10 @@ const durationCreep: Detector = {
     const half = Math.floor(series.length / 2);
     const earlier = series.slice(0, half);
     const later = series.slice(series.length - half);
-    const durEarly = median(earlier.map((e) => e.duration_ms)) / 1000;
-    const durLate = median(later.map((e) => e.duration_ms)) / 1000;
+    // Creep asks whether gate execution got slower. End-to-end wall time would
+    // turn a busier fleet into an apparent suite regression.
+    const durEarly = median(earlier.map(executionDurationMs)) / 1000;
+    const durLate = median(later.map(executionDurationMs)) / 1000;
     const sizeEarly = median(earlier.map((e) => e.change?.files ?? 0));
     const sizeLate = median(later.map((e) => e.change?.files ?? 0));
     const findings: DetectorFinding[] = [];

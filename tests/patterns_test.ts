@@ -2772,6 +2772,26 @@ Deno.test("patterns regression: a gate-duration trend survives interleaved confi
   );
 });
 
+Deno.test("patterns duration creep excludes slot waits from suite health", () => {
+  const events = run(
+    Array.from({ length: 8 }, (_, i) => ({
+      verb: "done",
+      duration_ms: i < 4 ? 100_000 : 220_000,
+      waited_ms: i < 4 ? 0 : 120_000,
+      change: { files: 3, insertions: 30, deletions: 5, commits: 2 },
+    })),
+  );
+  const creep = DETECTORS.find((d) => d.id === "duration-creep");
+  assert(creep !== undefined);
+  const outcome = runDetector(creep, buildStreamFacts(events, "main"));
+  assertEquals(outcome.considered, 8);
+  assertEquals(
+    outcome.findings,
+    [],
+    "steady execution must stay quiet when only slot contention grew",
+  );
+});
+
 // ── setup-era exclusion ──────────────────────────────────────────────────────
 
 Deno.test("patterns setup era: events on the setup branch are set aside before analysis", () => {

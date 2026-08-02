@@ -666,6 +666,7 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
       invocation: "current-finish-a",
       verb: "done",
       duration_ms: 240_000,
+      waited_ms: 180_000,
       epoch: currentEpoch,
     },
     {
@@ -675,6 +676,7 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
       outcome: "failed",
       failed_stage: "test",
       duration_ms: 360_000,
+      waited_ms: 300_000,
       epoch: currentEpoch,
     },
     {
@@ -694,8 +696,8 @@ Deno.test("fleet activity: begin/finish pairing and current-epoch duration prior
 
   const derived = deriveFleetLogbookActivity(events, currentEpoch, now);
   assertEquals(derived.durationPriors.get("done"), {
-    medianMs: 300_000,
-    p90Ms: 360_000,
+    medianMs: 60_000,
+    p90Ms: 60_000,
     samples: 2,
   });
   assertEquals(derived.byBranch.get("main"), {
