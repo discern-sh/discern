@@ -10,7 +10,10 @@
  * legibility per ADR 0005, bound to the schema by drift-guard tests instead.)
  *
  * A sync test (`tests/config_codegen_test.ts`) asserts each committed file equals
- * its generator output, so forgetting to regenerate fails the gate.
+ * its generator output, so forgetting to regenerate fails the gate. The
+ * `[generated.codegen]` group in discern.toml reruns this script in the gate's
+ * build stage and fails on drift too (ADR 0247) — the two guards are
+ * deliberately redundant; keep both.
  */
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";

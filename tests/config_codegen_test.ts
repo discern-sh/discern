@@ -1,3 +1,17 @@
+/**
+ * The committed config artifacts stay in lockstep with their generators: the
+ * JSON Schemas and the generated reference pages must equal the codegen output
+ * byte for byte, so a schema change that lands without `deno task codegen`
+ * fails here, in the gate's test stage.
+ *
+ * The build stage guards the same fact from the other side: the
+ * `[generated.codegen]` group (ADR 0247) reruns the generator on every full
+ * gate and fails on drift. That redundancy is deliberate — this family names
+ * the exact artifact and equality remedy and runs under bare `deno task test`,
+ * while the build-stage attribution holds even paths no test asserts on. Do
+ * not thin one side because the other exists.
+ */
+
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
