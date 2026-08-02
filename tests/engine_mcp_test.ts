@@ -33,7 +33,10 @@ import { providerFor } from "../src/lib/providers.ts";
 import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { OPERATING_POLICIES } from "../src/shared/operating_policies.ts";
+import {
+  AWAIT_WATCH_POLICY,
+  OPERATING_POLICIES,
+} from "../src/shared/operating_policies.ts";
 import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type LogbookEvent,
@@ -2902,6 +2905,15 @@ Deno.test("discern mcp: await bounds follow the server's configured transport pr
     await addWorktree(dir, "await-auto");
     const tool = TOOLS.find((candidate) => candidate.name === "discern_await");
     assert(tool !== undefined);
+    assertStringIncludes(
+      tool.description,
+      "do not surface progress updates until it returns",
+    );
+    assertStringIncludes(
+      tool.description,
+      "continue with `data.resume` without surfacing an update",
+    );
+    assertStringIncludes(tool.description, AWAIT_WATCH_POLICY);
 
     const cases = [
       {

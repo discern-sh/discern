@@ -24,6 +24,17 @@ export interface OperatingPolicy {
   readonly probes: readonly RegExp[];
 }
 
+/** How an agent communicates while one resumable fleet watch is in progress. */
+export const AWAIT_WATCH_POLICY =
+  "Once called, do not surface progress updates until it returns. If it " +
+  "returns with `data.met: false`, continue with `data.resume` without " +
+  "surfacing an update. Repeat with no fixed retry limit until the condition " +
+  "holds, the user stops the watch, or the task no longer needs it. An " +
+  "`ok: false` refusal has no continuation. Do not resume it. Follow its " +
+  "recovery hint. Report only when the condition holds, the task no longer " +
+  "needs the watch, or the call returns a refusal or error that needs action. " +
+  "Always respond to new user input.";
+
 /** Every core operating policy shared by the guidance and MCP instructions. */
 export const OPERATING_POLICIES = [
   {
@@ -69,12 +80,17 @@ export const OPERATING_POLICIES = [
     statement:
       "Wait for a sibling branch to go green, its work to land, or the trunk " +
       "to move with discern_await. Make one call and let it use the longest " +
-      "safe bound; do not shorten it for progress updates. If it answers not " +
-      "met, continue with data.resume until the condition holds, the user " +
-      "stops, or the task no longer needs it. An ok:false refusal has no " +
-      "continuation; follow its recovery hint.",
+      `safe bound. ${AWAIT_WATCH_POLICY}`,
     surfaces: OPERATING_POLICY_SURFACES,
-    probes: [/discern_await/, /longest[ -]safe/i, /progress/, /resume/],
+    probes: [
+      /discern_await/,
+      /longest[ -]safe/i,
+      /do not surface progress updates until it returns/i,
+      /data\.met: false/,
+      /data\.resume.*without surfacing an update/i,
+      /Report only when the condition holds/,
+      /respond to new user input/i,
+    ],
   },
   {
     id: "never-loosen",

@@ -16,7 +16,7 @@
 
 import { assert, assertEquals } from "@std/assert";
 import { join } from "@std/path";
-import { buildInstructions } from "../src/engine/mcp/server.ts";
+import { buildInstructions, TOOLS } from "../src/engine/mcp/server.ts";
 import {
   OPERATING_POLICIES,
   OPERATING_POLICY_SURFACES,
@@ -109,6 +109,27 @@ function parityFailures(
   return failures;
 }
 
+const AWAIT_REPORTING_REQUIREMENTS = [
+  "do not surface progress updates until it returns",
+  "continue with `data.resume` without surfacing an update",
+  "Report only when the condition holds",
+  "Always respond to new user input",
+] as const;
+
+function awaitReportingFailures(
+  surfaces: readonly { readonly label: string; readonly text: string }[],
+): string[] {
+  const failures: string[] = [];
+  for (const surface of surfaces) {
+    for (const requirement of AWAIT_REPORTING_REQUIREMENTS) {
+      if (!surface.text.includes(requirement)) {
+        failures.push(`${surface.label} missing: ${requirement}`);
+      }
+    }
+  }
+  return failures;
+}
+
 Deno.test("the operating-policy registry is complete and self-consistent", () => {
   assertEquals(registryFailures(OPERATING_POLICIES), []);
 });
@@ -133,6 +154,61 @@ Deno.test("both operating-model surfaces carry every registered policy", async (
     "every registered policy must appear on every declared surface — restore " +
       "the wording, or update the statement and probe as one policy change:\n  " +
       failures.join("\n  "),
+  );
+});
+
+Deno.test("await policy keeps active calls and unmet continuations off the chat", async () => {
+  const policy = OPERATING_POLICIES.find((candidate) =>
+    candidate.id === "await-longest-safe"
+  );
+  assert(
+    policy !== undefined,
+    "the await operating policy must remain registered",
+  );
+  const tool = TOOLS.find((candidate) => candidate.name === "discern_await");
+  assert(tool !== undefined, "the await MCP tool must remain registered");
+  const surfaces = [
+    { label: "canonical await policy", text: policy.statement },
+    { label: "bundled guidance", text: await guidanceBlob() },
+    { label: "MCP instructions", text: buildInstructions() },
+    { label: "await MCP tool", text: tool.description },
+    {
+      label: "delegate-work skill",
+      text: await Deno.readTextFile(
+        join(
+          REPO_ROOT,
+          "templates",
+          "skills",
+          "discern-delegate-work",
+          "SKILL.md",
+        ),
+      ),
+    },
+    {
+      label: "feature canon source",
+      text: await Deno.readTextFile(
+        join(REPO_ROOT, "scripts", "feature_registry.ts"),
+      ),
+    },
+  ];
+  assertEquals(
+    awaitReportingFailures(surfaces),
+    [],
+    "every await policy surface must suppress active-call and continuation updates",
+  );
+});
+
+Deno.test("control: await reporting detector rejects renamed heartbeat guidance", () => {
+  const failures = awaitReportingFailures([
+    {
+      label: "future wait",
+      text:
+        "Use future_wait for one long call. Do not shorten it for progress reports. Resume a not-met result.",
+    },
+  ]);
+  assertEquals(failures.length, AWAIT_REPORTING_REQUIREMENTS.length);
+  assert(
+    failures.every((failure) => failure.startsWith("future wait missing:")),
   );
 });
 

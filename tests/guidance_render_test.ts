@@ -433,8 +433,12 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
           "`from` (any ref) — work composes below the trunk",
         ],
         [
-          "await spends the transport budget instead of narrating progress",
-          "one longest-safe call and returns early when its condition holds. Never shorten the call to send progress reports",
+          "an active await call produces no progress updates",
+          "do not surface progress updates until it returns",
+        ],
+        [
+          "an unmet await continuation produces no update",
+          "continue with `data.resume` without surfacing an update",
         ],
         [
           "await continuations have no fixed retry count",
@@ -442,7 +446,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
         ],
         [
           "a refusal follows recovery instead of continuing",
-          "An `ok: false` refusal has no continuation: do not resume it; follow its recovery hint",
+          "An `ok: false` refusal has no continuation. Do not resume it. Follow its recovery hint",
         ],
         [
           "atomic history survives acceptance",

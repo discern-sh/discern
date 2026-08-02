@@ -41,7 +41,7 @@ Omit `timeout` and let discern use the longest reliable call for the configured 
 - Cursor's shared IDE-and-CLI MCP entry and an undeclared MCP client use 45 seconds. The Cursor CLI/ACP path stops at 60 seconds, so the shared entry uses that shortest verified surface.
 - Configurable clients receive a one-hour MCP tool timeout, leaving five minutes of delivery and cancellation headroom around the 55-minute wait.
 
-The condition returns immediately when it holds. A longer bound does not delay success, so do not split a supported long call into heartbeat-sized calls for progress reporting. Client cancellation still ends it promptly.
+The condition returns immediately when it holds. Once called, do not surface progress updates until it returns. A direct user message still gets a response. Client cancellation still ends the call promptly.
 
 An explicit smaller MCP timeout remains exact. Discern caps a larger request at the transport-safe limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
 
@@ -55,7 +55,7 @@ A timed-out call returns a 15-character continuation handle. Its envelope carrie
 discern await --resume C1-7K3M-PQ9D-YM --timeout 45
 ```
 
-Pass the handle by itself, without another condition flag. It restores the branch's latest observed tip and landing transition, or the original trunk baseline. A change in the round-trip gap can still satisfy the watch. If the result is still not met, follow its next `--resume` command. Do not restart the condition or stop after an arbitrary retry count. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency. An `ok: false` refusal carries no continuation. Follow its recovery hint or resolve the blocker.
+Pass the handle by itself, without another condition flag. It restores the branch's latest observed tip and landing transition, or the original trunk baseline. A change in the round-trip gap can still satisfy the watch. If the result is still not met, continue with `data.resume` without surfacing an update. Do not restart the condition or stop after an arbitrary retry count. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency. An `ok: false` refusal carries no continuation. Do not resume it. Follow its recovery hint. Report only when the condition holds, the task no longer needs the watch, or the call returns a refusal or error that needs action.
 
 The handle uses a reduced Base32 alphabet and carries a checksum. discern rejects a damaged handle before looking it up. The saved state lives at `<git-common-dir>/discern/continuations/`, shared by every worktree in the repository. discern removes a completed watch's record. A cleanup failure leaves it to expiry. Unused records expire after 7 days, and the store keeps at most 512. An expired or evicted handle cannot reconstruct its gap, so restart that watch from its condition. Older `v1.…` tokens remain accepted and become short handles if the watch times out again ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)).
 

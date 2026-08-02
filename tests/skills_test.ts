@@ -187,7 +187,15 @@ Deno.test("delegate-work keeps the staged-handoff safeguards and resumable-wait 
       ],
       [
         "a not-yet watch follows resumable state",
-        "follow the returned resume hint or `--resume` command",
+        "Follow the returned resume hint or `--resume` command",
+      ],
+      [
+        "an active await call produces no progress updates",
+        "do not surface progress updates until it returns",
+      ],
+      [
+        "an unmet await continuation produces no update",
+        "continue with `data.resume` without surfacing an update",
       ],
       [
         "the handoff can launch without a human readiness relay",

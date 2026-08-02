@@ -137,7 +137,10 @@ import {
   createInstalledVersionResolver,
   versionMismatchHint,
 } from "./version_check.ts";
-import { operatingPolicyStatementsFor } from "../../shared/operating_policies.ts";
+import {
+  AWAIT_WATCH_POLICY,
+  operatingPolicyStatementsFor,
+} from "../../shared/operating_policies.ts";
 
 const SERVER_NAME = "discern";
 
@@ -662,10 +665,7 @@ export const TOOLS: McpTool[] = orderTools([
       "activity. If the bound expires, the result stays ok with data.met false. " +
       "Pass data.resume by itself on the next call: it preserves the original " +
       "branch transition or trunk baseline, so a condition crossed between calls is " +
-      "not lost. Keep following returned continuations until the condition " +
-      "holds, the user stops the watch, or the task no longer needs it; do not " +
-      "impose a retry-count limit. An ok:false refusal has no continuation: " +
-      "follow its recovery hint. " +
+      `not lost. ${AWAIT_WATCH_POLICY} ` +
       `Omit timeout to hold one call for up to ${AWAIT_LONG_CALL_SECONDS}s on ` +
       "a known configurable client, or " +
       `${AWAIT_STRICT_CALL_SECONDS}s on a strict or unknown client. A larger ` +

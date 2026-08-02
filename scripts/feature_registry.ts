@@ -898,7 +898,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
-          "Use one call at its longest safe bound instead of slicing it for progress. If it returns not met, follow the returned continuation until the condition holds or the user stops the watch; never restart the condition or impose a retry-count limit. Follow the met hint: it chooses start or update for the caller's location and uses an immutable green commit when composing below the trunk.",
+          "Use one call at its longest safe bound. Once called, do not surface progress updates until it returns. If it returns with `data.met: false`, continue with `data.resume` without surfacing an update. Repeat until the condition holds or the user stops the watch. Never restart the condition or impose a retry-count limit. Report only when the condition holds or the call returns a refusal or error that needs action. Always respond to new user input. Follow the met hint: it chooses start or update for the caller's location and uses an immutable green commit when composing below the trunk.",
         plain: {
           title: "Waiting for a condition across the tasks",
           what:
@@ -906,7 +906,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           why:
             "A coding agent that depends on another task makes one bounded request instead of guessing how often to check or asking a person.",
           agent:
-            "Let one request use its full safe time instead of shortening it for updates. When it returns before the condition, use its continuation until the condition holds or the person stops the watch. A met condition comes with the right follow-up: bring in the main shared version, add the passing task beneath an existing copy, or create a fresh copy from it.",
+            "Let one request use its full safe time. Once it starts, don't post progress updates until it returns. If it returns before the condition is met, continue from its saved place without posting an update. Keep going until the condition holds or the person stops the watch. Report a completed condition or a problem that needs action, and answer any new message from the person. A met condition comes with the right follow-up: bring in the main shared version, add the passing task beneath an existing copy, or create a fresh copy from it.",
         },
         surfaces: ["verb:await"],
         hints: ["await-not-yet"],
