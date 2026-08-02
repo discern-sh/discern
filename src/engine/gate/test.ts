@@ -29,6 +29,7 @@ import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
 import type { Out } from "../output.ts";
+import { renderSlotWait } from "./slot_wait_render.ts";
 
 /**
  * Run the test gate once: build the test stage's group and run it through the shared
@@ -172,9 +173,11 @@ export async function runTestJob(
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
     });
+    renderSlotWait(out, result.waitedMs);
     return 1;
   }
   out.ok("Tests passed.");
+  renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
   for (const hint of hints) {

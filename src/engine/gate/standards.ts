@@ -74,6 +74,7 @@ import type { JobResult } from "../jobs/types.ts";
 import type { RunOptions } from "../jobs/runner.ts";
 import { type JobEvaluators, runGroup } from "./execute.ts";
 import { buildTestRunSlots, type TestRunSlots } from "./test_slots.ts";
+import { renderSlotWait } from "./slot_wait_render.ts";
 import { type JobGroup, type PlannedJob, serializeJobSteps } from "./plan.ts";
 import {
   type TrunkLimitsVerification,
@@ -1699,6 +1700,7 @@ function renderStandardsResult(
     }
     out.error(diagnostic.message);
   }
+  renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
   for (const hint of hints) {

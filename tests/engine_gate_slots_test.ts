@@ -20,7 +20,7 @@
  * demand the notice without reintroducing a race.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertMatch } from "@std/assert";
 import { join } from "@std/path";
 import { GIT_ADMIN_STATE } from "../src/shared/git_admin_state.ts";
 import {
@@ -33,7 +33,10 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  DENO_JSON,
+  engineEnv,
   gitInit,
+  MAIN_TS,
   runAgent,
   scaffoldEngine,
   writeConfig,
@@ -468,6 +471,99 @@ Deno.test("gate slots: cap=1 serializes two concurrent test runs and begins befo
       }
     } finally {
       await Deno.remove(aux, { recursive: true });
+    }
+  });
+});
+
+Deno.test("gate slots: a contended done displays slot wait beside run timings", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        'test = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const release = await holdSlot(dir);
+    const child = new Deno.Command("deno", {
+      args: [
+        "run",
+        "--no-check",
+        "--config",
+        DENO_JSON,
+        "-A",
+        MAIN_TS,
+        "done",
+      ],
+      cwd: dir,
+      env: await engineEnv(),
+      stdin: "null",
+      stdout: "piped",
+      stderr: "piped",
+    }).spawn();
+    let stdoutText = "";
+    let stderrText = "";
+    const stdout = (async (): Promise<string> => {
+      const decoder = new TextDecoder();
+      for await (const chunk of child.stdout) {
+        stdoutText += decoder.decode(chunk, { stream: true });
+      }
+      stdoutText += decoder.decode();
+      return stdoutText;
+    })();
+    const stderr = (async (): Promise<string> => {
+      const decoder = new TextDecoder();
+      for await (const chunk of child.stderr) {
+        stderrText += decoder.decode(chunk, { stream: true });
+      }
+      stderrText += decoder.decode();
+      return stderrText;
+    })();
+    const status = child.status;
+    let settled = false;
+    try {
+      await pollUntil(
+        "done to report its queue wait",
+        () => `${stdoutText}${stderrText}`.includes(QUEUED_TEXT),
+      );
+      release();
+      const [exit, out, err] = await Promise.all([status, stdout, stderr]);
+      settled = true;
+      assertEquals(exit.code, 0, `${out}${err}`);
+      const output = `${out}${err}`;
+      assertMatch(
+        output,
+        /^→ Waited [1-9][0-9]*(?:h|m|s)(?: [0-9]+(?:m|s))* for a test-run slot\.$/mu,
+      );
+      assertEquals(
+        output.split("\n").some((line) =>
+          line.includes("── test") && line.includes("Waited")
+        ),
+        false,
+        "slot wait stays outside the run and step timings",
+      );
+    } finally {
+      release();
+      if (!settled) {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // Already settled.
+        }
+        await Promise.all([status, stdout, stderr]);
+      }
     }
   });
 });

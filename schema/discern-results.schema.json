@@ -15851,6 +15851,10 @@
         "deletions": {
           "type": "number"
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "line": {
           "type": "string"
         },
@@ -15868,7 +15872,7 @@
         "line",
         "markdown"
       ],
-      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, optional capped-run slot wait, and the two renderings derived from those facts."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

@@ -58,6 +58,7 @@ import {
 } from "../../lib/map_integrity.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
+import { renderSlotWait } from "./slot_wait_render.ts";
 import {
   createDoneTtyProgress,
   renderDoneTtyReceiptPanel,
@@ -941,6 +942,7 @@ async function runGate(
       result.steps ?? [],
       standardsData,
       standardsLimits,
+      result.waitedMs,
     )
     : undefined;
   // Record the measurement receipt (ADR 0112, extended by ADR 0133): a green
@@ -1312,6 +1314,8 @@ function printSuccessTail(
   if (receipt?.markdown !== undefined) {
     out.group("receipt");
     out.raw(`${dimBlock(receipt.markdown, outSink(out).dim)}\n`);
+  } else {
+    renderSlotWait(out, result.waitedMs);
   }
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
@@ -1501,6 +1505,7 @@ export async function runFinish(
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
     });
+    renderSlotWait(out, result.waitedMs);
     return 1;
   }
   printSuccessTail(

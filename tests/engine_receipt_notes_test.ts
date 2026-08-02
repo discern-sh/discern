@@ -644,6 +644,7 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
     files_total: 1,
     insertions: 1,
     deletions: 0,
+    waited_ms: 70_000,
     line: `Receipt for ${branch}`,
     markdown: `### Receipt for ${branch}`,
   };
