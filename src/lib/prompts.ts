@@ -106,6 +106,37 @@ export type SelectPromptGroup<T> =
   & HumanOutputGroup<SelectPromptOption<T>>
   & { label: string };
 
+interface PromptWriter {
+  writeSync(data: Uint8Array): number;
+}
+
+interface PromptOptionsWithWriter {
+  message: string;
+  writer?: PromptWriter;
+}
+
+const PROMPT_BOUNDARY = new TextEncoder().encode("\n");
+
+/** Give one prompt invocation a leading semantic boundary on its own output
+ * stream. Wrapping the writer keeps Cliffy's prefix, indentation, cursor math,
+ * and redraws intact while adding the boundary only to the first write. */
+export function withPromptBoundary<T extends PromptOptionsWithWriter>(
+  options: T,
+): T & { writer: PromptWriter } {
+  const target = options.writer ?? Deno.stdout;
+  let boundaryPending = true;
+  const writer: PromptWriter = {
+    writeSync: (data): number => {
+      if (boundaryPending && data.length > 0) {
+        boundaryPending = false;
+        target.writeSync(PROMPT_BOUNDARY);
+      }
+      return target.writeSync(data);
+    },
+  };
+  return { ...options, writer };
+}
+
 /** Build a prompt's option list from named semantic groups. Every populated
  * group receives a ruled heading with one empty row above it, including the
  * first, so task rows and navigation/actions never collapse into one flat list. */
@@ -135,7 +166,7 @@ export function selectPrompt<T>(
   options: SelectPromptOptions<T>,
 ): ReturnType<typeof Select.prompt<T>> {
   requireInteraction("this selection");
-  return Select.prompt<T>(options);
+  return Select.prompt<T>(withPromptBoundary(options));
 }
 
 /** Guard interactive policy before delegating to Cliffy's multi-choice prompt. */
@@ -143,13 +174,14 @@ export function checkboxPrompt<T>(
   options: CheckboxPromptOptions<T>,
 ): ReturnType<typeof Checkbox.prompt<T>> {
   requireInteraction("this selection");
-  return Checkbox.prompt<T>(options);
+  return Checkbox.prompt<T>(withPromptBoundary(options));
 }
 
 /** Guard interactive policy before asking for free-form text. */
 export function inputPrompt(options: InputPromptOptions): Promise<string> {
   requireInteraction("this question");
-  return Input.prompt(options);
+  const settings = typeof options === "string" ? { message: options } : options;
+  return Input.prompt(withPromptBoundary(settings));
 }
 
 /** Guard interactive policy before asking a yes-or-no question with a default. */
@@ -158,7 +190,7 @@ export function confirmationPrompt(
   defaultTo: boolean,
 ): Promise<boolean> {
   requireInteraction("this confirmation");
-  return Confirm.prompt({ message, default: defaultTo });
+  return Confirm.prompt(withPromptBoundary({ message, default: defaultTo }));
 }
 
 /**
