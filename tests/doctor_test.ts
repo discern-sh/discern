@@ -213,6 +213,48 @@ async function addCheck(
   );
 }
 
+/** One `[generated.<name>]` fixture. Multi-group tests render this table
+ * directly, so adding a group enrols it in every per-group row assertion. */
+interface GeneratedGroupFixture {
+  readonly name: string;
+  readonly paths: readonly string[];
+  readonly run: string;
+}
+
+async function addGeneratedGroups(
+  dir: string,
+  groups: readonly GeneratedGroupFixture[],
+): Promise<void> {
+  await appendConfig(
+    dir,
+    groups.map((group) =>
+      `[generated.${group.name}]\npaths = ${
+        JSON.stringify(group.paths)
+      }\nrun = ${JSON.stringify(group.run)}`
+    ).join("\n\n"),
+  );
+}
+
+/** Keep a just-initialized test repository from failing doctor's separate
+ * logbook-history check before these generated-contract assertions run. */
+async function disableLogbook(dir: string): Promise<void> {
+  const path = join(dir, "discern.toml");
+  const text = await Deno.readTextFile(path);
+  await Deno.writeTextFile(
+    path,
+    text.replace("logbook = true", "logbook = false"),
+  );
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await Deno.stat(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 Deno.test("doctor --json: a fresh install includes the seeded tidy format job", async () => {
   await withTempDir(async (dir) => {
     await setupInstall(dir);
@@ -683,6 +725,153 @@ Deno.test("doctor: a dynamic leading word is skipped (advisory scope), never fai
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
     assertEquals(check(payload, "job commands").ok, true);
+  });
+});
+
+Deno.test("doctor: generated run probes resolve each leading word without executing generators", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await disableLogbook(dir);
+    const groups = [
+      {
+        name: "reference",
+        paths: ["reference-*.txt"],
+        run: "sh -c 'touch generator-ran'",
+      },
+      {
+        name: "schema",
+        paths: ["schema-*.json"],
+        run: "definitely-not-a-generator-xyz --write",
+      },
+    ] satisfies readonly GeneratedGroupFixture[];
+    await addGeneratedGroups(dir, groups);
+    await Deno.writeTextFile(join(dir, "reference-output.txt"), "reference\n");
+    await Deno.writeTextFile(join(dir, "schema-output.json"), "{}\n");
+    await gitInit(dir);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 1);
+    for (const group of groups) {
+      const paths = check(payload, `generated: ${group.name} paths`);
+      assertEquals(paths.status, "ok", `${group.name} paths should resolve`);
+      assertStringIncludes(paths.detail, group.paths[0] ?? "");
+      assertStringIncludes(paths.detail, "git-tracked file");
+    }
+
+    const resolved = check(payload, "generated: reference run");
+    assertEquals(resolved.status, "ok");
+    assertStringIncludes(resolved.detail, "leading word `sh` resolves");
+    assertEquals(
+      await pathExists(join(dir, "generator-ran")),
+      false,
+      "doctor must probe the leading word without running the generator",
+    );
+
+    const missing = check(payload, "generated: schema run");
+    assertEquals(missing.status, "fail");
+    assertStringIncludes(
+      missing.detail,
+      "leading word `definitely-not-a-generator-xyz` does not resolve",
+    );
+    assertStringIncludes(missing.fix ?? "", "[generated.schema] run");
+  });
+});
+
+Deno.test("doctor: generated path probes distinguish empty, untracked, and ignored groups", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await disableLogbook(dir);
+    const groups = [
+      { name: "empty", paths: ["missing/**"], run: "sh -c true" },
+      {
+        name: "untracked",
+        paths: ["untracked-*.txt"],
+        run: "sh -c true",
+      },
+      {
+        name: "ignored",
+        paths: ["ignored-*.txt"],
+        run: "sh -c true",
+      },
+    ] satisfies readonly GeneratedGroupFixture[];
+    await addGeneratedGroups(dir, groups);
+    await Deno.writeTextFile(join(dir, ".gitignore"), "ignored-output.txt\n", {
+      append: true,
+    });
+    await Deno.writeTextFile(join(dir, "ignored-output.txt"), "ignored\n");
+    await gitInit(dir);
+    await Deno.writeTextFile(join(dir, "untracked-output.txt"), "untracked\n");
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    for (const group of groups) {
+      assertEquals(check(payload, `generated: ${group.name} run`).status, "ok");
+      const paths = check(payload, `generated: ${group.name} paths`);
+      assertEquals(paths.status, "warn", `${group.name} should be advisory`);
+      assertStringIncludes(paths.detail, group.paths[0] ?? "");
+      assertStringIncludes(paths.fix ?? "", `[generated.${group.name}] paths`);
+    }
+
+    const empty = check(payload, "generated: empty paths");
+    assertStringIncludes(empty.detail, "match no git-tracked");
+
+    for (const name of ["untracked", "ignored"]) {
+      const inert = check(payload, `generated: ${name} paths`);
+      assertStringIncludes(inert.detail, "all untracked or ignored");
+      assertStringIncludes(inert.detail, "inert");
+      assertStringIncludes(inert.detail, "never conflict and never drift");
+      assertStringIncludes(inert.detail, "Track them or drop the group");
+    }
+  });
+});
+
+Deno.test("doctor: overlapping generated ownership warns with every claiming config row", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    await disableLogbook(dir);
+    const groups = [
+      { name: "reference", paths: ["shared-*.txt"], run: "sh -c true" },
+      { name: "manifest", paths: ["shared-output.txt"], run: "sh -c true" },
+    ] satisfies readonly GeneratedGroupFixture[];
+    await addGeneratedGroups(dir, groups);
+    await Deno.writeTextFile(join(dir, "shared-output.txt"), "shared\n");
+    await gitInit(dir);
+
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0, JSON.stringify(payload.data.checks));
+    for (const group of groups) {
+      assertEquals(check(payload, `generated: ${group.name} run`).status, "ok");
+      assertEquals(
+        check(payload, `generated: ${group.name} paths`).status,
+        "ok",
+      );
+    }
+    const overlap = check(
+      payload,
+      "generated ownership: shared-output.txt",
+    );
+    assertEquals(overlap.status, "warn");
+    for (const group of groups) {
+      assertStringIncludes(overlap.detail, `[generated.${group.name}]`);
+      assertStringIncludes(
+        overlap.fix ?? "",
+        `[generated.${group.name}] paths`,
+      );
+    }
+  });
+});
+
+Deno.test("doctor: no generated config emits no generated check rows", async () => {
+  await withTempDir(async (dir) => {
+    await setupInstall(dir);
+    const { code, payload } = await runDoctorJson(dir);
+    assertEquals(code, 0);
+    assertEquals(
+      payload.data.checks.filter((candidate) =>
+        candidate.name.startsWith("generated")
+      ),
+      [],
+    );
   });
 });
 
