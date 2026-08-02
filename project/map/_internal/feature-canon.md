@@ -4,7 +4,7 @@
 
 _Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md)._
 
-10 pillars · 125 nodes · 11 benefit statements · 38 agent-experience accounts · 72 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
+10 pillars · 125 nodes · 11 benefit statements · 38 agent-experience accounts · 71 closed-set claims. Depth is resolution: the pillars are the one-breath account, the leaves are the exhaustive one.
 
 ## At a glance
 
@@ -287,7 +287,6 @@ Every member of the product's closed sets, with the node that claims it. The enr
 - `guidance` — guidance
 - `jobs` — gate
 - `map` — map
-- `mcp` — mcp-surface
 - `meta` — install
 - `project` — install
 - `repository` — worktrees

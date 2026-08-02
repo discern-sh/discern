@@ -153,7 +153,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "mcp-tools",
     title: "MCP tools",
     what:
-      "The MCP tool table, including each tool's internal provider-metadata toggles; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to its wire metadata.",
+      "The MCP tool table; verb parity ties every tool to a CLI verb, and the live tools/list guard binds each definition to its advertised schema.",
     source: {
       kind: "module",
       module: "src/engine/mcp/server.ts",
@@ -200,6 +200,38 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () => [
       ...(await import("../src/engine/mcp/server.ts")).MCP_CORE_LIFECYCLE,
     ],
+  },
+  {
+    id: "experimental-environment-variables",
+    title: "Experimental environment variables",
+    what:
+      "The environment-only switches for reversible trials, with one exact activation rule and guards that enroll every source use and internal reference.",
+    source: {
+      kind: "module",
+      module: "src/shared/experimental.ts",
+      exportName: "EXPERIMENTAL_ENVIRONMENT_VARIABLES",
+    },
+    guards: [
+      "tests/experimental_environment_enrolment_test.ts",
+      "tests/providers_test.ts",
+      "tests/engine_agent_wiring_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal environment-variable names for temporary trials, not stable product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "experimental escape hatches are intentionally outside the stable product feature account",
+      },
+    },
+    members: async () =>
+      Object.values(
+        (await import("../src/shared/experimental.ts"))
+          .EXPERIMENTAL_ENVIRONMENT_VARIABLES,
+      ),
   },
   {
     id: "operating-policies",

@@ -1835,7 +1835,6 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         agent:
           "After `discern_start`, a hint walks the agent through re-rooting its own file operations while the tools re-aim themselves, and undeclared arguments are refused — a mistyped parameter fails loudly instead of being dropped.",
         hints: ["start-mcp-re-root"],
-        surfaces: ["config:mcp"],
         plain: {
           title: "The standard connection for coding agents",
           what:

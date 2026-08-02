@@ -2768,7 +2768,6 @@ interface ListedTool {
   name: string;
   title?: string;
   description: string;
-  _meta?: Record<string, unknown>;
   outputSchema?: {
     type?: string;
     properties?: Record<string, unknown>;
@@ -3117,24 +3116,6 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
       status.description.includes("discern_refresh"),
       `discern_status description should name the MCP repair tool; got:\n${status.description}`,
     );
-    const statusDefinition = TOOLS.find((tool) =>
-      tool.name === "discern_status"
-    );
-    assertEquals(statusDefinition?.anthropicAlwaysLoad, true);
-    for (const tool of list.result.tools as ListedTool[]) {
-      const definition = TOOLS.find((candidate) =>
-        candidate.name === tool.name
-      );
-      assert(definition !== undefined, `${tool.name} is absent from TOOLS`);
-      assertEquals(
-        tool._meta,
-        definition.anthropicAlwaysLoad === true
-          ? { "anthropic/alwaysLoad": true }
-          : undefined,
-        `${tool.name} tools/list metadata must derive from its registry toggle`,
-      );
-    }
-
     assertEquals(await mcp.close(), 0);
   });
 });

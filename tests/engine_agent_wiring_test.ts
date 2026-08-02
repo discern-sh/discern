@@ -15,7 +15,7 @@ import { basename, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { exists } from "@std/fs";
 import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
-import { runAgent, scaffoldEngine, writeConfig } from "./engine_helpers.ts";
+import { runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { assembleInitPlan } from "../src/commands/setup.ts";
 import { providersWithHooks } from "../src/lib/providers.ts";
 import type { AgentName } from "../src/lib/config.ts";
@@ -24,6 +24,7 @@ import {
   MCP_LONG_TOOL_CALLS_FLAG,
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../src/shared/mcp_timeout_policy.ts";
+import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 
 Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
@@ -338,30 +339,25 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body",
   });
 });
 
-Deno.test("refresh projects [mcp].always_load into shared .mcp.json and removes it when disabled", async () => {
+Deno.test("refresh projects the environment-only MCP preload experiment and removes it when disabled", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["claude_code", "copilot"] });
-    const config = (alwaysLoad: boolean): string =>
-      [
-        "[project]",
-        'agents = ["claude_code", "copilot"]',
-        "",
-        "[mcp]",
-        `always_load = ${alwaysLoad}`,
-        "",
-      ].join("\n");
-
-    await writeConfig(dir, config(true));
-    const enabled = await runAgent(dir, ["refresh", "--json"]);
+    const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+    const enabled = await runAgent(dir, ["refresh", "--json"], {
+      env: { [variable]: "1" },
+    });
     assertEquals(enabled.code, 0, enabled.output);
     let mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
     assertEquals(mcp.mcpServers.discern.alwaysLoad, true);
+    assertEquals(mcp.mcpServers.discern.deferTools, "never");
 
-    await writeConfig(dir, config(false));
-    const disabled = await runAgent(dir, ["refresh", "--json"]);
+    const disabled = await runAgent(dir, ["refresh", "--json"], {
+      env: { [variable]: "" },
+    });
     assertEquals(disabled.code, 0, disabled.output);
     mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
     assertEquals(mcp.mcpServers.discern.alwaysLoad, undefined);
+    assertEquals(mcp.mcpServers.discern.deferTools, undefined);
   });
 });
 

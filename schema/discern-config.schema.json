@@ -82,19 +82,6 @@
       },
       "additionalProperties": false
     },
-    "mcp": {
-      "description": "MCP startup loading.",
-      "default": {},
-      "type": "object",
-      "properties": {
-        "always_load": {
-          "default": false,
-          "description": "When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared `.mcp.json`; no other provider file receives it.",
-          "type": "boolean"
-        }
-      },
-      "additionalProperties": false
-    },
     "repository": {
       "description": "Repository-wide checkout policy: the trunk, discern-created branch names, and convergence shared by linked worktrees and the main checkout.",
       "default": {},

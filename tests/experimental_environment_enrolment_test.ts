@@ -1,0 +1,100 @@
+/**
+ * Closed-set enrollment guard for environment-only experiments.
+ *
+ * Every `DISCERN_EXPERIMENTAL_*` name in authored TypeScript must come from
+ * the registry, and the internal experimental-behaviors page must account for
+ * every registered name. Synthetic controls prove the two-way comparison
+ * catches a future source use and a future undocumented registry member.
+ */
+
+import { assertEquals } from "@std/assert";
+import { join } from "@std/path";
+import {
+  EXPERIMENTAL_ENV_ENABLED_VALUE,
+  EXPERIMENTAL_ENVIRONMENT_VARIABLES,
+  experimentalEnvironmentEnabled,
+} from "../src/shared/experimental.ts";
+import { fakeEnv } from "./helpers.ts";
+import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+
+const EXPERIMENTAL_DOC =
+  "project/map/50-engine-internals/experimental-behaviors.md";
+const EXPERIMENTAL_ENV_PATTERN = /\bDISCERN_EXPERIMENTAL_[A-Z][A-Z0-9_]*\b/g;
+
+/** Sorted unique experimental environment-variable names found in text. */
+function experimentalEnvironmentNames(text: string): string[] {
+  return [...new Set(text.match(EXPERIMENTAL_ENV_PATTERN) ?? [])].sort();
+}
+
+/** Two-way differences between registered and observed environment names. */
+function enrollmentFailures(
+  registered: readonly string[],
+  observed: readonly string[],
+): string[] {
+  const registeredSet = new Set(registered);
+  const observedSet = new Set(observed);
+  return [
+    ...observed.filter((name) => !registeredSet.has(name)).map((name) =>
+      `${name}: used but absent from EXPERIMENTAL_ENVIRONMENT_VARIABLES`
+    ),
+    ...registered.filter((name) => !observedSet.has(name)).map((name) =>
+      `${name}: registered but absent from the enrolled surface`
+    ),
+  ];
+}
+
+Deno.test("experimental flags use exact value 1", () => {
+  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  assertEquals(EXPERIMENTAL_ENV_ENABLED_VALUE, "1");
+  assertEquals(
+    experimentalEnvironmentEnabled("mcpPreload", fakeEnv({ [variable]: "1" })),
+    true,
+  );
+  for (const value of ["", "0", "true", "yes"]) {
+    assertEquals(
+      experimentalEnvironmentEnabled(
+        "mcpPreload",
+        fakeEnv({ [variable]: value }),
+      ),
+      false,
+    );
+  }
+  assertEquals(
+    experimentalEnvironmentEnabled("mcpPreload", fakeEnv()),
+    false,
+  );
+});
+
+Deno.test("every experimental environment name comes from the registry", async () => {
+  const registered = Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).sort();
+  const observed = new Set<string>();
+  for (const rel of AUTHORED_TS_FILES) {
+    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
+    for (const name of experimentalEnvironmentNames(text)) observed.add(name);
+  }
+  assertEquals(enrollmentFailures(registered, [...observed].sort()), []);
+});
+
+Deno.test("the internal experimental-behaviors page documents every flag", async () => {
+  const registered = Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).sort();
+  const documented = experimentalEnvironmentNames(
+    await Deno.readTextFile(join(REPO_ROOT, EXPERIMENTAL_DOC)),
+  );
+  assertEquals(enrollmentFailures(registered, documented), []);
+});
+
+Deno.test("experimental environment enrollment catches future drift", () => {
+  const prefix = "DISCERN_EXPERIMENTAL_";
+  const current = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  const future = prefix + "FUTURE";
+  assertEquals(
+    enrollmentFailures([current], [current, future]),
+    [
+      `${future}: used but absent from EXPERIMENTAL_ENVIRONMENT_VARIABLES`,
+    ],
+  );
+  assertEquals(
+    enrollmentFailures([current, future], [current]),
+    [`${future}: registered but absent from the enrolled surface`],
+  );
+});

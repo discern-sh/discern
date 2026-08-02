@@ -75,8 +75,6 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 MCP `tools/list` returns complete definitions; clients choose the startup context. discern's server instructions stay below 2KB UTF-8 and lead with: status, start, prepare/test, done, update/await, accept.
 
-Claude Code's Tool Search defers most schemas; vendor `_meta` keeps `discern_status` loaded as the gateway. `[mcp].always_load = true` plus `discern refresh` writes whole-server `alwaysLoad` to `.mcp.json`. It defaults to `false`; other provider files are unchanged. See [Claude Code integration](../60-agent-integrations/claude-code.md#tool-discovery) for version and context costs.
-
 ### Find a map or manual page
 
 `discern_map` and `discern_docs` expose the same discovery funnel ([ADR 0174](../_adr/0174-agent-document-discovery-funnel.md)):

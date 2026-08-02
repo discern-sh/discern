@@ -19,8 +19,6 @@ aliases:
   - project.todo
   - project.logbook
   - project.agents
-  - mcp
-  - mcp.always_load
   - repository
   - repository.trunk
   - repository.branch_prefix
@@ -134,14 +132,6 @@ Project identity and authored project paths.
 | `todo`        | string                                                          | `"discern/TODO.md"` | Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `logbook`     | boolean                                                         | `true`              | When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; config-change attribution and each standard's limit history; advisory findings on `status`, the `done` receipt, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`). |
 | `agents`      | `claude_code` \| `codex` \| `gemini` \| `cursor` \| `copilot`[] | —                   | Which agent integrations to enable: claude_code -> CLAUDE.md, gemini -> GEMINI.md, codex / cursor / copilot -> AGENTS.md. OMIT the key for the default pair (claude_code, codex); set it to an explicit empty list [] to emit for no agents at all.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-
-## `[mcp]`
-
-MCP startup loading.
-
-| Key           | Type    | Default | Description                                                                                                                            |
-| ------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `always_load` | boolean | `false` | When true, write Claude Code's whole-server `alwaysLoad` property to discern's shared `.mcp.json`; no other provider file receives it. |
 
 ## `[repository]`
 

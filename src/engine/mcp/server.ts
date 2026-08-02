@@ -247,11 +247,6 @@ interface McpTool<TShape extends z.ZodRawShape = z.ZodRawShape> {
   outputSchema?: z.ZodRawShape;
   /** Honest behavioural hints (read-only / destructive / …). */
   annotations?: ToolAnnotations;
-  /** Keep this tool's schema visible in Claude Code even when its MCP Tool
-   * Search defers the server's other tools. The registry flag is the internal
-   * experiment seam: adding or removing it on any tool changes that tool's
-   * MCP `_meta["anthropic/alwaysLoad"]` vendor extension. */
-  anthropicAlwaysLoad?: boolean;
   /** This verb's result does not depend on WHICH project it runs in — it serves the
    * same answer from anywhere, so it must stay reachable even when the server spawned
    * outside any discern project. {@link runTool}'s `not_initialized` guard reads this
@@ -386,7 +381,6 @@ export const TOOLS: McpTool[] = orderTools([
   defineTool({
     name: "discern_status",
     title: "Orient with discern_status",
-    anthropicAlwaysLoad: true,
     outputSchema: StatusOutputSchema.shape,
     annotations: READ_ONLY,
     description:
@@ -2040,9 +2034,6 @@ export async function runMcpServer(
         : {}),
       ...(tool.annotations !== undefined
         ? { annotations: tool.annotations }
-        : {}),
-      ...(tool.anthropicAlwaysLoad === true
-        ? { _meta: { "anthropic/alwaysLoad": true } }
         : {}),
     };
     // The input schema registers CLOSED (strictInput), so a call carrying an

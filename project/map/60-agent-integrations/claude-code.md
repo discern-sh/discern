@@ -54,18 +54,9 @@ The same `.mcp.json` file can also be used by GitHub Copilot. Claude Code and Co
 
 ### Tool discovery
 
-[Claude Code's MCP Tool Search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) is on by default. Sessions begin with tool names and server instructions; selected schemas arrive after search. This is client policy: MCP `tools/list` still returns full definitions and permits vendor `_meta`.
+[Claude Code's MCP Tool Search](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) is on by default. Sessions begin with tool names and server instructions; selected schemas arrive after search. This is client policy: MCP `tools/list` still returns full definitions.
 
-discern keeps its instructions below Claude Code's 2KB limit and leads with the lifecycle. `_meta["anthropic/alwaysLoad"] = true` keeps `discern_status` loaded as the gateway; its result names the next MCP tool.
-
-To load every discern schema at session start, set:
-
-```toml
-[mcp]
-  always_load = true
-```
-
-Run `discern refresh` to add `"alwaysLoad": true` to `.mcp.json`; turning the setting off removes it. This requires Claude Code 2.1.121 or later, loads every schema into context, and can delay startup while the server connects. The default is off.
+discern keeps its instructions below Claude Code's 2KB limit and leads with the lifecycle. `discern_status` is the gateway: its result names the next MCP tool.
 
 The one-hour client timeout reserves 55 minutes for `discern_await` and five for delivery and cancellation. True conditions return immediately; longer watches continue from a 15-character resume handle. This is discern's Claude-and-Copilot budget. Claude Code's [`MCP_TOOL_TIMEOUT`](https://code.claude.com/docs/en/env-vars) defaults to about 28 hours.
 

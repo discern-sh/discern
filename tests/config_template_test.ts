@@ -114,7 +114,6 @@ Deno.test("lists only active template section headers, in file order", async () 
   // is their project's own identity, and installer bookkeeping sits at the end.
   assertEquals(sectionNamesFromTemplate(await realTemplate()), [
     "project",
-    "mcp",
     "repository",
     "map",
     "guidance",

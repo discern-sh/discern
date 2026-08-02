@@ -54,20 +54,6 @@
   #   "cursor" -> AGENTS.md        "copilot" -> AGENTS.md
   agents = [{{agents_array}}]
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# [mcp] — how provider integrations load discern's Model Context Protocol tools.
-# ─────────────────────────────────────────────────────────────────────────────
-
-[mcp]
-  # Claude Code normally defers MCP tool schemas until an agent searches for
-  # them. Set true to write whole-server `alwaysLoad` into the shared .mcp.json,
-  # loading every discern tool schema at session start. The default leaves
-  # whole-server loading off; discern marks its gateway tools internally. Other
-  # provider files do not receive this property.
-  always_load = false
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # [repository] — policy shared by every checkout of this Git repository: where
 # work lands, how discern names worktree branches, and how any checkout converges
