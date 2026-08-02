@@ -1982,6 +1982,7 @@ Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_
 - `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
 - `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
 - `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
+- `tests/await_readiness_guard_test.ts` — sweeps authored await tests for elapsed-time readiness assumptions; this is a test timing rule with no member vocabulary
 
 ### Codegen targets compiling from no registry
 
