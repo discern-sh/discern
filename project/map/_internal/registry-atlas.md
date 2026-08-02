@@ -46,7 +46,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
 | [`detector-families`](#detector-families--patterns-detector-families)                                                 | `src/shared/patterns_vocabulary.ts#DETECTOR_FAMILIES`                             | 4       | —                | node `patterns`             |
 | [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones)                                             | `src/shared/patterns_vocabulary.ts#PATTERN_FINDING_TONES`                         | 3       | —                | node `patterns`             |
-| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 30      | "Patterns"       | node `patterns`             |
+| [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 31      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 39      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 125     | —                | —                           |
@@ -982,7 +982,7 @@ The presentation-only vocabulary a patterns finding uses to distinguish favorabl
 Every detector the patterns verb runs over the logbook, in stable registry order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
-- Members: 30
+- Members: 31
   - `done-thrash`
   - `refusal-loop`
   - `hint-follow-through`
@@ -1002,6 +1002,7 @@ Every detector the patterns verb runs over the logbook, in stable registry order
   - `cohort-done-thrash`
   - `guidance-parity`
   - `dominant-stage`
+  - `generator-gate-share`
   - `duration-creep`
   - `fix-stage-idle`
   - `recurring-diagnostic`
