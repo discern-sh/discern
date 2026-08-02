@@ -17,7 +17,7 @@ _A clean green gate records what ran and identifies the exact branch state ready
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
 
-On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
+On a TTY, `done` uses the shared gate-job table. Planned jobs appear immediately as `JOB` / `COMMAND` / `RESULT` rows, then move from `pending` to `running` and their outcomes with durations. The highlighted receipt line follows the completed table. `prepare` uses the same table for fix and check jobs. Its success line says that build and test did not run. It never creates review evidence. `[gate].stream = true` streams output. `--plain` keeps the table static. Pipes get the receipt page from `done`. `--no-color` removes styling.
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
@@ -65,8 +65,10 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
 | Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
-| `done` TTY projection          | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
-| Gate integration               | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
+| Shared gate-job TTY projection | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)             |
+| `done` receipt panel           | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
+| `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
+| `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)               |
 | Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
 
 ## Current state & gotchas
