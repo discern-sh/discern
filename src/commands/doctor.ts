@@ -742,7 +742,9 @@ export async function runChecks(
   }
 
   // 7. `sh` resolves — the job runner executes configured commands via `sh -c`.
-  if (await commandExists("sh")) {
+  // The root rides along so the probe reuses the repository's own shim
+  // rather than minting a per-process temp fallback.
+  if (await commandExists("sh", { cwd: destDir })) {
     checks.push({ name: "sh", ok: true, detail: "present on PATH" });
   } else {
     checks.push({
