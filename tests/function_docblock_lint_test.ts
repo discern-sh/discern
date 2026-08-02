@@ -6,7 +6,7 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import functionDocblockPlugin from "../scripts/function_docblock_lint.ts";
-import { AUTHORED_TS_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
+import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 const RULE_ID = "discern/require-function-docblock";
 
@@ -28,16 +28,16 @@ function diagnosticLine(
 
 Deno.test("function docblocks accept documented declaration forms", () => {
   const source = `
-/** Describe a local value. */
+/** Supply the scalar used by the local-declaration fixture. */
 function localValue(): number { return 1; }
 
-/** Resolve a public value. */
+/** Resolve the fixture's public promise to a stable scalar. */
 export async function publicValue(): Promise<number> { return 2; }
 
-/** Produce the default value. */
+/** Export a stable scalar through an anonymous default declaration. */
 export default function (): number { return 3; }
 
-/** Parse a deliberately loose fixture. */
+/** Preserve an untyped return so the lint-directive attachment is exercised. */
 // deno-lint-ignore no-explicit-any
 function suppressedFixture(): any { return {}; }
 `;
@@ -45,9 +45,78 @@ function suppressedFixture(): any { return {}; }
   assertEquals(diagnostics(source), []);
 });
 
+Deno.test("function docblocks reject identifier paraphrases under fresh names", () => {
+  const source = `
+/** Return the calibrate quasar. */
+function calibrateQuasar(): string { return "ready"; }
+
+/** Does process nebula values. */
+function processNebulaValue(): string { return "ready"; }
+`;
+
+  assertEquals(
+    diagnostics(source).map((diagnostic) => diagnostic.message),
+    [
+      "Function 'calibrateQuasar' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+      "Function 'processNebulaValue' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+    ],
+  );
+});
+
+Deno.test("function docblocks reject the backfill's known filler shapes", () => {
+  const source = `
+/** Walk into. */
+function walkInto(): void {}
+
+/** Return the land. */
+function land(): void {}
+
+/** Return the named by. */
+function namedBy(): void {}
+
+/** Return the at. */
+function at(): void {}
+`;
+
+  assertEquals(
+    diagnostics(source).map((diagnostic) => diagnostic.message),
+    ["walkInto", "land", "namedBy", "at"].map((name) =>
+      `Function '${name}' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.`
+    ),
+  );
+});
+
+Deno.test("function docblocks require prose before JSDoc tags", () => {
+  const source = `
+/**
+ * @returns the value
+ */
+function taggedOnly(): string { return "ready"; }
+`;
+
+  assertEquals(
+    diagnostics(source).map((diagnostic) => diagnostic.message),
+    [
+      "Function 'taggedOnly' has JSDoc that only paraphrases its name. Describe its behavior, contract, or reason for existing.",
+    ],
+  );
+});
+
+Deno.test("function docblocks accept concise behavioral information", () => {
+  const source = `
+/** Escape regex metacharacters so the value is matched literally. */
+function escapeRegExp(value: string): string { return value; }
+
+/** Treat lookup failures as an absent file. */
+function isFile(path: string): boolean { return path.length > 0; }
+`;
+
+  assertEquals(diagnostics(source), []);
+});
+
 Deno.test("function docblocks reject an unrelated nested future sibling", () => {
   const source = `
-/** Build an orbital report. */
+/** Assemble telemetry into the orbital-report fixture. */
 function buildOrbitalReport(): string {
   function calibrateQuasar(): string { return "ready"; }
   return calibrateQuasar();
@@ -92,9 +161,9 @@ function staleBlock(): boolean { return marker; }
   );
 });
 
-Deno.test("every authored TypeScript function declaration has JSDoc", async () => {
+Deno.test("every authored Deno function declaration has informative JSDoc", async () => {
   const missing: string[] = [];
-  for (const rel of AUTHORED_TS_FILES) {
+  for (const rel of AUTHORED_DENO_FILES) {
     const source = await Deno.readTextFile(join(REPO_ROOT, rel));
     for (const diagnostic of diagnostics(source, rel)) {
       missing.push(
@@ -105,7 +174,7 @@ Deno.test("every authored TypeScript function declaration has JSDoc", async () =
 
   if (missing.length > 0) {
     throw new Error(
-      `${missing.length} authored TypeScript function declarations need an immediately preceding JSDoc block:\n${
+      `${missing.length} authored Deno function declarations have missing or low-information JSDoc:\n${
         missing.join("\n")
       }`,
     );
