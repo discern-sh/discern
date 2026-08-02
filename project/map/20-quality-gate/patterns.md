@@ -54,10 +54,6 @@ A registry of named detectors runs over the event stream, grouped by family:
 
 After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap with spare capacity; reduce agents on a saturated machine. The reading remains advisory.
 
-### Failures discovered a run late
-
-`masked-failures` pairs each red `done` with the next run in the same conversation. An instance needs the red run's own failures fixed, while a job that run cancelled — or never started — now fails. That failure existed a run earlier, so its discovery cost one full fix-and-regate round. After 6 adjacent pairs and 3 instances, the finding gives both mechanism counts, the branches touched, and the median round between the two runs. It weighs `[gate].fail_fast` and stage order against this history, and stays advisory.
-
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after 3 resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
 
 Tip adoption derives its measured entries and invited verbs from the tip registry. A showing opens an episode for that tip. The invited verb can run on any branch, session, or surface. The next showing without that run resolves not followed. Missing setup evidence and the end of history stay censored. Each tip needs 3 resolved episodes, so sparse tips never pool their evidence. The finding gives that tip's raw `fired`, `followed`, `not_followed`, and `censored` counts. Fully followed tips stay visible with favorable tone. A family with not-followed evidence names the tip to reword or retire first ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)).
