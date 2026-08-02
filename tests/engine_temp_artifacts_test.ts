@@ -237,6 +237,41 @@ Deno.test("temp artifacts: the inspection budget bounds a fresh population, and 
   });
 });
 
+Deno.test("temp artifacts: budgeted pages visit a large population once each — no revisits, full drain", async () => {
+  await withTempDir(async (dir) => {
+    const prefix = Object.values(TEMP_ARTIFACT_KINDS)[0] ?? "discern-job-";
+    const age = TEMP_ARTIFACT_TTL_MS + HOUR_MS;
+    const total = 400;
+    const budget = 25;
+    for (let i = 0; i < total; i++) {
+      await fileAged(
+        dir,
+        `${prefix}${String(i).padStart(4, "0")}${TEMP_ARTIFACT_SUFFIX}`,
+        i % 2 === 0 ? age : HOUR_MS,
+      );
+    }
+    // A cursor that revisits any page cannot clear the stale half within
+    // exactly population/budget pages; one that skips entries clears less.
+    let cursor: string | undefined;
+    let removed = 0;
+    for (let page = 0; page < total / budget; page++) {
+      const result = await pruneStaleTempArtifacts({
+        dir,
+        maxInspections: budget,
+        maxRemovals: budget,
+        ...(cursor === undefined ? {} : { cursor }),
+      });
+      assert(
+        result.inspected <= budget,
+        `page ${page} inspected ${result.inspected}`,
+      );
+      removed += result.removed;
+      cursor = result.cursor;
+    }
+    assertEquals(removed, total / 2);
+  });
+});
+
 Deno.test("temp artifacts: independent callers share one repository-wide sweep interval", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");

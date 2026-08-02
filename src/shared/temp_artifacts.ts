@@ -71,9 +71,101 @@ const MAX_SWEEP_REMOVALS = 500;
 
 /** The matching-entry inspection budget. Unlike the removal budget, this also
  * bounds a population that is entirely fresh: at most this many filesystem
- * metadata reads happen in one sweep. A persisted cursor in the sweep
- * coordinator rotates later passes through the rest. */
+ * metadata reads happen in one sweep, and candidate selection keeps at most
+ * this many names per side of the cursor in memory. A persisted cursor in
+ * the sweep coordinator rotates later passes through the rest. */
 const MAX_SWEEP_INSPECTIONS = 500;
+
+interface SweepCandidate {
+  readonly name: string;
+  readonly isDirectory: boolean;
+}
+
+function byName(a: SweepCandidate, b: SweepCandidate): number {
+  return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+}
+
+/**
+ * A bounded keeper of the `limit` lexicographically smallest candidates seen
+ * — a binary max-heap whose root is the largest kept name — so selecting a
+ * page out of any population costs O(limit) memory and O(log limit) work per
+ * entry, never a full collect-and-sort of everything that matches.
+ */
+class SmallestCandidates {
+  private readonly heap: SweepCandidate[] = [];
+  constructor(private readonly limit: number) {}
+
+  offer(candidate: SweepCandidate): void {
+    if (this.limit <= 0) {
+      return;
+    }
+    if (this.heap.length < this.limit) {
+      this.heap.push(candidate);
+      this.siftUp(this.heap.length - 1);
+      return;
+    }
+    const root = this.heap[0];
+    if (root === undefined || byName(candidate, root) >= 0) {
+      return;
+    }
+    this.heap[0] = candidate;
+    this.siftDown();
+  }
+
+  /** The kept candidates, ascending by name. */
+  drain(): SweepCandidate[] {
+    return [...this.heap].sort(byName);
+  }
+
+  private swap(a: number, b: number): void {
+    const left = this.heap[a];
+    const right = this.heap[b];
+    if (left === undefined || right === undefined) {
+      return;
+    }
+    this.heap[a] = right;
+    this.heap[b] = left;
+  }
+
+  private siftUp(index: number): void {
+    let i = index;
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      const child = this.heap[i];
+      const above = this.heap[parent];
+      if (child === undefined || above === undefined) {
+        return;
+      }
+      if (byName(child, above) <= 0) {
+        return;
+      }
+      this.swap(i, parent);
+      i = parent;
+    }
+  }
+
+  private siftDown(): void {
+    let i = 0;
+    while (true) {
+      let largest = i;
+      for (const child of [i * 2 + 1, i * 2 + 2]) {
+        const contender = this.heap[child];
+        const current = this.heap[largest];
+        if (
+          contender !== undefined && current !== undefined &&
+          byName(contender, current) > 0
+        ) {
+          largest = child;
+        }
+      }
+      if (largest === i) {
+        return;
+      }
+      this.swap(i, largest);
+      i = largest;
+    }
+  }
+}
 
 /**
  * Create one OS-temp artifact file for `kind`. The returned path is what rides
@@ -143,10 +235,15 @@ export async function pruneStaleTempArtifacts(
   const maxInspections = opts.maxInspections ?? MAX_SWEEP_INSPECTIONS;
   const prefixes = Object.values(TEMP_ARTIFACT_KINDS);
   const dirPrefixes = Object.values(TEMP_ARTIFACT_DIR_KINDS);
-  const candidates: Array<{
-    readonly name: string;
-    readonly isDirectory: boolean;
-  }> = [];
+  const cursor = opts.cursor;
+  // One page inspects the smallest names after the cursor, wrapping to the
+  // smallest overall when too few follow it — kept in bounded heaps, so the
+  // pass over the directory never buffers or sorts the whole population.
+  const above = new SmallestCandidates(maxInspections);
+  const wrap = cursor === undefined
+    ? undefined
+    : new SmallestCandidates(maxInspections);
+  let population = 0;
   let removed = 0;
   let inspected = 0;
   try {
@@ -161,30 +258,26 @@ export async function pruneStaleTempArtifacts(
       if (!isArtifactFile && !isArtifactDir) {
         continue;
       }
-      candidates.push({ name: entry.name, isDirectory: isArtifactDir });
+      population++;
+      const candidate = { name: entry.name, isDirectory: isArtifactDir };
+      if (cursor !== undefined && entry.name <= cursor) {
+        wrap?.offer(candidate);
+      } else {
+        above.offer(candidate);
+      }
     }
   } catch {
     return { removed, inspected, cursor: undefined };
   }
-  candidates.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
-  if (candidates.length === 0) {
-    return { removed, inspected, cursor: undefined };
+  const page = above.drain();
+  if (wrap !== undefined && page.length < maxInspections) {
+    page.push(...wrap.drain().slice(0, maxInspections - page.length));
   }
 
-  let start = 0;
-  const cursor = opts.cursor;
-  if (cursor !== undefined) {
-    const next = candidates.findIndex((entry) => entry.name > cursor);
-    start = next < 0 ? 0 : next;
-  }
   let lastInspected: string | undefined;
-  for (let offset = 0; offset < candidates.length; offset++) {
+  for (const entry of page) {
     if (removed >= maxRemovals || inspected >= maxInspections) {
       return { removed, inspected, cursor: lastInspected };
-    }
-    const entry = candidates[(start + offset) % candidates.length];
-    if (entry === undefined) {
-      continue;
     }
     lastInspected = entry.name;
     inspected++;
@@ -200,5 +293,11 @@ export async function pruneStaleTempArtifacts(
       // Raced away by a concurrent process, or unreadable — skip it.
     }
   }
-  return { removed, inspected, cursor: undefined };
+  return {
+    removed,
+    inspected,
+    // A page smaller than the population leaves names uninspected; the next
+    // page resumes after the last one this page reached.
+    cursor: population > page.length ? lastInspected : undefined,
+  };
 }
