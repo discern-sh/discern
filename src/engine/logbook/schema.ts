@@ -343,9 +343,8 @@ export const verbEventSchema = z.looseObject({
 export type VerbEvent = z.infer<typeof verbEventSchema>;
 
 /**
- * Execution time for one completed invocation. Historical events predate
- * separate wait accounting, so an absent wait remains zero rather than
- * reinterpreting their end-to-end duration.
+ * Execution time for one completed invocation. An event without separate wait
+ * accounting contributes zero wait, preserving its end-to-end duration.
  */
 export function executionDurationMs(
   event: Pick<VerbEvent, "duration_ms" | "waited_ms">,

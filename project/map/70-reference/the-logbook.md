@@ -30,7 +30,7 @@ Everything here switches off with `[project].logbook = false`; `discern patterns
 - config-change attribution and each standard's limit history — the `config-change` and `pin` events
 - `tip-adoption` counts — whether each shown tip's invited verb ran before that tip appeared again
 - advisory findings on `status`, the `done` receipt, and `improvement`
-- queued-run holder names, execution-time estimates, and contention readings
+- wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer — a logbook-off install falls back to a one-hour quiet period
 
 ## Where findings appear

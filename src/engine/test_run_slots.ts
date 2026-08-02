@@ -252,8 +252,8 @@ export function buildTestRunSlotAcquirer(
       onEvent: (event: TestRunSlotEvent) => void,
       signal?: AbortSignal,
     ): Promise<TestRunSlotHold | undefined> {
-      // Presence means a capped acquisition was in play. An immediate acquire
-      // or fail-open therefore records zero rather than looking historical.
+      // Presence means a capped acquisition was in play. Immediate admission
+      // and fail-open record zero because neither enters the retry wait.
       waitedMs ??= 0;
       if (unavailable) {
         return undefined;

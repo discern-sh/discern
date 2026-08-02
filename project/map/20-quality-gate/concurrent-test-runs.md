@@ -65,7 +65,7 @@ Tests passed.
 Waited 1m 10s for a test-run slot.
 ```
 
-This preserves end-to-end duration and replaces ADR 0212's combined prior ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
+This preserves end-to-end duration and replaces the combined prior ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 ## Crash safety
 
@@ -84,5 +84,5 @@ Slots are OS advisory locks under the shared git directory. Process death releas
 ## Current state & gotchas
 
 - Advisory locks bound concurrency without promising arrival order.
-- During a config transition, the loosest branch value in flight wins until branches converge.
-- Slot files persist for lock identity; files above a lowered cap are inert.
+- During config transitions, the loosest in-flight cap wins.
+- Slot files persist for lock identity; excess files are inert.
