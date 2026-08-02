@@ -42,7 +42,9 @@ Setup runs in this order:
 
 Run `discern update` before finishing. It merges the trunk, reports incoming and overlapping files, and accepts `--from <ref>` for another base.
 
-Update requires a tracked-clean tree but leaves untracked scratch in place. A conflict aborts the merge cleanly; resolve it, commit, and retry. Even a no-op update rebuilds agent files, then runs `[repository].ensure` and `[worktree.setup].ensure` ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
+Update requires a tracked-clean tree but leaves untracked scratch in place. Conflicts resolve automatically only when every path belongs to a configured `[generated.<name>]` group or the built-in group for Agent files and the maintained ADR index. Update takes the incoming side, completes the merge, then derives final bytes from the merged sources. The temporary side cannot affect the result ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+
+Any undeclared conflict aborts. The refusal separates paths needing judgment from derived paths. After every completed merge, even without conflicts, update runs all configured generators and the built-in refresh, then commits changed outputs. Failures remain visible without undoing the merge; the gate catches any drift. Even a no-op update rebuilds agent files, then runs `[repository].ensure` and `[worktree.setup].ensure` ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
 Put checkout-safe commands in `[repository].ensure` and identity-dependent commands in `[worktree.setup].ensure`. Both are ordered and idempotent. `[worktree.setup].steps` remains one-shot.
 
@@ -78,6 +80,7 @@ Prune also reports **contained** worktrees — spent `start --from` stages whose
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
+| Generated-update tests        | [`tests/engine_generated_update_test.ts`](../../../tests/engine_generated_update_test.ts)                 |
 
 ## Current state and gotchas
 

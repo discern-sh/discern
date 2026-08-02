@@ -12,6 +12,7 @@
  */
 
 import type { EnginePlan, PlanStep } from "../../shared/result.ts";
+import type { ResolvedGeneratedGroup } from "../../shared/generated_artifacts.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
@@ -198,6 +199,10 @@ export interface UpdatePlan {
   behind: number;
   /** Whether the branch already contains the source (→ nothing to merge). */
   alreadyUpdated: boolean;
+  /** Configured generated-artifact groups re-run during convergence. */
+  generatedGroups: ResolvedGeneratedGroup[];
+  /** Exact refresh-compiled paths eligible for built-in conflict resolution. */
+  refreshCompiledPaths: string[];
   /** Checkout-generic `[repository].ensure` commands run after merge + refresh. */
   repositoryEnsureSteps: string[];
   /** Worktree-only `[worktree.setup].ensure` commands run after shared convergence. */
@@ -225,10 +230,33 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
         : `already up to date with ${plan.source}`,
     },
     {
+      kind: "git",
+      label: "auto-resolve generated conflicts",
+      disposition: act ? "run" : "skip",
+      note: act
+        ? "take the incoming side of generated conflicts before regeneration"
+        : "no merge conflicts to classify",
+    },
+    ...plan.generatedGroups.map((group): PlanStep => ({
+      kind: "job",
+      label: `generated:${group.name}`,
+      disposition: "run",
+      note: group.run,
+      group: "Generated artifacts",
+    })),
+    {
       kind: "refresh",
       label: "refresh agent files",
       disposition: "run",
       note: "re-materialize the agent files + skills",
+    },
+    {
+      kind: "git",
+      label: "commit regenerated artifacts",
+      disposition: act ? "run" : "skip",
+      note: act
+        ? "commit regenerated outputs when their bytes changed"
+        : "no merge to record",
     },
   ];
   for (const step of plan.repositoryEnsureSteps) {

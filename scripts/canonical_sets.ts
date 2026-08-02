@@ -679,7 +679,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "authored-commit-sites",
     title: "Discern-authored commit sites",
     what:
-      "The workflows whose diffs discern composes and commits: setup wiring, setup completion, and standards pinning. Every member must route through the attributed, pathspec-limited commit boundary.",
+      "The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.",
     source: {
       kind: "module",
       module: "src/shared/discern_commit.ts",

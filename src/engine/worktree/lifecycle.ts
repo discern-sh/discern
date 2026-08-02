@@ -25,8 +25,14 @@ import {
   resolve,
 } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
+import { adrIndexState } from "../../lib/adr_index.ts";
 import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import {
+  generatedGroupForPath,
+  type ResolvedGeneratedGroup,
+  resolveGeneratedGroups,
+} from "../../shared/generated_artifacts.ts";
 import {
   deriveIdentity,
   generateWorktreeId,
@@ -122,6 +128,7 @@ import {
   assertMainMerged,
   assertOpSide,
   branchIsMerged,
+  commitUpdateRegeneration,
   ensureWorktreeBranch,
   hasAnyCommit,
   hasUncommittedTrackedChanges,
@@ -168,6 +175,7 @@ import { configEpoch } from "../logbook/epoch.ts";
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
 import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
+import { renderAgentFiles } from "../guidance_render.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
 // boundary (ADR 0067) — fast-pathed by a gate receipt when nothing changed since
@@ -2760,6 +2768,9 @@ const UPDATE_COMMIT_CAP = 10;
 const UPDATE_FILE_CAP = 20;
 const UPDATE_OVERLAP_CAP = 50;
 
+/** Stable `UpdateData.regenerated` name for refresh-compiled agent/ADR files. */
+export const UPDATE_BUILTIN_GENERATED_GROUP = "discern:refresh";
+
 /** Build the {@link UpdateData} `range` from the anchors, carrying `after` only
  * when it exists (an apply; a `--dry-run` preview has no merged HEAD). */
 function buildRange(
@@ -2941,6 +2952,8 @@ async function buildUpdatePlan(
   const worktreeBranch = current !== "" ? current : "(detached)";
   const repositoryEnsureSteps = ctx.config.repository.ensure;
   const worktreeEnsureSteps = ctx.config.worktree.setup.ensure;
+  const generatedGroups = resolveGeneratedGroups(ctx.config);
+  const refreshCompiledPaths = await updateRefreshCompiledPaths(ctx);
 
   if (from !== undefined && from.trim() !== "") {
     const source = from.trim();
@@ -2952,6 +2965,8 @@ async function buildUpdatePlan(
       worktreeBranch,
       behind: state.behind,
       alreadyUpdated: state.already,
+      generatedGroups,
+      refreshCompiledPaths,
       repositoryEnsureSteps,
       worktreeEnsureSteps,
     };
@@ -2967,9 +2982,52 @@ async function buildUpdatePlan(
     worktreeBranch,
     behind: merged.kind === "behind" ? Number(merged.behind) || 0 : 0,
     alreadyUpdated: merged.kind !== "behind",
+    generatedGroups,
+    refreshCompiledPaths,
     repositoryEnsureSteps,
     worktreeEnsureSteps,
   };
+}
+
+/**
+ * Exact paths the built-in refresh compile owns. The agent-file targets come
+ * from the renderer's output map, and the ADR target comes from the same state
+ * computation the refresh writer consumes. A read failure narrows the safe set;
+ * it never guesses a filename and resolves too much.
+ */
+async function updateRefreshCompiledPaths(
+  ctx: LifecycleContext,
+): Promise<string[]> {
+  const paths: string[] = [];
+  try {
+    paths.push(...(await renderAgentFiles(ctx.root, ctx.config)).keys());
+  } catch {
+    // The later refresh step reports the compiler failure. Conflict policy
+    // fails closed meanwhile: an unknown target is not safe to auto-resolve.
+  }
+  try {
+    const index = await adrIndexState(ctx.root, ctx.config.map.dir);
+    if (index.kind !== "absent") {
+      paths.push(index.path);
+    }
+  } catch {
+    // Same fail-closed rule as the agent renderer above.
+  }
+  return [...new Set(paths)];
+}
+
+/** Which declared/built-in generator owns `path`, if any. */
+function updateGeneratedOwner(
+  plan: UpdatePlan,
+  path: string,
+): string | undefined {
+  const declared = generatedGroupForPath(plan.generatedGroups, path);
+  if (declared !== undefined) {
+    return declared.name;
+  }
+  return plan.refreshCompiledPaths.includes(path)
+    ? UPDATE_BUILTIN_GENERATED_GROUP
+    : undefined;
 }
 
 /** The refusal shown when updating `source` conflicts — names the conflicted
@@ -2980,12 +3038,51 @@ async function buildUpdatePlan(
 function updateConflictMessage(
   plan: UpdatePlan,
   files: string[],
+  resolvable: string[],
   aborted: boolean,
+  resolutionFailure?: string,
 ): string {
+  if (resolvable.length > 0 && resolvable.length < files.length) {
+    const resolvableSet = new Set(resolvable);
+    const judgment = files.filter((path) => !resolvableSet.has(path));
+    const rerun = plan.fromOverride
+      ? `discern update --from ${plan.source}`
+      : "discern update";
+    const split = ` These paths need your judgment: ${judgment.join(", ")}. ` +
+      `These generated paths would have self-resolved: ${
+        resolvable.join(", ")
+      }.`;
+    if (!aborted) {
+      return `Updating ${plan.source} conflicts.${split} Stepping aside ` +
+        `failed too, so the merge is still in progress in your tree. Either ` +
+        `resolve the conflicts and commit the merge, or run ` +
+        `\`git merge --abort\` to discard it; then re-run \`${rerun}\`.`;
+    }
+    return `Updating ${plan.source} conflicts.${split} The merge was aborted — ` +
+      `your tree is untouched. Merge it yourself (\`git merge ${plan.source}\`), ` +
+      `resolve the conflicts, commit the result, then re-run \`${rerun}\` — the ` +
+      `no-op re-run re-materializes the agent files and re-runs the setup ` +
+      `convergence the aborted merge skipped.`;
+  }
   const where = files.length > 0 ? ` in: ${files.join(", ")}` : "";
   const rerun = plan.fromOverride
     ? `discern update --from ${plan.source}`
     : "discern update";
+  if (resolutionFailure !== undefined) {
+    const failure = resolutionFailure.trim() === ""
+      ? "Git did not complete the generated-only resolution"
+      : resolutionFailure.trim();
+    if (!aborted) {
+      return `Updating ${plan.source} conflicts${where}. Discern took the ` +
+        `incoming side of every generated path, but could not complete the ` +
+        `merge: ${failure}. The merge is still in progress. Resolve it and ` +
+        `commit, or run \`git merge --abort\`; then re-run \`${rerun}\`.`;
+    }
+    return `Updating ${plan.source} conflicts${where}. Discern took the ` +
+      `incoming side of every generated path, but could not complete the ` +
+      `merge: ${failure}. The merge was aborted — your tree is untouched. ` +
+      `Fix the reported Git failure, then re-run \`${rerun}\`.`;
+  }
   if (!aborted) {
     return `Updating ${plan.source} conflicts${where} — and stepping aside ` +
       `failed too, so the merge is still in progress in your tree. Either ` +
@@ -2999,6 +3096,227 @@ function updateConflictMessage(
     `convergence the aborted merge skipped.`;
 }
 
+/** One planned job per configured generated-artifact group. */
+function updateGeneratedJobGroup(
+  groups: readonly ResolvedGeneratedGroup[],
+): JobGroup | undefined {
+  if (groups.length === 0) {
+    return undefined;
+  }
+  return {
+    stage: "build",
+    mode: "parallel",
+    heading: "Regenerating declared artifacts...",
+    display: "Generated artifacts",
+    jobs: groups.map((group) => ({
+      label: `generated:${group.name}`,
+      command: group.run,
+      kind: "custom",
+      reportStage: "build",
+      willRun: true,
+      ...(group.timeout === undefined ? {} : { timeoutS: group.timeout }),
+    })),
+  };
+}
+
+interface UpdateGeneratedRun {
+  steps: StepResult[];
+  diagnostics: Diagnostic[];
+  hints: string[];
+  executed: string[];
+  successful: Set<string>;
+}
+
+/** Run every configured generator through the gate's bounded job runner. */
+async function runUpdateGeneratedGroups(
+  ctx: LifecycleContext,
+  groups: readonly ResolvedGeneratedGroup[],
+): Promise<UpdateGeneratedRun> {
+  const group = updateGeneratedJobGroup(groups);
+  if (group === undefined) {
+    return {
+      steps: [],
+      diagnostics: [],
+      hints: [],
+      executed: [],
+      successful: new Set(),
+    };
+  }
+  ctx.log.info("Regenerating declared artifacts...");
+  try {
+    const context = gateRunContext(ctx.root, ctx.config, true);
+    const run = await runJobGroups(
+      [group],
+      { ...context.runOpts, failFast: false },
+      context.out,
+      context.slots,
+    );
+    const serialized = await serializeJobSteps([group], run.results);
+    const executed: string[] = [];
+    const successful = new Set<string>();
+    for (const configured of groups) {
+      const result = run.results.get(`generated:${configured.name}`);
+      if (result === undefined) {
+        continue;
+      }
+      executed.push(configured.name);
+      if (result.code === 0) {
+        successful.add(configured.name);
+      }
+    }
+    if (successful.size === groups.length) {
+      ctx.log.ok("Declared artifacts regenerated.");
+    } else {
+      ctx.log.warn("A declared generator failed — the merge is kept.");
+    }
+    return {
+      steps: serialized.steps,
+      diagnostics: serialized.diagnostics,
+      hints: hintTexts(serialized.hints),
+      executed,
+      successful,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    ctx.log.warn(
+      "Declared artifact regeneration reported an error — continuing.",
+    );
+    return {
+      steps: groups.map((configured) => ({
+        step: {
+          kind: "job",
+          label: `generated:${configured.name}`,
+          disposition: "run",
+          note: configured.run,
+          group: "Generated artifacts",
+        },
+        outcome: "failed",
+      })),
+      diagnostics: [{
+        tool: "generated-artifacts",
+        severity: "error",
+        message: `Could not run the declared generators: ${reason}`,
+        reproduce_cmd: groups[0]?.run ?? "discern update",
+      }],
+      hints: [],
+      executed: groups.map((configured) => configured.name),
+      successful: new Set(),
+    };
+  }
+}
+
+/** Whether `path` was re-derived by a generator that completed successfully. */
+function successfullyRegeneratedPath(
+  plan: UpdatePlan,
+  successful: ReadonlySet<string>,
+  path: string,
+): boolean {
+  const declared = generatedGroupForPath(plan.generatedGroups, path);
+  if (declared !== undefined && successful.has(declared.name)) {
+    return true;
+  }
+  return plan.refreshCompiledPaths.includes(path) &&
+    successful.has(UPDATE_BUILTIN_GENERATED_GROUP);
+}
+
+/** Commit only successfully re-derived paths, leaving unrelated changes alone. */
+async function commitUpdateRegeneratedArtifacts(
+  ctx: LifecycleContext,
+  plan: UpdatePlan,
+  successful: ReadonlySet<string>,
+  enabled: boolean,
+): Promise<{ step: StepResult; diagnostic?: Diagnostic }> {
+  const skipped = (note: string): { step: StepResult } => ({
+    step: {
+      step: {
+        kind: "git",
+        label: "commit regenerated artifacts",
+        disposition: "skip",
+        note,
+      },
+      outcome: "skipped",
+    },
+  });
+  if (!enabled) {
+    return skipped("no merge to record");
+  }
+  const status = await makeGitRunner(ctx)([
+    "status",
+    "--porcelain",
+    "-z",
+    "--untracked-files=normal",
+  ]);
+  if (!status.success) {
+    return {
+      step: {
+        step: {
+          kind: "git",
+          label: "commit regenerated artifacts",
+          disposition: "run",
+          note: "commit regenerated outputs when their bytes changed",
+        },
+        outcome: "failed",
+      },
+      diagnostic: {
+        tool: "update-regeneration",
+        severity: "error",
+        message: "Could not inspect regenerated paths after the merge.",
+        reproduce_cmd: "git status --short",
+      },
+    };
+  }
+  const paths = new Set<string>();
+  for (const entry of parsePorcelainZ(status.stdout)) {
+    if (successfullyRegeneratedPath(plan, successful, entry.path)) {
+      paths.add(entry.path);
+    }
+    if (
+      entry.origPath !== undefined &&
+      successfullyRegeneratedPath(plan, successful, entry.origPath)
+    ) {
+      paths.add(entry.origPath);
+    }
+  }
+  const committedPaths = [...paths].sort();
+  if (committedPaths.length === 0) {
+    return skipped("regeneration changed no declared artifact bytes");
+  }
+  const committed = await commitUpdateRegeneration(ctx.cwd, committedPaths);
+  if (committed.success) {
+    ctx.log.ok(`Committed regenerated artifacts: ${committedPaths.join(", ")}`);
+    return {
+      step: {
+        step: {
+          kind: "git",
+          label: "commit regenerated artifacts",
+          disposition: "run",
+          note: committedPaths.join(", "),
+        },
+        outcome: "ok",
+      },
+    };
+  }
+  const reason = committed.stderr.trim() || "Git did not create the commit";
+  ctx.log.warn("Could not commit regenerated artifacts — the merge is kept.");
+  return {
+    step: {
+      step: {
+        kind: "git",
+        label: "commit regenerated artifacts",
+        disposition: "run",
+        note: committedPaths.join(", "),
+      },
+      outcome: "failed",
+    },
+    diagnostic: {
+      tool: "update-regeneration",
+      severity: "error",
+      message: `Could not commit regenerated artifacts: ${reason}`,
+      reproduce_cmd: "git status --short",
+    },
+  };
+}
+
 /**
  * Re-materialize the agent files + skills, then re-run the convergent
  * `[worktree.setup].ensure` commands — the convergence tail every integration pass
@@ -3009,7 +3327,14 @@ function updateConflictMessage(
 async function runUpdateConvergence(
   ctx: LifecycleContext,
   plan: UpdatePlan,
-): Promise<{ steps: StepResult[]; refreshHints: string[] }> {
+  opts: { commitRegenerated: boolean },
+): Promise<{
+  steps: StepResult[];
+  refreshHints: string[];
+  diagnostics: Diagnostic[];
+  regenerated: string[];
+}> {
+  const generated = await runUpdateGeneratedGroups(ctx, plan.generatedGroups);
   ctx.log.info("Re-materializing agent files + skills…");
   let refreshOk = true;
   let refreshHints: string[] = hintTexts([]);
@@ -3021,7 +3346,7 @@ async function runUpdateConvergence(
     refreshOk = false;
     ctx.log.warn("Agent-file refresh reported an error — continuing.");
   }
-  const steps: StepResult[] = [{
+  const steps: StepResult[] = [...generated.steps, {
     step: {
       kind: "refresh",
       label: "refresh agent files",
@@ -3030,6 +3355,17 @@ async function runUpdateConvergence(
     },
     outcome: refreshOk ? "ok" : "failed",
   }];
+  const successful = new Set(generated.successful);
+  if (refreshOk) {
+    successful.add(UPDATE_BUILTIN_GENERATED_GROUP);
+  }
+  const committed = await commitUpdateRegeneratedArtifacts(
+    ctx,
+    plan,
+    successful,
+    opts.commitRegenerated,
+  );
+  steps.push(committed.step);
   const repositoryEnsureOutcomes = await runRepositoryEnsureSteps(ctx, {
     fatal: false,
   });
@@ -3058,7 +3394,18 @@ async function runUpdateConvergence(
       outcome: worktreeEnsureOutcomes[index] ?? "failed",
     });
   }
-  return { steps, refreshHints };
+  return {
+    steps,
+    refreshHints: mergeHintTexts(generated.hints, refreshHints),
+    diagnostics: [
+      ...generated.diagnostics,
+      ...(committed.diagnostic === undefined ? [] : [committed.diagnostic]),
+    ],
+    regenerated: [
+      ...generated.executed,
+      UPDATE_BUILTIN_GENERATED_GROUP,
+    ],
+  };
 }
 
 /**
@@ -3083,7 +3430,10 @@ async function executeUpdatePlan(
   const outcome = await updateMain(
     ctx.cwd,
     ctx.config.repository.trunk,
-    plan.fromOverride ? { from: source } : {},
+    {
+      ...(plan.fromOverride ? { from: source } : {}),
+      autoResolvable: (path) => updateGeneratedOwner(plan, path) !== undefined,
+    },
   );
   switch (outcome.kind) {
     case "skipped":
@@ -3101,14 +3451,28 @@ async function executeUpdatePlan(
           },
           outcome: "skipped",
         },
+        {
+          step: {
+            kind: "git",
+            label: "auto-resolve generated conflicts",
+            disposition: "skip",
+            note: "no merge conflicts to classify",
+          },
+          outcome: "skipped",
+        },
       ];
-      const convergence = await runUpdateConvergence(ctx, plan);
+      const convergence = await runUpdateConvergence(ctx, plan, {
+        commitRegenerated: false,
+      });
       steps.push(...convergence.steps);
       const result: DiscernResult<UpdateData> = appliedResult(
         "update",
         steps,
       );
       result.hints = convergence.refreshHints;
+      if (convergence.diagnostics.length > 0) {
+        result.diagnostics = convergence.diagnostics;
+      }
       return result;
     }
     case "dirty":
@@ -3118,7 +3482,13 @@ async function executeUpdatePlan(
       );
     case "conflict":
       throw new WorktreeGitError(
-        updateConflictMessage(plan, outcome.files, outcome.aborted),
+        updateConflictMessage(
+          plan,
+          outcome.files,
+          outcome.resolvable,
+          outcome.aborted,
+          outcome.resolutionFailure,
+        ),
       );
     case "merge_failed":
       // Git refused before any merge began — unrelated histories, an untracked
@@ -3139,31 +3509,56 @@ async function executeUpdatePlan(
           ? `Fast-forwarded to ${source} (+${outcome.behind} commit(s)).`
           : `Merged ${source} (was behind by ${outcome.behind} commit(s)).`,
       );
-      // Summarize what landed beneath the branch (ADR 0064) — commits, files, the
-      // overlap hot zone, scopes — for the result `data` + hints, narrated here for
-      // humans. Fail-open, so it can never undo or fail the merge that just landed.
+      const steps: StepResult[] = [
+        {
+          step: {
+            kind: "git",
+            label: "merge",
+            disposition: "run",
+            note: outcome.fastForward
+              ? `fast-forwarded ${source}`
+              : `merged ${source}`,
+          },
+          outcome: "ok",
+        },
+        {
+          step: {
+            kind: "git",
+            label: "auto-resolve generated conflicts",
+            disposition: outcome.autoResolved.length > 0 ? "run" : "skip",
+            note: outcome.autoResolved.length > 0
+              ? outcome.autoResolved.join(", ")
+              : "the merge had no generated-only conflict",
+          },
+          outcome: outcome.autoResolved.length > 0 ? "ok" : "skipped",
+        },
+      ];
+      // Re-materialize + converge — the shared tail; a merge can bring in another
+      // line of work's guidance/skill edits or a changed lockfile.
+      const convergence = await runUpdateConvergence(ctx, plan, {
+        commitRegenerated: true,
+      });
+      steps.push(...convergence.steps);
+      // Keep the ADR-0064 range anchored to the merge itself. A regeneration
+      // follow-up commit is update's derived-state bookkeeping, not an incoming
+      // file or commit, and the additive fields below report that work directly.
       const summary = await summarizeIntegration(ctx, outcome, {
         predicted: false,
         source,
       });
       if (summary.data !== undefined) {
+        if (outcome.autoResolved.length > 0) {
+          summary.data.auto_resolved = [...outcome.autoResolved];
+        }
+        summary.data.regenerated = [...convergence.regenerated];
         narrateIntegration(ctx, summary.data, false);
       }
-      const steps: StepResult[] = [{
-        step: {
-          kind: "git",
-          label: "merge",
-          disposition: "run",
-          note: outcome.fastForward
-            ? `fast-forwarded ${source}`
-            : `merged ${source}`,
-        },
-        outcome: "ok",
-      }];
-      // Re-materialize + converge — the shared tail; a merge can bring in another
-      // line of work's guidance/skill edits or a changed lockfile.
-      const convergence = await runUpdateConvergence(ctx, plan);
-      steps.push(...convergence.steps);
+      if (outcome.autoResolved.length > 0) {
+        ctx.log.ok(
+          `Resolved ${outcome.autoResolved.length} generated conflict(s); ` +
+            `regenerated ${convergence.regenerated.join(", ")}.`,
+        );
+      }
       ctx.log.ok("Update complete.");
       const result: DiscernResult<UpdateData> = appliedResult(
         "update",
@@ -3174,6 +3569,9 @@ async function executeUpdatePlan(
         hintTexts(summary.hints),
         convergence.refreshHints,
       );
+      if (convergence.diagnostics.length > 0) {
+        result.diagnostics = convergence.diagnostics;
+      }
       return result;
     }
   }
@@ -3238,6 +3636,12 @@ export async function updateResult(
         predicted: true,
         source: plan.source,
       });
+      if (summary.data !== undefined) {
+        summary.data.regenerated = [
+          ...plan.generatedGroups.map((group) => group.name),
+          UPDATE_BUILTIN_GENERATED_GROUP,
+        ];
+      }
       preview.data = summary.data;
       preview.hints = hintTexts(summary.hints);
     }
