@@ -489,6 +489,19 @@ Rendered example:
 Generated group `[generated.reference]` drifted. Run `tool write-reference --source source/ --output reference/`, commit the regeneration, then re-run `discern done`. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.
 ```
 
+## `gate-failure-generated-undercoverage`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: Build changes paths that no generated group declares.
+
+Rendered example:
+
+```text
+Generated output escaped every declared glob. Widen the responsible group's paths to include the files named by the diagnostic, commit the regeneration, then re-run `discern done`. Candidate groups: `[generated.reference]`, `[generated.schemas]`.
+```
+
 ## `gate-failure-gotcha-matched`
 
 - Category: `next-step`

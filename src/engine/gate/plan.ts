@@ -50,7 +50,7 @@ const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 export interface PlannedJob {
   label: string;
   command: string;
-  kind: "known" | "custom" | "scope-gate" | "standard";
+  kind: "known" | "custom" | "generated" | "scope-gate" | "standard";
   /** The stage reported in `jobs[].stage` (a real STAGE), or "scope_gates". */
   reportStage: Stage | "scope_gates";
   willRun: boolean;
@@ -569,6 +569,7 @@ export async function buildGateResultWithHints(
   plan: GatePlan,
   results: Map<string, JobResult>,
   failedStage: FailedStage | null,
+  failureRemedies?: readonly FiredHint[],
 ): Promise<{
   result: DiscernResult<GateData>;
   firedHints: FiredHint[];
@@ -583,7 +584,7 @@ export async function buildGateResultWithHints(
   };
   const firedHints = failedStage === null
     ? hints
-    : [gateFailureRemedy(failedStage), ...hints];
+    : [...(failureRemedies ?? [gateFailureRemedy(failedStage)]), ...hints];
   return {
     result: {
       ok: failedStage === null,

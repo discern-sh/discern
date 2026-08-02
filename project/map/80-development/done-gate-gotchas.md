@@ -52,6 +52,18 @@ stage = "tracked_artifacts"
 stage = "tree_drift"
 ```
 
+### A generator changes the tree after every regeneration commit
+
+**Symptom.** `discern done` reports `failed_stage: "generated_drift"`. The diagnostic names a `[generated.<name>]` group, its command, and the files it rewrote. You run that command, commit the regeneration, and rerun the gate. The same files become dirty again immediately.
+
+**Cause.** The generator does not produce stable bytes from the same tree. Timestamps, random values, environment-dependent content, and unsorted input traversal are common causes. A `generated-coverage` diagnostic is a related declaration failure: the Build group changed files that match none of the configured `paths` globs ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+
+**Fix.** Remove the unstable input or make its ordering and formatting deterministic. Run the named `reproduce_cmd`, review the files, commit the regeneration, and rerun `discern done`. For `generated-coverage`, widen the responsible group's `paths` to include every committed artifact it writes.
+
+```gotcha-match
+stage = "generated_drift"
+```
+
 ### A check passes alone but fails in the full run
 
 **Symptom.** You run one test (or linter) over the files you changed and it is green, but the same step goes red inside `discern done`.
