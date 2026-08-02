@@ -271,7 +271,7 @@ export async function runPreset(
     for (const key of fillReport?.skipped ?? []) {
       log.line(`  discern.toml  keep ${key} (already set — yours stands)`);
     }
-    log.line();
+    log.group("confirmation");
   }
   if (!options.yes && !options.json && !canPrompt(false)) {
     log.error(

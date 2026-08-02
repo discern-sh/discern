@@ -174,7 +174,9 @@ export async function runTestJob(
     return 1;
   }
   out.ok("Tests passed.");
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     out.info(hint);
   }
   return 0;

@@ -66,7 +66,8 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   );
 
   if (hasConfig) {
-    log.line(`\n  ${log.bold("Config")}`);
+    log.group("config");
+    log.line(`  ${log.bold("Config")}`);
     log.line(
       row(
         log,
@@ -77,15 +78,17 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
   }
 
   if (other.length > 0) {
-    log.line(`\n  ${log.bold("Your content")}`);
+    log.group("project-content");
+    log.line(`  ${log.bold("Your content")}`);
     for (const op of other) {
       log.line(`    ${op.targetRel}${op.note ? log.dim(` — ${op.note}`) : ""}`);
     }
   }
 
   if (integration.length > 0) {
+    log.group("integration");
     log.line(
-      `\n  ${log.bold("Git & agent settings")} ${
+      `  ${log.bold("Git & agent settings")} ${
         log.dim("— merged or reconciled into your project")
       }`,
     );
@@ -99,11 +102,11 @@ export function renderReview(log: Logger, plan: Plan, destDir: string): void {
     }
   }
 
-  log.line();
+  log.group("full-plan-pointer");
   log.line(log.dim("  See every file by re-running with --dry-run."));
 
   if (plan.unknownTokens.size > 0) {
-    log.line();
+    log.group("unknown-tokens");
     for (const [path, tokens] of plan.unknownTokens) {
       log.warn(
         `unknown token(s) left untouched in ${path}: ${tokens.join(", ")}`,

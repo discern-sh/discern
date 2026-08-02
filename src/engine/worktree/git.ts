@@ -2823,17 +2823,14 @@ export function renderGitWorktreePruneScan(
   log: Logger,
 ): void {
   log.line(`Scanning worktrees in ${scan.repoRoot}`);
-  log.line();
   for (const line of scan.worktreeLines) {
     log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
   }
-  log.line();
+  log.group("branches");
   log.line(`Scanning branches in ${scan.repoRoot}`);
-  log.line();
   for (const line of scan.branchLines) {
     log.line(`${line.action.padEnd(6)} ${line.label} (${line.reason})`);
   }
-  log.line();
 }
 
 /**

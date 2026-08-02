@@ -93,7 +93,12 @@ import {
   mergeHintTexts,
 } from "../shared/hints.ts";
 import { observeResult } from "../shared/result_capture.ts";
-import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  type ErrorSlug,
+  type HumanOutputGroup,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
 import { findSkeletonMarkers, SETUP_BRANCH } from "../shared/setup_state.ts";
 import {
   getSetupPage,
@@ -682,7 +687,7 @@ async function scaffoldHarness(
       });
     } else {
       renderPlan(log, plan, "Dry run — setup would perform:");
-      log.line();
+      log.group("dry-run-verdict");
       log.info("No files were written (--dry-run).");
     }
     return { stop: 0 };
@@ -1401,87 +1406,77 @@ export async function runSetupBegin(opts: SetupOptions): Promise<number> {
   // brief, and how to finish.
   const heavyRule = "═".repeat(72);
   const thinRule = "─".repeat(72);
-  console.log(heavyRule);
-  console.log("  SETUP STARTED — NOT FINISHED.");
-  console.log(
+  const handoffLines = [
+    heavyRule,
+    "  SETUP STARTED — NOT FINISHED.",
     "  What follows is a task for you, the agent, to perform now — not a",
-  );
-  console.log("  result to summarise back to the user as already done.");
-  for (const line of humanOffRampLines()) {
-    console.log(`  ${line}`);
-  }
-  console.log(heavyRule);
-  console.log("");
+    "  result to summarise back to the user as already done.",
+    ...humanOffRampLines().map((line) => `  ${line}`),
+    heavyRule,
+  ];
   // The started moment — the third human touchpoint of the served-message handshake
   // (ADR 0086): a one-line relay so the human hears setup has begun and what's next,
   // even from an agent that only couriers discern's words.
-  console.log(
-    setupBranch !== undefined
-      ? `Tell your human: setup has started on the \`${setupBranch}\` branch — next I'll study the repo and come back with a few questions.`
-      : "Tell your human: setup has started — next I'll study the repo and come back with a few questions.",
-  );
-  console.log("");
+  const relayLine = setupBranch !== undefined
+    ? `Tell your human: setup has started on the \`${setupBranch}\` branch — next I'll study the repo and come back with a few questions.`
+    : "Tell your human: setup has started — next I'll study the repo and come back with a few questions.";
+  const scaffoldLines: string[] = [];
   if (setupBranch !== undefined) {
-    console.log(
+    scaffoldLines.push(
       `On branch \`${setupBranch}\` — created from your clean tree so this setup is isolated and easy to roll back (or merge when you're happy).`,
     );
   }
   if (scaffold) {
     const byCategory = scaffoldCategorySummary(scaffold);
     if (byCategory !== "") {
-      console.log(`Files written into ${destDir}: ${byCategory}.`);
+      scaffoldLines.push(`Files written into ${destDir}: ${byCategory}.`);
     }
   }
   if (machineryCommitted) {
-    console.log(
+    scaffoldLines.push(
       "Committed discern's wiring (config, .gitignore, MCP + hooks) for you — the docs, guidance, and TODO below are yours to fill and commit.",
     );
   } else if (machineryCommit?.state === "failed") {
-    console.log(
+    scaffoldLines.push(
       `Could not auto-commit discern's wiring — commit the scaffolded files yourself once it's fixed. Git said: ${machineryCommit.detail}`,
     );
   }
   if (laid.length > 0) {
-    console.log(
+    scaffoldLines.push(
       `Project skeletons laid: ${
         laid.join(", ")
       } (filled with the project name; complete them below).`,
     );
   }
   if (skipped.length > 0) {
-    console.log(
+    scaffoldLines.push(
       `Left your existing ${
         skipped.join(", ")
       } untouched — work with what is there.`,
     );
   }
-  console.log("");
-  console.log(thinRule);
-  console.log("");
-  console.log(instructions);
-  console.log("");
-  console.log(heavyRule);
-  console.log(
-    "  You are NOT done. Above are the operating principles and the first page",
-  );
-  console.log(
-    "  (Step 0). Pull each following page with `discern setup step <n>` — every",
-  );
-  console.log(
-    '  page\'s "Next" line chains you onward — do the work it asks, then run',
-  );
-  console.log(
-    "  `discern setup done`: that gate is the only thing that completes setup.",
-  );
-  console.log(
-    "  • Lost the principles or this page? Re-run `discern setup begin` to reprint",
-  );
-  console.log("    them — it is idempotent and won't touch your work.");
-  console.log(
-    "  • `discern status` will keep reporting setup as unfinished until",
-  );
-  console.log("    `discern setup done` passes.");
-  console.log(heavyRule);
+  const groups: HumanOutputGroup<string>[] = [
+    { id: "agent-handoff", items: handoffLines },
+    { id: "human-relay", items: [relayLine] },
+    { id: "scaffold-summary", items: scaffoldLines },
+    { id: "setup-brief", items: [thinRule, instructions] },
+    {
+      id: "completion-guard",
+      items: [
+        heavyRule,
+        "  You are NOT done. Above are the operating principles and the first page",
+        "  (Step 0). Pull each following page with `discern setup step <n>` — every",
+        '  page\'s "Next" line chains you onward — do the work it asks, then run',
+        "  `discern setup done`: that gate is the only thing that completes setup.",
+        "  • Lost the principles or this page? Re-run `discern setup begin` to reprint",
+        "    them — it is idempotent and won't touch your work.",
+        "  • `discern status` will keep reporting setup as unfinished until",
+        "    `discern setup done` passes.",
+        heavyRule,
+      ],
+    },
+  ];
+  console.log(renderHumanOutputGroups(groups));
   return 0;
 }
 
@@ -1853,9 +1848,10 @@ export async function runSetupStep(
   } else {
     // Human: the off-ramp first (the page below is addressed to the agent), then
     // the prose leads with the spine's rails bracketing it (renderSetupPage).
-    console.log(humanOffRampLines().join("\n"));
-    console.log("");
-    console.log(renderSetupPage(page));
+    console.log(renderHumanOutputGroups([
+      { id: "audience-off-ramp", items: humanOffRampLines() },
+      { id: "setup-page", items: [renderSetupPage(page)] },
+    ]));
   }
   return 0;
 }
@@ -1955,16 +1951,26 @@ function emitSetupIncomplete(
     });
     return;
   }
-  console.error(`discern: ${message}`);
-  for (const f of leftover) {
-    console.error(`         • ${f} (skeleton marker remains)`);
-  }
-  for (const u of unmet) {
-    console.error(`         • Step ${u.step} — ${u.describe}`);
-  }
-  console.error(
-    "       Fill them and re-run, or pass --force to mark complete anyway.",
-  );
+  console.error(renderHumanOutputGroups([
+    { id: "failure", items: [`discern: ${message}`] },
+    {
+      id: "unfinished-items",
+      items: [
+        ...leftover.map((file) =>
+          `         • ${file} (skeleton marker remains)`
+        ),
+        ...unmet.map((check) =>
+          `         • Step ${check.step} — ${check.describe}`
+        ),
+      ],
+    },
+    {
+      id: "recovery",
+      items: [
+        "       Fill them and re-run, or pass --force to mark complete anyway.",
+      ],
+    },
+  ]));
 }
 
 /**
@@ -2035,16 +2041,20 @@ function emitSetupUncommitted(json: boolean, uncommitted: string[]): void {
     });
     return;
   }
-  console.error(`discern: ${message}`);
-  for (const u of uncommitted) {
-    console.error(`         • ${u}`);
-  }
-  console.error(
-    "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
-  );
-  console.error(
-    "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
-  );
+  console.error(renderHumanOutputGroups([
+    { id: "failure", items: [`discern: ${message}`] },
+    {
+      id: "uncommitted-items",
+      items: uncommitted.map((item) => `         • ${item}`),
+    },
+    {
+      id: "recovery",
+      items: [
+        "       The completion proof and `discern setup accept` operate on commits — uncommitted work is invisible to them.",
+        "       (Untracked scratch outside the setup files never blocks; --force skips this check entirely.)",
+      ],
+    },
+  ]));
 }
 
 /** The view `printDoneSuccess` renders — the celebrate/assure/land/onboard pieces of a
@@ -2197,75 +2207,70 @@ function printDoneSuccess(view: DoneSuccessView): void {
     todoRel,
   } = view;
 
-  console.log(
+  const completionLines = [
     opts.force
       ? "Setup complete — discern is set up here (recorded with --force; the gate was not proven)."
       : "Setup complete — nice work! discern is now wired into this project and your quality gate is green.",
-  );
-  console.log(
     "The one-time setup is finished, so `discern setup` retires and hides itself from here on.",
-  );
+  ];
   if (forced) {
-    console.log(
+    completionLines.push(
       `(Marked complete with --force despite ${leftover.length} file(s) still carrying skeleton markers.)`,
     );
   }
   if (markerCommit.state === "committed") {
-    console.log("Committed the completion marker (discern.toml).");
+    completionLines.push("Committed the completion marker (discern.toml).");
   } else if (markerCommit.state === "skipped") {
-    console.log(
+    completionLines.push(
       "Commit the updated discern.toml — it carries the completion marker, but discern could not prove that was the only discern.toml change to auto-commit.",
     );
   } else if (markerCommit.state === "failed") {
-    console.log(
+    completionLines.push(
       `Commit the updated discern.toml yourself — it carries the completion marker, but discern's auto-commit failed. Git said: ${markerCommit.detail}`,
     );
   }
 
   // The honest coverage summary (A12) — so "gate proven" can't read as "every
   // protection runs".
-  console.log("");
-  console.log(verdictSentence(assurance));
-  for (const line of assuranceLines(assurance)) {
-    console.log(line);
-  }
+  const assuranceGroupLines = [
+    verdictSentence(assurance),
+    ...assuranceLines(assurance),
+  ];
   if (assurance.verdict !== "full") {
-    console.log(
+    assuranceGroupLines.push(
       '  (absent = no such command wired; deferred = deliberately off; housekeeping = only discern\'s own upkeep. Wire one with `discern config set-job <name> "<command>"`.)',
     );
   }
 
   // The worktree-viability proof (ADR 0090) — shown only when it actually ran green, so
   // a worktrees-off or skipped run never claims coverage it didn't earn.
-  if (worktreeProven) {
-    console.log("");
-    console.log(
+  const worktreeLines = worktreeProven
+    ? [
       "Proved your project runs inside a worktree — the isolated copy every future task uses.",
-    );
-  }
+    ]
+    : [];
 
   // The ordered follow-ups (A11): land → reactivate → deepen.
-  console.log("");
-  console.log("What's next:");
-  for (const line of landStep(landing, 1)) {
-    console.log(line);
-  }
-  console.log(`  2. Reactivate discern's tools — ${reactivation.summary}`);
+  const nextLines = ["What's next:", ...landStep(landing, 1)];
+  nextLines.push(`  2. Reactivate discern's tools — ${reactivation.summary}`);
   for (const a of reactivation.per_agent) {
-    console.log(`       • ${a.label}: ${a.step}`);
+    nextLines.push(`       • ${a.label}: ${a.step}`);
   }
-  console.log(
+  nextLines.push(
     `  3. Deepen your setup: run \`discern ${coachVerb} --json\` (the project coach),`,
-  );
-  console.log(
     "     review the findings with your human, do the quick wins now, and defer larger",
+    `     initiatives to ${todoRel}.`,
   );
-  console.log(`     initiatives to ${todoRel}.`);
 
   // The ready-to-relay completion message, carried verbatim (identical to the `--json`
   // `guidance` field) so a courier agent can hand the human a warm close (ADR 0086).
-  console.log("");
-  console.log(guidance);
+  console.log(renderHumanOutputGroups([
+    { id: "completion", items: completionLines },
+    { id: "assurance", items: assuranceGroupLines },
+    { id: "worktree-proof", items: worktreeLines },
+    { id: "next-actions", items: nextLines },
+    { id: "relay-guidance", items: [guidance] },
+  ]));
 }
 
 /**
@@ -2626,13 +2631,21 @@ function emitDoneGateFailure(
       data: { stage },
     });
   } else {
-    console.error(`discern: ${message}`);
-    console.error(
-      `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
-    );
-    console.error(
-      "       Fix it and re-run, or pass --force to record completion without the proof.",
-    );
+    console.error(renderHumanOutputGroups([
+      { id: "failure", items: [`discern: ${message}`] },
+      {
+        id: "proof-context",
+        items: [
+          `       (\`discern setup done\`'s completion proof is refresh → doctor → done, then a worktree probe; the ${stage} step failed.)`,
+        ],
+      },
+      {
+        id: "recovery",
+        items: [
+          "       Fix it and re-run, or pass --force to record completion without the proof.",
+        ],
+      },
+    ]));
   }
   return 1;
 }
@@ -2668,9 +2681,10 @@ async function emitAwaitingConsent(
   } else {
     // Everything on stdout — the channel the agent reads — so the served message it
     // relays and the command it runs after both land where it is looking.
-    console.log(message);
-    console.log("");
-    console.log(guidance);
+    console.log(renderHumanOutputGroups([
+      { id: "consent-required", items: [message] },
+      { id: "consent-guidance", items: [guidance] },
+    ]));
   }
   return 1;
 }

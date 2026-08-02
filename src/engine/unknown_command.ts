@@ -9,6 +9,7 @@ import {
   interactiveHints,
 } from "../shared/hints.ts";
 import { unknownCommandMessage } from "../shared/vocabulary.ts";
+import { renderHumanOutputGroups } from "../shared/result.ts";
 
 /** Report an unknown top-level word with an optional canonical suggestion. */
 export function reportUnknownCommand(
@@ -32,8 +33,14 @@ export function reportUnknownCommand(
     });
     return;
   }
-  console.error(`discern: ${unknownCommandMessage(word)}`);
-  for (const hint of interactiveHints(hints)) {
-    console.error(`       ${hint.text}`);
-  }
+  console.error(renderHumanOutputGroups([
+    {
+      id: "unknown-command",
+      items: [`discern: ${unknownCommandMessage(word)}`],
+    },
+    {
+      id: "next",
+      items: interactiveHints(hints).map((hint) => `       ${hint.text}`),
+    },
+  ]));
 }

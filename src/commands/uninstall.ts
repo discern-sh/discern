@@ -489,7 +489,7 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
   // Loud, not silent: name any co-owned file discern could not fully strip and
   // why, so the user can finish the job by hand rather than be left with orphans.
   if (plan.incompleteStrips.length > 0) {
-    log.line();
+    log.group("incomplete-strips");
     log.warn(
       applied
         ? "some template-seeded settings could not be removed — check these by hand:"
@@ -500,13 +500,12 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
     }
   }
 
-  log.line();
   log.heading("Kept — your content");
   for (const item of plan.kept) {
     log.detail(`${item.rel} — ${item.why}`);
   }
 
-  log.line();
+  log.group("next-step");
   if (applied) {
     log.info(BINARY_HINT);
   } else {

@@ -31,7 +31,9 @@ The desk builds its rows from `discern status` and the recorded gate receipts. I
 | In flight       | Healthy, active, behind trunk, or awaiting gate.              |
 | Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
-Within each group, the most recently active worktree appears first. The header also reports the main checkout's state and unlanded branches that have no worktree. A reclaimed stage's ref shows dimly beside its container instead.
+Every populated task group has a ruled label, including the first. Desk actions sit under their own ruled label, so navigation never reads as another task state. Within each group, the most recently active worktree appears first.
+
+The header reports the main checkout's state, unlanded branches that have no worktree, reclaimed-stage facts, and the session tip as separate blocks. An absent block leaves no extra gap. A reclaimed stage's ref shows dimly beside its container instead.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 

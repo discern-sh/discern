@@ -8,7 +8,11 @@
  */
 
 import { colors } from "@cliffy/ansi/colors";
-import type { DiscernResult, RenderSink } from "../shared/result.ts";
+import {
+  assertHumanOutputGroupId,
+  type DiscernResult,
+  type RenderSink,
+} from "../shared/result.ts";
 import { emitResult } from "../shared/emit.ts";
 import { observeResult } from "../shared/result_capture.ts";
 import type { EnvReader } from "../shared/env.ts";
@@ -56,6 +60,8 @@ export class Logger {
    * command never lands on either narration channel regardless of this setting.
    */
   readonly humanStream: "stdout" | "stderr";
+  private wroteHuman = false;
+  private atGroupBoundary = false;
 
   /** Build a logger from the resolved run options. */
   constructor(options: LogOptions) {
@@ -71,6 +77,8 @@ export class Logger {
     } else {
       console.error(line);
     }
+    this.wroteHuman = true;
+    this.atGroupBoundary = line === "" || line.endsWith("\n\n");
   }
 
   /** Apply a colour transform only when colour is enabled. */
@@ -100,6 +108,8 @@ export class Logger {
       return;
     }
     console.error(`${this.paint(colors.yellow, "!")} ${message}`);
+    this.wroteHuman = true;
+    this.atGroupBoundary = false;
   }
 
   /** Error line (red cross) to stderr. Does not exit. Suppressed in JSON mode. */
@@ -108,6 +118,8 @@ export class Logger {
       return;
     }
     console.error(`${this.paint(colors.red, "✗")} ${message}`);
+    this.wroteHuman = true;
+    this.atGroupBoundary = false;
   }
 
   /** A bold section banner. Suppressed in JSON mode. */
@@ -116,6 +128,15 @@ export class Logger {
       return;
     }
     this.writeHuman(`\n${this.paint(colors.bold, text)}`);
+  }
+
+  /** Start a new semantic group after one empty line. */
+  group(id: string): void {
+    assertHumanOutputGroupId(id);
+    if (this.json || !this.wroteHuman || this.atGroupBoundary) {
+      return;
+    }
+    this.writeHuman("");
   }
 
   /** A dimmed detail line, indented under a heading. Suppressed in JSON mode. */
@@ -142,11 +163,13 @@ export class Logger {
    * `line()` on that path. It routes its setup commands' output to stderr (see
    * `engine/worktree/shell.ts`) and the hook test asserts stdout stays the path.
    */
-  line(text = ""): void {
+  line(text: string): void {
     if (this.json) {
       return;
     }
     console.log(text);
+    this.wroteHuman = true;
+    this.atGroupBoundary = text === "" || text.endsWith("\n\n");
   }
 
   /** Emit a final JSON payload to stdout. Only does anything in JSON mode. */

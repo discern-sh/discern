@@ -28,7 +28,7 @@ import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
 import { runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
-import type { ErrorSlug } from "../shared/result.ts";
+import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
 import { worktreeState } from "../lib/git.ts";
 import { integrationBranch } from "../engine/worktree/git.ts";
 
@@ -260,16 +260,23 @@ export async function runSetupAccept(
         },
       });
     } else {
-      console.log(`Dry run — \`${ACCEPT_COMMAND}\` would:`);
-      console.log(
-        fastForward
-          ? `  • fast-forward ${target} to ${branch}`
-          : `  • merge ${branch} into ${target}`,
-      );
-      console.log(`  • check out ${target}`);
-      console.log(`  • delete the merged ${branch}`);
-      console.log("");
-      console.log("No changes were made (--dry-run).");
+      console.log(renderHumanOutputGroups([
+        {
+          id: "accept-plan",
+          items: [
+            `Dry run — \`${ACCEPT_COMMAND}\` would:`,
+            fastForward
+              ? `  • fast-forward ${target} to ${branch}`
+              : `  • merge ${branch} into ${target}`,
+            `  • check out ${target}`,
+            `  • delete the merged ${branch}`,
+          ],
+        },
+        {
+          id: "dry-run-verdict",
+          items: ["No changes were made (--dry-run)."],
+        },
+      ]));
     }
     return 0;
   }

@@ -22,7 +22,6 @@
  * dispatch, the interactive loop, and the pager.
  */
 
-import { Select } from "@cliffy/prompt";
 import { colors } from "@cliffy/ansi/colors";
 import {
   basename,
@@ -65,14 +64,24 @@ import {
   isBundledDocEntry,
   resolveBundledDocsDir,
 } from "../lib/paths.ts";
-import type { DiscernResult, ErrorSlug } from "../shared/result.ts";
+import {
+  type DiscernResult,
+  type ErrorSlug,
+  type HumanOutputGroup,
+  renderHumanOutputGroups,
+} from "../shared/result.ts";
 import { failureRecoveryHintTexts } from "../shared/hints.ts";
 import type {
   DocRecord,
   DocsData,
   DocSearchResult,
 } from "../shared/result_schemas.ts";
-import { canPrompt, checkboxPrompt, selectPrompt } from "../lib/prompts.ts";
+import {
+  canPrompt,
+  checkboxPrompt,
+  groupedSelectOptions,
+  selectPrompt,
+} from "../lib/prompts.ts";
 import {
   ageSince,
   buildMapOverview,
@@ -716,11 +725,21 @@ async function browse(
     try {
       choice = await selectPrompt({
         message,
-        options: [
-          ...choices,
-          Select.separator(color ? colors.dim("─────") : "─────"),
-          { name: color ? colors.dim("Quit") : "Quit", value: QUIT },
-        ],
+        options: groupedSelectOptions([
+          {
+            id: "documents",
+            label: "Documents",
+            items: choices,
+          },
+          {
+            id: "browse-navigation",
+            label: "Browse",
+            items: [{
+              name: color ? colors.dim("Quit") : "Quit",
+              value: QUIT,
+            }],
+          },
+        ], color ? colors.dim : (rule) => rule),
         search: true,
         info: true,
         maxRows: 14,
@@ -759,18 +778,29 @@ function printToc(
     Math.max(...tree.entries.map((e) => labelOf(e).length)),
   );
 
-  const lines: string[] = [docsHeader(verb, tree, cwd, color)];
-  let section: string | null = null;
+  const groups: HumanOutputGroup<string>[] = [{
+    id: "contents-summary",
+    items: [docsHeader(verb, tree, cwd, color)],
+  }];
+  let section: string | null | undefined;
+  let sectionItems: string[] | undefined;
   for (const e of tree.entries) {
     if (e.section !== section) {
       section = e.section;
-      lines.push("");
-      lines.push(paint(colors.bold.cyan, (section || "(root)") + "/"));
+      sectionItems = [
+        paint(colors.bold.cyan, (section || "(root)") + "/"),
+      ];
+      groups.push({
+        id: `contents:${section || "root"}`,
+        items: sectionItems,
+      });
     }
     const label = labelOf(e).padEnd(colWidth);
-    lines.push(`  ${paint(colors.cyan, label)}  ${paint(colors.dim, e.title)}`);
+    sectionItems?.push(
+      `  ${paint(colors.cyan, label)}  ${paint(colors.dim, e.title)}`,
+    );
   }
-  console.log(lines.join("\n"));
+  console.log(renderHumanOutputGroups(groups));
 }
 
 /** Render the map's top-level regions and their Git-only freshness facts. */
@@ -781,21 +811,23 @@ function printMapOverview(
   color: boolean,
 ): void {
   const paint = (fn: (s: string) => string, s: string) => color ? fn(s) : s;
-  const lines = [
-    `${paint(colors.bold, "discern map")} — ${regions.length} region${
-      regions.length === 1 ? "" : "s"
-    } in ${display(tree.docsDir, cwd)}`,
-  ];
-  for (const region of regions) {
-    lines.push("");
-    lines.push(
+  const groups: HumanOutputGroup<string>[] = [{
+    id: "map-summary",
+    items: [
+      `${paint(colors.bold, "discern map")} — ${regions.length} region${
+        regions.length === 1 ? "" : "s"
+      } in ${display(tree.docsDir, cwd)}`,
+    ],
+  }];
+  for (const [index, region] of regions.entries()) {
+    const items = [
       `${paint(colors.bold.cyan, region.name)}  ${region.description}`,
-    );
+    ];
     if (
       region.pages_changed_at === undefined ||
       region.code_changes_since === undefined
     ) {
-      lines.push(
+      items.push(
         paint(
           colors.dim,
           "  freshness unknown — no specific file links or usable Git history",
@@ -803,7 +835,7 @@ function printMapOverview(
       );
     } else {
       const changes = region.code_changes_since;
-      lines.push(
+      items.push(
         paint(
           colors.dim,
           `  pages last changed ${
@@ -814,8 +846,9 @@ function printMapOverview(
         ),
       );
     }
+    groups.push({ id: `map-region:${index}`, items });
   }
-  console.log(lines.join("\n"));
+  console.log(renderHumanOutputGroups(groups));
 }
 
 /** Print compact ranked hits with their reusable targets and context. */
@@ -834,33 +867,38 @@ function printSearchResults(
     return;
   }
   const count = data.count ?? results.length;
-  const lines = [
-    `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
-  ];
-  for (const result of results) {
+  const groups: HumanOutputGroup<string>[] = [{
+    id: "search-summary",
+    items: [
+      `${count} result${count === 1 ? "" : "s"} for "${query}"${scope}`,
+    ],
+  }];
+  for (const [index, result] of results.entries()) {
     const heading = result.heading === undefined ? "" : ` · ${result.heading}`;
     const match = result.match === "complete"
       ? ""
       : result.match === "partial"
       ? " · partial match"
       : " · title or alias match";
-    lines.push("");
-    lines.push(
+    const items = [
       `${
         paint(colors.bold.cyan, result.target)
       }  ${result.title}${heading}${match}`,
-    );
+    ];
     if (result.snippet !== "") {
-      lines.push(`  ${paint(colors.dim, result.snippet)}`);
+      items.push(`  ${paint(colors.dim, result.snippet)}`);
     }
+    groups.push({ id: `search-result:${index}`, items });
   }
   if (data.truncated === true) {
-    lines.push("");
-    lines.push(
-      paint(colors.dim, `Showing the first ${results.length} results.`),
-    );
+    groups.push({
+      id: "search-truncation",
+      items: [
+        paint(colors.dim, `Showing the first ${results.length} results.`),
+      ],
+    });
   }
-  console.log(lines.join("\n"));
+  console.log(renderHumanOutputGroups(groups));
 }
 
 /**

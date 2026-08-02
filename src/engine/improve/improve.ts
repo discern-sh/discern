@@ -34,7 +34,11 @@ import type {
   RuleResult,
   RuleStatus,
 } from "./types.ts";
-import { canPrompt, selectPrompt } from "../../lib/prompts.ts";
+import {
+  canPrompt,
+  groupedSelectOptions,
+  selectPrompt,
+} from "../../lib/prompts.ts";
 
 // ── evaluation ──────────────────────────────────────────────────────────────
 
@@ -431,7 +435,7 @@ function renderSummary(
   );
   out.raw(`  ${report.weak} objectively weak\n`);
   out.raw(`  ${c.cyan}${report.reviews} improvement reviews open${c.reset}\n`);
-  out.raw("\n");
+  out.group("next-action");
   if (report.nextAction.kind === "review") {
     renderReviewUnit(out, {
       title: report.nextAction.title,
@@ -451,7 +455,7 @@ function renderSummary(
     );
     out.raw(wrapLabelled("Why:        ", report.nextAction.why, "  "));
   }
-  out.raw("\n");
+  out.group("category-summary");
   out.raw(`  ${c.dim}weakest first${c.reset}\n`);
   const widest = Math.max(...report.categories.map((x) => x.title.length), 0);
   for (const cat of report.categories) {
@@ -516,15 +520,25 @@ async function interactiveDrilldown(
   const ALL = "\u0000all";
   const DONE = "\u0000done";
   for (;;) {
-    const options = [
-      ...report.categories.map((cat) => ({
-        name:
-          `${cat.title} — ${cat.score}/100 (${cat.weak} to fix, ${cat.reviews.length} to review)`,
-        value: cat.name,
-      })),
-      { name: "Show every category in full", value: ALL },
-      { name: "Done", value: DONE },
-    ];
+    const options = groupedSelectOptions<string>([
+      {
+        id: "areas",
+        label: "Areas",
+        items: report.categories.map((cat) => ({
+          name:
+            `${cat.title} — ${cat.score}/100 (${cat.weak} to fix, ${cat.reviews.length} to review)`,
+          value: cat.name,
+        })),
+      },
+      {
+        id: "report-actions",
+        label: "Report",
+        items: [
+          { name: "Show every category in full", value: ALL },
+          { name: "Done", value: DONE },
+        ],
+      },
+    ]);
     const choice = await selectPrompt({
       message: "Drill into an area",
       options,
@@ -553,7 +567,7 @@ function renderFooter(
   filtered: boolean,
 ): void {
   const c = out.c;
-  out.raw("\n");
+  out.group("report-actions");
   if (report.reviews > 0) {
     out.raw(
       `  ${c.dim}? items need judgement — an agent can evaluate them against the cited material via${c.reset} discern improvement --json${c.dim}.${c.reset}\n`,

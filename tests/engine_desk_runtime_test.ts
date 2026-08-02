@@ -88,6 +88,7 @@ function transcript(): Transcript {
       warn: (message) => stderr.push(`warn:${message}`),
       error: (message) => stderr.push(`error:${message}`),
       heading: (message) => stdout.push(`heading:${message}`),
+      group: () => stdout.push(""),
       raw: (message) => stdout.push(message),
     },
   };
@@ -338,6 +339,14 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
   assertStringIncludes(text, "4 tasks");
   assertStringIncludes(text, "main has 1 uncommitted change");
   assertStringIncludes(text, "1 branch has no worktree: agent/orphan");
+  assertStringIncludes(
+    output.stdout.join(""),
+    "main has 1 uncommitted change\n\n  1 branch has no worktree",
+  );
+  assertStringIncludes(
+    output.stdout.join(""),
+    "Open one with `discern start --from <branch>`.\n\n  ✦ tip",
+  );
   const options = optionText.join("\n");
   for (const task of ["Ready to land", "Flying", "Broken", "Unreadable"]) {
     assertStringIncludes(options, task);
@@ -347,6 +356,16 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
     !options.includes("Ready to land  a1b2c3"),
     "a unique task name should not display its id tail",
   );
+  for (
+    const section of [
+      "── Ready to land · 1 ──",
+      "── In flight · 1 ──",
+      "── Needs attention · 2 ──",
+      "── Desk ──",
+    ]
+  ) {
+    assertStringIncludes(options, section);
+  }
 });
 
 Deno.test("desk grants and revokes one effort only through its human action", async () => {

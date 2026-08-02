@@ -2394,7 +2394,7 @@ async function executeAcceptPlan(
   // so the quoted page stays visually secondary (dim is display-only — a
   // terminal copies the plain text).
   if (receiptMarkdown !== undefined) {
-    ctx.log.line("");
+    ctx.log.group("receipt");
     for (
       const line of dimBlock(receiptMarkdown, loggerSink(ctx.log).dim)
         .split("\n")

@@ -257,7 +257,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
           "Could not resolve the .gitignore fragment to check scaffold drift.",
         );
       }
-      log.line();
+      log.group("upgrade-action");
       log.info("Apply it: run `discern upgrade`.");
     }
     return ok ? 0 : 1;
@@ -280,32 +280,33 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
       });
     } else {
       if (pending.length > 0) {
+        log.group("migrations");
         log.info(`Would run ${pending.length} migration(s):`);
         for (const m of pending) {
           log.detail(`${m.from}→${m.from + 1}: ${m.describe}`);
         }
-        log.line();
       }
       if (currentReconciliation.operations.length > 0) {
+        log.group("config-reconciliation");
         log.info(
           `Would reconcile ${currentReconciliation.operations.length} config scaffold item(s):`,
         );
         for (const op of currentReconciliation.operations) {
           log.detail(operationLabel(op));
         }
-        log.line();
       }
       if (currentGitignoreReconciliation.operations.length > 0) {
+        log.group("gitignore-reconciliation");
         log.info("Would reconcile the discern .gitignore block:");
         for (const op of currentGitignoreReconciliation.operations) {
           log.detail(gitignoreOperationLabel(op));
         }
-        log.line();
       }
+      log.group("agent-files");
       log.info(
         "Would recompile the agent guidance and re-materialize the bundled skills.",
       );
-      log.line();
+      log.group("dry-run-verdict");
       log.info("No files were written (--dry-run).");
     }
     return 0;
@@ -670,7 +671,7 @@ function renderUpgradeSummary(
   log.ok(`install stamped at schema ${currentSchema}`);
   // R6: keep the two upgrade axes distinct — `discern upgrade` refreshed THIS
   // project to match the installed binary; getting a NEWER binary is separate.
-  log.line();
+  log.group("upgrade-next-steps");
   log.info(
     `This refreshed your project to match the installed discern (${KIT_VERSION}). ${newerDiscernHint().text}`,
   );

@@ -1265,8 +1265,9 @@ function printSuccessTail(
       width: ttyWidth,
       color: out.color,
     };
+    out.group("gate-summary");
     out.raw(
-      `\n${
+      `${
         tableAlreadyRendered
           ? renderDoneTtyReceiptPanel(receipt, options)
           : renderDoneTtySummary(result.steps ?? [], receipt, options)
@@ -1276,13 +1277,14 @@ function printSuccessTail(
   }
 
   if (ttyWidth !== undefined && !tableAlreadyRendered) {
+    out.group("gate-results");
     out.raw(
-      `\n${
+      `${
         renderDoneTtyTable(result.steps ?? [], {
           width: ttyWidth,
           color: out.color,
         })
-      }\n\n`,
+      }\n`,
     );
   }
 
@@ -1302,9 +1304,12 @@ function printSuccessTail(
     }
   }
   if (receipt?.markdown !== undefined) {
-    out.raw(`\n${dimBlock(receipt.markdown, outSink(out).dim)}\n\n`);
+    out.group("receipt");
+    out.raw(`${dimBlock(receipt.markdown, outSink(out).dim)}\n`);
   }
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     out.info(hint);
   }
 }
@@ -1457,7 +1462,9 @@ export async function runFinish(
     }
     const out = makeOut(colorEnabled());
     out.error(refusal.message ?? "The gate refused to re-run.");
-    for (const hint of interactiveHintTexts(refusal.hints)) {
+    const hints = interactiveHintTexts(refusal.hints);
+    if (hints.length > 0) out.group("next");
+    for (const hint of hints) {
       out.warn(hint);
     }
     return 1;

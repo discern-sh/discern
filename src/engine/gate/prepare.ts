@@ -150,7 +150,9 @@ export async function runPrepare(
   }
   out.ok("Prepare complete — fixers applied and checks passed.");
   // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     out.info(hint);
   }
   return 0;

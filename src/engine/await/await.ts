@@ -1054,7 +1054,9 @@ function renderAwaitHuman(
       `Not yet — waited ${waited} of the ${data.timeout_seconds}s timeout.`,
     );
   }
-  for (const hint of interactiveHintTexts(result.hints)) {
+  const hints = interactiveHintTexts(result.hints);
+  if (hints.length > 0) out.group("next");
+  for (const hint of hints) {
     out.info(hint);
   }
 }
@@ -1078,7 +1080,9 @@ export async function runAwait(
     const out = makeOut(colorEnabled());
     if (!result.ok) {
       out.error(result.message ?? "await refused.");
-      for (const hint of interactiveHintTexts(result.hints)) {
+      const hints = interactiveHintTexts(result.hints);
+      if (hints.length > 0) out.group("next");
+      for (const hint of hints) {
         out.info(hint);
       }
     } else {

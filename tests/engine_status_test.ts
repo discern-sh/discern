@@ -563,6 +563,25 @@ Deno.test("status: the discern start guardrail does NOT fire from a worktree (it
   });
 });
 
+Deno.test("status human output separates its semantic groups", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, statusGateFactsConfig(["lint", "test"]));
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "grouped-status");
+
+    const human = await runAgent(wt, ["status"]);
+    assertEquals(human.code, 0, human.output);
+    for (const section of ["Checkout", "Change", "Gate", "Landing"]) {
+      assertStringIncludes(
+        human.stdout,
+        `\n\n  ── ${section}\n`,
+        `${section} must start after a visible group boundary:\n${human.stdout}`,
+      );
+    }
+  });
+});
+
 Deno.test("status: while setup is unfinished, the main-checkout worktree next-steps are suppressed (no contradiction)", async () => {
   // Setup runs in the main checkout (on the `discern-setup` branch). Until it is
   // recorded, the only correct "what now" is "finish setup here" — so the
