@@ -17,11 +17,11 @@ _Every verb builds one result object; types, runtime validation, generated contr
 
 ## Human CLI groups
 
-A composed human view declares `HumanOutputGroup<T>` entries with stable, non-rendered identities. `renderHumanOutputGroups` drops empty groups and places one empty line between populated groups; labels are optional. Plans derive their sections from `PlanStep.group`. Live narration uses `Out.group` or `Logger.group`, while interactive choices use `groupedSelectOptions` and receive a ruled label before every populated group ([ADR 0249](../_adr/0249-discern-managed-human-output-declares-semantic-groups.md)).
+Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`; live output uses `Out.group` or `Logger.group`; pickers use ruled `groupedSelectOptions` labels ([ADR 0249](../_adr/0249-discern-managed-human-output-declares-semantic-groups.md)).
 
-The rule applies when discern's presentation moves from one meaning to another. A homogeneous list is one group. Machine protocols, scalar stdout, raw or rendered document bodies, visibly framed tables, and project-owned streams keep their own structure.
+Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 
-[`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local empty-line output and direct prompt separators across the Git-derived authored TypeScript set. Behavior tests cover collection-driven groups such as plan stages, status regions, and desk buckets.
+The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct prompt separators across authored TypeScript. Tests cover plan stages, status regions, and desk buckets.
 
 ## The serialized envelope
 
