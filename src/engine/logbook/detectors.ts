@@ -2071,6 +2071,10 @@ const guidanceParity: Detector = {
   },
 };
 
+const GATE_DOMINANCE_MIN_RUNS = 5;
+const GATE_DOMINANCE_SHARE = 0.5;
+const GATE_DOMINANCE_MEAN_SECONDS = 10;
+
 const dominantStage: Detector = {
   id: "dominant-stage",
   title: "One job dominating gate time",
@@ -2080,7 +2084,7 @@ const dominantStage: Detector = {
   tone: "attention",
   windowed: true,
   // 5 timed gate runs on the current setup before calling a job dominant.
-  threshold: 5,
+  threshold: GATE_DOMINANCE_MIN_RUNS,
   next_step:
     "When one job is most of the gate's wall clock, that job sets the pace of every loop — cache it, split it, or move the slow part behind a scope gate so unrelated changes skip it.",
   detect(facts): DetectorOutcome {
@@ -2094,10 +2098,11 @@ const dominantStage: Detector = {
     // "Considered" counts every examined run, comparable or not, so a series
     // outnumbered by other setups reports the attribution instead of going quiet.
     const considered = series.length + (excluded?.runs ?? 0);
-    if (series.length < 5) {
+    if (series.length < GATE_DOMINANCE_MIN_RUNS) {
       return {
         considered,
-        findings: excluded !== undefined && considered >= 5
+        findings: excluded !== undefined &&
+            considered >= GATE_DOMINANCE_MIN_RUNS
           ? [attributionFinding(series, excluded)]
           : [],
       };
@@ -2119,7 +2124,15 @@ const dominantStage: Detector = {
       const share = seconds / all;
       const meanS = seconds / series.length;
       // Half the gate AND a real cost — a 1-second gate has no dominant-stage problem.
-      if (share >= 0.5 && meanS >= 10) {
+      if (
+        share >= GATE_DOMINANCE_SHARE &&
+        meanS >= GATE_DOMINANCE_MEAN_SECONDS
+      ) {
+        // Generated jobs yield to the restructure-only detector so the generic
+        // cache/scope remedy cannot weaken their always-run contract.
+        if (label.startsWith("generated:")) {
+          return { considered, findings: [] };
+        }
         findings.push({
           subject: label,
           brief: `${formatHumanNumber(round1(meanS))}s per \`done\` · ${
@@ -2141,6 +2154,113 @@ const dominantStage: Detector = {
         });
       }
     }
+    return { considered, findings };
+  },
+};
+
+/**
+ * Watch the always-run generated family as one gate cost. Five comparable
+ * timed `done` runs establish the current-setup window; a 50% share means
+ * regeneration takes at least as much recorded job time as the rest of the
+ * gate, and a 10-second mean keeps short gates below the advisory floor.
+ *
+ * `dominantStage` yields generated labels here so its generic cache/scope
+ * remedy cannot contradict the always-run generator contract.
+ */
+const generatorGateShare: Detector = {
+  id: "generator-gate-share",
+  title: "Generator share of gate time",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  windowed: true,
+  threshold: GATE_DOMINANCE_MIN_RUNS,
+  next_step:
+    "Restructure the heaviest generated group: split it, speed up its command, or narrow what it derives so regeneration takes less time on every full gate.",
+  detect(facts): DetectorOutcome {
+    const { series, excluded } = comparableSeries(
+      facts.verbs.filter((e) =>
+        e.verb === "done" &&
+        (e.steps ?? []).some((s) => s.duration_s !== undefined)
+      ),
+      facts.events,
+    );
+    const considered = series.length + (excluded?.runs ?? 0);
+    if (series.length < GATE_DOMINANCE_MIN_RUNS) {
+      return {
+        considered,
+        findings: excluded !== undefined &&
+            considered >= GATE_DOMINANCE_MIN_RUNS
+          ? [attributionFinding(series, excluded)]
+          : [],
+      };
+    }
+
+    const generatedTotals = new Map<string, number>();
+    let generatedSeconds = 0;
+    let gateSeconds = 0;
+    for (const event of series) {
+      for (const step of event.steps ?? []) {
+        const seconds = step.duration_s ?? 0;
+        gateSeconds += seconds;
+        if (step.label.startsWith("generated:")) {
+          generatedTotals.set(
+            step.label,
+            (generatedTotals.get(step.label) ?? 0) + seconds,
+          );
+          generatedSeconds += seconds;
+        }
+      }
+    }
+
+    if (gateSeconds <= 0) {
+      return { considered, findings: [] };
+    }
+    const generatedShare = generatedSeconds / gateSeconds;
+    const generatedMeanS = generatedSeconds / series.length;
+    if (
+      generatedShare < GATE_DOMINANCE_SHARE ||
+      generatedMeanS < GATE_DOMINANCE_MEAN_SECONDS
+    ) {
+      return { considered, findings: [] };
+    }
+
+    const generatedSharePct = Math.round(generatedShare * 100);
+    const findings: DetectorFinding[] = [...generatedTotals.entries()]
+      .filter(([, seconds]) => seconds > 0)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 3)
+      .map(([label, seconds]) => {
+        const groupMeanS = seconds / series.length;
+        const groupShare = seconds / gateSeconds;
+        const groupSharePct = Math.round(groupShare * 100);
+        return {
+          subject: label,
+          brief: `${formatHumanNumber(round1(groupMeanS))}s per \`done\` · ${
+            formatHumanNumber(groupSharePct)
+          }% of gate time · generators ${
+            formatHumanNumber(generatedSharePct)
+          }% · ${formatHumanNumber(series.length)} runs`,
+          observed: `\`${label}\` averaged ${
+            formatHumanNumber(round1(groupMeanS))
+          }s per \`done\` and ${
+            formatHumanNumber(groupSharePct)
+          }% of recorded gate time across ${
+            formatHumanNumber(series.length)
+          } runs, while all generated groups averaged ${
+            formatHumanNumber(round1(generatedMeanS))
+          }s and accounted for ${formatHumanNumber(generatedSharePct)}%.`,
+          evidence: {
+            runs: series.length,
+            group_share_pct: groupSharePct,
+            group_mean_seconds: round1(groupMeanS),
+            generated_share_pct: generatedSharePct,
+            generated_mean_seconds: round1(generatedMeanS),
+          },
+          strength: Math.max(1, Math.round(groupShare * 100)),
+        };
+      });
     return { considered, findings };
   },
 };
@@ -3041,6 +3161,7 @@ export const DETECTORS: readonly Detector[] = [
   cohortDoneThrash,
   guidanceParity,
   dominantStage,
+  generatorGateShare,
   durationCreep,
   fixStageIdle,
   recurringDiagnostic,

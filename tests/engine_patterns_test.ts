@@ -75,6 +75,59 @@ function seededEvent(at: string, outcome: "ok" | "failed"): string {
   });
 }
 
+/** One timed gate run where two generated groups take most recorded job time. */
+function seededGeneratorGateEvent(at: string): string {
+  return JSON.stringify({
+    schema: 1,
+    at,
+    kind: "verb",
+    verb: "done",
+    surface: "cli",
+    writer: "9.9.9",
+    driver: { session: "cli:8", json: true, tty: false, ci: false },
+    branch: "agent/generated",
+    head: "def5678",
+    clean: true,
+    outcome: "ok",
+    duration_ms: 50_000,
+    epoch: "e2",
+    steps: [
+      {
+        label: "generated:schemas",
+        kind: "job",
+        outcome: "ok",
+        disposition: "run",
+        group: "Build",
+        duration_s: 20,
+      },
+      {
+        label: "generated:docs",
+        kind: "job",
+        outcome: "ok",
+        disposition: "run",
+        group: "Build",
+        duration_s: 10,
+      },
+      {
+        label: "lint",
+        kind: "job",
+        outcome: "ok",
+        disposition: "run",
+        group: "Check & test",
+        duration_s: 10,
+      },
+      {
+        label: "test",
+        kind: "job",
+        outcome: "ok",
+        disposition: "run",
+        group: "Check & test",
+        duration_s: 10,
+      },
+    ],
+  });
+}
+
 Deno.test("patterns calendar span counts inclusive UTC dates, not elapsed 24-hour blocks", () => {
   assertEquals(
     inclusiveSpanDays(
@@ -157,6 +210,19 @@ async function seedLogbook(dir: string): Promise<void> {
         measured: 85,
       }),
     ].join("\n") + "\n",
+  );
+}
+
+/** Seed the minimum comparable timed history for generator gate-share. */
+async function seedGeneratorGateLogbook(dir: string): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  await Deno.writeTextFile(
+    join(logDir, "2026-07.jsonl"),
+    Array.from({ length: 5 }, (_, index) =>
+      seededGeneratorGateEvent(
+        `2026-07-01T1${index}:00:00.000Z`,
+      )).join("\n") + "\n",
   );
 }
 
@@ -810,6 +876,40 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     );
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
+  });
+});
+
+Deno.test("patterns: generator gate share names the heaviest generated groups on the JSON wire", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await seedGeneratorGateLogbook(dir);
+
+    const result = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(result.code, 0, result.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(result.stdout));
+    assertEquals(parsed.ok, true);
+    const data = parsed.data as PatternsData;
+    const findings = data.findings.filter((finding) =>
+      finding.detector === "generator-gate-share"
+    );
+    assertEquals(
+      findings.map((finding) => finding.subject),
+      ["generated:schemas", "generated:docs"],
+    );
+    assertEquals(findings[0]?.evidence, {
+      runs: 5,
+      group_share_pct: 40,
+      group_mean_seconds: 20,
+      generated_share_pct: 60,
+      generated_mean_seconds: 30,
+    });
+    assertStringIncludes(findings[0]?.next_step ?? "", "Restructure");
+    assertEquals(
+      data.detectors.find((entry) => entry.id === "generator-gate-share")
+        ?.status,
+      "fired",
+    );
   });
 });
 
