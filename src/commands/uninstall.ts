@@ -16,8 +16,11 @@
  * (always regenerable); discern-owned provider files (the Codex
  * rules, the Copilot hook file); the discern entries inside co-owned files (each
  * provider's MCP server, the session hooks, the permission defaults) — stripping
- * them and leaving the user's own settings byte-for-byte; and the delimited
- * `.gitignore` and `.gitattributes` blocks. A co-owned file discern created
+ * them and leaving the user's own settings byte-for-byte; the delimited
+ * `.gitignore` and `.gitattributes` blocks; and the `discern/` runtime-state
+ * namespace under Git's administrative directories (the logbook, gate
+ * receipts, the self-shim, coordination locks — every registered entry, whole,
+ * so a future entry auto-enrols). A co-owned file discern created
  * outright empties to nothing and is deleted; one the user shares keeps their
  * content.
  *
@@ -57,6 +60,8 @@ import {
   stripDiscernFromCodexEnv,
   wiredMcp,
 } from "../lib/providers.ts";
+import { gitAdminNamespaceDirs } from "../shared/git_admin_state.ts";
+import { suppressLogbookWrites } from "../engine/logbook/store.ts";
 import { stripDiscernFromJsonSettings } from "../lib/settings_strip.ts";
 import {
   DISCERN_GITIGNORE_BEGIN,
@@ -106,6 +111,9 @@ interface IncompleteStrip {
 /** The computed, read-only uninstall plan. */
 interface UninstallPlan {
   ops: RemovalOp[];
+  /** Absolute `discern/` namespace dirs under Git's administrative area —
+   * runtime records (logbook, receipts, shim, locks) that exit with the tool. */
+  gitAdminDirs: string[];
   kept: KeptItem[];
   /** Directories to remove if they empty out once their discern files are gone. */
   emptyDirCandidates: Set<string>;
@@ -225,11 +233,17 @@ async function computeUninstallPlan(
 ): Promise<UninstallPlan> {
   const plan: UninstallPlan = {
     ops: [],
+    gitAdminDirs: [],
     kept: [],
     emptyDirCandidates: new Set<string>(),
     templatesAvailable: true,
     incompleteStrips: [],
   };
+  for (const dir of await gitAdminNamespaceDirs(root)) {
+    if (await pathExists(dir)) {
+      plan.gitAdminDirs.push(dir);
+    }
+  }
   const abs = (rel: string): string => join(root, rel);
   const noteDelete = (rel: string, isDir: boolean, reason: string): void => {
     plan.ops.push({ action: "delete", rel, isDir, reason });
@@ -454,6 +468,12 @@ async function applyUninstallPlan(
       await Deno.writeTextFile(target, op.newText);
     }
   }
+  for (const dir of plan.gitAdminDirs) {
+    await Deno.remove(dir, { recursive: true });
+  }
+  // This verb's own completion bookkeeping must not resurrect the store it
+  // just removed.
+  suppressLogbookWrites();
   await pruneEmptyDirs(root, plan.emptyDirCandidates);
 }
 
@@ -464,6 +484,7 @@ async function applyUninstallPlan(
 function planData(plan: UninstallPlan): Record<string, unknown> {
   return {
     removed: plan.ops.filter((o) => o.action === "delete").map((o) => o.rel),
+    removed_runtime_state: plan.gitAdminDirs,
     stripped: plan.ops.filter((o) => o.action === "rewrite").map((o) => o.rel),
     kept: plan.kept.map((k) => k.rel),
     templates_available: plan.templatesAvailable,
@@ -488,6 +509,16 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
     log.ok(applied ? "removed discern-generated files" : "would remove");
     for (const op of deletes) {
       log.detail(`${op.rel}${op.isDir ? "/" : ""} — ${op.reason}`);
+    }
+  }
+  if (plan.gitAdminDirs.length > 0) {
+    log.ok(
+      applied
+        ? "removed runtime records under Git's administrative directory"
+        : "would remove runtime records under Git's administrative directory",
+    );
+    for (const dir of plan.gitAdminDirs) {
+      log.detail(`${dir}/ — logbook, gate receipts, shim, locks`);
     }
   }
   if (rewrites.length > 0) {

@@ -3070,6 +3070,12 @@
                     "type": "string"
                   }
                 },
+                "removed_runtime_state": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "stripped": {
                   "type": "array",
                   "items": {

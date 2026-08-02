@@ -982,6 +982,7 @@ export type DiscernUninstallResult = {
   verb: "uninstall";
   data?: {
     removed?: Array<string>;
+    removed_runtime_state?: Array<string>;
     stripped?: Array<string>;
     kept?: Array<string>;
     binary_hint?: string;

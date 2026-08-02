@@ -61,6 +61,17 @@ export function monthFileName(atIso: string): string {
  * what the stream reader (`read.ts`) recognizes as event storage. */
 export const MONTH_FILE_RE = /^\d{4}-\d{2}\.jsonl$/;
 
+/** Set once this process intentionally removed the store (uninstall taking
+ * the whole Git-admin namespace with it): the removing verb's own trailing
+ * completion event must not resurrect what it just removed. */
+let storeRemovedByThisProcess = false;
+
+/** Mark the store as removed by this process; every later write in this
+ * process becomes a silent no-op. */
+export function suppressLogbookWrites(): void {
+  storeRemovedByThisProcess = true;
+}
+
 /** Serialize one event as its single logbook line (trailing newline included). */
 function eventLine(event: LogbookEvent): string {
   return `${JSON.stringify(event)}\n`;
@@ -82,6 +93,9 @@ export async function appendEvent(
   commonGitDir: string,
   event: LogbookEvent,
 ): Promise<void> {
+  if (storeRemovedByThisProcess) {
+    return;
+  }
   const dir = logbookDir(commonGitDir);
   await ensureDir(dir);
   const path = join(dir, monthFileName(event.at));
@@ -243,6 +257,9 @@ export async function writeEpochState(
   commonGitDir: string,
   state: EpochState,
 ): Promise<void> {
+  if (storeRemovedByThisProcess) {
+    return;
+  }
   const dir = logbookDir(commonGitDir);
   await ensureDir(dir);
   const path = epochStatePath(commonGitDir);

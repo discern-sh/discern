@@ -1749,6 +1749,8 @@ export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
  * applied run, and a refusal. */
 export const UninstallDataSchema = z.strictObject({
   removed: z.array(z.string()).optional(),
+  /** Absolute `discern/` runtime-state dirs removed from Git's admin area. */
+  removed_runtime_state: z.array(z.string()).optional(),
   stripped: z.array(z.string()).optional(),
   kept: z.array(z.string()).optional(),
   binary_hint: z.string().optional(),

@@ -130,6 +130,13 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       "setup should wire the discern MCP server",
     );
 
+    // Runtime records exist under .git before the round-trip, so their
+    // removal below proves something.
+    assert(
+      await exists(join(dir, ".git", "discern")),
+      "setup and refresh should have recorded runtime state under .git/discern",
+    );
+
     const result = await runAgent(dir, ["uninstall", "--json"]);
     assertEquals(result.code, 0, result.output);
     const envelope = JSON.parse(result.stdout);
@@ -176,7 +183,17 @@ Deno.test("uninstall removes discern's footprint and keeps the user's content", 
       "the guidance source must be kept",
     );
 
-    // 5. The result names what stayed and how to remove the binary.
+    // 5. The runtime-state namespace under .git exits with the tool
+    //    (exit honesty covers the registered admin entries, shim included).
+    assertEquals(
+      await exists(join(dir, ".git", "discern")),
+      false,
+      "uninstall must remove the discern/ namespace under .git",
+    );
+    assert(Array.isArray(envelope.data.removed_runtime_state));
+    assert(envelope.data.removed_runtime_state.length > 0);
+
+    // 6. The result names what stayed and how to remove the binary.
     assert(Array.isArray(envelope.data.kept));
     assert(envelope.data.kept.includes("discern.toml"));
     assert(typeof envelope.data.binary_hint === "string");
