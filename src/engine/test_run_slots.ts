@@ -51,6 +51,8 @@ export type TestRunSlotEvent =
 /** The shared slot resource used by gate groups and command wrappers. */
 export interface TestRunSlotAcquirer {
   readonly cap: number;
+  /** Accumulated slot-wait time after acquisition is first attempted. */
+  readonly waitedMs: number | undefined;
   /**
    * Acquire one slot, waiting abortably while every slot is held. Undefined
    * means the signal aborted or the limiter failed open; callers proceed under
@@ -211,6 +213,7 @@ export function buildTestRunSlotAcquirer(
   }
   let dirPromise: Promise<string | undefined> | undefined;
   let unavailable = false;
+  let waitedMs: number | undefined;
   const slotDir = (): Promise<string | undefined> => {
     dirPromise ??= (async (): Promise<string | undefined> => {
       const dir = await gitAdminStatePath(root, "testSlots");
@@ -242,10 +245,16 @@ export function buildTestRunSlotAcquirer(
   };
   return {
     cap,
+    get waitedMs(): number | undefined {
+      return waitedMs === undefined ? undefined : Math.round(waitedMs);
+    },
     async acquire(
       onEvent: (event: TestRunSlotEvent) => void,
       signal?: AbortSignal,
     ): Promise<TestRunSlotHold | undefined> {
+      // Presence means a capped acquisition was in play. An immediate acquire
+      // or fail-open therefore records zero rather than looking historical.
+      waitedMs ??= 0;
       if (unavailable) {
         return undefined;
       }
@@ -274,18 +283,25 @@ export function buildTestRunSlotAcquirer(
             : NO_DECORATION),
         }),
       });
+      const waitStarted = performance.now();
+      const finishWait = (): void => {
+        waitedMs = (waitedMs ?? 0) + performance.now() - waitStarted;
+      };
       let interval = POLL_INITIAL_MS;
       while (true) {
         await abortableDelay(interval * (0.75 + Math.random() * 0.5), signal);
         if (signal?.aborted === true) {
+          finishWait();
           return undefined;
         }
         probe = await probeSlots(dir, cap);
         if (probe.kind === "acquired") {
+          finishWait();
           onEvent({ kind: "acquired" });
           return makeHold(probe.file);
         }
         if (probe.kind === "unavailable") {
+          finishWait();
           return failOpen(probe.reason, onEvent);
         }
         interval = Math.min(POLL_CAP_MS, interval * POLL_FACTOR);

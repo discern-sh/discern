@@ -105,6 +105,7 @@ async function runTestGate(
       ok: failedStage === null,
       verb: "test",
       steps,
+      ...(slots?.waitedMs !== undefined ? { waitedMs: slots.waitedMs } : {}),
       diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
       ...(
         inProgress !== undefined || hints.length > 0 || slotWaits.length > 0 ||

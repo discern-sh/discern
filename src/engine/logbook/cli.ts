@@ -133,6 +133,8 @@ type VerbBody<TThis, A extends unknown[]> = (
 export interface RecordedRunOptions {
   /** The object acted on when no result or target observer supplies one. */
   readonly target?: string;
+  /** Read envelope-less slot-wait timing after the body settles. */
+  readonly waitedMs?: () => number | undefined;
 }
 
 /**
@@ -192,6 +194,7 @@ export async function recordedRun(
     // script name belongs to the child, so a child's own flags must not
     // mislabel the event.
     const result = observed?.result;
+    const waitedMs = result?.waitedMs ?? opts.waitedMs?.();
     const dryRun = result?.dry_run === true ||
       (scanArgs && Deno.args.includes("--dry-run"));
     await recording.finish({
@@ -199,6 +202,7 @@ export async function recordedRun(
       surface,
       outcome: code === 0 ? "ok" : "failed",
       durationMs: performance.now() - started,
+      ...(waitedMs !== undefined ? { waitedMs } : {}),
       driver: await driver,
       ...(result !== undefined ? { result } : {}),
       hintIds: [

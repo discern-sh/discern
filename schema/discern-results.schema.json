@@ -170,6 +170,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -428,6 +432,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -963,6 +971,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -1344,6 +1356,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -1666,6 +1682,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -2111,6 +2131,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -2400,6 +2424,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -2989,6 +3017,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -3295,6 +3327,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -3705,6 +3741,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -4041,6 +4081,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -4366,6 +4410,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -4887,6 +4935,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -5407,6 +5459,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -5775,6 +5831,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -6252,6 +6312,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -6511,6 +6575,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -6769,6 +6837,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -7306,6 +7378,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -7653,6 +7729,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -7998,6 +8078,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -8256,6 +8340,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -8548,6 +8636,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -8937,6 +9029,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -9320,6 +9416,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -10278,6 +10378,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -10579,6 +10683,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -10837,6 +10945,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -11746,6 +11858,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -12096,6 +12212,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -12622,6 +12742,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -13029,6 +13153,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -13358,6 +13486,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -13650,6 +13782,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -13908,6 +14044,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -14168,6 +14308,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -14426,6 +14570,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -14686,6 +14834,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -14945,6 +15097,10 @@
             ]
           }
         },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
+        },
         "diagnostics": {
           "type": "array",
           "items": {
@@ -15203,6 +15359,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",
@@ -15508,6 +15668,10 @@
               "outcome"
             ]
           }
+        },
+        "waited_ms": {
+          "type": "number",
+          "minimum": 0
         },
         "diagnostics": {
           "type": "array",

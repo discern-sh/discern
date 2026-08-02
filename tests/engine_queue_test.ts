@@ -172,6 +172,8 @@ interface QueueEvent {
   invocation?: string;
   target?: string;
   outcome?: string;
+  duration_ms?: number;
+  waited_ms?: number;
 }
 
 /** Read every logbook event whose verb is `queue`. */
@@ -269,6 +271,16 @@ Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on s
       assertEquals(completions.length, 2);
       assertEquals(completions.map((event) => event.target), ["sh", "sh"]);
       assertEquals(completions.map((event) => event.outcome), ["ok", "ok"]);
+      assert(
+        completions.every((event) => (event.waited_ms ?? 0) > 0),
+        "both externally contended wrappers record their slot wait",
+      );
+      assert(
+        completions.every((event) =>
+          (event.duration_ms ?? 0) >= (event.waited_ms ?? 0)
+        ),
+        "end-to-end duration includes the separate wait",
+      );
       assertEquals(
         new Set(begins.map((event) => event.invocation)),
         new Set(completions.map((event) => event.invocation)),
@@ -379,6 +391,7 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       assertEquals(events.length, 2, "only the outer wrapper owns telemetry");
       assertEquals(events.map((event) => event.kind), ["begin", "verb"]);
       assertEquals(events[1]?.target, "discern");
+      assertEquals(events[1]?.waited_ms, 0);
     } catch (error) {
       try {
         running.kill("SIGTERM");
@@ -641,6 +654,13 @@ Deno.test("queue is invisible when the cap is disabled or no config exists", asy
     assertEquals(cappedOff.stdout, "cap-zero");
     assertEquals(cappedOff.stderr, "");
     assertEquals(await pathExists(slotDirOf(configured)), false);
+    const events = await queueEvents(configured);
+    assertEquals(events.length, 2);
+    assertEquals(
+      events[1]?.waited_ms,
+      undefined,
+      "an uncapped wrapper omits wait accounting",
+    );
   });
 
   await withTempDir(async (unconfigured) => {

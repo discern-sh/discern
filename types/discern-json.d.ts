@@ -139,6 +139,7 @@ export type DiscernDiscernResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -227,6 +228,7 @@ export type DiscernSetupResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -371,6 +373,7 @@ export type DiscernSetupVerifyResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -487,6 +490,7 @@ export type DiscernSetupStepResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -587,6 +591,7 @@ export type DiscernSetupDoneResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -715,6 +720,7 @@ export type DiscernSetupAcceptResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -809,6 +815,7 @@ export type DiscernUpgradeResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -963,6 +970,7 @@ export type DiscernUninstallResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1059,6 +1067,7 @@ export type DiscernDoctorResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1193,6 +1202,7 @@ export type DiscernLicensesResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1296,6 +1306,7 @@ export type DiscernPresetResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1396,6 +1407,7 @@ export type DiscernMapResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1546,6 +1558,7 @@ export type DiscernDocsResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1696,6 +1709,7 @@ export type DiscernConfigResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1803,6 +1817,7 @@ export type DiscernDoneResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -1952,6 +1967,7 @@ export type DiscernPrepareResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2040,6 +2056,7 @@ export type DiscernTestResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2128,6 +2145,7 @@ export type DiscernImprovementResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2275,6 +2293,7 @@ export type DiscernStandardsResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2380,6 +2399,7 @@ export type DiscernRefreshResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2482,6 +2502,7 @@ export type DiscernTidyResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2570,6 +2591,7 @@ export type DiscernImpactResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2664,6 +2686,7 @@ export type DiscernCouplingResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2778,6 +2801,7 @@ export type DiscernAwaitResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -2906,6 +2930,7 @@ export type DiscernPatternsResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3127,6 +3152,7 @@ export type DiscernPatternsResetResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3222,6 +3248,7 @@ export type DiscernDeskResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3310,6 +3337,7 @@ export type DiscernStatusResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3538,6 +3566,7 @@ export type DiscernStartResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3643,6 +3672,7 @@ export type DiscernAcceptResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3798,6 +3828,7 @@ export type DiscernUpdateResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -3914,6 +3945,7 @@ export type DiscernIdentityResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4015,6 +4047,7 @@ export type DiscernScriptsResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4109,6 +4142,7 @@ export type DiscernWorktreeResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4197,6 +4231,7 @@ export type DiscernWorktreeSetupResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4285,6 +4320,7 @@ export type DiscernWorktreeTeardownResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4373,6 +4409,7 @@ export type DiscernWorktreeDropResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4461,6 +4498,7 @@ export type DiscernWorktreePruneResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4549,6 +4587,7 @@ export type DiscernSkillsResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4637,6 +4676,7 @@ export type DiscernSkillsListResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";
@@ -4733,6 +4773,7 @@ export type DiscernSkillsEjectResult = {
     output_lines?: number;
     error_like_lines?: number;
   }>;
+  waited_ms?: number;
   diagnostics?: Array<{
     tool: string;
     severity: "error" | "warning";

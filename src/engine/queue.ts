@@ -19,6 +19,7 @@ import {
   TEST_RUN_SLOT_ENV,
   TEST_RUN_SLOT_VALUE,
   testRunSlotAccounted,
+  type TestRunSlotAcquirer,
   type TestRunSlotEvent,
 } from "./test_run_slots.ts";
 
@@ -114,11 +115,13 @@ async function runQueueChild(
   command: string,
   args: string[],
   accounted: boolean,
+  observeAcquirer?: (acquirer: TestRunSlotAcquirer | undefined) => void,
 ): Promise<number> {
   const root = accounted ? undefined : await findRoot();
   const acquirer = accounted || root === undefined
     ? undefined
     : buildTestRunSlotAcquirer(root, await loadConfig(root));
+  observeAcquirer?.(acquirer);
   const hold = await acquirer?.acquire(writeSlotEvent);
   try {
     const child = await runOwnedChild(command, {
@@ -153,10 +156,11 @@ export async function runQueue(
   if (accounted) {
     return await runQueueChild(command, args, true);
   }
+  let acquirer: TestRunSlotAcquirer | undefined;
   return await recordedRun(
     "queue",
     "cli",
-    () => runQueueChild(command, args, false),
-    { target: command },
+    () => runQueueChild(command, args, false, (value) => acquirer = value),
+    { target: command, waitedMs: () => acquirer?.waitedMs },
   );
 }

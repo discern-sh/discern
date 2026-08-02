@@ -847,6 +847,9 @@ async function runGate(
     failedStage,
     generatedFailureRemedies,
   );
+  if (slots?.waitedMs !== undefined) {
+    result.waitedMs = slots.waitedMs;
+  }
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
   //     measured step's note — the receipt renders FROM these, never a second

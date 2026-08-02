@@ -52,6 +52,8 @@ export type { TestRunSlotHold } from "../test_run_slots.ts";
  */
 export interface TestRunSlots {
   readonly cap: number;
+  /** Accumulated slot-wait time after acquisition is first attempted. */
+  readonly waitedMs: number | undefined;
   /** Every wait or cap-unavailable hint this run fired, in order. */
   readonly waits: FiredHint[];
   /**
@@ -101,6 +103,9 @@ export function buildTestRunSlots(
   const waits: FiredHint[] = [];
   return {
     cap: acquirer.cap,
+    get waitedMs(): number | undefined {
+      return acquirer.waitedMs;
+    },
     waits,
     async acquire(
       out: Out,
