@@ -16,6 +16,8 @@ Gate jobs can write files. Formatters commonly do so. A build may regenerate a m
 
 Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
+A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). Strand detection stays the net for every other stage-written file.
+
 ## What the gate compares
 
 Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. At the end, a path is stranded when it meets both conditions:
