@@ -10,6 +10,7 @@ import { SIGNAL_EXIT_CODES } from "../src/engine/process_signals.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { withTempDir } from "./helpers.ts";
 import {
+  addWorktree,
   DENO_JSON,
   engineEnv,
   gitInit,
@@ -99,6 +100,8 @@ async function holdOnlySlot(root: string): Promise<() => void> {
 interface RunningAgent {
   /** Settled process output. */
   readonly result: Promise<RunResult>;
+  /** Stdout accumulated so far, for deterministic gate-wait readiness. */
+  readonly stdoutSoFar: () => string;
   /** Stderr accumulated so far, for deterministic queue readiness. */
   readonly stderrSoFar: () => string;
   /** Stop a stuck fixture through the engine's owned-child signal path. */
@@ -119,7 +122,15 @@ async function spawnAgent(
     stdout: "piped",
     stderr: "piped",
   }).spawn();
-  const stdout = new Response(child.stdout).text();
+  let stdoutText = "";
+  const stdoutDecoder = new TextDecoder();
+  const stdout = (async (): Promise<string> => {
+    for await (const chunk of child.stdout) {
+      stdoutText += stdoutDecoder.decode(chunk, { stream: true });
+    }
+    stdoutText += stdoutDecoder.decode();
+    return stdoutText;
+  })();
   let stderrText = "";
   const decoder = new TextDecoder();
   const stderr = (async (): Promise<string> => {
@@ -144,6 +155,7 @@ async function spawnAgent(
   })();
   return {
     result,
+    stdoutSoFar: () => stdoutText,
     stderrSoFar: () => stderrText,
     kill: (signal): void => {
       try {
@@ -155,9 +167,16 @@ async function spawnAgent(
   };
 }
 
+interface QueueEvent {
+  kind: "begin" | "verb";
+  invocation?: string;
+  target?: string;
+  outcome?: string;
+}
+
 /** Read every logbook event whose verb is `queue`. */
-async function queueEvents(root: string): Promise<unknown[]> {
-  const events: unknown[] = [];
+async function queueEvents(root: string): Promise<QueueEvent[]> {
+  const events: QueueEvent[] = [];
   const dir = join(root, ".git", GIT_ADMIN_STATE.logbook.path);
   try {
     for await (const entry of Deno.readDir(dir)) {
@@ -165,7 +184,7 @@ async function queueEvents(root: string): Promise<unknown[]> {
       const text = await Deno.readTextFile(join(dir, entry.name));
       for (const line of text.split("\n")) {
         if (line === "") continue;
-        const event = JSON.parse(line) as { verb?: string };
+        const event = JSON.parse(line) as QueueEvent & { verb?: string };
         if (event.verb === "queue") events.push(event);
       }
     }
@@ -238,10 +257,22 @@ Deno.test("queue serializes two wrapped commands at cap 1 and narrates only on s
       assert(secondStart?.startsWith("start-") === true);
       assertEquals(secondEnd, secondStart?.replace("start-", "end-"));
       assert(firstStart !== secondStart, "both wrapped runs must execute");
+      const events = await queueEvents(dir);
       assertEquals(
-        await queueEvents(dir),
-        [],
-        "the exec wrapper writes no logbook events",
+        events.length,
+        4,
+        "each wrapper writes one paired lifecycle",
+      );
+      const begins = events.filter((event) => event.kind === "begin");
+      const completions = events.filter((event) => event.kind === "verb");
+      assertEquals(begins.length, 2);
+      assertEquals(completions.length, 2);
+      assertEquals(completions.map((event) => event.target), ["sh", "sh"]);
+      assertEquals(completions.map((event) => event.outcome), ["ok", "ok"]);
+      assertEquals(
+        new Set(begins.map((event) => event.invocation)),
+        new Set(completions.map((event) => event.invocation)),
+        "every queue begin pairs with one completion",
       );
     } finally {
       release();
@@ -286,6 +317,11 @@ Deno.test("queue treats any non-empty marker as accounted and normalizes it for 
       occurrenceCount(result.stderr, QUEUED_TEXT),
       0,
       "an accounted wrapper never probes the slots",
+    );
+    assertEquals(
+      await queueEvents(dir),
+      [],
+      "an accounted wrapper leaves telemetry to its ancestor",
     );
   });
 });
@@ -339,6 +375,10 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       assertEquals(result.code, 0, result.output);
       assertEquals(await Deno.readTextFile(observed), "1");
       assertEquals(occurrenceCount(result.stderr, QUEUED_TEXT), 0);
+      const events = await queueEvents(dir);
+      assertEquals(events.length, 2, "only the outer wrapper owns telemetry");
+      assertEquals(events.map((event) => event.kind), ["begin", "verb"]);
+      assertEquals(events[1]?.target, "discern");
     } catch (error) {
       try {
         running.kill("SIGTERM");
@@ -391,8 +431,81 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
       const result = await running.result;
       assertEquals(result.code, 0, result.output);
       assertEquals(await Deno.readTextFile(observed), "1");
+      const events = await queueEvents(dir);
+      assertEquals(events.length, 2, "the outer wrapper owns telemetry");
+      assertEquals(events.map((event) => event.kind), ["begin", "verb"]);
+      assertEquals(events[1]?.target, "discern");
     } finally {
       clearTimeout(watchdog);
+    }
+  });
+});
+
+Deno.test("a gate queued behind a wrapped sibling names queue on its wait line", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[gate]",
+        "concurrent_test_runs = 1",
+        "",
+        "[jobs]",
+        'test = "true"',
+        "",
+      ].join("\n"),
+    );
+    await gitInit(dir);
+    const sibling = await addWorktree(dir, "queue-visible-holder");
+    const ready = join(dir, "queue-visible-ready");
+    const release = join(dir, "queue-visible-release");
+    const holder = await spawnAgent(sibling, [
+      "queue",
+      "--",
+      "sh",
+      "-c",
+      ': > "$1"; while [ ! -f "$2" ]; do sleep 0.05; done',
+      "queue-holder",
+      ready,
+      release,
+    ]);
+    let gate: RunningAgent | undefined;
+    try {
+      await pollUntil(
+        "the wrapped sibling to hold the slot",
+        () => pathExists(ready),
+      );
+      await pollUntil(
+        "the queue begin event",
+        async () =>
+          (await queueEvents(dir)).some((event) => event.kind === "begin"),
+      );
+      gate = await spawnAgent(dir, ["test"], { [TEST_RUN_SLOT_ENV]: "" });
+      await pollUntil(
+        "the gate wait line",
+        () => gate?.stdoutSoFar().includes(QUEUED_TEXT) === true,
+      );
+      assertStringIncludes(
+        gate.stdoutSoFar(),
+        "In flight: queue on agent/queue-visible-holder",
+      );
+      await Deno.writeTextFile(release, "go");
+      const [holderResult, gateResult] = await Promise.all([
+        holder.result,
+        gate.result,
+      ]);
+      assertEquals(holderResult.code, 0, holderResult.output);
+      assertEquals(gateResult.code, 0, gateResult.output);
+    } finally {
+      await Deno.writeTextFile(release, "go").catch(() => {});
+      await holder.result;
+      if (gate !== undefined) await gate.result;
     }
   });
 });
@@ -434,6 +547,11 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
       const result = await running.result;
       assertEquals(result.code, 0, result.output);
       assertEquals(await Deno.readTextFile(observed), "1");
+      assertEquals(
+        await queueEvents(dir),
+        [],
+        "the gate owns the marked inner wrapper's lifecycle",
+      );
     } finally {
       clearTimeout(watchdog);
     }

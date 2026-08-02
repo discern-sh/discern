@@ -11,6 +11,7 @@
 import { loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { renderHumanOutputGroups } from "../shared/result.ts";
+import { recordedRun } from "./logbook/cli.ts";
 import { reraiseInterrupt } from "./process_signals.ts";
 import { runOwnedChild } from "./owned_child.ts";
 import {
@@ -109,11 +110,11 @@ function writeSlotEvent(event: TestRunSlotEvent): void {
  * Hold a configured test-run slot while the raw command runs. No project means
  * no config read and no limiter; a disabled cap builds no slot directory.
  */
-export async function runQueue(
+async function runQueueChild(
   command: string,
   args: string[],
+  accounted: boolean,
 ): Promise<number> {
-  const accounted = testRunSlotAccounted();
   const root = accounted ? undefined : await findRoot();
   const acquirer = accounted || root === undefined
     ? undefined
@@ -136,4 +137,26 @@ export async function runQueue(
   } finally {
     hold?.release();
   }
+}
+
+/**
+ * Run one queue wrapper. An upstream marker transfers both slot and telemetry
+ * ownership to the ancestor, so only an unmarked invocation enters the CLI
+ * recording chokepoint. The executable is the event target; child arguments
+ * remain outside the metadata-only logbook.
+ */
+export async function runQueue(
+  command: string,
+  args: string[],
+): Promise<number> {
+  const accounted = testRunSlotAccounted();
+  if (accounted) {
+    return await runQueueChild(command, args, true);
+  }
+  return await recordedRun(
+    "queue",
+    "cli",
+    () => runQueueChild(command, args, false),
+    { target: command },
+  );
 }

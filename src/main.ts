@@ -1251,8 +1251,9 @@ export async function main(args: string[]): Promise<void> {
 
     // `queue` is an exec-style boundary: parse only the required `--`, then
     // hand every following token to the child unchanged. Help stays with Cliffy;
-    // every run and usage error bypasses the result/logbook protocol because the
-    // wrapped command owns stdout, stderr, and its exit status.
+    // every run and usage error bypasses the result protocol because the wrapped
+    // command owns stdout, stderr, and its exit status. An unmarked run still
+    // enters the logbook through queue's direct recording boundary.
     if (verb === "queue") {
       const { parseQueueInvocation, reportQueueUsageError, runQueue } =
         await import("./engine/queue.ts");
