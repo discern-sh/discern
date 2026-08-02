@@ -370,9 +370,8 @@ Deno.test("engine suite: spawned-engine artifacts land in the suite temp home, n
     const envelope = JSON.parse(r.stdout.trim()) as {
       steps?: Array<{ label?: string; output_path?: string }>;
     };
-    const outputPath = envelope.steps?.find((step) =>
-      step.label === "lint"
-    )?.output_path;
+    const outputPath = envelope.steps?.find((step) => step.label === "lint")
+      ?.output_path;
     assert(typeof outputPath === "string", r.stdout);
     // realPath both sides: macOS spells its temp dir with and without the
     // /private prefix depending on who resolved it.

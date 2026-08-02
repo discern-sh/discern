@@ -34,10 +34,7 @@
  */
 
 import { dirname, fromFileUrl, isAbsolute, join } from "@std/path";
-import {
-  makeTempArtifactDir,
-  TEMP_ARTIFACT_TTL_MS,
-} from "./temp_artifacts.ts";
+import { makeTempArtifactDir, TEMP_ARTIFACT_TTL_MS } from "./temp_artifacts.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
 function shellQuote(value: string): string {

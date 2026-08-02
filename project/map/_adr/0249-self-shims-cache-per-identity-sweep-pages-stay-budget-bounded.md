@@ -26,7 +26,7 @@ Explicit noes: no fixed-name artifact directory under shared OS temp, no raised 
 - The cache directory is user-private, which is what makes the deterministic name safe; the same name under a shared temp directory would be pre-plantable by another local user.
 - A sweep can no longer be slower than its budgets allow, whatever mess a machine carries.
 - Stale cached shims are pruned only when a new identity is minted. A machine where no new engine ever appears keeps a few idle kilobyte-sized directories until one does.
-- An environment without HOME still works and still pays the old per-process cost — acceptable for the rare embedder that strips the environment.
+- An environment without HOME still works and still pays the old per-process cost — acceptable for the rare launcher that strips the environment.
 
 ## Alternatives considered
 
