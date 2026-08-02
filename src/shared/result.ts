@@ -636,6 +636,44 @@ const DISPOSITION_LABEL: Record<StepDisposition, string> = {
   gate: "check",
 };
 
+interface RenderedStepLine {
+  group: string | undefined;
+  text: string;
+}
+
+/** Partition rendered steps into ordered runs while qualifying recurring group
+ * identities so the shared duplicate-id check remains meaningful. */
+function renderedStepGroups(
+  lines: readonly RenderedStepLine[],
+): HumanOutputGroup<string>[] {
+  const groups: HumanOutputGroup<string>[] = [];
+  const occurrences = new Map<string, number>();
+  let group: string | undefined;
+  let items: string[] = [];
+  const flush = (): void => {
+    if (items.length === 0) return;
+    const namedGroup = group !== undefined && group !== "";
+    const identity = JSON.stringify(["steps", namedGroup ? group : null]);
+    const occurrence = (occurrences.get(identity) ?? 0) + 1;
+    occurrences.set(identity, occurrence);
+    groups.push({
+      id: `${identity}:${occurrence}`,
+      label: namedGroup ? group : "Steps",
+      items,
+    });
+    items = [];
+  };
+  for (const line of lines) {
+    if (line.group !== group) {
+      flush();
+      group = line.group;
+    }
+    items.push(line.text);
+  }
+  flush();
+  return groups;
+}
+
 /**
  * Render a plan as a per-step listing under its heading — the `--dry-run` view.
  * Every populated section gets one dim label and one clean boundary; steps
@@ -648,31 +686,17 @@ export function renderPlan(sink: RenderSink, plan: EnginePlan): void {
     label: "Context",
     items: plan.details.map((detail) => `  ${sink.dim(detail)}`),
   }];
-  let group: string | undefined;
-  let groupItems: string[] = [];
-  const flush = (): void => {
-    if (groupItems.length === 0) return;
-    const namedGroup = group !== undefined && group !== "";
-    groups.push({
-      id: namedGroup ? `steps:${group}` : "steps",
-      label: namedGroup ? group : "Steps",
-      items: groupItems,
-    });
-    groupItems = [];
-  };
-  for (const step of plan.steps) {
-    if (step.group !== group) {
-      flush();
-      group = step.group;
-    }
+  groups.push(...renderedStepGroups(plan.steps.map((step) => {
     const indent = step.group !== undefined && step.group !== ""
       ? "    "
       : "  ";
     const label = DISPOSITION_LABEL[step.disposition].padEnd(6);
     const note = step.note !== undefined ? sink.dim(` — ${step.note}`) : "";
-    groupItems.push(`${indent}${label} ${step.label}${note}`);
-  }
-  flush();
+    return {
+      group: step.group,
+      text: `${indent}${label} ${step.label}${note}`,
+    };
+  })));
   if (plan.steps.length === 0) {
     groups.push({
       id: "steps-empty",
@@ -755,33 +779,19 @@ export function renderStepResults(
     label: "Context",
     items: details.map((detail) => `  ${sink.dim(detail)}`),
   }];
-  let group: string | undefined;
-  let groupItems: string[] = [];
-  const flush = (): void => {
-    if (groupItems.length === 0) return;
-    const namedGroup = group !== undefined && group !== "";
-    groups.push({
-      id: namedGroup ? `steps:${group}` : "steps",
-      label: namedGroup ? group : "Steps",
-      items: groupItems,
-    });
-    groupItems = [];
-  };
-  for (const result of view.steps) {
+  groups.push(...renderedStepGroups(view.steps.map((result) => {
     const step = result.step;
-    if (step.group !== group) {
-      flush();
-      group = step.group;
-    }
     const indent = step.group !== undefined && step.group !== ""
       ? "    "
       : "  ";
     const label = OUTCOME_LABEL[result.outcome].padEnd(8);
     const detail = stepResultNote(result);
     const note = detail !== undefined ? sink.dim(` - ${detail}`) : "";
-    groupItems.push(`${indent}${label} ${step.label}${note}`);
-  }
-  flush();
+    return {
+      group: step.group,
+      text: `${indent}${label} ${step.label}${note}`,
+    };
+  })));
   if (view.steps.length === 0) {
     groups.push({
       id: "steps-empty",

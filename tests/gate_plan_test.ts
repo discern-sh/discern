@@ -488,6 +488,68 @@ Deno.test("renderPlan: an empty plan says so", () => {
   assert(lines.join("\n").includes("nothing to do"));
 });
 
+Deno.test("step renderers preserve recurring semantic group runs", () => {
+  const steps: EnginePlan["steps"] = [
+    { kind: "git", label: "before", disposition: "run" },
+    { kind: "job", label: "orbit-one", disposition: "run", group: "Orbit" },
+    {
+      kind: "job",
+      label: "canopy",
+      disposition: "run",
+      group: "Canopy",
+    },
+    { kind: "job", label: "orbit-two", disposition: "run", group: "Orbit" },
+    { kind: "refresh", label: "after", disposition: "run", group: "" },
+  ];
+  const renderers = [
+    {
+      name: "plan",
+      render: (sink: RenderSink): void =>
+        renderPlan(sink, { title: "Plan", details: [], steps }),
+    },
+    {
+      name: "apply",
+      render: (sink: RenderSink): void =>
+        renderStepResults(sink, {
+          title: "Apply",
+          steps: steps.map((step) => ({ step, outcome: "ok" })),
+        }),
+    },
+  ];
+
+  for (const renderer of renderers) {
+    const { sink, lines } = captureSink();
+    renderer.render(sink);
+    for (const [label, count] of [["Steps", 2], ["Orbit", 2], ["Canopy", 1]]) {
+      assertEquals(
+        lines.filter((line) => line === `  ${label}`).length,
+        count,
+        `${renderer.name} must preserve every ${label} run:\n${
+          lines.join("\n")
+        }`,
+      );
+    }
+    const indexOfStep = (label: string): number =>
+      lines.findIndex((line) => line.includes(label));
+    const renderedSteps = [
+      "before",
+      "orbit-one",
+      "canopy",
+      "orbit-two",
+      "after",
+    ].map(indexOfStep);
+    assert(
+      renderedSteps.every((index) => index >= 0),
+      `${renderer.name} must render every step:\n${lines.join("\n")}`,
+    );
+    assertEquals(
+      renderedSteps,
+      [...renderedSteps].sort((a, b) => a - b),
+      `${renderer.name} must retain step order:\n${lines.join("\n")}`,
+    );
+  }
+});
+
 Deno.test("renderStepResults: groups outcomes and renders result metadata", () => {
   const steps: StepResult[] = [
     {

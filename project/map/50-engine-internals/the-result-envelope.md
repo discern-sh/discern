@@ -19,9 +19,11 @@ _Every verb builds one result object; types, runtime validation, generated contr
 
 Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`. Live output uses `Out.group` or `Logger.group`. An optional label draws a ruled heading. Pickers use `groupedSelectOptions`, which places one empty row before each ruled heading ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
 
+Plan and result renderers preserve step order. When a `PlanStep.group` value returns after another group, the renderer opens another visible run and qualifies its non-rendered ID by occurrence. Directly authored `HumanOutputGroup` IDs reject duplicates.
+
 Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 
-The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct prompt separators across authored TypeScript. Tests cover plan stages, status regions, desk buckets, and every improvement category.
+The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_grouping_test.ts) rejects local spacing and direct prompt separators across authored TypeScript. Renderer tests cover recurring plan and result groups. Behavior tests cover plan stages, status regions, desk buckets, and every improvement category.
 
 ## The serialized envelope
 
@@ -39,7 +41,7 @@ The Git-derived [`human_output_grouping_test.ts`](../../../tests/human_output_gr
 
 Before serialization, the CLI and MCP keep any registered `next-step` hint already present and add the registry's `failure-recovery` floor when none exists. `serializeResult` rejects a failed envelope that still lacks a registered actionable hint.
 
-A runnable discern command inside a hint is a typed reference, never prose ([ADR 0217](../_adr/0217-envelope-command-references-render-per-surface.md)). [`command_reference.ts`](../../../src/shared/command_reference.ts) owns the constructors, the token grammar, and one renderer per surface: over MCP a tool-backed command names the tool with its arguments as parameters, a verb with no tool is an explicit shell instruction, and an owner-relayed command keeps the CLI spelling every caller reads on the CLI. `fire` resolves the CLI spelling and keeps the authored form beside the fired hint; the MCP boundary re-renders from it before the envelope is observed, recorded, and rendered. Hint identity stays the registry id on both surfaces, and `serializeResult` refuses an unresolved token.
+A runnable discern command inside a hint uses a typed reference ([ADR 0217](../_adr/0217-envelope-command-references-render-per-surface.md)). [`command_reference.ts`](../../../src/shared/command_reference.ts) owns the constructors, the token grammar, and one renderer per surface: over MCP a tool-backed command names the tool with its arguments as parameters, a verb with no tool is an explicit shell instruction, and an owner-relayed command keeps the CLI spelling every caller reads on the CLI. `fire` resolves the CLI spelling and keeps the authored form beside the fired hint; the MCP boundary re-renders from it before the envelope is observed, recorded, and rendered. Hint identity stays the registry id on both surfaces, and `serializeResult` refuses an unresolved token.
 
 ## Runtime schemas and enrollment
 

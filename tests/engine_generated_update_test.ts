@@ -244,6 +244,21 @@ Deno.test("update regenerates a declared artifact after a clean merge and previe
   });
 });
 
+Deno.test("an up-to-date update renders generated convergence in human mode", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const wt = await addWorktree(dir, "generated-human-output");
+
+    const result = await runAgent(wt, ["update"]);
+
+    assertEquals(result.code, 0, result.output);
+    assertStringIncludes(result.stdout, "Update results");
+    assertStringIncludes(result.stdout, "Generated artifacts");
+    assertStringIncludes(result.stdout, `generated:${GROUP_NAME}`);
+    assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+  });
+});
+
 Deno.test("update commits a regenerated attributes block after generated config changes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);
