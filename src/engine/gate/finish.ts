@@ -88,6 +88,12 @@ import {
   treeDriftDiagnostic,
   worktreeDirtyPaths,
 } from "./tree_drift.ts";
+import {
+  captureGeneratedBuildSnapshot,
+  generatedBuildDrift,
+  generatedBuildDriftDiagnostics,
+} from "./generated_drift.ts";
+import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import { renderFailureTail } from "./failure_tail.ts";
 import { gateFailureGotchasTail, type GotchasFailureTail } from "./gotchas.ts";
 import { diagnosticOutputFields } from "./diagnostic_output.ts";
@@ -416,6 +422,7 @@ async function runGate(
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
   const cfg = await loadConfig(root);
+  const generatedGroups = resolveGeneratedGroups(cfg);
   const compactTty = presentation.liveWidth !== undefined && !json &&
     !cfg.gate.stream;
   // A regular human run narrates jobs to stdout. The compact done TTY withholds
@@ -676,6 +683,8 @@ async function runGate(
     ? await worktreeDirtyPaths(root)
     : null;
   const stageSnapshots: StageSnapshot[] = [];
+  let generatedDiagnostics: Diagnostic[] = [];
+  let generatedFailureRemedies: FiredHint[] | undefined;
   let snapshotsValid = dirtyAtStart !== null;
   const snapshotAfter = async (stage: FailedStage): Promise<void> => {
     if (!snapshotsValid) {
@@ -692,9 +701,46 @@ async function runGate(
     if (failedStage !== null) {
       break;
     }
+    const generatedBefore = group.stage === "build" &&
+        generatedGroups.length > 0
+      ? await captureGeneratedBuildSnapshot(root, generatedGroups)
+      : undefined;
     if (!(await runGroup(group, results, runOpts, runOut, slots))) {
       failedStage = group.stage;
       break;
+    }
+    if (generatedBefore !== undefined && generatedBefore !== null) {
+      const generatedAfter = await captureGeneratedBuildSnapshot(
+        root,
+        generatedGroups,
+      );
+      if (generatedAfter !== null) {
+        const drift = generatedBuildDrift(
+          generatedGroups,
+          generatedBefore,
+          generatedAfter,
+        );
+        if (drift.groups.length > 0 || drift.unownedPaths.length > 0) {
+          generatedDiagnostics = await generatedBuildDriftDiagnostics(drift);
+          generatedFailureRemedies = [
+            ...drift.groups.map(({ group }) =>
+              fire(HINTS["gate-failure-generated-drift"], {
+                group: group.name,
+                run: group.run,
+              })
+            ),
+            ...(drift.unownedPaths.length > 0
+              ? [
+                fire(HINTS["gate-failure-generated-undercoverage"], {
+                  groups: drift.candidates.map((candidate) => candidate.name),
+                }),
+              ]
+              : []),
+          ];
+          failedStage = "generated_drift";
+          break;
+        }
+      }
     }
     await snapshotAfter(group.stage);
   }
@@ -797,6 +843,7 @@ async function runGate(
     plan,
     results,
     failedStage,
+    generatedFailureRemedies,
   );
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
@@ -859,6 +906,12 @@ async function runGate(
   }
   if (writeAccessDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), writeAccessDiag];
+  }
+  if (generatedDiagnostics.length > 0) {
+    result.diagnostics = [
+      ...(result.diagnostics ?? []),
+      ...generatedDiagnostics,
+    ];
   }
   if (treeDriftDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), treeDriftDiag];

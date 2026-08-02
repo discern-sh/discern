@@ -386,6 +386,12 @@ export interface GeneratedDriftRemedyParams {
   readonly run: string;
 }
 
+/** Runtime facts needed when generator output escaped every declared glob. */
+export interface GeneratedUndercoverageRemedyParams {
+  /** Candidate `<name>` values from the Build group, in declaration order. */
+  readonly groups: readonly string[];
+}
+
 /** Maximum names rendered in one hint summary. */
 const HINT_NAME_CAP = 3;
 
@@ -1999,6 +2005,25 @@ export const HINTS = {
       } drifted. Run ${
         markdownCodeSpan(run)
       }, commit the regeneration, then re-run ${CMD.done}. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.`,
+  }),
+
+  /** A generated command changed paths outside every declared ownership glob. */
+  "gate-failure-generated-undercoverage": defineHint<
+    GeneratedUndercoverageRemedyParams
+  >({
+    id: "gate-failure-generated-undercoverage",
+    category: "next-step",
+    audience: "all",
+    when: "Build changes paths that no generated group declares.",
+    family: "gate-failure-remedy",
+    example: { groups: ["reference", "schemas"] },
+    template: ({ groups }): string =>
+      `Generated output escaped every declared glob. Widen the responsible group's paths to include the files named by the diagnostic, commit the regeneration, then re-run ${CMD.done}. Candidate groups: ${
+        boundedNameSummary(
+          groups.length,
+          groups.map((group) => markdownCodeSpan(`[generated.${group}]`)),
+        )
+      }.`,
   }),
 
   /** Discern-managed ignored output was committed to the repository. */
