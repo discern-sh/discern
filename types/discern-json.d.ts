@@ -2678,6 +2678,10 @@ export type DiscernCouplingResult = {
       confidence: number;
       lift: number;
     }>;
+    excluded_generated?: Array<{
+      path: string;
+      group: string;
+    }>;
     a?: string;
     b?: string;
     together?: number;
