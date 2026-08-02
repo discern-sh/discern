@@ -42,7 +42,9 @@ Setup runs in this order:
 
 Run `discern update` before finishing. It merges the trunk, reports incoming and overlapping files, and accepts `--from <ref>` for another base.
 
-Update requires a tracked-clean tree but leaves untracked scratch in place. A conflict aborts the merge cleanly; resolve it, commit, and retry. Even a no-op update rebuilds agent files, then runs `[repository].ensure` and `[worktree.setup].ensure` ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
+Update requires a tracked-clean tree but leaves untracked scratch in place. A configured `[generated.<name>]` group can own a conflicted path. The built-in refresh group owns compiled agent files and the maintained ADR index. When every conflict belongs to one of those groups, update takes the incoming side, completes the merge, and regenerates the artifacts. The side is only a temporary byte choice: the owning generator derives the committed result from the merged sources ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+
+Any undeclared conflict still aborts the merge. The refusal separates paths that need judgment from derived paths that could otherwise resolve automatically. After every completed merge, including one without textual conflicts, update runs every configured generator and the built-in refresh compile. It commits changed derived outputs so a clean merge cannot leave them stale. A failed generator or refresh step remains visible without undoing the merge. The gate catches any remaining drift. Even a no-op update rebuilds agent files, then runs `[repository].ensure` and `[worktree.setup].ensure` ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md)).
 
 Put checkout-safe commands in `[repository].ensure` and identity-dependent commands in `[worktree.setup].ensure`. Both are ordered and idempotent. `[worktree.setup].steps` remains one-shot.
 
@@ -78,6 +80,7 @@ Prune also reports **contained** worktrees — spent `start --from` stages whose
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
+| Generated-update tests        | [`tests/engine_generated_update_test.ts`](../../../tests/engine_generated_update_test.ts)                 |
 
 ## Current state and gotchas
 

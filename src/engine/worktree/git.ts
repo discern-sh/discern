@@ -24,6 +24,10 @@ import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
 import {
+  commitDiscernChanges,
+  DISCERN_AUTHORED_COMMIT_SITES,
+} from "../../shared/discern_commit.ts";
+import {
   parsePorcelainZ,
   type PorcelainEntry,
   splitNulRecords,
@@ -793,11 +797,21 @@ export type UpdateOutcome =
     before: string;
     main: string;
     after: string;
+    /** Generated conflict paths resolved mechanically before the merge completed. */
+    autoResolved: string[];
   }
   /** The merge conflicts in `files`; the merge is aborted, leaving a clean tree —
    * unless `aborted` is false, when the abort itself failed and the tree still
    * holds the half-merge (the caller must say so, never claim a clean tree). */
-  | { kind: "conflict"; files: string[]; aborted: boolean }
+  | {
+    kind: "conflict";
+    files: string[];
+    /** Conflicted paths the caller declared safe to replace and regenerate. */
+    resolvable: string[];
+    aborted: boolean;
+    /** Why a fully generated conflict could not complete its mechanical merge. */
+    resolutionFailure?: string;
+  }
   /** The merge failed before it began — git refused outright (unrelated
    * histories, an untracked file in the way), leaving the tree untouched.
    * `reason` is git's own stderr, evidence for the caller's message. */
@@ -810,6 +824,13 @@ export interface IntegrationAnchors {
   base: string;
   before: string;
   main: string;
+}
+
+/** Caller-owned policy for the otherwise pure Git update mechanics. */
+export interface UpdateMainOptions {
+  from?: string;
+  /** True only for paths whose committed bytes are wholly generator-owned. */
+  autoResolvable?: (path: string) => boolean;
 }
 
 /**
@@ -853,7 +874,7 @@ export async function resolveIntegrationAnchors(
 export async function updateMain(
   cwd: string = Deno.cwd(),
   mainBranchFallback?: string,
-  opts: { from?: string } = {},
+  opts: UpdateMainOptions = {},
 ): Promise<UpdateOutcome> {
   const { absoluteGitDir, commonGitDir } = await resolveGitDirs(cwd);
   // Outside a repo, or in the main checkout → nothing to update into.
@@ -910,7 +931,14 @@ export async function updateMain(
   const merge = await git(["merge", "--no-edit", source], cwd);
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
-    return { kind: "updated", behind, fastForward, ...anchors, after };
+    return {
+      kind: "updated",
+      behind,
+      fastForward,
+      ...anchors,
+      after,
+      autoResolved: [],
+    };
   }
   // The merge stopped. A REAL conflict leaves evidence — unmerged paths, or a
   // MERGE_HEAD parked mid-merge; anything else is git refusing outright before
@@ -928,11 +956,165 @@ export async function updateMain(
   if (files.length === 0 && !midMerge) {
     return { kind: "merge_failed", reason: merge.stderr.trim() };
   }
+  const resolvable = opts.autoResolvable === undefined
+    ? []
+    : files.filter(opts.autoResolvable);
+  if (files.length > 0 && resolvable.length === files.length) {
+    const resolution = await resolveGeneratedConflicts(cwd, files);
+    if (resolution.success) {
+      const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
+      return {
+        kind: "updated",
+        behind,
+        fastForward,
+        ...anchors,
+        after,
+        autoResolved: files,
+      };
+    }
+    const abort = await git(["merge", "--abort"], cwd);
+    return {
+      kind: "conflict",
+      files,
+      resolvable,
+      aborted: abort.success,
+      resolutionFailure: resolution.reason,
+    };
+  }
   // Step aside so the worktree is left exactly as it was before the merge — and
   // VERIFY the abort: reporting a clean tree while MERGE_HEAD persists would
   // strand the caller inside a half-merge it was told doesn't exist.
   const abort = await git(["merge", "--abort"], cwd);
-  return { kind: "conflict", files, aborted: abort.success };
+  return { kind: "conflict", files, resolvable, aborted: abort.success };
+}
+
+/** A path as a literal Git pathspec, so punctuation can never become pathspec magic. */
+function literalPathspec(path: string): string {
+  return `:(literal)${path}`;
+}
+
+/** Whether an unmerged path has a stage-3 (incoming/theirs) blob. */
+async function unmergedPathHasTheirs(
+  cwd: string,
+  path: string,
+): Promise<boolean | undefined> {
+  const listed = await git(
+    ["ls-files", "--unmerged", "-z", "--", literalPathspec(path)],
+    cwd,
+  );
+  if (!listed.success) {
+    return undefined;
+  }
+  return splitNulRecords(listed.stdout).some((record) => {
+    const tab = record.indexOf("\t");
+    const fields = (tab === -1 ? record : record.slice(0, tab)).split(" ");
+    return fields[2] === "3";
+  });
+}
+
+/**
+ * Resolve a generated-only conflict to the incoming side, stage every path, and
+ * finish Git's existing merge message without opening an editor. A missing
+ * stage-3 blob means the incoming side deleted the path, so choosing theirs
+ * removes it. Regeneration is the later authority on the final bytes.
+ */
+async function resolveGeneratedConflicts(
+  cwd: string,
+  paths: readonly string[],
+): Promise<{ success: true } | { success: false; reason: string }> {
+  for (const path of paths) {
+    const checkedOut = await git(
+      ["checkout", "--theirs", "--", literalPathspec(path)],
+      cwd,
+    );
+    if (checkedOut.success) {
+      continue;
+    }
+    const hasTheirs = await unmergedPathHasTheirs(cwd, path);
+    if (hasTheirs !== false) {
+      return {
+        success: false,
+        reason: checkedOut.stderr.trim() ||
+          `Git could not take the incoming side of ${path}`,
+      };
+    }
+    const removed = await git(
+      ["rm", "-f", "--ignore-unmatch", "--", literalPathspec(path)],
+      cwd,
+    );
+    if (!removed.success) {
+      return {
+        success: false,
+        reason: removed.stderr.trim() ||
+          `Git could not take the incoming deletion of ${path}`,
+      };
+    }
+  }
+  const staged = await git(
+    ["add", "-A", "--", ...paths.map(literalPathspec)],
+    cwd,
+  );
+  if (!staged.success) {
+    return {
+      success: false,
+      reason: staged.stderr.trim() ||
+        "Git could not stage the generated conflict resolution",
+    };
+  }
+  const remaining = await git(
+    ["diff", "--name-only", "--no-renames", "-z", "--diff-filter=U"],
+    cwd,
+  );
+  if (!remaining.success || splitNulRecords(remaining.stdout).length > 0) {
+    return {
+      success: false,
+      reason: "Git still reports unmerged paths after taking the incoming side",
+    };
+  }
+  const continued = await git(
+    ["-c", "core.editor=true", "merge", "--continue"],
+    cwd,
+  );
+  return continued.success ? { success: true } : {
+    success: false,
+    reason: continued.stderr.trim() || "Git could not complete the merge",
+  };
+}
+
+/** Commit the exact regenerated paths after an update has merged its source. */
+export async function commitUpdateRegeneration(
+  cwd: string,
+  paths: readonly string[],
+): Promise<GitResult> {
+  const staged = await git(
+    ["add", "-A", "--", ...paths.map(literalPathspec)],
+    cwd,
+  );
+  if (!staged.success) {
+    return staged;
+  }
+  const [branch, head, tree] = await Promise.all([
+    git(["branch", "--show-current"], cwd),
+    git(["rev-parse", "--verify", "HEAD"], cwd),
+    git(["write-tree"], cwd),
+  ]);
+  if (!branch.success || !head.success || !tree.success) {
+    return !branch.success ? branch : !head.success ? head : tree;
+  }
+  return await commitDiscernChanges({
+    site: DISCERN_AUTHORED_COMMIT_SITES.updateRegeneration,
+    cwd,
+    subject: "Regenerate artifacts after update",
+    body:
+      "Re-derive declared artifacts from the merged sources so their committed bytes match the integrated tree.",
+    pathspecs: paths,
+    source: "staged-index",
+    stagedProof: {
+      branch: branch.stdout.trim(),
+      head: head.stdout.trim(),
+      tree: tree.stdout.trim(),
+    },
+  });
 }
 
 /** One commit an integration brought in (short sha + subject line). */
