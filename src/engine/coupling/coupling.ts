@@ -19,7 +19,7 @@
  * It is **zero-config and self-calibrating** — there are no thresholds to tune, because
  * absolute thresholds don't transfer across repos of wildly different size and shape.
  * Each non-merge commit is a basket of the files it changed; from a bounded window:
- *  - NEUTRAL paths are dropped (docs, generated artifacts) so they create no edges;
+ *  - NEUTRAL paths and declared generated outputs are dropped so they create no edges;
  *  - a SWEEPING commit is skipped — `max_commit_size` is derived per-repo as the upper
  *    outlier fence (Q3 + 1.5·IQR) of this repo's own commit-size distribution, so a
  *    "format everything" or dependency bump can't manufacture coupling;
@@ -35,6 +35,11 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import {
+  generatedGroupForPath,
+  type ResolvedGeneratedGroup,
+  resolveGeneratedGroups,
+} from "../../shared/generated_artifacts.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
@@ -108,6 +113,36 @@ const RECORD_SEP_DIRECTIVE = "%x1e";
  * shape. The log-likelihood ratio is computed and tested for inclusion, but not stored:
  * ranking is by the displayed confidence, so the order matches what a reader sees. */
 type Partner = CouplingData["partners"][number];
+
+/** One configured generated path removed from an explicit coupling input. */
+type GeneratedExclusion = NonNullable<
+  CouplingData["excluded_generated"]
+>[number];
+
+/** The one coupling-specific path decision. Generated ownership is checked through the
+ * shared accessor and remains orthogonal to neutral scope classification. */
+interface PathPairability {
+  pairable: boolean;
+  excludedGenerated: GeneratedExclusion | undefined;
+}
+
+function pairabilityForPath(
+  config: DiscernConfig,
+  generatedGroups: readonly ResolvedGeneratedGroup[],
+  path: string,
+): PathPairability {
+  const owner = generatedGroupForPath(generatedGroups, path);
+  if (owner !== undefined) {
+    return {
+      pairable: false,
+      excludedGenerated: { path, group: owner.name },
+    };
+  }
+  return {
+    pairable: !isNeutralPath(config, path),
+    excludedGenerated: undefined,
+  };
+}
 
 /** One mined commit: its identity (for the evidence view) and the paths it changed (the
  * basket the model and the evidence view both read). `sha`/`date`/`subject` come from the
@@ -281,8 +316,8 @@ async function mineCommits(root: string): Promise<Commit[]> {
   return commits;
 }
 
-/** One surviving basket: a commit and its pairable file set (neutral paths dropped, paths
- * de-duplicated). */
+/** One surviving basket: a commit and its pairable file set (neutral and declared-output
+ * paths dropped, remaining paths de-duplicated). */
 interface SurvivingBasket {
   commit: Commit;
   files: Set<string>;
@@ -291,19 +326,25 @@ interface SurvivingBasket {
 /**
  * The commits that survive basket construction — the ONE definition of "which commits
  * count", shared by {@link buildModel} (which counts) and the evidence view (which keeps
- * each surviving commit's identity). Neutral paths are dropped (so generated artifacts and
- * docs create no edges), paths de-duplicated, a no-pair commit (<2 files) skipped, and a
- * sweeping commit (> the per-repo size fence {@link deriveMaxBasket}) skipped so a "format
- * everything" change can't manufacture coupling.
+ * each surviving commit's identity). Neutral paths and declared outputs are dropped before
+ * any statistic, paths de-duplicated, a no-pair commit (<2 files) skipped, and a sweeping
+ * commit (> the per-repo size fence {@link deriveMaxBasket}) skipped so a "format
+ * everything" change can't manufacture coupling. Removing paths rather than commits keeps
+ * independently authored evidence from a mixed source/test/output commit.
  */
 function survivingBaskets(
   commits: Commit[],
   config: DiscernConfig,
+  generatedGroups: readonly ResolvedGeneratedGroup[],
 ): SurvivingBasket[] {
   const pairable = commits
     .map((commit) => ({
       commit,
-      files: new Set(commit.files.filter((f) => !isNeutralPath(config, f))),
+      files: new Set(
+        commit.files.filter((path) =>
+          pairabilityForPath(config, generatedGroups, path).pairable
+        ),
+      ),
     }))
     .filter((b) => b.files.size >= 2);
   const maxBasket = deriveMaxBasket(
@@ -422,9 +463,25 @@ function rank(partners: Partner[]): Partner[] {
 async function queryCoupling(
   root: string,
   config: DiscernConfig,
+  generatedGroups: readonly ResolvedGeneratedGroup[],
   target: string,
 ): Promise<CouplingData> {
-  const baskets = survivingBaskets(await mineCommits(root), config);
+  const pairability = pairabilityForPath(config, generatedGroups, target);
+  if (!pairability.pairable) {
+    return {
+      mode: "query",
+      target,
+      partners: [],
+      ...(pairability.excludedGenerated === undefined
+        ? {}
+        : { excluded_generated: [pairability.excludedGenerated] }),
+    };
+  }
+  const baskets = survivingBaskets(
+    await mineCommits(root),
+    config,
+    generatedGroups,
+  );
   const model = buildModel(baskets, new Set([target]));
   const partners = rank(partnersOf(model, target, new Set([target])));
   return { mode: "query", target, partners };
@@ -434,31 +491,42 @@ async function queryCoupling(
  * Diff-aware mode: the partners that co-change with the current change set but are
  * MISSING from it. The change set is read through the SAME {@link collectPaths} the
  * scope classifier uses (committed since the merge-base, plus the working tree), then
- * neutral-filtered. A git hiccup / no diff base yields no change set and no advice —
- * fail SILENT, never fail-open into noise. A partner reached from several changed files
- * is reported once, via its strongest (highest-co-change) edge.
+ * filtered through the same neutral-and-generated pairability decision as history. A git
+ * hiccup / no diff base yields no change set and no advice — fail SILENT, never fail-open
+ * into noise. A partner reached from several changed files is reported once, via its
+ * strongest (highest-co-change) edge.
  */
 async function diffCoupling(
   root: string,
   config: DiscernConfig,
+  generatedGroups: readonly ResolvedGeneratedGroup[],
   env: EnvReader,
 ): Promise<CouplingData> {
   const mainBranch = env.get("DISCERN_TRUNK") ||
     config.repository.trunk;
   const raw = await collectPaths(root, mainBranch);
-  const changed = [
-    ...new Set(
-      (raw ?? []).map(normalizePath).filter((p) =>
-        p !== "" && !isNeutralPath(config, p)
-      ),
-    ),
+  const candidates = [
+    ...new Set((raw ?? []).map(normalizePath).filter((path) => path !== "")),
   ];
+  const changed: string[] = [];
+  const excludedGenerated: GeneratedExclusion[] = [];
+  for (const path of candidates) {
+    const pairability = pairabilityForPath(config, generatedGroups, path);
+    if (pairability.pairable) {
+      changed.push(path);
+    } else if (pairability.excludedGenerated !== undefined) {
+      excludedGenerated.push(pairability.excludedGenerated);
+    }
+  }
+  const exclusionData = excludedGenerated.length === 0
+    ? {}
+    : { excluded_generated: excludedGenerated };
   if (changed.length === 0) {
-    return { mode: "diff", changed, partners: [] };
+    return { mode: "diff", changed, partners: [], ...exclusionData };
   }
   const changedSet = new Set(changed);
   const model = buildModel(
-    survivingBaskets(await mineCommits(root), config),
+    survivingBaskets(await mineCommits(root), config, generatedGroups),
     changedSet,
   );
   const best = new Map<string, Partner>();
@@ -470,7 +538,12 @@ async function diffCoupling(
       }
     }
   }
-  return { mode: "diff", changed, partners: rank([...best.values()]) };
+  return {
+    mode: "diff",
+    changed,
+    partners: rank([...best.values()]),
+    ...exclusionData,
+  };
 }
 
 /**
@@ -478,18 +551,41 @@ async function diffCoupling(
  * `a` and `b` changed (most-recent first, {@link EVIDENCE_COMMIT_CAP}), with each file's
  * own commit count in the window (the "of N" denominators). It reads the SAME
  * {@link survivingBaskets} the model counts, so the numbers corroborate what
- * `coupling <a>` reports for the pair: a sweeping commit or a neutral path is excluded
- * here too. This is the raw material to judge a coupling — one deliberate decision, or a
+ * `coupling <a>` reports for the pair: a sweeping commit, neutral path, or declared output
+ * is excluded here too. A declared-output argument returns its owner instead of zero
+ * counts. This is the raw material to judge a coupling — one deliberate decision, or a
  * few incidental rides-along — so it lists actual commits, not a score. Fails silent (an
  * empty mine yields a zero-history result; the verb never throws).
  */
 async function evidenceCoupling(
   root: string,
   config: DiscernConfig,
+  generatedGroups: readonly ResolvedGeneratedGroup[],
   a: string,
   b: string,
 ): Promise<CouplingData> {
-  const baskets = survivingBaskets(await mineCommits(root), config);
+  const excludedGenerated = [a, b].flatMap((path) => {
+    const exclusion = pairabilityForPath(
+      config,
+      generatedGroups,
+      path,
+    ).excludedGenerated;
+    return exclusion === undefined ? [] : [exclusion];
+  });
+  if (excludedGenerated.length > 0) {
+    return {
+      mode: "evidence",
+      a,
+      b,
+      partners: [],
+      excluded_generated: excludedGenerated,
+    };
+  }
+  const baskets = survivingBaskets(
+    await mineCommits(root),
+    config,
+    generatedGroups,
+  );
   let ofA = 0;
   let ofB = 0;
   const shared: Commit[] = [];
@@ -526,6 +622,13 @@ async function evidenceCoupling(
  * with no history in the window). */
 function share(together: number, of: number): string {
   return of > 0 ? ` (${pct(together / of)})` : "";
+}
+
+/** Ownership notices for generated paths explicitly removed from this result. */
+function generatedExclusionHints(data: CouplingData): FiredHint[] {
+  return (data.excluded_generated ?? []).map(({ path, group }) =>
+    fire(HINTS["coupling-generated-exclusion"], { path, group })
+  );
 }
 
 /**
@@ -567,17 +670,23 @@ function evidenceHints(data: CouplingData): FiredHint[] {
  * the forcing-function suggestion when that pair clears {@link STRONG_CONFIDENCE},
  * and one overflow pointer. Every ranked row stays in `data.partners`; the gate,
  * which does not carry coupling data, gets the same command pointer to the full view.
- * Empty when there are no partners. Evidence mode delegates to
- * {@link evidenceHints}.
+ * With no partners, only explicit generated-ownership notices remain. Evidence mode
+ * delegates to {@link evidenceHints} when neither argument was excluded.
  */
-function couplingHints(data: CouplingData): FiredHint[] {
+function couplingHints(
+  data: CouplingData,
+  includeGeneratedExclusions = true,
+): FiredHint[] {
+  const exclusions = includeGeneratedExclusions
+    ? generatedExclusionHints(data)
+    : [];
   if (data.mode === "evidence") {
-    return evidenceHints(data);
+    return exclusions.length > 0 ? exclusions : evidenceHints(data);
   }
   if (data.partners.length === 0) {
-    return [];
+    return exclusions;
   }
-  const hints: FiredHint[] = [];
+  const hints: FiredHint[] = [...exclusions];
   const strongest = data.partners[0];
   if (strongest === undefined) {
     return hints;
@@ -649,16 +758,17 @@ export async function couplingResult(
   env: EnvReader = Deno.env,
 ): Promise<DiscernResult<CouplingData>> {
   const config = await loadConfig(root);
+  const generatedGroups = resolveGeneratedGroups(config);
   const paths = (opts.paths ?? [])
     .map((p) => normalizePath(p))
     .filter((p) => p !== "");
   const a = paths[0];
   const b = paths[1];
   const data = a !== undefined && b !== undefined && a !== b
-    ? await evidenceCoupling(root, config, a, b)
+    ? await evidenceCoupling(root, config, generatedGroups, a, b)
     : a !== undefined
-    ? await queryCoupling(root, config, a)
-    : await diffCoupling(root, config, env);
+    ? await queryCoupling(root, config, generatedGroups, a)
+    : await diffCoupling(root, config, generatedGroups, env);
   const hints = couplingHints(data);
   return {
     ok: true,
@@ -703,6 +813,23 @@ function evidenceRow(
 ): string {
   return `  ${c.cyan}${commit.sha}${c.reset}  ${c.dim}${commit.date}${c.reset}  ` +
     `${commit.subject}\n`;
+}
+
+/** Render the same generated-ownership fact carried by the typed notice. */
+function renderGeneratedExclusions(data: CouplingData, out: Out): boolean {
+  const excluded = data.excluded_generated ?? [];
+  if (excluded.length === 0) {
+    return false;
+  }
+  out.heading("Excluded from coupling");
+  for (const { path, group } of excluded) {
+    out.raw(
+      `  ${out.c.bold}${path}${out.c.reset}\n` +
+        `  ${out.c.dim}[generated.${group}] owns this declared output. ` +
+        `Coupling does not model projections as independent change partners.${out.c.reset}\n`,
+    );
+  }
+  return true;
 }
 
 /**
@@ -753,7 +880,11 @@ function renderEvidenceHuman(data: CouplingData, out: Out): void {
  */
 function renderCouplingHuman(data: CouplingData, out: Out): void {
   const { c } = out;
+  const renderedExclusions = renderGeneratedExclusions(data, out);
   if (data.mode === "evidence") {
+    if (renderedExclusions) {
+      return;
+    }
     renderEvidenceHuman(data, out);
     return;
   }
@@ -768,9 +899,14 @@ function renderCouplingHuman(data: CouplingData, out: Out): void {
 
   if (data.partners.length === 0) {
     if (data.mode === "query") {
+      if (renderedExclusions) {
+        return;
+      }
       out.raw(`No co-change partners found for \`${data.target ?? ""}\`.\n`);
     } else if (n === 0) {
-      out.raw("Nothing changed on this branch — no coupling findings.\n");
+      if (!renderedExclusions) {
+        out.raw("Nothing changed on this branch — no coupling findings.\n");
+      }
     } else {
       out.raw(`No co-change partners found for ${changedPhrase}.\n`);
     }
@@ -868,10 +1004,13 @@ export async function couplingGateHints(
     if (data === undefined || data.mode !== "diff") {
       return [];
     }
-    return couplingHints({
-      ...data,
-      partners: data.partners.filter(isGateHintPartner),
-    });
+    return couplingHints(
+      {
+        ...data,
+        partners: data.partners.filter(isGateHintPartner),
+      },
+      false,
+    );
   } catch {
     return [];
   }

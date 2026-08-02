@@ -17,7 +17,7 @@ _Every verb builds one result object; types, runtime validation, generated contr
 
 ## Human CLI groups
 
-Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`; live output uses `Out.group` or `Logger.group`; pickers use ruled `groupedSelectOptions` labels ([ADR 0249](../_adr/0249-discern-managed-human-output-declares-semantic-groups.md)).
+Composed human views declare stable `HumanOutputGroup<T>` identities. `renderHumanOutputGroups` drops empty groups and puts one empty line between populated groups. Plans use `PlanStep.group`; live output uses `Out.group` or `Logger.group`; pickers use ruled `groupedSelectOptions` labels ([ADR 0250](../_adr/0250-discern-managed-human-output-declares-semantic-groups.md)).
 
 Boundaries mark changes in meaning; a homogeneous list stays one group. Machine protocols, scalar stdout, document bodies, framed tables, and project-owned streams retain their own structure.
 

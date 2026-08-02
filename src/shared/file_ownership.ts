@@ -53,6 +53,7 @@ export interface ClassifiableWrittenArtifact {
 /** Shared source descriptions used by registry declarations and producers. */
 export const ARTIFACT_PROVENANCE_SOURCES = {
   config: "the bundled project configuration template",
+  gitattributes: "[generated] in discern.toml and the provider registry",
   gitignore: "the bundled .gitignore fragment and provider registry",
   worktreeEnvironment: "[worktree] in discern.toml",
   codexConfig: "the Codex integration and discern.toml",

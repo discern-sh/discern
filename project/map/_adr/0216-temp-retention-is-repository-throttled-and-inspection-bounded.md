@@ -1,5 +1,7 @@
 # ADR 0216: Temp retention is repository-throttled and inspection-bounded
 
+> **Selection refinement ([ADR 0249](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)):** The throttle, cursor, and budgets stand. Page selection now streams the directory through bounded heaps, so a page's memory and sort work track the inspection budget rather than the population — and the dominant producer, one shim directory per engine process, is gone.
+
 **Status**: accepted. Refines the age-based artifact registry and sweep of [ADR 0117](0117-temp-output-artifacts-are-reaped-by-age.md) and extends the Git-admin-state lifetime registry of [ADR 0165](0165-git-admin-state-namespaced-by-lifetime.md).
 
 ## Context

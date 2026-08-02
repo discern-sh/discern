@@ -1106,6 +1106,24 @@ export const HINTS = {
     },
   }),
 
+  /** Ownership notice for an explicit coupling input excluded from the model. */
+  "coupling-generated-exclusion": defineHint<{
+    path: string;
+    group: string;
+  }>({
+    id: "coupling-generated-exclusion",
+    category: "notice",
+    audience: "all",
+    when:
+      "A coupling result excludes an input owned by a generated declaration.",
+    family: "coupling-exclusion",
+    example: { path: "build/reference.dat", group: "reference" },
+    template: ({ path, group }): string =>
+      `Coupling excluded \`${path}\` because \`[generated.${group}]\` owns it ` +
+      "as a declared output. A declared output is a projection, so it is not an " +
+      "independent change partner.",
+  }),
+
   /** Pair evidence when the files have never co-changed in the mined window. */
   "coupling-evidence-none": defineHint<{
     a: string;

@@ -16,9 +16,13 @@
  * (always regenerable); discern-owned provider files (the Codex
  * rules, the Copilot hook file); the discern entries inside co-owned files (each
  * provider's MCP server, the session hooks, the permission defaults) — stripping
- * them and leaving the user's own settings byte-for-byte; and the delimited
- * `.gitignore` block. A co-owned file discern created outright empties to nothing
- * and is deleted; one the user shares keeps their content.
+ * them and leaving the user's own settings byte-for-byte; the delimited
+ * `.gitignore` and `.gitattributes` blocks; and the `discern/` runtime-state
+ * namespace under Git's administrative directories (the logbook, gate
+ * receipts, the self-shim, coordination locks — every registered entry, whole,
+ * so a future entry auto-enrols). A co-owned file discern created
+ * outright empties to nothing and is deleted; one the user shares keeps their
+ * content.
  *
  * What it keeps: `discern.toml`, and every path in the `discern/` namespace
  * (guidance, the map, authored skills, project scripts, the ledger, the brief) — plain
@@ -28,7 +32,8 @@
  * Deliberately CLI-only, NOT an MCP tool: uninstalling discern is a human's
  * decision, not something an agent should reach for mid-session. It refuses while
  * linked worktrees are still in flight, so it never pulls the wiring out from
- * under work in progress.
+ * under work in progress — and while the resource ledger records provisioned
+ * resources, whose entries hold their only frozen destroy commands.
  */
 
 import { dirname, join } from "@std/path";
@@ -56,12 +61,19 @@ import {
   stripDiscernFromCodexEnv,
   wiredMcp,
 } from "../lib/providers.ts";
+import { gitAdminNamespaceDirs } from "../shared/git_admin_state.ts";
+import { suppressLogbookWrites } from "../engine/logbook/store.ts";
 import { stripDiscernFromJsonSettings } from "../lib/settings_strip.ts";
 import {
   DISCERN_GITIGNORE_BEGIN,
   DISCERN_GITIGNORE_END,
 } from "../lib/agent_gitignore.ts";
-import { listWorktreeFleet } from "../engine/worktree/git.ts";
+import { reconcileDiscernGitattributes } from "../lib/agent_gitattributes.ts";
+import {
+  listWorktreeFleet,
+  resolveCommonGitDir,
+} from "../engine/worktree/git.ts";
+import { listEntries } from "../engine/worktree/resources.ts";
 import { canPrompt, confirmProceed } from "../lib/prompts.ts";
 
 /** Options accepted by the `uninstall` command. */
@@ -104,6 +116,9 @@ interface IncompleteStrip {
 /** The computed, read-only uninstall plan. */
 interface UninstallPlan {
   ops: RemovalOp[];
+  /** Absolute `discern/` namespace dirs under Git's administrative area —
+   * runtime records (logbook, receipts, shim, locks) that exit with the tool. */
+  gitAdminDirs: string[];
   kept: KeptItem[];
   /** Directories to remove if they empty out once their discern files are gone. */
   emptyDirCandidates: Set<string>;
@@ -223,11 +238,17 @@ async function computeUninstallPlan(
 ): Promise<UninstallPlan> {
   const plan: UninstallPlan = {
     ops: [],
+    gitAdminDirs: [],
     kept: [],
     emptyDirCandidates: new Set<string>(),
     templatesAvailable: true,
     incompleteStrips: [],
   };
+  for (const dir of await gitAdminNamespaceDirs(root)) {
+    if (await pathExists(dir)) {
+      plan.gitAdminDirs.push(dir);
+    }
+  }
   const abs = (rel: string): string => join(root, rel);
   const noteDelete = (rel: string, isDir: boolean, reason: string): void => {
     plan.ops.push({ action: "delete", rel, isDir, reason });
@@ -368,6 +389,19 @@ async function computeUninstallPlan(
     );
   }
 
+  // 5b. The config-derived `.gitattributes` block.
+  const gitattributes = await readTextIfExists(abs(".gitattributes"));
+  if (gitattributes !== undefined) {
+    const reconciled = reconcileDiscernGitattributes(gitattributes, []);
+    pushCoOwnedOp(
+      plan,
+      ".gitattributes",
+      gitattributes,
+      reconciled.text === "" ? null : reconciled.text,
+      "discern .gitattributes block",
+    );
+  }
+
   // 6. The kept surface — the paths registry (all user content) plus the config.
   plan.kept.push({ rel: "discern.toml", why: "your discern configuration" });
   const keepIfExists = async (rel: string, why: string): Promise<void> => {
@@ -439,6 +473,12 @@ async function applyUninstallPlan(
       await Deno.writeTextFile(target, op.newText);
     }
   }
+  for (const dir of plan.gitAdminDirs) {
+    await Deno.remove(dir, { recursive: true });
+  }
+  // This verb's own completion bookkeeping must not resurrect the store it
+  // just removed.
+  suppressLogbookWrites();
   await pruneEmptyDirs(root, plan.emptyDirCandidates);
 }
 
@@ -449,6 +489,7 @@ async function applyUninstallPlan(
 function planData(plan: UninstallPlan): Record<string, unknown> {
   return {
     removed: plan.ops.filter((o) => o.action === "delete").map((o) => o.rel),
+    removed_runtime_state: plan.gitAdminDirs,
     stripped: plan.ops.filter((o) => o.action === "rewrite").map((o) => o.rel),
     kept: plan.kept.map((k) => k.rel),
     templates_available: plan.templatesAvailable,
@@ -466,13 +507,26 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
   const rewrites = plan.ops.filter((o) => o.action === "rewrite");
 
   log.heading(applied ? "Uninstalled discern" : "Uninstall plan (--dry-run)");
-  if (deletes.length === 0 && rewrites.length === 0) {
+  if (
+    deletes.length === 0 && rewrites.length === 0 &&
+    plan.gitAdminDirs.length === 0
+  ) {
     log.info("No discern wiring found here — nothing to remove.");
   }
   if (deletes.length > 0) {
     log.ok(applied ? "removed discern-generated files" : "would remove");
     for (const op of deletes) {
       log.detail(`${op.rel}${op.isDir ? "/" : ""} — ${op.reason}`);
+    }
+  }
+  if (plan.gitAdminDirs.length > 0) {
+    log.ok(
+      applied
+        ? "removed runtime records under Git's administrative directory"
+        : "would remove runtime records under Git's administrative directory",
+    );
+    for (const dir of plan.gitAdminDirs) {
+      log.detail(`${dir}/ — logbook, gate receipts, shim, locks`);
     }
   }
   if (rewrites.length > 0) {
@@ -574,6 +628,38 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
     return 1;
   }
 
+  // Refuse while the resource ledger still records provisioned resources: each
+  // entry holds the ONLY destroy command (frozen at create time) for an
+  // external resource, so removing the runtime-state namespace would leak the
+  // resource for good. `discern worktree prune` reclaims GC-eligible orphans;
+  // an entry marked `gc = false` needs its project's own teardown.
+  const commonGitDir = await resolveCommonGitDir(root);
+  const ledger = commonGitDir === undefined
+    ? []
+    : await listEntries(commonGitDir);
+  if (ledger.length > 0) {
+    const labels = ledger.map(({ entry }) =>
+      `${entry.resource_name} (${entry.resource_identity}) — worktree ${entry.worktree_id}`
+    );
+    const message =
+      `refusing to uninstall while the resource ledger records ${ledger.length} provisioned resource(s) — the entries hold their only destroy commands. Run \`discern worktree prune\` to reclaim them, then uninstall.`;
+    if (options.json) {
+      log.result({
+        ok: false,
+        verb: "uninstall",
+        error: "provisioned_resources",
+        message,
+        data: { resources: labels },
+      });
+    } else {
+      log.error(message);
+      for (const label of labels) {
+        log.detail(label);
+      }
+    }
+    return 1;
+  }
+
   // Load config (for the Codex writable-root recomputation and the kept-paths
   // resolution). A broken config still uninstalls — fall back to defaults.
   let config: DiscernConfig;
@@ -600,8 +686,9 @@ export async function runUninstall(options: UninstallOptions): Promise<number> {
   }
 
   // Confirm before removing anything discern created that git may not recover
-  // (an uncommitted generated file). Non-interactive callers must say --yes.
-  if (!options.json && plan.ops.length > 0) {
+  // (an uncommitted generated file, the runtime records under .git).
+  // Non-interactive callers must say --yes.
+  if (!options.json && (plan.ops.length > 0 || plan.gitAdminDirs.length > 0)) {
     if (!options.yes && !canPrompt(false)) {
       renderPlan(log, plan, false);
       log.error(

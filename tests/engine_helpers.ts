@@ -103,6 +103,35 @@ export function defaultMapPath(root: string, ...parts: string[]): string {
   return join(root, SOURCE_PATHS.map.defaultPath, ...parts);
 }
 
+let suiteTempPromise: Promise<string> | undefined;
+
+/**
+ * The suite-scoped temp home injected as every spawned engine's TMPDIR: job
+ * and diagnostic artifacts, fallback shims — everything the engines mint in
+ * "OS temp" — land here instead of the shared temp dir, so parallel suites
+ * neither pollute the machine nor scan each other's litter, and a scaffolded
+ * project's due retention sweep walks this small directory rather than the
+ * machine-wide population (ADR 0249). One home per test module instance,
+ * removed on process unload; a process killed too hard to unload leaves a
+ * `discern-test-` entry the engine's own reaper collects by age — the prefix
+ * is a registered temp-artifact directory family, so no scan of the shared
+ * temp dir ever runs from the harness itself.
+ */
+export function suiteTempDir(): Promise<string> {
+  suiteTempPromise ??= (async (): Promise<string> => {
+    const dir = await Deno.makeTempDir({ prefix: "discern-test-tmp-" });
+    globalThis.addEventListener("unload", () => {
+      try {
+        Deno.removeSync(dir, { recursive: true });
+      } catch {
+        // Best-effort: the artifact reaper collects what unload cannot.
+      }
+    });
+    return dir;
+  })();
+  return suiteTempPromise;
+}
+
 /** Shell-quote a path for a command string handed to a PTY shell. */
 function shq(s: string): string {
   return `'${s.replaceAll("'", "'\\''")}'`;
@@ -110,7 +139,8 @@ function shq(s: string): string {
 
 /**
  * Build the environment for an engine subprocess: colour off, git isolated,
- * the engine's own `discern` self-shim on PATH, plus any caller overrides.
+ * TMPDIR pointed at the suite temp home ({@link suiteTempDir}), the engine's
+ * own `discern` self-shim on PATH, plus any caller overrides.
  * The shim (src/shared/self_shim.ts) is the same one the engine gives its
  * operator commands — this suite runs from the same checkout, so consuming it
  * keeps one definition of "re-invoke this engine" — and it lets a project script
@@ -125,13 +155,19 @@ function shq(s: string): string {
 export async function engineEnv(
   extra: Record<string, string> = {},
 ): Promise<Record<string, string>> {
-  const shim = await selfShimDir();
+  const shim = await selfShimDir(REPO_ROOT);
+  const tmp = await suiteTempDir();
   return {
     NO_COLOR: "1",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",
     PATH: `${shim}:${Deno.env.get("PATH") ?? ""}`,
+    // All three spellings so the engine's temp resolution lands in the suite
+    // home on every platform.
+    TMPDIR: tmp,
+    TMP: tmp,
+    TEMP: tmp,
     [DESK_SESSION_ENV]: "",
     ...GIT_ISOLATION,
     ...extra,

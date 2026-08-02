@@ -1,4 +1,4 @@
-# ADR 0249: Discern-managed human output declares semantic groups
+# ADR 0250: Discern-managed human output declares semantic groups
 
 **Status**: accepted
 

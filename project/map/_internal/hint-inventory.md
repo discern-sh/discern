@@ -255,6 +255,19 @@ Rendered example:
 Review the shared commits in data.commits. `src/main.ts` and `tests/main_test.ts` changed together in 3 recent commits: 3 of the 6 (50%) that touched `src/main.ts`, and 3 of the 4 (75%) that touched `tests/main_test.ts`.
 ```
 
+## `coupling-generated-exclusion`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `coupling-exclusion`
+- Emitting context: A coupling result excludes an input owned by a generated declaration.
+
+Rendered example:
+
+```text
+Coupling excluded `build/reference.dat` because `[generated.reference]` owns it as a declared output. A declared output is a projection, so it is not an independent change partner.
+```
+
 ## `coupling-more-partners`
 
 - Category: `next-step`

@@ -595,7 +595,8 @@
                           "create",
                           "skip",
                           "merge",
-                          "append"
+                          "append",
+                          "remove"
                         ]
                       },
                       "note": {
@@ -2568,6 +2569,51 @@
                 "gitignore_template_available": {
                   "type": "boolean"
                 },
+                "pending_gitattributes_reconciliation": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "create-block",
+                          "replace-block",
+                          "remove-block"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ]
+                  }
+                },
+                "untranslated_gitattributes_patterns": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "group": {
+                        "type": "string"
+                      },
+                      "pattern": {
+                        "type": "string"
+                      },
+                      "reason": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "group",
+                      "pattern",
+                      "reason"
+                    ]
+                  }
+                },
                 "changes": {
                   "type": "array",
                   "items": {
@@ -2650,6 +2696,29 @@
                         "enum": [
                           "create-block",
                           "replace-block"
+                        ]
+                      },
+                      "path": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "path"
+                    ]
+                  }
+                },
+                "gitattributes_reconciled": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "create-block",
+                          "replace-block",
+                          "remove-block"
                         ]
                       },
                       "path": {
@@ -3001,6 +3070,12 @@
                     "type": "string"
                   }
                 },
+                "removed_runtime_state": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
                 "stripped": {
                   "type": "array",
                   "items": {
@@ -3017,6 +3092,12 @@
                   "type": "string"
                 },
                 "worktrees": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "resources": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -4058,7 +4139,8 @@
                           "create",
                           "skip",
                           "merge",
-                          "append"
+                          "append",
+                          "remove"
                         ]
                       },
                       "note": {
@@ -8594,6 +8676,24 @@
                       "of",
                       "confidence",
                       "lift"
+                    ]
+                  }
+                },
+                "excluded_generated": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "path": {
+                        "type": "string"
+                      },
+                      "group": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "path",
+                      "group"
                     ]
                   }
                 },
@@ -16854,6 +16954,7 @@
     "partial_refresh",
     "pin_failed",
     "precondition_failed",
+    "provisioned_resources",
     "read_error",
     "renamed_command",
     "renamed_config_key",

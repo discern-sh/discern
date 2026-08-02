@@ -24,7 +24,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 17      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 18      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -38,7 +38,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 152     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 153     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 41      | "Tip"            | node `tips`                 |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -56,12 +56,12 @@ One row per set, in registry order; the sections below follow the same order and
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
-| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 63      | —                | node `published-contracts`  |
+| [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 64      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 240     | —                | node `adr-discipline`       |
-| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 26      | "File ownership" | node `ownership-buckets`    |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 241     | —                | node `adr-discipline`       |
+| [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
@@ -436,7 +436,7 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
 Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 17
+- Members: 18
   - `resources`
   - `logbook`
   - `crash`
@@ -454,6 +454,7 @@ Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and
   - `acceptanceTransactionLock`
   - `setupMachineryCommitEvidence`
   - `worktreeReady`
+  - `selfShim`
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
 - Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
 - Feature canon: not enrolled — one internal storage registry supports several independently documented product features
@@ -681,7 +682,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 152
+- Members: 153
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -718,6 +719,7 @@ The advisory hint registry: every hint string enters results through it.
   - `status-fleet-member-stale`
   - `status-unlanded-branches`
   - `status-contained-refs`
+  - `coupling-generated-exclusion`
   - `coupling-evidence-none`
   - `coupling-evidence-summary`
   - `coupling-evidence-more`
@@ -1342,7 +1344,7 @@ The versioned public schema URLs and the root generated artifacts served at them
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
 
 - Source: `src/shared/result.ts` — `ERROR_SLUGS`
-- Members: 63
+- Members: 64
   - `active_worktrees`
   - `ambiguous`
   - `apply_failed`
@@ -1388,6 +1390,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `partial_refresh`
   - `pin_failed`
   - `precondition_failed`
+  - `provisioned_resources`
   - `read_error`
   - `renamed_command`
   - `renamed_config_key`
@@ -1460,7 +1463,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 240
+- Members: 241
   - `0003`
   - `0005`
   - `0006`
@@ -1683,6 +1686,7 @@ The numbered decision records in the map, including records later superseded.
   - `0247`
   - `0248`
   - `0249`
+  - `0250`
   - `0001`
   - `0002`
   - `0004`
@@ -1710,7 +1714,7 @@ The numbered decision records in the map, including records later superseded.
 Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
-- Members: 26
+- Members: 27
   - `discern/guidance.md`
   - `discern/map/`
   - `discern/skills`
@@ -1719,6 +1723,7 @@ Every project-tree path discern writes or maintains, with its operational owners
   - `discern/brief.md`
   - `discern.toml`
   - `.gitignore`
+  - `.gitattributes`
   - `.env`
   - `.env.local`
   - `CLAUDE.md`

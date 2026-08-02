@@ -23,6 +23,7 @@ import {
   buildPlan,
   type Plan,
   planBrief,
+  planGitattributesReconcile,
   type PlanOp,
 } from "../src/lib/fs_plan.ts";
 import {
@@ -276,6 +277,33 @@ Deno.test("the gitignore keeps machine-local provider settings ignored", async (
       !/^\s*!\/?\.claude\/settings\.local\.json\s*$/m.test(gitignore),
       `.claude/settings.local.json is a machine-local override and must stay ignored:\n${gitignore}`,
     );
+  });
+});
+
+Deno.test("gitattributes reconciliation is a planned create, update, and removal", async () => {
+  await withTempDir(async (dir) => {
+    assertEquals(await planGitattributesReconcile(dir, []), undefined);
+
+    const groups = [{
+      name: "bundle",
+      paths: ["generated/**"],
+      run: ":",
+    }];
+    const create = await planGitattributesReconcile(dir, groups);
+    assert(create !== undefined);
+    assertEquals(create.kind, "reconcile-gitattributes");
+    assertEquals(create.disposition, "create");
+    await applyPlan({ ops: [create], unknownTokens: new Map() });
+    assertStringIncludes(
+      await readTarget(dir, ".gitattributes"),
+      "generated/** merge=discern-generated",
+    );
+
+    const remove = await planGitattributesReconcile(dir, []);
+    assert(remove !== undefined);
+    assertEquals(remove.disposition, "remove");
+    await applyPlan({ ops: [remove], unknownTokens: new Map() });
+    assertEquals(await targetExists(dir, ".gitattributes"), false);
   });
 });
 

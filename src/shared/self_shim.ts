@@ -9,18 +9,34 @@
  * therefore never depends on the ambient PATH — which holds no discern at all
  * under CI running the engine from source, or under an MCP server spawned
  * with a stripped environment — and can never silently run a DIFFERENT
- * install than the engine gating the tree.
+ * install than the engine gating the tree. The shim is prepended to the child
+ * PATH by the shell spawners in engine/jobs/command.ts,
+ * engine/worktree/shell.ts, and shared/subprocess.ts (which also applies it
+ * to the `commandExists` probe, so doctor's advisory verdict on a `discern …`
+ * command agrees with what the runners will do).
  *
- * The mechanism is a lazily created OS-temp directory — a registered artifact
- * family (temp_artifacts.ts), reaped only once abandoned — holding one
- * executable `discern` shim script, prepended to the child PATH by the shell
- * spawners in engine/jobs/command.ts, engine/worktree/shell.ts, and
- * shared/subprocess.ts (which also applies it to the `commandExists` probe,
- * so doctor's advisory verdict on a `discern …` command agrees with what the
- * runners will do).
+ * The shim lives inside the repository's Git administrative directory — the
+ * registered worktree-scoped `selfShim` entry — under one content-addressed
+ * subdirectory per engine identity (ADR 0249). The shim script's bytes fully
+ * encode the identity, so their hash names the subdirectory: every process
+ * of one engine converges on one path, distinct engines sharing a worktree
+ * (the main checkout's MCP server operating here by path, and this
+ * worktree's own CLI) each keep their own, and Git's worktree lifecycle
+ * removes the whole home with the worktree. Creation is idempotent
+ * (write-aside, then rename) and reuse verifies the bytes. This stays inside
+ * discern's day-one footprint — the repository, its Git admin state, and OS
+ * temp — and the admin directory is repo-owned, which is what makes the
+ * deterministic name safe; a predictable path in a SHARED temp directory
+ * would let another local user pre-plant it.
+ *
+ * A caller with no repository root at hand (a probe outside any repo, setup
+ * before init) gets a randomly named per-process OS-temp directory via the
+ * temp-artifact registry instead; the family's reaper drains whatever those
+ * short-lived contexts leave behind.
  */
 
 import { dirname, fromFileUrl, join } from "@std/path";
+import { gitAdminStatePath } from "./git_admin_state.ts";
 import { makeTempArtifactDir } from "./temp_artifacts.ts";
 
 /** Single-quote `value` for literal embedding in the shim script. */
@@ -46,6 +62,32 @@ function selfInvocation(): string {
   } -A ${shellQuote(join(repoRoot, "src", "main.ts"))} "$@"`;
 }
 
+/** The shim script for this engine. Its bytes ARE the engine identity. */
+function shimContent(): string {
+  return `#!/usr/bin/env sh\n${selfInvocation()}\n`;
+}
+
+/** Hex digits of SHA-256(`text`) naming an identity subdirectory. */
+async function identityName(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(text),
+  );
+  return Array.from(
+    new Uint8Array(digest),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("").slice(0, 16);
+}
+
+/** Best-effort mtime refresh: the keep-alive the temp-artifact reaper honors
+ * on a fallback shim. Harmless on a git-admin shim, which no reaper visits. */
+async function touch(dir: string): Promise<void> {
+  const now = new Date();
+  await Deno.utime(dir, now, now).catch(() => {
+    // Keep-alive is hygiene; a raced or unwritable touch never blocks a spawn.
+  });
+}
+
 async function isFile(path: string): Promise<boolean> {
   try {
     return (await Deno.stat(path)).isFile;
@@ -54,32 +96,84 @@ async function isFile(path: string): Promise<boolean> {
   }
 }
 
-let shimDir: string | undefined;
+/** Write `content` beside `target` and rename it into place, executable. */
+async function writeShimAside(target: string, content: string): Promise<void> {
+  const suffix = Array.from(
+    crypto.getRandomValues(new Uint8Array(8)),
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
+  const aside = `${target}.${suffix}`;
+  await Deno.writeTextFile(aside, content);
+  if (Deno.build.os !== "windows") {
+    await Deno.chmod(aside, 0o755);
+  }
+  try {
+    await Deno.rename(aside, target);
+  } catch (error) {
+    await Deno.remove(aside).catch(() => undefined);
+    // A concurrent process of the SAME identity renames identical bytes, so
+    // losing that race (Windows refuses to replace an existing target) is
+    // success — anything else propagates to the fallback path.
+    if (await Deno.readTextFile(target).catch(() => undefined) !== content) {
+      throw error;
+    }
+  }
+}
+
+/** Mint or reuse the identity subdirectory for `content` under `home`. */
+async function ensureShimAt(home: string, content: string): Promise<string> {
+  const dir = join(home, await identityName(content));
+  const shim = join(dir, "discern");
+  if (await Deno.readTextFile(shim).catch(() => undefined) === content) {
+    return dir;
+  }
+  await Deno.mkdir(dir, { recursive: true });
+  await writeShimAside(shim, content);
+  return dir;
+}
+
+/** A per-process temp shim for callers with no repository root at hand. */
+async function mintTempShim(content: string): Promise<string> {
+  const dir = await makeTempArtifactDir("shim");
+  await Deno.writeTextFile(join(dir, "discern"), content);
+  if (Deno.build.os !== "windows") {
+    await Deno.chmod(join(dir, "discern"), 0o755);
+  }
+  return dir;
+}
+
+/** Resolved shim dirs for this process, keyed by root ("" = rootless). */
+const resolved = new Map<string, string>();
 
 /**
- * The directory holding the `discern` shim, created on first use and cached
- * for the process's life. Each use refreshes the directory's mtime so the
- * artifact reaper only ever collects shims whose engine is gone; and a
- * long-lived process (the MCP server) can still outlive a system temp-dir
- * cleaner, so a vanished shim is recreated rather than trusted from the
- * cache. A concurrent first call may create a sibling dir, which is merely
- * unshared, not wrong.
+ * The directory holding the `discern` shim for the repository around `root`,
+ * resolved on first use and cached for the process's life. A long-lived
+ * process (the MCP server) can outlive a cleaner, so a vanished shim is
+ * re-resolved rather than trusted from the cache.
  */
-export async function selfShimDir(): Promise<string> {
-  if (shimDir !== undefined && (await isFile(join(shimDir, "discern")))) {
-    const now = new Date();
-    await Deno.utime(shimDir, now, now).catch(() => {
-      // Keep-alive is hygiene; a raced or unwritable touch never blocks a spawn.
-    });
-    return shimDir;
+export async function selfShimDir(root?: string): Promise<string> {
+  const key = root ?? "";
+  const cached = resolved.get(key);
+  if (cached !== undefined && (await isFile(join(cached, "discern")))) {
+    await touch(cached);
+    return cached;
   }
-  const dir = await makeTempArtifactDir("shim");
-  const shim = join(dir, "discern");
-  await Deno.writeTextFile(shim, `#!/usr/bin/env sh\n${selfInvocation()}\n`);
-  if (Deno.build.os !== "windows") {
-    await Deno.chmod(shim, 0o755);
+  const content = shimContent();
+  if (root !== undefined) {
+    const home = await gitAdminStatePath(root, "selfShim");
+    if (home !== undefined) {
+      try {
+        const dir = await ensureShimAt(home, content);
+        resolved.set(key, dir);
+        return dir;
+      } catch {
+        // An unusable admin directory must never block a spawn — a
+        // per-process temp artifact dir serves instead.
+      }
+    }
   }
-  shimDir = dir;
+  const dir = await mintTempShim(content);
+  resolved.set(key, dir);
   return dir;
 }
 
@@ -90,10 +184,14 @@ const PATH_DELIMITER = Deno.build.os === "windows" ? ";" : ":";
  * The PATH for an operator-command child: the self-shim first, then `base`
  * (default: this process's PATH). Prepended — not appended — so `discern`
  * resolves to the running engine even when the base PATH carries another
- * install.
+ * install. `root` is any path inside the repository the command operates on;
+ * omit it only when no repository is in play.
  */
-export async function selfShimPath(base?: string): Promise<string> {
-  const dir = await selfShimDir();
+export async function selfShimPath(
+  root?: string,
+  base?: string,
+): Promise<string> {
+  const dir = await selfShimDir(root);
   const rest = base ?? Deno.env.get("PATH") ?? "";
   return rest === "" ? dir : `${dir}${PATH_DELIMITER}${rest}`;
 }

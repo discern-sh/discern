@@ -602,12 +602,21 @@ const couplingEvidenceCommitSchema = z.strictObject({
   subject: z.string(),
 });
 
+/** One input path coupling did not model because a configured generated group owns it. */
+const couplingGeneratedExclusionSchema = z.strictObject({
+  path: z.string(),
+  group: z.string(),
+});
+
 /** `coupling` — the co-change view mined from git history; `mode` picks the shape:
  * - `diff` carries the `changed` set considered and the `partners` MISSING from it;
  * - `query` carries the queried `target` and its `partners` (the capped ranked list, each
  *   entry an edge with its evidence — advisory and NOT exhaustive);
  * - `evidence` compares two files `a` and `b`: `together` commits changed both (of `of_a`
  *   that touched `a` and `of_b` that touched `b`), the most recent listed in `commits`.
+ * `excluded_generated` names query arguments or current changed paths removed because a
+ * `[generated.<group>]` declaration owns them. Evidence fields are absent when either
+ * argument is excluded, because the pair was not modeled.
  * `partners` is always present (empty in `evidence` mode); the mode-specific fields are
  * optional so one object models every shape. */
 export const CouplingDataSchema = z.strictObject({
@@ -615,6 +624,7 @@ export const CouplingDataSchema = z.strictObject({
   changed: z.array(z.string()).optional(),
   target: z.string().optional(),
   partners: z.array(couplingPartnerSchema),
+  excluded_generated: z.array(couplingGeneratedExclusionSchema).optional(),
   a: z.string().optional(),
   b: z.string().optional(),
   together: z.number().int().optional(),
@@ -1499,7 +1509,7 @@ export const SetupDataSchema = z.strictObject({
   plan: z.array(
     z.strictObject({
       path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append"]),
+      action: z.enum(["create", "skip", "merge", "append", "remove"]),
       note: z.string().optional(),
     }),
   ).optional(),
@@ -1647,7 +1657,7 @@ export const PresetDataSchema = z.strictObject({
   plan: z.array(
     z.strictObject({
       path: z.string(),
-      action: z.enum(["create", "skip", "merge", "append"]),
+      action: z.enum(["create", "skip", "merge", "append", "remove"]),
       note: z.string().optional(),
     }),
   ).optional(),
@@ -1677,6 +1687,17 @@ const gitignoreReconcileOperationSchema = z.strictObject({
   path: z.string(),
 });
 
+const gitattributesReconcileOperationSchema = z.strictObject({
+  kind: z.enum(["create-block", "replace-block", "remove-block"]),
+  path: z.string(),
+});
+
+const refusedGitattributesPatternSchema = z.strictObject({
+  group: z.string(),
+  pattern: z.string(),
+  reason: z.string(),
+});
+
 const upgradeSchemaSnapshotSchema = z.strictObject({
   recorded: z.number().optional(),
   from: z.number().optional(),
@@ -1693,12 +1714,20 @@ export const UpgradeDataSchema = z.strictObject({
   pending_gitignore_reconciliation: z.array(gitignoreReconcileOperationSchema)
     .optional(),
   gitignore_template_available: z.boolean().optional(),
+  pending_gitattributes_reconciliation: z.array(
+    gitattributesReconcileOperationSchema,
+  ).optional(),
+  untranslated_gitattributes_patterns: z.array(
+    refusedGitattributesPatternSchema,
+  ).optional(),
   changes: z.array(z.string()).optional(),
   issues: z.array(ConfigIssueSchema).optional(),
   kit_version: z.string().optional(),
   migrations_applied: z.array(migrationStepSchema).optional(),
   config_reconciled: z.array(configReconcileOperationSchema).optional(),
   gitignore_reconciled: z.array(gitignoreReconcileOperationSchema).optional(),
+  gitattributes_reconciled: z.array(gitattributesReconcileOperationSchema)
+    .optional(),
   skills: z.strictObject({
     copied: z.number(),
     linked: z.number(),
@@ -1720,10 +1749,14 @@ export type UpgradeData = z.infer<typeof UpgradeDataSchema>;
  * applied run, and a refusal. */
 export const UninstallDataSchema = z.strictObject({
   removed: z.array(z.string()).optional(),
+  /** Absolute `discern/` runtime-state dirs removed from Git's admin area. */
+  removed_runtime_state: z.array(z.string()).optional(),
   stripped: z.array(z.string()).optional(),
   kept: z.array(z.string()).optional(),
   binary_hint: z.string().optional(),
   worktrees: z.array(z.string()).optional(),
+  /** Ledger-recorded resources blocking an uninstall (`provisioned_resources`). */
+  resources: z.array(z.string()).optional(),
 });
 export type UninstallData = z.infer<typeof UninstallDataSchema>;
 

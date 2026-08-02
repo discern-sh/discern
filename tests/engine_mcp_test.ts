@@ -1612,6 +1612,20 @@ Deno.test("discern mcp: discern_update returns schema-valid data for a real merg
 Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and invalid paired args", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const generatedPath = "mcp-projection.snapshot";
+    const generatedGroup = "mcp-projection";
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        `[generated.${generatedGroup}]`,
+        `paths = [${JSON.stringify(generatedPath)}]`,
+        'run = "true"',
+        "",
+      ].join("\n"),
+    );
     await gitInit(dir);
     const commit = async (
       files: Record<string, string>,
@@ -1625,12 +1639,20 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
     };
 
     for (let i = 0; i < 4; i++) {
-      await commit({ "a.ts": `${i}`, "b.ts": `${i}` }, `ab${i}`);
+      await commit(
+        {
+          "a.ts": `${i}`,
+          "b.ts": `${i}`,
+          [generatedPath]: `${i}`,
+        },
+        `ab${i}`,
+      );
     }
     for (let i = 0; i < 5; i++) {
       await commit({ [`n${i}.ts`]: "1", [`m${i}.ts`]: "1" }, `noise${i}`);
     }
     await Deno.writeTextFile(join(dir, "a.ts"), "staged\n");
+    await Deno.writeTextFile(join(dir, generatedPath), "staged\n");
 
     await using mcp = await spawnMcp(dir);
     await mcp.send({
@@ -1654,6 +1676,10 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
     );
     assertEquals(diff.result.structuredContent.data.mode, "diff");
     assertEquals(diff.result.structuredContent.data.changed, ["a.ts"]);
+    assertEquals(diff.result.structuredContent.data.excluded_generated, [{
+      path: generatedPath,
+      group: generatedGroup,
+    }]);
     assert(
       diff.result.structuredContent.data.partners.some((
         p: { path: string },
@@ -1678,6 +1704,12 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
       query.result.structuredContent.data.partners.some((
         p: { path: string },
       ) => p.path === "b.ts"),
+      JSON.stringify(query.result.structuredContent.data),
+    );
+    assert(
+      !query.result.structuredContent.data.partners.some((
+        p: { path: string },
+      ) => p.path === generatedPath),
       JSON.stringify(query.result.structuredContent.data),
     );
 
@@ -1713,6 +1745,40 @@ Deno.test("discern mcp: discern_coupling covers diff, query, evidence, and inval
     await mcp.send({
       jsonrpc: "2.0",
       id: 5,
+      method: "tools/call",
+      params: {
+        name: "discern_coupling",
+        arguments: { file: generatedPath },
+      },
+    });
+    const generated = await mcp.recv();
+    assertEquals(
+      generated.result.isError,
+      false,
+      JSON.stringify(generated.result),
+    );
+    assert(
+      CouplingOutputSchema.safeParse(generated.result.structuredContent)
+        .success,
+    );
+    assertEquals(generated.result.structuredContent.data, {
+      mode: "query",
+      target: generatedPath,
+      partners: [],
+      excluded_generated: [{
+        path: generatedPath,
+        group: generatedGroup,
+      }],
+    });
+    assertHasMcpHint(
+      generated.result.structuredContent,
+      HINTS["coupling-generated-exclusion"],
+      { path: generatedPath, group: generatedGroup },
+    );
+
+    await mcp.send({
+      jsonrpc: "2.0",
+      id: 6,
       method: "tools/call",
       params: { name: "discern_coupling", arguments: { with: "b.ts" } },
     });
