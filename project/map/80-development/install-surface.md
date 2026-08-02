@@ -69,7 +69,7 @@ Configured source paths keep their ownership when moved. The table shows fresh-i
 
 The write boundary consumes the registered inventory. It admits Project-owned, Shared, and Generated entries and excludes provider-local entries. A static funnel confines each raw filesystem mutation under `src/**` to a sanctioned write-site module. A runtime pass runs `setup begin`, `refresh`, and `upgrade`, then rejects any project-tree write outside the registered paths ([`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts), [ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)).
 
-Runtime records under Git's administrative directory, a user-supplied output path such as `docs --output`, and OS temp artifacts sit outside the project tree. Their writers remain in the static funnel. **[Placement is consent](../00-orientation/glossary.md#placement-is-consent)** for configured project paths: accepting a default or pointing a config key grants the write license; other project paths are untouchable ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+Runtime records under Git's administrative directory, a user-supplied output path such as `docs --output`, OS temp artifacts, and the per-identity self-shim under the user's cache directory sit outside the project tree. Their writers remain in the static funnel. **[Placement is consent](../00-orientation/glossary.md#placement-is-consent)** for configured project paths: accepting a default or pointing a config key grants the write license; other project paths are untouchable ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
 ## Control surface & configuration
 

@@ -1,5 +1,7 @@
 # ADR 0182: Operator commands resolve `discern` to the running engine
 
+> **Identity refinement ([ADR 0249](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)):** The PATH decision stands. The shim now lives at a content-addressed path in the user's cache directory — one directory per engine identity, reused by every process of that engine — and the per-process OS-temp directory described below remains only as the fallback when no cache root resolves.
+
 **Status**: accepted
 
 ## Context

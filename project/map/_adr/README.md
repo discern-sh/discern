@@ -239,6 +239,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0246 — `discern map --export` reads a configured scope as an ordered reading list](0246-map-export-reads-scopes-as-reading-lists.md)
 - [0247 — Declared generated artifacts regenerate; they are never merged textually](0247-generated-artifacts-regenerate-never-merge.md)
 - [0248 — Crashes leave a report and a distinct exit code](0248-crashes-leave-a-report-and-a-distinct-exit-code.md)
+- [0249 — Self-shims cache per engine identity; sweep pages stay budget-bounded](0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)
 
 <!-- END GENERATED: current ADR records -->
 
