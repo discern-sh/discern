@@ -243,6 +243,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0250 — Discern-managed human output declares semantic groups](0250-discern-managed-human-output-declares-semantic-groups.md)
 - [0251 — Every authored Deno function declaration carries JSDoc](0251-function-declarations-require-jsdoc.md)
 - [0252 — The fleet test-run cap is enforced at the test command boundary](0252-fleet-test-run-cap-at-test-command-boundary.md)
+- [0253 — Durable proofs project runtime receipts](0253-durable-proofs-project-runtime-receipts.md)
 
 <!-- END GENERATED: current ADR records -->
 

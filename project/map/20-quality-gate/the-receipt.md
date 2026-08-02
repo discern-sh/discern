@@ -19,6 +19,8 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
 
+When a capped test run waits for a slot, the live summary and top-level result field `waited_ms` report that delay. Queue time does not change what the gate proved, so it stays out of the receipt line, page, and durable proof ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
 A qualifying receipt may carry one `Logbook:` advisory from `hints[]` after a detector clears its unsolicited-presentation margin. `discern patterns` holds the evidence and next step. The advisory does not change the stored receipt, `ok`, or acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
@@ -50,7 +52,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## After landing
 
-Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. Its Dead Simple Signing Envelope (DSSE) boundary preserves the payload bytes and full commit id. `signatures: []` is discern's unsigned extension. The local record is default-on and fail-open, while fetch transport is opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, publication, and cross-clone recovery.
+Acceptance projects the structured proof facts and human presentation into separate payload blocks under `refs/notes/discern` after the trunk fast-forward. Its Dead Simple Signing Envelope (DSSE) boundary preserves the payload bytes and full commit id. `signatures: []` is discern's unsigned extension. The local record is default-on and fail-open, while fetch transport is opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, publication, and cross-clone recovery.
 
 ## Re-running an unchanged tree
 

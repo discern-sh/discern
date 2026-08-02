@@ -30,7 +30,8 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 ```json
 {
   "subject": { "commit": "<full commit id>" },
-  "proof": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0, "line": "…", "markdown": "…" }
+  "proof": { "branch": "…", "trunk": "…", "head": "…", "files_total": 1, "insertions": 1, "deletions": 0 },
+  "presentation": { "line": "…", "markdown": "…" }
 }
 ```
 
@@ -40,7 +41,9 @@ The Base64 payload decodes to a UTF-8 JSON claim:
 - `payload` preserves the serialized claim. discern writes standard padded Base64. DSSE accepts standard and Base64url alphabets. discern also accepts omitted padding.
 - `signatures` holds DSSE entries with a Base64 `sig` and optional `keyid`. A [standard signed envelope](https://github.com/secure-systems-lab/dsse/blob/v1.0.2/envelope.md) has at least one entry. discern's unsigned extension uses an empty array.
 
-The decoded payload contains the full commit under `subject.commit`, the structured gate record under `proof`, optional issuer assertions (`name`, `email`, and `key`), and the reserved optional `brief` reference for future provenance work.
+The decoded payload contains the full commit under `subject.commit`, structured gate facts under `proof`, and human renderings under `presentation`. Optional issuer assertions (`name`, `email`, and `key`) and the reserved `brief` reference support future provenance work.
+
+The canonical writer projects the `proof` block independently from the live result contract. Runtime telemetry such as `waited_ms` stays in command results and the logbook. `presentation` remains inside the signed payload so its text cannot contradict the structured claim, but verification policy never treats the line or Markdown as proof facts ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
 ## Signature and identity boundary
 
@@ -50,7 +53,7 @@ The future signature input follows [DSSE protocol v1.0.2](https://github.com/sec
 PAE(UTF8(payloadType), decoded payload bytes)
 ```
 
-Only the payload type and decoded payload bytes enter that message. Authenticated claims therefore belong inside the payload. A verifier uses those decoded bytes directly because parsing and serializing the JSON again could change them.
+Only the payload type and decoded payload bytes enter that message. Authenticated claims therefore belong inside the payload. A verifier uses those decoded bytes directly because parsing and serializing the JSON again could change them. Policy reads the structured `proof` block; `presentation` is an authenticated human view.
 
 Discern does not sign or verify notes at v1.0.0. Adding a valid signature entry later produces the standard DSSE signed form without moving the payload. The signing profile will choose the algorithm, signature encoding, and key lookup.
 
@@ -62,6 +65,7 @@ Issuer fields assert what the payload claims. A verified signature shows that a 
 2. Let unknown added fields pass at every envelope and payload level within v1.
 3. Report an unknown `payloadType` as `data.landed_receipt_unsupported`.
 4. Read a bare receipt with no `payloadType` as legacy unsigned evidence.
+5. Read pre-correction v1 payloads with `line` and `markdown` inside `proof`, while dropping runtime-only fields.
 
 `data.landed_receipt` means the note is readable and commit-bound. This path performs no cryptographic verification.
 
