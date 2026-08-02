@@ -35,8 +35,8 @@ export const AWAIT_WATCH_POLICY =
 /** The effort boundary that decides whether `start` creates a worktree. */
 export const WORKTREE_CONTINUITY_CORE =
   "One worktree lasts for the whole effort, including review feedback and " +
-  "resumed sessions. If this effort already has a worktree, continue at its " +
-  "recorded path and pass `path` to discern tools; if that path is unavailable, " +
+  "resumed sessions. If this effort already has a worktree, continue there " +
+  "using its recorded path and pass `path` to discern tools; if that path is unavailable, " +
   "ask for it instead of creating another.";
 
 /** Render the continuity rule with the command name appropriate to its surface. */
@@ -62,7 +62,7 @@ export const OPERATING_POLICIES = [
   {
     id: "worktree-first",
     statement:
-      "On main, call discern_start only for a new effort with no worktree. It " +
+      "On the trunk, call discern_start only for a new effort with no worktree. It " +
       "creates an isolated worktree, re-aiming tools. Re-root file work " +
       "there; otherwise prefix shell commands with `cd <path> &&` and pass `path` " +
       "to discern tools. Edits otherwise land on trunk.",
