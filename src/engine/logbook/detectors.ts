@@ -2281,6 +2281,78 @@ const generatorGateShare: Detector = {
   },
 };
 
+const SLOT_CONTENTION_RECENT_RUNS = 20;
+const SLOT_CONTENTION_MIN_RUNS = 6;
+const SLOT_CONTENTION_WAIT_FLOOR_MS = 30_000;
+const SLOT_CONTENTION_WAIT_SHARE = 0.25;
+
+/**
+ * Read recurring slot pressure, not one unlucky hand-off: six capped runs make
+ * the median representative of several waits, and the latest 20 keep the
+ * reading about the current fleet. A 30-second absolute floor ignores ordinary
+ * scheduler jitter; requiring wait to reach 25% of median execution also keeps
+ * a long suite with negligible slot delay quiet.
+ */
+const slotContention: Detector = {
+  id: "slot-contention",
+  title: "Test-run slot contention",
+  family: "gate-fit",
+  scope: "project",
+  tier: "batch",
+  tone: "attention",
+  threshold: SLOT_CONTENTION_MIN_RUNS,
+  next_step:
+    "Review `[gate].concurrent_test_runs` against the machine and active fleet. A machine with spare capacity can take a higher cap; a saturated machine needs fewer simultaneous agents.",
+  detect(facts): DetectorOutcome {
+    const capped = facts.verbs.filter((event) => event.waited_ms !== undefined);
+    const recent = capped.slice(-SLOT_CONTENTION_RECENT_RUNS);
+    const considered = recent.length;
+    if (considered < SLOT_CONTENTION_MIN_RUNS) {
+      return { considered, findings: [] };
+    }
+    const medianWaitMs = median(
+      recent.map((event) => event.waited_ms ?? 0),
+    );
+    const medianExecutionMs = median(recent.map(executionDurationMs));
+    if (
+      medianExecutionMs <= 0 ||
+      medianWaitMs < SLOT_CONTENTION_WAIT_FLOOR_MS ||
+      medianWaitMs < medianExecutionMs * SLOT_CONTENTION_WAIT_SHARE
+    ) {
+      return { considered, findings: [] };
+    }
+    const medianWaitS = round1(medianWaitMs / 1000);
+    const medianExecutionS = round1(medianExecutionMs / 1000);
+    const waitSharePct = Math.round(
+      (medianWaitMs / medianExecutionMs) * 100,
+    );
+    return {
+      considered,
+      findings: [{
+        brief: `${formatHumanNumber(medianWaitS)}s median wait · ${
+          formatHumanNumber(medianExecutionS)
+        }s median execution · ${formatHumanNumber(waitSharePct)}% · ${
+          formatHumanNumber(considered)
+        } capped runs`,
+        observed: `recent capped runs waited a median ${
+          formatHumanNumber(medianWaitS)
+        }s for a test-run slot alongside ${
+          formatHumanNumber(medianExecutionS)
+        }s median execution across ${formatHumanNumber(considered)} runs (${
+          formatHumanNumber(waitSharePct)
+        }%).`,
+        evidence: {
+          capped_runs: considered,
+          median_wait_seconds: medianWaitS,
+          median_execution_seconds: medianExecutionS,
+          wait_to_execution_pct: waitSharePct,
+        },
+        strength: Math.max(1, waitSharePct),
+      }],
+    };
+  },
+};
+
 const durationCreep: Detector = {
   id: "duration-creep",
   title: "Gate duration creeping up",
@@ -3180,6 +3252,7 @@ export const DETECTORS: readonly Detector[] = [
   guidanceParity,
   dominantStage,
   generatorGateShare,
+  slotContention,
   durationCreep,
   fixStageIdle,
   recurringDiagnostic,

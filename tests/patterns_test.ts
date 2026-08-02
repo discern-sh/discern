@@ -1025,6 +1025,29 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       })),
     ),
   },
+  "slot-contention": {
+    firing: run(
+      Array.from({ length: 6 }, () => ({
+        verb: "done",
+        duration_ms: 160_000,
+        waited_ms: 60_000,
+      })),
+    ),
+    quiet: run(
+      Array.from({ length: 6 }, () => ({
+        verb: "done",
+        duration_ms: 110_000,
+        waited_ms: 10_000,
+      })),
+    ),
+    sparse: run(
+      Array.from({ length: 5 }, () => ({
+        verb: "done",
+        duration_ms: 160_000,
+        waited_ms: 60_000,
+      })),
+    ),
+  },
   "duration-creep": {
     firing: run(
       Array.from({ length: 8 }, (_, i) => ({
@@ -1364,6 +1387,34 @@ Deno.test("generator gate share keeps short gates below the absolute floor", () 
   );
   assertEquals(audit.status, "quiet");
   assertEquals(audit.findings, []);
+});
+
+Deno.test("slot contention reports material recent wait and frames the owner decision", () => {
+  const detectorUnderTest = detector("slot-contention");
+  assertEquals(detectorUnderTest.family, "gate-fit");
+  assertEquals(detectorUnderTest.scope, "project");
+  assertEquals(detectorUnderTest.tier, "batch");
+  assertEquals(detectorUnderTest.threshold, 6);
+
+  const audit = report(
+    detectorUnderTest,
+    fixturesOf(detectorUnderTest).firing,
+  );
+  assertEquals(audit.status, "fired");
+  assertEquals(audit.findings[0]?.evidence, {
+    capped_runs: 6,
+    median_wait_seconds: 60,
+    median_execution_seconds: 100,
+    wait_to_execution_pct: 60,
+  });
+  assertStringIncludes(
+    detectorUnderTest.next_step,
+    "spare capacity can take a higher cap",
+  );
+  assertStringIncludes(
+    detectorUnderTest.next_step,
+    "saturated machine needs fewer simultaneous agents",
+  );
 });
 
 Deno.test("generator gate share supersedes dominant stage for a generated job", () => {
