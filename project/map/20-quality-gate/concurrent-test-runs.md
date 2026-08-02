@@ -41,7 +41,7 @@ test: discern queue -- your-test-runner --single-run
 
 `queue` holds one slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A zero or absent cap—and no `discern.toml`—touches no slot files. Unusable slots warn once, then run uncapped.
 
-The gate sets `DISCERN_TEST_SLOT=1` when it has accounted the cap, including after fail-open. Any non-empty marker makes `queue` skip acquisition; every wrapper passes `1` onward. Gate-driven and nested wrappers therefore consume one slot. The advisory marker makes this cooperative back-pressure, not a security boundary.
+The gate sets `DISCERN_TEST_SLOT=1` when it has accounted the cap, including after fail-open. Any non-empty marker makes `queue` skip acquisition; every wrapper passes `1` onward. Gate-driven and nested wrappers therefore consume one slot. The advisory marker makes this cooperative back-pressure, not a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 The wrapped task should remain the canonical test command.[^raw-test-task]
 
