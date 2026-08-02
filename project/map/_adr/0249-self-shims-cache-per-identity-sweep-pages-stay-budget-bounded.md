@@ -16,17 +16,17 @@ The retention design needs to hold by construction, not by tuning: production mu
 
 This keeps the shim inside discern's day-one footprint — the repository, its Git administrative state, and OS temp — and inside the ADR 0165 registry that doctor and uninstall already govern. The administrative directory is repo-owned, which is what makes the deterministic name safe.
 
-**Sweep pages select candidates through bounded heaps.** A page keeps at most one inspection budget of names per side of the cursor while streaming the directory, so its memory and sort work are O(budget) against any population. Cursor rotation, wrap-around, and both budgets are unchanged.
+**Sweep pages select candidates through bounded heaps.** A page keeps at most one inspection budget of names per side of the cursor while streaming the directory, so its memory, ordering work, metadata reads, and removals are bounded by the budgets. Directory enumeration itself remains proportional to the population — a directory stream cannot resume mid-listing, and fair cursor rotation needs every name considered — but that enumeration is name-matching only (about half a second against a 400,000-entry directory) and runs at most once per repository per hour under the ADR 0216 coordinator lock, never per process. Cursor rotation, wrap-around, and both budgets are unchanged.
 
-**The engine test suite injects a per-run TMPDIR into every spawned engine.** Suite production leaves the shared OS temp directory entirely, and a scaffolded project's always-due first sweep walks the small suite home instead of the machine-wide population. This is a repository practice rather than an engine behavior; it is recorded here because it closes the remaining production source of the same class.
+**The engine test suite injects a per-run TMPDIR into every spawned engine.** Suite production leaves the shared OS temp directory entirely, and a scaffolded project's always-due first sweep walks the small suite home instead of the machine-wide population. The harness removes its homes at process exit and performs no temp-directory scan of its own; what a killed run leaves wears the `discern-test-` prefix, a registered directory family the hourly sweep drains. This is a repository practice rather than an engine behavior; it is recorded here because it closes the remaining production source of the same class.
 
 Explicit noes: no new write location outside the day-one footprint, no fixed-name artifact directory under shared OS temp, no raised budgets, no daemon, no change to the ADR 0182 PATH-resolution decision itself.
 
 ## Consequences
 
 - Shim population is proportional to engine identities per repository, not processes, and each home dies with its worktree. A suite run that minted thousands of temp directories now touches one subdirectory per scaffold's `.git`.
-- The spawn sites carry their repository root into `selfShimPath`, so the shim's home is an ordinary registered admin-state entry — inventoried, doctor-visible, and covered by the existing uninstall surface.
-- A sweep can no longer be slower than its budgets allow, whatever mess a machine carries.
+- The spawn sites carry their repository root into `selfShimPath`, so the shim's home is an ordinary registered admin-state entry, and uninstall removes the whole `discern/` namespace under Git's administrative directories — the shim and every other registered runtime record exit with the tool, with no hand-kept list to drift.
+- A sweep's mutation and metadata work can no longer exceed its budgets, whatever mess a machine carries; the residual per-page cost is one hourly, repository-locked name scan of the temp directory.
 - Rootless callers keep the per-process temp cost. They are rare, short-lived, and were never the production source; the gate jobs that were are always rooted.
 
 ## Alternatives considered
