@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertThrows } from "@std/assert";
 import { Command } from "@cliffy/command";
 import { z } from "@zod/zod";
 import {
@@ -34,6 +34,64 @@ import { buildCli } from "../src/main.ts";
 import { TOOLS } from "../src/engine/mcp/server.ts";
 
 const sorted = (xs: Iterable<string>): string[] => [...xs].sort();
+
+const DURABLE_PROOF_FACT_FIELDS = [
+  "branch",
+  "deletions",
+  "files_total",
+  "head",
+  "insertions",
+  "trunk",
+] as const;
+
+const DURABLE_PROOF_PRESENTATION_FIELDS = ["line", "markdown"] as const;
+
+/** Require the signed payload to reference its own closed fact and presentation
+ * definitions, so adding a live result field cannot widen the proof contract. */
+function assertDurableProofBoundary(schema: Record<string, unknown>): void {
+  assert(isRecord(schema.$defs), "proof schema should publish definitions");
+  const payload = schema.$defs[PROOF_NOTE_PAYLOAD_DEFINITION];
+  assert(isRecord(payload), "proof schema should publish its decoded payload");
+  assert(isRecord(payload.properties), "proof payload should declare fields");
+  assertEquals(payload.required, ["subject", "proof", "presentation"]);
+  assertEquals(payload.properties.proof, {
+    $ref: "#/$defs/DiscernProofClaim",
+  });
+  assertEquals(payload.properties.presentation, {
+    $ref: "#/$defs/DiscernProofPresentation",
+  });
+
+  const proof = schema.$defs.DiscernProofClaim;
+  assert(isRecord(proof), "proof facts should have their own definition");
+  assert(isRecord(proof.properties), "proof facts should declare fields");
+  assertEquals(
+    Object.keys(proof.properties).sort(),
+    [...DURABLE_PROOF_FACT_FIELDS],
+  );
+  assertEquals(
+    [...(Array.isArray(proof.required) ? proof.required : [])].sort(),
+    [...DURABLE_PROOF_FACT_FIELDS],
+  );
+
+  const presentation = schema.$defs.DiscernProofPresentation;
+  assert(
+    isRecord(presentation),
+    "proof presentation should have its own definition",
+  );
+  assert(
+    isRecord(presentation.properties),
+    "proof presentation should declare fields",
+  );
+  assertEquals(
+    Object.keys(presentation.properties).sort(),
+    [...DURABLE_PROOF_PRESENTATION_FIELDS],
+  );
+  assertEquals(
+    [...(Array.isArray(presentation.required) ? presentation.required : [])]
+      .sort(),
+    [...DURABLE_PROOF_PRESENTATION_FIELDS],
+  );
+}
 
 Deno.test("schema/discern-results.schema.json matches the generator (run `deno task codegen`)", async () => {
   const committed = await Deno.readTextFile(
@@ -82,7 +140,44 @@ Deno.test("the proof-note schema publishes one DSSE payload boundary", () => {
   assert(isRecord(schema.$defs), "proof schema should publish definitions");
   const claim = schema.$defs[PROOF_NOTE_PAYLOAD_DEFINITION];
   assert(isRecord(claim), "proof schema should publish its decoded payload");
-  assertEquals(claim.required, ["subject", "proof"]);
+  assertDurableProofBoundary(schema);
+});
+
+Deno.test("the durable-proof boundary rejects an unrelated future field", () => {
+  const schema = {
+    $defs: {
+      [PROOF_NOTE_PAYLOAD_DEFINITION]: {
+        properties: {
+          proof: { $ref: "#/$defs/DiscernProofClaim" },
+          presentation: { $ref: "#/$defs/DiscernProofPresentation" },
+        },
+        required: ["subject", "proof", "presentation"],
+      },
+      DiscernProofClaim: {
+        properties: Object.fromEntries(
+          DURABLE_PROOF_FACT_FIELDS.map((field) => [field, {}]),
+        ),
+        required: [...DURABLE_PROOF_FACT_FIELDS],
+      },
+      DiscernProofPresentation: {
+        properties: Object.fromEntries(
+          DURABLE_PROOF_PRESENTATION_FIELDS.map((field) => [field, {}]),
+        ),
+        required: [...DURABLE_PROOF_PRESENTATION_FIELDS],
+      },
+    },
+  };
+  assertDurableProofBoundary(schema);
+
+  const futureSibling = structuredClone(schema);
+  futureSibling.$defs.DiscernProofClaim.properties.orbit_delay = {
+    type: "number",
+  };
+  assertThrows(
+    () => assertDurableProofBoundary(futureSibling),
+    Error,
+    "orbit_delay",
+  );
 });
 
 Deno.test("the generated result schema carries its public identity and policy", () => {
