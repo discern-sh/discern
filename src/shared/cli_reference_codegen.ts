@@ -284,7 +284,7 @@ export function renderCliReferenceDoc(root: unknown): string {
     "",
     "## Global options",
     "",
-    "Accepted by every command.",
+    "These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.",
     "",
     "| Option | Description |",
     "| --- | --- |",

@@ -67,7 +67,7 @@ Use this page to look up the exact syntax and flags for every visible `discern` 
 
 ## Global options
 
-Accepted by every command.
+These options are inherited unless a command's entry says otherwise. Tokens beyond an exec-style child boundary are never discern options.
 
 | Option       | Description                                                                                   |
 | ------------ | --------------------------------------------------------------------------------------------- |
@@ -140,7 +140,7 @@ Usage: `discern test [options]`
 
 ### `discern queue`
 
-Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead.
+Run a command while holding one configured concurrent test-run slot. Use `discern await` to watch a fleet condition instead. This command has no `--json` mode; tokens after `--` belong to the child.
 
 Usage: `discern queue -- <command> [args...]`
 

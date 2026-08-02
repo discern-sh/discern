@@ -670,6 +670,10 @@ Deno.test("queue and await help cross-reference their distinct wait surfaces", a
       queueHelp.stdout,
       "discern queue -- <command> [args...]",
     );
+    assert(
+      !/^\s+--json\s+-/m.test(queueHelp.stdout),
+      `queue help must not advertise its unsupported JSON mode:\n${queueHelp.stdout}`,
+    );
 
     const awaitHelp = await runAgent(dir, ["await", "--help"]);
     assertEquals(awaitHelp.code, 0, awaitHelp.output);

@@ -293,10 +293,12 @@ export function attachEngineCommands(
 
   root
     .command("queue")
+    .noGlobals()
     .usage("-- <command> [args...]")
     .description(
       "Run a command while holding one configured concurrent test-run slot. " +
-        "Use `discern await` to watch a fleet condition instead.",
+        "Use `discern await` to watch a fleet condition instead. " +
+        "This command has no `--json` mode; tokens after `--` belong to the child.",
     );
 
   root
