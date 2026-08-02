@@ -35,7 +35,10 @@ import { HINTS } from "../src/shared/hints.ts";
 import { KNOWN_JOBS, STAGES } from "../src/shared/capabilities.ts";
 import { KNOWN_VERBS } from "../src/engine/dispatch.ts";
 import { configSchema } from "../src/shared/config_schema.ts";
-import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
+import {
+  AGENT_NAMES,
+  agentLabelForNative,
+} from "../src/shared/agent_catalogue.ts";
 import { bundledSkillNames } from "../src/lib/skills.ts";
 
 /** The closed sets the canon must account for, from their single sources. */
@@ -47,6 +50,73 @@ const CLOSED_SETS: Readonly<Record<SurfaceSet, readonly string[]>> = {
   skill: (await bundledSkillNames()).sort(),
   agent: [...AGENT_NAMES],
 };
+
+interface ProviderLabel {
+  readonly member: string;
+  readonly label: string;
+}
+
+const NATIVE_PROVIDER_LABELS: readonly ProviderLabel[] = AGENT_NAMES.map(
+  (member) => ({ member, label: agentLabelForNative(member) }),
+);
+
+/** Find provider names used by a feature node that does not claim that provider. */
+function providerDetailLeaks(
+  nodes: readonly FeatureNode[],
+  labels: readonly ProviderLabel[] = NATIVE_PROVIDER_LABELS,
+): string[] {
+  const offenders: string[] = [];
+  const visit = (node: FeatureNode): void => {
+    const allowed = new Set<string>();
+    if (node.id === "providers") {
+      for (const provider of labels) allowed.add(provider.member);
+    }
+    for (const surface of node.surfaces ?? []) {
+      if (surface.startsWith("agent:")) allowed.add(surface.slice(6));
+    }
+    const prose = [
+      node.title,
+      node.what,
+      node.why,
+      node.agent,
+      node.plain.title,
+      node.plain.what,
+      node.plain.why,
+      node.plain.agent,
+    ].filter((value): value is string => value !== undefined).join("\n");
+    for (const provider of labels) {
+      if (prose.includes(provider.label) && !allowed.has(provider.member)) {
+        offenders.push(
+          `${node.id} names ${provider.label} without claiming agent:${provider.member}`,
+        );
+      }
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  for (const node of nodes) visit(node);
+  return offenders;
+}
+
+Deno.test("provider details stay on provider-claimed feature nodes", () => {
+  assertEquals(providerDetailLeaks(FEATURE_CANON), []);
+});
+
+Deno.test("provider-detail guard enrolls a future provider without naming it", () => {
+  const future = [{ member: "fresh", label: "Fresh Agent" }];
+  const generic: FeatureNode = {
+    id: "generic",
+    title: "Generic capability",
+    what: "Fresh Agent loads this differently.",
+    plain: { title: "Generic capability", what: "A generic capability." },
+  };
+  assertEquals(providerDetailLeaks([generic], future), [
+    "generic names Fresh Agent without claiming agent:fresh",
+  ]);
+  assertEquals(
+    providerDetailLeaks([{ ...generic, surfaces: ["agent:fresh"] }], future),
+    [],
+  );
+});
 
 /** Claimed members per set, from the canon's explicit surface claims. */
 function claimedBySet(): Map<SurfaceSet, Set<string>> {

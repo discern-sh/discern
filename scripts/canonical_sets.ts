@@ -153,7 +153,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "mcp-tools",
     title: "MCP tools",
     what:
-      "The MCP tool table, including each tool's internal Claude Code startup-loading toggle; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to vendor metadata.",
+      "The MCP tool table, including each tool's internal provider-metadata toggles; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to its wire metadata.",
     source: {
       kind: "module",
       module: "src/engine/mcp/server.ts",

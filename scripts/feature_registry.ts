@@ -1829,7 +1829,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "mcp-surface",
         title: "The MCP server",
         what:
-          "`discern mcp` serves the verbs as tools over stdio on the official SDK — self-describing schemas derived from the typed result contracts, strict argument validation, a tracked working root that `discern_start` re-aims at the new worktree, and read-only resources for status, impact, config, docs, and the map. Its startup instructions fit Claude Code's 2KB bound with `discern_status` loaded as the gateway; `[mcp].always_load` opts the whole server into startup loading.",
+          "`discern mcp` serves the verbs as tools over stdio on the official SDK — self-describing schemas derived from the typed result contracts, strict argument validation, a tracked working root that `discern_start` re-aims at the new worktree, and read-only resources for status, impact, config, docs, and the map.",
         why:
           "MCP-native agents call structured tools; the CLI and the tools can never disagree because they share one core per verb.",
         agent:
@@ -1839,7 +1839,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "The standard connection for coding agents",
           what:
-            "`discern mcp` offers the instructions as tools over the standard coding-agent connection (called `MCP`), built on the official kit: self-describing input shapes drawn from the same agreed result descriptions, strict checking of every input, a remembered working location that `discern_start` re-aims at the new copy, and read-only access to the current state, the affected areas, the settings, the handbook, and the project guide. Its short opening instructions put the working loop first and keep the status tool ready as the way into the rest; one project setting can instead load every tool description at the start.",
+            "`discern mcp` offers the instructions as tools over the standard coding-agent connection (called `MCP`), built on the official kit: self-describing input shapes drawn from the same agreed result descriptions, strict checking of every input, a remembered working location that `discern_start` re-aims at the new copy, and read-only access to the current state, the affected areas, the settings, the handbook, and the project guide.",
           why:
             "Coding agents built for this connection call well-described tools — and the typed commands and the tools can never disagree, because each instruction has one shared core.",
           agent:

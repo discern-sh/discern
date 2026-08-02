@@ -280,7 +280,7 @@ Every command path that registers --dry-run — the plan/apply verbs whose previ
 
 ## `mcp-tools` — MCP tools
 
-The MCP tool table, including each tool's internal Claude Code startup-loading toggle; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to vendor metadata.
+The MCP tool table, including each tool's internal provider-metadata toggles; verb parity ties every tool to a CLI verb, and the live tools/list guard binds every toggle to its wire metadata.
 
 - Source: `src/engine/mcp/server.ts` — `TOOLS`
 - Members: 17
