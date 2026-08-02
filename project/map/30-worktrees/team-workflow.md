@@ -10,7 +10,7 @@ aliases:
 
 # Parallel and team work
 
-_Give every task its own worktree, and use the main checkout to supervise the fleet._
+_Give every effort one worktree, and use the main checkout to supervise the fleet._
 
 One worktree represents one occupied line of work. It belongs to the agent or person handling that task until it lands or its owner discards it. Never adopt another worktree because it looks idle or clean. Git state says nothing about ownership.
 

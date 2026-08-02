@@ -927,14 +927,13 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     hints.push(fire(HINTS["adr-index-stale"], { path: ctx.adrIndex.path }));
   }
 
-  // In the main checkout with worktrees on, the agent has no isolated workspace
-  // yet — lead the next-steps with the loud `discern start` guardrail so it never
-  // squats in another line of work's worktree. Agent channel only: the human
-  // renderer filters this out (a person here is supervising their fleet, not starting
-  // work), so it never nags the CLI. Placed before the fleet-ownership rule — the
-  // constructive action first, the don't-squat caveat after. Suppressed while setup is
-  // unfinished: setup runs in the main checkout (on the `discern-setup` branch), so
-  // "go start a worktree" would contradict the lead "finish setup here" hint.
+  // In the main checkout with worktrees on, the agent may be beginning a new
+  // effort or returning to one whose client/tool root reset between turns. Lead
+  // with the continuity decision before the conditional `discern start` action.
+  // Agent channel only: the human renderer filters this out (a person here is
+  // supervising their fleet), so it never nags the CLI. Suppressed while setup is
+  // unfinished: setup runs in the main checkout (on the `discern-setup` branch),
+  // so worktree entry advice would contradict the lead "finish setup here" hint.
   //
   // Location (main checkout) and branch identity (trunk vs not) are independent
   // axes — the main checkout can sit on a non-trunk branch (a leftover
@@ -1041,9 +1040,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
     }
   }
 
-  // The survey holds a line of work other than this one — give the agent the
-  // ownership rule (json/MCP only; humans get the caption under the fleet table).
-  // Location-agnostic: fires from the main checkout and under --all from a worktree.
+  // The survey holds a registered worktree other than the current checkout. Give
+  // the agent the ownership rule that distinguishes this effort's earlier
+  // worktree from somebody else's (json/MCP only; humans get the fleet caption).
+  // Location-agnostic: fires from main and under --all from a worktree.
   if (ctx.fleet !== undefined && !ctx.logbookEnabled) {
     hints.push(fire(HINTS["status-fleet-logbook-disabled"]));
   }
@@ -1619,11 +1619,11 @@ function renderFleetTable(out: Out, fleet: StatusFleetEntry[]): void {
     out.raw(`  ${rows[index] ?? ""}${you}\n`);
   }
 
-  // The ownership framing for humans (the agent-facing form is the --json-only hint):
-  // only when the survey holds a line of work other than the current one.
+  // The ownership framing for humans (the agent-facing form is the --json-only
+  // hint): only when the survey holds a worktree other than the current checkout.
   if (fleet.some((e) => !e.is_main && !e.is_current)) {
     out.raw(
-      `  ${c.dim}Other worktrees are separate lines of work — don't start work in one you didn't create.${c.reset}\n`,
+      `  ${c.dim}A resumed effort keeps its worktree. Other clean worktrees are not available to claim.${c.reset}\n`,
     );
   }
 }

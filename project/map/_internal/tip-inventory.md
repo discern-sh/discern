@@ -49,7 +49,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern start --name "<task>"` gives one change its own working copy and line of saved work, keeping it away from other tasks and the main copy.
+`discern start --name "<task>"` gives one effort its own working copy and line of saved work, keeping it away from other tasks and the main copy.
 ```
 
 ## `prepare-fast-feedback`

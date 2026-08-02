@@ -9,15 +9,17 @@ aliases:
   - worktree lifecycle
   - can't edit main
   - update my branch
+  - resume a worktree
+  - follow-up fixes
 ---
 
 # Start, update, and accept a worktree
 
-_Use one path for every change: create an isolated checkout, keep it current, prove it, and land the validated commit._
+_Keep one worktree from the first edit through review feedback and resumed sessions. Update it, prove it, and land the validated commit._
 
 ## Start an isolated checkout
 
-From the main checkout, `discern start` creates and readies a worktree, then returns its path. It starts from the configured trunk unless `--from <ref>` names unlanded or experimental work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
+From the main checkout, `discern start` creates and readies a worktree for an effort that has none, then returns its path. Keep that path for review feedback, requested fixes, and resumed sessions. If a later session opens in the main checkout, continue at the recorded path and pass `path` to discern tools. Ask the owner when the path is unavailable. Calling `start` again creates a separate sibling worktree. New worktrees start from the configured trunk unless `--from <ref>` names unlanded or experimental work ([ADR 0058](../_adr/0058-start-verb-spawn-worktree-from-trunk.md), [ADR 0110](../_adr/0110-the-landing-model.md)).
 
 An optional name becomes a branch-safe slug; otherwise discern generates a codename. It checks the directory, branch, and port for collisions first ([ADR 0109](../_adr/0109-worktree-start-optional-name.md)).
 

@@ -35,13 +35,40 @@ export const AWAIT_WATCH_POLICY =
   "needs the watch, or the call returns a refusal or error that needs action. " +
   "Always respond to new user input.";
 
+/** The effort boundary that decides whether `start` creates a worktree. */
+export const WORKTREE_CONTINUITY_CORE =
+  "One worktree lasts for the whole effort, including review feedback and " +
+  "resumed sessions. If this effort already has a worktree, continue there " +
+  "using its recorded path and pass `path` to every discern tool. If that path " +
+  "is unavailable, ask which worktree belongs to this effort instead of " +
+  "creating another.";
+
+/** Render the continuity rule with the command name appropriate to its surface. */
+export function worktreeContinuityPolicy(startCommand: string): string {
+  return `${WORKTREE_CONTINUITY_CORE} Do not call ${startCommand} again.`;
+}
+
 /** Every core operating policy shared by the guidance and MCP instructions. */
 export const OPERATING_POLICIES = [
   {
+    id: "worktree-continuity",
+    statement: worktreeContinuityPolicy("discern_start"),
+    surfaces: OPERATING_POLICY_SURFACES,
+    probes: [
+      /one worktree[^.\n]{0,80}whole (?:effort|line of work)/i,
+      /review feedback/i,
+      /resumed? (?:session|turn)s?/i,
+      /effort already has a worktree[^.\n]{0,100}(?:continue|resume|return)[^.\n]{0,80}recorded path/i,
+      /path is unavailable[^.\n]{0,80}ask[^.\n]{0,100}creating another/i,
+      /do not call `?discern(?:_| )start`? again/i,
+    ],
+  },
+  {
     id: "worktree-first",
     statement:
-      "Starting work from the main checkout, which holds the trunk (the shared " +
-      "landing branch)? Run discern_start to create your own isolated worktree: " +
+      "Starting a new effort from the main checkout with no worktree yet? Run " +
+      "discern_start to create your " +
+      "own isolated worktree: " +
       "it returns the new worktree's path and re-aims these tools at it, so your " +
       "later done/update/accept calls operate on the new worktree automatically. " +
       "You must still move your OWN file operations into that path: re-root " +
@@ -54,10 +81,10 @@ export const OPERATING_POLICIES = [
   {
     id: "never-adopt",
     statement:
-      "NEVER adopt an existing idle worktree; each is another line of work, " +
-      "and a clean working tree doesn't mean it's free.",
+      "Never adopt a worktree created for another effort merely because it is " +
+      "idle or clean.",
     surfaces: OPERATING_POLICY_SURFACES,
-    probes: [/never (adopt|start work in one)/i],
+    probes: [/never (adopt|start work in one)/i, /another effort/i],
   },
   {
     id: "done-is-the-bar",
