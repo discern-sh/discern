@@ -902,6 +902,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("../src/shared/tips.ts")).TIPS.map((tip) => tip.id),
   },
   {
+    id: "terminal-art-variants",
+    title: "Terminal-art variants",
+    what:
+      "The named terminal-art family: every static renderer carries one semantic animation timeline and enters both maintainer gallery projections.",
+    source: {
+      kind: "module",
+      module: "src/shared/brand_art.ts",
+      exportName: "DISCERN_ART_VARIANTS",
+    },
+    guards: [
+      "tests/brand_art_test.ts",
+      "tests/brand_animation_test.ts",
+      "tests/art_gallery_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal design names for decorative terminal output, not reader-facing product terms",
+      },
+      featureCanon: {
+        absent:
+          "the family supplies decorative projections and a maintainer preview rather than a separate product capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/brand_art.ts")).DISCERN_ART_VARIANTS,
+      ),
+  },
+  {
     id: "failure-recovery-evidence",
     title: "Generic failure-recovery evidence",
     what:

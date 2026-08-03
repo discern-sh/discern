@@ -42,6 +42,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 153     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 41      | "Tip"            | node `tips`                 |
+| [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
@@ -73,9 +74,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 62      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 63      | —                | node `canonical-sets`       |
 
-62 sets · 92 guard tests · 26 committed artifacts.
+63 sets · 95 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -88,7 +89,10 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/adr_index_test.ts`                          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -930,6 +934,29 @@ The desk tip registry: every teaching line the desk can show enters through it, 
 - Artifacts: `project/map/_internal/tip-inventory.md`
 - Glossary: the "Tip" entry carries the concept
 - Feature canon: described by the `tips` node
+
+## `terminal-art-variants` — Terminal-art variants
+
+The named terminal-art family: every static renderer carries one semantic animation timeline and enters both maintainer gallery projections.
+
+- Source: `src/shared/brand_art.ts` — `DISCERN_ART_VARIANTS`
+- Members: 13
+  - `compact`
+  - `split`
+  - `signal`
+  - `stamp`
+  - `monument`
+  - `resolve`
+  - `sift`
+  - `insertion`
+  - `interleave`
+  - `compress`
+  - `refine`
+  - `separate`
+  - `focus`
+- Guards: `tests/brand_art_test.ts`, `tests/brand_animation_test.ts`, `tests/art_gallery_test.ts`
+- Glossary: not enrolled — internal design names for decorative terminal output, not reader-facing product terms
+- Feature canon: not enrolled — the family supplies decorative projections and a maintainer preview rather than a separate product capability
 
 ## `failure-recovery-evidence` — Generic failure-recovery evidence
 
@@ -1942,7 +1969,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 62
+- Members: 63
   - `verbs`
   - `dry-run-verbs`
   - `mcp-tools`
@@ -1973,6 +2000,7 @@ This meta-registry: the closed set of closed sets.
   - `worktree-tokens`
   - `hints`
   - `tips`
+  - `terminal-art-variants`
   - `failure-recovery-evidence`
   - `logbook-outcomes`
   - `logbook-events`

@@ -20,16 +20,19 @@ The Engine is **TypeScript compiled into the binary** under [`src/engine/`](../.
 
 Color is resolved **once** at the CLI entry point from the inputs promised by the `--no-color` help text: the flag, the `NO_COLOR` environment variable, and whether stdout is a TTY. That decision reaches every color-emitting output path: the engine verbs' `colorEnabled()`, the installer and engine `Logger`s, and the grouped root help. No output path re-decides, so `--no-color`, `NO_COLOR`, and a non-TTY pipe all produce zero ANSI bytes. This includes Cliffy's own `getHelp()`; the help post-processor strips its escapes when the resolved decision is "no color" because that generator consults only `Deno.noColor`.
 
-Terminal art is a decorative projection of the canonical text mark. Its pure renderers return ANSI-free strings without a trailing newline; the caller owns color, placement, and the terminal check. The fresh setup welcome uses the split variant only on its styled TTY path. Pipes, `--no-color`, JSON, errors, and help keep their plain output, and no parser or state cue depends on the drawing ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md), [ADR 0088](../_adr/0088-fresh-setup-welcome-decorates-only-on-tty.md)).
+Terminal art is a decorative projection of the canonical text mark. Each registered member supplies a pure static renderer and an ANSI-free animation timeline whose final frame equals that static output. The generic playback boundary validates every scene and terminal size before it emits cursor controls, reserves a fresh output row, redraws sequentially without hiding the cursor, and settles on the unchanged static gallery. It rechecks the live dimensions before each cursor-up redraw; a resize that no longer fits settles safely below the live frame. Motion is opt-in, and non-TTY or constrained terminals stay static. The fresh setup welcome uses the split variant only on its styled TTY path. Pipes, `--no-color`, JSON, errors, and help keep their plain output, and no parser or state cue depends on the drawing ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md), [ADR 0088](../_adr/0088-fresh-setup-welcome-decorates-only-on-tty.md)).
 
-| Concern                             | Authority                                                                                                            |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Name, Unicode mark, and text lockup | [`brand.ts`](../../../src/shared/brand.ts)                                                                           |
-| Pure terminal-art renderers         | [`brand_art.ts`](../../../src/shared/brand_art.ts)                                                                   |
-| Styled first-contact composition    | [`setup_welcome.ts`](../../../src/commands/setup_welcome.ts)                                                         |
-| Maintainer gallery task             | [`art.ts`](../../../scripts/art.ts), [`deno.json`](../../../deno.json)                                               |
-| Exact designs and shared contract   | [`brand_art_test.ts`](../../../tests/brand_art_test.ts), [`art_gallery_test.ts`](../../../tests/art_gallery_test.ts) |
-| Styled-welcome contract             | [`engine_setup_welcome_test.ts`](../../../tests/engine_setup_welcome_test.ts)                                        |
+| Concern                             | Authority                                                                                                                            |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Name, Unicode mark, and text lockup | [`brand.ts`](../../../src/shared/brand.ts)                                                                                           |
+| Variant registry and static renders | [`brand_art.ts`](../../../src/shared/brand_art.ts)                                                                                   |
+| Pure animation timelines            | [`brand_animation.ts`](../../../src/shared/brand_animation.ts)                                                                       |
+| Generic terminal playback           | [`terminal_playback.ts`](../../../src/lib/terminal_playback.ts)                                                                      |
+| Styled first-contact composition    | [`setup_welcome.ts`](../../../src/commands/setup_welcome.ts)                                                                         |
+| Maintainer gallery task             | [`art.ts`](../../../scripts/art.ts), [`deno.json`](../../../deno.json)                                                               |
+| Static and motion contracts         | [`brand_art_test.ts`](../../../tests/brand_art_test.ts), [`brand_animation_test.ts`](../../../tests/brand_animation_test.ts)         |
+| Playback and gallery contracts      | [`terminal_playback_test.ts`](../../../tests/terminal_playback_test.ts), [`art_gallery_test.ts`](../../../tests/art_gallery_test.ts) |
+| Styled-welcome contract             | [`engine_setup_welcome_test.ts`](../../../tests/engine_setup_welcome_test.ts)                                                        |
 
 Scope globs are matched in-memory by [`scopes/glob.ts`](../../../src/engine/scopes/glob.ts), so a glob in a config value does not expand against the filesystem the way an unquoted shell glob would. A project script is an executable with normal shell globbing. This is internal plumbing: the built-in verbs run it, and you rarely read it directly.
 

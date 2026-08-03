@@ -52,9 +52,15 @@ Don't hand-edit the agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are c
 
 ## Previewing terminal art
 
-Run `deno task art` from any checkout to print every registered terminal-art variant in stable order. The gallery uses plain text without terminal color codes, so its output remains copyable in a terminal or pipe.
+Run `deno task art` from any checkout to print every registered terminal-art variant in stable order. Add `--animate` to play each design once before the command restores that same static gallery:
 
-This is a maintainer helper under [`scripts/art.ts`](../../../scripts/art.ts), not a discern CLI verb, gate job, template, or compiled-binary surface. The variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) is its single source: registering a new design enrolls it in the gallery automatically.
+```sh
+deno task art --animate
+```
+
+Motion is opt-in. A pipe, CI run, `TERM=dumb`, or terminal without a spare wrapping row and column receives the static gallery with no cursor controls. If the terminal becomes too small during playback, the command stops redrawing and prints the static gallery safely below the live frame.
+
+This is a maintainer helper under [`scripts/art.ts`](../../../scripts/art.ts), not a discern CLI verb, gate job, template, or compiled-binary surface. The variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) owns membership. A new design must supply static and animated renderers, then both gallery projections include it automatically.
 
 ## Inspecting the MCP server
 
