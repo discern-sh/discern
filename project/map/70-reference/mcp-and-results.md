@@ -73,7 +73,7 @@ Tools that require completed setup return a controlled `not_set_up` result until
 
 ### Startup discovery
 
-MCP `tools/list` returns complete definitions; clients choose the startup context. discern's server instructions stay below 2KB UTF-8 and lead with: status, start, prepare/test, done, update/await, accept.
+MCP `tools/list` returns complete definitions; clients choose startup context. discern's instructions stay under 2KB and lead with: status, start, prepare/test, done, update/await, accept.
 
 ### Find a map or manual page
 
