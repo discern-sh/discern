@@ -16,6 +16,7 @@ import {
 } from "@std/assert";
 import { walk } from "@std/fs";
 import { join, relative } from "@std/path";
+import { displayWidth } from "../src/lib/text.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -24,6 +25,7 @@ import {
   git,
   gitInit,
   runAgent,
+  runAgentPty,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -41,6 +43,8 @@ import {
   LOGBOOK_SCHEMA_VERSION,
   type LogbookEvent,
 } from "../src/engine/logbook/schema.ts";
+
+const STATUS_ESCAPE = String.fromCharCode(27);
 
 /** A config with a project slug and one gated scope (so scopes/gate have
  * something to classify), written before gitInit so a worktree inherits it. */
@@ -214,6 +218,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     assertEquals(r.code, 0, r.output);
     const obj = parseStatus(r.stdout);
     assertEquals(obj.data.location, "main");
+    assertEquals(obj.data.project, "engine-test");
     assertEquals(obj.data.worktree, null);
     assert(Array.isArray(obj.data.fleet), `expected a fleet: ${r.stdout}`);
     // The main checkout is always a row, so nothing is hidden…
@@ -228,6 +233,10 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
       ),
       `fleet must include the worktree row: ${JSON.stringify(obj.data.fleet)}`,
     );
+    const alpha = obj.data.fleet.find(
+      (e: { branch: string }) => e.branch === "agent/alpha",
+    );
+    assertEquals(alpha.gate_receipt.status, "missing");
     // Every row carries a recent last_activity (an ISO timestamp).
     for (const e of obj.data.fleet) {
       assert(
@@ -363,8 +372,8 @@ Deno.test("status fleet: logbook actions, live work, duration priors, and last-a
 
     const human = await runAgent(dir, ["status"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, "running: done · 2m of ~4m");
-    assertStringIncludes(human.output, "done failed (test) · 12m ago");
+    assertStringIncludes(human.output, "running done 2m · usually 4m");
+    assertStringIncludes(human.output, "done failed at test");
   });
 });
 
@@ -601,10 +610,17 @@ Deno.test("status human output separates its semantic groups", async () => {
 
     const human = await runAgent(wt, ["status"]);
     assertEquals(human.code, 0, human.output);
-    for (const section of ["Checkout", "Change", "Gate", "Landing"]) {
+    for (
+      const section of [
+        "Current worktree",
+        "Next steps",
+        "Checks",
+        "Local environment",
+      ]
+    ) {
       assertStringIncludes(
         human.stdout,
-        `\n\n  ── ${section}\n`,
+        `\n\n── ${section}\n`,
         `${section} must start after a visible group boundary:\n${human.stdout}`,
       );
     }
@@ -633,7 +649,7 @@ Deno.test("status: while setup is unfinished, the main-checkout worktree next-st
   });
 });
 
-Deno.test("status fleet: the ownership rule is agent-only — humans get the caption, not the hint", async () => {
+Deno.test("status fleet: ownership stays available without repeating in a routine supervisor survey", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -647,75 +663,122 @@ Deno.test("status fleet: the ownership rule is agent-only — humans get the cap
     assertEquals(r.code, 0, r.output);
     // The agent-channel hint text never appears in interactive output…
     assert(!r.output.includes(expected), r.output);
-    // …but the dim caption beneath the fleet table does.
+    // …and a routine main-checkout survey does not spend a repeated line on the
+    // ownership rule. A worktree surveying siblings still gets the short safety
+    // caption at its point of use.
     assert(
-      r.output.includes("A resumed effort keeps its worktree"),
-      `expected the fleet caption in human output: ${r.output}`,
+      !r.output.includes("Worktrees stay with the effort that created them"),
+      `routine supervisor output repeated the ownership caption: ${r.output}`,
+    );
+    const wt = await addWorktree(dir, "beta");
+    const survey = await runAgent(wt, ["status", "--all"]);
+    assertEquals(survey.code, 0, survey.output);
+    assertStringIncludes(
+      survey.output,
+      "Worktrees stay with the effort that created them",
     );
   });
 });
 
-Deno.test("status fleet (human): representative table rendering is pinned", async () => {
+Deno.test("status fleet (human): the wide projection is bounded and merges task identity", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
     await addWorktree(dir, "alpha");
 
-    const r = await runAgent(dir, ["status"]);
+    const r = await runAgent(dir, ["status"], { env: { COLUMNS: "120" } });
     assertEquals(r.code, 0, r.output);
-    const start = r.output.indexOf("\n  WORKTREE");
-    const caption =
-      "  A resumed effort keeps its worktree. Other clean worktrees are not available to claim.";
-    const captionStart = r.output.indexOf(caption);
-    assert(start >= 0, `fleet header missing: ${r.output}`);
-    assert(captionStart >= 0, `fleet caption missing: ${r.output}`);
-    const block = r.output.slice(
-      start,
-      captionStart + caption.length + 1,
-    ).replaceAll(
-      /\b(?:just now|\d+(?:mo|[mhdwy]) ago)\b/g,
-      "<age>",
-    );
-
-    assertEquals(
-      block,
-      [
-        "",
-        "  WORKTREE  BRANCH       STATE  AHEAD/BEHIND  LAST ACTION  LAST ACTIVITY",
-        "  (main)    main         clean  —             —            <age> ← you",
-        "  alpha     agent/alpha  clean  0/0           —            <age>",
-        caption,
-        "",
-      ].join("\n"),
-    );
+    assertStringIncludes(r.output, "Worktree");
+    assertStringIncludes(r.output, "Status");
+    assertStringIncludes(r.output, "Git");
+    assertStringIncludes(r.output, "Receipt");
+    assertStringIncludes(r.output, "Activity");
+    assertStringIncludes(r.output, "agent/alpha");
+    assertEquals(r.output.match(/Main checkout/gu)?.length, 1);
+    assert(!r.output.includes("AHEAD/BEHIND"), r.output);
+    for (const line of r.output.trimEnd().split("\n")) {
+      assert(
+        displayWidth(line) <= 104,
+        `capped wide dashboard line exceeded 104 columns: ${line}`,
+      );
+    }
   });
 });
 
-Deno.test("status fleet (human): a long worktree id and branch are shown in full, never truncated", async () => {
-  // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
-  // `discern worktree drop <id>` / a `git …<branch>` command. A fixed-width column
-  // that clipped them left the reader unable to type the very name the row points
-  // at — the dead end that motivated content-sized columns. Names longer than the
-  // former 19-char (worktree) / 23-char (branch) caps guard that regression.
+Deno.test({
+  name:
+    "status fleet (human): a PTY selects its width and --no-color removes styling only",
+  ignore: Deno.build.os === "windows",
+  fn: async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      await addWorktree(dir, "alpha");
+      const env = { COLUMNS: "48", CI: "false", NO_COLOR: "" };
+
+      const colored = await runAgentPty(dir, ["status"], {
+        env,
+        timeoutMs: 15_000,
+      });
+      assertEquals(colored.code, 0, colored.output);
+      assertStringIncludes(colored.output, `${STATUS_ESCAPE}[`);
+      assertStringIncludes(colored.output, "Status:");
+      for (const line of colored.stdout.trimEnd().split("\n")) {
+        assert(
+          displayWidth(line) <= 48,
+          `PTY dashboard line exceeded 48 columns: ${line}`,
+        );
+      }
+
+      const plain = await runAgentPty(dir, ["status", "--no-color"], {
+        env,
+        timeoutMs: 15_000,
+      });
+      assertEquals(plain.code, 0, plain.output);
+      assert(!plain.output.includes(STATUS_ESCAPE), plain.output);
+      assertStringIncludes(plain.output, "Status:");
+      for (const line of plain.stdout.trimEnd().split("\n")) {
+        assert(
+          displayWidth(line) <= 48,
+          `plain PTY dashboard line exceeded 48 columns: ${line}`,
+        );
+      }
+    });
+  },
+});
+
+Deno.test("status fleet (human): measured lines stay bounded while long identifiers remain complete", async () => {
+  // The class guard: every ordinary dashboard line fits the width selected by
+  // status. An indivisible identifier may exceed it only on its own identity
+  // line, where the complete copyable value remains available. This rejects the
+  // content-sized-table mechanism: one long identity must not widen every field.
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const id = "drop-this-stale-worktree-please"; // 31 chars > the old 19 cap
+    const width = 48;
+    const id = `long-${"identifier-".repeat(8)}end`;
     await addWorktree(dir, id);
-    const branch = `agent/${id}`; // 37 chars > the old 23 cap
+    const branch = `agent/${id}`;
 
-    const r = await runAgent(dir, ["status"]); // human mode (no --json)
+    const r = await runAgent(dir, ["status"], {
+      env: { COLUMNS: String(width) },
+    });
     assertEquals(r.code, 0, r.output);
-    // The full id must appear verbatim — that string IS the `discern worktree drop`
-    // target, so a reader can select it straight from the table.
     assertStringIncludes(r.output, id);
-    // The full branch must survive too — it feeds the `git diff`/`git branch -D` hints.
     assertStringIncludes(r.output, branch);
-    // And no clipped remnant of either (the tell of a reintroduced fixed-width cap).
-    assert(
-      !r.output.includes("…"),
-      `no column should truncate an identifier: ${r.output}`,
-    );
+    for (const line of r.stdout.split("\n")) {
+      if (displayWidth(line) <= width) continue;
+      const identifierLine = line.includes(branch) &&
+        !/(?:Git|Receipt|Activity|Status|clean|changed|ahead|behind)/.test(
+          line,
+        );
+      assert(
+        identifierLine,
+        `ordinary ${width}-column line is ${
+          displayWidth(line)
+        } columns: ${line}`,
+      );
+    }
   });
 });
 
@@ -736,6 +799,21 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     assertEquals(obj.data.git.branch, "agent/alpha");
     assert(obj.data.gate);
     assert(Array.isArray(obj.data.scopes));
+    const localHuman = await runAgent(wt, ["status"], {
+      env: { COLUMNS: "72" },
+    });
+    assertStringIncludes(localHuman.output, "── Current worktree");
+    assertStringIncludes(localHuman.output, "── Local environment");
+    assertStringIncludes(localHuman.output, "Port:");
+    assert(!localHuman.output.includes("Change: code"), localHuman.output);
+    const checksAt = localHuman.output.indexOf("── Checks");
+    const environmentAt = localHuman.output.indexOf("── Local environment");
+    assert(checksAt >= 0 && environmentAt > checksAt, localHuman.output);
+    assert(
+      !localHuman.output.slice(checksAt, environmentAt).includes("Port:"),
+      localHuman.output,
+    );
+    assert(!localHuman.output.includes("── Fleet"), localHuman.output);
 
     // --all from a worktree keeps the local blocks AND adds the fleet survey.
     const all = await runAgent(wt, ["status", "--all", "--json"]);
@@ -747,6 +825,12 @@ Deno.test("status: from a worktree, the default is local; --all adds the fleet",
     );
     assert(aobj.data.gate, "--all from a worktree keeps the local gate block");
     assert(aobj.data.worktree);
+    const allHuman = await runAgent(wt, ["status", "--all"], {
+      env: { COLUMNS: "72" },
+    });
+    assertStringIncludes(allHuman.output, "── Fleet");
+    assertStringIncludes(allHuman.output, "── Worktrees");
+    assertStringIncludes(allHuman.output, "── Main checkout");
   });
 });
 
@@ -862,7 +946,8 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     const human = await runAgent(dir, ["status"]);
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "agent/scratch");
-    assertStringIncludes(human.output, "1 changed");
+    assertStringIncludes(human.output, "1 file changed");
+    assertEquals(row.gate_receipt.status, "missing");
   });
 });
 
@@ -930,6 +1015,10 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
       names: ["alpha"],
       trunk: "main",
     });
+    const fleetRow = fleet.data.fleet.find(
+      (entry: { branch: string }) => entry.branch === "agent/alpha",
+    );
+    assertEquals(fleetRow.gate_receipt.status, "missing");
   });
 });
 
@@ -964,11 +1053,11 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
       branch: "agent/alpha",
     });
 
-    // Interactive: the receipt page prints only under --verbose; without it, the
-    // done line points at the flag instead of dumping a screen of markdown.
+    // Interactive: the dashboard exposes the receipt state in the task row and
+    // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertStringIncludes(plain.output, "print the receipt with --verbose");
+    assertStringIncludes(plain.output, "Receipt: honored");
     assert(
       !plain.output.includes("### Receipt"),
       `plain status must not print the page:\n${plain.output}`,
@@ -991,6 +1080,7 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     const row = fleetObj.data.fleet.find(
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
+    assertEquals(row.gate_receipt.status, "honored");
     assertEquals(row.receipt_honored, true);
     assertStringIncludes(row.receipt, "### Receipt — `agent/alpha`");
     assertStringIncludes(
@@ -1003,6 +1093,18 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     const fleetVerbose = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(fleetVerbose.code, 0, fleetVerbose.output);
     assertStringIncludes(fleetVerbose.output, "### Receipt — `agent/alpha`");
+
+    // The additive fleet check preserves a receipt that exists but is no longer
+    // honored, while the legacy honored-only projection remains compatible.
+    await writeExecutable(join(wt, "tests/after-receipt.txt"), "dirty");
+    const dirtyFleet = parseStatus(
+      (await runAgent(dir, ["status", "--json"])).stdout,
+    );
+    const dirtyRow = dirtyFleet.data.fleet.find(
+      (entry: { branch: string }) => entry.branch === "agent/alpha",
+    );
+    assertEquals(dirtyRow.gate_receipt.status, "dirty");
+    assertEquals(dirtyRow.receipt_honored, undefined);
   });
 });
 
@@ -1047,6 +1149,38 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
       names: ["alpha"],
       trunk: "main",
     });
+    const fleetRow = fleet.data.fleet.find(
+      (entry: { branch: string }) => entry.branch === "agent/alpha",
+    );
+    assertEquals(fleetRow.gate_receipt.status, "honored");
+  });
+});
+
+Deno.test("status: a landed receipt carries its commit time for the human age", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, SCOPE_CONFIG);
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "alpha");
+    await writeExecutable(join(wt, "web/feature.txt"), "feature");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "feature", "--no-gpg-sign");
+    const done = await runAgent(wt, ["done", "--json"]);
+    assertEquals(done.code, 0, done.output);
+    const accepted = await runAgent(wt, ["accept", "--confirmed", "--json"]);
+    assertEquals(accepted.code, 0, accepted.output);
+
+    const status = await runAgent(dir, ["status", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    const result = parseStatus(status.stdout);
+    const commitAt = result.data.landed_receipt?.commit_at;
+    assert(
+      typeof commitAt === "string" && !Number.isNaN(Date.parse(commitAt)),
+      JSON.stringify(result.data.landed_receipt),
+    );
+    const human = await runAgent(dir, ["status"]);
+    assertStringIncludes(human.output, "Last landing: passed");
+    assertStringIncludes(human.output, "just now");
   });
 });
 
@@ -1431,6 +1565,9 @@ Deno.test("status warns when the configured trunk is missing locally", async () 
 
     const human = await runAgent(wt, ["status"]);
     assertEquals(human.code, 0, human.output);
-    assertStringIncludes(human.output, expected);
+    assertStringIncludes(
+      human.output.replaceAll(/\s+/gu, " "),
+      expected.replaceAll(/\s+/gu, " "),
+    );
   });
 });

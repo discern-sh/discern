@@ -57,10 +57,15 @@ Deno.test("the hint inventory is total over HINTS and renders every example", ()
       `- Family: ${def.family === undefined ? "—" : `\`${def.family}\``}`,
     );
     assertStringIncludes(section, `- Emitting context: ${when}`);
-    assertStringIncludes(
-      section,
-      renderCommandRefsCli(def.template(def.example)),
-    );
+    const canonical = renderCommandRefsCli(def.template(def.example));
+    assertStringIncludes(section, canonical);
+    const interactive = def.interactiveTemplate === undefined
+      ? undefined
+      : renderCommandRefsCli(def.interactiveTemplate(def.example));
+    if (interactive !== undefined && interactive !== canonical) {
+      assertStringIncludes(section, "Interactive example:");
+      assertStringIncludes(section, interactive);
+    }
   }
 });
 

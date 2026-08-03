@@ -508,20 +508,22 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
-/** How the current worktree's recorded receipt stands against HEAD. Present only
- * when the record is honored (it names exactly the current clean HEAD):
- * `receipt` is the stored receipt page, and `receipt_line` the stored one-line
- * form — the only receipt content an agent puts in a message (ADR 0188). Both
- * come from the marker, without re-running the gate. */
+/** How a recorded receipt stands against the current worktree and HEAD.
+ * `receipt` and `receipt_line` are present only when the marker is honored; the
+ * remaining statuses preserve why it is not. Inspection never reruns the gate. */
+export const GATE_RECEIPT_CHECK_STATUSES = [
+  "honored",
+  "missing",
+  "stale",
+  "dirty",
+  "unavailable",
+  "read_failed",
+] as const;
+export type GateReceiptCheckStatus =
+  (typeof GATE_RECEIPT_CHECK_STATUSES)[number];
+
 export const GateReceiptCheckSchema = z.strictObject({
-  status: z.enum([
-    "honored",
-    "missing",
-    "stale",
-    "dirty",
-    "unavailable",
-    "read_failed",
-  ]),
+  status: z.enum(GATE_RECEIPT_CHECK_STATUSES),
   path: z.string().optional(),
   recorded: z.string().optional(),
   head: z.string().optional(),
@@ -978,6 +980,10 @@ const statusFleetEntrySchema = z.strictObject({
   receipt_honored: z.boolean().optional(),
   receipt: z.string().optional(),
   receipt_line: z.string().optional(),
+  /** The complete receipt inspection for this worktree. Existing honored-only
+   * fields stay for compatibility; this additive field preserves missing,
+   * stale, dirty, unavailable, and read-failed states too. */
+  gate_receipt: GateReceiptCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
@@ -1008,6 +1014,9 @@ export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
 export const StatusDataSchema = z.strictObject({
   location: z.enum(LOCATIONS),
   root: z.string(),
+  /** Project identity used by the human heading. Optional for same-major wire
+   * compatibility with older status producers. */
+  project: z.string().optional(),
   worktree: statusWorktreeSchema.nullable(),
   git: statusGitSchema.nullable(),
   scopes: z.array(z.string()).optional(),
@@ -1016,6 +1025,8 @@ export const StatusDataSchema = z.strictObject({
   gate_receipt: GateReceiptCheckSchema.optional(),
   landed_receipt: z.strictObject({
     commit: z.string(),
+    /** Committer timestamp for the landed commit, when Git can read it. */
+    commit_at: z.string().optional(),
     ref: z.string(),
     receipt: ReceiptSchema,
     /** The payload's issuer assertion, when present. This field does not mean

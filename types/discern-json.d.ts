@@ -3360,6 +3360,7 @@ export type DiscernStatusResult = {
   data?: {
     location: "main" | "worktree";
     root: string;
+    project?: string;
     worktree: {
       id: string;
       branch: string;
@@ -3403,6 +3404,7 @@ export type DiscernStatusResult = {
     };
     landed_receipt?: {
       commit: string;
+      commit_at?: string;
       ref: string;
       receipt: DiscernProof;
       issuer?: {
@@ -3475,6 +3477,22 @@ export type DiscernStatusResult = {
       receipt_honored?: boolean;
       receipt?: string;
       receipt_line?: string;
+      gate_receipt?: {
+        status:
+          | "honored"
+          | "missing"
+          | "stale"
+          | "dirty"
+          | "unavailable"
+          | "read_failed";
+        path?: string;
+        recorded?: string;
+        head?: string;
+        reason?: string;
+        receipt?: string;
+        receipt_line?: string;
+        receipt_data?: DiscernProof;
+      };
       landing_authority?: {
         kind: "authorized" | "conversation-required";
         source?: "conversation" | "standing-grant" | "effort-grant";
