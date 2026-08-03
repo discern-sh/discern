@@ -1424,11 +1424,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "status",
         title: "Status",
         what:
-          "`discern status` reports what is true right now: location, branch state against the trunk, what the gate would fire, receipt state, worktree identity and resources, configured standards, staleness flags for generated files, and advisory next steps — with the fleet survey from the main checkout.",
+          "`discern status` projects one read-only result as a width-capped human dashboard or a structured JSON and MCP envelope. The main-checkout dashboard leads with the fleet's derived attention states, complete identities, receipt evidence, activity, divergence, collisions, and concrete next steps.",
         why:
           "Orientation is one cheap read-only call, for agents and humans alike.",
         agent:
-          "The hints steer by location: on the trunk the agent is pointed at `discern start` before it edits anything, and edits landing on the trunk while the tools run in a worktree trip a divergence guardrail. When a clean HEAD holds an honored receipt, status serves the ready-for-review moment with the receipt to relay.",
+          "The structured result retains location, gate inputs, resources, configured standards, generated-file currency, and advisory hints. Every readable fleet worktree carries its complete receipt check and landing authority, while the honored-only receipt fields remain compatible.",
         hints: [
           "status-start-on-trunk",
           "status-start-off-trunk",
@@ -1438,11 +1438,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         plain: {
           title: "Current state",
           what:
-            "`discern status` reports what is true right now: where it ran, how the task compares with the main shared version, which checks would run, whether a proof-of-completion summary stands, the working copy's identity and supporting services, the project's quality rules, whether automatically made files are out of date, and suggested next steps — with the overview of all work in progress when run from the main copy.",
+            "`discern status` presents one read-only answer as a responsive dashboard for people or structured data for tools. From the main copy, the dashboard leads with the work that has failed, is running, has fallen behind, overlaps another change, or is ready for review.",
           why:
             "Getting one's bearings is one cheap, read-only call, for coding agents and people alike.",
           agent:
-            "The advice notes steer by location: on the main shared copy, they point the coding agent at `discern start` before it edits anything, and edits appearing on the main copy while the tools aim at a separate copy trip a safety rail. When clean, saved work holds an honoured proof, the result serves the ready-for-review moment with the proof to pass on.",
+            "The structured answer keeps the project location, checks, supporting services, quality rules, generated-file state, and advice. Each readable separate working copy in the overview says whether its proof is honored, missing, stale, blocked by local changes, unavailable, or unreadable.",
         },
         surfaces: ["verb:status"],
       },

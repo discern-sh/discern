@@ -1,6 +1,6 @@
 ---
 title: Status and session hints
-description: Read the current worktree or fleet state, its next actions, and recent session findings without running the gate.
+description: Read the current worktree or fleet dashboard and its next actions without running the gate.
 order: 80
 aliases:
   - discern status
@@ -11,59 +11,75 @@ aliases:
 
 # Status and session hints
 
-_`discern status` reports what is true now and what to do next. It runs no gate job, test, standard measurement, or setup action._
+_`discern status` reports what is true now and what deserves attention next. It runs no gate job, test, standard measurement, or setup action._
 
-Use it at the start of every agent session and whenever the next workflow move is unclear. The JSON, command-line, and Model Context Protocol (MCP) forms derive from the same result envelope.
+Run it when a session starts or the next move is unclear. Human, JSON, and Model Context Protocol (MCP) forms share one result ([ADR 0254](../_adr/0254-status-is-a-measured-responsive-dashboard.md)).
 
-## What status reads
+## Human dashboard
 
-Inside a linked worktree, the default view is local. It reports the branch, cleanliness, commits ahead of and behind the [trunk](../00-orientation/glossary.md#trunk), incoming overlap, changed [scopes](../00-orientation/glossary.md#scope), the gate jobs those changes wake, generated-file currency, worktree identity, and whether the clean `HEAD` has an honored [receipt](../20-quality-gate/the-receipt.md). When it does, `data.gate_receipt` carries the stored receipt page and line.
+Inside a linked worktree, the default dashboard describes the current worktree. From the main checkout, it leads with the fleet summary, attention items, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The 2 flags conflict because they request opposite views.
 
-When a recorded grant exists, `data.landing_authority` carries the current [landing authority](landing-authority.md) answer. A ready, authorized branch gets a resolution-gated landing hint. An uncovered branch gets the receipt-relay hint with the paths outside its grant. With no grant, the field is absent and the report-and-wait route stays unchanged ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+The renderer measures terminal width and caps the report at 104 columns. It uses a bounded table when every value fits and stacked rows otherwise. Prose and path detail wrap with hanging indents. A long branch or worktree id stays complete on an isolated line. The current marker sits beside it; a different worktree id gets a labelled secondary line, and a detached branch stays explicit.
 
-From the main checkout, `status` leads with the fleet when worktrees exist. Every row names its checkout, branch, git state, activity, and health. Logbook rows add newest completion as `last_action` (outcome, failed stage, time) and unmatched fresh begin as `running`, with elapsed and median duration. **LAST ACTION** prefers `running: done · 2m of ~4m`; otherwise it might show `done failed (test) · 12m ago`.
+Each row has one derived status. Precedence is broken, unreadable, failed, blocked, collision, behind, running, ready, stale, in progress, receipt unreadable, receipt unavailable, receipt stale, needs gate, then idle. A newer running action supersedes an older failed or refused action. A completed `status` observation stays in the activity field; it does not make dirty work healthy.
 
-`last_activity` is the later git-derived timestamp or newest branch event, so a long gate stays active without file changes. With `[project].logbook = false`, action fields are absent, activity stays git-only, and a fleet hint explains the gap ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
+A collision remains the primary status when a receipt-backed branch is otherwise ready. Readiness and landing authority stay visible as secondary facts, so collision attention does not hide a branch that can land first.
 
-A row whose clean `HEAD` holds an honored receipt also carries `receipt_honored`, the stored page, and the line, so you review a ready branch from where you sit. Granted rows carry the same `landing_authority` and gain an **AUTHORITY** column in the interactive table; the column stays absent when no row has a grant. `--local` suppresses the fleet. `--all` adds it from a worktree. Those 2 flags conflict because they request opposite views.
+The other fields explain that status:
 
-`--verbose` prints each honored receipt page in the interactive output — the local branch's, and every ready fleet row's beneath the table. The page prints dimmed, so the quoted Markdown reads as secondary next to the summary lines. The JSON and MCP payloads carry the receipt with or without the flag ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+- **Git** says `clean` or uses a precise count such as `6 files changed`. Divergence is `↑8`, `↓3`, or both; zero dimensions are absent. Overall status comes from the complete row.
+- **Receipt** uses the gate-receipt vocabulary: honored, missing, stale, dirty worktree, unavailable, or unreadable. An honored receipt and a clean branch can establish readiness.
+- **Activity** combines the winning clock with the newest completed action. In `running done 2m · usually 4m`, the usual time is historical context only.
+- **Landing** appears on ready rows as granted, needs approval, or scope-limited. Longer grant detail moves to a wrapped secondary line.
 
-Collision scans watch concurrent efforts. `fleet_collisions` pairs fleet branches whose changes touch the same files. `adr_collisions` lists ADR record numbers claimed by more than one in-flight branch — different files that merge cleanly, so this warning is the only signal before the gate refuses the landed duplicate ([ADR 0186](../_adr/0186-adr-number-uniqueness-is-gate-enforced.md)). The ADR scan covers unlanded branches without a worktree too, and the local worktree view keeps the collisions the current branch is party to.
+Text and glyphs carry every state. Red marks failure or unreadable state; yellow marks attention; cyan marks current or running activity; green marks receipt-backed evidence or granted authority; mechanical detail is dim. A `discern …` command also uses cyan inside its unchanged backticks, so the action stands apart from its explanation. `--no-color` changes no words or facts.
 
-The result remains an observation when the branch is dirty, behind, or missing a receipt. Those states keep `ok: true`; `hints[]` recommends the next command. Operational refusals, such as conflicting flags, use `ok: false`.
+The supervisor view reports main once, outside the worktree list, and shows collision paths in the attention block. Recent or running changes remain work in progress. Failed checks, stale work, behind branches, collisions, unreadable state, and ready receipts receive attention.
+
+Default checks report configured changed scopes when present, planned gate jobs, and a standards count. Derived `code` and `previewable` markers remain structured facts rather than unclear human scope names. A linked worktree's assigned port and named resources appear separately under **Local environment**; they are not checks. The latest landing reports pass state, branch, files changed, diff size, commit, and age. `--verbose` adds stored receipt Markdown; raw storage details remain structured.
 
 ```sh
 discern status
-discern status --json
 discern status --all
 discern status --local
 discern status --verbose
+discern status --no-color
 ```
+
+## Structured result
+
+`discern status --json` and `discern_status` return the shared `DiscernResult` envelope, unaffected by width, color, or verbosity. `data.project`, `location`, `root`, `worktree`, and `git` locate the observation. Local results can include scopes, planned jobs, generated-file currency, resources, standards, receipt, and verified [landing authority](landing-authority.md).
+
+A fleet result keeps the main row for compatibility. Every readable worktree row carries identity, Git state, divergence, activity, the complete `gate_receipt` check, and landing authority. The older honored-only receipt fields remain. Consumers can distinguish every receipt state without inferring from absence.
+
+When Git can read the subject of the latest landed receipt, `landed_receipt.commit_at` carries its committer timestamp. The dashboard uses that additive fact for the landing age.
+
+`last_action` is the newest completed event. `running` is a fresh unmatched begin event. `last_activity` remains the later Git or logbook timestamp. With `[project].logbook = false`, action fields are absent and activity stays Git-derived ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
+
+`fleet_collisions` pairs branches whose fork diffs touch the same files. `adr_collisions` names record numbers claimed by multiple in-flight branches, including branches without a worktree. Human output renders their paths; machine hints retain exact field references. JSON and MCP carry stored receipt content with or without `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+
+The result stays `ok: true` when a branch is dirty, behind, or missing a receipt. Those are observed states with advisory next steps. Invalid flag combinations and other operational refusals return `ok: false`.
 
 ## Session findings
 
-After setup is complete, inline session-scope detectors can append recent logbook observations to `hints[]`. A repeated refusal is the clearest case: the hint states how many calls returned the same slug and carries the detector registry's next step. The text arrives while the agent is already orienting, before another retry.
+After setup, recent session-scope detectors can add logbook observations to `hints[]`. They inspect at most 200 events and exclude CI, previews, interactive human activity, and findings from another branch. Setup in progress and `[project].logbook = false` suppress them.
 
-These detectors inspect at most the newest 200 [logbook](../70-reference/the-logbook.md) events. Driver scoring removes CI runs, previews, and interactive human activity from agent-behavior populations. A finding from another branch is absent from the local worktree view. Setup in progress and `[project].logbook = false` suppress the additions.
-
-Session findings are advice. They change no git fact, gate result, receipt, exit code, or `ok` value. Run `discern patterns` for the complete report and its evidence thresholds ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+Session findings are advice. They change no Git fact, gate result, receipt, exit code, or `ok` value. Run `discern patterns` for the retained report and its evidence thresholds ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## Where it lives in code
 
-| Concern                      | Source                                                                                    |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| Status facts and hints       | [`status.ts`](../../../src/engine/status/status.ts)                                       |
-| Landing-authority resolution | [`landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
-| Detector registry            | [`detectors.ts`](../../../src/engine/logbook/detectors.ts)                                |
-| Fleet activity reader        | [`read.ts`](../../../src/engine/logbook/read.ts)                                          |
-| Scope and tier routing       | [`routing.ts`](../../../src/engine/logbook/routing.ts)                                    |
-| Bounded inline reader        | [`surfaces.ts`](../../../src/engine/logbook/surfaces.ts)                                  |
-| End-to-end authority routes  | [`engine_lifecycle_authority_test.ts`](../../../tests/engine_lifecycle_authority_test.ts) |
-| End-to-end finding routes    | [`engine_findings_surfaces_test.ts`](../../../tests/engine_findings_surfaces_test.ts)     |
+| Concern                         | Source                                                                  |
+| ------------------------------- | ----------------------------------------------------------------------- |
+| Status facts and hints          | [`status.ts`](../../../src/engine/status/status.ts)                     |
+| Pure responsive dashboard       | [`tty.ts`](../../../src/engine/status/tty.ts)                           |
+| Terminal measurement and wrap   | [`text.ts`](../../../src/lib/text.ts)                                   |
+| Result and receipt schemas      | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)            |
+| Human and machine hint routing  | [`hints.ts`](../../../src/shared/hints.ts)                              |
+| Width and semantic-state matrix | [`engine_status_tty_test.ts`](../../../tests/engine_status_tty_test.ts) |
+| End-to-end status behavior      | [`engine_status_test.ts`](../../../tests/engine_status_test.ts)         |
 
-## Current state & gotchas
+## Current state and gotchas
 
-- `status` does not run the gate. An honored receipt is evidence from an earlier `done` run on the current clean `HEAD`.
-- Fleet rows belong to separate work. A clean sibling is occupied until its owner lands or discards it.
-- Session hints are capped and recent. The full retained history remains available through `discern patterns`.
+- `status` never runs the gate. An honored receipt is evidence from an earlier `done` run on the current clean `HEAD`.
+- Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it.
+- The dashboard is a projection. Use JSON or MCP when automation needs every structured field.
