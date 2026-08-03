@@ -25,6 +25,11 @@ import { isReadyToLand } from "../worktree/readiness.ts";
 /** Very wide terminals still get a report whose related fields stay together. */
 export const STATUS_REPORT_MAX_WIDTH = 104;
 
+/** One authority for the section rule and the column where its content begins. */
+const SECTION_RULE = "──";
+const SECTION_CONTENT_COLUMN = displayWidth(`${SECTION_RULE} `);
+const SECTION_CONTENT_INDENT = " ".repeat(SECTION_CONTENT_COLUMN);
+
 /** Fleet activity older than this is stale when unlanded work remains. */
 export const STALE_WORKTREE_DAYS = 7;
 
@@ -619,12 +624,12 @@ function styledDiscernCommands(
   );
 }
 
-/** Wrap one labelled field with a hanging continuation indent. */
+/** Wrap one section-relative labelled field with a hanging continuation. */
 function wrappedField(
   label: string,
   text: string,
   width: number,
-  indent = "  ",
+  indent = "",
 ): string[] {
   const prefix = `${label}:`;
   const available = Math.max(1, width - displayWidth(indent));
@@ -636,32 +641,74 @@ function wrappedField(
   ).map((line) => `${indent}${line}`);
 }
 
-/** Wrap one glyph-led line with its continuation under the text. */
+interface GlyphSectionLine {
+  glyph: string;
+  text: string;
+}
+
+interface VerbatimSectionLine {
+  /** Stored receipt Markdown bypasses dashboard indentation so it stays
+   * copyable. */
+  verbatim: string;
+}
+
+type StatusSectionLine = string | GlyphSectionLine | VerbatimSectionLine;
+
+/** Keep a glyph in the section gutter while its text uses the shared content
+ * column. */
+function glyphLine(glyph: string, text: string): GlyphSectionLine {
+  return { glyph, text };
+}
+
+/** Wrap one glyph-led line with its text and continuations in the shared
+ * section content column. */
 function wrappedBullet(
   glyph: string,
   text: string,
   width: number,
   c: Palette,
   glyphTone: FleetRowTone = "cyan",
-): string[] {
+): StatusSectionLine[] {
   const styled = tone(glyph, glyphTone, c);
   const styledText = styledDiscernCommands(text, c);
-  const indent = "  ";
-  const prefixWidth = displayWidth(glyph) + 1;
-  const available = Math.max(1, width - displayWidth(indent));
-  return wrapText(
-    `${styled} ${styledText}`,
-    available,
-    " ".repeat(prefixWidth),
+  const wrapped = wrapText(
+    styledText,
+    width,
+    "",
     { breakLongWords: true },
-  ).map((line) => `${indent}${line}`);
+  );
+  const [first, ...continuations] = wrapped;
+  return first === undefined
+    ? []
+    : [glyphLine(styled, first), ...continuations];
 }
 
-/** Join one populated dashboard section. */
-function section(label: string, lines: readonly string[], c: Palette): string {
+/** Place one typed line in the section's shared display columns. */
+function renderSectionLine(line: StatusSectionLine): string {
+  if (typeof line === "string") {
+    return line === "" ? "" : `${SECTION_CONTENT_INDENT}${line}`;
+  }
+  if ("verbatim" in line) return line.verbatim;
+  const gutter = " ".repeat(
+    Math.max(
+      0,
+      SECTION_CONTENT_COLUMN - displayWidth(line.glyph) - 1,
+    ),
+  );
+  return `${gutter}${line.glyph} ${line.text}`;
+}
+
+/** Join one populated dashboard section. This is the sole owner of ordinary
+ * section indentation, so every present and future child shares the heading's
+ * content column. */
+function section(
+  label: string,
+  lines: readonly StatusSectionLine[],
+  c: Palette,
+): string {
   return [
-    `${c.dim}──${c.reset} ${c.bold}${label}${c.reset}`,
-    ...lines,
+    `${c.dim}${SECTION_RULE}${c.reset} ${c.bold}${label}${c.reset}`,
+    ...lines.map(renderSectionLine),
   ].join("\n");
 }
 
@@ -670,14 +717,16 @@ function renderStackedRow(
   row: FleetRowPresentation,
   width: number,
   c: Palette,
-): string[] {
-  const identity = `${tone(row.glyph, row.tone, c)} ${
-    styledIdentifier(row.identity.primary, c)
-  }${currentMarker(row.entry.is_current, c)}`;
-  const lines = [`  ${identity}`];
+): StatusSectionLine[] {
+  const identity = `${styledIdentifier(row.identity.primary, c)}${
+    currentMarker(row.entry.is_current, c)
+  }`;
+  const lines: StatusSectionLine[] = [
+    glyphLine(tone(row.glyph, row.tone, c), identity),
+  ];
   if (row.identity.secondary !== undefined) {
     lines.push(
-      `    ${c.dim}Worktree id:${c.reset} ${
+      `${c.dim}Worktree id:${c.reset} ${
         styledIdentifier(row.identity.secondary, c)
       }`,
     );
@@ -687,13 +736,12 @@ function renderStackedRow(
       "Status",
       `${tone(row.label, row.tone, c)} · Git ${tone(row.git, row.gitTone, c)}`,
       width,
-      "    ",
     ),
   );
   const receiptText = `${tone(row.receipt.label, row.receipt.tone, c)}${
     row.receipt.detail === undefined ? "" : ` · ${row.receipt.detail}`
   }`;
-  lines.push(...wrappedField("Receipt", receiptText, width, "    "));
+  lines.push(...wrappedField("Receipt", receiptText, width));
   lines.push(
     ...wrappedField(
       "Activity",
@@ -701,7 +749,6 @@ function renderStackedRow(
         ? tone(row.activity, "cyan", c)
         : row.activity,
       width,
-      "    ",
     ),
   );
   if (row.authority !== undefined) {
@@ -712,7 +759,6 @@ function renderStackedRow(
           row.authority.detail === undefined ? "" : ` · ${row.authority.detail}`
         }`,
         width,
-        "    ",
       ),
     );
   }
@@ -722,7 +768,6 @@ function renderStackedRow(
         "Contained in",
         styledIdentifier(row.entry.contained_in, c),
         width,
-        "    ",
       ),
     );
   }
@@ -734,7 +779,6 @@ function renderStackedRow(
           fileCount(collision.total)
         }`,
         width,
-        "    ",
       ),
     );
   }
@@ -752,7 +796,7 @@ function tableLines(
   width: number,
   c: Palette,
 ): string[] | undefined {
-  if (width < 92) return undefined;
+  if (width < 92 - SECTION_CONTENT_COLUMN) return undefined;
   if (
     rows.some((row) =>
       row.identity.secondary !== undefined ||
@@ -812,16 +856,13 @@ function tableLines(
   );
   const total = widths.reduce((sum, value) => sum + value, 0) +
     (columns.length - 1) * 2;
-  const available = Math.max(1, width - 2);
-  if (total > available) return undefined;
+  if (total > width) return undefined;
   const line = (values: readonly string[]): string =>
-    `  ${
-      values.map((value, index) =>
-        index === values.length - 1
-          ? value
-          : padDisplayEnd(value, widths[index] ?? 0)
-      ).join("  ")
-    }`;
+    values.map((value, index) =>
+      index === values.length - 1
+        ? value
+        : padDisplayEnd(value, widths[index] ?? 0)
+    ).join("  ");
   const header = line(columns.map((column) => column.header));
   return [
     `${c.dim}${header}${c.reset}`,
@@ -837,12 +878,13 @@ function renderWorktrees(
   width: number,
   c: Palette,
   ownershipCaption: boolean,
-): string[] {
+): StatusSectionLine[] {
   const table = tableLines(rows, width, c);
-  const lines = table ?? rows.flatMap((row, index) => [
-    ...(index === 0 ? [] : [""]),
-    ...renderStackedRow(row, width, c),
-  ]);
+  const lines: StatusSectionLine[] = table ??
+    rows.flatMap((row, index): StatusSectionLine[] => [
+      ...(index === 0 ? [] : [""]),
+      ...renderStackedRow(row, width, c),
+    ]);
   if (ownershipCaption) {
     lines.push(
       "",
@@ -883,20 +925,22 @@ function renderAttention(
   data: StatusData,
   width: number,
   c: Palette,
-): string[] {
-  const lines: string[] = [];
+): StatusSectionLine[] {
+  const lines: StatusSectionLine[] = [];
   for (const row of rows) {
     if (row.attention === undefined) continue;
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      `  ${tone(row.glyph, row.tone, c)} ${
-        styledIdentifier(row.identity.primary, c)
-      }${currentMarker(row.entry.is_current, c)}`,
+      glyphLine(
+        tone(row.glyph, row.tone, c),
+        `${styledIdentifier(row.identity.primary, c)}${
+          currentMarker(row.entry.is_current, c)
+        }`,
+      ),
       ...wrappedField(
         row.label,
         styledDiscernCommands(row.attention, c),
         width,
-        "    ",
       ),
     );
     if (
@@ -910,7 +954,6 @@ function renderAttention(
             tone(row.authority.label, row.authority.tone, c)
           }`,
           width,
-          "    ",
         ),
       );
     }
@@ -925,7 +968,6 @@ function renderAttention(
           " ↔ ",
         ),
         width,
-        "    ",
       ),
       ...wrappedField(
         "Paths",
@@ -935,7 +977,6 @@ function renderAttention(
             : ""
         }`,
         width,
-        "    ",
       ),
       ...wrappedField(
         "Action",
@@ -944,7 +985,6 @@ function renderAttention(
           c,
         ),
         width,
-        "    ",
       ),
     );
   }
@@ -964,14 +1004,12 @@ function renderAttention(
           ", ",
         ),
         width,
-        "    ",
       ),
-      ...wrappedField("Records", collision.paths.join(", "), width, "    "),
+      ...wrappedField("Records", collision.paths.join(", "), width),
       ...wrappedField(
         "Action",
         "Whoever lands second takes the next free record number.",
         width,
-        "    ",
       ),
     );
   }
@@ -1194,7 +1232,11 @@ function renderLastLanding(
 }
 
 /** Setup-incomplete action block that still obeys the report width. */
-function renderSetup(data: StatusData, width: number, c: Palette): string[] {
+function renderSetup(
+  data: StatusData,
+  width: number,
+  c: Palette,
+): StatusSectionLine[] {
   const setup = data.setup_unfinished;
   if (setup === undefined) return [];
   const lines = wrappedBullet(
@@ -1236,15 +1278,20 @@ function renderVerboseReceipts(
   data: StatusData,
   rows: readonly FleetRowPresentation[],
   c: Palette,
-): string[] {
-  const blocks: string[] = [];
+): StatusSectionLine[] {
+  const blocks: StatusSectionLine[] = [];
   const add = (label: string, page: string | undefined): void => {
     if (page === undefined) return;
     const styledPage = styledDiscernCommands(page, c, c.dim);
     blocks.push(
       ...(blocks.length === 0 ? [] : [""]),
       `${c.dim}${label}${c.reset}`,
-      dimBlock(styledPage, (line) => `${c.dim}${line}${c.reset}`),
+      {
+        verbatim: dimBlock(
+          styledPage,
+          (line) => `${c.dim}${line}${c.reset}`,
+        ),
+      },
     );
   };
   add("Last landed receipt", data.landed_receipt?.receipt.markdown);
@@ -1261,6 +1308,11 @@ function reportWidth(width: number): number {
   return Math.max(1, Math.min(finite, STATUS_REPORT_MAX_WIDTH));
 }
 
+/** Width available after the section-owned content indent. */
+function sectionContentWidth(width: number): number {
+  return Math.max(1, width - SECTION_CONTENT_COLUMN);
+}
+
 /** Render one complete static dashboard. Every fact comes from `data`; this
  * function performs no Git, receipt, authority, collision, or logbook reads. */
 export function renderStatusDashboard(
@@ -1269,18 +1321,19 @@ export function renderStatusDashboard(
   options: StatusDashboardOptions,
 ): string {
   const width = reportWidth(options.width);
+  const contentWidth = sectionContentWidth(width);
   const nowMs = options.nowMs ?? Date.now();
   const c = palette(options.color ?? false);
   const project = data.project ?? (basename(data.root) || data.root);
   const heading = wrapText(
     `${c.bold}discern status${c.reset} ${c.dim}· ${project}${c.reset}`,
     width,
-    "  ",
+    SECTION_CONTENT_INDENT,
     { breakLongWords: true },
   ).join("\n");
   const blocks: string[] = [heading];
 
-  const setup = renderSetup(data, width, c);
+  const setup = renderSetup(data, contentWidth, c);
   if (setup.length > 0) blocks.push(section("Setup", setup, c));
   if (data.location === "main" && data.fleet === undefined) {
     blocks.push(mainCheckoutLine(data, width, c).join("\n"));
@@ -1307,9 +1360,11 @@ export function renderStatusDashboard(
   const shownRows = fleetRows.length > 0 ? fleetRows : localRows;
 
   if (data.fleet !== undefined) {
-    blocks.push(section("Fleet", renderFleetSummary(fleetRows, width), c));
+    blocks.push(
+      section("Fleet", renderFleetSummary(fleetRows, contentWidth), c),
+    );
   }
-  const attention = renderAttention(shownRows, data, width, c);
+  const attention = renderAttention(shownRows, data, contentWidth, c);
   if (attention.length > 0) {
     blocks.push(section("Attention", attention, c));
   }
@@ -1319,7 +1374,7 @@ export function renderStatusDashboard(
         "Worktrees",
         renderWorktrees(
           fleetRows,
-          width,
+          contentWidth,
           c,
           data.location === "worktree" &&
             fleetRows.some((row) => !row.entry.is_current),
@@ -1328,12 +1383,12 @@ export function renderStatusDashboard(
       ),
     );
   } else if (data.fleet !== undefined) {
-    blocks.push(section("Worktrees", ["  No active worktrees."], c));
+    blocks.push(section("Worktrees", ["No active worktrees."], c));
   } else if (localRows.length > 0) {
     blocks.push(
       section(
         "Current worktree",
-        renderWorktrees(localRows, width, c, false),
+        renderWorktrees(localRows, contentWidth, c, false),
         c,
       ),
     );
@@ -1348,24 +1403,24 @@ export function renderStatusDashboard(
     blocks.push(
       section(
         "Main checkout",
-        surveyedMainCheckout(surveyedMain, width, nowMs, c),
+        surveyedMainCheckout(surveyedMain, contentWidth, nowMs, c),
         c,
       ),
     );
   }
 
   const next = interactiveHintTexts(hints).flatMap((hint) =>
-    wrappedBullet("→", hint, width, c)
+    wrappedBullet("→", hint, contentWidth, c)
   );
   if (next.length > 0) blocks.push(section("Next steps", next, c));
 
-  const checks = renderChecks(data, width);
+  const checks = renderChecks(data, contentWidth);
   if (checks.length > 0) blocks.push(section("Checks", checks, c));
-  const environment = renderLocalEnvironment(data, width, c);
+  const environment = renderLocalEnvironment(data, contentWidth, c);
   if (environment.length > 0) {
     blocks.push(section("Local environment", environment, c));
   }
-  const landing = renderLastLanding(data, width, c, nowMs);
+  const landing = renderLastLanding(data, contentWidth, c, nowMs);
   if (landing.length > 0) blocks.push(section("Landing", landing, c));
 
   if (options.verbose === true) {
