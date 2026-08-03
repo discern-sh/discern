@@ -19,7 +19,7 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
 
-When a capped test run waits for a slot, the live summary and top-level result field `waited_ms` report that delay. Queue time does not change what the gate proved, so it stays out of the receipt line, page, and durable proof ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+Capped-run waits remain live `waited_ms` telemetry; the receipt line, page, and durable proof omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
@@ -52,7 +52,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## After landing
 
-Acceptance projects the structured proof facts and human presentation into separate payload blocks under `refs/notes/discern` after the trunk fast-forward. Its Dead Simple Signing Envelope (DSSE) boundary preserves the payload bytes and full commit id. `signatures: []` is discern's unsigned extension. The local record is default-on and fail-open, while fetch transport is opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, publication, and cross-clone recovery.
+After the trunk fast-forward, acceptance writes separate proof and presentation blocks to a DSSE-compatible note under `refs/notes/discern`. The local unsigned record is default-on and fail-open; transport is opt-in. [Receipt notes](receipt-notes.md) covers inspection, publication, and recovery.
 
 ## Re-running an unchanged tree
 

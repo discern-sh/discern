@@ -65,7 +65,7 @@ Tests passed.
 Waited 1m 10s for a test-run slot.
 ```
 
-The live result and logbook carry `waited_ms`. Receipts and durable proof notes omit it because queue time does not affect the gate verdict. This preserves end-to-end duration and replaces the combined prior ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md), [ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+`waited_ms` stays in the live result and logbook, outside receipts and durable proofs ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). End-to-end duration and execution-time priors remain separate ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
 ## Crash safety
 

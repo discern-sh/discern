@@ -29,9 +29,7 @@ The logbook never leaves the machine, and that claim is held by a check rather t
 
 ## Receipt notes: local proof, optional transport
 
-A green landing records its structured receipt under the local Git ref `refs/notes/discern`. The note uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its Base64 payload separates structured proof facts from the human line and page. Runtime telemetry stays outside the durable record ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
-
-A future signature covers every payload byte, while verification policy reads only the structured claim. `signatures: []` is discern's unsigned extension. discern performs no signature or identity verification today. Optional issuer details are payload assertions. A later policy binds a trusted signing key to a person, agent, runner, or organization.
+A green landing records a DSSE-compatible note under `refs/notes/discern`. Its Base64 payload separates structured proof facts from human presentation and excludes runtime telemetry ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). `signatures: []` is unsigned; discern does no signing or identity verification today. A future policy decides which signing keys to trust.
 
 Older bare and pre-correction notes still read. The note is authored by `discern <done@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
 
