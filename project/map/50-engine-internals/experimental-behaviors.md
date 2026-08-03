@@ -37,4 +37,4 @@ Only providers named in project config contribute a field. A project with Claude
 
 These fields are client-specific and version-sensitive. Claude Code and Copilot CLI currently accept the combined entry, but MCP does not define either property and other clients reading `.mcp.json` may treat them differently. Git tracks the file as project configuration, so a refresh from an environment without the flag removes the experimental fields. Use the switch only for local evaluation. Durable team behavior needs a stable supported setting.
 
-[ADR 0253](../_adr/0253-mcp-preload-remains-an-environment-only-experiment.md) records the decision and removal criteria.
+[ADR 0254](../_adr/0254-mcp-preload-remains-an-environment-only-experiment.md) records the decision and removal criteria.

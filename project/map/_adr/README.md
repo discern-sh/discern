@@ -244,7 +244,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0251 — Every authored Deno function declaration carries JSDoc](0251-function-declarations-require-jsdoc.md)
 - [0252 — The fleet test-run cap is enforced at the test command boundary](0252-fleet-test-run-cap-at-test-command-boundary.md)
 - [0253 — Durable proofs project runtime receipts](0253-durable-proofs-project-runtime-receipts.md)
-- [0253 — MCP startup loading remains an environment-only experiment](0253-mcp-preload-remains-an-environment-only-experiment.md)
+- [0254 — MCP startup loading remains an environment-only experiment](0254-mcp-preload-remains-an-environment-only-experiment.md)
 
 <!-- END GENERATED: current ADR records -->
 

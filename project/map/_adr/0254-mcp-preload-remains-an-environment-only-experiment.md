@@ -1,4 +1,4 @@
-# ADR 0253: MCP startup loading remains an environment-only experiment
+# ADR 0254: MCP startup loading remains an environment-only experiment
 
 **Status**: accepted; extends the self-describing surface of [ADR 0041](0041-self-describing-mcp-surface.md), the shared `.mcp.json` writer of [ADR 0074](0074-co-owned-mcp-json.md), and the instruction registry of [ADR 0214](0214-mcp-instructions-render-operating-policies.md).
 
