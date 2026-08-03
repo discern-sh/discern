@@ -492,6 +492,7 @@ export const TOOLS: McpTool[] = orderTools([
     },
     run: (root, args, signal) =>
       finishResult(root, {
+        surface: { kind: "quiet" },
         dryRun: args.dry_run === true,
         confirmed: args.confirmed === true,
         signal,

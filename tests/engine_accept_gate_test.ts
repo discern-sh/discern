@@ -24,6 +24,7 @@ import {
   git,
   gitInit,
   runAgent,
+  runAgentPty,
   scaffoldEngine,
   writeConfig,
   writeExecutable,
@@ -38,6 +39,8 @@ import {
 } from "../src/engine/gate/receipt.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import type { Receipt } from "../src/shared/result_schemas.ts";
+
+const CSI = `${String.fromCharCode(27)}[`;
 
 /** Run the real admin-state preflight and expose its proven write capability to receipt tests. */
 async function receiptAuthority(
@@ -412,6 +415,53 @@ Deno.test("accept: an update that still passes the gate lands normally", async (
   });
 });
 
+Deno.test("accept TTY: a receiptless validation shows the full gate moving live", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir);
+    const wt = await addWorktree(dir, "visible-validation");
+    await commitBranchWork(wt);
+    await writeConfig(
+      wt,
+      CONFIG_CHECK.replace(
+        'lint = "sh check.sh"',
+        'format = "sleep 1"\ntest = "true"',
+      ),
+    );
+    await commitCurrentWorktree(wt, "Wire a delayed validation gate");
+
+    const accepted = await runAgentPty(wt, ["accept", "--confirmed"], {
+      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      timeoutMs: 20_000,
+    });
+    assertEquals(accepted.code, 0, accepted.output);
+
+    const validation = accepted.stdout.indexOf(
+      "Validating the branch against the full gate",
+    );
+    const initialTable = accepted.stdout.indexOf("JOB", validation);
+    const firstRedraw = accepted.stdout.indexOf(CSI, initialTable);
+    const passed = accepted.stdout.indexOf(
+      "Gate passed against the tree to be landed",
+    );
+    assert(
+      validation >= 0 && initialTable > validation &&
+        firstRedraw > initialTable && passed > firstRedraw,
+      accepted.output,
+    );
+    assertStringIncludes(
+      accepted.stdout.slice(initialTable, firstRedraw),
+      "pending",
+    );
+    assertStringIncludes(
+      accepted.stdout.slice(firstRedraw, passed),
+      "running",
+    );
+    assertStringIncludes(accepted.output, "format");
+    assertStringIncludes(accepted.output, "sleep 1");
+    assertStringIncludes(accepted.output, "ok · 1s");
+  });
+});
+
 // ── the fast path: a fresh finish makes accept cheap ───────────────────────────
 
 Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast path)", async () => {
@@ -452,6 +502,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
     assertEquals(obj.data.gate_validation.receipt.status, "missing");
+    assertEquals(grad.output.includes("JOB"), false);
     // The slow path's fresh gate run rendered both receipt forms — accept still
     // carries the same landing contract as the fast path.
     assertLandingReceiptRelay(obj, "zeta");

@@ -17,7 +17,7 @@ _A clean green gate records what ran and identifies the exact branch state ready
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
 
-`done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its receipt. `prepare` reports omitted build and test stages without review evidence. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` receipt page. `--no-color` removes styling.
+`done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its receipt. `prepare` reports omitted build and test stages without review evidence. When `accept` or `setup done` runs the full gate internally, it uses the same job projection; setup shows it for both the main checkout and the throwaway-worktree proof. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` receipt page. `--json` and MCP runs emit no table. `--no-color` removes styling.
 
 Capped-run waits remain live `waited_ms` telemetry; the receipt line, page, and durable proof omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
@@ -72,6 +72,7 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
 | `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)               |
 | Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
+| Setup validation               | [`setup.ts`](../../../src/commands/setup.ts)                      |
 
 ## Current state & gotchas
 

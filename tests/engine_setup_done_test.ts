@@ -18,6 +18,7 @@ import {
   gitOut,
   parsedCommitTrailers,
   runAgent,
+  runAgentPty,
   scaffoldEngine,
 } from "./engine_helpers.ts";
 import {
@@ -29,6 +30,8 @@ import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MACHINE } from "../src/shared/brand.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import { INSTRUCTIONS_H1 } from "./engine_setup_shared.ts";
+
+const CSI = `${String.fromCharCode(27)}[`;
 
 /** Replace setup skeletons with substantive fixtures and configure the gate command under test. */
 async function readyForDone(
@@ -78,6 +81,44 @@ Deno.test("setup done runs the gate and records bootstrapped only when green (AD
       await Deno.readTextFile(join(dir, "discern.toml")),
       "bootstrapped = true",
     );
+  });
+});
+
+Deno.test("setup done TTY shows live tables for both completion gates", async () => {
+  await withTempDir(async (dir) => {
+    await readyForDone(dir, "sleep 1");
+    await git(dir, "add", "-A");
+    await git(dir, "commit", "-q", "-m", "author the setup", "--no-gpg-sign");
+
+    const done = await runAgentPty(dir, ["setup", "done"], {
+      env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+      timeoutMs: 30_000,
+    });
+    assertEquals(done.code, 0, done.output);
+
+    const mainTable = done.stdout.indexOf("JOB");
+    const probeLead = done.stdout.indexOf(
+      "Proving your project runs inside a worktree",
+    );
+    const probeTable = done.stdout.indexOf("JOB", probeLead);
+    assert(
+      mainTable >= 0 && probeLead > mainTable && probeTable > probeLead,
+      done.output,
+    );
+    for (
+      const [start, end] of [
+        [mainTable, probeLead],
+        [probeTable, done.stdout.length],
+      ] as const
+    ) {
+      const transcript = done.stdout.slice(start, end);
+      const redraw = transcript.indexOf(CSI);
+      assert(redraw > 0, transcript);
+      assertStringIncludes(transcript.slice(0, redraw), "pending");
+      assertStringIncludes(transcript.slice(redraw), "running");
+      assertStringIncludes(transcript, "sleep 1");
+      assertStringIncludes(transcript, "ok · 1s");
+    }
   });
 });
 

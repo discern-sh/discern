@@ -26,7 +26,11 @@ import {
 } from "@std/path";
 import { type Logger, loggerSink } from "../../lib/log.ts";
 import { adrIndexState } from "../../lib/adr_index.ts";
-import { canPrompt, confirmProceed } from "../../lib/prompts.ts";
+import {
+  canPrompt,
+  confirmProceed,
+  plainModeEnabled,
+} from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import {
   generatedGroupForPath,
@@ -1980,7 +1984,11 @@ async function executeAcceptPlan(
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
     const pin = await pinValidatedTree(ctx.cwd);
-    const gate = await finishResult(ctx.cwd);
+    const gate = await finishResult(ctx.cwd, {
+      surface: ctx.log.json
+        ? { kind: "quiet" }
+        : { kind: "human", plain: plainModeEnabled() },
+    });
     if (!gate.ok) {
       throw new WorktreeGitError(acceptGateRefusal(worktreeBranch, gate));
     }

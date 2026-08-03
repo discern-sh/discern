@@ -733,10 +733,17 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
 
     expectFaithful(
       "done",
-      await finishResult(dir, { dryRun: true }),
+      await finishResult(dir, {
+        surface: { kind: "quiet" },
+        dryRun: true,
+      }),
       "finish dry-run",
     );
-    expectFaithful("done", await finishResult(dir), "finish clean");
+    expectFaithful(
+      "done",
+      await finishResult(dir, { surface: { kind: "quiet" } }),
+      "finish clean",
+    );
 
     // A failing capability → steps + a diagnostic + data.failed_stage.
     await writeConfig(
@@ -750,7 +757,9 @@ Deno.test("done result is faithful to FinishOutputSchema (preview, clean, failin
         "",
       ].join("\n"),
     );
-    const failing = await finishResult(dir);
+    const failing = await finishResult(dir, {
+      surface: { kind: "quiet" },
+    });
     assertEquals(failing.ok, false);
     expectFaithful("done", failing, "finish failing");
   });
@@ -1356,7 +1365,9 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
     await gitInit(dir);
     const wt = await addWorktree(dir, "grad-receipt");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
-    const finish = await finishResult(wt);
+    const finish = await finishResult(wt, {
+      surface: { kind: "quiet" },
+    });
     assertEquals(finish.ok, true);
     const ctx = await lifecycleContext(
       wt,

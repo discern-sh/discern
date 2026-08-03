@@ -35,7 +35,11 @@ import {
   resolveTemplatesDir,
   resolveWorktreeRoot,
 } from "../lib/paths.ts";
-import { type InitFlags, resolveSetupConfig } from "../lib/prompts.ts";
+import {
+  type InitFlags,
+  plainModeEnabled,
+  resolveSetupConfig,
+} from "../lib/prompts.ts";
 import {
   applyConfigDoc,
   type DiscernConfigDoc,
@@ -2520,7 +2524,13 @@ async function proveGateGreen(
   }
 
   // 3. finish — the gate must be green with the jobs the agent wired.
-  if (!(await finishResult(root)).ok) {
+  if (
+    !(await finishResult(root, {
+      surface: json
+        ? { kind: "quiet" }
+        : { kind: "human", plain: plainModeEnabled() },
+    })).ok
+  ) {
     return {
       ok: false,
       exitCode: emitDoneGateFailure(
@@ -2561,7 +2571,11 @@ async function proveWorktreeViable(
     await lifecycleContext(root, log),
     resolveWorktreeRoot(root, cfg),
     async (probeDir) => {
-      const r = await finishResult(probeDir);
+      const r = await finishResult(probeDir, {
+        surface: json
+          ? { kind: "quiet" }
+          : { kind: "human", plain: plainModeEnabled() },
+      });
       if (r.ok) {
         return { ok: true };
       }

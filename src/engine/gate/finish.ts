@@ -1388,20 +1388,36 @@ async function unchangedTreeRerunRefusal(
   };
 }
 
+/** The output contract an in-process full-gate caller must choose explicitly. */
+export type FinishResultSurface =
+  | { kind: "quiet" }
+  | { kind: "human"; plain: boolean };
+
+/** Options for an in-process full-gate run. The required surface prevents a new
+ * composite command from inheriting machine silence while a person waits. */
+export interface FinishResultOptions {
+  surface: FinishResultSurface;
+  dryRun?: boolean;
+  confirmed?: boolean;
+  signal?: AbortSignal;
+}
+
 /**
- * Compute the `done` {@link DiscernResult} without printing or exiting — the
- * entry point the MCP server (and any in-process caller) renders instead of the
- * CLI's stdout. `dryRun` returns the preview (the plan, nothing run); otherwise it
- * runs the gate, routing the human narration to stderr (json semantics) so a
- * caller owning stdout — like the MCP stdio channel — stays uncontaminated.
- * `confirmed` attests that a rerun on the unchanged last-judged tree is
- * deliberate; without it that rerun refuses read-only.
- * Aborting `signal` (the caller cancelling the call, or shutting down) tree-kills
- * the in-flight gate jobs and returns the run as failed-with-cancellations.
+ * Compute the `done` {@link DiscernResult} without exiting. Machine callers choose
+ * `quiet`, keeping protocol stdout uncontaminated. Human composites choose `human`,
+ * which preserves the same live/static/streaming job projection as standalone
+ * `discern done` while leaving the composite command in charge of its own final
+ * success or failure tail. Requiring that choice removes the former implicit
+ * machine-quiet default from every present and future caller.
+ *
+ * `dryRun` returns the preview (the plan, nothing run). `confirmed` attests that a
+ * rerun on the unchanged last-judged tree is deliberate; without it that rerun
+ * refuses read-only. Aborting `signal` tree-kills the in-flight gate jobs and
+ * returns the run as failed-with-cancellations.
  */
 export async function finishResult(
   root: string,
-  opts: { dryRun?: boolean; confirmed?: boolean; signal?: AbortSignal } = {},
+  opts: FinishResultOptions,
 ): Promise<DiscernResult<GateData>> {
   if (opts.dryRun ?? false) {
     const cfg = await loadConfig(root);
@@ -1418,7 +1434,30 @@ export async function finishResult(
   if (refusal !== undefined) {
     return refusal;
   }
-  return (await runGate(root, true, opts.signal)).result;
+  if (opts.surface.kind === "quiet") {
+    return (await runGate(root, true, opts.signal)).result;
+  }
+  const { ttyWidth, liveWidth } = gateTtyPresentation(
+    false,
+    opts.surface.plain,
+  );
+  const gate = await runGate(root, false, opts.signal, {
+    ...(liveWidth !== undefined ? { liveWidth } : {}),
+  });
+  if (
+    ttyWidth !== undefined && !gate.liveTable && !gate.cfg.gate.stream
+  ) {
+    gate.out.group("gate-results");
+    gate.out.raw(
+      `${
+        renderGateTtyTable(gate.result.steps ?? [], {
+          width: ttyWidth,
+          color: gate.out.color,
+        })
+      }\n`,
+    );
+  }
+  return gate.result;
 }
 
 /** The standards jobs a `--dry-run` plan lists: the pure, config-only

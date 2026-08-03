@@ -579,7 +579,7 @@ Deno.test("declared outputs are excluded before every coupling statistic while a
     for (
       const automatic of [
         await prepareResult(dir),
-        await finishResult(dir),
+        await finishResult(dir, { surface: { kind: "quiet" } }),
       ]
     ) {
       assertEquals(automatic.ok, true);
@@ -923,7 +923,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
     // Explicitly disabled: the gate is green and carries no coupling advisory.
-    const off = await finishResult(dir);
+    const off = await finishResult(dir, { surface: { kind: "quiet" } });
     assertEquals(off.ok, true);
     assertEquals(off.data?.failed_stage ?? null, null);
     assertLacksHint(off, HINTS["coupling-diff-header"]);
@@ -940,7 +940,7 @@ Deno.test("done appends the coupling advisory only when [coupling].in_gate is on
         "",
       ].join("\n"),
     );
-    const on = await finishResult(dir);
+    const on = await finishResult(dir, { surface: { kind: "quiet" } });
     assertEquals(
       on.ok,
       true,
@@ -994,7 +994,9 @@ Deno.test("done suppresses the coupling advisory until the install is bootstrapp
     await noise(dir, 6);
     await Deno.writeTextFile(join(dir, "a.ts"), "staged");
 
-    const result = await finishResult(dir);
+    const result = await finishResult(dir, {
+      surface: { kind: "quiet" },
+    });
     assertLacksHint(result, HINTS["coupling-diff-header"]);
   });
 });

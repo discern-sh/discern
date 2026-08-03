@@ -176,11 +176,16 @@ Deno.test("done: the refusal reaches the in-process entry point the MCP server c
     const wt = await worktreeWithWork(dir, GREEN_CONFIG);
     assertEquals((await runAgent(wt, ["done", "--json"])).code, 0);
 
-    const refused = await finishResult(wt);
+    const refused = await finishResult(wt, {
+      surface: { kind: "quiet" },
+    });
     assertEquals(refused.ok, false);
     assertEquals(refused.error, UNCHANGED_TREE_RERUN_SLUG);
 
-    const confirmed = await finishResult(wt, { confirmed: true });
+    const confirmed = await finishResult(wt, {
+      surface: { kind: "quiet" },
+      confirmed: true,
+    });
     assertEquals(confirmed.ok, true, JSON.stringify(confirmed));
   });
 });

@@ -16,6 +16,7 @@ import {
   writeConfig,
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
+import { finishResult } from "../src/engine/gate/finish.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 const SGR = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "u");
@@ -44,6 +45,14 @@ const FAILING_CONFIG = CONFIG.replace(
   'format = "true"',
   'format = "false"\ntest = "true"',
 );
+
+Deno.test("an in-process full gate must declare its output surface", () => {
+  const futureComposite = (): void => {
+    // @ts-expect-error — an unrelated future caller must choose human or quiet
+    void finishResult("/synthetic/orbit");
+  };
+  assertEquals(typeof futureComposite, "function");
+});
 
 /** Create a linked worktree with optional config and one clean committed change. */
 async function committedWorktree(
