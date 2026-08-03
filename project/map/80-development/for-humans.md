@@ -52,7 +52,7 @@ Don't hand-edit the agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are c
 
 ## Previewing terminal art
 
-Run `deno task art` from any checkout to print every registered terminal-art variant in stable order. Add `--animate` to play each design once before the command restores that same static gallery:
+Run `deno task art` from any checkout to print every registered terminal-art design in stable order. The original mark variants come first, followed by the triangle dividers, weave, spinner storyboard, progress, section rule, stepper, and activity beacon. Add `--animate` to play each design once before the command restores that same static gallery:
 
 ```sh
 deno task art --animate
@@ -60,7 +60,7 @@ deno task art --animate
 
 Motion is opt-in. A pipe, CI run, `TERM=dumb`, or terminal without a spare wrapping row and column receives the static gallery with no cursor controls. If the terminal becomes too small during playback, the command stops redrawing and prints the static gallery safely below the live frame.
 
-This is a maintainer helper under [`scripts/art.ts`](../../../scripts/art.ts), not a discern CLI verb, gate job, template, or compiled-binary surface. The variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) owns membership. A new design must supply static and animated renderers, then both gallery projections include it automatically.
+This is a maintainer helper under [`scripts/art.ts`](../../../scripts/art.ts), not a discern CLI verb, gate job, template, or compiled-binary surface. The art-variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) and motif registry in [`triangle_art.ts`](../../../src/lib/triangle_art.ts) own membership. The latter also exports the pure frame functions for reuse. A new design must enter its owning registry with static and animated renderers; both gallery projections then include it automatically.
 
 ## Inspecting the MCP server
 

@@ -12,7 +12,11 @@ import {
   INTERRUPT_SIGNALS,
   reraiseInterrupt,
 } from "../src/engine/process_signals.ts";
-import { DISCERN_ART_VARIANTS } from "../src/shared/brand_art.ts";
+import {
+  DISCERN_ART_VARIANTS,
+  type DiscernArtVariant,
+} from "../src/shared/brand_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
 
 const ART_USAGE = "Run `deno task art` or `deno task art --animate`.";
 
@@ -39,16 +43,36 @@ export interface ArtCommandPort {
   readonly terminalSize: () => TerminalSize;
 }
 
-/** Render every registered variant in stable order with a compact name label. */
+/** One named member of either terminal-art enrolment registry. */
+export interface ArtGalleryEntry {
+  readonly name: string;
+  readonly variant: DiscernArtVariant;
+}
+
+const ART_GALLERY_ENTRIES: readonly ArtGalleryEntry[] = Object.freeze([
+  ...Object.entries(DISCERN_ART_VARIANTS).map(([name, variant]) =>
+    Object.freeze({ name, variant })
+  ),
+  ...Object.entries(DISCERN_TRIANGLE_MOTIFS).map(([name, variant]) =>
+    Object.freeze({ name, variant })
+  ),
+]);
+
+/** Return the shared ordered projection used by both gallery modes. */
+export function artGalleryEntries(): readonly ArtGalleryEntry[] {
+  return ART_GALLERY_ENTRIES;
+}
+
+/** Render every registered design in stable order with a compact name label. */
 export function renderArtGallery(): string {
-  return Object.entries(DISCERN_ART_VARIANTS)
-    .map(([name, variant]) => `[${name}]\n${variant.render()}`)
+  return artGalleryEntries()
+    .map(({ name, variant }) => `[${name}]\n${variant.render()}`)
     .join("\n\n");
 }
 
-/** Derive one labelled semantic animation scene from every registered variant. */
+/** Derive one labelled semantic animation scene from every registered design. */
 export function artAnimationScenes(): readonly TerminalAnimationScene[] {
-  return Object.entries(DISCERN_ART_VARIANTS).map(([name, variant]) => {
+  return artGalleryEntries().map(({ name, variant }) => {
     const animation = variant.animate();
     return Object.freeze({
       label: `[${name}]`,

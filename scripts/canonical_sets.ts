@@ -933,6 +933,37 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "terminal-triangle-motifs",
+    title: "Terminal triangle motifs",
+    what:
+      "The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.",
+    source: {
+      kind: "module",
+      module: "src/lib/triangle_art.ts",
+      exportName: "DISCERN_TRIANGLE_MOTIFS",
+    },
+    guards: [
+      "tests/triangle_art_test.ts",
+      "tests/art_gallery_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal design names for decorative terminal output, not reader-facing product terms",
+      },
+      featureCanon: {
+        absent:
+          "the motifs supply decorative projections and a maintainer preview rather than a separate product capability",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/lib/triangle_art.ts"))
+          .DISCERN_TRIANGLE_MOTIFS,
+      ),
+  },
+  {
     id: "failure-recovery-evidence",
     title: "Generic failure-recovery evidence",
     what:

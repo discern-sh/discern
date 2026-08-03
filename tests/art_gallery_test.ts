@@ -10,10 +10,12 @@ import { dirname, fromFileUrl } from "@std/path";
 import {
   artAnimationScenes,
   type ArtCommandEnvironment,
+  artGalleryEntries,
   executeArtCommand,
   planArtCommand,
   renderArtGallery,
 } from "../scripts/art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
 import { DISCERN_ART_VARIANTS } from "../src/shared/brand_art.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
@@ -25,19 +27,31 @@ const ANIMATED_ENVIRONMENT: ArtCommandEnvironment = {
   terminalColumns: 80,
   terminalRows: 24,
 };
+const EXPECTED_ENTRIES = [
+  ...Object.entries(DISCERN_ART_VARIANTS),
+  ...Object.entries(DISCERN_TRIANGLE_MOTIFS),
+];
 
-Deno.test("the art gallery enrolls every registered variant in order", () => {
-  const expected = Object.entries(DISCERN_ART_VARIANTS)
+Deno.test("the art gallery enrolls both registries in stable order", () => {
+  const expected = EXPECTED_ENTRIES
     .map(([name, variant]) => `[${name}]\n${variant.render()}`)
     .join("\n\n");
 
   assertEquals(renderArtGallery(), expected);
+  assertEquals(
+    artGalleryEntries().map(({ name }) => name),
+    EXPECTED_ENTRIES.map(([name]) => name),
+  );
 });
 
 Deno.test("gallery labels and composed output stay terminal-safe", () => {
-  for (const name of Object.keys(DISCERN_ART_VARIANTS)) {
+  for (const [name] of EXPECTED_ENTRIES) {
     assertMatch(name, /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/);
   }
+  assertEquals(
+    new Set(EXPECTED_ENTRIES.map(([name]) => name)).size,
+    EXPECTED_ENTRIES.length,
+  );
 
   const gallery = renderArtGallery();
   for (const character of gallery) {
@@ -54,15 +68,13 @@ Deno.test("gallery labels and composed output stay terminal-safe", () => {
   }
 });
 
-Deno.test("the animated gallery enrolls every registered variant in order", () => {
+Deno.test("the animated gallery enrolls both registries in stable order", () => {
   const scenes = artAnimationScenes();
   assertEquals(
     scenes.map((scene) => scene.label),
-    Object.keys(DISCERN_ART_VARIANTS).map((name) => `[${name}]`),
+    EXPECTED_ENTRIES.map(([name]) => `[${name}]`),
   );
-  for (
-    const [index, variant] of Object.values(DISCERN_ART_VARIANTS).entries()
-  ) {
+  for (const [index, [, variant]] of EXPECTED_ENTRIES.entries()) {
     assertEquals(scenes[index]?.frames.at(-1), variant.render());
   }
 });
@@ -73,17 +85,25 @@ Deno.test("art command planning keeps motion opt-in and terminal-safe", () => {
     mode: "static",
     output: staticOutput,
   });
-  assertEquals(
-    planArtCommand(["--animate"], ANIMATED_ENVIRONMENT).mode,
-    "animate",
-  );
+  const roomyPlan = planArtCommand(["--animate"], ANIMATED_ENVIRONMENT);
+  if (roomyPlan.mode !== "animate") {
+    throw new Error("roomy art fixture did not produce an animated plan");
+  }
   for (
     const environment of [
       { ...ANIMATED_ENVIRONMENT, stdoutIsTerminal: false },
       { ...ANIMATED_ENVIRONMENT, ci: "1" },
       { ...ANIMATED_ENVIRONMENT, term: "dumb" },
-      { ...ANIMATED_ENVIRONMENT, terminalColumns: 46 },
-      { ...ANIMATED_ENVIRONMENT, terminalRows: 12 },
+      {
+        ...ANIMATED_ENVIRONMENT,
+        terminalColumns: roomyPlan.playback.maxWidth,
+        terminalRows: roomyPlan.playback.maxHeight + 1,
+      },
+      {
+        ...ANIMATED_ENVIRONMENT,
+        terminalColumns: roomyPlan.playback.maxWidth + 1,
+        terminalRows: roomyPlan.playback.maxHeight,
+      },
     ]
   ) {
     assertEquals(planArtCommand(["--animate"], environment), {
@@ -95,7 +115,8 @@ Deno.test("art command planning keeps motion opt-in and terminal-safe", () => {
     planArtCommand(["--animate"], {
       ...ANIMATED_ENVIRONMENT,
       ci: "false",
-      terminalColumns: 47,
+      terminalColumns: roomyPlan.playback.maxWidth + 1,
+      terminalRows: roomyPlan.playback.maxHeight + 1,
     }).mode,
     "animate",
   );

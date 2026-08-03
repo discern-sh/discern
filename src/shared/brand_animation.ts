@@ -19,7 +19,7 @@ function artRows(rows: readonly string[]): string {
 }
 
 /** Finish a timeline on the renderer-owned static frame and remove duplicate beats. */
-function finishAnimation(
+export function finishAnimation(
   staticArt: string,
   candidates: readonly string[],
   frameMs: number,
