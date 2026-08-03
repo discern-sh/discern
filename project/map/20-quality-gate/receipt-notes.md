@@ -33,9 +33,9 @@ git notes --ref=discern show <commit>
 
 ## The durable format
 
-The note uses the Dead Simple Signing Envelope (DSSE) field and payload boundary. Its Base64 payload preserves the full commit and receipt bytes a future signature covers. `signatures: []` is discern's unsigned extension. discern signs and verifies nothing today. Optional issuer details are payload assertions. A later policy decides which signing keys to trust.
+The DSSE-compatible Base64 payload separates structured proof facts from human presentation and excludes runtime telemetry. A future signature covers both; verification policy reads only `proof`. `signatures: []` remains unsigned, and discern signs or verifies nothing today ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
-Unknown added fields pass, an unknown payload type reports as unsupported rather than vanishing, and bare notes from older releases still read. [Receipt note format](../70-reference/receipt-note-format.md) covers the payload, signature boundary, issuer meaning, and reading rules.
+Readers accept additive fields and older bare or pre-correction notes; unknown payload types report unsupported. [Receipt note format](../70-reference/receipt-note-format.md) defines the contract and reading rules.
 
 ## Authorship and failure
 

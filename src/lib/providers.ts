@@ -49,6 +49,8 @@ import {
   stripGeneratedArtifactMarker,
 } from "../shared/brand.ts";
 import { fire, HINTS } from "../shared/hints.ts";
+import type { EnvReader } from "../shared/env.ts";
+import { experimentalEnvironmentEnabled } from "../shared/experimental.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -159,6 +161,14 @@ export interface McpWireResult {
   firstInstall: boolean;
 }
 
+/** Invocation-wide facts every provider's MCP writer may project into its own
+ * configuration format. The full configured-agent list matters for files two
+ * providers co-own: either registration order must write the same entry. */
+export interface McpWireContext {
+  readonly agents: readonly string[];
+  readonly experimentalMcpPreload: boolean;
+}
+
 /** How a provider registers an MCP server in a project — idempotently, preserving
  * the file's other contents. The discern server is core infrastructure (ADR 0045),
  * always wired; there is no feature-off removal path. */
@@ -174,6 +184,7 @@ export interface McpIntegration {
     root: string,
     server: McpServerSpec,
     config: DiscernConfig,
+    context: McpWireContext,
   ): Promise<McpWireResult>;
 }
 
@@ -788,12 +799,16 @@ const COPILOT_HOOKS_FILE = ".github/hooks/discern.json";
  * by two of them (Claude + Copilot's `.mcp.json`) can only ever carry one byte-identical
  * entry, and the second provider to wire it is a no-op regardless of order. (Gemini's
  * `.gemini/settings.json` is NOT one of these — it omits `type`, inferring stdio from
- * `command`, so it keeps its own {@link registerGeminiMcp}.)
+ * `command`, so it keeps its own {@link registerGeminiMcp}.) The shared `.mcp.json`
+ * entry also projects the environment-only MCP preload experiment into the
+ * client-specific fields supported by the configured co-owners. Switching the
+ * experiment off removes those fields on the next wire.
  */
 async function registerStdioMcpJson(
   root: string,
   configFile: string,
   server: McpServerSpec,
+  context: McpWireContext,
   timeoutSeconds?: number,
 ): Promise<McpWireResult> {
   const path = join(root, configFile);
@@ -805,6 +820,16 @@ async function registerStdioMcpJson(
     command: server.command,
     args: [...server.args],
     ...(timeoutSeconds !== undefined ? { timeout: timeoutSeconds * 1000 } : {}),
+    ...(configFile === MCP_JSON_FILE &&
+        context.experimentalMcpPreload &&
+        context.agents.includes("claude_code")
+      ? { alwaysLoad: true }
+      : {}),
+    ...(configFile === MCP_JSON_FILE &&
+        context.experimentalMcpPreload &&
+        context.agents.includes("copilot")
+      ? { deferTools: "never" }
+      : {}),
   };
   if (JSON.stringify(servers[server.name]) === JSON.stringify(desired)) {
     return { written: [], firstInstall };
@@ -824,6 +849,8 @@ async function registerStdioMcpJson(
 async function registerClaudeCodeMcp(
   root: string,
   server: McpServerSpec,
+  _config: DiscernConfig,
+  context: McpWireContext,
 ): Promise<McpWireResult> {
   // 1. .mcp.json — the project-scoped server definition (a local stdio command),
   //    via the shared writer (the file Copilot co-owns).
@@ -834,6 +861,7 @@ async function registerClaudeCodeMcp(
       ...server,
       args: mcpServerArgsForNativeAgent("claude_code", server.args),
     },
+    context,
     NATIVE_MCP_TIMEOUT_POLICY.claude_code.configured_seconds,
   );
   const written = [...mcp.written];
@@ -1208,11 +1236,13 @@ export function stripDiscernFromCodexEnv(existingText: string): string | null {
 async function registerCursorMcp(
   root: string,
   server: McpServerSpec,
+  _config: DiscernConfig,
+  context: McpWireContext,
 ): Promise<McpWireResult> {
   return await registerStdioMcpJson(root, CURSOR_MCP_FILE, {
     ...server,
     args: mcpServerArgsForNativeAgent("cursor", server.args),
-  });
+  }, context);
 }
 
 /**
@@ -1228,6 +1258,8 @@ async function registerCursorMcp(
 async function registerCopilotMcp(
   root: string,
   server: McpServerSpec,
+  _config: DiscernConfig,
+  context: McpWireContext,
 ): Promise<McpWireResult> {
   return await registerStdioMcpJson(
     root,
@@ -1236,6 +1268,7 @@ async function registerCopilotMcp(
       ...server,
       args: mcpServerArgsForNativeAgent("copilot", server.args),
     },
+    context,
     NATIVE_MCP_TIMEOUT_POLICY.copilot.configured_seconds,
   );
 }
@@ -1879,14 +1912,22 @@ export async function wireProviderMcp(
   agents: readonly string[],
   server: McpServerSpec = DISCERN_MCP_SERVER,
   config: DiscernConfig = parseConfigOrThrow(""),
+  env: EnvReader = Deno.env,
 ): Promise<McpWireResult> {
+  const context: McpWireContext = {
+    agents,
+    experimentalMcpPreload: experimentalEnvironmentEnabled(
+      "mcpPreload",
+      env,
+    ),
+  };
   const written: string[] = [];
   let firstInstall = false;
   for (const agent of agents) {
     const provider = providerFor(agent);
     const mcp = provider !== undefined ? wiredMcp(provider) : undefined;
     if (mcp !== undefined) {
-      const r = await mcp.register(root, server, config);
+      const r = await mcp.register(root, server, config, context);
       written.push(...r.written);
       firstInstall = firstInstall || r.firstInstall;
     }

@@ -12,24 +12,30 @@ import {
   assertStringIncludes,
 } from "@std/assert";
 import { basename, dirname, join } from "@std/path";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import {
   allGuidanceFilePaths,
   DISCERN_MCP_SERVER,
+  type McpServerSpec,
   type McpWireResult,
   providerFor,
   PROVIDERS,
   providersWithHooks,
   skillsDirsForAgents,
   wiredMcp,
-  wireProviderMcp,
+  wireProviderMcp as wireProviderMcpFromRegistry,
   wireProviderProjectRules,
   wireProviderWorktreeApp,
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
-import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import {
+  type DiscernConfig,
+  parseConfigOrThrow,
+} from "../src/shared/config_schema.ts";
+import type { EnvReader } from "../src/shared/env.ts";
+import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import {
@@ -40,6 +46,18 @@ import {
   mcpServerArgsForNativeAgent,
   NATIVE_MCP_TIMEOUT_POLICY,
 } from "../src/shared/mcp_timeout_policy.ts";
+
+/** Call the production MCP wirer with an empty environment by default, so the
+ * host running this suite cannot opt fixtures into an experiment. */
+async function wireProviderMcp(
+  root: string,
+  agents: readonly string[],
+  server: McpServerSpec = DISCERN_MCP_SERVER,
+  config: DiscernConfig = parseConfigOrThrow(""),
+  env: EnvReader = fakeEnv(),
+): Promise<McpWireResult> {
+  return await wireProviderMcpFromRegistry(root, agents, server, config, env);
+}
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
   for (const name of AGENT_NAMES) {
@@ -283,6 +301,73 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
     assertEquals(second.written, []);
     assertEquals(second.firstInstall, false);
   });
+});
+
+Deno.test("the MCP preload experiment projects only configured providers' shared-entry fields", async () => {
+  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  const cases = [
+    {
+      agents: ["claude_code"],
+      file: ".mcp.json",
+      alwaysLoad: true,
+      deferTools: undefined,
+    },
+    {
+      agents: ["copilot"],
+      file: ".mcp.json",
+      alwaysLoad: undefined,
+      deferTools: "never",
+    },
+    {
+      agents: ["claude_code", "copilot"],
+      file: ".mcp.json",
+      alwaysLoad: true,
+      deferTools: "never",
+    },
+    {
+      agents: ["copilot", "claude_code"],
+      file: ".mcp.json",
+      alwaysLoad: true,
+      deferTools: "never",
+    },
+    {
+      agents: ["cursor"],
+      file: ".cursor/mcp.json",
+      alwaysLoad: undefined,
+      deferTools: undefined,
+    },
+  ] as const;
+
+  for (const testCase of cases) {
+    await withTempDir(async (dir) => {
+      const first = await wireProviderMcp(
+        dir,
+        testCase.agents,
+        DISCERN_MCP_SERVER,
+        parseConfigOrThrow(""),
+        fakeEnv({ [variable]: "1" }),
+      );
+      assert(first.written.includes(testCase.file));
+      let entry = JSON.parse(
+        await Deno.readTextFile(join(dir, testCase.file)),
+      ).mcpServers.discern;
+      assertEquals(entry.alwaysLoad, testCase.alwaysLoad);
+      assertEquals(entry.deferTools, testCase.deferTools);
+
+      await wireProviderMcp(
+        dir,
+        testCase.agents,
+        DISCERN_MCP_SERVER,
+        parseConfigOrThrow(""),
+        fakeEnv({ [variable]: "true" }),
+      );
+      entry = JSON.parse(
+        await Deno.readTextFile(join(dir, testCase.file)),
+      ).mcpServers.discern;
+      assertEquals(entry.alwaysLoad, undefined);
+      assertEquals(entry.deferTools, undefined);
+    });
+  }
 });
 
 Deno.test("wireProviderMcp MERGES into an existing .mcp.json, preserving other servers", async () => {
@@ -903,7 +988,10 @@ function registryWiredProbes(): WiredWriterProbe[] {
         name: agent,
         configFile: mcp.configFile,
         register: (root) =>
-          mcp.register(root, DISCERN_MCP_SERVER, parseConfigOrThrow("")),
+          mcp.register(root, DISCERN_MCP_SERVER, parseConfigOrThrow(""), {
+            agents: [agent],
+            experimentalMcpPreload: false,
+          }),
       });
     }
   }

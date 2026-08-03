@@ -35,6 +35,7 @@ import type { AgentName } from "../src/lib/config.ts";
 import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
+import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { REAL_TEMPLATES } from "./helpers.ts";
 
 /**
@@ -173,6 +174,12 @@ export async function engineEnv(
     TEMP: tmp,
     [DESK_SESSION_ENV]: "",
     [TEST_RUN_SLOT_ENV]: "",
+    ...Object.fromEntries(
+      Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).map((name) => [
+        name,
+        "",
+      ]),
+    ),
     ...GIT_ISOLATION,
     ...extra,
   };

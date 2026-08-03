@@ -67,6 +67,12 @@ Deno.test("an empty config validates to a fully-defaulted object", () => {
   assertEquals(c.coupling.in_gate, true);
 });
 
+Deno.test("an [mcp] table is not part of project config", () => {
+  const result = parseConfig("[mcp]\nalways_load = true\n");
+  assertEquals(result.config, undefined);
+  assert(result.issues.some((issue) => issue.path === "mcp"));
+});
+
 Deno.test("projectDisplayName: [project].name, else the slug verbatim, else a neutral stand-in", () => {
   const named = parseConfigOrThrow(
     '[project]\nname = "ListOfListsOfLists"\nslug = "listoflistsoflists"\n',

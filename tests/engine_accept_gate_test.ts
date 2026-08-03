@@ -37,6 +37,7 @@ import {
   recordGateOutcome,
 } from "../src/engine/gate/receipt.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
+import type { Receipt } from "../src/shared/result_schemas.ts";
 
 /** Run the real admin-state preflight and expose its proven write capability to receipt tests. */
 async function receiptAuthority(
@@ -159,6 +160,40 @@ Deno.test("receipt: a green+clean finish stamps HEAD, and gateReceiptHonored con
     assertEquals(await gateReceiptHonored(dir), false); // nothing stamped yet
     assertEquals((await recordGreenNow(dir)).status, "recorded");
     assertEquals(await gateReceiptHonored(dir), true);
+  });
+});
+
+Deno.test("receipt: a pre-correction marker drops runtime telemetry", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const pin = await pinValidatedTree(dir);
+    assert(pin.head !== undefined);
+    const receipt: Receipt = {
+      branch: "agent/legacy-marker",
+      trunk: "main",
+      head: pin.head.slice(0, 12),
+      files_total: 1,
+      insertions: 1,
+      deletions: 0,
+      line: "Receipt for agent/legacy-marker",
+      markdown: "### Receipt for agent/legacy-marker",
+    };
+    const preCorrection = {
+      ...receipt,
+      waited_ms: 70_000,
+      orbit_delay: 42,
+    } as Receipt & { waited_ms: number; orbit_delay: number };
+
+    const recorded = await recordGateOutcome(
+      dir,
+      await receiptAuthority(dir),
+      true,
+      pin,
+      preCorrection,
+    );
+    assertEquals(recorded.status, "recorded");
+    assertEquals((await inspectGateReceipt(dir)).receipt_data, receipt);
   });
 });
 

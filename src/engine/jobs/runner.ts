@@ -23,7 +23,7 @@ import { spawnJob, type SpawnOptions } from "./command.ts";
 import { trackRun } from "./interrupt.ts";
 
 /**
- * Lifecycle events for one scheduler run. The live `done` TTY table observes
+ * Lifecycle events for one scheduler run. A live gate-job TTY table can observe
  * these events; scheduling and the returned results remain the authority.
  */
 export interface JobRunObserver {
@@ -61,7 +61,7 @@ export interface RunOptions {
   /**
    * Suppress runner output — banners AND job output — when another projection
    * owns the surface. Under `--json`, the result envelope is the entire program
-   * output (ADR 0030); the live `done` table observes lifecycle events instead.
+   * output (ADR 0030); a live gate table observes lifecycle events instead.
    * Jobs still run and a genuine failure's output remains captured for its
    * diagnostic. Forces buffered capture so `spawnJob` cannot stream-write either.
    */

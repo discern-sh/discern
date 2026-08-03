@@ -59,12 +59,12 @@ import {
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
 import { buildGateReceipt } from "./receipt_render.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
+import { renderDoneTtyReceiptPanel, renderDoneTtySummary } from "./done_tty.ts";
 import {
-  createDoneTtyProgress,
-  renderDoneTtyReceiptPanel,
-  renderDoneTtySummary,
-  renderDoneTtyTable,
-} from "./done_tty.ts";
+  createGateTtyProgress,
+  gateTtyPresentation,
+  renderGateTtyTable,
+} from "./gate_tty.ts";
 import { cmdsInStage } from "./stages.ts";
 import { buildStandardPlan, standardJobLabel } from "./standard_plan.ts";
 import {
@@ -101,7 +101,6 @@ import { diagnosticOutputFields } from "./diagnostic_output.ts";
 import { classifyScopes, PREVIEWABLE_MARKER } from "../scopes/scopes.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import { colorEnabled, makeOut, type Out, outSink } from "../output.ts";
-import { terminalWidth } from "../../lib/text.ts";
 import { assertMainMerged, detectSilentDivergence } from "../worktree/git.ts";
 import {
   type Diagnostic,
@@ -437,7 +436,7 @@ async function runGate(
     quietHumanRun: compactTty,
   });
   const progress = compactTty && presentation.liveWidth !== undefined
-    ? createDoneTtyProgress(out.raw, {
+    ? createGateTtyProgress(out.raw, {
       width: presentation.liveWidth,
       color: out.color,
     })
@@ -446,7 +445,7 @@ async function runGate(
     runOpts.observer = progress;
     const plannedChanged = await classifyScopes(root, cfg);
     progress.start(
-      buildGatePlan(cfg, plannedChanged, dryRunStandardJobs(cfg)),
+      buildGatePlan(cfg, plannedChanged, dryRunStandardJobs(cfg)).groups,
     );
   }
   const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
@@ -812,7 +811,7 @@ async function runGate(
   const changed = await classifyScopes(root, cfg);
   const sgGroup = scopeGatesGroup(planScopeGates(cfg, changed));
   const plan = composeGatePlan(stageGroups, sgGroup, changed);
-  progress?.replacePlan(plan);
+  progress?.replaceGroups(plan.groups);
 
   // 4. Scope gates (only when the stage groups passed).
   if (failedStage === null && sgGroup !== undefined) {
@@ -942,7 +941,6 @@ async function runGate(
       result.steps ?? [],
       standardsData,
       standardsLimits,
-      result.waitedMs,
     )
     : undefined;
   // Record the measurement receipt (ADR 0112, extended by ADR 0133): a green
@@ -1281,6 +1279,7 @@ function printSuccessTail(
           : renderDoneTtySummary(result.steps ?? [], receipt, options)
       }\n`,
     );
+    renderSlotWait(out, result.waitedMs);
     return;
   }
 
@@ -1288,7 +1287,7 @@ function printSuccessTail(
     out.group("gate-results");
     out.raw(
       `${
-        renderDoneTtyTable(result.steps ?? [], {
+        renderGateTtyTable(result.steps ?? [], {
           width: ttyWidth,
           color: out.color,
         })
@@ -1314,9 +1313,8 @@ function printSuccessTail(
   if (receipt?.markdown !== undefined) {
     out.group("receipt");
     out.raw(`${dimBlock(receipt.markdown, outSink(out).dim)}\n`);
-  } else {
-    renderSlotWait(out, result.waitedMs);
   }
+  renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
   for (const hint of hints) {
@@ -1434,19 +1432,6 @@ function dryRunStandardJobs(
   return planStandardJobsFromConfig(buildStandardPlan(cfg).standards);
 }
 
-/** CI and `--plain` request a static transcript even when stdout is a TTY. */
-function staticOutputRequested(plain: boolean): boolean {
-  if (plain) {
-    return true;
-  }
-  try {
-    const marker = Deno.env.get("CI")?.trim().toLowerCase();
-    return marker !== undefined && marker !== "" && marker !== "false";
-  } catch {
-    return false;
-  }
-}
-
 /** Run `done`. Returns a process exit code. */
 export async function runFinish(
   root: string,
@@ -1479,12 +1464,10 @@ export async function runFinish(
     }
     return 1;
   }
-  const tty = !opts.json && Deno.stdout.isTerminal();
-  const ttyWidth = tty ? terminalWidth() : undefined;
-  const liveWidth = ttyWidth !== undefined &&
-      !staticOutputRequested(opts.plain ?? false)
-    ? ttyWidth
-    : undefined;
+  const { ttyWidth, liveWidth } = gateTtyPresentation(
+    opts.json,
+    opts.plain ?? false,
+  );
   const gateRun = (): ReturnType<typeof runGate> =>
     runGate(root, opts.json, undefined, {
       ...(liveWidth !== undefined ? { liveWidth } : {}),

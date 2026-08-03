@@ -35,6 +35,7 @@ import {
   addWorktree,
   DENO_JSON,
   engineEnv,
+  git,
   gitInit,
   MAIN_TS,
   runAgent,
@@ -496,6 +497,17 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
       ].join("\n"),
     );
     await gitInit(dir);
+    await git(dir, "switch", "-c", "agent/wait-display");
+    await Deno.writeTextFile(join(dir, "feature.txt"), "feature\n");
+    await git(dir, "add", "feature.txt");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "Add feature",
+      "--no-gpg-sign",
+    );
     const release = await holdSlot(dir);
     const child = new Deno.Command("deno", {
       args: [
@@ -553,6 +565,13 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
         ),
         false,
         "slot wait stays outside the run and step timings",
+      );
+      assertEquals(
+        output.split("\n").some((line) =>
+          line.startsWith("Receipt:") && line.includes("waited")
+        ),
+        false,
+        "the proof line excludes slot telemetry",
       );
     } finally {
       release();

@@ -24,6 +24,7 @@ import {
   MCP_LONG_TOOL_CALLS_FLAG,
   MCP_STRICT_TOOL_CALLS_FLAG,
 } from "../src/shared/mcp_timeout_policy.ts";
+import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 
 Deno.test("Gemini: the seed (hooksConfig.enabled + SessionStart) and the MCP register() compose in one .gemini/settings.json", async () => {
   await withTempDir(async (dir) => {
@@ -335,6 +336,28 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body",
     const agents = await Deno.readTextFile(join(dir, "AGENTS.md"));
     assertStringIncludes(agents, "# Working in Engine Test");
     assertStringIncludes(agents, "discern_status");
+  });
+});
+
+Deno.test("refresh projects the environment-only MCP preload experiment and removes it when disabled", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code", "copilot"] });
+    const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+    const enabled = await runAgent(dir, ["refresh", "--json"], {
+      env: { [variable]: "1" },
+    });
+    assertEquals(enabled.code, 0, enabled.output);
+    let mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.alwaysLoad, true);
+    assertEquals(mcp.mcpServers.discern.deferTools, "never");
+
+    const disabled = await runAgent(dir, ["refresh", "--json"], {
+      env: { [variable]: "" },
+    });
+    assertEquals(disabled.code, 0, disabled.output);
+    mcp = JSON.parse(await Deno.readTextFile(join(dir, ".mcp.json")));
+    assertEquals(mcp.mcpServers.discern.alwaysLoad, undefined);
+    assertEquals(mcp.mcpServers.discern.deferTools, undefined);
   });
 });
 

@@ -23,6 +23,8 @@ import {
 } from "../src/shared/result_schemas.ts";
 import {
   buildInstructions,
+  MCP_CORE_LIFECYCLE,
+  MCP_INSTRUCTIONS_BYTE_LIMIT,
   mcpStartHint,
   runTool,
   TOOLS,
@@ -2744,6 +2746,21 @@ Deno.test("generic worktree guidance stays within agent-observable state", () =>
       );
     }
   }
+  for (
+    const [name, text] of Object.entries({
+      "worktree-first operating policy": worktreePolicy.statement,
+      "MCP server instructions": buildInstructions(),
+    })
+  ) {
+    assert(
+      /own file operations/i.test(text),
+      `${name} must distinguish the agent's file operations from discern's re-aimed tools: ${text}`,
+    );
+    assert(
+      /otherwise edits[^.]*trunk[^.]*gate[^.]*worktree/i.test(text),
+      `${name} must spell out the trunk/worktree divergence: ${text}`,
+    );
+  }
 });
 
 /** The shape of one tool as `tools/list` advertises it (the fields this suite reads). */
@@ -2944,13 +2961,13 @@ Deno.test("discern mcp: tools/list advertises tools in workflow priority order",
       [
         "discern_status",
         "discern_start",
-        "discern_done",
         "discern_prepare",
         "discern_test",
+        "discern_done",
         "discern_update",
         "discern_await",
-        "discern_standards",
         "discern_accept",
+        "discern_standards",
         "discern_impact",
         "discern_coupling",
         "discern_patterns",
@@ -2976,7 +2993,7 @@ Deno.test("discern mcp: await bounds follow the server's configured transport pr
     assert(tool !== undefined);
     assertStringIncludes(
       tool.description,
-      "do not surface progress updates until it returns",
+      "Do not surface progress updates until it returns",
     );
     assertStringIncludes(
       tool.description,
@@ -3099,26 +3116,59 @@ Deno.test("discern mcp: discern_status metadata is search-shaped for orientation
       status.description.includes("discern_refresh"),
       `discern_status description should name the MCP repair tool; got:\n${status.description}`,
     );
-
     assertEquals(await mcp.close(), 0);
   });
 });
 
-Deno.test("discern mcp: initialization instructions prioritize discern_status", () => {
-  const instructions = buildInstructions();
-  const statusAt = instructions.indexOf("discern_status");
-  assert(statusAt >= 0, instructions);
-  assert(
-    statusAt < 512,
-    `discern_status must appear in the first 512 chars; found at ${statusAt}`,
-  );
+/** Report startup-instruction violations for schema-deferred MCP clients. */
+function instructionContractFailures(instructions: string): string[] {
+  const failures: string[] = [];
+  const bytes = ENCODER.encode(instructions).length;
+  if (bytes >= MCP_INSTRUCTIONS_BYTE_LIMIT) {
+    failures.push(`${bytes} bytes is not below ${MCP_INSTRUCTIONS_BYTE_LIMIT}`);
+  }
+  const seen = new Set<string>();
+  const distinctTools = [...instructions.matchAll(/\bdiscern_[a-z_]+\b/g)]
+    .map((match) => match[0])
+    .filter((tool) => {
+      if (seen.has(tool)) {
+        return false;
+      }
+      seen.add(tool);
+      return true;
+    });
+  for (const [index, tool] of MCP_CORE_LIFECYCLE.entries()) {
+    const actual = distinctTools[index];
+    if (actual !== tool) {
+      failures.push(
+        `${tool} should be lifecycle tool ${index + 1}; found ${
+          actual ?? "nothing"
+        }`,
+      );
+    }
+  }
+  return failures;
+}
 
-  const firstTool = [...instructions.matchAll(/\bdiscern_[a-z_]+\b/g)][0];
-  assert(firstTool !== undefined, instructions);
-  assertEquals(
-    firstTool[0],
-    "discern_status",
-    "the first tool named in MCP instructions should be the orientation tool",
+Deno.test("discern mcp: initialization instructions fit 2KB with the core lifecycle first", () => {
+  assertEquals(instructionContractFailures(buildInstructions()), []);
+});
+
+Deno.test("the MCP instruction detector rejects future over-budget and misordered siblings", () => {
+  const ordered = MCP_CORE_LIFECYCLE.join(" ");
+  assertEquals(instructionContractFailures(ordered), []);
+  assert(
+    instructionContractFailures(`${ordered}${"x".repeat(2048)}`).some((f) =>
+      f.includes("not below")
+    ),
+  );
+  assert(
+    instructionContractFailures(
+      ordered.replace(
+        "discern_prepare discern_test",
+        "discern_test discern_prepare",
+      ),
+    ).some((f) => f.includes("discern_test")),
   );
 });
 
@@ -3406,12 +3456,9 @@ Deno.test("discern mcp: the server advertises a non-empty, MCP-first instruction
     // Clients may load schemas only on demand, so the instructions must also
     // advertise fleet waiting; the discern_await schema carries its mechanics.
     assert(instructions.includes("discern_await"), instructions);
+    assert(/explicit[^.]{0,80}consent/i.test(instructions), instructions);
     assert(
-      instructions.includes("user explicitly asks"),
-      instructions,
-    );
-    assert(
-      instructions.includes("Do not treat a green gate run alone"),
+      /green gate[^.]{0,40}not permission/i.test(instructions),
       instructions,
     );
     // Diagnostics and standards are always present (every subsystem is core).

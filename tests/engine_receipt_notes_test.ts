@@ -117,14 +117,18 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
   assertEquals(envelope.signatures, []);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
   const payload = ProofNotePayloadSchema.parse(JSON.parse(payloadText));
+  const receipt = ReceiptSchema.parse({
+    ...payload.proof,
+    ...payload.presentation,
+  });
   assertEquals(
     payloadText,
-    canonicalProofNotePayload(payload.proof, commit),
+    canonicalProofNotePayload(receipt, commit),
   );
   assertEquals(payload.subject.commit, commit);
   assertEquals(payload.issuer, undefined);
   assertEquals(payload.brief, undefined);
-  return payload.proof;
+  return receipt;
 }
 
 /** Read author and committer identity fields from the receipt-notes ref. */
@@ -644,7 +648,6 @@ function syntheticReceipt(commit: string, branch: string): Receipt {
     files_total: 1,
     insertions: 1,
     deletions: 0,
-    waited_ms: 70_000,
     line: `Receipt for ${branch}`,
     markdown: `### Receipt for ${branch}`,
   };
@@ -662,6 +665,34 @@ function encodedProofPayload(
     ? encoded
     : encoded.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
+
+Deno.test("durable proof projection excludes live receipt telemetry", () => {
+  const commit = "a".repeat(40);
+  const receipt = {
+    ...syntheticReceipt(commit, "agent/orbit"),
+    waited_ms: 70_000,
+    orbit_delay: 42,
+  } as Receipt & { waited_ms: number; orbit_delay: number };
+  const payload = ProofNotePayloadSchema.parse(
+    JSON.parse(canonicalProofNotePayload(receipt, commit)),
+  );
+
+  assertEquals(payload, {
+    subject: { commit },
+    proof: {
+      branch: "agent/orbit",
+      trunk: "main",
+      head: commit.slice(0, 12),
+      files_total: 1,
+      insertions: 1,
+      deletions: 0,
+    },
+    presentation: {
+      line: "Receipt for agent/orbit",
+      markdown: "### Receipt for agent/orbit",
+    },
+  });
+});
 
 Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry", async () => {
   await withTempDir(async (dir) => {
@@ -846,8 +877,9 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
 
-    // A bare 8-field note — what every pre-format binary wrote — still reads,
-    // as an unsigned record with no issuer.
+    // A bare pre-format note still reads as an unsigned record with no issuer.
+    // The compatibility reader drops runtime telemetry added before the signed
+    // claim and presentation were separated.
     await git(
       dir,
       "commit",
@@ -865,7 +897,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "--ref=discern",
       "add",
       "-m",
-      `${JSON.stringify(legacyReceipt)}\n`,
+      `${JSON.stringify({ ...legacyReceipt, waited_ms: 70_000 })}\n`,
       legacyCommit,
     );
     assertEquals(await readReceiptNoteAt(dir, legacyCommit), {
@@ -875,8 +907,9 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       receipt: legacyReceipt,
     });
 
-    // A synthetic FUTURE same-major note: unknown additive fields in the
-    // envelope, signature entries, and decoded payload pass the tolerant reader.
+    // A pre-split same-major envelope still reads. Unknown additive fields in
+    // the envelope, signature entries, and decoded payload pass the tolerant
+    // reader, while old runtime telemetry is dropped from the live receipt.
     await git(
       dir,
       "commit",
@@ -890,7 +923,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     const futureReceipt = syntheticReceipt(futureCommit, "agent/future");
     const futurePayload = encodedProofPayload({
       subject: { commit: futureCommit, tree: "0".repeat(40) },
-      proof: { ...futureReceipt, verdict: "green" },
+      proof: { ...futureReceipt, waited_ms: 70_000, verdict: "green" },
       issuer: { name: "Future Owner", role: "maintainer" },
       brief: "brief-0042",
       // Two astral characters guarantee a `+`/`/` sextet at every Base64

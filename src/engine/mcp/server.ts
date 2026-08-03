@@ -309,16 +309,24 @@ export function strictInput(shape: z.ZodRawShape): z.ZodType {
   return z.strictObject(shape);
 }
 
-const TOOL_PRIORITY = [
+/** The exclusive UTF-8 byte limit for Claude Code's server instructions. */
+export const MCP_INSTRUCTIONS_BYTE_LIMIT = 2 * 1024;
+
+/** The startup-visible lifecycle, in the order an agent should follow it. */
+export const MCP_CORE_LIFECYCLE = [
   "discern_status",
   "discern_start",
-  "discern_done",
   "discern_prepare",
   "discern_test",
+  "discern_done",
   "discern_update",
   "discern_await",
-  "discern_standards",
   "discern_accept",
+] as const;
+
+const TOOL_PRIORITY = [
+  ...MCP_CORE_LIFECYCLE,
+  "discern_standards",
   "discern_impact",
   "discern_coupling",
   "discern_patterns",
@@ -1956,31 +1964,18 @@ function registerResources(
  */
 export function buildInstructions(): string {
   const lines = [
-    "discern supplies this project's quality gate (its full quality check) and " +
-    "worktree workflow (a separate checkout and branch for each effort), and these tools are the primary " +
-    "surface for working in it — prefer them over shelling out to the `discern` " +
-    "CLI; each returns a structured result you can read directly.",
+    "discern provides the gate and isolated worktrees. Use its MCP tools and " +
+    "read their results.",
     "",
-    "- Orient at the start of a session with discern_status: the branch's " +
-    "situation, what the gate would fire, and advisory next steps.",
-    "- If agent files or materialized skills are missing/stale, call " +
-    "discern_refresh.",
-    "- Learn how discern itself works (the gate, discern.toml, worktrees) with " +
-    "discern_docs.",
-    "- Verify the install with discern_doctor when something looks misconfigured " +
-    "(bad config, a command not on PATH, a stale schema).",
-    "- Read THIS project's map — its agent-maintained documentation tree — with discern_map.",
-    "- Ask discern_improvement for the ranked next action, health audit, and open reviews.",
-    "- Ask discern_patterns how the practice is going over time: findings " +
-    "from the local logbook of discern's own runs — behaviour loops, gate " +
-    "fit, funnel flow, and each standard's trajectory. A read-only advisory.",
-    "- Use discern_standards for the on-demand pass: deferred standards, and " +
-    "capturing a gain with pin.",
-    "- When the branch is behind `{{main_branch}}`, bring `{{main_branch}}` " +
-    "in with discern_update.",
+    "- Start with discern_status for state and next step.",
     ...operatingPolicyStatementsFor("mcp-instructions").map(
       (statement) => `- ${statement}`,
     ),
+    "",
+    "- Use discern_refresh for stale files/skills, discern_map for the map, " +
+    "discern_docs for the manual, and discern_doctor for install faults.",
+    "- Use discern_standards for deferred measures, discern_patterns for " +
+    "history, and discern_improvement for next work.",
   ];
   return lines.join("\n");
 }
