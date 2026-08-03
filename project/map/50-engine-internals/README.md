@@ -22,12 +22,14 @@ Color is resolved **once** at the CLI entry point from the inputs promised by th
 
 Terminal art is a decorative projection of the canonical text mark. Its pure renderers return ANSI-free strings without a trailing newline; the caller owns color, placement, and the terminal check. The fresh setup welcome uses the split variant only on its styled TTY path. Pipes, `--no-color`, JSON, errors, and help keep their plain output, and no parser or state cue depends on the drawing ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md), [ADR 0088](../_adr/0088-fresh-setup-welcome-decorates-only-on-tty.md)).
 
-| Concern                             | Authority                                                                                                                              |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Name, Unicode mark, and text lockup | [`brand.ts`](../../../src/shared/brand.ts)                                                                                             |
-| Pure terminal-art renderers         | [`brand_art.ts`](../../../src/shared/brand_art.ts)                                                                                     |
-| Styled first-contact composition    | [`setup_welcome.ts`](../../../src/commands/setup_welcome.ts)                                                                           |
-| Exact designs and shared contract   | [`brand_art_test.ts`](../../../tests/brand_art_test.ts), [`engine_setup_welcome_test.ts`](../../../tests/engine_setup_welcome_test.ts) |
+| Concern                             | Authority                                                                                                            |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Name, Unicode mark, and text lockup | [`brand.ts`](../../../src/shared/brand.ts)                                                                           |
+| Pure terminal-art renderers         | [`brand_art.ts`](../../../src/shared/brand_art.ts)                                                                   |
+| Styled first-contact composition    | [`setup_welcome.ts`](../../../src/commands/setup_welcome.ts)                                                         |
+| Maintainer gallery task             | [`art.ts`](../../../scripts/art.ts), [`deno.json`](../../../deno.json)                                               |
+| Exact designs and shared contract   | [`brand_art_test.ts`](../../../tests/brand_art_test.ts), [`art_gallery_test.ts`](../../../tests/art_gallery_test.ts) |
+| Styled-welcome contract             | [`engine_setup_welcome_test.ts`](../../../tests/engine_setup_welcome_test.ts)                                        |
 
 Scope globs are matched in-memory by [`scopes/glob.ts`](../../../src/engine/scopes/glob.ts), so a glob in a config value does not expand against the filesystem the way an unquoted shell glob would. A project script is an executable with normal shell globbing. This is internal plumbing: the built-in verbs run it, and you rarely read it directly.
 

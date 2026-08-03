@@ -50,6 +50,12 @@ Don't hand-edit the agent files: `AGENTS.md`, `CLAUDE.md`, and `GEMINI.md` are c
 - To discard an abandoned worktree, run `discern worktree drop <id>` from the main checkout — it refuses without `--force` when commits not on the trunk or uncommitted changes would be lost.
 - Drive the gate yourself any time: `discern done` (the full gate, also `deno task gate`), `discern prepare` (fast: fixers + checks), and `discern doctor` (health check). In this repo the dev wrapper runs them against the current checkout's own engine.
 
+## Previewing terminal art
+
+Run `deno task art` from any checkout to print every registered terminal-art variant in stable order. The gallery uses plain text without terminal color codes, so its output remains copyable in a terminal or pipe.
+
+This is a maintainer helper under [`scripts/art.ts`](../../../scripts/art.ts), not a discern CLI verb, gate job, template, or compiled-binary surface. The variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) is its single source: registering a new design enrolls it in the gallery automatically.
+
 ## Inspecting the MCP server
 
 `deno task inspect-mcp` opens the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) against discern's own MCP server (`discern mcp`, run from source). Use it to inspect annotations, input/output schemas, and resources while editing [`src/engine/mcp/server.ts`](../../../src/engine/mcp/server.ts). The default opens the browser UI; append `--cli --method tools/list` (or `tools/call --tool-name … --tool-arg k=v`) for a one-shot terminal call. Full usage is in the script header, [`scripts/inspect_mcp.ts`](../../../scripts/inspect_mcp.ts).
