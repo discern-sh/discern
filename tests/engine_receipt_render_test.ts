@@ -13,12 +13,13 @@ import {
   renderReceiptLine,
   renderReceiptMarkdown,
 } from "../src/engine/gate/receipt_render.ts";
+import { renderDoneTtySummary } from "../src/engine/gate/done_tty.ts";
 import {
-  createDoneTtyProgress,
-  renderDoneTtyProgressTable,
-  renderDoneTtySummary,
-  renderDoneTtyTable,
-} from "../src/engine/gate/done_tty.ts";
+  createGateTtyProgress,
+  renderGateTtyProgressTable,
+  renderGateTtyStatus,
+  renderGateTtyTable,
+} from "../src/engine/gate/gate_tty.ts";
 import { dimBlock, type StepResult } from "../src/shared/result.ts";
 import { makeOut, outSink } from "../src/engine/output.ts";
 import { displayWidth } from "../src/lib/text.ts";
@@ -35,6 +36,10 @@ type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
 const SGR = new RegExp(
   `${String.fromCharCode(27)}\\[[0-9;]*m`,
   "u",
+);
+const SGR_GLOBAL = new RegExp(
+  `${String.fromCharCode(27)}\\[[0-9;]*m`,
+  "gu",
 );
 
 const FACTS: ReceiptFacts = {
@@ -312,8 +317,8 @@ Deno.test("done TTY render: color paints success and the receipt without widenin
   }
 });
 
-Deno.test("done TTY render: a narrow terminal stacks commands below each result", () => {
-  const rendered = renderDoneTtyTable(STEPS, {
+Deno.test("gate TTY render: a narrow terminal stacks commands below each result", () => {
+  const rendered = renderGateTtyTable(STEPS, {
     width: 40,
     color: false,
   });
@@ -323,9 +328,9 @@ Deno.test("done TTY render: a narrow terminal stacks commands below each result"
   assertEquals(rendered.includes("\x1b["), false);
 });
 
-Deno.test("done TTY progress: planned rows move from pending through running to settled", () => {
-  const initial = renderDoneTtyProgressTable(
-    PLAN,
+Deno.test("gate TTY progress: planned rows move from pending through running to settled", () => {
+  const initial = renderGateTtyProgressTable(
+    PLAN.groups,
     new Set(),
     new Map(),
     { width: 80, color: false },
@@ -345,8 +350,8 @@ Deno.test("done TTY progress: planned rows move from pending through running to 
     outputLines: 0,
     errorLikeLines: 0,
   };
-  const updated = renderDoneTtyProgressTable(
-    PLAN,
+  const updated = renderGateTtyProgressTable(
+    PLAN.groups,
     new Set(["lint"]),
     new Map([["format", result]]),
     { width: 80, color: false },
@@ -357,13 +362,13 @@ Deno.test("done TTY progress: planned rows move from pending through running to 
   assertStringIncludes(updated, "pending");
 });
 
-Deno.test("done TTY progress: controller redraws in place and leaves no colour SGR in no-colour mode", async () => {
+Deno.test("gate TTY progress: controller redraws in place and leaves no color SGR in no-color mode", async () => {
   const writes: string[] = [];
-  const progress = createDoneTtyProgress(
+  const progress = createGateTtyProgress(
     (value) => writes.push(value),
     { width: 80, color: false },
   );
-  progress.start(PLAN);
+  progress.start(PLAN.groups);
   assertStringIncludes(writes[0] ?? "", "format");
   assertStringIncludes(writes[0] ?? "", "pending");
 
@@ -386,6 +391,61 @@ Deno.test("done TTY progress: controller redraws in place and leaves no colour S
 
   progress.complete(STEPS);
   assertStringIncludes(writes[writes.length - 1] ?? "", "scope unchanged");
+});
+
+Deno.test("gate TTY render: color changes styling only and every line stays within budget", () => {
+  const outcomes: StepResult[] = [
+    ...STEPS,
+    {
+      step: {
+        kind: "job",
+        label: "types",
+        disposition: "run",
+        note: "deno check a/long/path/to/the/project/entrypoint.ts",
+        group: "Check",
+      },
+      outcome: "failed",
+      durationS: 0.25,
+    },
+    {
+      step: {
+        kind: "job",
+        label: "lint#2",
+        disposition: "run",
+        note: "deno lint",
+        group: "Check",
+      },
+      outcome: "cancelled",
+      durationS: 0.1,
+    },
+  ];
+  const options = { width: 52, color: false };
+  const plain = `${renderGateTtyTable(outcomes, options)}\n${
+    renderGateTtyStatus(
+      "Fix and check stages passed. Build and test stages did not run.",
+      "ok",
+      options,
+    )
+  }`;
+  const colored = `${
+    renderGateTtyTable(outcomes, { ...options, color: true })
+  }\n${
+    renderGateTtyStatus(
+      "Fix and check stages passed. Build and test stages did not run.",
+      "ok",
+      { ...options, color: true },
+    )
+  }`;
+  const stripSgr = (value: string): string => value.replaceAll(SGR_GLOBAL, "");
+  assertEquals(stripSgr(colored), plain);
+  assertStringIncludes(colored, "\x1b[31mfailed");
+  assertStringIncludes(colored, "\x1b[33mcancelled");
+  for (const line of colored.split("\n")) {
+    assert(
+      displayWidth(line) <= options.width,
+      `gate TTY line is ${displayWidth(line)} columns: ${line}`,
+    );
+  }
 });
 
 Deno.test("receipt line: fixed facts pin the exact sentence", () => {

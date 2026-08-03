@@ -17,13 +17,13 @@ _A clean green gate records what ran and identifies the exact branch state ready
 - **The line** (`data.receipt.line`) — one sentence naming the branch, validated commit, diffstat, standards state, and page command. Agents quote it verbatim after their account. `status` stores it as `data.gate_receipt.receipt_line`; `accept` derives its line from it and appends the recorded consent source.
 - **The page** (`data.receipt.markdown`) — standards, declared jobs and scope gates, then the diff command. `status --verbose` prints an honored receipt. Git owns commit and per-file lists; `Inspect:` names the command.
 
-On a TTY, `done` shows the plan immediately as a `JOB` / `COMMAND` / `RESULT` table. Rows start `pending`, become `running`, then show outcomes and durations. The highlighted line follows. `[gate].stream = true` streams output. `--plain` keeps it static. Pipes get the page. `--no-color` removes styling.
+`done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its receipt. `prepare` reports omitted build and test stages without review evidence. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` receipt page. `--no-color` removes styling.
 
 Capped-run waits remain live `waited_ms` telemetry; the receipt line, page, and durable proof omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
 
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
-A qualifying receipt may carry one `Logbook:` advisory from `hints[]` after a detector clears its unsolicited-presentation margin. `discern patterns` holds the evidence and next step. The advisory does not change the stored receipt, `ok`, or acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+A qualifying receipt may carry one `Logbook:` advisory from `hints[]`. `discern patterns` holds its evidence and next step. The advisory changes neither the stored receipt, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 ## When a receipt is recorded
 
@@ -67,8 +67,10 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 | Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
 | Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
-| `done` TTY projection          | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
-| Gate integration               | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
+| Shared gate-job TTY projection | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)             |
+| `done` receipt panel           | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
+| `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |
+| `prepare` integration          | [`prepare.ts`](../../../src/engine/gate/prepare.ts)               |
 | Landing validation             | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)       |
 
 ## Current state & gotchas
