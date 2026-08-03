@@ -5,13 +5,6 @@ import {
   DISCERN_ART_VARIANTS,
   type DiscernArtStyle,
   renderDiscernArt,
-  renderDiscernCompact,
-  renderDiscernMonument,
-  renderDiscernResolve,
-  renderDiscernSift,
-  renderDiscernSignal,
-  renderDiscernSplit,
-  renderDiscernStamp,
 } from "../src/shared/brand_art.ts";
 
 const EXPECTED: Readonly<Record<DiscernArtStyle, string>> = {
@@ -69,22 +62,58 @@ const EXPECTED: Readonly<Record<DiscernArtStyle, string>> = {
     "    /_|##\\",
     "    discern",
   ].join("\n"),
-};
-
-const DIRECT_RENDERERS: Readonly<Record<DiscernArtStyle, () => string>> = {
-  compact: renderDiscernCompact,
-  split: renderDiscernSplit,
-  signal: renderDiscernSignal,
-  stamp: renderDiscernStamp,
-  monument: renderDiscernMonument,
-  resolve: renderDiscernResolve,
-  sift: renderDiscernSift,
+  insertion: [
+    "n r e c s i d",
+    "d n r e c s i",
+    "d i n r e c s",
+    "d i s n r e c",
+    "d i s c n r e",
+    "d i s c e n r",
+    "d i s c e r n",
+    "  ◮ discern",
+  ].join("\n"),
+  interleave: [
+    "d       s       e       n",
+    "    i       c       r",
+    "d   i   s   c   e   r   n",
+    "        ◮ discern",
+  ].join("\n"),
+  compress: [
+    "d   i   s   c   e   r   n",
+    " d  i  s  c  e  r  n",
+    "  d i s c e r n",
+    "   discern",
+    "  ◮ discern",
+  ].join("\n"),
+  refine: [
+    "   /\\          /\\",
+    "  /  \\   ->   /|#\\   ->   ◮ discern",
+    " /____\\      /_|##\\",
+  ].join("\n"),
+  separate: [
+    ". # . # . # . #",
+    " \\ \\ \\ \\ / / / /",
+    "   \\ \\ \\|/ / /",
+    "      \\|/",
+    "       /\\",
+    "      /|#\\",
+    "     /_|##\\",
+    ". . . .     # # # #",
+    "     ◮ discern",
+  ].join("\n"),
+  focus: [
+    "???c???",
+    "??sce??",
+    "?iscer?",
+    "discern",
+    "◮ discern",
+  ].join("\n"),
 };
 
 Deno.test("terminal-art functions preserve every curated design", () => {
   assertEquals(Object.keys(DISCERN_ART_VARIANTS), Object.keys(EXPECTED));
   for (const style of Object.keys(EXPECTED) as DiscernArtStyle[]) {
-    assertEquals(DIRECT_RENDERERS[style](), EXPECTED[style], style);
+    assertEquals(DISCERN_ART_VARIANTS[style].render(), EXPECTED[style], style);
     assertEquals(renderDiscernArt(style), EXPECTED[style], style);
   }
 });
@@ -97,6 +126,8 @@ Deno.test("terminal-art variants stay deterministic and safe to compose", () => 
     assertEquals(second, first, `${style} must be deterministic`);
     assert(!seen.has(first), `${style} duplicates another variant`);
     seen.add(first);
+    assert(first !== "", `${style} must not be empty`);
+    assert(!first.startsWith("\n"), `${style} starts with a blank row`);
     assert(!first.endsWith("\n"), `${style} owns no trailing newline`);
     assert(!first.includes("\r"), `${style} contains a carriage return`);
     assert(!first.includes("\t"), `${style} contains a tab`);
@@ -126,5 +157,17 @@ Deno.test("ASCII-labelled art uses only printable 7-bit characters", () => {
         `${style} contains non-ASCII ${JSON.stringify(character)}`,
       );
     }
+  }
+});
+
+Deno.test("Unicode-labelled art contains a non-ASCII character", () => {
+  for (const [style, variant] of Object.entries(DISCERN_ART_VARIANTS)) {
+    if (variant.charset !== "unicode") continue;
+    assert(
+      [...variant.render()].some((character) =>
+        (character.codePointAt(0) ?? 0) > 0x7f
+      ),
+      `${style} is labelled Unicode but contains only ASCII`,
+    );
   }
 });

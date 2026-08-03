@@ -17,7 +17,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
-import { renderDiscernSplit } from "../src/shared/brand_art.ts";
+import { renderDiscernArt } from "../src/shared/brand_art.ts";
 import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,
@@ -95,7 +95,7 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
   assertStringIncludes(styledPlain, "╭");
   assertStringIncludes(styledPlain, "╰");
   const styledLines = styledPlain.split("\n");
-  const splitMark = renderDiscernSplit().split("\n");
+  const splitMark = renderDiscernArt("split").split("\n");
   for (const [index, row] of splitMark.entries()) {
     assertStringIncludes(
       styledLines[index + 1] ?? "",

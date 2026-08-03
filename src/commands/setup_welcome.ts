@@ -18,7 +18,7 @@
 
 import { emitResult } from "../shared/emit.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
-import { renderDiscernSplit } from "../shared/brand_art.ts";
+import { renderDiscernArt } from "../shared/brand_art.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { displayWidth } from "../lib/text.ts";
@@ -449,7 +449,7 @@ export function renderFreshWelcome(
 
 /** Compose the TTY welcome, including the Git prerequisite warning when needed. */
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
-  const mark = renderDiscernSplit().split("\n");
+  const mark = renderDiscernArt("split").split("\n");
   const markWidth = Math.max(...mark.map(visibleLength));
   return [
     boxTop(),

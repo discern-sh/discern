@@ -20,12 +20,12 @@ function terminalArt(lines: readonly string[]): string {
 }
 
 /** Return the canonical one-line wordmark for the narrowest terminal spaces. */
-export function renderDiscernCompact(): string {
+function renderDiscernCompact(): string {
   return DISCERN_WORDMARK;
 }
 
 /** Enlarge the split triangle while retaining the canonical wordmark below it. */
-export function renderDiscernSplit(): string {
+function renderDiscernSplit(): string {
   return terminalArt([
     "     /\\",
     "    /|#\\",
@@ -37,7 +37,7 @@ export function renderDiscernSplit(): string {
 }
 
 /** Carry the half-filled mark through horizontal scan lines into its name. */
-export function renderDiscernSignal(): string {
+function renderDiscernSignal(): string {
   return terminalArt([
     "         /\\",
     "--------/|#\\--------",
@@ -49,7 +49,7 @@ export function renderDiscernSignal(): string {
 }
 
 /** Set the mark and name inside a compact 7-bit terminal stamp. */
-export function renderDiscernStamp(): string {
+function renderDiscernStamp(): string {
   return terminalArt([
     "+-------------------+",
     "|      /\\           |",
@@ -60,7 +60,7 @@ export function renderDiscernStamp(): string {
 }
 
 /** Render the widest variant as a classic shell-banner monument. */
-export function renderDiscernMonument(): string {
+function renderDiscernMonument(): string {
   return terminalArt([
     "    /\\            _ _",
     "   /|#\\        __| (_)___  ___ ___ _ __ _ __",
@@ -71,7 +71,7 @@ export function renderDiscernMonument(): string {
 }
 
 /** Reveal one more letter on each step behind the canonical mark. */
-export function renderDiscernResolve(): string {
+function renderDiscernResolve(): string {
   const lines = [DISCERN_MARK];
   for (let index = 1; index <= DISCERN_NAME.length; index += 1) {
     lines.push(
@@ -82,7 +82,7 @@ export function renderDiscernResolve(): string {
 }
 
 /** Sift a mixed character field into the half-filled triangular mark. */
-export function renderDiscernSift(): string {
+function renderDiscernSift(): string {
   return terminalArt([
     ".      :      #",
     " \\     |     /",
@@ -98,9 +98,79 @@ export function renderDiscernSift(): string {
   ]);
 }
 
+/** Put one more letter into its final position on each successive row. */
+function renderDiscernInsertion(): string {
+  return terminalArt([
+    "n r e c s i d",
+    "d n r e c s i",
+    "d i n r e c s",
+    "d i s n r e c",
+    "d i s c n r e",
+    "d i s c e n r",
+    "d i s c e r n",
+    `  ${DISCERN_WORDMARK}`,
+  ]);
+}
+
+/** Merge two staggered letter streams into the ordered product name. */
+function renderDiscernInterleave(): string {
+  return terminalArt([
+    "d       s       e       n",
+    "    i       c       r",
+    "d   i   s   c   e   r   n",
+    `        ${DISCERN_WORDMARK}`,
+  ]);
+}
+
+/** Remove space in measured steps until the name reaches its compact lockup. */
+function renderDiscernCompress(): string {
+  return terminalArt([
+    "d   i   s   c   e   r   n",
+    " d  i  s  c  e  r  n",
+    "  d i s c e r n",
+    `   ${DISCERN_NAME}`,
+    `  ${DISCERN_WORDMARK}`,
+  ]);
+}
+
+/** Refine an outline into the half-filled triangle and then the text mark. */
+function renderDiscernRefine(): string {
+  return terminalArt([
+    "   /\\          /\\",
+    `  /  \\   ->   /|#\\   ->   ${DISCERN_WORDMARK}`,
+    " /____\\      /_|##\\",
+  ]);
+}
+
+/** Pass a mixed stream through the split mark and separate its two classes. */
+function renderDiscernSeparate(): string {
+  return terminalArt([
+    ". # . # . # . #",
+    " \\ \\ \\ \\ / / / /",
+    "   \\ \\ \\|/ / /",
+    "      \\|/",
+    "       /\\",
+    "      /|#\\",
+    "     /_|##\\",
+    ". . . .     # # # #",
+    `     ${DISCERN_WORDMARK}`,
+  ]);
+}
+
+/** Reveal the name from its centre while the surrounding noise falls away. */
+function renderDiscernFocus(): string {
+  return terminalArt([
+    "???c???",
+    "??sce??",
+    "?iscer?",
+    DISCERN_NAME,
+    DISCERN_WORDMARK,
+  ]);
+}
+
 /**
- * The selectable terminal-art family. Variant functions remain public for
- * direct use; this table gives callers one typed lookup when the choice is data.
+ * The selectable terminal-art family and its one enrolment boundary. Callers
+ * render a named member through this table or {@link renderDiscernArt}.
  */
 export const DISCERN_ART_VARIANTS = {
   compact: { charset: "unicode", render: renderDiscernCompact },
@@ -110,6 +180,12 @@ export const DISCERN_ART_VARIANTS = {
   monument: { charset: "ascii", render: renderDiscernMonument },
   resolve: { charset: "unicode", render: renderDiscernResolve },
   sift: { charset: "ascii", render: renderDiscernSift },
+  insertion: { charset: "unicode", render: renderDiscernInsertion },
+  interleave: { charset: "unicode", render: renderDiscernInterleave },
+  compress: { charset: "unicode", render: renderDiscernCompress },
+  refine: { charset: "unicode", render: renderDiscernRefine },
+  separate: { charset: "unicode", render: renderDiscernSeparate },
+  focus: { charset: "unicode", render: renderDiscernFocus },
 } as const satisfies Readonly<Record<string, DiscernArtVariant>>;
 
 /** A name accepted by the selectable terminal-art renderer. */
