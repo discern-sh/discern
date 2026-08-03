@@ -26,6 +26,7 @@ Everything lives under [`site/`](../../../site/):
 | [`site/theme.ts`](../../../site/theme.ts)                 | Shared pre-paint theme bootstrap and asset paths for site and docs pages. |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section — see [the-docs-section.md](the-docs-section.md).     |
 | [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.      |
+| [`site/security.ts`](../../../site/security.ts)           | Security-reporting coordinates and the RFC 9116 response.                 |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.             |
 | [`site/pages/`](../../../site/pages/)                     | Static assets and ignored build output served by the handler.             |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles. |
@@ -33,16 +34,17 @@ Everything lives under [`site/`](../../../site/):
 
 The routes, from the handler's exported `PAGES` table:
 
-| Route               | Page                             | Text client receives                     |
-| ------------------- | -------------------------------- | ---------------------------------------- |
-| `/`                 | the generated homepage           | the plaintext edition                    |
-| `/docs/…`           | the rendered manual              | the page's raw Markdown                  |
-| `/docs/decisions/…` | project-history decision records | the record's raw Markdown                |
-| `/llms.txt`         | —                                | the plaintext edition plus a docs index, |
-|                     |                                  | for every reader                         |
-| `/llms-full.txt`    | —                                | the complete public Markdown projection  |
-| `/sitemap.xml`      | —                                | canonical HTML URLs from the route model |
-| `/robots.txt`       | —                                | crawler policy plus the sitemap address  |
+| Route                       | Page                             | Text client receives                     |
+| --------------------------- | -------------------------------- | ---------------------------------------- |
+| `/`                         | the generated homepage           | the plaintext edition                    |
+| `/docs/…`                   | the rendered manual              | the page's raw Markdown                  |
+| `/docs/decisions/…`         | project-history decision records | the record's raw Markdown                |
+| `/llms.txt`                 | —                                | the plaintext edition plus a docs index, |
+|                             |                                  | for every reader                         |
+| `/llms-full.txt`            | —                                | the complete public Markdown projection  |
+| `/sitemap.xml`              | —                                | canonical HTML URLs from the route model |
+| `/robots.txt`               | —                                | crawler policy plus the sitemap address  |
+| `/.well-known/security.txt` | —                                | vulnerability-reporting coordinates      |
 
 ## Reader negotiation
 
@@ -78,7 +80,7 @@ Each product-guidance row records its section landing and, after the colon, ever
 | `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                           |
 | `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs`  |
 
-The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, and `/robots.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0156. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
+The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0156. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
 
 A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The prelaunch route set creates no redirect debt.
 
@@ -90,7 +92,7 @@ Unknown routes return 404. A 410 is reserved for a known public URL retired with
 
 ## Guards
 
-[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table: every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) proves the composed homepage's structure: one `h1`, the install command as text, design-system markup, local assets, and no React runtime. The route test pins the favicon's theme-aware SVG geometry. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree: rendering, shared branding, pristine negotiation, CLI/MCP parity, search-index and llms coverage, and link integrity all auto-enroll a new map leaf. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real local socket and drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal. The design-system runtime test drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, the social card's mark geometry, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
+[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table: every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) proves the composed homepage's structure: one `h1`, the install command as text, design-system markup, local assets, and no React runtime. The route test pins the favicon's theme-aware SVG geometry. A page added to the table auto-enrolls; a route without its file fails the gate. [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) does the same for the docs section by iterating the discovered tree: rendering, shared branding, pristine negotiation, CLI/MCP parity, search-index and llms coverage, and link integrity all auto-enroll a new map leaf. [`tests/security_disclosure_test.ts`](../../../tests/security_disclosure_test.ts) binds the human policy and RFC 9116 response to one disclosure registry, and fails before its expiry grows stale. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real local socket and drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal. The design-system runtime test drives the ignored-output, exact-dependency, bundle selection, local asset, license, component-enrollment, and static-runtime guards from the published package manifest and Discern's selection table. [`tests/site_development_test.ts`](../../../tests/site_development_test.ts) guards loopback-only development servers, the browser-facing localhost URL, and the source boundary used by watch mode. [`tests/site_seo_test.ts`](../../../tests/site_seo_test.ts) derives from the live route set and pins canonical redirects, redirect-registry safety, sitemap parity, metadata, machine-edition headers, llms-full, the social card's mark geometry, and every security-header response class. [`tests/site_release_deploy_test.ts`](../../../tests/site_release_deploy_test.ts) keeps the sole production deploy inside the release-tag workflow.
 
 ## Operating it
 

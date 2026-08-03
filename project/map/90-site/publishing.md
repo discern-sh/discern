@@ -88,11 +88,12 @@ The external pass treats ordinary HTTP errors as failures. Authentication respon
 curl -s https://discern.sh/ | head -3        # DISCERN(1) masthead
 curl -s https://discern.sh/llms.txt | head -3
 curl -s https://discern.sh/llms-full.txt | head -3
+curl -s https://discern.sh/.well-known/security.txt
 curl -s -H "Accept: text/html" -A "Mozilla/5.0" https://discern.sh/ | head -2
 curl -sI https://www.discern.sh/docs/ | grep -Ei '^(HTTP|location:)'
 ```
 
-The first four responses are plaintext, plaintext, plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The process smoke is held in the gate by [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts); the smaller route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) retain focused diagnostics. A production-only failure after both pass points at the hosting layer or release alignment.
+The first five responses are plaintext, plaintext, plaintext, RFC 9116 plaintext, and HTML; the last is one 308 to `https://discern.sh/docs`. The process smoke is held in the gate by [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts); the smaller route tests in [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) retain focused diagnostics. A production-only failure after both pass points at the hosting layer or release alignment.
 
 ## Portability
 

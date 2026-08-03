@@ -4,6 +4,7 @@ import { JSDOM } from "jsdom";
 import { SELF_TITLED_PAGES } from "../site/brand.ts";
 import { loadDocsSite, relatedDecisionCitations } from "../site/docs.ts";
 import { handler, liveHtmlRoutes } from "../site/serve.ts";
+import { SECURITY_DISCLOSURE, securityTxt } from "../site/security.ts";
 import { PUBLIC_SCHEMA_PUBLICATIONS } from "../src/shared/public_schemas.ts";
 import {
   buildSiteRedirectTable,
@@ -545,6 +546,21 @@ export async function runSiteSmoke(
     }
   });
 
+  const security = await get(SECURITY_DISCLOSURE.route);
+  secure(security, SECURITY_DISCLOSURE.route);
+  if (security.status !== 200) {
+    fail(`${SECURITY_DISCLOSURE.route}: status ${security.status}`);
+  }
+  if (security.headers.get("content-type") !== "text/plain; charset=utf-8") {
+    fail(
+      `${SECURITY_DISCLOSURE.route}: content type ` +
+        `${JSON.stringify(security.headers.get("content-type"))}`,
+    );
+  }
+  if (await security.text() !== securityTxt()) {
+    fail(`${SECURITY_DISCLOSURE.route}: response differs from the registry`);
+  }
+
   for (const path of ["/robots.txt", "/assets/og-card.png", "/install"]) {
     const response = await get(path);
     secure(response, path);
@@ -630,6 +646,7 @@ export async function runSiteSmoke(
     `${checkedInternal.size} linked non-HTML internal endpoints`,
     `${guidance.length} guidance pages in cross-surface parity`,
     `${PUBLIC_SCHEMA_PUBLICATIONS.length} versioned public schemas byte-matched`,
+    "RFC 9116 security.txt byte-matched",
   );
   return {
     ok: failures.length === 0,

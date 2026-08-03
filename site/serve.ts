@@ -35,6 +35,7 @@ import {
   type SiteRedirectTable,
   STATIC_REDIRECTS,
 } from "./seo.ts";
+import { SECURITY_DISCLOSURE, securityTxt } from "./security.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
@@ -263,6 +264,15 @@ async function routeResponse(
   // serves the repository's own installer, so the command on the landing
   // page is true from the first deploy.
   if (path === "/install") return await serveFile("../install.sh");
+  if (path === SECURITY_DISCLOSURE.route) {
+    return new Response(securityTxt(), {
+      status: 200,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  }
   if (path === "/llms.txt") return await llmsTxt(routing.site);
   if (path === "/llms-full.txt") return await llmsFullTxt(routing.site);
   if (path === "/sitemap.xml") {

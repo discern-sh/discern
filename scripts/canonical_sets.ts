@@ -1424,6 +1424,36 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         .PUBLIC_SCHEMA_PUBLICATIONS.map((publication) => publication.id),
   },
   {
+    id: "security-disclosure",
+    title: "Security disclosure",
+    what:
+      "The public reporting channels, policy location, language, and bounded security.txt expiry policy.",
+    source: {
+      kind: "module",
+      module: "site/security.ts",
+      exportName: "SECURITY_DISCLOSURE",
+    },
+    guards: ["tests/security_disclosure_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "public project-administration coordinates, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the repository and website disclosure policy, not a product feature",
+      },
+    },
+    members: async () => {
+      const disclosure = (await import("../site/security.ts"))
+        .SECURITY_DISCLOSURE;
+      return Object.entries(disclosure).map(([name, value]) =>
+        `${name}=${Array.isArray(value) ? value.join(",") : String(value)}`
+      );
+    },
+  },
+  {
     id: "error-slugs",
     title: "Result error slugs",
     what:

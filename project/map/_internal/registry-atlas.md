@@ -60,6 +60,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
 | [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                 | `src/shared/result_contracts.ts#CLI_PREDICATE_STATES`                             | 2       | —                | node `published-contracts`  |
 | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                               | `src/shared/public_schemas.ts#PUBLIC_SCHEMA_PUBLICATIONS`                         | 4       | —                | node `published-contracts`  |
+| [`security-disclosure`](#security-disclosure--security-disclosure)                                                    | `site/security.ts#SECURITY_DISCLOSURE`                                            | 9       | —                | —                           |
 | [`error-slugs`](#error-slugs--result-error-slugs)                                                                     | `src/shared/result.ts#ERROR_SLUGS`                                                | 64      | —                | node `published-contracts`  |
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
@@ -75,9 +76,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 64      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 65      | —                | node `canonical-sets`       |
 
-64 sets · 96 guard tests · 26 committed artifacts.
+65 sets · 97 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -164,6 +165,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes) |
 | `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                  |
+| `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -1427,6 +1429,25 @@ The versioned public schema URLs and the root generated artifacts served at them
 - Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
 - Feature canon: described by the `published-contracts` node
 
+## `security-disclosure` — Security disclosure
+
+The public reporting channels, policy location, language, and bounded security.txt expiry policy.
+
+- Source: `site/security.ts` — `SECURITY_DISCLOSURE`
+- Members: 9
+  - `route=/.well-known/security.txt`
+  - `contactEmail=security@discern.sh`
+  - `repositoryUrl=https://github.com/discern-sh/discern`
+  - `advisoryUrl=https://github.com/discern-sh/discern/security/advisories/new`
+  - `policyUrl=https://github.com/discern-sh/discern/blob/main/SECURITY.md`
+  - `preferredLanguages=en`
+  - `expiresAt=2027-07-31T23:59:59Z`
+  - `expiryReviewLeadDays=30`
+  - `maximumValidityDays=365`
+- Guards: `tests/security_disclosure_test.ts`
+- Glossary: not enrolled — public project-administration coordinates, not product vocabulary
+- Feature canon: not enrolled — the repository and website disclosure policy, not a product feature
+
 ## `error-slugs` — Result error slugs
 
 The machine-stable failure vocabulary accepted by live result envelopes and advertised to public-schema consumers.
@@ -1989,7 +2010,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 64
+- Members: 65
   - `verbs`
   - `dry-run-verbs`
   - `mcp-tools`
@@ -2038,6 +2059,7 @@ This meta-registry: the closed set of closed sets.
   - `cli-predicate-invocation-modes`
   - `cli-predicate-states`
   - `public-schema-publications`
+  - `security-disclosure`
   - `error-slugs`
   - `step-outcomes`
   - `public-doc-surfaces`

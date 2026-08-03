@@ -1,23 +1,27 @@
 # Security policy
 
-## Reporting a vulnerability
+## Report a vulnerability
 
-Please report security vulnerabilities **privately**, not as a public issue.
+Report suspected vulnerabilities privately. Email [security@discern.sh](mailto:security@discern.sh) or use [GitHub's private vulnerability reporting](https://github.com/discern-sh/discern/security/advisories/new). Do not open a public issue.
 
-Use GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability** (<https://github.com/jackwh/discern/security/advisories/new>). This opens a private advisory visible only to you and the maintainers.
+Include:
 
-Please include:
+- what the issue is and what an attacker could do;
+- the steps needed to reproduce it, preferably with a minimal reproduction; and
+- the discern version (`discern --version`) and your operating system and architecture.
 
-- a description of the issue and its impact;
-- the steps to reproduce it (a minimal repro is ideal);
-- the discern version (`discern --version`) and your OS/architecture.
+Do not send credentials, private keys, personal data, or unrelated confidential material. If a proof needs sensitive data, describe what is needed before sharing it.
 
-You can expect an initial acknowledgement within a few days. Once a fix is available, we will coordinate disclosure and credit you unless you prefer to remain anonymous.
+We will confirm receipt, investigate the report, and coordinate disclosure with you. We will credit you unless you prefer to remain anonymous.
 
 ## What is in scope
 
-discern is a local command-line tool that runs the commands you configure in `discern.toml` — the same trust class as a `Makefile` or an npm `scripts` block. It makes no network calls and ships no telemetry. In-scope reports include, for example: a way for discern to write outside its documented footprint, to execute a command a user did not configure, or to mishandle a file it co-owns in a way that damages user content. A project that configures discern to run a dangerous command is behaving as designed, not a vulnerability in discern.
+discern is a local command-line tool. It runs the commands configured in `discern.toml`, in the same trust class as a `Makefile` or an npm `scripts` block. It makes no network requests and sends no telemetry.
+
+A report is in scope if discern can write outside its documented footprint, execute a command the user did not configure, or mishandle a co-owned file in a way that damages user content. Reports about the official installer, release artifacts, repository automation, or `discern.sh` are also in scope when the issue could compromise users or redirect their security reports.
+
+A project that configures discern to run a dangerous command is behaving as configured. Report vulnerabilities in third-party commands or services to their maintainers unless discern causes or worsens the issue.
 
 ## Supported versions
 
-Fixes land on the latest released version. If you are on an older release, the first step is usually to update (re-run your installer) and confirm the issue still reproduces.
+Security fixes target the latest released version. If you use an older release, rerun the installer and confirm that the issue still reproduces before reporting it.
