@@ -135,6 +135,40 @@ function assertLinesFit(
   }
 }
 
+/** Every ordinary line inside a dashboard section begins at or beyond the
+ * heading text. Stored receipt Markdown is deliberately verbatim. */
+function assertSectionContentColumns(output: string): void {
+  let section: string | undefined;
+  let contentColumn = 0;
+  for (const line of plain(output).split("\n")) {
+    const heading = line.match(/^── (.+)$/u)?.[1];
+    if (heading !== undefined) {
+      section = heading;
+      contentColumn = line.indexOf(heading);
+      continue;
+    }
+    if (line === "" || line.startsWith("discern status")) continue;
+    if (line.startsWith("Main checkout:")) {
+      section = undefined;
+      continue;
+    }
+    if (section === undefined || section === "Receipts") continue;
+    const firstVisible = line.search(/\S/u);
+    assert(
+      firstVisible >= contentColumn,
+      `${section} content starts at column ${firstVisible}; expected at least ${contentColumn}: ${line}`,
+    );
+  }
+}
+
+/** Find one required rendered line without allowing two absent values to make
+ * a column comparison pass vacuously. */
+function requiredLine(lines: readonly string[], text: string): string {
+  const line = lines.find((candidate) => candidate.includes(text));
+  assert(line !== undefined, `missing rendered line containing ${text}`);
+  return line;
+}
+
 interface StatusCase {
   patch: Partial<StatusFleetEntry>;
   collisions?: readonly StatusFleetCollision[];
@@ -258,6 +292,36 @@ Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equ
   }
   assertEquals(render(fixture, 400), render(fixture, STATUS_REPORT_MAX_WIDTH));
   assert(!render(fixture, 104, true).includes(`${ESC}[32mclean`));
+});
+
+Deno.test("status dashboard: sections share one content column and marked details hang from their item text", () => {
+  const branch = "agent/behind-abc123";
+  const fixture = data([
+    mainEntry({ is_current: false }),
+    entry({
+      path: "/repo.worktrees/behind-abc123",
+      branch,
+      id: "behind-abc123",
+      behind: 5,
+      is_current: true,
+    }),
+  ]);
+
+  for (const width of [48, 72, 104]) {
+    for (const color of [false, true]) {
+      const output = render(fixture, width, color);
+      const lines = plain(output).split("\n");
+      assertSectionContentColumns(output);
+
+      const fleetHeading = requiredLine(lines, "── Fleet");
+      const summary = requiredLine(lines, "Summary:");
+      const identity = requiredLine(lines, branch);
+      const detail = requiredLine(lines, "Behind:");
+      assertEquals(summary.indexOf("Summary:"), fleetHeading.indexOf("Fleet"));
+      assertEquals(identity.indexOf("!"), fleetHeading.indexOf("Fleet"));
+      assertEquals(identity.indexOf(branch), detail.indexOf("Behind:"));
+    }
+  }
 });
 
 Deno.test("status dashboard: every long or differing identity survives every layout", () => {
