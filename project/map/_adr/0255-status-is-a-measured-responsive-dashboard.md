@@ -1,4 +1,4 @@
-# ADR 0254: Status is a measured responsive dashboard over one result model
+# ADR 0255: Status is a measured responsive dashboard over one result model
 
 **Status**: accepted. Extends [ADR 0033](0033-status-verb-and-location-aware-scope.md), [ADR 0041](0041-self-describing-mcp-surface.md), [ADR 0188](0188-the-receipt-relays-as-one-line.md), and [ADR 0250](0250-discern-managed-human-output-declares-semantic-groups.md).
 

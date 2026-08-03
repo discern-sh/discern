@@ -1732,7 +1732,7 @@ The numbered decision records in the map, including records later superseded.
   - `0252`
   - `0253`
   - `0254`
-  - `0254`
+  - `0255`
   - `0001`
   - `0002`
   - `0004`

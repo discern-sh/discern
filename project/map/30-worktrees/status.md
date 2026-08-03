@@ -13,7 +13,7 @@ aliases:
 
 _`discern status` reports what is true now and what deserves attention next. It runs no gate job, test, standard measurement, or setup action._
 
-Run it when a session starts or the next move is unclear. Human, JSON, and Model Context Protocol (MCP) forms share one result ([ADR 0254](../_adr/0254-status-is-a-measured-responsive-dashboard.md)).
+Run it when a session starts or the next move is unclear. Human, JSON, and Model Context Protocol (MCP) forms share one result ([ADR 0255](../_adr/0255-status-is-a-measured-responsive-dashboard.md)).
 
 ## Human dashboard
 
