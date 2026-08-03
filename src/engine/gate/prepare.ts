@@ -33,7 +33,13 @@ import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { couplingGateHints } from "../coupling/coupling.ts";
 import type { DiscernResult, FailedStage } from "../../shared/result.ts";
-import type { Out } from "../output.ts";
+import { makeOut, type Out } from "../output.ts";
+import {
+  createGateTtyProgress,
+  gateTtyPresentation,
+  renderGateTtyStatus,
+  renderGateTtyTable,
+} from "./gate_tty.ts";
 
 /**
  * Run the prepare gate once: build the groups, run them through the shared job
@@ -45,6 +51,7 @@ async function runPrepareGate(
   root: string,
   json: boolean,
   signal?: AbortSignal,
+  presentation: { liveWidth?: number } = {},
 ): Promise<
   {
     result: DiscernResult;
@@ -52,11 +59,27 @@ async function runPrepareGate(
     out: Out;
     cfg: DiscernConfig;
     gotchasTail: GotchasFailureTail | undefined;
+    liveTable: boolean;
   }
 > {
   const cfg = await loadConfig(root);
   const groups = preparePlanGroups(cfg);
-  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal);
+  const compactTty = presentation.liveWidth !== undefined && !json &&
+    !cfg.gate.stream;
+  const { runOpts, out, slots } = gateRunContext(root, cfg, json, signal, {
+    quietHumanRun: compactTty,
+  });
+  const progress = compactTty && presentation.liveWidth !== undefined
+    ? createGateTtyProgress(out.raw, {
+      width: presentation.liveWidth,
+      color: out.color,
+    })
+    : undefined;
+  if (progress !== undefined) {
+    runOpts.observer = progress;
+    progress.start(groups);
+  }
+  const runOut = compactTty ? makeOut(out.color, { quiet: true }) : out;
   // Retention for the job output artifacts the run is about to create (ADR 0117)
   // — before jobs spawn, so the sweep can never sit on a job's kill path.
   await sweepDueTempArtifacts(root);
@@ -66,7 +89,7 @@ async function runPrepareGate(
   const { results, failedStage } = await runJobGroups(
     groups,
     runOpts,
-    out,
+    runOut,
     slots,
   );
   const { steps, diagnostics, hints: jobOutputHints } = await serializeJobSteps(
@@ -106,7 +129,15 @@ async function runPrepareGate(
     diagnostics: diagnostics.length > 0 ? diagnostics : undefined,
     ...(hints.length > 0 ? { hints: hintTexts(hints) } : {}),
   };
-  return { result, failedStage, out, cfg, gotchasTail };
+  progress?.complete(result.steps ?? []);
+  return {
+    result,
+    failedStage,
+    out,
+    cfg,
+    gotchasTail,
+    liveTable: progress !== undefined,
+  };
 }
 
 /**
@@ -126,7 +157,7 @@ export async function prepareResult(
 /** Run `prepare`. Returns a process exit code. */
 export async function runPrepare(
   root: string,
-  opts: { json?: boolean } = {},
+  opts: { json?: boolean; plain?: boolean } = {},
 ): Promise<number> {
   if (opts.json ?? false) {
     const result = await prepareResult(root);
@@ -134,11 +165,30 @@ export async function runPrepare(
     return result.ok ? 0 : 1;
   }
 
-  const { result, failedStage, out, gotchasTail } = await runPrepareGate(
-    root,
+  const { ttyWidth, liveWidth } = gateTtyPresentation(
     false,
+    opts.plain ?? false,
   );
+  const { result, failedStage, out, cfg, gotchasTail, liveTable } =
+    await runPrepareGate(
+      root,
+      false,
+      undefined,
+      liveWidth === undefined ? {} : { liveWidth },
+    );
   observeResult(result); // the logbook recorder lifts step timings from it
+  const ttyTable = ttyWidth !== undefined && !cfg.gate.stream;
+  if (ttyTable && !liveTable && ttyWidth !== undefined) {
+    out.group("prepare-results");
+    out.raw(
+      `${
+        renderGateTtyTable(result.steps ?? [], {
+          width: ttyWidth,
+          color: out.color,
+        })
+      }\n`,
+    );
+  }
   if (failedStage !== null) {
     renderFailureTail(out, {
       verb: "prepare",
@@ -148,7 +198,23 @@ export async function runPrepare(
     });
     return 1;
   }
-  out.ok("Prepare complete — fixers applied and checks passed.");
+  const noJobs = (result.steps?.length ?? 0) === 0;
+  const success = noJobs
+    ? "No fix or check job is configured. Build and test stages did not run."
+    : "Fix and check stages passed. Build and test stages did not run.";
+  if (ttyTable && ttyWidth !== undefined) {
+    out.group("prepare-summary");
+    out.raw(
+      `${
+        renderGateTtyStatus(success, "ok", {
+          width: ttyWidth,
+          color: out.color,
+        })
+      }\n`,
+    );
+  } else {
+    out.ok(success);
+  }
   // The advisory tail (the co-change nudge / the setup-in-progress note) — same as finish.
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
