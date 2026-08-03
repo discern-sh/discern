@@ -245,6 +245,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0252 — The fleet test-run cap is enforced at the test command boundary](0252-fleet-test-run-cap-at-test-command-boundary.md)
 - [0253 — Durable proofs project runtime receipts](0253-durable-proofs-project-runtime-receipts.md)
 - [0254 — MCP startup loading remains an environment-only experiment](0254-mcp-preload-remains-an-environment-only-experiment.md)
+- [0254 — Status is a measured responsive dashboard over one result model](0254-status-is-a-measured-responsive-dashboard.md)
 
 <!-- END GENERATED: current ADR records -->
 
