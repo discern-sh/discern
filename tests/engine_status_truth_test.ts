@@ -41,6 +41,11 @@ async function statusJson(dir: string): Promise<StatusJson> {
   return JSON.parse(r.stdout) as StatusJson;
 }
 
+/** Compare human facts independently of the dashboard's measured line breaks. */
+function humanWords(text: string): string {
+  return text.replaceAll(/\s+/gu, " ").trim();
+}
+
 Deno.test("status flags a configless worktree as broken, with the drop hint", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
@@ -59,9 +64,13 @@ Deno.test("status flags a configless worktree as broken, with the drop hint", as
       names: ["crashed"],
     });
 
-    // The human table says "broken", not "clean"/"changed".
+    // The human row carries the derived broken state and its concrete action.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "broken");
+    assertStringIncludes(human.output, "Status: Broken");
+    assertStringIncludes(
+      humanWords(human.output),
+      "Broken: Setup never completed. Inspect the checkout before discarding it with `discern worktree drop <name>`.",
+    );
   });
 });
 
@@ -127,13 +136,13 @@ Deno.test("a failed worktree status read stays unreadable through status and the
         names: ["damaged"],
       });
 
-      // The human table says "unreadable", not "clean".
+      // Both fleet and local projections retain the derived unreadable state.
       const human = await runAgent(dir, ["status"]);
-      assertStringIncludes(human.output, "unreadable");
+      assertStringIncludes(human.output, "Status: Unreadable");
       const local = await runAgent(wt, ["status"]);
       assertStringIncludes(
-        local.output,
-        "unavailable (Git could not read this checkout)",
+        humanWords(local.output),
+        "Unreadable: Git could not read this checkout. Investigate the path before resuming or discarding it.",
       );
     } finally {
       await Deno.chmod(index, 0o644);
@@ -184,7 +193,10 @@ Deno.test("status reports ahead as null (not 0) when the trunk branch is missing
       "no trunk to count against — null, never a fabricated 0",
     );
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "no main branch to compare against");
+    assertStringIncludes(
+      humanWords(human.output),
+      "The 'main' branch does not exist, and the main checkout is on 'master'.",
+    );
     assert(
       !human.output.includes("0 ahead"),
       `the fabricated count must be gone\n${human.output}`,
@@ -213,7 +225,7 @@ Deno.test("status names a MISSING trunk instead of prescribing a switch onto it"
     });
     // A real misconfiguration, so the human rendering carries it too.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, expected);
+    assertStringIncludes(humanWords(human.output), humanWords(expected));
   });
 });
 
