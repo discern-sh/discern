@@ -15,14 +15,17 @@ import {
 } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
+  canonicalReceipt,
+  type DurableProofClaim,
   type ProofIssuer,
   type ProofNotePayload,
+  type ProofPresentation,
   type Receipt,
   type ReceiptNotesFetchData,
   type ReceiptNoteWriteData,
-  ReceiptSchema,
   TolerantProofNotePayloadSchema,
   TolerantProofNoteSchema,
+  TolerantReceiptSchema,
 } from "../../shared/result_schemas.ts";
 import { splitNulRecords } from "../../shared/git_paths.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -399,9 +402,8 @@ export function receiptNotesFetchSucceeded(
   return result.errors.length === 0;
 }
 
-/** The receipt's fields in one fixed order, so every writer and comparison
- * shares one byte layout for the same receipt. */
-function canonicalReceipt(receipt: Receipt): Receipt {
+/** Project only stable structured facts into the durable proof claim. */
+function canonicalProofClaim(receipt: Receipt): DurableProofClaim {
   return {
     branch: receipt.branch,
     trunk: receipt.trunk,
@@ -409,9 +411,12 @@ function canonicalReceipt(receipt: Receipt): Receipt {
     files_total: receipt.files_total,
     insertions: receipt.insertions,
     deletions: receipt.deletions,
-    ...(receipt.waited_ms !== undefined
-      ? { waited_ms: receipt.waited_ms }
-      : {}),
+  };
+}
+
+/** Keep human renderings separate from the structured proof claim. */
+function canonicalProofPresentation(receipt: Receipt): ProofPresentation {
+  return {
     line: receipt.line,
     markdown: receipt.markdown,
   };
@@ -426,7 +431,8 @@ export function canonicalProofNotePayload(
 ): string {
   const payload: ProofNotePayload = {
     subject: { commit },
-    proof: canonicalReceipt(receipt),
+    proof: canonicalProofClaim(receipt),
+    presentation: canonicalProofPresentation(receipt),
   };
   return JSON.stringify(payload);
 }
@@ -469,6 +475,28 @@ function knownIssuerFields(
     ...(issuer.name !== undefined ? { name: issuer.name } : {}),
     ...(issuer.email !== undefined ? { email: issuer.email } : {}),
     ...(issuer.key !== undefined ? { key: issuer.key } : {}),
+  };
+}
+
+/** Rebuild the runtime receipt from current split payloads or pre-split local
+ * envelopes, dropping every unknown durable field from the live result. */
+function receiptFromProofPayload(
+  payload: ReturnType<typeof TolerantProofNotePayloadSchema.parse>,
+): Receipt | undefined {
+  const line = payload.presentation?.line ?? payload.proof.line;
+  const markdown = payload.presentation?.markdown ?? payload.proof.markdown;
+  if (line === undefined || markdown === undefined) {
+    return undefined;
+  }
+  return {
+    branch: payload.proof.branch,
+    trunk: payload.proof.trunk,
+    head: payload.proof.head,
+    files_total: payload.proof.files_total,
+    insertions: payload.proof.insertions,
+    deletions: payload.proof.deletions,
+    line,
+    markdown,
   };
 }
 
@@ -531,9 +559,9 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
     return undefined;
   }
   if (!("payloadType" in parsed)) {
-    const legacy = ReceiptSchema.safeParse(parsed);
+    const legacy = TolerantReceiptSchema.safeParse(parsed);
     return legacy.success
-      ? { kind: "receipt", receipt: legacy.data }
+      ? { kind: "receipt", receipt: canonicalReceipt(legacy.data) }
       : undefined;
   }
   const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
@@ -553,9 +581,13 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   if (payload === undefined) {
     return undefined;
   }
+  const receipt = receiptFromProofPayload(payload);
+  if (receipt === undefined) {
+    return undefined;
+  }
   return {
     kind: "receipt",
-    receipt: canonicalReceipt(payload.proof),
+    receipt,
     subject: payload.subject.commit,
     ...(payload.issuer !== undefined
       ? { issuer: knownIssuerFields(payload.issuer) }

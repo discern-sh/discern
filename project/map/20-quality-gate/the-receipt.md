@@ -19,6 +19,8 @@ _A clean green gate records what ran and identifies the exact branch state ready
 
 `done` and `prepare` share the TTY job table: rows move from `pending` through `running` to outcomes and durations. `done` adds its receipt. `prepare` reports omitted build and test stages without review evidence. `[gate].stream = true` streams output. `--plain` is static. Pipes get the `done` receipt page. `--no-color` removes styling.
 
+Capped-run waits remain live `waited_ms` telemetry; the receipt line, page, and durable proof omit them ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)).
+
 The receipt pins a reviewable `HEAD` even if trunk advances. The agent reports and waits unless a runtime result verifies a recorded grant. `discern accept --confirmed` attests conversation consent; a standing or effort grant needs no flag. After landing, the agent ends with the returned line.
 
 A qualifying receipt may carry one `Logbook:` advisory from `hints[]`. `discern patterns` holds its evidence and next step. The advisory changes neither the stored receipt, `ok`, nor acceptance ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
@@ -50,7 +52,7 @@ Any commit, amend, or worktree edit invalidates the fast path because the marker
 
 ## After landing
 
-Acceptance copies the structured receipt to `refs/notes/discern` after the trunk fast-forward. Its Dead Simple Signing Envelope (DSSE) boundary preserves the payload bytes and full commit id. `signatures: []` is discern's unsigned extension. The local record is default-on and fail-open, while fetch transport is opt-in. [Receipt notes](receipt-notes.md) covers the format, inspection, publication, and cross-clone recovery.
+After the trunk fast-forward, acceptance writes separate proof and presentation blocks to a DSSE-compatible note under `refs/notes/discern`. The local unsigned record is default-on and fail-open; transport is opt-in. [Receipt notes](receipt-notes.md) covers inspection, publication, and recovery.
 
 ## Re-running an unchanged tree
 

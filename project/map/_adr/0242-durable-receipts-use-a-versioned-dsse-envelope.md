@@ -1,5 +1,7 @@
 # ADR 0242: Durable receipts use a versioned DSSE-compatible envelope
 
+> **Claim-projection amendment (2026-08-03; [ADR 0253](0253-durable-proofs-project-runtime-receipts.md)):** The payload now keeps the structured `proof` claim and human `presentation` in separate schemas. The canonical writer projects both from the runtime receipt, so runtime telemetry cannot enter the durable contract through schema reuse. This supersedes this record's shared-`Receipt` payload layout and final consequence; the DSSE boundary, identifiers, subject binding, and signing decisions stand.
+
 **Status**: accepted; amends the note-body decision of [ADR 0215](0215-landing-receipts-travel-as-git-notes.md), applies the contract discipline of [ADR 0208](0208-public-contracts-version-by-schema-major.md) to a channel it deliberately excluded, and leaves the receipt derivation and relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) / [ADR 0188](0188-the-receipt-relays-as-one-line.md) unchanged. The frozen identifiers — the schema id, the payload type, and the payload's `proof` field — carry the artifact's successor name from [ADR 0245](0245-receipt-renamed-to-proof.md), landed ahead of the product-wide rename sweep so the durable bytes never need a second identity; this record otherwise keeps the receipt vocabulary current at its writing.
 
 ## Context

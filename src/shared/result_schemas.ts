@@ -246,34 +246,59 @@ const changedFileSchema = z.strictObject({
  * The **receipt** — the deterministic review claim a green gate emits over a
  * clean committed tree, in two renderings from one set of facts (ADR 0188): the
  * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
- * vs the trunk; optional capped-run slot wait; `line` — the one sentence an
- * agent closes its report with; and
+ * vs the trunk; `line` — the one sentence an agent closes its report with; and
  * `markdown` — the review page the owner pulls from discern. Derived ONCE from
  * the result envelope: both renderings are a function of these fields plus the
  * envelope's `steps[]` (what ran, with command and duration), never a second
  * computation. Commit and per-file lists are git's to report (`git diff
  * <trunk>...<branch>`), so they are not mirrored here.
  */
-const RECEIPT_FIELDS = {
+const DURABLE_PROOF_FACT_FIELDS = {
   branch: z.string(),
   trunk: z.string(),
   head: z.string(),
   files_total: z.number(),
   insertions: z.number(),
   deletions: z.number(),
-  waited_ms: z.number().nonnegative().optional(),
+};
+
+const PROOF_PRESENTATION_FIELDS = {
   line: z.string(),
   markdown: z.string(),
 };
+
+const RECEIPT_FIELDS = {
+  ...DURABLE_PROOF_FACT_FIELDS,
+  ...PROOF_PRESENTATION_FIELDS,
+};
+
 export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
   id: "DiscernProof",
   description:
     "The structured receipt a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
-    "whole-diff stats, optional capped-run slot wait, and the two renderings " +
-    "derived from those facts.",
+    "whole-diff stats, and the two renderings derived from those facts.",
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
+
+/** Compatibility readers' view of an earlier or structurally wider receipt.
+ * Unknown fields remain readable but never enter the strict runtime receipt. */
+export const TolerantReceiptSchema = z.looseObject(RECEIPT_FIELDS);
+
+/** Project a tolerant or structurally wider receipt onto the strict runtime
+ * fields in one fixed order. Every compatibility reader shares this boundary. */
+export function canonicalReceipt(receipt: Receipt): Receipt {
+  return {
+    branch: receipt.branch,
+    trunk: receipt.trunk,
+    head: receipt.head,
+    files_total: receipt.files_total,
+    insertions: receipt.insertions,
+    deletions: receipt.deletions,
+    line: receipt.line,
+    markdown: receipt.markdown,
+  };
+}
 
 // ── the durable proof note (ADR 0242) ───────────────────────────────────────
 // The landed receipt travels as a DSSE-compatible envelope under the proof
@@ -329,6 +354,31 @@ export const ProofNoteSignatureSchema = z.strictObject({
     "bytes. No signing profile or trust policy is selected at v1.0.0.",
 });
 
+/** The closed structured claim a durable proof makes about one green gate run.
+ * Runtime receipt telemetry cannot enter this schema by composition. */
+export const DurableProofClaimSchema = z.strictObject(
+  DURABLE_PROOF_FACT_FIELDS,
+).meta({
+  id: "DiscernProofClaim",
+  description:
+    "The durable structured gate claim: branch and trunk labels, the " +
+    "validated commit abbreviation, and whole-diff statistics. The payload's " +
+    "full commit subject remains the proof identity.",
+});
+export type DurableProofClaim = z.infer<typeof DurableProofClaimSchema>;
+
+/** Human renderings stored beside the structured claim for inspection. They
+ * are signed payload bytes but never inputs to proof verification policy. */
+export const ProofPresentationSchema = z.strictObject(
+  PROOF_PRESENTATION_FIELDS,
+).meta({
+  id: "DiscernProofPresentation",
+  description:
+    "The proof line and Markdown page derived from the gate result for human " +
+    "inspection. Verification policy uses the structured claim, never these renderings.",
+});
+export type ProofPresentation = z.infer<typeof ProofPresentationSchema>;
+
 /** The JSON claim preserved as the envelope's Base64 payload. A future DSSE
  * signature covers every byte of this claim, including issuer and brief. */
 export const ProofNotePayloadSchema = z.strictObject({
@@ -337,7 +387,8 @@ export const ProofNotePayloadSchema = z.strictObject({
       description: "The full object id of the validated, landed commit.",
     }),
   }),
-  proof: ReceiptSchema,
+  proof: DurableProofClaimSchema,
+  presentation: ProofPresentationSchema,
   issuer: ProofIssuerSchema.optional(),
   brief: z.string().meta({
     description:
@@ -347,8 +398,8 @@ export const ProofNotePayloadSchema = z.strictObject({
 }).meta({
   description:
     "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed " +
-    "commit, the structured gate record, and optional issuer assertion and " +
-    "intent reference.",
+    "commit, structured gate facts, separate human presentation, and optional " +
+    "issuer assertion and intent reference.",
 });
 export type ProofNotePayload = z.infer<typeof ProofNotePayloadSchema>;
 
@@ -378,7 +429,14 @@ export type ProofNote = z.infer<typeof ProofNoteSchema>;
  * level while the required proof claim remains stable within this major. */
 export const TolerantProofNotePayloadSchema = z.looseObject({
   subject: z.looseObject({ commit: z.string() }),
-  proof: z.looseObject(RECEIPT_FIELDS),
+  proof: z.looseObject({
+    ...DURABLE_PROOF_FACT_FIELDS,
+    // Pre-split envelopes stored presentation inside `proof`. Keep reading
+    // those local pre-release notes without publishing that layout.
+    line: z.string().optional(),
+    markdown: z.string().optional(),
+  }),
+  presentation: z.looseObject(PROOF_PRESENTATION_FIELDS).optional(),
   issuer: z.looseObject(PROOF_ISSUER_FIELDS).optional(),
   brief: z.string().optional(),
 });

@@ -73,7 +73,6 @@ export type DiscernProof = {
   files_total: number;
   insertions: number;
   deletions: number;
-  waited_ms?: number;
   line: string;
   markdown: string;
 };

@@ -51,11 +51,6 @@ const FACTS: ReceiptFacts = {
   deletions: 7,
 };
 
-const WAITED_FACTS: ReceiptFacts = {
-  ...FACTS,
-  waited_ms: 70_000,
-};
-
 const STEPS: StepResult[] = [
   {
     step: {
@@ -214,23 +209,6 @@ Deno.test("receipt render: standards render before the job table", () => {
   assertEquals(
     renderReceiptMarkdown(FACTS, STEPS, [HELD], VERIFIED),
     expected,
-  );
-});
-
-Deno.test("receipt render: slot wait is separate from every step timing", () => {
-  const markdown = renderReceiptMarkdown(WAITED_FACTS, STEPS);
-  assertStringIncludes(
-    markdown,
-    "\n\nWaited 1m 10s for a test-run slot.\n\n| ran |",
-  );
-  assertStringIncludes(markdown, "| test | `deno task test` | ok · 41s |");
-  assertStringIncludes(
-    renderReceiptLine(WAITED_FACTS),
-    "· waited 1m 10s for a test-run slot ·",
-  );
-  assertEquals(
-    renderReceiptLine({ ...FACTS, waited_ms: 0 }).includes("waited"),
-    false,
   );
 });
 

@@ -51,8 +51,8 @@
     "signatures"
   ],
   "$defs": {
-    "DiscernProof": {
-      "title": "DiscernProof",
+    "DiscernProofClaim": {
+      "title": "DiscernProofClaim",
       "type": "object",
       "properties": {
         "branch": {
@@ -72,16 +72,6 @@
         },
         "deletions": {
           "type": "number"
-        },
-        "waited_ms": {
-          "type": "number",
-          "minimum": 0
-        },
-        "line": {
-          "type": "string"
-        },
-        "markdown": {
-          "type": "string"
         }
       },
       "required": [
@@ -90,11 +80,26 @@
         "head",
         "files_total",
         "insertions",
-        "deletions",
+        "deletions"
+      ],
+      "description": "The durable structured gate claim: branch and trunk labels, the validated commit abbreviation, and whole-diff statistics. The payload's full commit subject remains the proof identity."
+    },
+    "DiscernProofPresentation": {
+      "title": "DiscernProofPresentation",
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "string"
+        },
+        "markdown": {
+          "type": "string"
+        }
+      },
+      "required": [
         "line",
         "markdown"
       ],
-      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, optional capped-run slot wait, and the two renderings derived from those facts."
+      "description": "The proof line and Markdown page derived from the gate result for human inspection. Verification policy uses the structured claim, never these renderings."
     },
     "DiscernProofNotePayload": {
       "title": "DiscernProofNotePayload",
@@ -113,7 +118,10 @@
           ]
         },
         "proof": {
-          "$ref": "#/$defs/DiscernProof"
+          "$ref": "#/$defs/DiscernProofClaim"
+        },
+        "presentation": {
+          "$ref": "#/$defs/DiscernProofPresentation"
         },
         "issuer": {
           "type": "object",
@@ -140,9 +148,10 @@
       },
       "required": [
         "subject",
-        "proof"
+        "proof",
+        "presentation"
       ],
-      "description": "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, the structured gate record, and optional issuer assertion and intent reference."
+      "description": "The proof claim carried as UTF-8 JSON in the DSSE payload: the landed commit, structured gate facts, separate human presentation, and optional issuer assertion and intent reference."
     }
   }
 }

@@ -941,7 +941,6 @@ async function runGate(
       result.steps ?? [],
       standardsData,
       standardsLimits,
-      result.waitedMs,
     )
     : undefined;
   // Record the measurement receipt (ADR 0112, extended by ADR 0133): a green
@@ -1280,6 +1279,7 @@ function printSuccessTail(
           : renderDoneTtySummary(result.steps ?? [], receipt, options)
       }\n`,
     );
+    renderSlotWait(out, result.waitedMs);
     return;
   }
 
@@ -1313,9 +1313,8 @@ function printSuccessTail(
   if (receipt?.markdown !== undefined) {
     out.group("receipt");
     out.raw(`${dimBlock(receipt.markdown, outSink(out).dim)}\n`);
-  } else {
-    renderSlotWait(out, result.waitedMs);
   }
+  renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
   if (hints.length > 0) out.group("next");
   for (const hint of hints) {

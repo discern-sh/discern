@@ -54,10 +54,11 @@ import {
   type WritePreflightFailure,
 } from "../../shared/write_preflight.ts";
 import {
+  canonicalReceipt,
   type GateData,
   type GateReceiptCheckData,
   type Receipt,
-  ReceiptSchema,
+  TolerantReceiptSchema,
 } from "../../shared/result_schemas.ts";
 
 type AdminStatePaths = Readonly<
@@ -576,9 +577,9 @@ export async function inspectGateReceipt(
         : rest.slice("data: ".length, eol);
       try {
         const parsed: unknown = JSON.parse(raw);
-        const validated = ReceiptSchema.safeParse(parsed);
+        const validated = TolerantReceiptSchema.safeParse(parsed);
         if (validated.success) {
-          receiptData = validated.data;
+          receiptData = canonicalReceipt(validated.data);
         }
       } catch {
         // A malformed structured component does not invalidate the validation
