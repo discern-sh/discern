@@ -94,13 +94,27 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
   );
   assertStringIncludes(styledPlain, "╭");
   assertStringIncludes(styledPlain, "╰");
-  const splitMark = renderDiscernSplit().split("\n")[4] ?? "";
-  assertStringIncludes(styledPlain, splitMark);
+  const styledLines = styledPlain.split("\n");
+  const splitMark = renderDiscernSplit().split("\n");
+  for (const [index, row] of splitMark.entries()) {
+    assertStringIncludes(
+      styledLines[index + 1] ?? "",
+      row.trim(),
+      `styled welcome split-mark row ${index + 1}`,
+    );
+  }
   assert(
-    !plain.includes(splitMark),
+    splitMark.slice(0, -1).every((row) => !plain.includes(row.trim())),
     "the split-mark art belongs only to the styled TTY welcome",
   );
-  const styledLines = styledPlain.split("\n");
+  assertStringIncludes(
+    styledLines[splitMark.length + 1] ?? "",
+    "quality gates and safe worktrees",
+  );
+  assertStringIncludes(
+    styledLines[splitMark.length + 2] ?? "",
+    "for coding agents and the humans who run them.",
+  );
   const boxWidth = styledLines[0]?.length;
   assertEquals(boxWidth, 78);
   for (const line of styledPlain.split("\n")) {

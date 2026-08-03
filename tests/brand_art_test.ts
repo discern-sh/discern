@@ -101,6 +101,12 @@ Deno.test("terminal-art variants stay deterministic and safe to compose", () => 
     assert(!first.includes("\r"), `${style} contains a carriage return`);
     assert(!first.includes("\t"), `${style} contains a tab`);
     assert(!first.includes("\x1b"), `${style} contains ANSI styling`);
+    for (const character of first) {
+      assert(
+        character === "\n" || !/[\p{Cc}\p{Cf}]/u.test(character),
+        `${style} contains terminal control ${JSON.stringify(character)}`,
+      );
+    }
     for (const line of first.split("\n")) {
       assert(
         !/\s$/u.test(line),

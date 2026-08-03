@@ -21,6 +21,7 @@ import { DISCERN_WORDMARK } from "../shared/brand.ts";
 import { renderDiscernSplit } from "../shared/brand_art.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
+import { displayWidth } from "../lib/text.ts";
 import {
   type HumanOutputGroup,
   renderHumanOutputGroups,
@@ -213,7 +214,6 @@ const TTY_BOX_WIDTH = 78;
 const TTY_BOX_INNER_WIDTH = TTY_BOX_WIDTH - 4;
 const ACTION_BOX_WIDTH = 56;
 const ESC = String.fromCharCode(27);
-const ANSI_PATTERN = new RegExp(`${ESC}\\[[0-9;]*m`, "g");
 
 /** Wrap text in an ANSI style while reopening that style after nested resets. */
 function sgr(text: string, open: number, close: number): string {
@@ -247,9 +247,9 @@ function yellow(text: string): string {
   return sgr(text, 33, 39);
 }
 
-/** Measure terminal columns after removing the ANSI styles emitted here. */
+/** Measure styled text through the CLI's shared terminal-width authority. */
 function visibleLength(text: string): number {
-  return text.replace(ANSI_PATTERN, "").length;
+  return displayWidth(text);
 }
 
 /** Right-pad styled text to a requested visible terminal width. */
