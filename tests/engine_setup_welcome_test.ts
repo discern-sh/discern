@@ -17,6 +17,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
+import { renderDiscernSplit } from "../src/shared/brand_art.ts";
 import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,
@@ -93,6 +94,12 @@ Deno.test("the fresh welcome renderer adds TTY decoration without losing content
   );
   assertStringIncludes(styledPlain, "╭");
   assertStringIncludes(styledPlain, "╰");
+  const splitMark = renderDiscernSplit().split("\n")[4] ?? "";
+  assertStringIncludes(styledPlain, splitMark);
+  assert(
+    !plain.includes(splitMark),
+    "the split-mark art belongs only to the styled TTY welcome",
+  );
   const styledLines = styledPlain.split("\n");
   const boxWidth = styledLines[0]?.length;
   assertEquals(boxWidth, 78);

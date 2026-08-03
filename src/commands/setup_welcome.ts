@@ -18,6 +18,7 @@
 
 import { emitResult } from "../shared/emit.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
+import { renderDiscernSplit } from "../shared/brand_art.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import {
@@ -448,12 +449,30 @@ export function renderFreshWelcome(
 
 /** Compose the TTY welcome, including the Git prerequisite warning when needed. */
 function styledFreshWelcome(ctx: WelcomeContext): string[] {
+  const mark = renderDiscernSplit().split("\n");
+  const markWidth = Math.max(...mark.map(visibleLength));
   return [
     boxTop(),
-    boxLine(
-      `${bold(cyan(DISCERN_WORDMARK))} — quality gates and safe worktrees`,
+    ...mark.map((line) =>
+      boxLine(
+        centerVisible(
+          padVisible(bold(cyan(line)), markWidth),
+          TTY_BOX_INNER_WIDTH,
+        ),
+      )
     ),
-    boxLine(dim("for coding agents and the humans who run them.")),
+    boxLine(
+      centerVisible(
+        dim("quality gates and safe worktrees"),
+        TTY_BOX_INNER_WIDTH,
+      ),
+    ),
+    boxLine(
+      centerVisible(
+        dim("for coding agents and the humans who run them."),
+        TTY_BOX_INNER_WIDTH,
+      ),
+    ),
     boxRule("This project isn't set up yet."),
     ...(ctx.gitRepo ? [] : [
       boxLine(""),
