@@ -4,6 +4,24 @@
  */
 
 import { DISCERN_MARK, DISCERN_NAME, DISCERN_WORDMARK } from "./brand.ts";
+import {
+  animateDiscernCompact,
+  animateDiscernCompress,
+  animateDiscernFocus,
+  animateDiscernInsertion,
+  animateDiscernInterleave,
+  animateDiscernMonument,
+  animateDiscernRefine,
+  animateDiscernResolve,
+  animateDiscernSeparate,
+  animateDiscernSift,
+  animateDiscernSignal,
+  animateDiscernSplit,
+  animateDiscernStamp,
+  type DiscernArtAnimation,
+} from "./brand_animation.ts";
+
+export type { DiscernArtAnimation } from "./brand_animation.ts";
 
 /** The character repertoire a terminal-art variant requires. */
 export type DiscernArtCharset = "ascii" | "unicode";
@@ -12,6 +30,7 @@ export type DiscernArtCharset = "ascii" | "unicode";
 export interface DiscernArtVariant {
   readonly charset: DiscernArtCharset;
   readonly render: () => string;
+  readonly animate: () => DiscernArtAnimation;
 }
 
 /** Join authored rows without adding the trailing newline the caller owns. */
@@ -173,19 +192,71 @@ function renderDiscernFocus(): string {
  * render a named member through this table or {@link renderDiscernArt}.
  */
 export const DISCERN_ART_VARIANTS = {
-  compact: { charset: "unicode", render: renderDiscernCompact },
-  split: { charset: "unicode", render: renderDiscernSplit },
-  signal: { charset: "ascii", render: renderDiscernSignal },
-  stamp: { charset: "ascii", render: renderDiscernStamp },
-  monument: { charset: "ascii", render: renderDiscernMonument },
-  resolve: { charset: "unicode", render: renderDiscernResolve },
-  sift: { charset: "ascii", render: renderDiscernSift },
-  insertion: { charset: "unicode", render: renderDiscernInsertion },
-  interleave: { charset: "unicode", render: renderDiscernInterleave },
-  compress: { charset: "unicode", render: renderDiscernCompress },
-  refine: { charset: "unicode", render: renderDiscernRefine },
-  separate: { charset: "unicode", render: renderDiscernSeparate },
-  focus: { charset: "unicode", render: renderDiscernFocus },
+  compact: {
+    charset: "unicode",
+    render: renderDiscernCompact,
+    animate: () => animateDiscernCompact(renderDiscernCompact()),
+  },
+  split: {
+    charset: "unicode",
+    render: renderDiscernSplit,
+    animate: () => animateDiscernSplit(renderDiscernSplit()),
+  },
+  signal: {
+    charset: "ascii",
+    render: renderDiscernSignal,
+    animate: () => animateDiscernSignal(renderDiscernSignal()),
+  },
+  stamp: {
+    charset: "ascii",
+    render: renderDiscernStamp,
+    animate: () => animateDiscernStamp(renderDiscernStamp()),
+  },
+  monument: {
+    charset: "ascii",
+    render: renderDiscernMonument,
+    animate: () => animateDiscernMonument(renderDiscernMonument()),
+  },
+  resolve: {
+    charset: "unicode",
+    render: renderDiscernResolve,
+    animate: () => animateDiscernResolve(renderDiscernResolve()),
+  },
+  sift: {
+    charset: "ascii",
+    render: renderDiscernSift,
+    animate: () => animateDiscernSift(renderDiscernSift()),
+  },
+  insertion: {
+    charset: "unicode",
+    render: renderDiscernInsertion,
+    animate: () => animateDiscernInsertion(renderDiscernInsertion()),
+  },
+  interleave: {
+    charset: "unicode",
+    render: renderDiscernInterleave,
+    animate: () => animateDiscernInterleave(renderDiscernInterleave()),
+  },
+  compress: {
+    charset: "unicode",
+    render: renderDiscernCompress,
+    animate: () => animateDiscernCompress(renderDiscernCompress()),
+  },
+  refine: {
+    charset: "unicode",
+    render: renderDiscernRefine,
+    animate: () => animateDiscernRefine(renderDiscernRefine()),
+  },
+  separate: {
+    charset: "unicode",
+    render: renderDiscernSeparate,
+    animate: () => animateDiscernSeparate(renderDiscernSeparate()),
+  },
+  focus: {
+    charset: "unicode",
+    render: renderDiscernFocus,
+    animate: () => animateDiscernFocus(renderDiscernFocus()),
+  },
 } as const satisfies Readonly<Record<string, DiscernArtVariant>>;
 
 /** A name accepted by the selectable terminal-art renderer. */
@@ -194,4 +265,11 @@ export type DiscernArtStyle = keyof typeof DISCERN_ART_VARIANTS;
 /** Render a caller-selected variant without adding styling or a final newline. */
 export function renderDiscernArt(style: DiscernArtStyle): string {
   return DISCERN_ART_VARIANTS[style].render();
+}
+
+/** Build a caller-selected semantic timeline with the static render last. */
+export function renderDiscernArtAnimation(
+  style: DiscernArtStyle,
+): DiscernArtAnimation {
+  return DISCERN_ART_VARIANTS[style].animate();
 }
