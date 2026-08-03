@@ -31,12 +31,12 @@ This tree contains internals for people working on discern, so it is not bundled
 ## In this section
 
 - [config-access.md](config-access.md) — reading `discern.toml` via the typed schema, the paths registry and resolvers, and the `discern config` surface.
-- [experimental-behaviors.md](experimental-behaviors.md) — environment-only trials, their registry, activation rule, and current provider projections.
 - [migrations.md](migrations.md) — the schema-1 baseline, migration contract, and runner coverage for the first public transition.
 - [the-document-model.md](the-document-model.md) — the validated model behind every docs surface: discovery, the strict frontmatter schema, the `isPublicDoc` predicate, citation stripping, and the redirect registry.
 - [the-logbook.md](the-logbook.md) — the local, metadata-only record of discern's own verb runs: schema, storage, config epochs, and the recording points.
 - [the-result-envelope.md](the-result-envelope.md) — the shared result vocabulary, strict Zod schemas, generated consumer contracts, and MCP adapters.
 - [the-templating-engine.md](the-templating-engine.md) — the strict config-only renderer for bundled guidance and bundled-skill Markdown.
+- [experimental-behaviors.md](experimental-behaviors.md) — environment-only trials, their registry, activation rule, and current provider projections.
 
 ## See also
 

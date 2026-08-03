@@ -1,4 +1,6 @@
 ---
+description: Environment-only trials, their activation rules, and the current MCP schema-loading experiment.
+order: 70
 aliases:
   - experimental behaviors
   - experimental environment variables
