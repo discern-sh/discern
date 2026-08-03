@@ -39,10 +39,21 @@ const RUNTIME_DENO_FILES = AUTHORED_DENO_FILES.filter((rel) =>
 
 /** The terminal-dimension reads that must funnel through {@link HOME}. */
 const DIMENSION_READS = [
-  { label: "Deno.consoleSize", pattern: /\bDeno\.consoleSize\s*\(/u },
+  { label: "Deno.consoleSize", pattern: /\bconsoleSize\b/u },
   { label: "COLUMNS", pattern: /\bCOLUMNS\b/u },
   { label: "LINES", pattern: /\bLINES\b/u },
 ] as const;
+const NODE_TERMINAL_MODULE =
+  /(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*)["'](?:node:)?(?:process|tty)["']/u;
+const NODE_TERMINAL_DIMENSION = /\b(?:columns|rows|getWindowSize)\b/u;
+const GLOBAL_PROCESS_DIMENSION =
+  /\bprocess\.stdout\??\.(?:columns|rows|getWindowSize)\b/u;
+
+/** Detect Node's terminal-size capabilities even when imports are aliased. */
+function readsNodeTerminalDimensions(code: string): boolean {
+  return GLOBAL_PROCESS_DIMENSION.test(code) ||
+    (NODE_TERMINAL_MODULE.test(code) && NODE_TERMINAL_DIMENSION.test(code));
+}
 
 /** Find forbidden dimension reads in one comment-free runtime source. */
 function directDimensionReads(rel: string, source: string): string[] {
@@ -50,9 +61,14 @@ function directDimensionReads(rel: string, source: string): string[] {
     return [];
   }
   const code = codeOnly(source);
-  return DIMENSION_READS.filter(({ pattern }) => pattern.test(code)).map(
-    ({ label }) => `${rel}  (${label})`,
-  );
+  const offenders = DIMENSION_READS.filter(({ pattern }) => pattern.test(code))
+    .map(
+      ({ label }) => `${rel}  (${label})`,
+    );
+  if (readsNodeTerminalDimensions(code)) {
+    offenders.push(`${rel}  (Node terminal dimensions)`);
+  }
+  return offenders;
 }
 
 Deno.test("terminal dimensions are read only in lib/text.ts (the wrapText funnel)", async () => {
@@ -83,5 +99,34 @@ Deno.test("control: a fresh runtime container cannot open a second dimension fun
       'const viewport = Deno.consoleSize();\nconst rows = Deno.env.get("LINES");',
     ),
     ["tools/whimsy.mjs  (Deno.consoleSize)", "tools/whimsy.mjs  (LINES)"],
+  );
+  assertEquals(
+    directDimensionReads(
+      "tools/aliased.js",
+      "const readViewport = Deno.consoleSize;\nconst viewport = readViewport();",
+    ),
+    ["tools/aliased.js  (Deno.consoleSize)"],
+  );
+  assertEquals(
+    directDimensionReads(
+      "tools/node-terminal.mjs",
+      'import { stdout as terminal } from "node:process";\n' +
+        "const width = terminal.columns;\nconst height = terminal.rows;",
+    ),
+    ["tools/node-terminal.mjs  (Node terminal dimensions)"],
+  );
+  assertEquals(
+    directDimensionReads(
+      "tools/destructured-deno.ts",
+      "const { consoleSize: readViewport } = Deno;\nconst viewport = readViewport();",
+    ),
+    ["tools/destructured-deno.ts  (Deno.consoleSize)"],
+  );
+  assertEquals(
+    directDimensionReads(
+      "tools/destructured-node.mjs",
+      'const { stdout: { columns, rows } } = await import("node:process");',
+    ),
+    ["tools/destructured-node.mjs  (Node terminal dimensions)"],
   );
 });
