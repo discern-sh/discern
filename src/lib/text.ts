@@ -1,6 +1,6 @@
 /**
  * Shared terminal-text layout for human (non-`--json`) renderings: the one
- * width reader, display-width measurement, word-wrap, and content-sized table.
+ * dimension reader, display-width measurement, word-wrap, and content-sized table.
  *
  * Layout measures ANSI-styled text by stripping control sequences while
  * retaining them in the returned strings. Callers may therefore style before
@@ -10,6 +10,7 @@
 import type { EnvReader } from "../shared/env.ts";
 
 const DEFAULT_TERMINAL_WIDTH = 80;
+const DEFAULT_TERMINAL_ROWS = 24;
 const ESC = String.fromCharCode(27);
 const ANSI_CSI = new RegExp(`${ESC}\\[[0-?]*[ -/]*[@-~]`, "g");
 const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: "grapheme" });
@@ -79,16 +80,85 @@ export interface TerminalWidthOptions {
   consoleSize?: () => { columns: number };
 }
 
+/** A terminal viewport measured in character cells. */
+export interface TerminalSize {
+  readonly columns: number;
+  readonly rows: number;
+}
+
+/** Injectable boundaries for resolving both current terminal dimensions. */
+export interface TerminalSizeOptions {
+  env?: EnvReader;
+  /** Width used when neither the console nor `$COLUMNS` supplies one. */
+  fallbackColumns?: number;
+  /** Height used when neither the console nor `$LINES` supplies one. */
+  fallbackRows?: number;
+  /** Test seam for `Deno.consoleSize`; production callers leave it unset. */
+  consoleSize?: () => TerminalSize;
+}
+
 /** Optional policy for tokens wider than a wrapping line. */
 export interface WrapTextOptions {
   /** Split an overlong token at grapheme boundaries instead of overflowing. */
   breakLongWords?: boolean;
 }
 
+/** Resolve one positive terminal dimension through console, env, then fallback. */
+function resolveTerminalDimension(
+  observed: number | undefined,
+  env: EnvReader,
+  environmentName: string,
+  fallback: number,
+  conventionalFallback: number,
+): number {
+  if (observed !== undefined && Number.isFinite(observed) && observed > 0) {
+    return observed;
+  }
+  const parsed = Number(env.get(environmentName));
+  if (Number.isFinite(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return Number.isFinite(fallback) && fallback > 0
+    ? fallback
+    : conventionalFallback;
+}
+
+/**
+ * Resolve both terminal dimensions from one console observation, then the
+ * conventional `$COLUMNS` / `$LINES` environment values and stable fallbacks.
+ */
+export function terminalSize(options: TerminalSizeOptions = {}): TerminalSize {
+  const env = options.env ?? Deno.env;
+  let observed: TerminalSize | undefined;
+  try {
+    observed = (options.consoleSize ?? (() => Deno.consoleSize())).call(
+      undefined,
+    );
+  } catch {
+    observed = undefined;
+  }
+  return {
+    columns: resolveTerminalDimension(
+      observed?.columns,
+      env,
+      "COLUMNS",
+      options.fallbackColumns ?? DEFAULT_TERMINAL_WIDTH,
+      DEFAULT_TERMINAL_WIDTH,
+    ),
+    rows: resolveTerminalDimension(
+      observed?.rows,
+      env,
+      "LINES",
+      options.fallbackRows ?? DEFAULT_TERMINAL_ROWS,
+      DEFAULT_TERMINAL_ROWS,
+    ),
+  };
+}
+
 /**
  * Resolve the terminal's usable column count. The real console wins, then
  * `$COLUMNS`, then a caller-specific fallback or the conventional 80 columns.
- * This is the only place the CLI reads terminal dimensions.
+ * This module's dimension helpers are the only place the CLI reads them.
  */
 export function terminalWidth(options: TerminalWidthOptions = {}): number {
   const env = options.env ?? Deno.env;
@@ -99,17 +169,13 @@ export function terminalWidth(options: TerminalWidthOptions = {}): number {
   } catch {
     cols = undefined;
   }
-  if (cols === undefined || cols <= 0) {
-    const parsed = Number(env.get("COLUMNS"));
-    cols = Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-  }
-  if (cols !== undefined) {
-    return cols;
-  }
-  const fallback = options.fallback ?? DEFAULT_TERMINAL_WIDTH;
-  return Number.isFinite(fallback) && fallback > 0
-    ? fallback
-    : DEFAULT_TERMINAL_WIDTH;
+  return resolveTerminalDimension(
+    cols,
+    env,
+    "COLUMNS",
+    options.fallback ?? DEFAULT_TERMINAL_WIDTH,
+    DEFAULT_TERMINAL_WIDTH,
+  );
 }
 
 /**

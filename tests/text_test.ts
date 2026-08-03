@@ -5,6 +5,7 @@ import {
   padDisplayEnd,
   renderAlignedTable,
   sparkline,
+  terminalSize,
   terminalWidth,
   wrapText,
 } from "../src/lib/text.ts";
@@ -141,6 +142,38 @@ Deno.test("terminalWidth resolves console, environment, and conventional fallbac
       consoleSize: () => ({ columns: 101 }),
     }),
     101,
+  );
+});
+
+Deno.test("terminalSize resolves one console sample, environment, and both fallbacks", () => {
+  const throws = (): { columns: number; rows: number } => {
+    throw new Error("not a terminal");
+  };
+  assertEquals(
+    terminalSize({
+      env: {
+        get: (key) =>
+          key === "COLUMNS" ? "91" : key === "LINES" ? "33" : undefined,
+      },
+      consoleSize: throws,
+    }),
+    { columns: 91, rows: 33 },
+  );
+  assertEquals(
+    terminalSize({
+      env: { get: (): undefined => undefined },
+      fallbackColumns: 120,
+      fallbackRows: 40,
+      consoleSize: throws,
+    }),
+    { columns: 120, rows: 40 },
+  );
+  assertEquals(
+    terminalSize({
+      env: { get: (): undefined => undefined },
+      consoleSize: () => ({ columns: 101, rows: 51 }),
+    }),
+    { columns: 101, rows: 51 },
   );
 });
 
