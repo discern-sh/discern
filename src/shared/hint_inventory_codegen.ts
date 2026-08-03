@@ -22,8 +22,13 @@ function renderEntry(def: HintDef<unknown>): string {
   // The inventory is a CLI-canonical page: command references render in
   // their CLI spelling, exactly as `fire` delivers them to the envelope.
   const example = renderCommandRefsCli(def.template(def.example));
+  const interactiveExample = def.interactiveTemplate === undefined
+    ? undefined
+    : renderCommandRefsCli(def.interactiveTemplate(def.example));
   let fence = "```";
-  while (example.includes(fence)) fence += "`";
+  while (
+    example.includes(fence) || interactiveExample?.includes(fence) === true
+  ) fence += "`";
   return [
     `## \`${def.id}\``,
     "",
@@ -37,6 +42,16 @@ function renderEntry(def: HintDef<unknown>): string {
     `${fence}text`,
     example,
     fence,
+    ...(interactiveExample === undefined || interactiveExample === example
+      ? []
+      : [
+        "",
+        "Interactive example:",
+        "",
+        `${fence}text`,
+        interactiveExample,
+        fence,
+      ]),
   ].join("\n");
 }
 
@@ -53,7 +68,7 @@ export function renderHintInventoryDoc(): string {
     "",
     "_Every advisory hint, generated from the live registry._",
     "",
-    "Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters.",
+    "Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters. An interactive example appears when the terminal uses different wording for the same facts.",
     "",
     "Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: interactive human renderers drop it, while the `--json` and MCP envelopes always carry it.",
     "",

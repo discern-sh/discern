@@ -99,6 +99,25 @@ Deno.test("wrapText measures wide and combining graphemes by terminal columns", 
   assertEquals(wrapText("e\u0301 e\u0301", 3), ["e\u0301 e\u0301"]);
 });
 
+Deno.test("wrapText can hard-wrap long styled tokens without splitting graphemes", () => {
+  assertEquals(
+    wrapText("go abcdefgh now", 8, "  ", { breakLongWords: true }),
+    ["go", "  abcdef", "  gh now"],
+  );
+  const styled = `${ESC}[31mabcdefgh${ESC}[0m`;
+  const lines = wrapText(styled, 4, "  ", { breakLongWords: true });
+  assertEquals(lines, [
+    `${ESC}[31mabcd`,
+    "  ef",
+    `  gh${ESC}[0m`,
+  ]);
+  assertEquals(lines.map(displayWidth), [4, 4, 4]);
+  assertEquals(
+    wrapText("界界", 3, "", { breakLongWords: true }),
+    ["界", "界"],
+  );
+});
+
 Deno.test("terminalWidth resolves console, environment, and conventional fallback", () => {
   const throws = (): { columns: number } => {
     throw new Error("not a terminal");

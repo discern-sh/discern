@@ -11035,6 +11035,9 @@
                 "root": {
                   "type": "string"
                 },
+                "project": {
+                  "type": "string"
+                },
                 "worktree": {
                   "anyOf": [
                     {
@@ -11214,6 +11217,9 @@
                   "type": "object",
                   "properties": {
                     "commit": {
+                      "type": "string"
+                    },
+                    "commit_at": {
                       "type": "string"
                     },
                     "ref": {
@@ -11525,6 +11531,46 @@
                       },
                       "receipt_line": {
                         "type": "string"
+                      },
+                      "gate_receipt": {
+                        "type": "object",
+                        "properties": {
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "honored",
+                              "missing",
+                              "stale",
+                              "dirty",
+                              "unavailable",
+                              "read_failed"
+                            ]
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "recorded": {
+                            "type": "string"
+                          },
+                          "head": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "receipt": {
+                            "type": "string"
+                          },
+                          "receipt_line": {
+                            "type": "string"
+                          },
+                          "receipt_data": {
+                            "$ref": "#/$defs/DiscernProof"
+                          }
+                        },
+                        "required": [
+                          "status"
+                        ]
                       },
                       "landing_authority": {
                         "type": "object",

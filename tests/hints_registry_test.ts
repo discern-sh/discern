@@ -44,6 +44,16 @@ const PARAM_HINT = defineHint<{ branch: string; behind: number }>({
     `Branch is ${p.behind} behind ${p.branch}; run \`discern update\`.`,
 });
 
+const PROJECTED_HINT = defineHint<{ path: string }>({
+  id: "test-interactive-projection",
+  category: "next-step",
+  audience: "all",
+  example: { path: "src/shared.ts" },
+  template: (p): string => `Inspect data.paths for ${p.path}.`,
+  interactiveTemplate: (p): string =>
+    `Inspect ${p.path} in the attention block.`,
+});
+
 Deno.test("fire renders a parameterless entry and carries its id", () => {
   const fired = fire(STATIC_HINT);
   assertEquals(fired, {
@@ -66,6 +76,18 @@ Deno.test("hintTexts projects the wire shape in firing order", () => {
   assertEquals(texts, [
     "Branch is 1 behind main; run `discern update`.",
     "A fixed guardrail sentence.",
+  ]);
+});
+
+Deno.test("interactive hint wording changes the terminal projection without changing the wire", () => {
+  const fired = fire(PROJECTED_HINT, { path: "src/shared.ts" });
+  const texts = hintTexts([fired]);
+  assertEquals(texts, ["Inspect data.paths for src/shared.ts."]);
+  assertEquals(interactiveHintTexts(texts), [
+    "Inspect src/shared.ts in the attention block.",
+  ]);
+  assertEquals(interactiveHints([fired]).map((hint) => hint.text), [
+    "Inspect src/shared.ts in the attention block.",
   ]);
 });
 

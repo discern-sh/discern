@@ -113,6 +113,8 @@ Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective; an absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
+`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_receipt`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `receipt_honored`, `receipt`, and `receipt_line` fields. When Git can read the latest landed receipt's subject, `data.landed_receipt.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
+
 A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.receipt_line` derives from the validated gate-receipt line and appends that consent evidence.
 
 ### Plans and executed steps

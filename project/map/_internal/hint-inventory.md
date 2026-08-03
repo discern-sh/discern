@@ -4,7 +4,7 @@
 
 _Every advisory hint, generated from the live registry._
 
-Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters.
+Entries follow id order. Emitting context states when an entry fires. Each example renders the template with its registered example parameters. An interactive example appears when the terminal uses different wording for the same facts.
 
 Audience `all` renders on every surface. Audience `agent` marks an instruction only an agent can execute: interactive human renderers drop it, while the `--json` and MCP envelopes always carry it.
 
@@ -1574,6 +1574,12 @@ Rendered example:
 Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
 ```
 
+Interactive example:
+
+```text
+2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). The attention block lists the record paths. Whoever lands second takes the next free number.
+```
+
 ## `status-branch-behind`
 
 - Category: `next-step`
@@ -1611,6 +1617,12 @@ Rendered example:
 
 ```text
 Review 5 worktrees with uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more).
+```
+
+Interactive example:
+
+```text
+5 worktrees have uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more). Recent or running changes are normal work in progress.
 ```
 
 ## `status-dirty-worktree`
@@ -1665,6 +1677,12 @@ Rendered example:
 Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
 ```
 
+Interactive example:
+
+```text
+2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Whoever lands second should run `discern update` and re-read the shared paths listed in the attention block.
+```
+
 ## `status-fleet-logbook-disabled`
 
 - Category: `notice`
@@ -1704,6 +1722,12 @@ Rendered example:
 Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Use each branch from `data.fleet` with `git diff main...<branch>`.
 ```
 
+Interactive example:
+
+```text
+Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a branch with `git diff main...<branch>`. The dashboard shows the complete branch beside each worktree.
+```
+
 ## `status-fleet-member-stale`
 
 - Category: `next-step`
@@ -1715,6 +1739,12 @@ Rendered example:
 
 ```text
 Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. `data.fleet` carries last activity and unlanded work.
+```
+
+Interactive example:
+
+```text
+5 worktrees look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. The dashboard shows last activity and Git state.
 ```
 
 ## `status-fleet-member-unreadable`

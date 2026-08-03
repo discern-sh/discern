@@ -185,8 +185,8 @@ Deno.test("covered standing authority agrees across green done, local status, an
       names: ["covered"],
     });
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.output, "AUTHORITY");
-    assertStringIncludes(human.output, "standing grant: map");
+    assertStringIncludes(human.output, "Landing: granted");
+    assertStringIncludes(human.output, "standing grant for map");
   });
 });
 

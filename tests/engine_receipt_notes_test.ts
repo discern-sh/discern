@@ -216,6 +216,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     const statusResult = JSON.parse(status.stdout);
     assertEquals(statusResult.data.landed_receipt, {
       commit: second.target,
+      commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
       ref: RECEIPT_NOTES_REF,
       receipt: second.receipt,
     });
@@ -261,8 +262,11 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     const unreadHuman = await runAgent(dir, ["status", "--plain"]);
     assertEquals(unreadHuman.code, 0, unreadHuman.output);
     assertStringIncludes(
-      unreadHuman.stdout,
-      `recorded in a newer format (${newerFormat})`,
+      unreadHuman.stdout.replaceAll(/\s+/gu, ""),
+      `receipt unavailable in this discern version (${newerFormat})`.replaceAll(
+        /\s+/gu,
+        "",
+      ),
     );
   });
 });

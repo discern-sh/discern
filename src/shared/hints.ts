@@ -116,6 +116,10 @@ export interface HintDef<P = undefined> {
   readonly example: P;
   /** Renders the hint from named, compiler-checked parameters. */
   readonly template: (params: P) => string;
+  /** Optional interactive-human wording for the same facts. The wire keeps the
+   * canonical template; human renderers use this projection when machine field
+   * names would make the instruction less useful at a terminal. */
+  readonly interactiveTemplate?: ((params: P) => string) | undefined;
 }
 
 /** Identity helper so an entry's parameter type is inferred at the definition. */
@@ -165,7 +169,7 @@ function defineGateFailureRemedyHint<P = undefined>(
 /** A hint fired at a call site: the in-process pair; only `text` reaches the wire. */
 export interface FiredHint {
   readonly id: string;
-  /** The CLI rendering — the canonical spelling every non-MCP surface delivers. */
+  /** Canonical wire text; terminal renderers may use `interactiveText`. */
   readonly text: string;
   /**
    * The authored template text with its command-reference tokens intact,
@@ -173,6 +177,8 @@ export interface FiredHint {
    * non-CLI surface re-renders from ({@link resolveHintTextsForSurface}).
    */
   readonly authored?: string;
+  /** Human-terminal projection when it differs from the wire text. */
+  readonly interactiveText?: string;
 }
 
 /**
@@ -191,9 +197,9 @@ const firedHintsByTexts = new WeakMap<
  * no second argument; a parameterized one requires its params — the
  * conditional tuple makes the compiler enforce both.
  *
- * The template's command-reference tokens resolve to their CLI spelling
- * here, so `text` is delivery-ready for every non-MCP surface; the authored
- * token form rides beside it for the MCP boundary to re-render.
+ * The template's command-reference tokens resolve to their CLI spelling here.
+ * That canonical text reaches the wire; an optional terminal projection rides
+ * beside it, while the authored token form remains available to MCP.
  */
 export function fire<P>(
   def: HintDef<P>,
@@ -204,9 +210,18 @@ export function fire<P>(
   // needs it; the cast bridges what the conditional tuple cannot express.
   const authored = def.template(p as P);
   const text = renderCommandRefsCli(authored);
-  return text === authored
-    ? { id: def.id, text }
-    : { id: def.id, text, authored };
+  const interactiveAuthored = def.interactiveTemplate?.(p as P);
+  const interactiveText = interactiveAuthored === undefined
+    ? undefined
+    : renderCommandRefsCli(interactiveAuthored);
+  return {
+    id: def.id,
+    text,
+    ...(text === authored ? {} : { authored }),
+    ...(interactiveText === undefined || interactiveText === text
+      ? {}
+      : { interactiveText }),
+  };
 }
 
 /** Project fired hints onto the envelope's wire shape, order preserved. */
@@ -879,6 +894,12 @@ export const HINTS = {
     template: ({ total, names }): string =>
       `Review ${total} worktree${total === 1 ? "" : "s"} with uncommitted ` +
       `changes: ${boundedNameSummary(total, names)}.`,
+    interactiveTemplate: ({ total, names }): string =>
+      `${total} worktree${total === 1 ? " has" : "s have"} uncommitted ` +
+      `changes: ${
+        boundedNameSummary(total, names)
+      }. Recent or running changes ` +
+      `are normal work in progress.`,
   }),
 
   /** One bounded summary for every fleet member ready for owner review. */
@@ -902,6 +923,13 @@ export const HINTS = {
         boundedNameSummary(total, names)
       }. Use each branch ` +
       `from \`data.fleet\` with \`git diff ${trunk}...<branch>\`.`,
+    interactiveTemplate: ({ total, names, trunk }): string =>
+      `Review ${total} worktree${total === 1 ? "" : "s"} with committed work ` +
+      `ready for owner review: ${
+        boundedNameSummary(total, names)
+      }. Inspect a ` +
+      `branch with \`git diff ${trunk}...<branch>\`. The dashboard shows the ` +
+      `complete branch beside each worktree.`,
   }),
 
   /** Ready fleet rows whose recorded authority has already been verified. */
@@ -948,6 +976,14 @@ export const HINTS = {
       } changing the same files: ${
         boundedNameSummary(total, pairs)
       } (paths in \`data.fleet_collisions\`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run ${CMD.update} and re-read the shared paths.`,
+    interactiveTemplate: ({ total, pairs }): string =>
+      `${total} worktree pair${
+        total === 1 ? " is" : "s are"
+      } changing the same files: ${
+        boundedNameSummary(total, pairs)
+      }. Whoever ` +
+      `lands second should run ${CMD.update} and re-read the shared paths listed ` +
+      `in the attention block.`,
   }),
 
   /** In-flight ADR number collisions — number-keyed where the fleet-collision
@@ -977,6 +1013,13 @@ export const HINTS = {
       `that merge cleanly, so nothing collides until both sit in one tree and ` +
       `the gate refuses the duplicate — whoever lands second takes the next ` +
       `free number.`,
+    interactiveTemplate: ({ total, claims }): string =>
+      `${total} ADR number${
+        total === 1 ? " is" : "s are"
+      } claimed by more than one in-flight branch: ${
+        boundedNameSummary(total, claims)
+      }. The attention block lists the record paths. Whoever lands second takes ` +
+      `the next free number.`,
   }),
 
   /** One bounded summary for every fleet member whose git state is unreadable. */
@@ -1058,6 +1101,17 @@ export const HINTS = {
         `Resume ${sessions} or discard ${discard} with ` +
         `${discernCommand("worktree drop", positional("name", "<name>"))}. ` +
         "`data.fleet` carries last activity and unlanded work.";
+    },
+    interactiveTemplate: ({ total, names }): string => {
+      const subject = total === 1 ? "worktree looks" : "worktrees look";
+      const sessions = total === 1 ? "its session" : "their sessions";
+      const discard = total === 1 ? "it" : "each";
+      return `${total} ${subject} stale: ${
+        boundedNameSummary(total, names)
+      }. ` +
+        `Resume ${sessions} or discard ${discard} with ` +
+        `${discernCommand("worktree drop", positional("name", "<name>"))}. ` +
+        `The dashboard shows last activity and Git state.`;
     },
   }),
 
@@ -3227,10 +3281,14 @@ export function withFailureRecoveryHint<TData>(
 
 /** Bind a parameterized entry to its example for parameterless totality audits. */
 function exampleBoundHint<P>(def: HintDef<P>): HintDef<undefined> {
+  const interactive = def.interactiveTemplate;
   return {
     ...def,
     example: undefined,
     template: (): string => def.template(def.example),
+    interactiveTemplate: interactive === undefined
+      ? undefined
+      : (): string => interactive(def.example),
   };
 }
 
@@ -3290,7 +3348,13 @@ export function hintHasAudience(
 export function interactiveHints(
   fired: readonly FiredHint[],
 ): FiredHint[] {
-  return fired.filter((hint) => !hintHasAudience(hint, "agent"));
+  return fired
+    .filter((hint) => !hintHasAudience(hint, "agent"))
+    .map((hint) =>
+      hint.interactiveText === undefined
+        ? hint
+        : { ...hint, text: hint.interactiveText }
+    );
 }
 
 /**
@@ -3310,5 +3374,16 @@ export function interactiveHintTexts(
       .filter((hint) => hintHasAudience(hint, "agent"))
       .map((hint) => hint.text),
   );
-  return texts.filter((text) => !drop.has(text));
+  const replacements = new Map(
+    firedHintsFromTexts(texts)
+      .filter((hint) => !hintHasAudience(hint, "agent"))
+      .flatMap((hint) =>
+        hint.interactiveText === undefined
+          ? []
+          : [[hint.text, hint.interactiveText] as const]
+      ),
+  );
+  return texts
+    .filter((text) => !drop.has(text))
+    .map((text) => replacements.get(text) ?? text);
 }

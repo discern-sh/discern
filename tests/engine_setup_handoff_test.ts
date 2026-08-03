@@ -204,9 +204,14 @@ Deno.test("status flags unfinished setup loudly, with evidence, then goes silent
     await scaffoldEngine(dir, { bootstrapped: false });
     await runAgent(dir, ["setup", "begin", "--confirmed"]); // lays the marker-carrying skeletons
 
-    // Human view: a loud banner under the heading, not a buried hint.
+    // Human view: a leading semantic section, not a buried hint.
     const human = await runAgent(dir, ["status"]);
-    assertStringIncludes(human.stdout, "SETUP NOT FINISHED");
+    assertStringIncludes(human.stdout, "── Setup");
+    assertStringIncludes(human.stdout, "Setup is not finished.");
+    assert(
+      human.stdout.indexOf("── Setup") < human.stdout.indexOf("Main checkout"),
+      human.stdout,
+    );
 
     // Machine view: structured evidence + a lead hint.
     const j = JSON.parse((await runAgent(dir, ["status", "--json"])).stdout);

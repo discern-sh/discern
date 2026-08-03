@@ -3210,6 +3210,8 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
     // field can't drift into the payload undocumented the same way.
     for (
       const field of [
+        "project",
+        "gate_receipt",
         "stale_generated",
         "stale_materialized",
         "stale_integrations",
@@ -3224,6 +3226,31 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
     }
 
     assertEquals(await mcp.close(), 0);
+  });
+});
+
+Deno.test("discern mcp: status carries project identity and complete fleet receipt checks", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await addWorktree(dir, "alpha");
+    const status = TOOLS.find((tool) => tool.name === "discern_status");
+    assertExists(status);
+
+    const result = await runTool(status, new WorkingRoot(dir), {});
+    assertEquals(result.isError, false, JSON.stringify(result));
+    const parsed = StatusOutputSchema.parse(result.structuredContent);
+    assert(
+      parsed.data !== undefined && "location" in parsed.data,
+      JSON.stringify(parsed),
+    );
+    assertEquals(parsed.data.project, "engine-test");
+    const alpha = parsed.data.fleet?.find((row) =>
+      row.branch === "agent/alpha"
+    );
+    assertExists(alpha);
+    assertEquals(alpha.gate_receipt?.status, "missing");
+    assertEquals(alpha.receipt_honored, undefined);
   });
 });
 

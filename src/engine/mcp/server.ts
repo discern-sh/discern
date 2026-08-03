@@ -388,15 +388,16 @@ export const TOOLS: McpTool[] = orderTools([
       "to do next — pure observation, never runs the gate (the project's full " +
       "quality check), tests, or standards (quality numbers that can never get " +
       "worse), and never touches anything. data.location is " +
-      '"worktree" (a separate checkout and branch for one effort) or "main"; data.git carries ' +
-      "branch, Git-clean state, changed-files, and ahead/behind the trunk " +
+      '"worktree" (a separate checkout and branch for one effort) or "main"; ' +
+      "data.project names the configured project; " +
+      "data.git carries branch, Git-clean state, changed-files, and ahead/behind the trunk " +
       "(`{{main_branch}}`), the shared landing branch — and, when " +
       "behind, data.git.incoming_overlap names the files YOU changed that the incoming " +
       "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (declared jobs and triggered scope " +
-      "gates); data.gate_receipt explains whether the current clean HEAD already " +
-      "has an honored receipt from discern_done (when honored, data.gate_receipt.receipt_line " +
+      "gates); data.gate_receipt reports whether the receipt is honored, missing, " +
+      "stale, dirty, unavailable, or read_failed (when honored, data.gate_receipt.receipt_line " +
       "carries the one-line receipt you copy verbatim to end your report at the review moment — " +
       "data.gate_receipt.receipt is the full page, for your owner to read, never to paste " +
       "into a message); data.landing_authority is present when a recorded standing " +
@@ -416,7 +417,8 @@ export const TOOLS: McpTool[] = orderTools([
       "logbook verb, running naming fresh work in flight with elapsed and typical " +
       "duration, and last_activity taking the later of Git or logbook activity; " +
       "is_current marks the row this call is rooted in, and broken flags a checkout whose creation never " +
-      "completed; each row also carries its landing_authority when a grant exists — " +
+      "completed; each readable worktree row carries its complete gate_receipt check " +
+      "and its landing_authority when a grant exists — " +
       "every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); " +
       "data.unlanded_branches lists branches holding unlanded work with no " +

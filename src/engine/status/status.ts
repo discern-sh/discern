@@ -25,12 +25,7 @@ import {
   loadConfig,
   toCommandList,
 } from "../../shared/config_schema.ts";
-import {
-  dimBlock,
-  type DiscernResult,
-  type HumanOutputGroup,
-  renderHumanOutputGroups,
-} from "../../shared/result.ts";
+import type { DiscernResult } from "../../shared/result.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import {
   failureRecoveryHintTexts,
@@ -38,7 +33,6 @@ import {
   type FiredHint,
   HINTS,
   hintTexts,
-  interactiveHintTexts,
 } from "../../shared/hints.ts";
 import type {
   GateReceiptCheckData,
@@ -60,6 +54,7 @@ import {
   setupProgress,
   setupUnfinishedHint,
 } from "../../shared/setup_state.ts";
+import { runGit } from "../../shared/subprocess.ts";
 import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
 import { readLandedReceiptNote } from "../gate/receipt_notes.ts";
@@ -73,7 +68,7 @@ import {
 } from "../../lib/provider_hooks.ts";
 import { checkSkillsCurrent, type SkillsDriftEntry } from "../../lib/skills.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
-import { type AlignedColumn, renderAlignedTable } from "../../lib/text.ts";
+import { terminalWidth } from "../../lib/text.ts";
 import {
   type TrackedDiscernIgnoredArtifacts,
   trackedDiscernIgnoredArtifacts,
@@ -116,13 +111,7 @@ import {
   scanContainedWorktrees,
 } from "../worktree/containment.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
-import {
-  colorEnabled,
-  compactDuration,
-  makeOut,
-  type Out,
-  outSink,
-} from "../output.ts";
+import { colorEnabled, makeOut } from "../output.ts";
 import { inspectGateReceipt } from "../gate/receipt.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
@@ -143,6 +132,13 @@ import {
   type FleetLogbookActivity,
   readFleetLogbookActivity,
 } from "../logbook/read.ts";
+import {
+  idleDaysOf,
+  renderStatusDashboard,
+  STALE_WORKTREE_DAYS,
+} from "./tty.ts";
+
+export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 
 /** How many overlapping paths the behind-report lists inline (a sample; the hint
  * carries the true count). The intersection is usually small, so this rarely caps. */
@@ -170,6 +166,20 @@ export interface StatusRenderOptions {
 // drift from the schema is a compile error.
 
 // ── the result core (the single source the CLI and the MCP tool both render) ────
+
+/** Committer timestamp for one landed receipt subject, when Git can read it. */
+async function landedCommitAt(
+  root: string,
+  commit: string,
+): Promise<string | undefined> {
+  const shown = await runGit(["show", "-s", "--format=%cI", commit], {
+    cwd: root,
+  });
+  const value = shown.stdout.trim();
+  return shown.success && value !== "" && !Number.isNaN(Date.parse(value))
+    ? value
+    : undefined;
+}
 
 /**
  * Compute the `status` {@link DiscernResult} — pure observation, no mutation. The
@@ -276,6 +286,7 @@ export async function statusResult(
   const data: StatusData = {
     location,
     root,
+    project: cfg.project.slug,
     worktree,
     git,
     standards: Object.keys(cfg.standards),
@@ -283,7 +294,11 @@ export async function statusResult(
   const landedReceipt = await readLandedReceiptNote(root, mainBranch);
   if (landedReceipt.status === "valid") {
     const { status: _status, ...note } = landedReceipt;
-    data.landed_receipt = note;
+    const commitAt = await landedCommitAt(root, note.commit);
+    data.landed_receipt = {
+      ...note,
+      ...(commitAt === undefined ? {} : { commit_at: commitAt }),
+    };
   } else if (landedReceipt.status === "unsupported") {
     const { status: _status, ...unread } = landedReceipt;
     data.landed_receipt_unsupported = unread;
@@ -664,12 +679,12 @@ async function fleetEntryFor(
   if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
     entry.broken = true;
   }
-  // The row's review readiness, read from its own gate-receipt marker — inspected
-  // HERE, once, so the ready hints and the wire fields cannot disagree. An honored
-  // row carries the stored receipt page and line: the supervisor at the main
-  // checkout reviews from this survey without visiting the worktree.
+  // The row's complete gate-receipt state, read from its own marker — inspected
+  // HERE, once, so the dashboard, ready hints, and wire fields cannot disagree.
+  // An honored row also carries the compatibility page and line fields.
   if (!row.isMain && entry.broken !== true && entry.git_unavailable !== true) {
     const receipt = await inspectGateReceipt(row.path);
+    entry.gate_receipt = receipt;
     if (receipt.status === "honored") {
       entry.receipt_honored = true;
       if (receipt.receipt !== undefined) {
@@ -1199,26 +1214,6 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   return hints;
 }
 
-/** How long a fleet member sits idle before status calls it stale. Shared with
- * the desk, whose needs-attention bucket uses the same staleness vocabulary. */
-export const STALE_WORKTREE_DAYS = 7;
-
-/** Whole days since an ISO timestamp, or undefined when absent/unparseable.
- * `nowMs` is injectable so pure consumers (the desk model) stay clock-free. */
-export function idleDaysOf(
-  iso: string | undefined,
-  nowMs: number = Date.now(),
-): number | undefined {
-  if (iso === undefined) {
-    return undefined;
-  }
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) {
-    return undefined;
-  }
-  return Math.floor((nowMs - then) / 86_400_000);
-}
-
 /** Whether the main checkout has uncommitted tracked changes — the cheap read that
  * lets the accept-readiness hint warn that acceptance would refuse. False when it
  * can't be resolved (no main repo, or we're already in it). */
@@ -1265,396 +1260,24 @@ export async function runStatus(
   return result.ok ? 0 : 1;
 }
 
-// ── human rendering (a compact situation summary; the fleet table when present) ──
+// ── human rendering ──────────────────────────────────────────────────────────
 
-/** Left-pad a field label to a fixed gutter so the summary lines align. */
-function label(text: string): string {
-  return text.padEnd(11);
-}
-
-/** Explain whether HEAD has a current green gate receipt and what invalidated it. */
-function gateReceiptSummary(
-  receipt: GateReceiptCheckData,
-  verbose: boolean,
-): string {
-  switch (receipt.status) {
-    case "honored":
-      return verbose || receipt.receipt === undefined
-        ? "clean HEAD has a recorded pass"
-        : "clean HEAD has a recorded pass — print the receipt with --verbose";
-    case "missing":
-      return "no recorded receipt for this clean commit";
-    case "stale":
-      return receipt.recorded !== undefined && receipt.head !== undefined
-        ? `stale pass at ${receipt.recorded.slice(0, 12)}; HEAD is ${
-          receipt.head.slice(0, 12)
-        }`
-        : "stale pass";
-    case "dirty":
-      return "worktree dirty, so no current clean-HEAD pass";
-    case "unavailable":
-      return receipt.reason !== undefined
-        ? `receipt unavailable (${receipt.reason})`
-        : "receipt unavailable";
-    case "read_failed":
-      return receipt.reason !== undefined
-        ? `could not read receipt (${receipt.reason})`
-        : "could not read receipt";
-  }
-}
-
-/** A compact relative age ("3d ago", "2h ago", "just now") from an ISO timestamp,
- * for the fleet table's Last Activity column and the desk's row summaries. "—"
- * when unknown. `nowMs` is injectable so pure consumers stay clock-free. */
-export function relativeAge(
-  iso: string | undefined,
-  nowMs: number = Date.now(),
-): string {
-  if (iso === undefined) {
-    return "—";
-  }
-  const then = Date.parse(iso);
-  if (Number.isNaN(then)) {
-    return "—";
-  }
-  const secs = Math.max(0, Math.floor((nowMs - then) / 1000));
-  if (secs < 60) return "just now";
-  const mins = Math.floor(secs / 60);
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5) return `${weeks}w ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
-}
-
-/** The one-line action cell: live work takes precedence over its last completion. */
-function fleetActionSummary(entry: StatusFleetEntry): string {
-  if (entry.running !== undefined) {
-    const typical = entry.running.typical_duration_ms === undefined
-      ? ""
-      : ` of ~${compactDuration(entry.running.typical_duration_ms)}`;
-    return `running: ${entry.running.verb} · ${
-      compactDuration(entry.running.elapsed_ms)
-    }${typical}`;
-  }
-  if (entry.last_action === undefined) {
-    return "—";
-  }
-  const stage = entry.last_action.failed_stage === undefined
-    ? ""
-    : ` (${entry.last_action.failed_stage})`;
-  return `${entry.last_action.verb} ${entry.last_action.outcome}${stage} · ${
-    relativeAge(entry.last_action.at)
-  }`;
-}
-
-/** Render the status result as a compact human summary on stdout (quiet under
- * `--json`, which never calls this). `verbose` additionally prints each honored
- * receipt page — the owner-side pull for the review moment (ADR 0188). */
+/** Render the width-aware static dashboard on stdout. JSON never calls this path. */
 function renderStatusHuman(
   result: DiscernResult<StatusData>,
   render: StatusRenderOptions = {},
 ): void {
-  const out = makeOut(colorEnabled());
+  const color = colorEnabled();
+  const out = makeOut(color);
   if (!result.ok || result.data === undefined) {
     out.error(result.message ?? "status failed.");
     return;
   }
-  const data = result.data;
-  const c = out.c;
-  const dot = `  ${c.dim}·${c.reset} `;
-  const setupLines: string[] = [];
-  const checkoutLines: string[] = [];
-  const changeLines: string[] = [];
-  const gateLines: string[] = [];
-  const landingLines: string[] = [];
-  const taskLines: string[] = [];
-  const nextLines: string[] = [];
-
-  out.heading(
-    `discern status — ${
-      data.location === "worktree" ? "worktree" : "main checkout"
-    }`,
+  out.raw(
+    renderStatusDashboard(result.data, result.hints, {
+      width: terminalWidth(),
+      color,
+      verbose: render.verbose ?? false,
+    }),
   );
-
-  // Setup-not-finished leads everything else, loudly — a half-configured project
-  // mistaken for a finished one is the failure this banner guards. (Structured
-  // evidence is in data.setup_unfinished; this is its human face.)
-  if (data.setup_unfinished !== undefined) {
-    const pending = data.setup_unfinished.pending_markers;
-    const jobs = data.setup_unfinished.known_jobs;
-    setupLines.push(
-      `  ${c.yellow}${c.bold}⚠ SETUP NOT FINISHED${c.reset}${c.yellow} — this project is half-configured; completing it is your job, not a report to hand back.${c.reset}`,
-      `  ${c.dim}Work the brief \`discern setup begin\` prints (re-run it to reprint), then run \`discern setup done\` to finish.${c.reset}`,
-    );
-    if (pending.length > 0) {
-      const shown = pending.slice(0, 6).join(", ");
-      const more = pending.length > 6 ? `, +${pending.length - 6} more` : "";
-      setupLines.push(
-        `  ${c.dim}Still carrying skeleton markers: ${shown}${more}.${c.reset}`,
-      );
-    }
-    {
-      const wired = jobs.filter((job) => job.wired).map((job) => job.name);
-      const unset = jobs.filter((job) => !job.wired).map((job) => job.name);
-      setupLines.push(
-        `  ${c.dim}Known jobs wired: ${
-          wired.length > 0 ? wired.join(", ") : "none yet"
-        }${unset.length > 0 ? ` · unset: ${unset.join(", ")}` : ""}.${c.reset}`,
-      );
-    }
-  }
-
-  if (data.git !== null) {
-    const g = data.git;
-    const state = g.clean ? "clean" : `${g.changed_files} changed`;
-    const behind = g.behind_trunk === null ? "" : `, ${g.behind_trunk} behind`;
-    // With no local integration branch there is no count to print — say so
-    // honestly instead of a fabricated "0 ahead".
-    const versus = g.ahead_trunk === null
-      ? `no ${g.trunk} branch to compare against`
-      : `${g.ahead_trunk} ahead${behind} ${g.trunk}`;
-    checkoutLines.push(
-      `  ${label("branch")}${
-        g.branch || "(detached)"
-      }${dot}${state}${dot}${versus}`,
-    );
-    // When behind, the hot zone: the files you changed that the incoming main also
-    // changed — re-check these on updating (a clean merge can still break them).
-    if (g.incoming_overlap !== undefined && g.incoming_overlap.length > 0) {
-      checkoutLines.push(
-        `  ${label("overlap")}${c.yellow}${
-          g.incoming_overlap.join(", ")
-        }${c.reset}${c.dim} (your files ${g.trunk} also changed)${c.reset}`,
-      );
-    }
-  } else {
-    checkoutLines.push(
-      `  ${
-        label("git")
-      }${c.dim}unavailable (Git could not read this checkout)${c.reset}`,
-    );
-  }
-
-  if (data.worktree !== null) {
-    const w = data.worktree;
-    checkoutLines.push(`  ${label("worktree")}${w.id}${dot}port ${w.port}`);
-    const resNames = Object.keys(w.resources);
-    if (resNames.length > 0) {
-      checkoutLines.push(
-        `  ${label("resources")}${
-          resNames.map((n) => `${n}=${w.resources[n]}`).join("  ")
-        }`,
-      );
-    }
-  }
-
-  if (data.scopes !== undefined) {
-    changeLines.push(
-      `  ${label("scopes")}${
-        data.scopes.length > 0 ? data.scopes.join(", ") : "(none changed)"
-      }`,
-    );
-  }
-
-  if (data.gate !== undefined) {
-    const g = data.gate;
-    const jobs = g.jobs.length > 0 ? g.jobs.join(", ") : "(none wired)";
-    const sg = g.scope_gates.length > 0
-      ? `${dot}scope gates: ${g.scope_gates.join(", ")}`
-      : "";
-    gateLines.push(`  ${label("gate")}${jobs}${sg}`);
-  }
-
-  const verbose = render.verbose ?? false;
-  if (data.landed_receipt !== undefined) {
-    landingLines.push(
-      `  ${label("receipt")}${
-        data.landed_receipt.commit.slice(0, 12)
-      }${dot}${data.landed_receipt.ref}`,
-    );
-    if (verbose) {
-      landingLines.push(
-        dimBlock(
-          data.landed_receipt.receipt.markdown,
-          outSink(out).dim,
-        ),
-      );
-    }
-  }
-  if (data.landed_receipt_unsupported !== undefined) {
-    landingLines.push(
-      `  ${label("receipt")}${
-        data.landed_receipt_unsupported.commit.slice(0, 12)
-      }${dot}recorded in a newer format (${data.landed_receipt_unsupported.format}) — upgrade discern to read it`,
-    );
-  }
-  if (data.gate_receipt !== undefined) {
-    landingLines.push(
-      `  ${label("done")}${gateReceiptSummary(data.gate_receipt, verbose)}`,
-    );
-    // The owner-side pull: --verbose prints the honored receipt page here, from
-    // discern's own marker. Unindented so it reads (and pastes) as markdown;
-    // dimmed so the quoted page stays visually secondary to the summary lines.
-    if (verbose && data.gate_receipt.receipt !== undefined) {
-      landingLines.push(
-        dimBlock(data.gate_receipt.receipt, outSink(out).dim),
-      );
-    }
-  }
-
-  if (data.landing_authority !== undefined) {
-    landingLines.push(
-      `  ${label("authority")}${
-        landingAuthoritySummary(data.landing_authority)
-      }`,
-    );
-  }
-
-  if (data.standards.length > 0) {
-    gateLines.push(`  ${label("standards")}${data.standards.join(", ")}`);
-  }
-
-  if (data.fleet !== undefined) {
-    taskLines.push(...renderFleetTableLines(out, data.fleet));
-    if (verbose) {
-      // Each ready row's receipt page, straight from its marker — the supervisor
-      // reviews the whole fleet from here without visiting a worktree.
-      const receipts = data.fleet.filter((e) => e.receipt !== undefined);
-      for (const e of receipts) {
-        taskLines.push(dimBlock(e.receipt ?? "", outSink(out).dim));
-      }
-    }
-  }
-
-  // The interactive projection: agent-audience hints stay wire-only. It covers
-  // the status-owned hints and the advisory findings appended after them alike,
-  // recovering each entry's identity from the envelope's own array.
-  for (const hint of interactiveHintTexts(result.hints)) {
-    nextLines.push(`${c.cyan}→${c.reset} ${hint}`);
-  }
-
-  const groups: HumanOutputGroup<string>[] = [
-    { id: "setup", label: "Setup", items: setupLines },
-    { id: "checkout", label: "Checkout", items: checkoutLines },
-    { id: "change", label: "Change", items: changeLines },
-    { id: "gate", label: "Gate", items: gateLines },
-    { id: "landing", label: "Landing", items: landingLines },
-    { id: "tasks", label: "Tasks", items: taskLines },
-    { id: "next", label: "Next", items: nextLines },
-  ];
-  const rendered = renderHumanOutputGroups(groups, {
-    leadingBoundary: true,
-    renderLabel: (group) =>
-      group.label === undefined
-        ? undefined
-        : `  ${c.dim}──${c.reset} ${c.bold}${group.label}${c.reset}`,
-  });
-  if (rendered !== "") {
-    out.raw(`${rendered}\n`);
-  }
-}
-
-/** Summarize the verified grant or conversation consent still needed to land. */
-function landingAuthoritySummary(
-  authority: NonNullable<StatusData["landing_authority"]>,
-): string {
-  if (authority.kind === "authorized") {
-    return authority.source === "standing-grant"
-      ? `standing grant: ${authority.scopes?.join(", ") ?? "(none)"}`
-      : "effort grant";
-  }
-  if ((authority.standing_scopes?.length ?? 0) > 0) {
-    return `conversation required; standing grant: ${
-      authority.standing_scopes?.join(", ")
-    }`;
-  }
-  return "conversation required; authority warning";
-}
-
-const FLEET_AUTHORITY_COLUMN: AlignedColumn<StatusFleetEntry> = {
-  header: "AUTHORITY",
-  value: (e) =>
-    e.landing_authority === undefined
-      ? "—"
-      : landingAuthoritySummary(e.landing_authority),
-};
-
-const FLEET_COLUMN_SPECS: AlignedColumn<StatusFleetEntry>[] = [
-  // The WORKTREE and BRANCH cells are identifiers a human copies verbatim into
-  // `discern worktree drop <id>` or a `git …<branch>` command, so their columns
-  // size to the widest value and are never truncated: a clipped id is one the
-  // reader can't type back.
-  //
-  // The WORKTREE cell falls back id → basename (never the branch): `worktree drop`
-  // resolves a target by path, basename, or id — not by branch — so a branch like
-  // `agent/<name>` is not a name it accepts. This matches the id ?? basename(path)
-  // the drop hints use, keeping the column always a valid drop target.
-  {
-    header: "WORKTREE",
-    value: (e) => e.is_main ? "(main)" : (e.id ?? basename(e.path)),
-  },
-  { header: "BRANCH", value: (e) => e.branch || "(detached)" },
-  {
-    header: "STATE",
-    value: (e) =>
-      e.broken === true
-        ? "broken"
-        // Unknown is unknown — never rendered as "clean".
-        : e.git_unavailable === true
-        ? "unreadable"
-        : e.clean === true
-        ? "clean"
-        : `${e.changed_files} changed`,
-  },
-  {
-    header: "AHEAD/BEHIND",
-    value: (e) =>
-      e.is_main
-        ? "—"
-        : e.ahead === undefined
-        ? "?/?"
-        : `${e.ahead}/${e.behind}`,
-  },
-  { header: "LAST ACTION", value: fleetActionSummary },
-  { header: "LAST ACTIVITY", value: (e) => relativeAge(e.last_activity) },
-];
-
-/** Render the fleet survey as an aligned table whose columns size to their content,
- * so an identifier is always shown in full (see {@link FLEET_COLUMN_SPECS}). */
-function renderFleetTableLines(
-  out: Out,
-  fleet: StatusFleetEntry[],
-): string[] {
-  const c = out.c;
-  const columns = fleet.some((entry) => entry.landing_authority !== undefined)
-    ? [
-      ...FLEET_COLUMN_SPECS.slice(0, -1),
-      FLEET_AUTHORITY_COLUMN,
-      FLEET_COLUMN_SPECS[
-        FLEET_COLUMN_SPECS.length - 1
-      ] as AlignedColumn<StatusFleetEntry>,
-    ]
-    : FLEET_COLUMN_SPECS;
-
-  const [header = "", ...rows] = renderAlignedTable(columns, fleet);
-  const lines = [`  ${c.dim}${header}${c.reset}`];
-  for (const [index, e] of fleet.entries()) {
-    const you = e.is_current ? ` ${c.dim}← you${c.reset}` : "";
-    lines.push(`  ${rows[index] ?? ""}${you}`);
-  }
-
-  // The ownership framing for humans (the agent-facing form is the --json-only
-  // hint): only when the survey holds a worktree other than the current checkout.
-  if (fleet.some((e) => !e.is_main && !e.is_current)) {
-    lines.push(
-      `  ${c.dim}A resumed effort keeps its worktree. Other clean worktrees are not available to claim.${c.reset}`,
-    );
-  }
-  return lines;
 }

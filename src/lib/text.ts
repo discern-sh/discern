@@ -18,6 +18,11 @@ const PICTOGRAPH = /\p{Extended_Pictographic}/u;
 const EMOJI_PRESENTATION = /\p{Emoji_Presentation}/u;
 const SPARKLINE_GLYPHS = ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"] as const;
 
+interface DisplayAtom {
+  text: string;
+  width: number;
+}
+
 /** Whether one Unicode scalar is conventionally two terminal columns. */
 function isWideCodePoint(code: number): boolean {
   return code >= 0x1100 &&
@@ -72,6 +77,12 @@ export interface TerminalWidthOptions {
   fallback?: number;
   /** Test seam for `Deno.consoleSize`; production callers leave it unset. */
   consoleSize?: () => { columns: number };
+}
+
+/** Optional policy for tokens wider than a wrapping line. */
+export interface WrapTextOptions {
+  /** Split an overlong token at grapheme boundaries instead of overflowing. */
+  breakLongWords?: boolean;
 }
 
 /**
@@ -174,16 +185,92 @@ export function meter(
   return { filled: "█".repeat(cells), track: "░".repeat(width - cells) };
 }
 
+/** ANSI controls and visible graphemes as indivisible layout atoms. */
+function displayAtoms(text: string): DisplayAtom[] {
+  const atoms: DisplayAtom[] = [];
+  const matcher = new RegExp(ANSI_CSI.source, ANSI_CSI.flags);
+  let cursor = 0;
+  for (const match of text.matchAll(matcher)) {
+    const index = match.index;
+    for (const { segment } of GRAPHEMES.segment(text.slice(cursor, index))) {
+      atoms.push({ text: segment, width: graphemeWidth(segment) });
+    }
+    const control = match[0] ?? "";
+    atoms.push({ text: control, width: 0 });
+    cursor = index + control.length;
+  }
+  for (const { segment } of GRAPHEMES.segment(text.slice(cursor))) {
+    atoms.push({ text: segment, width: graphemeWidth(segment) });
+  }
+  return atoms;
+}
+
+/** Split one word to a first-line width and a narrower continuation width. */
+function splitDisplayWord(
+  word: string,
+  firstWidth: number,
+  continuationWidth: number,
+): string[] {
+  const chunks: string[] = [];
+  let chunk = "";
+  let chunkWidth = 0;
+  for (const atom of displayAtoms(word)) {
+    const limit = chunks.length === 0 ? firstWidth : continuationWidth;
+    if (atom.width > 0 && chunkWidth > 0 && chunkWidth + atom.width > limit) {
+      chunks.push(chunk);
+      chunk = "";
+      chunkWidth = 0;
+    }
+    chunk += atom.text;
+    chunkWidth += atom.width;
+  }
+  if (chunk !== "" || chunks.length === 0) chunks.push(chunk);
+  return chunks;
+}
+
+/** Greedy wrapping variant that hard-wraps a token wider than its line. */
+function wrapBreakingLongWords(
+  words: readonly string[],
+  target: number,
+  continuationWidth: number,
+  hangingIndent: string,
+): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const available = lines.length === 0 ? target : continuationWidth;
+    if (
+      line !== "" && displayWidth(line) + 1 + displayWidth(word) <= available
+    ) {
+      line += ` ${word}`;
+      continue;
+    }
+    if (line !== "") {
+      lines.push(line);
+      line = "";
+    }
+    const firstWidth = lines.length === 0 ? target : continuationWidth;
+    const chunks = splitDisplayWord(word, firstWidth, continuationWidth);
+    lines.push(...chunks.slice(0, -1));
+    line = chunks.at(-1) ?? "";
+  }
+  if (line !== "" || lines.length === 0) lines.push(line);
+  return lines.map((value, index) =>
+    index === 0 ? value : `${hangingIndent}${value}`
+  );
+}
+
 /**
  * Greedy word-wrap `text` into lines no wider than `width`. Continuation lines
  * carry `hangingIndent`, whose display width reduces their available content
  * width. A single word longer than the available width overflows on its own
- * line rather than splitting a path, branch, or URL.
+ * line unless `breakLongWords` asks for grapheme-safe hard wrapping.
  */
 export function wrapText(
   text: string,
   width: number,
   hangingIndent = "",
+  options: WrapTextOptions = {},
 ): string[] {
   const words = text.split(/\s+/).filter((w) => w !== "");
   if (words.length === 0) {
@@ -194,6 +281,14 @@ export function wrapText(
     1,
     target - displayWidth(hangingIndent),
   );
+  if (options.breakLongWords === true) {
+    return wrapBreakingLongWords(
+      words,
+      target,
+      continuationWidth,
+      hangingIndent,
+    );
+  }
   const lines: string[] = [];
   let line = words[0] ?? "";
   for (const word of words.slice(1)) {
