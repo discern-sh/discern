@@ -19,7 +19,7 @@ Run it when a session starts or the next move is unclear. Human, JSON, and Model
 
 Worktrees default to a local view. Main leads with the fleet summary, attention, and worktrees. `--all` adds the fleet from a worktree; `--local` suppresses it. The flags conflict.
 
-The renderer measures width, capped at 104 columns. It uses a bounded table when all facts fit and stacked rows otherwise. Section content starts beneath its heading text. Marked rows indent their details by one two-column step, aligning each detail with the marked item text. Detail wraps with hanging indents. Long identities remain complete on isolated lines; current, secondary, and detached identities stay explicit.
+The renderer measures width, capped at 104 columns. It uses a bounded table when all facts fit and stacked rows otherwise. Section content starts beneath its heading text. Glyphs use the preceding 2 columns, keeping all item text aligned. Detail wraps with hanging indents. Long identities remain complete on isolated lines; current, secondary, and detached identities stay explicit.
 
 Each row derives one status: broken, unreadable, failed, blocked, collision, behind, running, ready, stale, in progress, receipt unreadable, receipt unavailable, receipt stale, needs gate, then idle. New running work supersedes an older failure. A completed `status` remains activity, not evidence of health. Collision takes precedence without hiding receipt readiness or authority.
 

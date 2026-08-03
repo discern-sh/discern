@@ -641,24 +641,9 @@ function wrappedField(
   ).map((line) => `${indent}${line}`);
 }
 
-/** Wrap one section-relative glyph-led line with its continuation under the
- * text. */
-function wrappedBullet(
-  glyph: string,
-  text: string,
-  width: number,
-  c: Palette,
-  glyphTone: FleetRowTone = "cyan",
-): string[] {
-  const styled = tone(glyph, glyphTone, c);
-  const styledText = styledDiscernCommands(text, c);
-  const prefixWidth = displayWidth(glyph) + 1;
-  return wrapText(
-    `${styled} ${styledText}`,
-    width,
-    " ".repeat(prefixWidth),
-    { breakLongWords: true },
-  );
+interface GlyphSectionLine {
+  glyph: string;
+  text: string;
 }
 
 interface VerbatimSectionLine {
@@ -667,7 +652,51 @@ interface VerbatimSectionLine {
   verbatim: string;
 }
 
-type StatusSectionLine = string | VerbatimSectionLine;
+type StatusSectionLine = string | GlyphSectionLine | VerbatimSectionLine;
+
+/** Keep a glyph in the section gutter while its text uses the shared content
+ * column. */
+function glyphLine(glyph: string, text: string): GlyphSectionLine {
+  return { glyph, text };
+}
+
+/** Wrap one glyph-led line with its text and continuations in the shared
+ * section content column. */
+function wrappedBullet(
+  glyph: string,
+  text: string,
+  width: number,
+  c: Palette,
+  glyphTone: FleetRowTone = "cyan",
+): StatusSectionLine[] {
+  const styled = tone(glyph, glyphTone, c);
+  const styledText = styledDiscernCommands(text, c);
+  const wrapped = wrapText(
+    styledText,
+    width,
+    "",
+    { breakLongWords: true },
+  );
+  const [first, ...continuations] = wrapped;
+  return first === undefined
+    ? []
+    : [glyphLine(styled, first), ...continuations];
+}
+
+/** Place one typed line in the section's shared display columns. */
+function renderSectionLine(line: StatusSectionLine): string {
+  if (typeof line === "string") {
+    return line === "" ? "" : `${SECTION_CONTENT_INDENT}${line}`;
+  }
+  if ("verbatim" in line) return line.verbatim;
+  const gutter = " ".repeat(
+    Math.max(
+      0,
+      SECTION_CONTENT_COLUMN - displayWidth(line.glyph) - 1,
+    ),
+  );
+  return `${gutter}${line.glyph} ${line.text}`;
+}
 
 /** Join one populated dashboard section. This is the sole owner of ordinary
  * section indentation, so every present and future child shares the heading's
@@ -679,11 +708,7 @@ function section(
 ): string {
   return [
     `${c.dim}${SECTION_RULE}${c.reset} ${c.bold}${label}${c.reset}`,
-    ...lines.map((line) =>
-      typeof line === "string"
-        ? line === "" ? "" : `${SECTION_CONTENT_INDENT}${line}`
-        : line.verbatim
-    ),
+    ...lines.map(renderSectionLine),
   ].join("\n");
 }
 
@@ -692,14 +717,16 @@ function renderStackedRow(
   row: FleetRowPresentation,
   width: number,
   c: Palette,
-): string[] {
-  const identity = `${tone(row.glyph, row.tone, c)} ${
-    styledIdentifier(row.identity.primary, c)
-  }${currentMarker(row.entry.is_current, c)}`;
-  const lines = [identity];
+): StatusSectionLine[] {
+  const identity = `${styledIdentifier(row.identity.primary, c)}${
+    currentMarker(row.entry.is_current, c)
+  }`;
+  const lines: StatusSectionLine[] = [
+    glyphLine(tone(row.glyph, row.tone, c), identity),
+  ];
   if (row.identity.secondary !== undefined) {
     lines.push(
-      `  ${c.dim}Worktree id:${c.reset} ${
+      `${c.dim}Worktree id:${c.reset} ${
         styledIdentifier(row.identity.secondary, c)
       }`,
     );
@@ -709,13 +736,12 @@ function renderStackedRow(
       "Status",
       `${tone(row.label, row.tone, c)} · Git ${tone(row.git, row.gitTone, c)}`,
       width,
-      "  ",
     ),
   );
   const receiptText = `${tone(row.receipt.label, row.receipt.tone, c)}${
     row.receipt.detail === undefined ? "" : ` · ${row.receipt.detail}`
   }`;
-  lines.push(...wrappedField("Receipt", receiptText, width, "  "));
+  lines.push(...wrappedField("Receipt", receiptText, width));
   lines.push(
     ...wrappedField(
       "Activity",
@@ -723,7 +749,6 @@ function renderStackedRow(
         ? tone(row.activity, "cyan", c)
         : row.activity,
       width,
-      "  ",
     ),
   );
   if (row.authority !== undefined) {
@@ -734,7 +759,6 @@ function renderStackedRow(
           row.authority.detail === undefined ? "" : ` · ${row.authority.detail}`
         }`,
         width,
-        "  ",
       ),
     );
   }
@@ -744,7 +768,6 @@ function renderStackedRow(
         "Contained in",
         styledIdentifier(row.entry.contained_in, c),
         width,
-        "  ",
       ),
     );
   }
@@ -756,7 +779,6 @@ function renderStackedRow(
           fileCount(collision.total)
         }`,
         width,
-        "  ",
       ),
     );
   }
@@ -856,12 +878,13 @@ function renderWorktrees(
   width: number,
   c: Palette,
   ownershipCaption: boolean,
-): string[] {
+): StatusSectionLine[] {
   const table = tableLines(rows, width, c);
-  const lines = table ?? rows.flatMap((row, index) => [
-    ...(index === 0 ? [] : [""]),
-    ...renderStackedRow(row, width, c),
-  ]);
+  const lines: StatusSectionLine[] = table ??
+    rows.flatMap((row, index): StatusSectionLine[] => [
+      ...(index === 0 ? [] : [""]),
+      ...renderStackedRow(row, width, c),
+    ]);
   if (ownershipCaption) {
     lines.push(
       "",
@@ -902,20 +925,22 @@ function renderAttention(
   data: StatusData,
   width: number,
   c: Palette,
-): string[] {
-  const lines: string[] = [];
+): StatusSectionLine[] {
+  const lines: StatusSectionLine[] = [];
   for (const row of rows) {
     if (row.attention === undefined) continue;
     lines.push(
       ...(lines.length === 0 ? [] : [""]),
-      `${tone(row.glyph, row.tone, c)} ${
-        styledIdentifier(row.identity.primary, c)
-      }${currentMarker(row.entry.is_current, c)}`,
+      glyphLine(
+        tone(row.glyph, row.tone, c),
+        `${styledIdentifier(row.identity.primary, c)}${
+          currentMarker(row.entry.is_current, c)
+        }`,
+      ),
       ...wrappedField(
         row.label,
         styledDiscernCommands(row.attention, c),
         width,
-        "  ",
       ),
     );
     if (
@@ -929,7 +954,6 @@ function renderAttention(
             tone(row.authority.label, row.authority.tone, c)
           }`,
           width,
-          "  ",
         ),
       );
     }
@@ -944,7 +968,6 @@ function renderAttention(
           " ↔ ",
         ),
         width,
-        "  ",
       ),
       ...wrappedField(
         "Paths",
@@ -954,7 +977,6 @@ function renderAttention(
             : ""
         }`,
         width,
-        "  ",
       ),
       ...wrappedField(
         "Action",
@@ -963,7 +985,6 @@ function renderAttention(
           c,
         ),
         width,
-        "  ",
       ),
     );
   }
@@ -983,14 +1004,12 @@ function renderAttention(
           ", ",
         ),
         width,
-        "  ",
       ),
-      ...wrappedField("Records", collision.paths.join(", "), width, "  "),
+      ...wrappedField("Records", collision.paths.join(", "), width),
       ...wrappedField(
         "Action",
         "Whoever lands second takes the next free record number.",
         width,
-        "  ",
       ),
     );
   }
@@ -1213,7 +1232,11 @@ function renderLastLanding(
 }
 
 /** Setup-incomplete action block that still obeys the report width. */
-function renderSetup(data: StatusData, width: number, c: Palette): string[] {
+function renderSetup(
+  data: StatusData,
+  width: number,
+  c: Palette,
+): StatusSectionLine[] {
   const setup = data.setup_unfinished;
   if (setup === undefined) return [];
   const lines = wrappedBullet(

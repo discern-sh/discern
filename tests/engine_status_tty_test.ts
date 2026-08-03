@@ -135,28 +135,59 @@ function assertLinesFit(
   }
 }
 
-/** Every ordinary line inside a dashboard section begins at or beyond the
- * heading text. Stored receipt Markdown is deliberately verbatim. */
+/** Every dashboard item starts its text beneath the heading text. A glyph may
+ * occupy the gutter, and labelled fields may use a deeper hanging continuation.
+ * Stored receipt Markdown is deliberately verbatim. */
 function assertSectionContentColumns(output: string): void {
   let section: string | undefined;
   let contentColumn = 0;
+  let hangingColumn: number | undefined;
   for (const line of plain(output).split("\n")) {
     const heading = line.match(/^── (.+)$/u)?.[1];
     if (heading !== undefined) {
       section = heading;
       contentColumn = line.indexOf(heading);
+      hangingColumn = undefined;
       continue;
     }
-    if (line === "" || line.startsWith("discern status")) continue;
+    if (line === "" || line.startsWith("discern status")) {
+      hangingColumn = undefined;
+      continue;
+    }
     if (line.startsWith("Main checkout:")) {
       section = undefined;
+      hangingColumn = undefined;
       continue;
     }
     if (section === undefined || section === "Receipts") continue;
     const firstVisible = line.search(/\S/u);
-    assert(
-      firstVisible >= contentColumn,
-      `${section} content starts at column ${firstVisible}; expected at least ${contentColumn}: ${line}`,
+    const content = line.slice(firstVisible);
+    const leadingToken = content.match(/^(\S+) (.+)$/u)?.[1];
+    const isGlyph = leadingToken !== undefined &&
+      !/[\p{L}\p{N}]/u.test(leadingToken);
+    if (isGlyph) {
+      const itemTextColumn = displayWidth(
+        `${line.slice(0, firstVisible)}${leadingToken} `,
+      );
+      assertEquals(
+        itemTextColumn,
+        contentColumn,
+        `${section} marked text starts at column ${itemTextColumn}; expected ${contentColumn}: ${line}`,
+      );
+      hangingColumn = undefined;
+      continue;
+    }
+    if (firstVisible === contentColumn) {
+      const fieldPrefix = content.match(/^([^:]+:) (?:\S|$)/u)?.[1];
+      hangingColumn = fieldPrefix === undefined
+        ? undefined
+        : contentColumn + displayWidth(fieldPrefix) + 1;
+      continue;
+    }
+    assertEquals(
+      firstVisible,
+      hangingColumn,
+      `${section} item text starts at column ${firstVisible}; expected ${contentColumn}: ${line}`,
     );
   }
 }
@@ -283,6 +314,8 @@ Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equ
     assertEquals(plain(color), noColor, `color changed words at ${width}`);
     assertLinesFit(noColor, width);
     assertLinesFit(color, width);
+    assertSectionContentColumns(noColor);
+    assertSectionContentColumns(color);
     if (width < 92) {
       assertStringIncludes(noColor, "Status:");
     } else {
@@ -294,7 +327,7 @@ Deno.test("status dashboard: narrow, ordinary, wide, and capped layouts keep equ
   assert(!render(fixture, 104, true).includes(`${ESC}[32mclean`));
 });
 
-Deno.test("status dashboard: sections share one content column and marked details hang from their item text", () => {
+Deno.test("status dashboard: marked and unmarked item text shares the heading content column", () => {
   const branch = "agent/behind-abc123";
   const fixture = data([
     mainEntry({ is_current: false }),
@@ -307,9 +340,16 @@ Deno.test("status dashboard: sections share one content column and marked detail
     }),
   ]);
 
+  const hints = hintTexts([
+    fire(HINTS["status-branch-behind"], {
+      behind: 5,
+      trunk: "main",
+      overlap: undefined,
+    }),
+  ]);
   for (const width of [48, 72, 104]) {
     for (const color of [false, true]) {
-      const output = render(fixture, width, color);
+      const output = render(fixture, width, color, hints);
       const lines = plain(output).split("\n");
       assertSectionContentColumns(output);
 
@@ -317,9 +357,12 @@ Deno.test("status dashboard: sections share one content column and marked detail
       const summary = requiredLine(lines, "Summary:");
       const identity = requiredLine(lines, branch);
       const detail = requiredLine(lines, "Behind:");
+      const nextStep = requiredLine(lines, "→");
       assertEquals(summary.indexOf("Summary:"), fleetHeading.indexOf("Fleet"));
-      assertEquals(identity.indexOf("!"), fleetHeading.indexOf("Fleet"));
-      assertEquals(identity.indexOf(branch), detail.indexOf("Behind:"));
+      assertEquals(identity.indexOf(branch), fleetHeading.indexOf("Fleet"));
+      assertEquals(detail.indexOf("Behind:"), fleetHeading.indexOf("Fleet"));
+      assertEquals(identity.indexOf("!") + 2, fleetHeading.indexOf("Fleet"));
+      assertEquals(nextStep.indexOf("→") + 2, fleetHeading.indexOf("Fleet"));
     }
   }
 });
@@ -385,6 +428,7 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
     );
     assertStringIncludes(output, model.label);
     assertLinesFit(output, 72);
+    assertSectionContentColumns(output);
   }
 });
 
