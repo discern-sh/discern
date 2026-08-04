@@ -1,0 +1,622 @@
+/**
+ * The cross-agent behaviour reference as a canonical registry: the researched
+ * coding agents, the classified behavioural dimensions, and every headline
+ * finding live here as one typed set, and the maintainer reference under
+ * `project/map/_private/research/` compiles from it (ADR 0257).
+ *
+ * The classification does the ordering work: sections render in declaration
+ * order, while the headline matrix groups its rows by category — so a
+ * dimension's place in both projections follows from its entry alone.
+ * Authored prose cites a dimension with a `{{s:<id>}}` token and the renderer
+ * resolves the live section number, so inserting a dimension cannot strand a
+ * cross-reference. `tests/cross_agent_reference_codegen_test.ts` holds the
+ * committed page to the renderer and the researched-agent set to the native
+ * provider catalogue, so a new provider integration fails the gate until this
+ * research grows its column.
+ */
+
+/** One researched coding agent — a column of the reference matrix. */
+export interface ReferenceAgent {
+  /** Stable registry id, also the matrix column key. */
+  readonly id: string;
+  /** Column heading as rendered in the reference. */
+  readonly column: string;
+  /** The native provider (`src/shared/agent_catalogue.ts`) this column
+   * researches; absent for a researched agent discern does not integrate. */
+  readonly nativeName?: string;
+}
+
+export const REFERENCE_AGENTS = [
+  { id: "claude-code", column: "Claude Code", nativeName: "claude_code" },
+  { id: "codex", column: "OpenAI Codex CLI", nativeName: "codex" },
+  { id: "cursor", column: "Cursor agent CLI", nativeName: "cursor" },
+  { id: "gemini", column: "Gemini CLI", nativeName: "gemini" },
+  { id: "copilot", column: "GitHub Copilot CLI", nativeName: "copilot" },
+] as const satisfies readonly ReferenceAgent[];
+
+export type ReferenceAgentId = (typeof REFERENCE_AGENTS)[number]["id"];
+
+/** One classification bucket; declaration order fixes matrix row grouping. */
+export interface BehaviourCategory {
+  readonly id: string;
+  readonly title: string;
+}
+
+export const BEHAVIOUR_CATEGORIES = [
+  { id: "interception", title: "Hook interception" },
+  { id: "sandboxing", title: "OS sandboxing" },
+  { id: "session", title: "Session and working-directory semantics" },
+  { id: "mcp", title: "MCP client behaviour" },
+  { id: "surfaces", title: "Launch, trust, and integration surfaces" },
+] as const satisfies readonly BehaviourCategory[];
+
+export type BehaviourCategoryId = (typeof BEHAVIOUR_CATEGORIES)[number]["id"];
+
+/** One headline-matrix row: a short per-agent cell for one divergence. */
+export interface HeadlineRow {
+  readonly label: string;
+  /** Keyed per agent, so a new column is incomplete until every row fills. */
+  readonly cells: Readonly<Record<ReferenceAgentId, string>>;
+}
+
+/** One behavioural dimension: a classified section of the reference. */
+export interface BehaviourDimension {
+  readonly id: string;
+  /** Section heading; the renderer numbers sections by position. */
+  readonly title: string;
+  readonly category: BehaviourCategoryId;
+  /** Headline-matrix rows this dimension contributes (may be empty). */
+  readonly headline: readonly HeadlineRow[];
+  /** Verbatim section Markdown; `{{s:<id>}}` cites a sibling dimension. */
+  readonly body: string;
+}
+
+export const BEHAVIOUR_DIMENSIONS = [
+  {
+    id: "pre-exec-interception",
+    title: "Pre-execution interception (block-before-run)",
+    category: "interception",
+    headline: [
+      {
+        label: "Pre-exec interception (block before run)",
+        cells: {
+          "claude-code": "`PreToolUse` hook",
+          "codex": "`PreToolUse` hook",
+          "cursor": "`beforeShellExecution` hook",
+          "gemini": "`BeforeTool` hook",
+          "copilot": "`preToolUse` hook (fail-closed)",
+        },
+      },
+    ],
+    body:
+      `All five expose a hook that fires before a tool call and can block it, wired through committed project config and able to invoke an external binary. Same _shape_ (JSON on stdin, exit-2-or-deny to block), different schema, events, and reliability.
+
+- **Claude Code** — \`PreToolUse\` (in \`.claude/settings.json\`). Receives \`tool_name\`, \`tool_input\` (incl. \`command\`), \`cwd\`. Blocks via exit 2 or \`{permissionDecision: "deny"}\`. Caveat: reportedly **not fired on subagent tool calls** (\`anthropics/claude-code#21460\`). A separate \`CwdChanged\` hook fires _after_ a \`cd\` (observational only).
+- **OpenAI Codex CLI** — \`PreToolUse\` (in \`[hooks]\` / \`hooks.json\` under \`~/.codex\` or \`<repo>/.codex\`). Same payload shape. Maintainer framing: **"a guardrail, not an enforcement boundary"** — it "doesn't intercept all shell calls yet, only the simple ones." A separate \`notify\` channel exists but fires only on turn-complete and cannot block.
+- **Cursor agent CLI** — \`beforeShellExecution\` (in \`.cursor/hooks.json\`). Receives \`command\`, \`cwd\`, \`workspace_roots\`. Blocks via \`{permission: "deny"}\` or exit 2. Honoured by the CLI, but event-firing is **reported flaky** (the CLI fires only a subset of the documented events as of 2026-04); \`.cursor/cli.json\` permissions are static lists (no callback, no cwd scoping).
+- **Gemini CLI** — \`BeforeTool\` (in the \`hooks\` key of \`settings.json\`, merged across \`~/.gemini/\` + project \`.gemini/\`). Receives \`tool_name\`, \`tool_input\`, optional \`mcp_context\`, plus base fields (\`session_id\`, \`cwd\`, \`hook_event_name\`, …). Blocks via stdout \`{"decision":"deny"}\` (alias \`"block"\`) with a required \`reason\` (surfaced to the agent as a tool error), or exit 2 (stderr = reason); v0.36.0 added an \`"ask"\` decision. Runs _synchronously_. No "guardrail-only" maintainer disclaimer — but the hook lives in project \`.gemini/settings.json\`, which is **ignored until the folder is user-trusted** (safe mode), so a committed hook is not self-activating on clone.
+- **GitHub Copilot CLI** — \`preToolUse\` (in \`.github/hooks/*.json\`, \`~/.copilot/hooks/\`, or inline in \`.github/copilot/settings.json\`). Reads a JSON stdin payload (\`sessionId\`, \`cwd\`, \`toolName\`, \`toolArgs\`) and writes JSON to stdout; blocks via \`permissionDecision: "deny"\` (with a required \`permissionDecisionReason\`). The most strict of the set: it is **fail-closed** — any error, crash, timeout, or non-zero exit on \`preToolUse\` _denies_ the call. Approval prompts (\`--allow-tool\`/\`--deny-tool\`) are a separate, non-programmable layer.
+
+**Implication.** The interception _logic_ can live once in a shared binary; only a thin per-agent adapter (schema-in, verdict-out) differs. Parity = "the agent has a blocking pre-exec hook", which all five satisfy. None is a hard enforcement boundary against an evasive agent — and Claude Code carries open reports that a \`permissionDecision: "deny"\` is sometimes _ignored_ and the tool runs anyway (\`anthropics/claude-code#37210\`, \`#4669\`, \`#19298\`): a reliability bug in the deny path, not a capability difference. Copilot's fail-closed default is the strongest safety posture of the five.`,
+  },
+  {
+    id: "input-rewriting",
+    title: "Tool-input rewriting and result substitution",
+    category: "interception",
+    headline: [
+      {
+        label: "Hook can rewrite the command",
+        cells: {
+          "claude-code": "Yes (`updatedInput`)",
+          "codex": "Yes (`updatedInput`)",
+          "cursor": "**No** (permission-only)",
+          "gemini": "Yes (`tool_input` merge)",
+          "copilot": "Yes (`modifiedArgs`)",
+        },
+      },
+      {
+        label: "Hook can return a synthetic result",
+        cells: {
+          "claude-code": "No",
+          "codex": "No",
+          "cursor": "No",
+          "gemini": "No (`BeforeModel`/`AfterTool` adjacent)",
+          "copilot": "No (only post-hoc `modifiedResult`)",
+        },
+      },
+    ],
+    body:
+      `- **Rewrite the command** before it runs: Claude Code and Codex both support an \`updatedInput\` channel that mutates \`tool_input.command\` and runs the modified command (re-checked against permissions afterward; one authoritative rewriting-hook per tool to avoid non-deterministic last-writer-wins). **Gemini** also can — \`BeforeTool\` returns \`hookSpecificOutput.tool_input\`, "an object that merges with and overrides the model's arguments before execution." **Copilot** also can — \`preToolUse\` returns \`modifiedArgs\`, "substitute tool arguments to use instead of the originals." **Cursor cannot** (confirmed): its \`beforeShellExecution\` output is permission-only (\`permission\` / \`user_message\` / \`agent_message\`), with no command-mutation field; the only output that changes tool data anywhere is \`postToolUse\`'s \`updated_mcp_tool_output\`, which is MCP-only and _after_ execution.
+- **Substitute the result** (block real execution, hand back synthetic output as if the tool ran): Claude Code **cannot** — a deny surfaces to the model as an _error_, never a normal tool result. The other four are confirmed the same at the _pre-execution_ point: Cursor's pre-exec hook is permission-only, Codex's is approve/deny only, Gemini's \`BeforeTool\` has no synthetic-output field, and Copilot's \`preToolUse\` only allows/denies/rewrites. Two agents can replace a result _after_ the tool runs — Gemini's \`AfterTool.tailToolCallRequest\` (a real follow-up tool whose result replaces the first's) and Copilot's \`postToolUse.modifiedResult\` (\`{resultType, textResultForLlm}\`) — and Gemini's \`BeforeModel.llm_response\` can mock the model reply entirely. But none of these is a pre-exec "block real execution and return fake output" short-circuit. So across all five a hook can _redirect_ a command (e.g. wrap it in a sandbox CLI) but cannot transparently "run it elsewhere and return the output".`,
+  },
+  {
+    id: "native-sandbox",
+    title: "Native OS sandbox",
+    category: "sandboxing",
+    headline: [
+      {
+        label: "Native OS sandbox",
+        cells: {
+          "claude-code": "Yes (opt-in)",
+          "codex": "Yes (default on)",
+          "cursor": "Yes (CLI: opt-in)",
+          "gemini": "Yes (opt-in; off by default)",
+          "copilot": "Yes (opt-in; off; MXC)",
+        },
+      },
+      {
+        label: "Auto-carves the linked-worktree `.git`",
+        cells: {
+          "claude-code": "**Yes**",
+          "codex": "No (forces _resolved_ common-dir read-only)",
+          "cursor": "No",
+          "gemini": "Unverified (no carve-out documented)",
+          "copilot": "Unverified (no carve-out documented)",
+        },
+      },
+    ],
+    body:
+      `|                                      | Claude Code                                                    | Codex                                                                                                                                                                         | Cursor                                                                 | Gemini                                                                                         | GitHub Copilot                                                                                          |
+| ------------------------------------ | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Toggle                               | \`sandbox.enabled\` (off by default)                             | \`sandbox_mode\` (\`workspace-write\` etc.; default on)                                                                                                                           | \`.cursor/sandbox.json\`; CLI **unsandboxed unless \`--sandbox enabled\`** | \`-s\`/\`--sandbox\`, \`GEMINI_SANDBOX\`, \`tools.sandbox\` (off by default; auto-on under \`--yolo\`)   | \`/sandbox enable\` + \`sandbox\` key in \`settings.json\` (off by default)                                   |
+| Writable-root → arbitrary dir        | \`filesystem.allowWrite\`                                        | \`[sandbox_workspace_write].writable_roots\` / \`--add-dir\`                                                                                                                      | \`workspace_readwrite\` + \`additionalReadwritePaths\`                     | workspace dir writable + \`SANDBOX_MOUNTS\` (\`from:to:opts\`, default \`ro\`)                       | working dir auto read/write; manually added paths                                                       |
+| Backends                             | Seatbelt / bubblewrap+socat                                    | Seatbelt / bubblewrap+seccomp                                                                                                                                                 | Seatbelt / Landlock+seccomp+overlayfs / WSL2                           | Seatbelt (macOS) / Docker·Podman·runsc·lxc (Linux) / native integrity-level (Windows, v0.36.0) | Microsoft MXC, cross-OS (per-OS backend names undocumented)                                             |
+| Network default                      | off; domain allowlist via proxy                                | off in workspace-write                                                                                                                                                        | \`deny\`; domain allow/deny lists                                        | **allowed** under default \`permissive-open\` profile                                            | togglable (\`allowedHosts\`/\`blockedHosts\` "not reliable across platforms"); shipped default undocumented |
+| **Linked-worktree \`.git\` carve-out** | **automatic** (allows shared \`.git\`, denies \`hooks/\`+\`config\`) | **none — actively hostile**: resolves the \`.git\` pointer's \`gitdir:\` and forces the _resolved_ common-dir read-only, so worktree commits fail (\`openai/codex#7071\`, \`#15505\`) | not handled (must add the common-dir to writable roots)                | unverified (no \`.git\`/common-dir carve-out documented)                                         | unverified (no git-aware rule documented)                                                               |
+| Fail mode if unavailable             | warn + run unsandboxed (\`failIfUnavailable\` to harden)         | fails closed (refuses / asks)                                                                                                                                                 | n/a                                                                    | n/a (off by default)                                                                           | n/a (off by default)                                                                                    |
+
+The carve-out row is load-bearing: only Claude Code's native sandbox already knows that a linked worktree's commits write into the shared \`.git\` outside the worktree. Every other mechanism breaks worktree git when naively confined — Codex **confirmed-hostile** (it explicitly resolves the relocated common-dir and forces it read-only, so \`git commit\` inside a sandboxed linked worktree fails); Cursor unhandled; Gemini and Copilot undocumented; and the external wrappers \`fence\`/\`srt\` likewise — so the harness must compute and inject that carve-out itself for all of them.`,
+  },
+  {
+    id: "sandbox-composition",
+    title: "Sandbox nesting / composition",
+    category: "sandboxing",
+    headline: [
+      {
+        label: "Native sandbox can be disabled (defer to an outer wrapper)",
+        cells: {
+          "claude-code": "**No** (no off-switch)",
+          "codex": "Yes (`danger-full-access`)",
+          "cursor": "Yes (`insecure_none`)",
+          "gemini": "Yes (off by default; `toolSandboxing:false`)",
+          "copilot": "Yes (`/sandbox disable`; off by default)",
+        },
+      },
+    ],
+    body:
+      `Stacking an agent's own OS sandbox inside an external wrapper (\`fence\`/\`srt\`) is the wrong model — they conflict (Linux namespace creation). The rule across agents: **exactly one OS-sandbox mechanism per agent, never both** — either the agent's native sandbox _or_ an outer launch-wrap, with the other off. Whether you _can_ turn the native one off to defer to a wrapper is now mapped, and it splits the field:
+
+- **Claude Code — no off-switch.** It exposes no flag to disable its sandbox in favour of an outer layer, so on Claude Code the native sandbox is the only composable option.
+- **Codex — yes.** \`--sandbox danger-full-access\` (or \`--dangerously-bypass-approvals-and-sandbox\`, documented for use "inside an externally hardened environment") disables it — that phrasing is itself the sanctioned compose-with-a-wrapper story.
+- **Cursor — yes.** \`sandbox.json\` \`"type": "insecure_none"\` disables the sandbox entirely (at the cost of reverting to per-command approval).
+- **Gemini — yes, by default.** The native sandbox is off unless opted into, and \`security.toolSandboxing: false\` disables tool sandboxing (docs note this does not address process-level sandboxing, so full nesting semantics are unverified).
+- **Copilot — yes, by default.** The sandbox is off until \`/sandbox enable\`, and \`/sandbox disable\` turns it off again — so an outer wrapper can be the only mechanism with no fight.
+
+So for four of five agents an outer wrapper can be the single mechanism; Claude Code is the exception where the native sandbox must be the one in force.`,
+  },
+  {
+    id: "cwd-persistence",
+    title: "Working-directory persistence across tool calls",
+    category: "session",
+    headline: [
+      {
+        label: "Working dir persists across tool calls",
+        cells: {
+          "claude-code": "**Yes**",
+          "codex": "No (per-call `workdir`)",
+          "cursor": "No (re-anchors each call)",
+          "gemini": "No (per-call `dir_path`)",
+          "copilot": "Unverified (session `/cwd` only)",
+        },
+      },
+    ],
+    body:
+      `- **Claude Code** — **persists.** A \`cd\` in one Bash call carries to the next (the working directory is durable session state; only shell env/functions reset). So a single \`cd\` moves the shell for the rest of the session.
+- **Codex** — **does not persist.** Each shell/exec call runs in its own subshell and takes an explicit \`workdir\`; OpenAI's prompting guide says "Do not use \`cd\`". The launch cwd (\`--cd\`) is a per-call _default_ the model can override, not a floor — so confinement must come from the writable-root sandbox, not from where the shell "starts".
+- **Cursor** — **does not persist.** The Shell Mode docs state "each command runs independently — use \`cd <dir> && …\`"; every command re-anchors to the CLI working directory.
+- **Gemini** — **does not persist.** \`run_shell_command\` takes a per-call \`dir_path\` (absolute, or relative to workspace root); to work elsewhere you pass \`dir_path\` each call or chain \`cd … && …\`. A persistent \`/cd\` is an open, not-yet-implemented request (\`google-gemini/gemini-cli#25020\`).
+- **Copilot** — **unverified at the per-call level.** The _session_ working dir is settable mid-session (\`/cwd\`, \`/cd\`), but whether a \`cd\` inside one shell tool call carries to the next is not documented. Treat as non-persistent until confirmed.`,
+  },
+  {
+    id: "mid-session-reroot",
+    title:
+      "Mid-session re-root (move the working / project root of a _running_ session)",
+    category: "session",
+    headline: [
+      {
+        label: "Mid-session re-root (move cwd/project)",
+        cells: {
+          "claude-code": "**Yes — `EnterWorktree`**",
+          "codex": "No (launch-pinned)",
+          "cursor": "No (launch-pinned)",
+          "gemini": "No (launch-pinned)",
+          "copilot": "**Yes — `/cwd` · `/worktree`**",
+        },
+      },
+    ],
+    body:
+      `A pivotal divergence — and one that now splits 2-vs-3 rather than isolating Claude Code.
+
+- **Claude Code — yes.** The built-in **\`EnterWorktree\`** tool "switches the current session into" a worktree, and with \`path\` can enter an _existing_ worktree that appears in \`git worktree list\` (which sibling worktrees do, from a non-worktree session). It re-roots cwd and re-resolves CWD-dependent state (CLAUDE.md, memory, plans). \`ExitWorktree\` will **not** remove a worktree entered by \`path\`, so an external owner (e.g. a harness) keeps lifecycle control. Caveat: its _special_ cases (already in a worktree, or a pinned subagent) require the target be under \`.claude/worktrees/\`, which collides with a sibling-placement convention; the base "from the main checkout" case is unaffected. (Sourced from the live \`EnterWorktree\`/\`ExitWorktree\` tool schemas.)
+- **GitHub Copilot — yes.** A running session can change its working dir without restart via **\`/cwd\`** (alias \`/cd\`, "show or change working directory"), and **\`/worktree\`** (alias \`/move\`) re-roots the session into a new worktree, carrying uncommitted changes along. So, like Claude Code, Copilot can both create and _inhabit_ a worktree in-session.
+- **Codex — no.** The working/writable root is fixed at launch; there is no \`/cd\`, and the documented way to switch is exit → \`cd\` → \`codex resume\` (\`openai/codex#12464\`). A running agent cannot re-root itself — and if its launch directory is _removed_ mid-session, the app hard-locks: it reports **"Current working directory missing"** and refuses all further input, with no in-session recovery. This is not discern-specific (it reproduces with any plain folder renamed or removed under a live session; numerous open issues), but it is a sharp trap for the worktree workflow. A \`discern_accept\` run from a Codex session living _inside_ its own \`environment.toml\`-managed worktree deletes that session's own cwd, locking it out on the next message — even though the acceptance itself succeeds. The safe pattern is to launch Codex in the **main checkout** and let it \`discern_start\`, which places worktrees as _siblings_: the session's cwd (main) is never the directory torn down, so the full lifecycle through acceptance and on into the next task runs cleanly.
+- **Cursor — no.** Workspace root is pinned at launch (\`--workspace\`/cwd); no in-session re-root mechanism. (\`--worktree\` only redirects where edits land, not the session root.)
+- **Gemini — no.** Root is pinned at launch; the "switch root mid-session" request is **closed as not planned** (\`google-gemini/gemini-cli#18055\`). \`/directory add <path>\` can _widen_ the workspace at runtime but does not move the project root, and the native \`--worktree\` flag is a launch-time choice, not an in-session move.
+
+**Consequence for "agent on the trunk wants its own worktree mid-session":** solvable in-session on Claude Code (\`create\` + \`EnterWorktree\`) and Copilot (\`/worktree\`). On Codex, Cursor, and Gemini the running agent can _create_ a worktree but cannot _inhabit_ it — real isolated work requires a fresh session launched in the worktree (\`codex --cd <wt>\` / \`agent --workspace <wt>\` / \`gemini --worktree …\`, the last create-only), which a human or orchestrator starts.`,
+  },
+  {
+    id: "mcp-root-mobility",
+    title: "MCP server root mobility",
+    category: "mcp",
+    headline: [
+      {
+        label: "MCP server root follows a mid-session move",
+        cells: {
+          "claude-code": "No (pinned at launch)",
+          "codex": "n/a (no move)",
+          "cursor": "n/a (no move)",
+          "gemini": "n/a (no move)",
+          "copilot": "Unverified (cwd _can_ move)",
+        },
+      },
+    ],
+    body:
+      `A project-scoped MCP server is a persistent subprocess rooted at the directory resolved when it launched. For **Claude Code**, a mid-session \`cd\` — or even \`EnterWorktree\` — moves the shell and CWD-dependent caches but **not** the already-running MCP server's root (MCP isn't a "CWD-dependent cache"). So after entering a worktree, MCP tools that resolve "the project root" still target the launch directory; a project's own CLI re-discovers the root from cwd correctly, but the MCP surface stays pinned. No supported mid-session re-point without restarting the session. **Copilot** is the one to verify here rather than dismiss: because its cwd _can_ move (\`/cwd\`, \`/worktree\`), whether a running stdio MCP server re-roots with it is a genuine open question (undocumented — unverified), not moot. **Codex, Cursor, and Gemini**: moot, since their cwd cannot move mid-session anyway (Gemini's MCP servers take a static per-server \`cwd\` fixed at launch, with nothing to follow).
+
+For Claude Code this is now **empirically confirmed** (mid-2026), via discern's own stdio MCP server (\`discern mcp\`), which resolves its project root from the process cwd at spawn. \`discern_status\` returns \`location: "worktree"\` only when the session was _opened in_ the worktree — a fresh session there spawns a correctly-rooted server — whereas a session opened in the main checkout returns \`location: "main"\` for the whole process lifetime, unchanged by a later \`cd\` into a worktree _or_ by \`EnterWorktree\`. The pinning bites symmetrically: a verb that _creates and enters_ a worktree from a main-rooted session (e.g. \`discern_start\`) leaves every worktree-scoped tool still operating on main, just as moving _out_ of the launch dir does. The only client-side cures are a fresh session rooted in the worktree or a full restart — so a harness that wants its MCP surface to follow the agent within one session must hold the target root _itself_, because nothing the client does will move it.
+
+> **Resolved in discern by [ADR 0062](../../_adr/0062-mcp-server-working-root.md).** discern took exactly the cure this finding names: the \`discern mcp\` server now holds its own mutable _working root_ and re-aims it on \`discern_start\` (→ the new worktree) and \`discern_accept\` (→ the spawn root). So \`discern_start\` no longer strands the worktree-scoped tools on main — the symptom above is the pre-0062 behaviour that motivated the change. The finding itself still stands: the process cwd is pinned at spawn and nothing the client does moves it; discern simply stopped relying on it, tracking the logical root on top. (The agent must still move its own file cwd in — only the discern tools follow automatically.)
+
+### In/out-of-worktree MCP behaviour — comparison matrix (to complete)
+
+Claude Code is confirmed below; the other columns are placeholders for a later verification pass. Some cells are already resolved by the mobility findings above — the launch-pinned trio (Codex, Cursor, Gemini) cannot move cwd mid-session, so the "follows a move" rows are n/a there; their open cell is whether a fresh-session-in-worktree spawns a correctly-rooted server.
+
+| Sub-behaviour                                            | Claude Code                                | Codex         | Cursor        | Gemini        | Copilot                         |
+| -------------------------------------------------------- | ------------------------------------------ | ------------- | ------------- | ------------- | ------------------------------- |
+| Server root pinned at spawn cwd (ignores later \`cd\`)     | **Yes — confirmed**                        | n/a (no move) | n/a (no move) | n/a (no move) | — _(verify)_                    |
+| Native mid-session re-root moves the server              | **No** — \`EnterWorktree\` does not          | n/a           | n/a           | n/a           | — _(verify \`/cwd\`·\`/worktree\`)_ |
+| Fresh session opened in the worktree is correctly rooted | **Yes — confirmed**                        | — _(verify)_  | — _(verify)_  | — _(verify)_  | — _(verify)_                    |
+| Manual MCP reconnect re-roots the server                 | **No** — respawns at the original cwd      | —             | —             | —             | —                               |
+| Confirmation source                                      | discern's \`discern mcp\` / \`discern_status\` | —             | —             | —             | —                               |`,
+  },
+  {
+    id: "integration-surfaces",
+    title: "Worktree, launch, trust, and file surfaces",
+    category: "surfaces",
+    headline: [
+      {
+        label: "Launch bound to a directory",
+        cells: {
+          "claude-code": "`claude <dir>` / `--worktree`",
+          "codex": "`--cd` / `-C`",
+          "cursor": "`--workspace` / cwd",
+          "gemini": "`--include-directories` / cwd / `--worktree`",
+          "copilot": "`-C` / `--add-dir`",
+        },
+      },
+      {
+        label: "Repo can self-grant trust from committed config",
+        cells: {
+          "claude-code": "n/a",
+          "codex": "No (needs user-level trust)",
+          "cursor": "No (needs `--trust`)",
+          "gemini": "No (Folder Trust; safe mode until trusted)",
+          "copilot": "No (user-level `trustedFolders`)",
+        },
+      },
+      {
+        label: "Native instruction file",
+        cells: {
+          "claude-code": "`CLAUDE.md` (`@import`)",
+          "codex": "`AGENTS.md` (concat)",
+          "cursor": "`AGENTS.md` (+ `CLAUDE.md`)",
+          "gemini": "`GEMINI.md` (`@import`); **not** `AGENTS.md` by default",
+          "copilot": "`AGENTS.md` (primary) + `.github/*`; no import",
+        },
+      },
+      {
+        label: "Reads cross-tool `.agents/skills/` (SKILL.md)",
+        cells: {
+          "claude-code": "**No** (#31005; uses `.claude/skills/`)",
+          "codex": "Yes",
+          "cursor": "Yes (+ `.claude`/`.codex` compat)",
+          "gemini": "Yes (alias; precedence)",
+          "copilot": "Yes (+ `.github`/`.claude`)",
+        },
+      },
+    ],
+    body:
+      `The committed-config and launch surfaces a harness must target, one table per dimension. (Where a cell concerns the agent CLI specifically, that is the surface described; IDE/coding-agent deltas are noted inline.)
+
+### Worktree mechanism
+
+| Agent              | Mechanism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code        | \`EnterWorktree\`/\`ExitWorktree\` tools (own worktrees under \`.claude/worktrees/\`), \`--worktree\`, and a \`WorktreeCreate\`/\`WorktreeRemove\` **hook contract** for VCS-agnostic isolation — the only agent with a harness-drivable lifecycle hook.                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| OpenAI Codex CLI   | The Codex **app** manages git worktrees in \`$CODEX_HOME/worktrees\` (Local-vs-Worktree mode; \`.worktreeinclude\` copies git-ignored files); the bare CLI has no \`--worktree\` flag yet (manual \`git worktree\` works). A committable \`<repo>/.codex/environments/environment.toml\` carries **\`[setup].script\`** (runs on worktree creation — a \`WorktreeCreate\` analogue) **and \`[cleanup].script\`** (runs on worktree teardown when the thread is archived/evicted — a \`WorktreeRemove\` analogue), both scoped to app-managed worktrees. The schema is autogenerated by the closed-source Desktop app (capture exact keys from the file); cleanup-on-archive has an open reliability bug (\`openai/codex#19480\`). |
+| Cursor agent CLI   | \`-w\`/\`--worktree [name]\` → \`~/.cursor/worktrees/<repo>/<name>\`; auto-cleaned by the editor's retention rules; **no create/remove hook**. Separate cloud background-agent concept.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Gemini CLI         | Native \`--worktree\`/\`-w\` (v0.36.0, experimental, behind \`experimental.worktrees\`): \`git worktree add\` + branch on launch; **create-only** (no auto-remove/\`prune\`); **no hook contract**.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| GitHub Copilot CLI | Native \`/worktree\` (alias \`/move\`): creates a worktree, switches the session into it, carries uncommitted changes; **no create/remove hook**, **no auto-cleanup** (manual \`git worktree remove\`). (VS Code has a separate session-setup "worktree isolation" UI.)                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+Only Claude Code exposes an explicit, VCS-agnostic \`WorktreeCreate\`/\`WorktreeRemove\` **hook contract** a harness drives directly. The others are narrower but not empty: Codex's \`environment.toml\` fires committable \`[setup]\` and \`[cleanup]\` scripts on its own worktree create and teardown, and **every agent has a committable \`SessionStart\` hook** ({{s:committable-config}}) a harness can hang per-worktree setup off. What remains uneven is **teardown reliability**: Claude's \`WorktreeRemove\` and Codex's \`[cleanup]\` are the committable remove hooks (Codex's with an open bug \`#19480\`); Gemini's \`SessionEnd\` is advisory; Cursor's \`sessionEnd\`-in-CLI is unverified; Copilot's \`sessionEnd\` fires. So a harness that manages its _own_ worktrees still drives creation/removal itself and points the agent at the worktree via its launch-dir flag, but it can wire setup via \`SessionStart\` on all five — and on Codex a full \`[setup]\`/\`[cleanup]\` pair when it uses Codex-managed worktrees.
+
+### Launch bound to a directory
+
+| Agent              | Launch-dir flag                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------- |
+| Claude Code        | \`claude <dir>\` / \`--worktree\`                                                                            |
+| OpenAI Codex CLI   | \`--cd\` / \`-C\` (also \`codex exec --cd\`)                                                                   |
+| Cursor agent CLI   | \`--workspace <path>\` (or plain cwd)                                                                      |
+| Gemini CLI         | \`--include-directories\` / \`context.includeDirectories\` (or cwd; \`#13669\` reports it not always honoured) |
+| GitHub Copilot CLI | \`-C <dir>\` ("change working directory before doing anything else"); \`--add-dir\` for extra access         |
+
+All five fix the workspace/writable root at launch; only Claude Code and Copilot can then move it mid-session ({{s:mid-session-reroot}}).
+
+### Self-granting trust from committed config
+
+| Agent              | Can a cloned repo self-trust?                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code        | **n/a** — no separate trust prompt; settings in \`.claude/settings.json\` (committed or local) are honoured directly.                                                                                                                                                                                                                                                                                                                  |
+| OpenAI Codex CLI   | **No** for the trust _grant_ — \`trust_level\` is a user-level \`~/.codex/config.toml\` \`[projects."<path>"]\` key (only the \`projects\`/\`profile\` keys are ignored in repo-local config). But the restriction is narrow: once a directory is trusted (a one-time grant), its committed \`<repo>/.codex/config.toml\` (incl. \`[mcp_servers]\`), \`.codex/hooks.json\`, and \`.codex/environments/environment.toml\` are all honoured per-project. |
+| Cursor agent CLI   | **No.** Workspace-trust prompt on first run; \`--trust\` works only with \`-p\`/\`--print\` (headless), not the interactive TUI; committed rules/MCP/hooks are honoured only after trust.                                                                                                                                                                                                                                                  |
+| Gemini CLI         | **No.** Folder Trust (off by default); in "safe mode" it ignores project \`.gemini/settings.json\`, \`.env\`, custom commands, MCP servers, and hooks until user-trusted (prompt / \`~/.gemini/trustedFolders.json\` / IDE signal / \`--skip-trust\` / \`GEMINI_CLI_TRUST_WORKSPACE=true\`).                                                                                                                                                   |
+| GitHub Copilot CLI | **No.** Folder-trust prompt; \`trustedFolders\` stored in user-level \`~/.copilot/config.json\` (not committable); bypass via \`--allow-all*\` flags or pre-seeding.                                                                                                                                                                                                                                                                       |
+
+Four of five gate committed config behind a user-level trust step; only Claude Code honours committed project config without one. The instruction file is the exception, read regardless (next table).
+
+### Instruction file (auto-loaded; is \`AGENTS.md\` read?)
+
+| Agent              | Instruction file                                                                                                                                                                                                                      |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code        | \`CLAUDE.md\` (supports the \`@path\` import); does **not** read \`AGENTS.md\` natively.                                                                                                                                                    |
+| OpenAI Codex CLI   | \`AGENTS.md\` natively (concatenated; **no** import directive — so it is the canonical full-body file the pointers import).                                                                                                             |
+| Cursor agent CLI   | \`AGENTS.md\` **and** \`CLAUDE.md\` natively at root (plain markdown, applied as rules alongside \`.cursor/rules/\`; nested files, more-specific-wins). \`.mdc\` rules support \`@file\` references (a reference, not a confirmed full inline). |
+| Gemini CLI         | \`GEMINI.md\` by default (key \`context.fileName\`), with \`@file.md\` imports; does **not** read \`AGENTS.md\` unless \`context.fileName\` lists it (open requests \`#12345\`/\`#10401\`/\`#4970\`).                                                 |
+| GitHub Copilot CLI | \`AGENTS.md\` natively as **primary** (+ \`CLAUDE.md\`/\`GEMINI.md\`), plus \`.github/copilot-instructions.md\` (repo-wide) and \`.github/instructions/**/*.instructions.md\` (path-scoped via \`applyTo\`, additive); **no** \`@import\`.          |
+
+Three read \`AGENTS.md\` directly (Codex, Cursor, Copilot); Claude and Gemini need a per-agent file, and a \`@AGENTS.md\` pointer satisfies both. This file is read even before trust on the trust-gated agents — the trust-robust surface.
+
+### Skills (Agent Skills / \`SKILL.md\`)
+
+| Agent              | Skills directory                                                                                                                                                                              |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code        | \`.claude/skills/\` **only** — does not read \`.agents/skills/\` (anthropics/claude-code#31005, open).                                                                                            |
+| OpenAI Codex CLI   | \`.agents/skills/\` (its only repo path; not \`.codex/skills/\`).                                                                                                                                 |
+| Cursor agent CLI   | \`.agents/skills/\`, \`.cursor/skills/\` (+ \`.claude/skills/\`, \`.codex/skills/\` compat dirs). CLI loading of skills is IDE-documented and **partial/unverified for the CLI binary** specifically. |
+| Gemini CLI         | \`.gemini/skills/\` or the \`.agents/skills/\` alias (the alias takes precedence).                                                                                                                |
+| GitHub Copilot CLI | \`.github/skills\`, \`.claude/skills\`, \`.agents/skills\` (project); \`~/.copilot/skills\`, \`~/.agents/skills\` (personal).                                                                           |
+
+Identical \`SKILL.md\` folder format across all five; the only divergence is the directory. Four of five read the cross-tool \`.agents/skills/\`, so one materialized copy of it serves Codex, Gemini, Cursor, and Copilot — Claude Code is the lone exception (#31005).
+
+### Config file locations
+
+| Agent              | Config surfaces                                                                                                                                                                                                                                                                                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code        | \`.claude/settings.json\`, \`.claude/settings.local.json\`, \`.mcp.json\`                                                                                                                                                                                                                                                                                                            |
+| OpenAI Codex CLI   | \`~/.codex/config.toml\`, \`<repo>/.codex/config.toml\` (incl. \`[mcp_servers]\`, inline \`[hooks]\`), \`<repo>/.codex/hooks.json\`, \`<repo>/.codex/environments/environment.toml\`, \`AGENTS.md\`                                                                                                                                                                                          |
+| Cursor agent CLI   | \`.cursor/\` (\`rules/\`, \`mcp.json\`, \`hooks.json\`, \`cli.json\`, \`sandbox.json\`), \`AGENTS.md\`/\`CLAUDE.md\`; skills in \`.agents/skills/\` / \`.cursor/skills/\`                                                                                                                                                                                                                          |
+| Gemini CLI         | \`settings.json\` layered (system-defaults → \`~/.gemini/\` → project \`.gemini/\` → system) with \`hooks\`/\`mcpServers\`/\`tools.sandbox\`/\`security.*\`; \`GEMINI.md\`                                                                                                                                                                                                                     |
+| GitHub Copilot CLI | user-level \`~/.copilot/\` (\`config.json\`, \`settings.json\`, \`mcp-config.json\`, \`copilot-instructions.md\`, \`hooks/\`, \`skills/\`); repo-level \`.github/\` (\`copilot-instructions.md\`, \`instructions/**\`, \`skills/\`, \`hooks/*.json\`, \`copilot/settings.json\`) **plus committable \`.mcp.json\` / \`.github/mcp.json\`** (CLI MCP, takes precedence over the user-level file), \`AGENTS.md\` |`,
+  },
+  {
+    id: "committable-config",
+    title: "Committable config: MCP and lifecycle hooks",
+    category: "surfaces",
+    headline: [],
+    body:
+      `Two surfaces a harness leans on are far more uniform across agents than the divergence matrix suggests, and easy to under-read: **MCP config is committable on all five**, and **all five expose a committable \`SessionStart\` hook**. The divergence is in the _gate_ (trust/approval) and in _teardown_ reliability, not in whether the surface exists.
+
+### MCP config
+
+| Agent              | Committable MCP file                        | Shape                                                                               | Gate                                                      |
+| ------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Claude Code        | \`.mcp.json\` (project)                       | \`mcpServers\` map (stdio \`command\`/\`args\`)                                           | pre-approved via \`enabledMcpjsonServers\`; no trust prompt |
+| OpenAI Codex CLI   | \`<repo>/.codex/config.toml\`                 | \`[mcp_servers.<name>]\` (\`command\`/\`args\`/\`env_vars\`/\`env\`/\`url\`)                    | one-time directory **trust**, then honoured               |
+| Cursor agent CLI   | \`.cursor/mcp.json\` (project)                | \`mcpServers\` map (stdio + SSE + HTTP)                                               | per-tool **approval** + workspace trust                   |
+| Gemini CLI         | \`.gemini/settings.json\` (project)           | \`mcpServers\` map                                                                    | **Folder Trust** — inert in safe mode until trusted       |
+| GitHub Copilot CLI | \`.mcp.json\` or \`.github/mcp.json\` (project) | \`mcpServers\` map; **takes precedence over** user-level \`~/.copilot/mcp-config.json\` | folder trust                                              |
+
+So "MCP is user-level / not committable" is false for every agent — each reads a committable project file. What differs is the gate: Claude pre-approves with no trust prompt; the other four honour the committed file only after a one-time trust (Codex/Copilot) or per-tool approval plus trust (Cursor/Gemini).
+
+### Session lifecycle hooks (setup / teardown)
+
+| Agent              | Start event    | End event                                           | Committable file                                                   | CLI-firing / reliability                                                                                  |
+| ------------------ | -------------- | --------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Claude Code        | \`SessionStart\` | \`WorktreeRemove\` (worktree teardown) + \`SessionEnd\` | \`.claude/settings.json\`                                            | fires; the only paired worktree create+remove contract                                                    |
+| OpenAI Codex CLI   | \`SessionStart\` | \`[cleanup].script\` (env.toml)                       | \`<repo>/.codex/hooks.json\`; \`.codex/environments/environment.toml\` | \`SessionStart\` fires; \`[cleanup]\` runs on worktree archive/eviction (committable; open bug \`#19480\`)      |
+| Cursor agent CLI   | \`sessionStart\` | \`sessionEnd\` (present in file)                      | \`.cursor/hooks.json\`                                               | \`sessionStart\` fires in \`cursor-agent\`; **\`sessionEnd\`-in-CLI unverified**; cloud agents fire neither     |
+| Gemini CLI         | \`SessionStart\` | \`SessionEnd\`                                        | \`.gemini/settings.json\` (\`hooks\`)                                  | fires, but \`SessionEnd\` is **"advisory"** (not guaranteed on crash); both regressed on v0.24.0 (\`#16697\`) |
+| GitHub Copilot CLI | \`sessionStart\` | \`sessionEnd\`                                        | \`.github/hooks/*.json\`                                             | both fire in the CLI ("all hook events … supported by the CLI")                                           |
+
+Every agent gives a harness a committable hook to run **setup** at session/worktree start. **Teardown** is uneven by _reliability/scope_, not existence: Claude Code (\`WorktreeRemove\`) and Codex (\`environment.toml\` \`[cleanup].script\`, on worktree archive — committable, but with an open bug \`#19480\` and scoped to Codex-managed worktrees) both have committable remove hooks; Copilot's \`sessionEnd\` fires (CLI-confirmed); Gemini's is advisory; Cursor's CLI firing is unverified. A harness that must run teardown should still not rely on it uniformly across agents — better to also reclaim out-of-band (as discern does via a \`prune\` sweep).`,
+  },
+  {
+    id: "mcp-schema-discovery",
+    title: "MCP schema discovery and startup loading",
+    category: "mcp",
+    headline: [
+      {
+        label: "MCP schemas exposed to the model at session start",
+        cells: {
+          "claude-code": "Deferred; tool/server eager overrides",
+          "codex": "Deferred when Tool Search is available; no override",
+          "cursor": "Deferred; no documented override",
+          "gemini": "Eager: every enabled schema",
+          "copilot": "Conditional deferral; server eager override",
+        },
+      },
+    ],
+    body:
+      `MCP itself does not define deferred tool schemas. A \`tools/list\` result carries each tool's full definition, and the core \`Tool\` shape permits implementation-specific \`_meta\`; neither the protocol nor its schema defines \`defer_loading\` or \`alwaysLoad\` behavior. Deferral is a client-and-model context policy layered over that response.
+
+Do not conflate protocol discovery with model exposure. Every client below can call \`tools/list\` at startup while withholding some or all returned schemas from the model until a later search. The relevant parity question is what the model can select without that search, not whether the client knows the server's inventory.
+
+| Client                    | Default model exposure                                                                                                                                                                                                    | Per-tool eager control                 | Whole-server or global control                                                                                                                                              | Evidence and limits                                                                                                                                                                                                    |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code               | Tool Search begins with names and server instructions; schemas are deferred.                                                                                                                                              | \`_meta["anthropic/alwaysLoad"] = true\` | Server entry \`"alwaysLoad": true\`; \`ENABLE_TOOL_SEARCH=false\` disables search globally.                                                                                     | Tool and instruction text is bounded at 2KB. Server control applies to every transport from 2.1.121. High confidence: documented client contract.                                                                      |
+| OpenAI Codex              | The client calls \`tools/list\`; when the model and provider support Tool Search, every allowed MCP tool is registered as deferred and found through \`tool_search\`. Otherwise schemas are direct.                           | None                                   | None. \`enabled_tools\` and \`disabled_tools\` remove tools rather than changing exposure. Historical Tool Search feature keys are accepted only as ignored compatibility keys. | The first 512 instruction characters should be self-contained and become search-namespace context. High confidence: official docs and released open-source core. CLI, IDE, and app share that core and project config. |
+| Cursor IDE and agent CLI  | Dynamic context discovery starts with a small static inventory including tool names; details are read when needed. The CLI likewise says it loads MCP tools only when needed.                                             | None documented                        | None documented. \`/mcp enable\` and disable change availability only.                                                                                                        | High confidence in lazy exposure from Cursor's docs; medium confidence in the absence of an override because the client is closed-source and its complete config schema is not published.                              |
+| Gemini CLI                | Every enabled MCP tool is registered after \`tools/list\`, and all active function declarations are sent with model requests.                                                                                               | None needed or supported               | None. \`includeTools\` and \`excludeTools\` change availability only.                                                                                                           | Eager exposure is the fixed default: it already behaves like whole-server preload, but cannot represent a request to defer. High confidence: official docs and open-source client.                                     |
+| GitHub Copilot CLI        | On supported models, Tool Search activates when the session has roughly 30 or more tools; built-ins stay direct and MCP/external tools are deferred. Below the threshold, or on unsupported models, all tools are direct. | None                                   | Per-server \`"deferTools": "never"\`; user-level \`"toolSearch": false\` disables deferral globally.                                                                            | High confidence: official CLI docs. \`deferTools\` shipped in 1.0.63.                                                                                                                                                    |
+| GitHub Copilot in VS Code | Tool Search keeps a core set of about 30 tools direct and defers MCP tools on supported models.                                                                                                                           | None documented                        | No MCP-server field is documented; model-specific Tool Search settings are global.                                                                                          | High confidence in dynamic exposure; medium confidence in the absence of a server override because the surface is not open-source.                                                                                     |
+
+Claude Code and Copilot CLI share \`.mcp.json\`, so their different keys raise an interoperability question. Direct parser checks against Claude Code 2.1.212 and Copilot CLI 1.0.77 found that an entry containing both \`"alwaysLoad": true\` and \`"deferTools": "never"\` is accepted: each client applies its own field and silently strips the other. This is version-specific client behavior, not an MCP guarantee, and neither client promises to preserve the foreign key if it rewrites the file. VS Code remains unverified; its current MCP configuration reference documents neither property, so its schema diagnostics may reject or flag them even if the runtime is tolerant.
+
+The controls therefore do not form a portable boolean:
+
+- Claude Code can eagerly expose one tool or one server.
+- Copilot CLI can eagerly expose a server, but not one tool; its key and value differ from Claude Code's.
+- Gemini already exposes every enabled schema and cannot defer them.
+- Codex and Cursor provide no supported server-originated eager override.
+
+An \`always_load\` project setting could only mean “request eager exposure where the client supports it.” \`true\` could map to Claude Code and Copilot CLI and be an already-satisfied no-op for Gemini, but Codex and Cursor could not honour it; \`false\` could not make Gemini defer. That is a best-effort preference, not provider parity. Availability allowlists are not substitutes because they make the remaining lifecycle tools unreachable.
+
+**Discern decision, 2026-08-03.** Keep the portable server contract in its returned definitions and put the gateway and lifecycle at the start of \`instructions\`; Codex's 512-character guidance makes that ordering useful beyond Claude Code's 2KB bound. Do not expose a public \`[mcp]\` setting or emit per-tool Anthropic metadata. For evaluation only, exact \`DISCERN_EXPERIMENTAL_MCP_PRELOAD=1\` maps the configured providers into the shared entry: \`alwaysLoad: true\` for Claude Code and \`deferTools: "never"\` for Copilot. The default output remains unchanged, and no mapping is attempted for Codex, Cursor, or Gemini. This environment-only seam can be removed or promoted if provider support converges.`,
+  },
+  {
+    id: "mcp-call-duration",
+    title: "MCP tool-call duration",
+    category: "mcp",
+    headline: [
+      {
+        label: "MCP tool-call duration",
+        cells: {
+          "claude-code": "~28h default; configurable",
+          "codex": "60s default; configurable",
+          "cursor": "CLI/ACP 60s; IDE ~60m",
+          "gemini": "10m default; configurable",
+          "copilot": "Configurable; default unpublished",
+        },
+      },
+    ],
+    body:
+      `MCP defines cancellation and progress messages, but it does not impose one tool-call timeout. Each client supplies its own request policy:
+
+| Client surface          | Total-request behavior                                                                                                                                                                                            | Configuration and published maximum                                                                                                                                               | Progress behavior                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Claude Code             | \`MCP_TOOL_TIMEOUT\` defaults to 100,000,000 ms (about 28 hours). Network transports also begin with a 60-second per-request bound; raising the environment or per-server value above 60 seconds raises that bound. | Environment-wide \`MCP_TOOL_TIMEOUT\` or per-server \`timeout\`. No maximum is published. Separate idle windows default to five minutes for network servers and 30 minutes for stdio. | Progress resets the separate idle window; the total execution timeout still applies. |
+| OpenAI Codex CLI        | Per-tool default is 60 seconds.                                                                                                                                                                                   | \`mcp_servers.<id>.tool_timeout_sec\`. No maximum is published.                                                                                                                     | Unpublished.                                                                         |
+| Cursor Agent CLI / ACP  | Exactly 60,000 ms in current CLI build \`2026.07.23-e383d2b\`. Cursor calls the bundled SDK with no request options, so the SDK's default becomes an effective fixed bound.                                         | No supported per-server timeout setting. The 60 seconds is an unoverridden SDK default, not an SDK maximum.                                                                       | \`resetTimeoutOnProgress\` remains false, so progress does not renew the timer.        |
+| Cursor editor IDE Agent | Cursor support reports around 60 minutes. A May 2026 support statement put the IDE on the CLI's 60-second path; the July statement supersedes that duration.                                                      | No precise maximum or supported per-server timeout is published. Agents Window and cloud-agent limits remain unverified.                                                          | Current behavior is unverified.                                                      |
+| Gemini CLI              | Default is 600,000 ms (10 minutes).                                                                                                                                                                               | Per-server \`timeout\` in milliseconds. No maximum is published.                                                                                                                    | Unpublished.                                                                         |
+| GitHub Copilot CLI      | No default is published.                                                                                                                                                                                          | Per-server \`timeout\` in milliseconds. No maximum is published.                                                                                                                    | Unpublished.                                                                         |
+
+The [MCP TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/client.md#timeouts) supplies a 60-second default and lets clients override both the duration and \`resetTimeoutOnProgress\`. Cursor Agent CLI leaves both at their defaults. Cursor support confirmed the resulting [CLI/ACP limit and the IDE's longer path](https://forum.cursor.com/t/agent-acp-mcp-tools-call-times-out-at-60s-with-no-way-to-configure-it/163925/5). A source audit of the official Darwin ARM64 CLI package produced SHA-256 \`f2eb25851f2079dcdf0558a816e06c402d187abfca93255d35167020439ebbf2\` for build \`2026.07.23-e383d2b\`; its \`McpSdkClient.callTool\` supplies no request options, while the bundled SDK resolves \`timeout\` with \`?? 6e4\` and \`resetTimeoutOnProgress\` with \`?? false\`.
+
+Cursor is therefore two timeout domains. The project-local \`.cursor/mcp.json\` is shared by its IDE and CLI, and the client identifiers observed on the wire are not a published capability contract. A harness that needs one generated entry for both uses the CLI-compatible bound or requires an explicit user choice. A long-running operation should return resumable state before that bound; progress alone cannot keep the CLI/ACP request alive.`,
+  },
+] as const satisfies readonly BehaviourDimension[];
+
+const BANNER =
+  "<!-- GENERATED by `deno task codegen` from BEHAVIOUR_DIMENSIONS (scripts/cross_agent_registry.ts) — do NOT edit by hand. Change the registry and regenerate. -->";
+
+const TITLE = "Coding-agent behaviour differences — a reference matrix";
+
+const LEDE =
+  `_A living reference for where the major coding agents diverge in behaviour that a stack-neutral, agent-agnostic harness has to account for — hooks, sandboxes, working-directory and session semantics, worktree mechanisms, and config surfaces. Captured so the differences don't have to be re-derived, and so a "why does agent X do this when agent Y does that?" question has one grounded place to look._`;
+
+const PREAMBLE =
+  `> **What this is.** A cross-agent comparison compiled mid-2026 from vendor documentation, issue trackers, and — for one agent — its own tool schemas, via a fan-out research pass. It covers the five highest-adoption agents (Claude Code, OpenAI Codex CLI, Cursor agent CLI, Gemini CLI, and GitHub Copilot CLI); a remaining "—" or "unverified" cell marks one not yet pinned to a source, to be filled as the matrix grows.
+>
+> **Companion.** For the _inward_ axis — what discern actually wires for each of these agents (guidance file, skills dir, MCP, worktree hooks) versus what the agent merely supports — see [agent-integration-coverage.md](agent-integration-coverage.md). This doc is the vendor-capability source that companion cites.
+>
+> **How this grows.** Organised by behavioural _dimension_ (one section each), so a new dimension is a new section and a new agent is a new column. Add a row when a real divergence is observed; cite the source; flag confidence. This is a maintainer reference, not user-facing documentation.
+>
+> **Freshness.** This area moves weekly — flags, defaults, and tool surfaces shift between releases. Most behaviours are pinned to mid-2026; MCP schema discovery was re-verified on 2026-08-02 against Claude Code 2.1.212, Codex \`rust-v0.146.0\`, Cursor's current documentation, Gemini CLI v0.53.1, and Copilot CLI 1.0.77. Re-verify before treating any single cell as current.`;
+
+const MATRIX_LEDE =
+  `The cross-agent divergences a harness depends on, at a glance — worktree isolation and the integration surfaces alike. "—" / "unverified" = not yet pinned to a source.`;
+
+const MATRIX_COMMENTARY =
+  `Two cross-cutting reads of this matrix matter more than any single row.
+
+**Mid-session re-root splits the field 2-vs-3.** Claude Code and GitHub Copilot can re-root a running session into a worktree mid-conversation (Claude's \`EnterWorktree\`; Copilot's \`/cwd\` and \`/worktree\`); **Codex, Cursor, and Gemini pin the working/workspace root at launch** and can only "move" by starting a fresh session. Much of the design asymmetry downstream traces back to this row — on the three launch-pinned agents an "agent on the trunk wants its own worktree" flow is a fresh-session operation a human or orchestrator drives.
+
+**Committed config is gated behind trust on four of five.** Codex forbids self-trust from repo config; Cursor needs \`--trust\` (print-mode only); Gemini ignores project \`.gemini/settings.json\` (hooks, MCP, \`.env\`) in "safe mode" until the folder is user-trusted; Copilot stores trust in a user-level \`trustedFolders\` list. So a hook or MCP entry a harness commits is inert on a fresh clone for all four — **only Claude Code honours committed project config without a separate trust step.** The instruction file is the exception read regardless of trust (Gemini reads \`GEMINI.md\` in safe mode; the others read \`AGENTS.md\`), which is why an author-once → compiled-file pipeline is the trust-robust integration surface and committed hooks/MCP are not.
+
+**Convergence worth banking on.** Four of five now read the cross-tool \`.agents/skills/\` (only Claude Code keeps its own, #31005), and three read \`AGENTS.md\` natively (Codex, Cursor, Copilot). So a single compiled \`AGENTS.md\` plus one materialized \`.agents/skills/\` already covers most of the field; the per-agent exceptions are Claude Code (its own \`CLAUDE.md\` + \`.claude/skills/\`) and Gemini (\`GEMINI.md\`). Both exceptions are satisfied by a \`@AGENTS.md\` pointer.`;
+
+const SOURCES = `## Sources
+
+Pre-exec hooks & sandboxes: Claude Code docs (\`code.claude.com/docs/en/\` — \`hooks\`, \`sandboxing\`, \`settings\`, \`mcp-quickstart\`, \`worktrees\`) and the live \`EnterWorktree\`/\`ExitWorktree\` tool schemas; OpenAI Codex docs (\`developers.openai.com/codex/\` — sandboxing, hooks, config-reference, \`cli/reference\`, \`agent-approvals-security\` for the \`.git\`-pointer read-only rule, slash-commands; prompting guide; \`codex-rs/linux-sandbox/README\`); Cursor docs (\`cursor.com/docs/\` — \`hooks\`, \`hooks.md\`, \`cli/using\`, \`cli/reference/configuration\`, \`cli/reference/permissions\`, \`context/rules\`, \`context/skills\`, \`context/mcp\`, \`reference/sandbox\`, \`configuration/worktrees\`, \`agent/security\`, \`blog/agent-sandboxing\`); Gemini CLI docs (\`github.com/google-gemini/gemini-cli/docs/\` — \`hooks/reference\`, \`hooks/index\`, \`cli/sandbox\`, \`cli/gemini-md\`, \`cli/trusted-folders\`, \`reference/configuration\`, \`tools/shell\`, \`tools/mcp-server\`) and release notes (\`v0.36.0\`); GitHub Copilot docs (\`docs.github.com/en/copilot/\` — \`reference/hooks-configuration\`, \`how-tos/copilot-cli/customize-copilot/\` [\`add-custom-instructions\`, \`add-mcp-servers\`, \`add-skills\`, \`use-hooks\`], \`how-tos/cloud-and-local-sandboxes/configuring-local-sandbox-settings\`, \`how-tos/copilot-cli/set-up-copilot-cli/configure-copilot-cli\`, \`reference/copilot-cli-reference/cli-command-reference\`) and the GitHub changelog (CLI GA 2026-02-25, AGENTS.md 2025-08-28, Agent Skills 2025-12-18, sandboxes 2026-06-02), with the DeepWiki/htekdev CLI references for \`/worktree\`/\`/cwd\`. Behaviour evidence: \`anthropics/claude-code#21460\`, \`#37210\`, \`#4669\`, \`#19298\`; \`openai/codex#12464\`, \`#4703\`, \`#7071\`, \`#15505\`, \`#9313\`; Cursor Shell Mode page, forum \`#140891\` (worktree write-prompt bug), \`#148316\` (which hooks fire in the CLI), \`#162011\` (\`--trust\` print-only), and the pillar.security "TrustFall" disclosure (committed MCP auto-starts after folder trust); \`google-gemini/gemini-cli#18055\`, \`#25020\`, \`#13669\`, \`#12345\`, \`#11778\`, PR \`#22973\`; GitHub Copilot CLI issues \`#1076\`/\`#1121\` (no clean trust opt-out). Working-directory persistence for Claude Code is also confirmed by the running harness's own operating contract ("working directory persists between calls").
+
+Committable config and the lifecycle-hook surfaces ({{s:integration-surfaces}}–{{s:committable-config}}) were re-verified mid-2026 against: OpenAI Codex docs (\`developers.openai.com/codex/\` — \`config-advanced\` for project \`.codex/config.toml\` layering and the narrow ignored-keys list, \`mcp\` for \`[mcp_servers]\`, \`hooks\`, \`app/worktrees\`, \`app/local-environments\`) and the \`openai/codex\` repo's own committed \`.codex/environments/environment.toml\` (the \`[setup]\`/\`[cleanup]\` schema — \`[cleanup]\` confirmed via \`openai/codex#19480\` and \`app/worktrees\`, since the Desktop-app parser that owns the schema is closed-source) plus the changelog (hooks GA 2026-05-14, Team Config 2026-01-23, Worktrees 2026-02-27); Cursor \`cursor.com/docs/agent/hooks\` with forum \`#148511\`/\`#158452\` (which session hooks fire in \`cursor-agent\`); Gemini \`hooks/reference\` (\`SessionStart\` / \`SessionEnd\`) with issue \`#16697\` (the v0.24.0 session-hook regression); and GitHub Copilot \`reference/copilot-cli-reference/cli-config-dir-reference\` (the committable \`.mcp.json\` / \`.github/mcp.json\` precedence over the user-level file).
+
+MCP duration ({{s:mcp-call-duration}}) was re-verified on 2026-07-30 against Claude Code's environment-variable reference, the Codex config reference and schema, Gemini CLI's configuration reference and MCP client source, GitHub Copilot CLI's MCP config reference, the MCP TypeScript SDK timeout documentation, and Cursor support's July 2026 CLI/ACP-versus-IDE clarification. Cursor CLI build \`2026.07.23-e383d2b\` was also inspected directly as recorded in {{s:mcp-call-duration}}.
+
+MCP schema discovery ({{s:mcp-schema-discovery}}) was re-verified on 2026-08-02 against the MCP 2025-11-25 \`Tool\` and \`tools/list\` schemas plus primary client sources: [Claude Code's Tool Search contract](https://code.claude.com/docs/en/mcp#scale-with-mcp-tool-search) and [changelog](https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md); [Codex's MCP guidance](https://developers.openai.com/codex/mcp) and [released exposure policy](https://github.com/openai/codex/blob/9949245d1d2b4a39a6f1841922322f767fa146ad/codex-rs/core/src/mcp_tool_exposure.rs); [Cursor's dynamic-context account](https://cursor.com/blog/dynamic-context-discovery) and [CLI guide](https://docs.cursor.com/en/cli/using); [Gemini CLI's discovery process](https://geminicli.com/docs/tools/mcp-server/#discovery-process-deep-dive) and [MCP client](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/tools/mcp-client.ts); and [Copilot CLI's Tool Search reference](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/tool-search), [CLI command reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference), and [1.0.77 package](https://registry.npmjs.org/@github/copilot/-/copilot-1.0.77.tgz). Shared-file interoperability was checked directly against the installed Claude artifact and Copilot's exported config parser; [Zod's default unknown-key behavior](https://zod.dev/api?id=objects#zstrictobject) explains Claude's stripping. Absence claims for the open-source Codex and Gemini clients include their typed config and MCP conversion paths; absence claims for closed-source Cursor and Copilot editor surfaces remain explicitly medium-confidence.`;
+
+/** Resolve `{{s:<id>}}` citations to live section numbers, or throw. */
+export function resolveSectionTokens(markdown: string): string {
+  const numbers = new Map<string, number>(
+    BEHAVIOUR_DIMENSIONS.map((dimension, index) => [dimension.id, index + 1]),
+  );
+  return markdown.replace(
+    /\{\{s:([a-z0-9-]+)\}\}/g,
+    (token, id: string) => {
+      const number = numbers.get(id);
+      if (number === undefined) {
+        throw new Error(`${token} cites no behaviour dimension`);
+      }
+      return `§${number}`;
+    },
+  );
+}
+
+/** The headline matrix: one row per finding, grouped by category. */
+function renderHeadlineMatrix(): string {
+  const header = ["Dimension", ...REFERENCE_AGENTS.map((a) => a.column)];
+  const rows: string[] = [];
+  for (const category of BEHAVIOUR_CATEGORIES) {
+    for (const dimension of BEHAVIOUR_DIMENSIONS) {
+      if (dimension.category !== category.id) continue;
+      for (const row of dimension.headline) {
+        rows.push([
+          row.label,
+          ...REFERENCE_AGENTS.map((agent) => row.cells[agent.id]),
+        ].join(" | "));
+      }
+    }
+  }
+  return [
+    `| ${header.join(" | ")} |`,
+    `| ${header.map(() => "---").join(" | ")} |`,
+    ...rows.map((row) => `| ${row} |`),
+  ].join("\n");
+}
+
+/** The whole reference page, ready for the codegen write chokepoint. */
+export function renderCrossAgentReferenceDoc(): string {
+  const sections = BEHAVIOUR_DIMENSIONS.map((dimension, index) =>
+    `## ${index + 1}. ${dimension.title}\n\n${dimension.body}`
+  );
+  return resolveSectionTokens([
+    BANNER,
+    "",
+    `# ${TITLE}`,
+    "",
+    LEDE,
+    "",
+    PREAMBLE,
+    "",
+    "---",
+    "",
+    "## Headline matrix (read this first)",
+    "",
+    MATRIX_LEDE,
+    "",
+    renderHeadlineMatrix(),
+    "",
+    MATRIX_COMMENTARY,
+    "",
+    "---",
+    "",
+    sections.join("\n\n"),
+    "",
+    "---",
+    "",
+    SOURCES,
+    "",
+  ].join("\n"));
+}
