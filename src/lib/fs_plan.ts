@@ -38,7 +38,7 @@ import {
   type SettingsSeed,
   settingsSeeds,
 } from "./providers.ts";
-import { CONFIG_REL } from "../shared/env.ts";
+import { CONFIG_REL, type EnvReader } from "../shared/env.ts";
 import { formatDiscernTomlBytes } from "./tidy_format.ts";
 
 /** How an op relates to whatever is already on disk at its target. */
@@ -183,6 +183,8 @@ export async function buildPlan(params: {
    * unconfigured agent leaves no inert hooks/settings behind. Omitted (e.g. by
    * preset) means no agent filtering. */
   configuredAgents?: readonly string[];
+  /** Process environment for generated-file attribution rendering. */
+  env?: EnvReader | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, tokens } = params;
   const excludeNonSeed = params.excludeNonSeed ?? false;
@@ -217,7 +219,11 @@ export async function buildPlan(params: {
     }
 
     if (isGitignoreFragment(templateRel)) {
-      const op = await planGitignoreAppend(entry.path, destDir);
+      const op = await planGitignoreAppend(
+        entry.path,
+        destDir,
+        params.env ?? Deno.env,
+      );
       ops.push(op);
       continue;
     }
@@ -359,6 +365,7 @@ async function planSettingsMerge(
 async function planGitignoreAppend(
   sourceAbs: string,
   destDir: string,
+  env: EnvReader = Deno.env,
 ): Promise<PlanOp> {
   const fragment = TEXT_DECODER.decode(await Deno.readFile(sourceAbs));
   const targetRel = ".gitignore";
@@ -367,7 +374,12 @@ async function planGitignoreAppend(
   const existing = existingRaw === undefined
     ? ""
     : TEXT_DECODER.decode(existingRaw);
-  const reconciled = reconcileDiscernGitignore(existing, fragment);
+  const reconciled = reconcileDiscernGitignore(
+    existing,
+    fragment,
+    undefined,
+    env,
+  );
   const changed = reconciled.operations.length > 0;
 
   return {
@@ -392,11 +404,13 @@ export async function planGitattributesReconcile(
   destDir: string,
   groups: readonly ResolvedGeneratedGroup[],
   builtInCandidates: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): Promise<PlanOp | undefined> {
   const reconciled = await planDiscernGitattributesFile(
     destDir,
     groups,
     builtInCandidates,
+    env,
   );
   const changed = reconciled.operations.length > 0;
   if (!changed && reconciled.existing === undefined) {

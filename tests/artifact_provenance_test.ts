@@ -15,6 +15,7 @@ import { canonicalDiscernGitignoreBlock } from "../src/lib/agent_gitignore.ts";
 import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
 import { renderConfigTemplateForConfig } from "../src/lib/config_reconcile.ts";
 import {
+  agentArtifactPosture,
   allSkillsDirs,
   DISCERN_MCP_SERVER,
   wireProviderMcp,
@@ -23,8 +24,12 @@ import {
 } from "../src/lib/providers.ts";
 import { materializeSkills } from "../src/lib/skills.ts";
 import {
+  DISCERN_NAME,
+  DISCERN_URL,
   GENERATED_ARTIFACT_MARKER_PREFIX,
   generatedArtifactMarker,
+  generatedArtifactMarkerBody,
+  stripGeneratedArtifactMarker,
 } from "../src/shared/brand.ts";
 import {
   type DiscernConfig,
@@ -33,7 +38,8 @@ import {
 import { renderAgentFiles } from "../src/engine/guidance_render.ts";
 import { writeEnvVar } from "../src/engine/worktree/env_file.ts";
 import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
-import { withTempDir } from "./helpers.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 
 const REPO = fromFileUrl(new URL("../", import.meta.url));
 const ALL_AGENT_CONFIG: DiscernConfig = parseConfigOrThrow(`
@@ -65,70 +71,133 @@ function assertNoOpeningGeneratorComment(
   );
 }
 
-Deno.test("every comment-capable non-context artifact emits the standard marker", async () => {
-  await withTempDir(async (root) => {
-    const configTemplate = await Deno.readTextFile(
-      join(REPO, "templates/discern.toml.tmpl"),
-    );
-    await Deno.writeTextFile(
-      join(root, "discern.toml"),
-      renderConfigTemplateForConfig(configTemplate, ALL_AGENT_CONFIG),
-    );
+const ATTRIBUTION_CASES = [
+  { label: "with attribution", env: fakeEnv() },
+  {
+    label: `with ${DISCERN_NO_ATTRIBUTION}`,
+    env: fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+  },
+] as const;
 
-    const gitignoreFragment = await Deno.readTextFile(
-      join(REPO, "templates/.gitignore.fragment"),
-    );
-    await Deno.writeTextFile(
-      join(root, ".gitignore"),
-      canonicalDiscernGitignoreBlock(gitignoreFragment),
-    );
-    await Deno.writeTextFile(
-      join(root, ".gitattributes"),
-      canonicalDiscernGitattributesBlock(
-        resolveGeneratedGroups(ALL_AGENT_CONFIG),
-      ).text,
-    );
+Deno.test("the generated-artifact marker has attributed and source-only forms", () => {
+  const source = "the source registry";
+  assertEquals(
+    generatedArtifactMarkerBody(source, fakeEnv()),
+    `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`,
+  );
+  assertEquals(
+    generatedArtifactMarkerBody(
+      source,
+      fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+    ),
+    `Generated automatically via ${source}`,
+  );
+  assertEquals(
+    generatedArtifactMarkerBody(
+      source,
+      fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "" }),
+    ),
+    `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`,
+  );
+});
 
-    for (const file of ALL_AGENT_CONFIG.worktree.env_files) {
-      assert(
-        await writeEnvVar(
-          root,
-          "DISCERN_WORKTREE_ID",
-          "provenance-test",
-          [file],
-          { create: true },
+Deno.test("marker removal recognizes old and both current attribution forms", () => {
+  const source = "the source registry";
+  const legacy = `# ${DISCERN_NAME} | generated from ${source} | ` +
+    `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
+  const attributed = generatedArtifactMarker(source, fakeEnv());
+  const sourceOnly = generatedArtifactMarker(
+    source,
+    fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" }),
+  );
+  assertEquals(
+    stripGeneratedArtifactMarker(
+      `${legacy}\r\n${attributed}\r\n${sourceOnly}\r\npayload\r\n`,
+      source,
+    ),
+    "payload\r\n",
+  );
+});
+
+for (const attributionCase of ATTRIBUTION_CASES) {
+  Deno.test(`every comment-capable non-context artifact emits the standard marker ${attributionCase.label}`, async () => {
+    await withTempDir(async (root) => {
+      const configTemplate = await Deno.readTextFile(
+        join(REPO, "templates/discern.toml.tmpl"),
+      );
+      await Deno.writeTextFile(
+        join(root, "discern.toml"),
+        renderConfigTemplateForConfig(
+          configTemplate,
+          ALL_AGENT_CONFIG,
+          attributionCase.env,
         ),
       );
-    }
 
-    await wireProviderMcp(
-      root,
-      ["codex"],
-      DISCERN_MCP_SERVER,
-      ALL_AGENT_CONFIG,
-    );
-    await wireProviderWorktreeApp(root, ["codex"]);
-    await wireProviderProjectRules(root, ["codex"]);
+      const gitignoreFragment = await Deno.readTextFile(
+        join(REPO, "templates/.gitignore.fragment"),
+      );
+      await Deno.writeTextFile(
+        join(root, ".gitignore"),
+        canonicalDiscernGitignoreBlock(
+          gitignoreFragment,
+          agentArtifactPosture(),
+          attributionCase.env,
+        ),
+      );
+      await Deno.writeTextFile(
+        join(root, ".gitattributes"),
+        canonicalDiscernGitattributesBlock(
+          resolveGeneratedGroups(ALL_AGENT_CONFIG),
+          [],
+          attributionCase.env,
+        ).text,
+      );
 
-    const entries = projectArtifactPaths(ALL_AGENT_CONFIG).filter((entry) =>
-      writtenArtifactClass(entry) === "comment-capable-non-context"
-    );
-    assert(entries.length > 0, "expected comment-capable output to inspect");
-    for (const entry of entries) {
-      assertEquals(entry.pathKind, "file");
-      const source = entry.writtenArtifact?.["comment-capable-non-context"];
-      assert(
-        typeof source === "string" && source.length > 0,
-        `${entry.path} has no marker source`,
+      for (const file of ALL_AGENT_CONFIG.worktree.env_files) {
+        assert(
+          await writeEnvVar(
+            root,
+            "DISCERN_WORKTREE_ID",
+            "provenance-test",
+            [file],
+            { create: true, env: attributionCase.env },
+          ),
+        );
+      }
+
+      await wireProviderMcp(
+        root,
+        ["codex"],
+        DISCERN_MCP_SERVER,
+        ALL_AGENT_CONFIG,
+        attributionCase.env,
       );
-      const text = await Deno.readTextFile(join(root, entry.path));
-      assert(
-        text.split(/\r?\n/).includes(generatedArtifactMarker(source)),
-        `${entry.path} does not carry its registry-derived provenance marker`,
+      await wireProviderWorktreeApp(root, ["codex"], attributionCase.env);
+      await wireProviderProjectRules(root, ["codex"], attributionCase.env);
+
+      const entries = projectArtifactPaths(ALL_AGENT_CONFIG).filter((entry) =>
+        writtenArtifactClass(entry) === "comment-capable-non-context"
       );
-    }
+      assert(entries.length > 0, "expected comment-capable output to inspect");
+      for (const entry of entries) {
+        assertEquals(entry.pathKind, "file");
+        const source = entry.writtenArtifact?.["comment-capable-non-context"];
+        assert(
+          typeof source === "string" && source.length > 0,
+          `${entry.path} has no marker source`,
+        );
+        const text = await Deno.readTextFile(join(root, entry.path));
+        assert(
+          text.split(/\r?\n/).includes(
+            generatedArtifactMarker(source, attributionCase.env),
+          ),
+          `${entry.path} does not carry its registry-derived provenance marker`,
+        );
+      }
+    });
   });
-});
+}
 
 Deno.test("context-loaded agent files and materialized skills open without generator comments", async () => {
   await withTempDir(async (root) => {

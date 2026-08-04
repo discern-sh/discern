@@ -9,10 +9,7 @@
 
 import { DISCERN_MACHINE } from "../../shared/brand.ts";
 import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
-import {
-  discernCommitAttributionEnabled,
-  type EnvReader,
-} from "../../shared/env.ts";
+import { discernAttributionEnabled, type EnvReader } from "../../shared/env.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../../shared/public_schemas.ts";
 import {
   canonicalReceipt,
@@ -619,7 +616,7 @@ async function receiptTrackingRefs(root: string): Promise<string[]> {
 function notesIdentity(
   env: EnvReader,
 ): Record<string, string> | undefined {
-  if (!discernCommitAttributionEnabled(env)) {
+  if (!discernAttributionEnabled(env)) {
     return undefined;
   }
   return {

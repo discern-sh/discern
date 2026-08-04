@@ -24,8 +24,8 @@ import {
 } from "./config_template.ts";
 import { substituteTokens, type TokenMap } from "./template.ts";
 import {
-  generatedArtifactMarker,
   generatedArtifactMarkerBody,
+  isGeneratedArtifactMarker,
 } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import {
@@ -170,6 +170,7 @@ function emptyDefaultConfig(): DiscernConfig {
 export function renderConfigTemplateForConfig(
   templateText: string,
   config: DiscernConfig,
+  env: EnvReader = Deno.env,
 ): string {
   const tokens: TokenMap = {
     project_name: config.project.slug || "project",
@@ -184,6 +185,7 @@ export function renderConfigTemplateForConfig(
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
+      env,
     ),
     kit_version: KIT_VERSION,
   };
@@ -202,28 +204,26 @@ function reconcileProvenanceMarker(
   configText: string,
   renderedTemplate: string,
 ): { text: string; operations: ConfigReconcileOperation[] } {
-  const marker = generatedArtifactMarker(
-    ARTIFACT_PROVENANCE_SOURCES.config,
+  const marker = renderedTemplate.split(/\r?\n/u).find((line) =>
+    isGeneratedArtifactMarker(line, ARTIFACT_PROVENANCE_SOURCES.config)
   );
-  if (!renderedTemplate.split(/\r?\n/u).includes(marker)) {
+  if (marker === undefined) {
     return { text: configText, operations: [] };
   }
 
   const newline = configText.includes("\r\n") ? "\r\n" : "\n";
-  const lines = configText.split(newline);
-  if (lines.includes(marker)) {
+  const lines = configText.split(newline).filter((line) =>
+    line !== LEGACY_CONFIG_PROVENANCE_MARKER &&
+    !isGeneratedArtifactMarker(line, ARTIFACT_PROVENANCE_SOURCES.config)
+  );
+  const markerIndex = lines[0]?.startsWith("#:schema ") === true ? 1 : 0;
+  lines.splice(markerIndex, 0, marker);
+  const text = lines.join(newline);
+  if (text === configText) {
     return { text: configText, operations: [] };
   }
-
-  const legacyIndex = lines.indexOf(LEGACY_CONFIG_PROVENANCE_MARKER);
-  if (legacyIndex >= 0) {
-    lines[legacyIndex] = marker;
-  } else {
-    const markerIndex = lines[0]?.startsWith("#:schema ") === true ? 1 : 0;
-    lines.splice(markerIndex, 0, marker);
-  }
   return {
-    text: lines.join(newline),
+    text,
     operations: [{ kind: "marker", path: "discern.toml" }],
   };
 }
@@ -483,6 +483,6 @@ export async function reconcileConfigText(
   const config = parsed.config ?? emptyDefaultConfig();
   return reconcileConfigTextWithTemplate(
     configText,
-    renderConfigTemplateForConfig(template, config),
+    renderConfigTemplateForConfig(template, config, env),
   );
 }

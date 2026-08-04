@@ -30,7 +30,10 @@ import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { guidanceAgents } from "../src/engine/guidance_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
 function integrationConfig(): SetupConfig {
@@ -169,6 +172,39 @@ Deno.test("init plans the managed attributes block from generated fills", async 
       await Deno.readTextFile(join(dir, ".gitattributes")),
       "generated/** merge=discern-generated",
     );
+  });
+});
+
+Deno.test("init uses source-only markers when attribution is disabled", async () => {
+  await withTempDir(async (dir) => {
+    const env = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+    const plan = await assembleInitPlan({
+      templatesDir: REAL_TEMPLATES,
+      destDir: dir,
+      config: integrationConfig(),
+      fills: {
+        generated: {
+          bundle: {
+            paths: ["generated/**"],
+            run: "tool build-generated",
+          },
+        },
+      },
+      env,
+    });
+    await applyPlan(plan);
+
+    for (
+      const [path, source] of [
+        ["discern.toml", ARTIFACT_PROVENANCE_SOURCES.config],
+        [".gitignore", ARTIFACT_PROVENANCE_SOURCES.gitignore],
+        [".gitattributes", ARTIFACT_PROVENANCE_SOURCES.gitattributes],
+      ] as const
+    ) {
+      const text = await Deno.readTextFile(join(dir, path));
+      assertStringIncludes(text, generatedArtifactMarker(source, env));
+      assert(!text.includes("Generated automatically by discern."), path);
+    }
   });
 });
 

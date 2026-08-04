@@ -81,6 +81,7 @@ export function ignoreCovers(
 export function canonicalDiscernGitignoreBlock(
   fragment: string,
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
+  env: EnvReader = Deno.env,
 ): string {
   const normalized = normalizeLineEndings(fragment).replace(/\n+$/, "");
   const lines = normalized === "" ? [] : normalized.split("\n");
@@ -92,6 +93,7 @@ export function canonicalDiscernGitignoreBlock(
   }
   const provenanceMarker = generatedArtifactMarker(
     ARTIFACT_PROVENANCE_SOURCES.gitignore,
+    env,
   );
   if (!withoutEnd.includes(provenanceMarker)) {
     withoutEnd.splice(1, 0, provenanceMarker);
@@ -127,10 +129,11 @@ export function reconcileDiscernGitignore(
   existing: string,
   fragment: string,
   artifacts: AgentArtifactPosture = agentArtifactPosture(),
+  env: EnvReader = Deno.env,
 ): GitignoreReconcileResult {
   const eol = existing.includes("\r\n") ? "\r\n" : "\n";
   const normalized = normalizeLineEndings(existing);
-  const canonical = canonicalDiscernGitignoreBlock(fragment, artifacts);
+  const canonical = canonicalDiscernGitignoreBlock(fragment, artifacts, env);
   const canonicalLines = trimFinalSplit(canonical);
   const stripped = stripDiscernOwnedLines(
     trimFinalSplit(normalized),
@@ -186,7 +189,12 @@ export async function planDiscernGitignoreBlock(
     return { operations: [], templateAvailable: false };
   }
   const existing = await readTextIfExists(join(destDir, TARGET_REL)) ?? "";
-  const result = reconcileDiscernGitignore(existing, fragment);
+  const result = reconcileDiscernGitignore(
+    existing,
+    fragment,
+    agentArtifactPosture(),
+    env,
+  );
   return {
     operations: result.operations,
     templateAvailable: true,
@@ -204,7 +212,12 @@ export async function ensureDiscernGitignoreBlock(
   }
   const path = join(destDir, TARGET_REL);
   const existing = await readTextIfExists(path) ?? "";
-  const result = reconcileDiscernGitignore(existing, fragment);
+  const result = reconcileDiscernGitignore(
+    existing,
+    fragment,
+    agentArtifactPosture(),
+    env,
+  );
   if (result.operations.length > 0) {
     await Deno.writeTextFile(path, result.text);
   }
@@ -223,7 +236,11 @@ export async function trackedDiscernIgnoredArtifacts(
 ): Promise<TrackedDiscernIgnoredArtifacts> {
   const artifacts = agentArtifactPosture();
   const fragment = await readGitignoreFragment(env);
-  const block = canonicalDiscernGitignoreBlock(fragment ?? "", artifacts);
+  const block = canonicalDiscernGitignoreBlock(
+    fragment ?? "",
+    artifacts,
+    env,
+  );
   const rules = managedIgnoreRules(block);
   const candidates = trackedCandidateRoots(rules);
   if (candidates.length === 0) {

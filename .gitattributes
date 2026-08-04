@@ -1,5 +1,5 @@
 # --- discern ---
-# discern | generated from [generated] in discern.toml and the provider registry | hand edits to this discern-owned content are overwritten | https://discern.sh
+# Generated automatically by discern. See: [generated] in discern.toml and the provider registry | https://discern.sh
 schema/discern-config.schema.json merge=discern-generated
 schema/discern-setup-config.schema.json merge=discern-generated
 schema/discern-results.schema.json merge=discern-generated

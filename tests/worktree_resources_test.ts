@@ -11,7 +11,7 @@
 import { assert, assertEquals, assertExists } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
-import { withTempDir } from "./helpers.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { addWorktree, gitInit } from "./engine_helpers.ts";
 import { Logger } from "../src/lib/log.ts";
 import { loadConfig, parseConfigOrThrow } from "../src/shared/config_schema.ts";
@@ -27,6 +27,7 @@ import {
 import { upsertEnvLine } from "../src/engine/worktree/env_file.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
 import {
   createResources,
   destroyResources,
@@ -124,23 +125,47 @@ retries = 3
 // ── .env upsert ───────────────────────────────────────────────────────────────
 
 Deno.test("upsertEnvLine: replace existing / append with + without trailing NL", () => {
+  const env = fakeEnv();
   const marker = generatedArtifactMarker(
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+    env,
   );
   // replace the first matching line, value only
   assertEquals(
-    upsertEnvLine("A=1\nB=2\n", "A", "9"),
+    upsertEnvLine("A=1\nB=2\n", "A", "9", env),
     `${marker}\nA=9\nB=2\n`,
   );
   // append before the trailing blank when the file ends with a newline
   assertEquals(
-    upsertEnvLine("A=1\n", "B", "2"),
+    upsertEnvLine("A=1\n", "B", "2", env),
     `${marker}\nA=1\nB=2\n`,
   );
   // append onto an unterminated last line
   assertEquals(
-    upsertEnvLine("A=1", "B", "2"),
+    upsertEnvLine("A=1", "B", "2", env),
     `${marker}\nA=1\nB=2`,
+  );
+});
+
+Deno.test("upsertEnvLine replaces the opposite attribution mode", () => {
+  const attributedEnv = fakeEnv();
+  const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+  const attributed = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+    attributedEnv,
+  );
+  const sourceOnly = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+    sourceOnlyEnv,
+  );
+
+  assertEquals(
+    upsertEnvLine(`${attributed}\nA=1\n`, "A", "2", sourceOnlyEnv),
+    `${sourceOnly}\nA=2\n`,
+  );
+  assertEquals(
+    upsertEnvLine(`${sourceOnly}\nA=2\n`, "A", "3", attributedEnv),
+    `${attributed}\nA=3\n`,
   );
 });
 

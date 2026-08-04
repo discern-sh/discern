@@ -167,6 +167,7 @@ export interface McpWireResult {
 export interface McpWireContext {
   readonly agents: readonly string[];
   readonly experimentalMcpPreload: boolean;
+  readonly env: EnvReader;
 }
 
 /** How a provider registers an MCP server in a project — idempotently, preserving
@@ -315,7 +316,7 @@ export interface WorktreeAppIntegration {
   /** Merge discern's worktree setup/teardown into `configFile` under `root`,
    * idempotently, preserving the app's own keys. Returns the project-relative files
    * written (empty when already in place). */
-  register(root: string): Promise<string[]>;
+  register(root: string, env?: EnvReader): Promise<string[]>;
 }
 
 /**
@@ -331,7 +332,7 @@ export interface ProjectRulesIntegration {
   /** How this discern-written artifact carries provenance. */
   readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /** Write the rules file under `root`, returning it when bytes changed. */
-  register(root: string): Promise<string[]>;
+  register(root: string, env?: EnvReader): Promise<string[]>;
 }
 
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
@@ -758,9 +759,12 @@ const CODEX_ENV_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
 const CODEX_RULES_WRITTEN_ARTIFACT = commentCapableNonContextArtifact(
   ARTIFACT_PROVENANCE_SOURCES.codexRules,
 );
-const CODEX_DISCERN_RULES = `${
-  generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules)
-}
+
+/** Render discern's Codex rules with the current attribution preference. */
+function codexDiscernRules(env: EnvReader = Deno.env): string {
+  return `${
+    generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules, env)
+  }
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
@@ -775,6 +779,7 @@ prefix_rule(
     justification = "Allow committing from trusted discern linked worktrees; Git writes linked-worktree metadata under the main checkout .git/worktrees directory.",
 )
 `;
+}
 
 /** Cursor reads its project MCP servers from a committable `.cursor/mcp.json` (its
  * own file, requiring an explicit `type: "stdio"`) and its SessionStart hook from a
@@ -930,6 +935,7 @@ async function editTomlFile(
   rel: string,
   provenanceSource: string,
   edit: (editor: TomlEditor, existing: string | undefined) => void,
+  env: EnvReader = Deno.env,
 ): Promise<string | undefined> {
   const path = join(root, rel);
   let existing: string | undefined;
@@ -940,12 +946,10 @@ async function editTomlFile(
   }
   const editor = new TomlEditor(existing ?? "");
   edit(editor, existing);
-  let out = editor.toString();
-  const marker = generatedArtifactMarker(provenanceSource);
-  if (!out.split(/\r?\n/).includes(marker)) {
-    const eol = out.includes("\r\n") ? "\r\n" : "\n";
-    out = `${marker}${eol}${out}`;
-  }
+  let out = stripGeneratedArtifactMarker(editor.toString(), provenanceSource);
+  const marker = generatedArtifactMarker(provenanceSource, env);
+  const eol = out.includes("\r\n") ? "\r\n" : "\n";
+  out = `${marker}${eol}${out}`;
   if (!out.endsWith("\n")) {
     out += "\n";
   }
@@ -1013,6 +1017,7 @@ async function registerCodexProjectConfig(
   root: string,
   server: McpServerSpec,
   config: DiscernConfig,
+  context: McpWireContext,
 ): Promise<McpWireResult> {
   const section = `mcp_servers.${server.name}`;
   let firstInstall = false;
@@ -1050,6 +1055,7 @@ async function registerCodexProjectConfig(
       editor.setString(`${section}.command`, server.command);
       editor.deleteKey(`${section}.cwd`);
     },
+    context.env,
   );
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };
 }
@@ -1081,7 +1087,10 @@ function shouldWriteCodexEnvScript(
  * ownership of a user's custom commands. Idempotent: a re-run that finds everything
  * already set writes nothing. Returns the files written.
  */
-async function registerCodexEnvironment(root: string): Promise<string[]> {
+async function registerCodexEnvironment(
+  root: string,
+  env: EnvReader = Deno.env,
+): Promise<string[]> {
   const wrote = await editTomlFile(
     root,
     CODEX_ENV_FILE,
@@ -1105,6 +1114,7 @@ async function registerCodexEnvironment(root: string): Promise<string[]> {
         editor.setString("cleanup.script", CODEX_ENV_CLEANUP_SCRIPT);
       }
     },
+    env,
   );
   return wrote !== undefined ? [wrote] : [];
 }
@@ -1115,11 +1125,14 @@ async function registerCodexEnvironment(root: string): Promise<string[]> {
  * this one to keep the linked-worktree Git allowances exact, but it never mutates a
  * user's rules files.
  */
-async function registerCodexRules(root: string): Promise<string[]> {
+async function registerCodexRules(
+  root: string,
+  env: EnvReader = Deno.env,
+): Promise<string[]> {
   const wrote = await writeTextIfChanged(
     root,
     CODEX_RULES_FILE,
-    CODEX_DISCERN_RULES,
+    codexDiscernRules(env),
   );
   return wrote !== undefined ? [wrote] : [];
 }
@@ -1920,6 +1933,7 @@ export async function wireProviderMcp(
       "experimentalMcpPreload",
       env,
     ),
+    env,
   };
   const written: string[] = [];
   let firstInstall = false;
@@ -1946,12 +1960,13 @@ export async function wireProviderMcp(
 export async function wireProviderWorktreeApp(
   root: string,
   agents: readonly string[],
+  env: EnvReader = Deno.env,
 ): Promise<string[]> {
   const written: string[] = [];
   for (const agent of agents) {
     const integration = providerFor(agent)?.worktreeApp;
     if (integration !== undefined) {
-      written.push(...(await integration.register(root)));
+      written.push(...(await integration.register(root, env)));
     }
   }
   return [...new Set(written)];
@@ -1965,12 +1980,13 @@ export async function wireProviderWorktreeApp(
 export async function wireProviderProjectRules(
   root: string,
   agents: readonly string[],
+  env: EnvReader = Deno.env,
 ): Promise<string[]> {
   const written: string[] = [];
   for (const agent of agents) {
     const integration = providerFor(agent)?.projectRules;
     if (integration !== undefined) {
-      written.push(...(await integration.register(root)));
+      written.push(...(await integration.register(root, env)));
     }
   }
   return [...new Set(written)];

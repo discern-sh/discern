@@ -1,5 +1,7 @@
 # ADR 0211: Agent-context artifacts carry no provenance marker
 
+> **Attribution-control amendment (2026-08-04; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** Comment-capable artifacts outside agent context now carry a shorter generation-and-source marker. By default it names discern and links to `https://discern.sh`. When `DISCERN_NO_ATTRIBUTION` is non-empty, it omits the byline and URL while keeping the generation notice and source. The longer overwrite warning no longer appears in the marker. Context-loaded and comment-incapable artifact policy is unchanged.
+
 **Status**: accepted
 
 ## Context

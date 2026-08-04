@@ -152,7 +152,7 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     documentation: {
       public: true,
       description:
-        "Omits the discern co-author trailer from commits discern composes when set to a non-empty value.",
+        "Uses source-only generated-file markers and omits the discern co-author trailer from commits discern composes when set to a non-empty value.",
     },
   },
 

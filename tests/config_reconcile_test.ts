@@ -9,9 +9,13 @@ import { sectionBlockFromTemplate } from "../src/lib/config_template.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { formatTomlText } from "../src/lib/tidy_format.ts";
+import { DISCERN_NO_ATTRIBUTION, type EnvReader } from "../src/shared/env.ts";
+import { fakeEnv } from "./helpers.ts";
 
 /** Render the real template against a minimal project so reconciliation tests start from production output. */
-async function renderedTemplate(): Promise<string> {
+async function renderedTemplate(
+  env: EnvReader = fakeEnv(),
+): Promise<string> {
   const template = await Deno.readTextFile(
     new URL("../templates/discern.toml.tmpl", import.meta.url),
   );
@@ -20,7 +24,7 @@ async function renderedTemplate(): Promise<string> {
     'slug = "demo"',
     'agents = ["claude_code", "codex"]',
   ].join("\n"));
-  return renderConfigTemplateForConfig(template, config);
+  return renderConfigTemplateForConfig(template, config, env);
 }
 
 /** Remove one complete TOML section block without disturbing adjacent sections. */
@@ -34,6 +38,7 @@ Deno.test("config reconciliation replaces the legacy provenance marker and is id
   const template = await renderedTemplate();
   const marker = generatedArtifactMarker(
     ARTIFACT_PROVENANCE_SOURCES.config,
+    fakeEnv(),
   );
   const drifted = template.replace(
     marker,
@@ -54,6 +59,48 @@ Deno.test("config reconciliation replaces the legacy provenance marker and is id
   const again = reconcileConfigTextWithTemplate(result.text, template);
   assertEquals(again.operations, []);
   assertEquals(again.text, result.text);
+});
+
+Deno.test("config reconciliation switches attribution modes without duplicate markers", async () => {
+  const attributedEnv = fakeEnv();
+  const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+  const attributed = await renderedTemplate(attributedEnv);
+  const sourceOnlyTemplate = await renderedTemplate(sourceOnlyEnv);
+  const attributedMarker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.config,
+    attributedEnv,
+  );
+  const sourceOnlyMarker = generatedArtifactMarker(
+    ARTIFACT_PROVENANCE_SOURCES.config,
+    sourceOnlyEnv,
+  );
+
+  const withoutAttribution = reconcileConfigTextWithTemplate(
+    attributed,
+    sourceOnlyTemplate,
+  );
+  assertEquals(withoutAttribution.operations, [{
+    kind: "marker",
+    path: "discern.toml",
+  }]);
+  assert(!withoutAttribution.text.includes(attributedMarker));
+  assertEquals(
+    withoutAttribution.text.split("\n").filter((line) =>
+      line === sourceOnlyMarker
+    ).length,
+    1,
+  );
+
+  const restored = reconcileConfigTextWithTemplate(
+    withoutAttribution.text,
+    attributed,
+  );
+  assert(!restored.text.includes(sourceOnlyMarker));
+  assertEquals(
+    restored.text.split("\n").filter((line) => line === attributedMarker)
+      .length,
+    1,
+  );
 });
 
 Deno.test("config reconciliation restores a missing fixed section with comments", async () => {

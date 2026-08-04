@@ -1,3 +1,5 @@
+import { discernAttributionEnabled, type EnvReader } from "./env.ts";
+
 /** The product name used in machine-readable and generated-file identity. */
 export const DISCERN_NAME = "discern";
 
@@ -11,32 +13,67 @@ export const DISCERN_MARK = "◮";
 export const DISCERN_WORDMARK = `${DISCERN_MARK} ${DISCERN_NAME}`;
 
 /** The shared opening of every hash-comment provenance marker. */
-export const GENERATED_ARTIFACT_MARKER_PREFIX =
-  `# ${DISCERN_NAME} | generated from `;
+export const GENERATED_ARTIFACT_MARKER_PREFIX = "# Generated automatically ";
 
-/** A provenance marker's text without the format-specific hash-comment prefix. */
-export function generatedArtifactMarkerBody(source: string): string {
+/** The attributed provenance body used unless the process opts out. */
+function attributedArtifactMarkerBody(source: string): string {
+  return `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
+}
+
+/** The source-only provenance body used when attribution is disabled. */
+function unattributedArtifactMarkerBody(source: string): string {
+  return `Generated automatically via ${source}`;
+}
+
+/** A marker body refresh recognizes and removes during reconciliation. */
+function legacyArtifactMarkerBody(source: string): string {
   return `${DISCERN_NAME} | generated from ${source} | ` +
     `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
 }
 
-/**
- * Identify discern-owned content in a comment-capable artifact outside agent
- * context. Callers supply the registry-owned source description; the product
- * name, overwrite warning, and URL remain one shared string.
- */
-export function generatedArtifactMarker(source: string): string {
-  return `# ${generatedArtifactMarkerBody(source)}`;
+/** A provenance marker's text without the format-specific hash-comment prefix. */
+export function generatedArtifactMarkerBody(
+  source: string,
+  env: EnvReader = Deno.env,
+): string {
+  return discernAttributionEnabled(env)
+    ? attributedArtifactMarkerBody(source)
+    : unattributedArtifactMarkerBody(source);
 }
 
-/** Remove one exact provenance marker while preserving the file's line endings. */
+/**
+ * Identify discern-owned content in a comment-capable artifact outside agent
+ * context. Callers supply the registry-owned source description; the shared
+ * renderer applies the process-wide attribution preference.
+ */
+export function generatedArtifactMarker(
+  source: string,
+  env: EnvReader = Deno.env,
+): string {
+  return `# ${generatedArtifactMarkerBody(source, env)}`;
+}
+
+/** Whether a line is a recognized marker for this source. */
+export function isGeneratedArtifactMarker(
+  line: string,
+  source: string,
+): boolean {
+  return [
+    attributedArtifactMarkerBody(source),
+    unattributedArtifactMarkerBody(source),
+    legacyArtifactMarkerBody(source),
+  ].some((body) => line === `# ${body}`);
+}
+
+/** Remove every known provenance marker while preserving the file's line endings. */
 export function stripGeneratedArtifactMarker(
   text: string,
   source: string,
 ): string {
   const eol = text.includes("\r\n") ? "\r\n" : "\n";
-  const marker = generatedArtifactMarker(source);
-  return text.split(/\r?\n/).filter((line) => line !== marker).join(eol);
+  return text.split(/\r?\n/).filter((line) =>
+    !isGeneratedArtifactMarker(line, source)
+  ).join(eol);
 }
 
 /** Couple a Git author name and email with their canonical commit trailer. */

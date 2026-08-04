@@ -20,7 +20,10 @@ import { HINTS } from "../src/shared/hints.ts";
 import { agentFilePaths } from "../src/engine/guidance_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
 import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
-import { withTempDir } from "./helpers.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { fakeEnv, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
 
@@ -34,9 +37,58 @@ Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git
     const config = await loadConfig(dir);
     assertEquals(
       await Deno.readTextFile(join(dir, ".gitattributes")),
-      canonicalDiscernGitattributesBlock([], agentFilePaths(config)).text,
+      canonicalDiscernGitattributesBlock(
+        [],
+        agentFilePaths(config),
+        fakeEnv(),
+      ).text,
       "a new provider output must join the managed block in the same refresh that compiles it",
     );
+  });
+});
+
+Deno.test("engine refresh: DISCERN_NO_ATTRIBUTION switches every refreshed marker without duplicates", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["codex"] });
+    const first = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(first.code, 0, first.output);
+
+    const sourceOnly = await runAgent(dir, ["refresh", "--json"], {
+      env: { [DISCERN_NO_ATTRIBUTION]: "1" },
+    });
+    assertEquals(sourceOnly.code, 0, sourceOnly.output);
+
+    const artifacts = [
+      [".gitattributes", ARTIFACT_PROVENANCE_SOURCES.gitattributes],
+      [".codex/config.toml", ARTIFACT_PROVENANCE_SOURCES.codexConfig],
+      [
+        ".codex/environments/environment.toml",
+        ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+      ],
+      [".codex/rules/discern.rules", ARTIFACT_PROVENANCE_SOURCES.codexRules],
+    ] as const;
+    for (const [path, source] of artifacts) {
+      const text = await Deno.readTextFile(join(dir, path));
+      const marker = `# Generated automatically via ${source}`;
+      assertEquals(
+        text.split(/\r?\n/u).filter((line) => line === marker).length,
+        1,
+        `${path} should carry one source-only marker`,
+      );
+    }
+
+    const restored = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(restored.code, 0, restored.output);
+    for (const [path, source] of artifacts) {
+      const text = await Deno.readTextFile(join(dir, path));
+      const marker = generatedArtifactMarker(source, fakeEnv());
+      assertEquals(
+        text.split(/\r?\n/u).filter((line) => line === marker).length,
+        1,
+        `${path} should restore one attributed marker`,
+      );
+      assert(!text.includes("# Generated automatically via "), path);
+    }
   });
 });
 

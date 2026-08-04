@@ -90,7 +90,12 @@ import {
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
 import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
-import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
+import {
+  CONFIG_REL,
+  type EnvReader,
+  findRoot,
+  NO_PROJECT_MESSAGE,
+} from "../shared/env.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
@@ -315,9 +320,11 @@ export async function assembleInitPlan(params: {
   /** The repo's detected integration branch, stamped into the fresh config's
    * `[repository].trunk` (before the fills, so an explicit fill still wins). */
   mainBranch?: string | undefined;
+  /** Process environment for generated-file attribution rendering. */
+  env?: EnvReader | undefined;
 }): Promise<Plan> {
   const { templatesDir, destDir, config } = params;
-  const tokens = tokensFromConfig(config);
+  const tokens = tokensFromConfig(config, params.env ?? Deno.env);
 
   // `excludeNonSeed`: this scaffolds from the binary's own templates tree, whose
   // skills/ + guidance/ are materialized/read from the binary, never seeded.
@@ -329,6 +336,7 @@ export async function assembleInitPlan(params: {
     // Only the configured agents get their per-agent seed files (hooks/settings);
     // an unconfigured agent leaves no inert dotfiles behind.
     configuredAgents: config.agents,
+    env: params.env,
   });
 
   // The brief is the user's authored intent, captured at setup for the agent.
@@ -362,6 +370,7 @@ export async function assembleInitPlan(params: {
     destDir,
     resolveGeneratedGroups(finalConfig),
     agentFilePaths(finalConfig),
+    params.env ?? Deno.env,
   );
   if (gitattributes !== undefined) {
     plan.ops.push(gitattributes);

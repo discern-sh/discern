@@ -46,10 +46,10 @@ Inputs read by the POSIX installer.
 
 Per-process overrides for discern's runtime behavior.
 
-| Variable                 | What it does                                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `DISCERN_TRUNK`          | Overrides `[repository].trunk` for the current process. Project Scripts receive the resolved trunk in the same variable. |
-| `DISCERN_NO_ATTRIBUTION` | Omits the discern co-author trailer from commits discern composes when set to a non-empty value.                         |
+| Variable                 | What it does                                                                                                                                 |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DISCERN_TRUNK`          | Overrides `[repository].trunk` for the current process. Project Scripts receive the resolved trunk in the same variable.                     |
+| `DISCERN_NO_ATTRIBUTION` | Uses source-only generated-file markers and omits the discern co-author trailer from commits discern composes when set to a non-empty value. |
 
 ## Worktree identity
 

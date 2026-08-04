@@ -36,7 +36,8 @@ import { selfShimDir } from "../src/shared/self_shim.ts";
 import { DESK_SESSION_ENV } from "../src/engine/desk/session.ts";
 import { TEST_RUN_SLOT_ENV } from "../src/engine/test_run_slots.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
-import { REAL_TEMPLATES } from "./helpers.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { fakeEnv, REAL_TEMPLATES } from "./helpers.ts";
 
 /**
  * Map `items` through `fn` with at most `limit` in flight — the bounded
@@ -174,6 +175,7 @@ export async function engineEnv(
     TEMP: tmp,
     [DESK_SESSION_ENV]: "",
     [TEST_RUN_SLOT_ENV]: "",
+    [DISCERN_NO_ATTRIBUTION]: "",
     ...Object.fromEntries(
       Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).map((name) => [
         name,
@@ -208,6 +210,7 @@ export async function scaffoldEngine(
       // agent's wiring scaffolds with that agent in the set (default: Claude only).
       agents: opts.agents ?? ["claude_code"],
     },
+    env: fakeEnv(),
   });
   await applyPlan(plan);
   // Engine tests exercise a *configured* harness — a project past its one-time

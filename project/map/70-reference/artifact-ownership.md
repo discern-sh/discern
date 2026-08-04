@@ -42,7 +42,7 @@ Shared and Generated artifacts also declare one provenance class:
 
 - **Context-loaded:** unmarked. Agent files and skills load whole, so markers repeatedly spend tokens; providers also render comments differently. Guidance and drift checks enforce ownership.
 - **Comment-incapable:** no marker; JSON forbids comments.
-- **Comment-capable non-context:** its marker names discern, source, overwrite contract, and [discern.sh](https://discern.sh).
+- **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
 
 Registry tests enforce classification and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
 

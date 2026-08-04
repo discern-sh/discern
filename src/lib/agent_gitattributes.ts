@@ -12,6 +12,7 @@ import { join } from "@std/path";
 import { classifyPattern } from "../engine/scopes/glob.ts";
 import type { ResolvedGeneratedGroup } from "../shared/generated_artifacts.ts";
 import { generatedArtifactMarker } from "../shared/brand.ts";
+import type { EnvReader } from "../shared/env.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -167,6 +168,7 @@ function pushUnique(values: string[], value: string): void {
 export function canonicalDiscernGitattributesBlock(
   groups: readonly ResolvedGeneratedGroup[],
   builtInPaths: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): GitattributesBlockResult {
   const patterns: string[] = [];
   const refusedPatterns: RefusedGitattributesPattern[] = [];
@@ -198,6 +200,7 @@ export function canonicalDiscernGitattributesBlock(
   }
   const marker = generatedArtifactMarker(
     ARTIFACT_PROVENANCE_SOURCES.gitattributes,
+    env,
   );
   const body = patterns.map((pattern) =>
     `${pattern} merge=${DISCERN_GENERATED_MERGE_DRIVER}`
@@ -299,8 +302,13 @@ export function reconcileDiscernGitattributes(
   existing: string,
   groups: readonly ResolvedGeneratedGroup[],
   builtInPaths: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): GitattributesReconcileResult {
-  const canonical = canonicalDiscernGitattributesBlock(groups, builtInPaths);
+  const canonical = canonicalDiscernGitattributesBlock(
+    groups,
+    builtInPaths,
+    env,
+  );
   const eol = lineEnding(existing);
   const block = withLineEnding(canonical.text, eol);
   const ranges = managedBlockRanges(existing);
@@ -385,6 +393,7 @@ export async function planDiscernGitattributesFile(
   root: string,
   groups: readonly ResolvedGeneratedGroup[],
   builtInCandidates: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): Promise<GitattributesFilePlan> {
   const existing = await readTextIfExists(join(root, GITATTRIBUTES_REL));
   const builtIns = await activeBuiltInPaths(root, builtInCandidates);
@@ -392,6 +401,7 @@ export async function planDiscernGitattributesFile(
     existing ?? "",
     groups,
     builtIns,
+    env,
   );
   return {
     existing,
@@ -407,11 +417,13 @@ export async function planDiscernGitattributesBlock(
   root: string,
   groups: readonly ResolvedGeneratedGroup[],
   builtInCandidates: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): Promise<GitattributesFileReconcileResult> {
   const result = await planDiscernGitattributesFile(
     root,
     groups,
     builtInCandidates,
+    env,
   );
   return {
     operations: result.operations,
@@ -425,11 +437,13 @@ export async function ensureDiscernGitattributesBlock(
   root: string,
   groups: readonly ResolvedGeneratedGroup[],
   builtInCandidates: readonly string[] = [],
+  env: EnvReader = Deno.env,
 ): Promise<GitattributesFileReconcileResult> {
   const result = await planDiscernGitattributesFile(
     root,
     groups,
     builtInCandidates,
+    env,
   );
   if (result.operations.length > 0) {
     const path = join(root, GITATTRIBUTES_REL);
