@@ -19,7 +19,11 @@
 
 import { dirname } from "@std/path";
 import { ensureDir } from "@std/fs";
-import { generatedArtifactMarker } from "../../shared/brand.ts";
+import {
+  generatedArtifactMarker,
+  isGeneratedArtifactMarker,
+} from "../../shared/brand.ts";
+import type { EnvReader } from "../../shared/env.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../../shared/file_ownership.ts";
 import {
   resolveContainedProjectReadPath,
@@ -40,6 +44,7 @@ export function upsertEnvLine(
   envText: string,
   key: string,
   value: string,
+  env: EnvReader = Deno.env,
 ): string {
   const prefix = `${key}=`;
   const lines = envText === "" ? [] : envText.split("\n");
@@ -64,11 +69,17 @@ export function upsertEnvLine(
   }
   const marker = generatedArtifactMarker(
     ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+    env,
   );
-  if (!next.includes(marker)) {
-    next.unshift(marker);
-  }
-  return next.join("\n");
+  return [
+    marker,
+    ...next.filter((line) =>
+      !isGeneratedArtifactMarker(
+        line,
+        ARTIFACT_PROVENANCE_SOURCES.worktreeEnvironment,
+      )
+    ),
+  ].join("\n");
 }
 
 /**
@@ -188,7 +199,7 @@ export async function writeEnvVar(
   key: string,
   value: string,
   files: readonly string[] = DEFAULT_ENV_FILES,
-  opts: { create?: boolean } = {},
+  opts: { create?: boolean; env?: EnvReader } = {},
 ): Promise<boolean> {
   // Prefer updating where the key already lives (last definition wins on read,
   // so that is the definition to move).
@@ -230,7 +241,7 @@ export async function writeEnvVar(
   }
   await Deno.writeTextFile(
     path,
-    upsertEnvLine(text, key, value),
+    upsertEnvLine(text, key, value, opts.env ?? Deno.env),
   );
   return true;
 }

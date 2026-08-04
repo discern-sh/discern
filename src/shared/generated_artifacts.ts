@@ -16,6 +16,8 @@ export interface ResolvedGeneratedGroup {
   readonly paths: readonly string[];
   /** The declared command list normalized to one shell command. */
   readonly run: string;
+  /** Whether GitHub Linguist should present this group as generated. */
+  readonly linguistGenerated: boolean;
   /** Per-command time budget; absent means the global gate budget. */
   readonly timeout?: number;
 }
@@ -30,6 +32,7 @@ export function resolveGeneratedGroups(
       expandMapDirReference(path, config.map.dir)
     ),
     run: toCommand(group.run),
+    linguistGenerated: group.linguist_generated,
     ...(group.timeout === undefined ? {} : { timeout: group.timeout }),
   }));
 }

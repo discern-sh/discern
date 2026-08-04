@@ -1,4 +1,4 @@
-# discern | generated from the bundled Codex project rules | hand edits to this discern-owned content are overwritten | https://discern.sh
+# Generated automatically by discern via the bundled Codex project rules | https://discern.sh
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(

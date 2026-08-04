@@ -664,6 +664,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/config_banner_parity_test.ts",
       "tests/config_set_schema_guard_test.ts",
       "tests/feature_canon_enrolment_test.ts",
+      "tests/generated_artifacts_test.ts",
+      "tests/agent_gitattributes_test.ts",
     ],
     artifacts: [
       {
@@ -710,6 +712,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_nondefault_paths_test.ts",
       "tests/paths_sentinel_render_test.ts",
       "tests/paths_write_surface_test.ts",
+      "tests/agent_gitattributes_test.ts",
     ],
     artifacts: [],
     enrolledIn: {

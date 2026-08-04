@@ -235,6 +235,9 @@
 #   run      the command, or commands in order, that rewrite those artifacts;
 #            the same tree must produce the same bytes, and the generator removes
 #            artifacts absent from its current output
+#   linguist_generated
+#            optional; true marks only this group's paths as generated for GitHub,
+#            hiding them in diffs by default and excluding them from language stats
 #   timeout  optional seconds for the command; replaces [gate].timeout for this
 #            group only (0 disables the bound)
 # ─────────────────────────────────────────────────────────────────────────────
@@ -244,6 +247,7 @@
 # [generated.reference]
 # paths   = ["reference/**"]
 # run     = "tool write-reference --source source/ --output reference/"
+# linguist_generated = false
 # timeout = 120
 
 

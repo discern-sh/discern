@@ -1,4 +1,4 @@
-# discern | generated from the Codex integration and discern.toml | hand edits to this discern-owned content are overwritten | https://discern.sh
+# Generated automatically by discern via the Codex integration and discern.toml | https://discern.sh
 project_doc_max_bytes = 65536
 
 [sandbox_workspace_write]

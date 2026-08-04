@@ -469,7 +469,7 @@ async function generatedMergeDriverNeeded(
 ): Promise<boolean> {
   const attributes = await planDiscernGitattributesBlock(
     ctx.root,
-    resolveGeneratedGroups(ctx.config),
+    ctx.config,
     agentFilePaths(ctx.config),
   );
   return attributes.patterns.length > 0;

@@ -573,6 +573,11 @@
             ],
             "description": "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits."
           },
+          "linguist_generated": {
+            "default": false,
+            "description": "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
+            "type": "boolean"
+          },
           "timeout": {
             "description": "Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.",
             "type": "number",

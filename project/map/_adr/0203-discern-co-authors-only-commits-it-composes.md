@@ -10,6 +10,8 @@
 
 > **Identity amendment (2026-07-30):** The trailer identity below is now `discern <done@discern.sh>`. Pre-launch review rejected the `discern-bot` name and `bot@discern.sh` address: "bot" reads as an AI-assistant persona, which discern is not. The replacement carries no persona — the name is the product, and the address pairs with it to spell the terminal verb, `discern done`. `bot@discern.sh` remains a verified alias on the machine account, so trailers stamped before the rename keep their attribution. The commit boundary, `DISCERN_NO_ATTRIBUTION`, and all other semantics below are unchanged.
 
+> **Generated-file amendment (2026-08-04; [ADR 0211](0211-agent-context-artifacts-carry-no-provenance-marker.md)):** `DISCERN_NO_ATTRIBUTION` now also removes the product byline and URL from comment-capable generated-file markers. The source-only marker remains. Commit attribution and the process-local, non-empty-value semantics are unchanged.
+
 **Status**: accepted
 
 ## Context

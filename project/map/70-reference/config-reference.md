@@ -54,6 +54,7 @@ aliases:
   - generated.<name>
   - generated.<name>.paths
   - generated.<name>.run
+  - generated.<name>.linguist_generated
   - generated.<name>.timeout
   - acceptance
   - acceptance.pre_authorized
@@ -209,11 +210,12 @@ A custom job. Its name is open, but its stage and command are explicit.
 
 [generated.<name>] — committed artifacts wholly owned by one generator. `paths` names the artifacts, `run` deterministically rewrites them and prunes its own orphans, and `timeout` optionally replaces the global command budget.
 
-| Key       | Type               | Default | Description                                                                                                                                                                                                                                     |
-| --------- | ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `paths`   | string[]           | —       | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. |
-| `run`     | string \| string[] | —       | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.                                                               |
-| `timeout` | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                         |
+| Key                  | Type               | Default | Description                                                                                                                                                                                                                                     |
+| -------------------- | ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `paths`              | string[]           | —       | The scope-paths globs naming the committed artifacts this generator wholly owns: a directory prefix (`reference/**`), a standard glob (`reference/**/*.md`, `reference/*`), a `*.ext` suffix at any depth, a `/seg/` segment, or an exact path. |
+| `run`                | string \| string[] | —       | The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.                                                               |
+| `linguist_generated` | boolean            | `false` | Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.                                                           |
+| `timeout`            | number             | —       | Per-job time budget in seconds, replacing the global [gate].timeout for this job only (0 disables the bound for it). Omit to inherit the global budget.                                                                                         |
 
 ## `[acceptance]`
 

@@ -7,6 +7,7 @@
 import type { TokenMap } from "./template.ts";
 import { generatedArtifactMarkerBody } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
+import type { EnvReader } from "../shared/env.ts";
 import { renderTomlStringList } from "./toml_render.ts";
 import { KIT_VERSION } from "./version.ts";
 
@@ -154,7 +155,10 @@ export function parseSourceGlobs(input: string): string[] {
 }
 
 /** Build the full content-token map from a resolved config. */
-export function tokensFromConfig(config: SetupConfig): TokenMap {
+export function tokensFromConfig(
+  config: SetupConfig,
+  env: EnvReader = Deno.env,
+): TokenMap {
   return {
     project_name: config.projectName,
     project_slug: config.slug,
@@ -168,6 +172,7 @@ export function tokensFromConfig(config: SetupConfig): TokenMap {
     scopes_previewable: DEFAULTS.scopesPreviewable.join(", "),
     artifact_provenance_marker: generatedArtifactMarkerBody(
       ARTIFACT_PROVENANCE_SOURCES.config,
+      env,
     ),
     kit_version: KIT_VERSION,
   };

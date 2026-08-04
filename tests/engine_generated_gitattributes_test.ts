@@ -92,6 +92,7 @@ async function scaffoldGeneratedProject(dir: string): Promise<void> {
       "[generated.bundle]",
       'paths = ["generated/**"]',
       'run = "sh tools/generate.sh"',
+      "linguist_generated = true",
       "timeout = 10",
       "",
     ].join("\n"),
@@ -117,9 +118,33 @@ async function scaffoldGeneratedProject(dir: string): Promise<void> {
   assertEquals(firstRefresh.code, 0, firstRefresh.output);
   assertStringIncludes(
     await Deno.readTextFile(join(dir, ".gitattributes")),
-    "generated/** merge=discern-generated",
+    "generated/** merge=discern-generated linguist-generated",
   );
   await gitInit(dir);
+  assertEquals(
+    await gitOut(
+      dir,
+      "check-attr",
+      "linguist-generated",
+      "--",
+      GENERATED_PATH,
+    ),
+    `${GENERATED_PATH}: linguist-generated: set`,
+  );
+  assertEquals(
+    await gitOut(
+      dir,
+      "check-attr",
+      "diff",
+      "--",
+      "discern/map/README.md",
+      "README.md",
+    ),
+    [
+      "discern/map/README.md: diff: markdown",
+      "README.md: diff: unspecified",
+    ].join("\n"),
+  );
 
   // Tracking the compiled Agent file leaves the one-pass block unchanged.
   const trackedRefresh = await runAgent(dir, ["refresh", "--json"]);

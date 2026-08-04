@@ -29,12 +29,12 @@ export interface EnvReader {
   get(key: string): string | undefined;
 }
 
-/** Suppress discern's co-author trailer when set to a non-empty value. */
+/** Suppress discern's generated-file and Git attribution when non-empty. */
 export const DISCERN_NO_ATTRIBUTION =
   DISCERN_ENVIRONMENT_VARIABLES.noAttribution;
 
-/** Whether discern-authored commits carry the co-author trailer. */
-export function discernCommitAttributionEnabled(
+/** Whether discern names itself on output it generated or composed. */
+export function discernAttributionEnabled(
   env: EnvReader = Deno.env,
 ): boolean {
   const value = env.get(DISCERN_NO_ATTRIBUTION);

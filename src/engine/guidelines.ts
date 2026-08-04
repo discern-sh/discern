@@ -53,8 +53,9 @@ import { reconcileReceiptNotesFetch } from "./gate/receipt_notes.ts";
 import {
   ensureDiscernGitattributesBlock,
   GITATTRIBUTES_REL,
+  refusedGitattributesPatternLabel,
 } from "../lib/agent_gitattributes.ts";
-import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
+import type { EnvReader } from "../shared/env.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
 export interface GuidelinesResult {
@@ -99,6 +100,8 @@ export interface GuidelinesResult {
 }
 
 export interface CompileGuidelinesOptions {
+  /** Process environment used by generated-file attribution and integrations. */
+  readonly env?: EnvReader;
   /**
    * Acceptance reconciles this integration before writing the note, where its
    * fail-open result is recorded. Its later checkout refresh skips the duplicate
@@ -130,12 +133,14 @@ async function reconcileGeneratedMergeAttributes(
   root: string,
   config: DiscernConfig,
   log: Logger,
+  env: EnvReader,
 ): Promise<{ changed: string[]; errors: string[] }> {
   try {
     const result = await ensureDiscernGitattributesBlock(
       root,
-      resolveGeneratedGroups(config),
+      config,
       agentFilePaths(config),
+      env,
     );
     const changed = result.operations.length > 0 ? [GITATTRIBUTES_REL] : [];
     if (changed.length > 0) {
@@ -143,7 +148,7 @@ async function reconcileGeneratedMergeAttributes(
     }
     for (const refused of result.refused) {
       log.warn(
-        `refresh: [generated.${refused.group}].paths pattern ${
+        `refresh: ${refusedGitattributesPatternLabel(refused)} pattern ${
           JSON.stringify(refused.pattern)
         } was omitted from ${GITATTRIBUTES_REL}: ${refused.reason}.`,
       );
@@ -232,6 +237,7 @@ export async function compileGuidelines(
   // the only thing on stdout.
   const log = logger ??
     new Logger({ json: false, noColor: false, humanStream: "stdout" });
+  const env = options.env ?? Deno.env;
 
   const config = await loadConfig(root);
   const agents = guidanceAgents(config);
@@ -267,7 +273,13 @@ export async function compileGuidelines(
   let mcpWired: string[] = [];
   const hints: FiredHint[] = [];
   try {
-    const r = await wireProviderMcp(root, agents, DISCERN_MCP_SERVER, config);
+    const r = await wireProviderMcp(
+      root,
+      agents,
+      DISCERN_MCP_SERVER,
+      config,
+      env,
+    );
     mcpWired = r.written;
     if (r.written.length > 0) {
       log.info(
@@ -312,7 +324,7 @@ export async function compileGuidelines(
   // an agent that declares none. Best-effort: a hiccup is recorded, never fatal.
   let worktreeAppWired: string[] = [];
   try {
-    worktreeAppWired = await wireProviderWorktreeApp(root, agents);
+    worktreeAppWired = await wireProviderWorktreeApp(root, agents, env);
     if (worktreeAppWired.length > 0) {
       log.info(
         `co-managed app worktree lifecycle in: ${worktreeAppWired.join(", ")}`,
@@ -332,7 +344,7 @@ export async function compileGuidelines(
   // linked-worktree Git staging/commit operations.
   let projectRulesWired: string[] = [];
   try {
-    projectRulesWired = await wireProviderProjectRules(root, agents);
+    projectRulesWired = await wireProviderProjectRules(root, agents, env);
     if (projectRulesWired.length > 0) {
       log.info(
         `co-managed project rules in: ${projectRulesWired.join(", ")}`,
@@ -426,6 +438,7 @@ export async function compileGuidelines(
       root,
       config,
       log,
+      env,
     );
     errors.push(...attributes.errors);
     return summarize(
@@ -512,6 +525,7 @@ export async function compileGuidelines(
     root,
     config,
     log,
+    env,
   );
   errors.push(...attributes.errors);
   return summarize(

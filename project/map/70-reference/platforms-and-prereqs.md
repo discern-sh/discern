@@ -51,7 +51,7 @@ Run the live prerequisite and install checks from any directory inside the proje
 discern doctor
 ```
 
-`doctor` checks root discovery, config, schema, tools, repository shape, jobs, resources, guidance, skills, and integrations. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
+`doctor` checks root discovery, config, schema, tools, repository shape, jobs, resources, guidance, skills, integrations, and the managed `.gitattributes` block. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
 
 ## Installer behavior
 

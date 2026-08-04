@@ -10,7 +10,7 @@
  */
 
 import { DISCERN_MACHINE } from "./brand.ts";
-import { discernCommitAttributionEnabled, type EnvReader } from "./env.ts";
+import { discernAttributionEnabled, type EnvReader } from "./env.ts";
 import { splitNulRecords } from "./git_paths.ts";
 import {
   describeSpawnError,
@@ -446,7 +446,7 @@ export function discernCommitMessage(
   if (body !== undefined && body !== "") {
     paragraphs.push(body);
   }
-  if (discernCommitAttributionEnabled(env)) {
+  if (discernAttributionEnabled(env)) {
     paragraphs.push(DISCERN_MACHINE.trailer);
   }
   return paragraphs.join("\n\n");

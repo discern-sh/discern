@@ -30,7 +30,10 @@ import { skillsDirsForAgents } from "../src/lib/providers.ts";
 import { guidanceAgents } from "../src/engine/guidance_render.ts";
 import { loadConfig } from "../src/shared/config_schema.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
-import { REAL_TEMPLATES, withTempDir } from "./helpers.ts";
+import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
+import { generatedArtifactMarker } from "../src/shared/brand.ts";
+import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { fakeEnv, REAL_TEMPLATES, withTempDir } from "./helpers.ts";
 
 /** A resolved config for a non-interactive integration scaffold. */
 function integrationConfig(): SetupConfig {
@@ -51,12 +54,16 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       destDir: dir,
       config: integrationConfig(),
     });
-    assertEquals(
-      plan.ops.some((op) => op.targetRel === ".gitattributes"),
-      false,
-      "a scaffold without declared or tracked generated candidates has no attributes block",
-    );
+    const attributes = plan.ops.find((op) => op.targetRel === ".gitattributes");
+    assert(attributes !== undefined);
+    assertEquals(attributes.kind, "reconcile-gitattributes");
+    assertEquals(attributes.disposition, "create");
     await applyPlan(plan);
+
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      "discern/map/**/*.md diff=markdown",
+    );
 
     // 1. discern.toml exists and parses, with our identity substituted.
     const tomlText = await Deno.readTextFile(join(dir, "discern.toml"));
@@ -169,6 +176,39 @@ Deno.test("init plans the managed attributes block from generated fills", async 
       await Deno.readTextFile(join(dir, ".gitattributes")),
       "generated/** merge=discern-generated",
     );
+  });
+});
+
+Deno.test("init uses source-only markers when attribution is disabled", async () => {
+  await withTempDir(async (dir) => {
+    const env = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+    const plan = await assembleInitPlan({
+      templatesDir: REAL_TEMPLATES,
+      destDir: dir,
+      config: integrationConfig(),
+      fills: {
+        generated: {
+          bundle: {
+            paths: ["generated/**"],
+            run: "tool build-generated",
+          },
+        },
+      },
+      env,
+    });
+    await applyPlan(plan);
+
+    for (
+      const [path, source] of [
+        ["discern.toml", ARTIFACT_PROVENANCE_SOURCES.config],
+        [".gitignore", ARTIFACT_PROVENANCE_SOURCES.gitignore],
+        [".gitattributes", ARTIFACT_PROVENANCE_SOURCES.gitattributes],
+      ] as const
+    ) {
+      const text = await Deno.readTextFile(join(dir, path));
+      assertStringIncludes(text, generatedArtifactMarker(source, env));
+      assert(!text.includes("Generated automatically by discern via"), path);
+    }
   });
 });
 

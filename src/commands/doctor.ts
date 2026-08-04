@@ -31,7 +31,10 @@ import {
 } from "../shared/config_schema.ts";
 import { buildExecutionModel } from "../engine/doctor/execution_model.ts";
 import { agentFilePaths, renderAgentFiles } from "../engine/guidance_render.ts";
-import { planDiscernGitattributesBlock } from "../lib/agent_gitattributes.ts";
+import {
+  planDiscernGitattributesBlock,
+  refusedGitattributesPatternLabel,
+} from "../lib/agent_gitattributes.ts";
 import { checkProviderHooksCurrent } from "../lib/provider_hooks.ts";
 import {
   allGuidanceFilePaths,
@@ -560,42 +563,42 @@ export async function runChecks(
     );
   }
 
-  // 5b. generated-artifact declarations — probe the command and Git ownership
-  // facts the gate and update rely on, without running a generator or writing a
-  // file. The block emits nothing when `[generated]` is unused. Its file lists
-  // come from Git once, then every group is matched through the shared accessor.
+  // 5b. Git attributes and generated-artifact declarations — verify the managed
+  // block, then probe the command and ownership facts the gate and update rely
+  // on without running a generator or writing a file. Generated file lists come
+  // from Git once, then every group is matched through the shared accessor.
   {
     const groups = resolveGeneratedGroups(config);
-    if (groups.length > 0) {
-      const attributes = await planDiscernGitattributesBlock(
-        destDir,
-        groups,
-        agentFilePaths(config),
-      );
-      if (attributes.operations.length > 0 || attributes.refused.length > 0) {
-        const details: string[] = [];
-        if (attributes.operations.length > 0) {
-          details.push(
-            ".gitattributes does not match the current generated-path declarations",
-          );
-        }
-        for (const refused of attributes.refused) {
-          details.push(
-            `\`[generated.${refused.group}] paths\` pattern ${
-              JSON.stringify(refused.pattern)
-            } cannot be translated: ${refused.reason}`,
-          );
-        }
-        checks.push({
-          name: "generated: .gitattributes",
-          ok: true,
-          status: "warn" as const,
-          detail: details.join("; "),
-          fix: attributes.refused.length > 0
-            ? "edit the named [generated] paths, then run `discern refresh` to reconcile .gitattributes"
-            : "run `discern refresh` to reconcile .gitattributes",
-        });
+    const attributes = await planDiscernGitattributesBlock(
+      destDir,
+      config,
+      agentFilePaths(config),
+    );
+    if (attributes.operations.length > 0 || attributes.refused.length > 0) {
+      const details: string[] = [];
+      if (attributes.operations.length > 0) {
+        details.push(
+          ".gitattributes does not match the current discern declarations",
+        );
       }
+      for (const refused of attributes.refused) {
+        details.push(
+          `\`${refusedGitattributesPatternLabel(refused)}\` pattern ${
+            JSON.stringify(refused.pattern)
+          } cannot be translated: ${refused.reason}`,
+        );
+      }
+      checks.push({
+        name: "Git attributes",
+        ok: true,
+        status: "warn" as const,
+        detail: details.join("; "),
+        fix: attributes.refused.length > 0
+          ? "edit the named paths, then run `discern refresh` to reconcile .gitattributes"
+          : "run `discern refresh` to reconcile .gitattributes",
+      });
+    }
+    if (groups.length > 0) {
       for (const group of groups) {
         const word = leadingCommandWord(group.run);
         if (word === undefined) {

@@ -26,15 +26,15 @@ import {
   skillsDirsForAgents,
   wiredMcp,
   wireProviderMcp as wireProviderMcpFromRegistry,
-  wireProviderProjectRules,
-  wireProviderWorktreeApp,
+  wireProviderProjectRules as wireProviderProjectRulesFromRegistry,
+  wireProviderWorktreeApp as wireProviderWorktreeAppFromRegistry,
 } from "../src/lib/providers.ts";
 import { parse as parseToml } from "@std/toml";
 import {
   type DiscernConfig,
   parseConfigOrThrow,
 } from "../src/shared/config_schema.ts";
-import type { EnvReader } from "../src/shared/env.ts";
+import { DISCERN_NO_ATTRIBUTION, type EnvReader } from "../src/shared/env.ts";
 import { EXPERIMENTAL_ENVIRONMENT_VARIABLES } from "../src/shared/experimental.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
@@ -57,6 +57,24 @@ async function wireProviderMcp(
   env: EnvReader = fakeEnv(),
 ): Promise<McpWireResult> {
   return await wireProviderMcpFromRegistry(root, agents, server, config, env);
+}
+
+/** Keep provider artifact tests independent of the host attribution setting. */
+async function wireProviderWorktreeApp(
+  root: string,
+  agents: readonly string[],
+  env: EnvReader = fakeEnv(),
+): Promise<string[]> {
+  return await wireProviderWorktreeAppFromRegistry(root, agents, env);
+}
+
+/** Keep provider artifact tests independent of the host attribution setting. */
+async function wireProviderProjectRules(
+  root: string,
+  agents: readonly string[],
+  env: EnvReader = fakeEnv(),
+): Promise<string[]> {
+  return await wireProviderProjectRulesFromRegistry(root, agents, env);
 }
 
 Deno.test("the registry is total: every known agent has a complete provider", () => {
@@ -839,6 +857,55 @@ Deno.test("wireProviderProjectRules writes Codex discern.rules only, preserving 
   });
 });
 
+Deno.test("Codex integrations replace the opposite attribution mode", async () => {
+  await withTempDir(async (dir) => {
+    const attributedEnv = fakeEnv();
+    const sourceOnlyEnv = fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "1" });
+    const config = parseConfigOrThrow('[project]\nagents = ["codex"]\n');
+
+    await wireProviderMcp(
+      dir,
+      ["codex"],
+      DISCERN_MCP_SERVER,
+      config,
+      attributedEnv,
+    );
+    await wireProviderWorktreeApp(dir, ["codex"], attributedEnv);
+    await wireProviderProjectRules(dir, ["codex"], attributedEnv);
+
+    await wireProviderMcp(
+      dir,
+      ["codex"],
+      DISCERN_MCP_SERVER,
+      config,
+      sourceOnlyEnv,
+    );
+    await wireProviderWorktreeApp(dir, ["codex"], sourceOnlyEnv);
+    await wireProviderProjectRules(dir, ["codex"], sourceOnlyEnv);
+
+    for (
+      const [path, source] of [
+        [".codex/config.toml", ARTIFACT_PROVENANCE_SOURCES.codexConfig],
+        [
+          ".codex/environments/environment.toml",
+          ARTIFACT_PROVENANCE_SOURCES.codexEnvironment,
+        ],
+        [".codex/rules/discern.rules", ARTIFACT_PROVENANCE_SOURCES.codexRules],
+      ] as const
+    ) {
+      const text = await Deno.readTextFile(join(dir, path));
+      const attributed = generatedArtifactMarker(source, attributedEnv);
+      const sourceOnly = generatedArtifactMarker(source, sourceOnlyEnv);
+      assert(!text.includes(attributed), `${path} kept attributed marker`);
+      assertEquals(
+        text.split(/\r?\n/u).filter((line) => line === sourceOnly).length,
+        1,
+        `${path} should carry one source-only marker`,
+      );
+    }
+  });
+});
+
 Deno.test("wireProviderMcp wires Cursor: type:stdio mcpServers.discern into .cursor/mcp.json only", async () => {
   await withTempDir(async (dir) => {
     const first = await wireProviderMcp(dir, ["cursor"]);
@@ -991,6 +1058,7 @@ function registryWiredProbes(): WiredWriterProbe[] {
           mcp.register(root, DISCERN_MCP_SERVER, parseConfigOrThrow(""), {
             agents: [agent],
             experimentalMcpPreload: false,
+            env: fakeEnv(),
           }),
       });
     }
@@ -1217,8 +1285,10 @@ async function assertAbsent(path: string): Promise<void> {
 }
 
 /** Render the exact generated Codex sandbox rules that linked-worktree Git operations require. */
-function expectedCodexDiscernRules(): string {
-  return `${generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules)}
+function expectedCodexDiscernRules(env: EnvReader = fakeEnv()): string {
+  return `${
+    generatedArtifactMarker(ARTIFACT_PROVENANCE_SOURCES.codexRules, env)
+  }
 # Put user-owned Codex rules in a separate .codex/rules/*.rules file.
 
 prefix_rule(
