@@ -27,11 +27,13 @@ discern patterns --json
 
 The human report uses a stable order: trajectory, gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, then one row per finding and one recommended next step. `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence; `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
 
+Each detector block keeps its strongest 3 findings and notes what it elided; `discern patterns --all` reports every one. The bound holds the report — and the wire result every surface serializes — to the registry's size, however long the history grows ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)).
+
 The header gives the day span, event and branch counts, driver split, detector scoreboard, and landing audit's count, share, and source split. `Worth your attention` lists the strongest 3 attention findings by glyph, detector, and subject, with the full blocks below.
 
 Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact endpoints and equal-duration interior means. The wire series caps at 24 points, and every output mode shares the glyphs.
 
-The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`. `data.detectors` accounts for the registry; `data.population` carries the driver split.
+The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`, under the same per-detector bound: `data.findings_total` declares the complete count when anything was elided, and `--all` lifts the bound. `data.detectors` accounts for the registry — each row counts everything its detector found; `data.population` carries the driver split.
 
 `patterns` remains the complete reader. Every detector runs here, including batch detectors that need longitudinal history. Inline detectors can also meet you on the working command their scope names: branch findings appear after a qualifying green receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 

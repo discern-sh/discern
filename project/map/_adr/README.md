@@ -246,6 +246,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0253 — Durable proofs project runtime receipts](0253-durable-proofs-project-runtime-receipts.md)
 - [0254 — MCP startup loading remains an environment-only experiment](0254-mcp-preload-remains-an-environment-only-experiment.md)
 - [0255 — Status is a measured responsive dashboard over one result model](0255-status-is-a-measured-responsive-dashboard.md)
+- [0256 — The patterns report keeps each detector's strongest findings](0256-patterns-findings-bounded-per-detector.md)
 
 <!-- END GENERATED: current ADR records -->
 
