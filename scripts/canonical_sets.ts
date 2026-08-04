@@ -749,7 +749,8 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/cross_agent_reference_codegen_test.ts"],
     artifacts: [
       {
-        path: "project/map/_private/research/cross-agent-behaviour-reference.md",
+        path:
+          "project/map/_private/research/cross-agent-behaviour-reference.md",
         kind: "generated-file",
         banner: true,
       },
