@@ -207,7 +207,7 @@ Deno.test("init uses source-only markers when attribution is disabled", async ()
     ) {
       const text = await Deno.readTextFile(join(dir, path));
       assertStringIncludes(text, generatedArtifactMarker(source, env));
-      assert(!text.includes("Generated automatically by discern."), path);
+      assert(!text.includes("Generated automatically by discern via"), path);
     }
   });
 });

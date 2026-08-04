@@ -83,7 +83,7 @@ Deno.test("the generated-artifact marker has attributed and source-only forms", 
   const source = "the source registry";
   assertEquals(
     generatedArtifactMarkerBody(source, fakeEnv()),
-    `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`,
+    `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`,
   );
   assertEquals(
     generatedArtifactMarkerBody(
@@ -97,14 +97,16 @@ Deno.test("the generated-artifact marker has attributed and source-only forms", 
       source,
       fakeEnv({ [DISCERN_NO_ATTRIBUTION]: "" }),
     ),
-    `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`,
+    `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`,
   );
 });
 
-Deno.test("marker removal recognizes old and both current attribution forms", () => {
+Deno.test("marker removal recognizes every attributed form and the source-only form", () => {
   const source = "the source registry";
   const legacy = `# ${DISCERN_NAME} | generated from ${source} | ` +
     `hand edits to this discern-owned content are overwritten | ${DISCERN_URL}`;
+  const alternate =
+    `# Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
   const attributed = generatedArtifactMarker(source, fakeEnv());
   const sourceOnly = generatedArtifactMarker(
     source,
@@ -112,7 +114,7 @@ Deno.test("marker removal recognizes old and both current attribution forms", ()
   );
   assertEquals(
     stripGeneratedArtifactMarker(
-      `${legacy}\r\n${attributed}\r\n${sourceOnly}\r\npayload\r\n`,
+      `${legacy}\r\n${alternate}\r\n${attributed}\r\n${sourceOnly}\r\npayload\r\n`,
       source,
     ),
     "payload\r\n",

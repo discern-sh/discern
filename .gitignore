@@ -31,7 +31,7 @@
 /site/pages/v2.html
 
 # --- discern ---
-# Generated automatically by discern. See: the bundled .gitignore fragment and provider registry | https://discern.sh
+# Generated automatically by discern via the bundled .gitignore fragment and provider registry | https://discern.sh
 # discern's managed ignore rules: only the skills directories it
 # materializes and machine-local provider state. discern owns this
 # block alone and never touches your other rules. The compiled agent

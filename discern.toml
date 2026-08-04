@@ -1,5 +1,5 @@
 #:schema https://discern.sh/schema/v1/discern-config.schema.json
-# Generated automatically by discern. See: the bundled project configuration template | https://discern.sh
+# Generated automatically by discern via the bundled project configuration template | https://discern.sh
 #
 # discern is a stack-neutral system for coding agents and their humans.
 # Use discern.toml to teach discern about your project, preferences, and tooling.

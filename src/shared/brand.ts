@@ -17,12 +17,17 @@ export const GENERATED_ARTIFACT_MARKER_PREFIX = "# Generated automatically ";
 
 /** The attributed provenance body used unless the process opts out. */
 function attributedArtifactMarkerBody(source: string): string {
-  return `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
+  return `Generated automatically by ${DISCERN_NAME} via ${source} | ${DISCERN_URL}`;
 }
 
 /** The source-only provenance body used when attribution is disabled. */
 function unattributedArtifactMarkerBody(source: string): string {
   return `Generated automatically via ${source}`;
+}
+
+/** An alternate attributed marker body accepted during reconciliation. */
+function alternateAttributedArtifactMarkerBody(source: string): string {
+  return `Generated automatically by ${DISCERN_NAME}. See: ${source} | ${DISCERN_URL}`;
 }
 
 /** A marker body refresh recognizes and removes during reconciliation. */
@@ -61,6 +66,7 @@ export function isGeneratedArtifactMarker(
   return [
     attributedArtifactMarkerBody(source),
     unattributedArtifactMarkerBody(source),
+    alternateAttributedArtifactMarkerBody(source),
     legacyArtifactMarkerBody(source),
   ].some((body) => line === `# ${body}`);
 }
