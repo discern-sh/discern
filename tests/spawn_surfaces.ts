@@ -84,6 +84,18 @@ export const SPAWN_HOMES = [
     },
   },
   {
+    home: "src/lib/open_browser.ts",
+    sites: 1,
+    may: ["other"],
+    interrupt: {
+      exempt:
+        "the OS browser launcher is a single foreground `open`/`xdg-open` " +
+        "handoff: terminal-generated interrupts reach the launcher in " +
+        "discern's process group, while the browser it opens deliberately " +
+        "outlives the CLI.",
+    },
+  },
+  {
     home: "src/engine/owned_child.ts",
     sites: 1,
     may: ["other"],
