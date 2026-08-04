@@ -4,12 +4,6 @@
 
 Your AI writes the code now — **`discern` makes sure it holds up.**
 
-<!-- HERO ASSET — TERMINAL RECORDING GOES HERE.
-     Embed the ~30-second setup-handshake cast (asciinema / VHS) once it's
-     recorded: the human installs, hands off to the agent, and watches it wire the
-     whole project up. Owner-supplied — don't fake one. The two-step below stands
-     in until then. -->
-
 `discern` drops the guardrails a serious team relies on into your project — and lets your coding agent set them up for you. In plain terms, three things:
 
 - **Quality checks on every change** (the _gate_) — your formatter, linter, and tests, run together before any change counts as done, so mistakes get caught before they ship.

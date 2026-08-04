@@ -17,7 +17,9 @@ discern runs locally and keeps a small, visible footprint. Here's what that mean
 
 ## No network, no telemetry
 
-discern makes **zero network calls** and ships **no telemetry**. Nothing about your code, your usage, or your project is phoned home or uploaded, and it works fully offline. A newer version arrives only when you re-run the installer.
+discern makes **zero network calls** and ships **no telemetry**. It uploads nothing about your code, usage, or project, and works offline. To update, re-run the installer.
+
+The public site uses no client-side tracking or cookies.
 
 One thing is measured, and it stays on your machine: the logbook, below, records discern's own use — with its own switch and a one-command deletion path.
 

@@ -146,8 +146,8 @@ COLOPHON
        discernere: dis- "apart" + cernere "to sift" - to separate well
        enough to judge.
 
-       No analytics on this page; we will never know either of you read
-       it. Built, like the tool, under the tool's own gate.
+       No client-side tracking or cookies. Built, like the tool, under
+       the tool's own gate.
 
        (c) 2026 Jack Webb-Heller
 
