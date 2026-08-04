@@ -32,6 +32,7 @@ import type {
 } from "../src/shared/result_schemas.ts";
 import {
   DETECTOR_FAMILIES,
+  PATTERNS_FINDINGS_PER_DETECTOR,
   PATTERNS_SERIES_MAX_POINTS,
 } from "../src/shared/patterns_vocabulary.ts";
 import { HINTS } from "../src/shared/hints.ts";
@@ -53,10 +54,14 @@ import {
   DETECTORS,
   inclusiveSpanDays,
 } from "../src/engine/logbook/detectors.ts";
-import { assertHasHint } from "./hint_asserts.ts";
+import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 
 /** One synthetic seeded verb-event line (agent-shaped, on its own branch). */
-function seededEvent(at: string, outcome: "ok" | "failed"): string {
+function seededEvent(
+  at: string,
+  outcome: "ok" | "failed",
+  branch = "agent/seeded",
+): string {
   return JSON.stringify({
     schema: 1,
     at,
@@ -65,7 +70,7 @@ function seededEvent(at: string, outcome: "ok" | "failed"): string {
     surface: "cli",
     writer: "9.9.9",
     driver: { session: "cli:7", json: true, tty: false, ci: false },
-    branch: "agent/seeded",
+    branch,
     head: "abc1234",
     clean: true,
     outcome,
@@ -210,6 +215,36 @@ async function seedLogbook(dir: string): Promise<void> {
         measured: 85,
       }),
     ].join("\n") + "\n",
+  );
+}
+
+/** Seed one identical red-streak arc per branch, so each branch-scoped
+ * detector that fires produces one finding per branch — a corpus whose
+ * uncapped finding count scales with recorded history. */
+async function seedManyBranchLogbook(
+  dir: string,
+  branches: number,
+): Promise<void> {
+  const logDir = join(dir, ".git", "discern", "logbook");
+  await Deno.mkdir(logDir, { recursive: true });
+  const lines: string[] = [];
+  for (let b = 0; b < branches; b++) {
+    const day = String(1 + (b % 27)).padStart(2, "0");
+    const branch = `agent/streak-${b}`;
+    for (const [hour, outcome] of [
+      ["10", "failed"],
+      ["11", "failed"],
+      ["12", "failed"],
+      ["13", "ok"],
+    ] as const) {
+      lines.push(
+        seededEvent(`2026-06-${day}T${hour}:0${b % 10}:00.000Z`, outcome, branch),
+      );
+    }
+  }
+  await Deno.writeTextFile(
+    join(logDir, "2026-06.jsonl"),
+    lines.join("\n") + "\n",
   );
 }
 
@@ -880,6 +915,109 @@ Deno.test("patterns: a seeded logbook yields ranked plain-count findings that va
     // Advisory, structurally: findings never flip the envelope.
     assertEquals(parsed.ok, true);
   });
+});
+
+Deno.test("patterns: the report keeps each detector's strongest findings and --all lifts the bound", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const branches = PATTERNS_FINDINGS_PER_DETECTOR + 2;
+    await seedManyBranchLogbook(dir, branches);
+
+    const capped = await runAgent(dir, ["patterns", "--json"]);
+    assertEquals(capped.code, 0, capped.output);
+    const parsed = PatternsOutputSchema.parse(JSON.parse(capped.stdout));
+    assertEquals(parsed.ok, true);
+    const data = parsed.data as PatternsData;
+    const thrash = data.findings.filter((f) => f.detector === "done-thrash");
+    assertEquals(
+      thrash.length,
+      PATTERNS_FINDINGS_PER_DETECTOR,
+      "one finding per branch must cap at the per-detector bound",
+    );
+    const row = data.detectors.find((d) => d.id === "done-thrash");
+    assert(row !== undefined);
+    assertEquals(row.findings, branches, "detector rows keep the true count");
+
+    const all = await runAgent(dir, ["patterns", "--json", "--all"]);
+    assertEquals(all.code, 0, all.output);
+    const allParsed = PatternsOutputSchema.parse(JSON.parse(all.stdout));
+    const allData = allParsed.data as PatternsData;
+    assertEquals(
+      allData.findings.filter((f) => f.detector === "done-thrash").length,
+      branches,
+      "--all must report one finding per branch",
+    );
+    assertEquals(
+      data.findings_total,
+      allData.findings.length,
+      "the capped report must declare the complete list's size",
+    );
+    assertEquals(
+      allData.findings_total,
+      undefined,
+      "a complete list needs no elision marker",
+    );
+
+    // The bound filters the existing rank order without re-sorting it.
+    const fullOrder = allData.findings.map((f) => JSON.stringify(f));
+    let previous = -1;
+    for (const finding of data.findings) {
+      const index = fullOrder.indexOf(JSON.stringify(finding));
+      assert(index > previous, "capped findings must keep the full rank order");
+      previous = index;
+    }
+
+    const hintParams = {
+      shown: data.findings.length,
+      total: allData.findings.length,
+    };
+    assertHasHint(parsed, HINTS["patterns-findings-capped"], hintParams);
+    assertLacksHint(allParsed, HINTS["patterns-findings-capped"], hintParams);
+
+    // The human report names each detector's elision and the escape hatch.
+    const human = await runAgent(dir, ["patterns"], {
+      env: { COLUMNS: "200", NO_COLOR: "1" },
+    });
+    assertEquals(human.code, 0, human.output);
+    assertStringIncludes(
+      human.output,
+      `+${branches - PATTERNS_FINDINGS_PER_DETECTOR} more findings — ` +
+        "`discern patterns --all` lists every one.",
+    );
+  });
+});
+
+Deno.test("patterns: the wire result plateaus as recorded history grows", async () => {
+  const findingCounts: number[] = [];
+  const wireBytes: number[] = [];
+  for (const branches of [6, 18]) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await gitInit(dir);
+      await seedManyBranchLogbook(dir, branches);
+      const result = await patternsResult(dir);
+      assert(result.ok && result.data !== undefined);
+      assert(
+        result.data.findings.length <=
+          DETECTORS.length * PATTERNS_FINDINGS_PER_DETECTOR,
+        "the report is bounded by the registry, never the stream",
+      );
+      findingCounts.push(result.data.findings.length);
+      wireBytes.push(JSON.stringify(result).length);
+    });
+  }
+  assertEquals(
+    findingCounts[1],
+    findingCounts[0],
+    "tripling the recorded branches must not grow the findings list",
+  );
+  const [small, large] = wireBytes;
+  assert(small !== undefined && large !== undefined);
+  assert(
+    large <= small * 1.15,
+    `the serialized result must plateau: ${small} bytes grew to ${large}`,
+  );
 });
 
 Deno.test("patterns: generator gate share names the heaviest generated groups on the JSON wire", async () => {
