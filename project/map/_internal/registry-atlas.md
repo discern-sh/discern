@@ -1894,7 +1894,7 @@ The numbered decision records in the map, including records later superseded.
   - `0255`
   - `0256`
   - `0257`
-  - `0258`
+  - `0259`
   - `0001`
   - `0002`
   - `0004`
