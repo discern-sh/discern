@@ -25,6 +25,7 @@ import {
 import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
+import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
   FEATURE_CANON_PAGE_REL,
@@ -119,6 +120,10 @@ const registryAtlas = relative(
   repoRoot,
   join(mapDir, REGISTRY_ATLAS_PAGE_REL),
 );
+const crossAgentReference = relative(
+  repoRoot,
+  join(mapDir, "_private", "research", "cross-agent-behaviour-reference.md"),
+);
 type EquivalentText = (before: string, after: string) => boolean;
 
 /** Every path this script may touch, from the canonical-sets meta-registry. */
@@ -188,6 +193,10 @@ console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );
 await write(registryAtlas, await renderRegistryAtlasDoc());
+console.log(
+  "Regenerating the cross-agent reference from scripts/cross_agent_registry.ts:",
+);
+await write(crossAgentReference, renderCrossAgentReferenceDoc());
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),

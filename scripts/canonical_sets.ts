@@ -737,6 +737,39 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "cross-agent-behaviours",
+    title: "Cross-agent behaviour dimensions",
+    what:
+      "The classified behavioural dimensions of the researched coding agents; the private cross-agent reference compiles from the registry, whose typed cells force every dimension to answer for every researched agent.",
+    source: {
+      kind: "module",
+      module: "scripts/cross_agent_registry.ts",
+      exportName: "BEHAVIOUR_DIMENSIONS",
+    },
+    guards: ["tests/cross_agent_reference_codegen_test.ts"],
+    artifacts: [
+      {
+        path: "project/map/_private/research/cross-agent-behaviour-reference.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "maintainer research vocabulary about other vendors' agents, not discern product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "a private research reference informing integrations; it ships no product surface",
+      },
+    },
+    members: async () =>
+      (await import("./cross_agent_registry.ts")).BEHAVIOUR_DIMENSIONS.map(
+        (dimension) => dimension.id,
+      ),
+  },
+  {
     id: "setup-subverbs",
     title: "Setup sub-verbs",
     what: "The staged-setup handshake's sub-verb sequence.",
