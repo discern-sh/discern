@@ -36,6 +36,10 @@ import { colourEnabled, Logger } from "../lib/log.ts";
 import { renderMarkdown } from "../lib/markdown.ts";
 import { terminalWidth } from "../lib/text.ts";
 import {
+  browserOpenFailureMessage,
+  openInBrowser,
+} from "../lib/open_browser.ts";
+import {
   canonicalDocTarget,
   discoverDocs,
   type DocEntry,
@@ -87,9 +91,30 @@ import {
   buildMapOverview,
   type MapRegion,
 } from "../lib/map_overview.ts";
+import { DISCERN_DOCS_URL } from "../shared/brand.ts";
 
 /** The built-in concatenated Markdown export scopes. */
 type DocsExportScope = "public" | "all" | "select";
+
+const READ_DOCS_ONLINE = "\x00read-docs-online";
+const QUIT_BROWSE = "\x00quit";
+
+/** Navigation actions for the interactive tree browser. Only discern's own
+ * manual has an equivalent online home; a project's map stays local. */
+export function docsBrowseNavigationChoices(
+  verb: "map" | "docs",
+  color: boolean,
+): Array<{ name: string; value: string }> {
+  return [
+    ...(verb === "docs"
+      ? [{ name: "Read the docs online", value: READ_DOCS_ONLINE }]
+      : []),
+    {
+      name: color ? colors.dim("Quit") : "Quit",
+      value: QUIT_BROWSE,
+    },
+  ];
+}
 
 /**
  * A resolved `--export` value: a built-in projection, or — on the `map` verb —
@@ -709,7 +734,6 @@ async function browse(
   const verb = desc.verb;
   const color = colourEnabled(options.noColor);
   const width = resolveWidth(options.width);
-  const QUIT = "\x00quit";
   const choices = tree.entries.map((e) => ({
     name: optionLabel(e, color),
     value: e.path,
@@ -734,10 +758,7 @@ async function browse(
           {
             id: "browse-navigation",
             label: "Browse",
-            items: [{
-              name: color ? colors.dim("Quit") : "Quit",
-              value: QUIT,
-            }],
+            items: docsBrowseNavigationChoices(verb, color),
           },
         ], color ? colors.dim : (rule) => rule),
         search: true,
@@ -749,7 +770,16 @@ async function browse(
       // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
       return 0;
     }
-    if (choice === QUIT) return 0;
+    if (choice === QUIT_BROWSE) return 0;
+    if (choice === READ_DOCS_ONLINE) {
+      const opened = await openInBrowser(DISCERN_DOCS_URL);
+      if (opened.status !== "opened") {
+        console.error(
+          browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, opened),
+        );
+      }
+      continue;
+    }
     last = choice;
     const entry = tree.entries.find((e) => e.path === choice);
     if (!entry) continue;

@@ -915,13 +915,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "desk",
         title: "The desk",
         what:
-          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, opens configured coding-agent CLIs found on `PATH`, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches.",
+          "Bare `discern` opens the operator's desk: an interactive surface over the fleet that starts tasks, runs Project Scripts from the main checkout or a selected worktree, opens configured coding-agent CLIs found on `PATH`, links to the online manual, pre-authorizes one effort to land once green, and offers each worktree its valid next actions, owning the child sessions it launches.",
         why:
           "The human's day-to-day surface is one screen, and every action on it is one keypress.",
         plain: {
           title: "The desk",
           what:
-            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, opens any of the recognised coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts.",
+            "Running `discern` on its own opens the desk for the person in charge: one interactive view over all the work in progress. It starts tasks, runs the project's own tools from the main or a separate working copy, opens the online manual, opens any of the recognised coding-agent programs found in the computer's standard installed-program list (called `PATH`), records permission in advance for one task to join the main shared version once it passes, and offers each working copy its valid next actions — staying responsible for the sessions it starts.",
           why:
             "The person in charge works from one screen, and every action on it is one keypress.",
         },
@@ -931,13 +931,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "tips",
             title: "Desk tips",
             what:
-              "The desk header ends with one dim tip per session: a line teaching one thing discern can do. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook.",
+              "The desk puts one tip directly below the root status per session. Its `Tip` label is yellow and the teaching text stays secondary. Selection is deterministic over a curriculum registry (new-in-release entries first, then contextual relevance, then authored order, then rotation), the line wraps at the terminal width, and each shown id is recorded in the logbook.",
             why:
               "Capability reaches the person at the desk one calm line at a time, and the shown ids accumulate in the logbook from day one, ready for adoption reading.",
             plain: {
               title: "Desk tips",
               what:
-                "The desk ends its heading with one short tip for each session: a line that teaches one thing Discern can do. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record.",
+                "The desk puts one short tip below the project status for each session. The choice follows fixed rules, the line wraps to fit the window, and the tip's name goes into the activity record.",
               why:
                 "The person in charge learns one ability at a time without reading a manual, and the record can later show whether the teaching was used.",
             },

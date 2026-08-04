@@ -9,9 +9,9 @@ aliases:
 
 # Desk tips
 
-_Each desk session ends its header with one dim tip that teaches one thing discern can do._
+_Each desk session puts one teaching line directly below the root status._
 
-Most of discern's surfaces address coding agents. The desk is the person's surface, so it carries the product's one ambient teaching slot: a single line at the foot of the header, chosen when the session opens and held until it ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). The line wraps at the terminal width with a hanging indent, so a narrow sidebar terminal reads the whole sentence.
+Most of discern's surfaces address coding agents. The desk is the person's surface, so it carries the product's one ambient teaching slot: a line below the root status, chosen when the session opens and held until it ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). Its `Tip` label is yellow, while the teaching text stays secondary. The line wraps at the terminal width with a hanging indent. Narrow sidebar terminals do not clip it.
 
 ## How the tip is chosen
 

@@ -18,7 +18,7 @@
  */
 
 import { basename } from "@std/path";
-import { DISCERN_MARK } from "../../shared/brand.ts";
+import { DISCERN_DOCS_URL, DISCERN_WORDMARK } from "../../shared/brand.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../../shared/env.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
@@ -39,6 +39,11 @@ import {
   type SelectPromptOptions,
 } from "../../lib/prompts.ts";
 import { Logger } from "../../lib/log.ts";
+import {
+  browserOpenFailureMessage,
+  type BrowserOpenResult,
+  openInBrowser,
+} from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
 import { gateReceiptHonored } from "../gate/receipt.ts";
 import {
@@ -93,6 +98,8 @@ const REFRESH = "\x00refresh";
 const QUIT = "\x00quit";
 const BACK = "\x00back";
 const START_TASK = "\x00start-task";
+const RUN_PROJECT_SCRIPT = "\x00run-project-script";
+const READ_DOCS = "\x00read-docs";
 /** A short fleet is faster to scan directly; larger fleets gain type-to-filter. */
 const FILTER_THRESHOLD = 8;
 
@@ -168,6 +175,7 @@ export interface DeskRuntime {
     name: string,
     env: Record<string, string>,
   ): DeskMaybePromise<number>;
+  openBrowser(url: string): DeskMaybePromise<BrowserOpenResult>;
   now(): number;
   /** Read the repository's tip seen-state; never throws (store contract). */
   readTipState(root: string): DeskMaybePromise<TipSeenState>;
@@ -311,6 +319,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     }
   },
   runScript: (root, name, env) => runDeskProjectScript(root, name, env),
+  openBrowser: (url) => openInBrowser(url),
   now: () => Date.now(),
   readTipState: (root) => readTipSeenState(root, KIT_VERSION),
   writeTipState: (root, state) => writeTipSeenState(root, state),
@@ -379,20 +388,86 @@ function actionLabel(
   }
 }
 
+type DeskActionGroupId = "landing" | "work" | "review" | "worktree";
+
+/** Assign every row action to one stable visual group. The exhaustive switch
+ * enrolls a future DeskAction in the hierarchy at compile time. */
+function actionGroupId(action: DeskAction): DeskActionGroupId {
+  switch (action) {
+    case "accept":
+    case "grant":
+    case "revoke_grant":
+    case "update":
+      return "landing";
+    case "scripts":
+    case "agent":
+    case "jump":
+      return "work";
+    case "inspect":
+      return "review";
+    case "reclaim":
+    case "drop":
+      return "worktree";
+  }
+}
+
+/** Menu-order labels for the row action hierarchy. */
+const DESK_ACTION_GROUPS: readonly {
+  readonly id: DeskActionGroupId;
+  readonly label: string;
+}[] = [
+  { id: "landing", label: "Landing" },
+  { id: "work", label: "Work in this task" },
+  { id: "review", label: "Review" },
+  { id: "worktree", label: "Worktree" },
+];
+
+/** Build the populated action groups for one selected task. */
+function actionGroups(
+  row: DeskRow,
+  config: DiscernConfig,
+): SelectPromptGroup<string>[] {
+  return DESK_ACTION_GROUPS.map((group) => ({
+    id: `actions-${group.id}`,
+    label: group.label,
+    items: row.actions
+      .filter((action) => actionGroupId(action) === group.id)
+      .map((action) => ({
+        name: actionLabel(
+          action,
+          config.repository.trunk,
+          row.entry.contained_in,
+        ),
+        value: action as string,
+      })),
+  }));
+}
+
 /** Pick one of the configured, PATH-available agent entry points. */
 async function pickAgentLaunch(
   row: DeskRow,
   runtime: DeskRuntime,
 ): Promise<DeskAgentLaunch | undefined> {
+  const agentGroups: SelectPromptGroup<string>[] = [];
+  for (const launch of row.agentLaunches) {
+    if (
+      agentGroups.some((candidate) => candidate.id === `agent-${launch.agent}`)
+    ) {
+      continue;
+    }
+    agentGroups.push({
+      id: `agent-${launch.agent}`,
+      label: launch.providerLabel,
+      items: row.agentLaunches
+        .filter((candidate) => candidate.agent === launch.agent)
+        .map((candidate) => ({
+          name: candidate.label,
+          value: candidate.id,
+        })),
+    });
+  }
   const options = groupedSelectOptions<string>([
-    {
-      id: "agents",
-      label: "Agents",
-      items: row.agentLaunches.map((launch) => ({
-        name: launch.label,
-        value: launch.id,
-      })),
-    },
+    ...agentGroups,
     {
       id: "task-navigation",
       label: "Task",
@@ -415,16 +490,18 @@ async function pickAgentLaunch(
     : row.agentLaunches.find((launch) => launch.id === id);
 }
 
-/** Pick one of a row's worktree-local Project Scripts. */
+/** Pick one Project Script from either the project root or a worktree. */
 async function pickScript(
-  row: DeskRow,
+  scripts: readonly ProjectScript[],
+  owner: string,
+  navigationLabel: "Desk" | "Task",
   runtime: DeskRuntime,
 ): Promise<ProjectScript | undefined> {
   const options = groupedSelectOptions<string>([
     {
       id: "project-scripts",
       label: "Project Scripts",
-      items: row.scripts.map((script) => ({
+      items: scripts.map((script) => ({
         name: script.description === undefined
           ? script.name
           : `${script.name}  ·  ${script.description}`,
@@ -432,16 +509,16 @@ async function pickScript(
       })),
     },
     {
-      id: "task-navigation",
-      label: "Task",
+      id: `${navigationLabel.toLowerCase()}-navigation`,
+      label: navigationLabel,
       items: [{ name: "Back", value: BACK }],
     },
   ]);
   let name: string;
   try {
-    const search = row.scripts.length > FILTER_THRESHOLD;
+    const search = scripts.length > FILTER_THRESHOLD;
     name = await runtime.select({
-      message: `Choose a Project Script for ${row.task.name}`,
+      message: `Choose a Project Script for ${owner}`,
       options,
       search,
       ...(search ? { searchLabel: "filter" } : {}),
@@ -455,11 +532,11 @@ async function pickScript(
   }
   return name === BACK
     ? undefined
-    : row.scripts.find((script) => script.name === name);
+    : scripts.find((script) => script.name === name);
 }
 
 /** The first-line label of the tip slot; continuation lines hang under it. */
-const TIP_PREFIX = "  ✦ tip  ";
+const TIP_PREFIX = "  ✦ Tip  ";
 
 /** The desk header: project identity, the main checkout's state, the
  * otherwise-invisible unlanded branches, and the session's one tip line. */
@@ -475,7 +552,7 @@ function renderHeader(
   const project = config.project.slug === ""
     ? basename(root)
     : config.project.slug;
-  out.heading(`${DISCERN_MARK} ${project}`);
+  out.heading(`${DISCERN_WORDMARK} | ${project}`);
   const taskCount = rows.length === 0
     ? "No tasks"
     : `${rows.length} task${rows.length === 1 ? "" : "s"}`;
@@ -523,7 +600,7 @@ function renderHeader(
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
     containedLines.push(`  ${out.c.dim}${line}.${out.c.reset}`);
   }
-  // The session's tip (ADR 0234): one dim teaching line at the header's foot,
+  // The session's tip (ADR 0234): one teaching line directly below the status,
   // wrapped with a hanging indent at the resolved width — never truncated,
   // because the narrow embedded terminals discern's users live in would clip
   // most tips mid-sentence.
@@ -533,15 +610,16 @@ function renderHeader(
     const lines = wrapText(tip, Math.max(1, width - indent.length));
     for (const [index, line] of lines.entries()) {
       tipLines.push(
-        `${out.c.dim}${index === 0 ? TIP_PREFIX : indent}${line}${out.c.reset}`,
+        index === 0
+          ? `${out.c.dim}  ✦ ${out.c.reset}${out.c.yellow}Tip${out.c.reset}${out.c.dim}  ${line}${out.c.reset}`
+          : `${out.c.dim}${indent}${line}${out.c.reset}`,
       );
     }
   }
   const rendered = renderHumanOutputGroups([
-    { id: "fleet-summary", items: summaryLines },
+    { id: "desk-summary", items: [...summaryLines, ...tipLines] },
     { id: "unlanded-branches", items: unlandedLines },
     { id: "contained-branches", items: containedLines },
-    { id: "tip", items: tipLines },
   ], { leadingBoundary: true });
   if (rendered !== "") out.raw(`${rendered}\n`);
 }
@@ -549,6 +627,7 @@ function renderHeader(
 /** Offer the fleet as a grouped picker; resolves to a row path or a sentinel. */
 async function pickRow(
   rows: DeskRow[],
+  rootScripts: readonly ProjectScript[],
   out: Out,
   runtime: DeskRuntime,
 ): Promise<string> {
@@ -624,6 +703,16 @@ async function pickRow(
           : "Start a task",
         value: START_TASK,
       },
+      ...(rootScripts.length === 0
+        ? []
+        : [{ name: "Run a Project Script", value: RUN_PROJECT_SCRIPT }]),
+      { name: "Read discern's docs", value: READ_DOCS },
+    ],
+  });
+  groups.push({
+    id: "session-actions",
+    label: out.color ? `${out.c.dim}Session${out.c.reset}` : "Session",
+    items: [
       { name: dim("Refresh"), value: REFRESH },
       { name: dim("Quit"), value: QUIT },
     ],
@@ -632,7 +721,9 @@ async function pickRow(
   const search = rows.length > FILTER_THRESHOLD;
   try {
     return await runtime.select({
-      message: rows.length === 0 ? "No tasks yet" : "Choose a task",
+      message: rows.length === 0
+        ? "Choose a desk action"
+        : "Choose a task or action",
       options,
       search,
       ...(search ? { searchLabel: dim("filter") } : {}),
@@ -646,6 +737,46 @@ async function pickRow(
     // Cancelled (Ctrl-C / Esc) — a clean exit, not an error.
     return QUIT;
   }
+}
+
+/** Run one Project Script from the main checkout, using the same picker,
+ * process ownership, exit reporting, and pause as a worktree-local script. */
+async function runRootProjectScript(
+  out: Out,
+  root: string,
+  project: string,
+  scripts: readonly ProjectScript[],
+  runtime: DeskRuntime,
+): Promise<void> {
+  const script = await pickScript(scripts, project, "Desk", runtime);
+  if (script === undefined) {
+    return;
+  }
+  echoCommand(out, `discern scripts ${script.name}  (in project root)`);
+  const code = await runtime.runScript(
+    root,
+    script.name,
+    deskSessionEnv(),
+  );
+  if (code !== 0) {
+    out.warn(`Project Script exited with status ${code}.`);
+  }
+  await runtime.pause(out);
+}
+
+/** Hand the online manual to the user's browser and keep a copyable fallback
+ * visible when the operating-system launcher is unavailable. */
+async function openOnlineDocs(
+  out: Out,
+  runtime: DeskRuntime,
+): Promise<void> {
+  const result = await runtime.openBrowser(DISCERN_DOCS_URL);
+  if (result.status === "opened") {
+    out.info(`Opened ${DISCERN_DOCS_URL}.`);
+  } else {
+    out.warn(browserOpenFailureMessage("the docs", DISCERN_DOCS_URL, result));
+  }
+  await runtime.pause(out);
 }
 
 /** Prompt for an optional task name and create it through the same core as
@@ -842,7 +973,12 @@ async function dispatchAction(
       }
     }
     case "scripts": {
-      const script = await pickScript(row, runtime);
+      const script = await pickScript(
+        row.scripts,
+        row.task.name,
+        "Task",
+        runtime,
+      );
       if (script === undefined) {
         return false;
       }
@@ -962,18 +1098,7 @@ async function actOn(
   out.raw(`  ${out.c.dim}Branch ${row.entry.branch}${out.c.reset}\n`);
   while (true) {
     const options = groupedSelectOptions<string>([
-      {
-        id: "actions",
-        label: "Actions",
-        items: row.actions.map((a) => ({
-          name: actionLabel(
-            a,
-            config.repository.trunk,
-            row.entry.contained_in,
-          ),
-          value: a as string,
-        })),
-      },
+      ...actionGroups(row, config),
       {
         id: "task-navigation",
         label: out.color ? `${out.c.dim}Task${out.c.reset}` : "Task",
@@ -1120,7 +1245,10 @@ export async function runDesk(
       string,
       readonly DeskAgentLaunch[]
     >();
-    const detectedAgents = await runtime.detectAgents();
+    const [detectedAgents, rootScripts] = await Promise.all([
+      runtime.detectAgents(),
+      runtime.scripts(root),
+    ]);
     for (const entry of fleet) {
       if (
         !entry.is_main && entry.broken !== true &&
@@ -1160,7 +1288,8 @@ export async function runDesk(
       ? undefined
       : rows.find((row) => row.entry.path === focusPath);
     focusPath = undefined;
-    const choice = focused?.entry.path ?? await pickRow(rows, out, runtime);
+    const choice = focused?.entry.path ??
+      await pickRow(rows, rootScripts, out, runtime);
     if (choice === QUIT) {
       return 0;
     }
@@ -1175,6 +1304,16 @@ export async function runDesk(
           throw e;
         }
       }
+    } else if (choice === RUN_PROJECT_SCRIPT) {
+      await runRootProjectScript(
+        out,
+        root,
+        config.project.slug === "" ? basename(root) : config.project.slug,
+        rootScripts,
+        runtime,
+      );
+    } else if (choice === READ_DOCS) {
+      await openOnlineDocs(out, runtime);
     } else if (choice !== REFRESH) {
       const row = rows.find((r) => r.entry.path === choice);
       if (row !== undefined) {

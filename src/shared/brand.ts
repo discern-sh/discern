@@ -4,6 +4,9 @@ export const DISCERN_NAME = "discern";
 /** The canonical product URL used in generated-file identity. */
 export const DISCERN_URL = "https://discern.sh";
 
+/** The canonical online manual landing page. */
+export const DISCERN_DOCS_URL = `${DISCERN_URL}/docs`;
+
 /** The canonical project mark: U+25EE, UP-POINTING TRIANGLE WITH RIGHT HALF BLACK. */
 export const DISCERN_MARK = "◮";
 

@@ -32,7 +32,7 @@ Contributors can go deeper in [engine internals](50-engine-internals/), [develop
 
 ## Browsing from the terminal
 
-`discern docs [target]` browses this manual. `--list`, `--json`, and `--raw` support scripts. `discern map` browses your project's map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
+`discern docs [target]` browses this manual. At a terminal, choose `Read the docs online` to open [discern.sh/docs](https://discern.sh/docs) in the system browser. `--list`, `--json`, and `--raw` support scripts. `discern map` browses your project's map. `discern help [command]` mirrors `discern [command] --help` ([ADR 0218](_adr/0218-docs-owns-the-manual-help-owns-cli-reference.md)).
 
 ## How agents maintain the manual
 

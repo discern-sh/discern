@@ -17,9 +17,21 @@ import {
   RETIRED_COMMAND_REDIRECTS,
 } from "../src/shared/vocabulary.ts";
 import { stageBundledDocs } from "../scripts/build.ts";
+import { docsBrowseNavigationChoices } from "../src/commands/docs.ts";
 
 /** This repo's root — used by the dogfood test to resolve discern's real docs. */
 const REPO_ROOT = join(dirname(fromFileUrl(import.meta.url)), "..");
+
+Deno.test("docs browser offers its online manual without adding it to map", () => {
+  assertEquals(
+    docsBrowseNavigationChoices("docs", false).map((choice) => choice.name),
+    ["Read the docs online", "Quit"],
+  );
+  assertEquals(
+    docsBrowseNavigationChoices("map", false).map((choice) => choice.name),
+    ["Quit"],
+  );
+});
 
 /**
  * Lay a project that has BOTH its own `docs/` (a decoy `docs` must never show)

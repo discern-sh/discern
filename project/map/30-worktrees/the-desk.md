@@ -17,9 +17,13 @@ Agents use Model Context Protocol (MCP) tools and JSON results to operate their 
 
 ## Start a task
 
-The root menu includes `Start a task` even when the fleet is empty. It asks for an optional name and runs the same lifecycle core as `discern start`: a name is normalised to the worktree id and branch, while a blank answer uses a random codename. The new worktree is created, set up, and ready before the desk continues.
+The root menu keeps project actions under **Desk** and refresh or quit under **Session**. `Start a task` is always present. `Run a Project Script` appears when the main checkout has executable Project Scripts. `Read discern's docs` opens [discern.sh/docs](https://discern.sh/docs) in the system browser.
+
+`Start a task` asks for an optional name and runs the same lifecycle core as `discern start`. discern normalizes a supplied name into the worktree id and branch. A blank answer uses a random codename. It creates and sets up the worktree before the desk continues.
 
 After creation, the desk opens the new row's action menu immediately. Open its shell or a configured coding agent without finding and selecting the new branch first.
+
+`Refresh` runs a new status survey, including a new `git worktree list`. A worktree created outside the desk appears on the next root menu.
 
 ## Read the decision order
 
@@ -31,15 +35,11 @@ The desk builds its rows from `discern status` and the recorded gate receipts. I
 | In flight       | Healthy, active, behind trunk, or awaiting gate.              |
 | Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
-Every task group, including the first, has a ruled label; desk actions have their own. Within groups, recent worktrees appear first.
+Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
-The header separates main state, unlanded branches, reclaimed stages, and session tip, omitting empty blocks. A reclaimed ref appears dimly beside its container.
+The root heading is `◮ discern | <project>`. The main status and tip sit together below it, with no blank row between them. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches and reclaimed stages follow as separate groups when present. [Desk tips](desk-tips.md) covers selection, seen-state, and the logbook record.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
-
-## Read the tip line
-
-The header ends with one dim tip per session: a deterministic teaching line that wraps at the terminal width and holds until the session ends. [Desk tips](desk-tips.md) covers the selection order, the seen-state, and the logbook record.
 
 ## Choose an action
 
@@ -58,23 +58,15 @@ The selected row offers only actions that fit its observed state:
 | Inspect                          | Shows commits, uncommitted changes, and a diffstat relative to the trunk.     |
 | Drop                             | Runs the guarded abandoned-work removal path.                                 |
 
-Every action prints the CLI command before it runs. The desk teaches the underlying verbs and uses their real cores, so every refusal and recovery message matches the command-line surface. A landing pre-authorization belongs only to the selected effort: `accept` consumes it, while revoke, drop, prune, and orphan cleanup remove it. Drop passes the selected row's path to the core, so duplicate directory names in different roots cannot redirect it. Dropping work with uncommitted or unlanded changes requires the branch name typed back. The desk then applies force.
+The action menu separates **Landing**, **Work in this task**, **Review**, and **Worktree**. Navigation has its own **Task** group. The agent picker adds one group per configured provider, so fresh and continued sessions remain together.
+
+Every action echoes its CLI equivalent and calls the same core as the command. A landing pre-authorization belongs only to the selected effort: `accept` consumes it; revoke, drop, prune, and orphan cleanup remove it. Drop receives the selected row's absolute path. Dropping uncommitted or unlanded work requires the branch name typed back before the desk applies force.
 
 Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row — a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, gate receipt included). The core re-validates the predicate before acting.
 
-Run script appears for executable Project Scripts in the selected checkout. Scripts inherit the terminal, run from that worktree with `DISCERN_ROOT`, and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
+Project Scripts use one picker and process contract. The root action runs from the main checkout with `DISCERN_ROOT` set there; the selected-task action runs from that worktree. Both inherit the terminal and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 
-Open with agent appears only when an agent is both configured in that checkout's `discern.toml` and one of its known binaries is currently on `PATH`. A detected but unconfigured agent stays hidden; a configured but unavailable agent does too. The provider registry owns the exact actions:
-
-| Provider       | Start fresh    | Continue through the provider's session flow |
-| -------------- | -------------- | -------------------------------------------- |
-| Claude Code    | `claude`       | `claude --continue`                          |
-| Codex          | `codex`        | `codex resume`                               |
-| Gemini         | `gemini`       | `gemini --resume latest`                     |
-| Cursor         | `cursor-agent` | `cursor-agent resume`                        |
-| GitHub Copilot | `copilot`      | `copilot --resume`                           |
-
-The selected process inherits the terminal and worktree directory. Exit or interrupt it to return to a fresh survey. The desk does not inspect or reproduce private vendor session state.
+Open with agent appears only when an agent is configured in that checkout's `discern.toml` and one of its known binaries is on `PATH`. The provider registry owns each fresh and continued session command. The process inherits the terminal and worktree directory; exit or interrupt it to return to a fresh survey. The desk does not inspect private vendor session state.
 
 ## Know when the desk stays closed
 
@@ -89,6 +81,7 @@ Before setup completes, bare `discern` keeps showing the setup welcome. From ins
 | Interactive loop and dispatch       | [`src/engine/desk/desk.ts`](../../../src/engine/desk/desk.ts)                           |
 | Buckets and launch availability     | [`src/engine/desk/model.ts`](../../../src/engine/desk/model.ts)                         |
 | Provider-owned CLI actions          | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                                 |
+| System-browser handoff              | [`src/lib/open_browser.ts`](../../../src/lib/open_browser.ts)                           |
 | Model decision table tests          | [`tests/engine_desk_model_test.ts`](../../../tests/engine_desk_model_test.ts)           |
 | Interactive dispatch tests          | [`tests/engine_desk_runtime_test.ts`](../../../tests/engine_desk_runtime_test.ts)       |
 | Real terminal/non-interactive tests | [`tests/engine_non_interactive_test.ts`](../../../tests/engine_non_interactive_test.ts) |

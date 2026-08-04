@@ -2,6 +2,8 @@
 
 **Status**: accepted. Builds on [ADR 0119](0119-bare-discern-opens-the-operators-desk.md) (the desk), [ADR 0172](0172-hints-compile-from-a-registry.md) (the hint registry), and [ADR 0207](0207-hint-follow-through-is-declared-and-episode-based.md) (episode-based follow-through). Amends the plain register's rendering of _hint_ ([ADR 0228](0228-the-feature-canon-carries-a-plain-language-register.md)).
 
+> **Placement amendment (2026-08-04):** The tip now follows the root status line in the same header group, with a yellow `Tip` label. Unlanded and reclaimed-branch facts follow in separate groups. Selection, wrapping, and session stability are unchanged.
+
 ## Context
 
 discern's primary users are coding agents, and nearly every surface aims at that reader: the verbs, the tools, the hints, the compiled guidance. The human's one guaranteed surface is the desk — bare `discern` ([ADR 0119](0119-bare-discern-opens-the-operators-desk.md)). Between those two facts sits an undiscovered feature set. The capabilities built for the human — `patterns`, `improvement`, `standards`, desk grants, `coupling`, and their kin — reach only the person who already knew to ask. The documentation records them, but documentation answers questions the reader already has. Nothing in the product ever volunteers capability to the person running it.

@@ -211,7 +211,7 @@ What `discern tidy` does: canonically format the configured [map](#map), deferre
 
 ### Tip
 
-One dim line at the foot of the [desk](#desk) header teaching one thing discern can do. The desk chooses it once per session by deterministic rules and records the shown id in the [logbook](#logbook). A tip addresses the person at the desk; agent-facing advice stays in result envelopes. Covered in [desk tips](../30-worktrees/desk-tips.md).
+One teaching line directly below the [desk](#desk) root status. Its `Tip` label is yellow and its text stays secondary. The desk chooses it once per session by deterministic rules and records the shown id in the [logbook](#logbook). A tip addresses the person at the desk; agent-facing advice stays in result envelopes. Covered in [desk tips](../30-worktrees/desk-tips.md).
 
 ### Trunk
 
