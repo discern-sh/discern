@@ -19,7 +19,8 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import type { Command } from "@cliffy/command";
-import { buildCli } from "../src/main.ts";
+import { buildCli, KNOWN_VERBS } from "../src/main.ts";
+import { HIDDEN_VERBS, hiddenVerbNames } from "../src/shared/hidden_verbs.ts";
 import {
   COMMAND_GROUPS,
   groupedCommandNames,
@@ -165,30 +166,47 @@ Deno.test("worktree help renders the configured trunk name, never a hard-coded d
   assert(!setupAccept.includes("`main`"));
 });
 
-Deno.test("hidden top-level commands stay registered but never greet the help reader", () => {
+Deno.test("hidden top-level commands stay registered, enrolled with reasons, and never greet the help reader", () => {
   // The class: a command deliberately kept OUT of the operator help (an empty
-  // mechanism like preset, or setup once the project is bootstrapped) must stay
-  // dispatchable — hidden, never removed. Derived from the live registrations,
-  // so any future hidden command auto-enrols.
-  const root = fullRoot();
-  const visible = new Set(root.getCommands(false).map((c) => c.getName()));
-  const hidden = root.getCommands(true)
-    .map((c) => c.getName())
-    .filter((name) => !visible.has(name));
-  assert(
-    hidden.includes("preset"),
-    "preset must be hidden from the top-level help while nothing ships to fill it",
-  );
-
-  const helpLines = plain(operatorHelp(root)).split("\n");
-  for (const name of hidden) {
-    assert(
-      root.getCommand(name, true) !== undefined,
-      `hidden command ${name} must stay dispatchable`,
+  // mechanism like preset, or setup once the project is bootstrapped) must
+  // stay dispatchable — hidden, never removed — and must carry a recorded
+  // reason in the hidden-verb registry, because hiding also drops the verb
+  // from the generated CLI reference and every surface downstream of it.
+  // Both bootstrap states are held EQUAL to the registry, so a verb can
+  // neither hide unenrolled nor stay enrolled after it returns to the listing.
+  for (const bootstrapped of [false, true]) {
+    const root = buildCli(bootstrapped) as unknown as Command;
+    const visible = new Set(root.getCommands(false).map((c) => c.getName()));
+    const hidden = root.getCommands(true)
+      .map((c) => c.getName())
+      .filter((name) => !visible.has(name));
+    assertEquals(
+      sorted(hidden),
+      sorted(hiddenVerbNames(bootstrapped)),
+      `the live hidden set must match the hidden-verb registry (bootstrapped: ${bootstrapped})`,
     );
+
+    const helpLines = plain(operatorHelp(root)).split("\n");
+    for (const name of hidden) {
+      assert(
+        root.getCommand(name, true) !== undefined,
+        `hidden command ${name} must stay dispatchable`,
+      );
+      assert(
+        !helpLines.some((line) =>
+          new RegExp(`^\\s{4}${name}(\\s|$)`).test(line)
+        ),
+        `hidden command ${name} leaked a row into the top-level help`,
+      );
+    }
+  }
+
+  for (const [name, entry] of Object.entries(HIDDEN_VERBS)) {
+    assert(KNOWN_VERBS.has(name), `hidden-verb entry ${name} names no verb`);
+    assert(entry.reason.length > 0, `${name} needs a recorded reason`);
     assert(
-      !helpLines.some((line) => new RegExp(`^\\s{4}${name}(\\s|$)`).test(line)),
-      `hidden command ${name} leaked a row into the top-level help`,
+      entry.revival.length > 0,
+      `${name} needs a recorded revival condition`,
     );
   }
 });

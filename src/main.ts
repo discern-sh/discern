@@ -42,6 +42,7 @@ import {
   runConfigRead,
 } from "./engine/dispatch.ts";
 import { recordedExit, recordedRun } from "./engine/logbook/cli.ts";
+import { hiddenVerbNames } from "./shared/hidden_verbs.ts";
 import {
   captureCrashReport,
   CRASH_EXIT_CODE,
@@ -185,11 +186,12 @@ declare function rootShape(): ReturnType<
 type RootCommand = ReturnType<typeof rootShape>;
 
 /** Build the root command with its global flags and subcommands. Every verb is
- * attached unconditionally — the subsystems are all core (ADR 0101). `setup` is
- * hidden from help once the project records `[meta].bootstrapped` (it stays
- * callable with `--force`). */
+ * attached unconditionally — the subsystems are all core (ADR 0101). Verbs the
+ * operator help omits come from the hidden-verb registry
+ * (`shared/hidden_verbs.ts`), applied at the end of the build; `bootstrapped`
+ * selects which of its entries are in effect. */
 export function buildCli(
-  hideSetup: boolean,
+  bootstrapped: boolean,
   mainBranch?: string,
 ): RootCommand {
   const trunkName = mainBranch === undefined ? "" : ` (\`${mainBranch}\`)`;
@@ -433,13 +435,7 @@ export function buildCli(
     .command("step", setupStep)
     .command("done", setupDone)
     .command("accept", setupAccept);
-  // Hide on the REGISTERED command, not the pre-registration instance: the
-  // instance form of `.command()` re-parents, so `setup.hidden()` wouldn't take.
-  // `setup` stays reachable (and `--force`-able) when hidden.
-  const setupCmd = root.command("setup", setup);
-  if (hideSetup) {
-    setupCmd.hidden();
-  }
+  root.command("setup", setup);
 
   root
     .command("upgrade")
@@ -523,10 +519,8 @@ export function buildCli(
       });
     }));
 
-  // `preset` dispatches but stays out of the help listing: discern ships no
-  // bundled presets yet, and advertising an empty mechanism hands a newcomer a
-  // dead end. The verb keeps working for projects that lay their own
-  // presets/<name>/ trees; it returns to the listing when something ships.
+  // Out of the operator help — the hidden-verb registry records why and what
+  // returns it to the listing.
   root
     .command("preset <name:string>")
     .description(
@@ -547,8 +541,7 @@ export function buildCli(
           });
         },
       ),
-    )
-    .hidden();
+    );
 
   root
     .command("map [target:string]")
@@ -900,6 +893,16 @@ export function buildCli(
   // Cliffy's generic Command type is impractical to spell at this boundary.
   attachEngineCommands(root as unknown as Command, mainBranch);
 
+  // A verb leaves the help listing only through the hidden-verb registry —
+  // hiding is a recorded product decision, never an inline flourish. Applied
+  // to the REGISTERED commands (the instance form of `.command()` re-parents,
+  // so hiding a pre-registration instance wouldn't take); hidden verbs stay
+  // dispatchable. The guard test holds the live hidden set equal to the
+  // registry in both bootstrap states.
+  for (const name of hiddenVerbNames(bootstrapped)) {
+    (root as unknown as Command).getCommand(name, true)?.hidden();
+  }
+
   return root;
 }
 
@@ -1146,11 +1149,11 @@ export async function main(args: string[]): Promise<void> {
     }
 
     // Resolve the project's setup state — one config read, so the setup
-    // redirect/self-hiding know whether setup is still outstanding.
+    // redirect and the hidden-verb registry know whether setup is still
+    // outstanding.
     const { inProject, configOk, bootstrapped, mainBranch } =
       await resolveProjectState();
-    const hideSetup = inProject && bootstrapped;
-    const cli = buildCli(hideSetup, mainBranch);
+    const cli = buildCli(inProject && bootstrapped, mainBranch);
     applyHelpColorOption(cli as unknown as Command, color);
 
     // Cliffy accepts the global flags BEFORE the subcommand, so resolve the
