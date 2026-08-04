@@ -97,7 +97,7 @@ Project lines outside `.gitattributes`' discern markers survive. `setup`, `refre
 
 Every declared [generated artifact](../00-orientation/glossary.md#generated-artifact) receives the `discern-generated` merge driver. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub: GitHub hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
-Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, guidance, skills, scripts, TODO, and brief paths plus active compiled Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
+Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, guidance, skills, scripts, TODO, and brief paths plus active Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
 
 Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files alone. Add agent-file ignores outside the managed block if preferred; currency accepts a missing copy.
 

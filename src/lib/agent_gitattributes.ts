@@ -20,7 +20,7 @@ import { generatedArtifactMarker } from "../shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../shared/file_ownership.ts";
 import { splitNulRecords } from "../shared/git_paths.ts";
 import { runGit } from "../shared/subprocess.ts";
-import { sourceArtifactPaths } from "./artifact_ownership.ts";
+import { resolveSourcePaths } from "../shared/source_path_resolution.ts";
 
 export const DISCERN_GITATTRIBUTES_BEGIN = "# --- discern ---";
 export const DISCERN_GITATTRIBUTES_END = "# --- /discern ---";
@@ -200,11 +200,11 @@ export function discernMarkdownAttributePaths(
   config: DiscernConfig,
 ): DiscernMarkdownAttributePath[] {
   const paths: DiscernMarkdownAttributePath[] = [];
-  for (const entry of sourceArtifactPaths(config)) {
+  for (const entry of resolveSourcePaths(config)) {
     if (entry.pathKind === "file") {
       if (entry.path.toLowerCase().endsWith(".md")) {
         paths.push({
-          surface: entry.id.replace(/^source:/u, ""),
+          surface: entry.name,
           path: entry.path,
         });
       }
@@ -212,7 +212,7 @@ export function discernMarkdownAttributePaths(
     }
     const directory = entry.path.replace(/\/+$/u, "");
     paths.push({
-      surface: entry.id.replace(/^source:/u, ""),
+      surface: entry.name,
       path: `${directory}/**/*.md`,
     });
   }
