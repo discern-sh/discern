@@ -37,7 +37,7 @@
 # in the environment — e.g. a GUI-launched agent whose hooks run via /bin/sh and
 # never source your shell profile, or cron/CI. It stays empty in the source tree,
 # where the cwd walk-up below already covers in-checkout use.
-DISCERN_BAKED_CHECKOUT=""
+discern_baked_checkout=""
 # -----------------------------------------------------------------------------
 
 # True when $1 is the root of a discern engine checkout — not merely a Deno
@@ -82,8 +82,8 @@ fi
 # Last resort: the checkout baked in at install time (empty in the source tree).
 # An explicit $DISCERN_HOME above still wins, so you can repoint without
 # reinstalling; this only catches the no-env case the fallback exists for.
-if [ -n "$DISCERN_BAKED_CHECKOUT" ] && is_discern_checkout "$DISCERN_BAKED_CHECKOUT"; then
-  run_engine "$DISCERN_BAKED_CHECKOUT" "$@"
+if [ -n "$discern_baked_checkout" ] && is_discern_checkout "$discern_baked_checkout"; then
+  run_engine "$discern_baked_checkout" "$@"
 fi
 
 echo "discern: no discern checkout found at or above $PWD, and \$DISCERN_HOME is unset or invalid." >&2

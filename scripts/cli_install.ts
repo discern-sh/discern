@@ -80,7 +80,7 @@ export async function resolveBakedCheckout(repoRoot: string): Promise<string> {
 }
 
 /** The literal placeholder assignment the source shim carries for stamping. */
-const BAKED_PLACEHOLDER = `DISCERN_BAKED_CHECKOUT=""`;
+const BAKED_PLACEHOLDER = `discern_baked_checkout=""`;
 
 /**
  * Bake `checkoutPath` into a copy of the source dev shim as its durable
@@ -99,7 +99,7 @@ export function renderShim(checkoutPath: string): string {
   const escaped = checkoutPath.replaceAll("'", "'\\''");
   return source.replace(
     BAKED_PLACEHOLDER,
-    `DISCERN_BAKED_CHECKOUT='${escaped}'`,
+    `discern_baked_checkout='${escaped}'`,
   );
 }
 

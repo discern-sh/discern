@@ -238,16 +238,16 @@ Deno.test("wrapper: the committed source shim keeps an empty bake placeholder", 
   const source = await Deno.readTextFile(WRAPPER);
   assertStringIncludes(
     source,
-    'DISCERN_BAKED_CHECKOUT=""',
+    'discern_baked_checkout=""',
     "the tracked shim must stay unbaked — only install-dev-cli stamps a path in",
   );
 });
 
 Deno.test("renderShim: stamps the checkout and escapes single quotes", () => {
   const out = renderShim("/tmp/a'b/discern");
-  assertStringIncludes(out, "DISCERN_BAKED_CHECKOUT='/tmp/a'\\''b/discern'");
+  assertStringIncludes(out, "discern_baked_checkout='/tmp/a'\\''b/discern'");
   assert(
-    !out.includes('DISCERN_BAKED_CHECKOUT=""'),
+    !out.includes('discern_baked_checkout=""'),
     "the empty placeholder must be gone after stamping",
   );
 });
