@@ -12,7 +12,7 @@ Two constraints shaped the remedy. The result contract permits same-major additi
 
 `data.findings` keeps each detector's strongest `PATTERNS_FINDINGS_PER_DETECTOR` (3) findings, preserving the existing rank order. When the bound elides anything, `data.findings_total` joins with the uncapped count, a notice hint names the elision and the escape hatch, and the human report marks each truncated detector block; `--all` (CLI) / `all: true` (MCP) lifts the bound. Detector rows keep counting everything they found, capped or not.
 
-The bound is per detector, not global: strengths are unitless across detector kinds, so a global top-N would starve low-count detectors and erase report breadth. The wire result therefore scales with the detector registry, never with recorded history — `engine_patterns_test.ts` holds a plateau guard that grows the corpus and asserts the serialized result does not follow.
+The bound is per detector, not global: strengths carry no shared unit across detector kinds, so a global top-N would starve low-count detectors and erase report breadth. The wire result therefore scales with the detector registry, never with recorded history — `engine_patterns_test.ts` holds a plateau guard that grows the corpus and asserts the serialized result does not follow.
 
 ## Consequences
 
