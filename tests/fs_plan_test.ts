@@ -36,6 +36,7 @@ import {
   withTempDir,
 } from "./helpers.ts";
 import { settingsSeeds } from "../src/lib/providers.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 
 /** Build and apply an init-style plan over the fixture tree into `dir` (the
  * binary's skills/ + guidance/ subtrees excluded, exactly as `setup` does). */
@@ -280,30 +281,36 @@ Deno.test("the gitignore keeps machine-local provider settings ignored", async (
   });
 });
 
-Deno.test("gitattributes reconciliation is a planned create, update, and removal", async () => {
+Deno.test("gitattributes reconciliation plans registered Markdown and generated paths", async () => {
   await withTempDir(async (dir) => {
-    assertEquals(await planGitattributesReconcile(dir, []), undefined);
-
-    const groups = [{
-      name: "bundle",
-      paths: ["generated/**"],
-      run: ":",
-    }];
-    const create = await planGitattributesReconcile(dir, groups);
+    const defaultConfig = parseConfigOrThrow("");
+    const create = await planGitattributesReconcile(dir, defaultConfig);
     assert(create !== undefined);
     assertEquals(create.kind, "reconcile-gitattributes");
     assertEquals(create.disposition, "create");
     await applyPlan({ ops: [create], unknownTokens: new Map() });
     assertStringIncludes(
       await readTarget(dir, ".gitattributes"),
+      "discern/map/**/*.md diff=markdown",
+    );
+
+    const generatedConfig = parseConfigOrThrow(`
+[generated.bundle]
+paths = ["generated/**"]
+run = "true"
+`);
+    const update = await planGitattributesReconcile(dir, generatedConfig);
+    assert(update !== undefined);
+    assertEquals(update.disposition, "append");
+    await applyPlan({ ops: [update], unknownTokens: new Map() });
+    assertStringIncludes(
+      await readTarget(dir, ".gitattributes"),
       "generated/** merge=discern-generated",
     );
 
-    const remove = await planGitattributesReconcile(dir, []);
-    assert(remove !== undefined);
-    assertEquals(remove.disposition, "remove");
-    await applyPlan({ ops: [remove], unknownTokens: new Map() });
-    assertEquals(await targetExists(dir, ".gitattributes"), false);
+    const current = await planGitattributesReconcile(dir, generatedConfig);
+    assert(current !== undefined);
+    assertEquals(current.disposition, "skip");
   });
 });
 

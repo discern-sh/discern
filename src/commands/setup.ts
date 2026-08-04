@@ -89,7 +89,6 @@ import {
   parseConfigOrThrow,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import { CONFIG_REL, findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { AWAITING_CONSENT_SLUG } from "../shared/consent.ts";
 import { emitResult } from "../shared/emit.ts";
@@ -360,7 +359,7 @@ export async function assembleInitPlan(params: {
     : parseConfigOrThrow(TEXT_DECODER.decode(configOp.bytes));
   const gitattributes = await planGitattributesReconcile(
     destDir,
-    resolveGeneratedGroups(finalConfig),
+    finalConfig,
     agentFilePaths(finalConfig),
   );
   if (gitattributes !== undefined) {

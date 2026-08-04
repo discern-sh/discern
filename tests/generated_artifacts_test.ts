@@ -24,6 +24,7 @@ Deno.test("a scaffolded project loads generated groups and resolves their owned 
         "[generated.reference]",
         'paths = ["${map.dir}70-reference/**"]',
         'run = ["tool write-reference", "tool tidy-reference"]',
+        "linguist_generated = true",
         "timeout = 45",
         "",
         "[generated.schemas]",
@@ -37,6 +38,7 @@ Deno.test("a scaffolded project loads generated groups and resolves their owned 
     assertEquals(config.generated.reference, {
       paths: ["${map.dir}70-reference/**"],
       run: ["tool write-reference", "tool tidy-reference"],
+      linguist_generated: true,
       timeout: 45,
     });
 
@@ -46,12 +48,14 @@ Deno.test("a scaffolded project loads generated groups and resolves their owned 
         name: "reference",
         paths: ["project/map/70-reference/**"],
         run: "tool write-reference && tool tidy-reference",
+        linguistGenerated: true,
         timeout: 45,
       },
       {
         name: "schemas",
         paths: ["schema/**"],
         run: "tool write-schema",
+        linguistGenerated: false,
       },
     ]);
     assertEquals(

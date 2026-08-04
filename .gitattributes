@@ -1,27 +1,33 @@
 # --- discern ---
-# discern | generated from [generated] in discern.toml and the provider registry | hand edits to this discern-owned content are overwritten | https://discern.sh
-schema/discern-config.schema.json merge=discern-generated
-schema/discern-setup-config.schema.json merge=discern-generated
-schema/discern-results.schema.json merge=discern-generated
-schema/discern-proof-note.schema.json merge=discern-generated
-types/discern-json.d.ts merge=discern-generated
-project/map/00-orientation/glossary.md merge=discern-generated
-project/map/70-reference/cli-reference.md merge=discern-generated
-project/map/70-reference/config-reference.md merge=discern-generated
-project/map/70-reference/environment-variables.md merge=discern-generated
-project/map/_internal/feature-canon.md merge=discern-generated
-project/map/_internal/feature-canon-plain.md merge=discern-generated
-project/map/_internal/hint-inventory.md merge=discern-generated
-project/map/_internal/registry-atlas.md merge=discern-generated
-project/map/_internal/tip-inventory.md merge=discern-generated
-project/map/_private/research/cross-agent-behaviour-reference.md merge=discern-generated
-site/pages/assets/search.js merge=discern-generated
-.github/cla-assistant/metadata merge=discern-generated
-/THIRD_PARTY_NOTICES merge=discern-generated
-src/lib/first_party_license_bundle.ts merge=discern-generated
-src/lib/third_party_bundle.ts merge=discern-generated
-scripts/jsr_license_cache.json merge=discern-generated
-/CLAUDE.md merge=discern-generated
-/AGENTS.md merge=discern-generated
-/GEMINI.md merge=discern-generated
+# discern | generated from discern.toml, the source-path registry, and the provider registry | hand edits to this discern-owned content are overwritten | https://discern.sh
+schema/discern-config.schema.json merge=discern-generated linguist-generated
+schema/discern-setup-config.schema.json merge=discern-generated linguist-generated
+schema/discern-results.schema.json merge=discern-generated linguist-generated
+schema/discern-proof-note.schema.json merge=discern-generated linguist-generated
+types/discern-json.d.ts merge=discern-generated linguist-generated
+project/map/00-orientation/glossary.md merge=discern-generated linguist-generated
+project/map/70-reference/cli-reference.md merge=discern-generated linguist-generated
+project/map/70-reference/config-reference.md merge=discern-generated linguist-generated
+project/map/70-reference/environment-variables.md merge=discern-generated linguist-generated
+project/map/_internal/feature-canon.md merge=discern-generated linguist-generated
+project/map/_internal/feature-canon-plain.md merge=discern-generated linguist-generated
+project/map/_internal/hint-inventory.md merge=discern-generated linguist-generated
+project/map/_internal/registry-atlas.md merge=discern-generated linguist-generated
+project/map/_internal/tip-inventory.md merge=discern-generated linguist-generated
+project/map/_private/research/cross-agent-behaviour-reference.md merge=discern-generated linguist-generated
+site/pages/assets/search.js merge=discern-generated linguist-generated
+.github/cla-assistant/metadata merge=discern-generated linguist-generated
+/THIRD_PARTY_NOTICES merge=discern-generated linguist-generated
+src/lib/first_party_license_bundle.ts merge=discern-generated linguist-generated
+src/lib/third_party_bundle.ts merge=discern-generated linguist-generated
+scripts/jsr_license_cache.json merge=discern-generated linguist-generated
+/CLAUDE.md merge=discern-generated diff=markdown
+/AGENTS.md merge=discern-generated diff=markdown
+/GEMINI.md merge=discern-generated diff=markdown
+project/guidance.md diff=markdown
+project/map/**/*.md diff=markdown
+project/skills/**/*.md diff=markdown
+project/scripts/**/*.md diff=markdown
+project/TODO.md diff=markdown
+discern/brief.md diff=markdown
 # --- /discern ---

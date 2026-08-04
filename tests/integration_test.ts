@@ -51,12 +51,16 @@ Deno.test("init scaffolds the real templates into a working harness", async () =
       destDir: dir,
       config: integrationConfig(),
     });
-    assertEquals(
-      plan.ops.some((op) => op.targetRel === ".gitattributes"),
-      false,
-      "a scaffold without declared or tracked generated candidates has no attributes block",
-    );
+    const attributes = plan.ops.find((op) => op.targetRel === ".gitattributes");
+    assert(attributes !== undefined);
+    assertEquals(attributes.kind, "reconcile-gitattributes");
+    assertEquals(attributes.disposition, "create");
     await applyPlan(plan);
+
+    assertStringIncludes(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      "discern/map/**/*.md diff=markdown",
+    );
 
     // 1. discern.toml exists and parses, with our identity substituted.
     const tomlText = await Deno.readTextFile(join(dir, "discern.toml"));

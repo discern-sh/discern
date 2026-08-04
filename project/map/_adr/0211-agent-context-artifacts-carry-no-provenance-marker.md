@@ -1,5 +1,7 @@
 # ADR 0211: Agent-context artifacts carry no provenance marker
 
+> **Review-metadata amendment ([ADR 0259](0259-generated-groups-opt-in-to-review-metadata.md)):** generated groups may now opt in to GitHub's `linguist-generated` attribute, and registered Markdown uses Git's built-in Markdown diff driver. Neither is an in-band provenance marker; the context-loaded artifact decision below is unchanged.
+
 **Status**: accepted
 
 ## Context

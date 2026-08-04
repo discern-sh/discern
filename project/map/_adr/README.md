@@ -249,6 +249,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0256 — The patterns report keeps each detector's strongest findings](0256-patterns-findings-bounded-per-detector.md)
 - [0257 — The cross-agent reference compiles from a canonical registry](0257-cross-agent-reference-compiles-from-a-canonical-registry.md)
 - [0258 — Every `DISCERN_*` environment contract has one membership authority](0258-every-discern-environment-contract-has-one-membership-authority.md)
+- [0259 — Generated groups opt in to review metadata; registered Markdown uses heading-aware diffs](0259-generated-groups-opt-in-to-review-metadata.md)
 
 <!-- END GENERATED: current ADR records -->
 

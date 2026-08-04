@@ -81,7 +81,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
       ARTIFACT_PROVENANCE_SOURCES.gitattributes,
     ),
     description:
-      "Project attributes. discern maintains its marked generated-merge block.",
+      "Project attributes. discern maintains its marked generated-artifact and Markdown-diff block.",
   },
 ];
 
@@ -140,7 +140,9 @@ function sourceArtifactPath(
 }
 
 /** Materialize configured source-path declarations as ownership entries. */
-function sourceArtifacts(config: DiscernConfig): ArtifactPathEntry[] {
+export function sourceArtifactPaths(
+  config: DiscernConfig,
+): ArtifactPathEntry[] {
   return SOURCE_PATH_NAMES.map((name) => {
     const entry = SOURCE_PATHS[name];
     return {
@@ -297,7 +299,7 @@ export function projectArtifactPaths(
   config: DiscernConfig,
 ): ArtifactPathEntry[] {
   return normalizeArtifacts([
-    ...sourceArtifacts(config),
+    ...sourceArtifactPaths(config),
     ...FIXED_PROJECT_ARTIFACTS,
     ...environmentArtifacts(config),
     ...providerArtifacts(),

@@ -913,14 +913,15 @@ Deno.test("discern setup begin commits the scaffolded machinery, leaving docs/gu
       "discern must leave the invoking user's author and committer identities intact",
     );
 
-    // The commit holds EXACTLY discern's machinery — the config, the gitignore fragment,
-    // and the per-agent MCP + hooks files — so an exact match proves both that the
-    // wiring is committed AND that no authored content was swept in.
+    // The commit holds EXACTLY discern's machinery — the config, managed Git
+    // blocks, and per-agent MCP + hooks files — so an exact match proves both
+    // that the wiring is committed AND that no authored content was swept in.
     const committed =
       (await gitOut(dir, "show", "--name-only", "--format=", "HEAD"))
         .split("\n").map((s) => s.trim()).filter(Boolean).sort();
     assertEquals(committed, [
       ".claude/settings.json",
+      ".gitattributes",
       ".gitignore",
       ".mcp.json",
       "discern.toml",

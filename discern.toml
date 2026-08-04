@@ -259,6 +259,9 @@
   #   run      the command, or commands in order, that rewrite those artifacts;
   #            the same tree must produce the same bytes, and the generator removes
   #            artifacts absent from its current output
+  #   linguist_generated
+  #            optional; true marks only this group's paths as generated for GitHub,
+  #            hiding them in diffs by default and excluding them from language stats
   #   timeout  optional seconds for the command; replaces [gate].timeout for this
   #            group only (0 disables the bound)
   # ─────────────────────────────────────────────────────────────────────────────
@@ -296,6 +299,7 @@
       "scripts/jsr_license_cache.json",
     ]
     run = "deno task codegen"
+    linguist_generated = true
     # Warm runs finish in seconds; a compile-graph change re-fetches third-party
     # license metadata, so the group gets two minutes instead of the global ten.
     timeout = 120

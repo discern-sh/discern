@@ -794,7 +794,7 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
 
     const stale = await runDoctorJson(dir);
     assertEquals(stale.code, 0, JSON.stringify(stale.payload.data.checks));
-    const warning = check(stale.payload, "generated: .gitattributes");
+    const warning = check(stale.payload, "Git attributes");
     assertEquals(warning.status, "warn");
     assertStringIncludes(warning.detail, "does not match");
     assertStringIncludes(warning.fix ?? "", "discern refresh");
@@ -804,7 +804,7 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
     const current = await runDoctorJson(dir);
     assertEquals(
       current.payload.data.checks.some((candidate) =>
-        candidate.name === "generated: .gitattributes"
+        candidate.name === "Git attributes"
       ),
       false,
     );
@@ -823,9 +823,9 @@ Deno.test("doctor: an untranslatable generated glob names the config row", async
 
     const { code, payload } = await runDoctorJson(dir);
     assertEquals(code, 0, JSON.stringify(payload.data.checks));
-    const warning = check(payload, "generated: .gitattributes");
+    const warning = check(payload, "Git attributes");
     assertEquals(warning.status, "warn");
-    assertStringIncludes(warning.detail, "[generated.bundle] paths");
+    assertStringIncludes(warning.detail, "[generated.bundle].paths");
     assertStringIncludes(warning.detail, '"{schema,reference}/**"');
     assertStringIncludes(warning.detail, "cannot be translated");
     assertStringIncludes(warning.fix ?? "", "discern refresh");

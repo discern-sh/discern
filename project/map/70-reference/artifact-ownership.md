@@ -73,7 +73,7 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 | `.env`                                 | Shared         | Comment-capable non-context | Apache-2.0                | Worktree environment file. discern maintains inherited entries plus DISCERN_* identity and resource entries; inheritance may create the first configured file. |
 | `.env.local`                           | Shared         | Comment-capable non-context | Apache-2.0                | Worktree environment file. discern maintains inherited entries plus DISCERN_* identity and resource entries; inheritance may create the first configured file. |
 | `.gemini/settings.json`                | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
-| `.gitattributes`                       | Shared         | Comment-capable non-context | Apache-2.0                | Project attributes. discern maintains its marked generated-merge block.                                                                                        |
+| `.gitattributes`                       | Shared         | Comment-capable non-context | Apache-2.0                | Project attributes. discern maintains its marked generated-artifact and Markdown-diff block.                                                                   |
 | `.github/hooks/discern.json`           | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
 | `.gitignore`                           | Shared         | Comment-capable non-context | Apache-2.0                | Project ignore rules. discern maintains its marked block.                                                                                                      |
 | `.mcp.json`                            | Shared         | Comment-incapable           | Apache-2.0                | Provider configuration. discern maintains its registered entries.                                                                                              |
@@ -89,11 +89,15 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 
 Path overrides preserve ownership: placement grants write consent, not overwrite authority ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
-## How Git treats generated and provider-local paths
+## How Git treats registered paths
 
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
-Project lines outside `.gitattributes`' discern markers survive; `refresh` and `upgrade` rebuild the block from the `[generated.<name>]` declarations and the Agent registry, marking each [generated artifact](../00-orientation/glossary.md#generated-artifact) with the `discern-generated` merge driver. Hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+Project lines outside `.gitattributes`' discern markers survive. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active Agent registry; hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
+
+Every declared [generated artifact](../00-orientation/glossary.md#generated-artifact) receives the `discern-generated` merge driver. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub: GitHub hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+
+Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, guidance, skills, scripts, TODO, and brief paths plus active compiled Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
 
 Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files alone. Add agent-file ignores outside the managed block if preferred; currency accepts a missing copy.
 
@@ -134,18 +138,19 @@ It keeps Project-owned files and `discern.toml`, names Shared settings it cannot
 
 ## Where it lives in code
 
-| Concept                        | File                                                                              |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| Ownership declarations         | [`src/lib/artifact_ownership.ts`](../../../src/lib/artifact_ownership.ts)         |
-| Provenance classes             | [`src/shared/file_ownership.ts`](../../../src/shared/file_ownership.ts)           |
-| Source paths                   | [`src/shared/paths_registry.ts`](../../../src/shared/paths_registry.ts)           |
-| Provider paths                 | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                           |
-| Git-admin state                | [`src/shared/git_admin_state.ts`](../../../src/shared/git_admin_state.ts)         |
-| Ownership forcing function     | [`tests/artifact_ownership_test.ts`](../../../tests/artifact_ownership_test.ts)   |
-| Provenance guards              | [`tests/artifact_provenance_test.ts`](../../../tests/artifact_provenance_test.ts) |
-| Write-surface guard            | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
-| The managed `.gitignore` block | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)               |
-| Uninstall                      | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                 |
+| Concept                            | File                                                                              |
+| ---------------------------------- | --------------------------------------------------------------------------------- |
+| Ownership declarations             | [`src/lib/artifact_ownership.ts`](../../../src/lib/artifact_ownership.ts)         |
+| Provenance classes                 | [`src/shared/file_ownership.ts`](../../../src/shared/file_ownership.ts)           |
+| Source paths                       | [`src/shared/paths_registry.ts`](../../../src/shared/paths_registry.ts)           |
+| Provider paths                     | [`src/lib/providers.ts`](../../../src/lib/providers.ts)                           |
+| Git-admin state                    | [`src/shared/git_admin_state.ts`](../../../src/shared/git_admin_state.ts)         |
+| Ownership forcing function         | [`tests/artifact_ownership_test.ts`](../../../tests/artifact_ownership_test.ts)   |
+| Provenance guards                  | [`tests/artifact_provenance_test.ts`](../../../tests/artifact_provenance_test.ts) |
+| Write-surface guard                | [`tests/paths_write_surface_test.ts`](../../../tests/paths_write_surface_test.ts) |
+| The managed `.gitignore` block     | [`src/lib/agent_gitignore.ts`](../../../src/lib/agent_gitignore.ts)               |
+| The managed `.gitattributes` block | [`src/lib/agent_gitattributes.ts`](../../../src/lib/agent_gitattributes.ts)       |
+| Uninstall                          | [`src/commands/uninstall.ts`](../../../src/commands/uninstall.ts)                 |
 
 ## See also
 
