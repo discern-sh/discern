@@ -306,7 +306,7 @@ Deno.test("queue treats any non-empty marker as accounted and normalizes it for 
         "--",
         "sh",
         "-c",
-        'printf "%s" "$DISCERN_TEST_SLOT" > "$1"',
+        `printf "%s" "$${TEST_RUN_SLOT_ENV}" > "$1"`,
         "queue-accounted",
         observed,
       ],
@@ -354,7 +354,7 @@ Deno.test("queue nesting takes one slot total at cap 1", async () => {
       "--",
       "sh",
       "-c",
-      'printf "%s" "$DISCERN_TEST_SLOT" > "$1"; : > "$2"; ' +
+      `printf "%s" "$${TEST_RUN_SLOT_ENV}" > "$1"; : > "$2"; ` +
       'while [ ! -f "$3" ]; do sleep 0.05; done',
       "queue-nested",
       observed,
@@ -414,7 +414,7 @@ Deno.test("queue around a capped gate takes one slot total at cap 1", async () =
     const job = join(dir, "reverse-nested-test.sh");
     await Deno.writeTextFile(
       job,
-      `printf '%s' "$DISCERN_TEST_SLOT" > "${observed}"\n`,
+      `printf '%s' "$${TEST_RUN_SLOT_ENV}" > "${observed}"\n`,
     );
     await writeConfig(
       dir,
@@ -530,7 +530,7 @@ Deno.test("a capped gate completes a slot-wrapped test job at cap 1", async () =
     const job = join(dir, "wrapped-test.sh");
     await Deno.writeTextFile(
       job,
-      `printf '%s' "$DISCERN_TEST_SLOT" > "${observed}"\n`,
+      `printf '%s' "$${TEST_RUN_SLOT_ENV}" > "${observed}"\n`,
     );
     await writeConfig(
       dir,
@@ -603,8 +603,8 @@ Deno.test("a capped gate exports the marker after its slots fail open", async ()
     const job = join(dir, "fail-open-test.sh");
     await Deno.writeTextFile(
       job,
-      `printf '%s' "$DISCERN_TEST_SLOT" > "${gateObserved}"\n` +
-        `discern queue -- sh -c 'printf "%s" "$DISCERN_TEST_SLOT" > "$1"' queue-child "${nestedObserved}"\n`,
+      `printf '%s' "$${TEST_RUN_SLOT_ENV}" > "${gateObserved}"\n` +
+        `discern queue -- sh -c 'printf "%s" "$${TEST_RUN_SLOT_ENV}" > "$1"' queue-child "${nestedObserved}"\n`,
     );
     await writeConfig(
       dir,

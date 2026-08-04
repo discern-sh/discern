@@ -8,6 +8,7 @@
 
 import { join } from "@std/path";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { emitResult } from "../shared/emit.ts";
 import {
   CONFIG_REL,
@@ -167,7 +168,7 @@ export async function runProjectScriptAt(
 
   const scriptFile = join(directory.abs, name.replace(/:/g, "-"));
   if (await isExecutable(scriptFile)) {
-    const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+    const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
       config.repository.trunk;
     const tomlPath = join(
       root,

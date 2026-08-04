@@ -17,6 +17,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLES`               | 37      | —                | —                           |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 1       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 9       | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
@@ -66,7 +67,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 247     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 248     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -77,9 +78,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 66      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 67      | —                | node `canonical-sets`       |
 
-66 sets · 97 guard tests · 26 committed artifacts.
+67 sets · 98 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -130,6 +131,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/engine_verb_parity_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -348,6 +350,53 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 - Guards: `tests/engine_mcp_test.ts`
 - Glossary: not enrolled — the members are existing verb terms; the sequence is an MCP delivery contract, not a new reader-facing noun
 - Feature canon: described by the `mcp-surface` node
+
+## `environment-variables` — Discern environment variables
+
+Every live, internal, test-only, or intentionally recognized retired DISCERN_* environment name, including the generated resource-handle family.
+
+- Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLES`
+- Members: 37
+  - `DISCERN_REPO`
+  - `DISCERN_VERSION`
+  - `DISCERN_BIN_DIR`
+  - `DISCERN_HOME`
+  - `DISCERN_TRUNK`
+  - `DISCERN_NO_ATTRIBUTION`
+  - `DISCERN_PROJECT_SLUG`
+  - `DISCERN_WORKTREE_BRANCH_PREFIX`
+  - `DISCERN_WORKTREE_ID`
+  - `DISCERN_CRASH_PROBE`
+  - `DISCERN_ROOT`
+  - `DISCERN_TOML`
+  - `DISCERN_SCRIPTS`
+  - `DISCERN_SCRIPTS_DIR`
+  - `DISCERN_WORKTREE_PORT`
+  - `DISCERN_WORKTREE`
+  - `DISCERN_RESOURCE_<NAME>`
+  - `DISCERN_PRESETS_DIR`
+  - `DISCERN_TEMPLATES_DIR`
+  - `DISCERN_DOCS_DIR`
+  - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
+  - `DISCERN_GATE_TEST_REPORTER`
+  - `DISCERN_ASSET`
+  - `DISCERN_DESK_SESSION`
+  - `DISCERN_TEST_SLOT`
+  - `DISCERN_SETUP_DENO`
+  - `DISCERN_SETUP_CONFIG`
+  - `DISCERN_SETUP_MAIN`
+  - `DISCERN_TEST_MCP_READINESS_TIMEOUT_MS`
+  - `DISCERN_TEST_MCP_TIMEOUT_MS`
+  - `DISCERN_TEST_ACCEPTANCE_JOURNAL`
+  - `DISCERN_TEST_EFFORT_GRANT`
+  - `DISCERN_TEST_MAIN_REF_LOCK`
+  - `DISCERN_TEST_WORKTREE`
+  - `DISCERN_TEST_ACCEPT_PAUSED`
+  - `DISCERN_TEST_ACCEPT_RELEASE`
+  - `DISCERN_LIB`
+- Guards: `tests/environment_variables_enrolment_test.ts`
+- Glossary: not enrolled — environment names label existing behaviors and process channels; they are reference spellings rather than product terms
+- Feature canon: not enrolled — the registry spans installer, runtime, worktree, development, and test infrastructure instead of defining one product capability
 
 ## `experimental-environment-variables` — Experimental environment variables
 
@@ -1587,7 +1636,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 247
+- Members: 248
   - `0003`
   - `0005`
   - `0006`
@@ -1817,6 +1866,7 @@ The numbered decision records in the map, including records later superseded.
   - `0254`
   - `0255`
   - `0256`
+  - `0257`
   - `0001`
   - `0002`
   - `0004`
@@ -2026,12 +2076,13 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 66
+- Members: 67
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
   - `mcp-tools`
   - `mcp-core-lifecycle`
+  - `environment-variables`
   - `experimental-environment-variables`
   - `operating-policies`
   - `command-groups`

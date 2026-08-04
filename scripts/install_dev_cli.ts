@@ -22,6 +22,7 @@
  */
 
 import { fromFileUrl } from "@std/path";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   renderShim,
   resolveBakedCheckout,
@@ -31,6 +32,7 @@ import {
 
 /** Install a repository-bound development shim at the resolved CLI destination and report PATH setup. */
 async function main(): Promise<number> {
+  const homeVariable = DISCERN_ENVIRONMENT_VARIABLES.home;
   const repoRoot = fromFileUrl(new URL("..", import.meta.url));
   const bakedCheckout = await resolveBakedCheckout(repoRoot);
 
@@ -45,11 +47,11 @@ async function main(): Promise<number> {
   console.error(`installed: ${dest}`);
   console.error(`  baked-in fallback checkout: ${bakedCheckout}`);
   console.error(
-    "  → resolves the engine from any project with no DISCERN_HOME needed.",
+    `  → resolves the engine from any project with no ${homeVariable} needed.`,
   );
   console.error("");
   console.error(
-    `Optional: export DISCERN_HOME=<path> to override the baked-in checkout.`,
+    `Optional: export ${homeVariable}=<path> to override the baked-in checkout.`,
   );
 
   if (!onPath) {

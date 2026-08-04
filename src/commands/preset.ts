@@ -23,6 +23,7 @@
 
 import { dirname, fromFileUrl, join } from "@std/path";
 import { notInitializedResult } from "../shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { Logger } from "../lib/log.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
 import { resolveConfigPath } from "../lib/paths.ts";
@@ -79,7 +80,9 @@ export interface PresetOptions {
 
 /** Locate the `presets/` directory (sibling of `templates/`), if it exists. */
 async function resolvePresetsDir(): Promise<string | undefined> {
-  const override = Deno.env.get("DISCERN_PRESETS_DIR");
+  const override = Deno.env.get(
+    DISCERN_ENVIRONMENT_VARIABLES.presetsDirectory,
+  );
   if (override) {
     return (await isDir(override)) ? override : undefined;
   }

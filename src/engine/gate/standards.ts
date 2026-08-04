@@ -28,6 +28,7 @@ import {
   type Extent,
   loadConfig,
 } from "../../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { colorEnabled, makeOut, outSink } from "../output.ts";
 import {
   buildStandardPlan,
@@ -1513,7 +1514,7 @@ export async function standardsResult(
   const unpinnedNames = (opts.pinNames?.length ?? 0) > 0 &&
     !(opts.pin ?? false);
   if (!unpinnedNames && !(opts.dryRun ?? false)) {
-    const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+    const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
       cfg.repository.trunk;
     verification = await verifyTrunkLimits(
       root,
@@ -1534,7 +1535,7 @@ export async function standardsResult(
   } else if (opts.pin ?? false) {
     let behindHint: FiredHint | undefined;
     if (!(opts.dryRun ?? false)) {
-      const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+      const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
         cfg.repository.trunk;
       const merged = await assertMainMerged(root, mainBranch);
       if (merged.kind === "behind") {

@@ -10,6 +10,7 @@
 
 import { join } from "@std/path";
 import type { DiscernConfig } from "../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../shared/hints.ts";
 import { runGit } from "../shared/subprocess.ts";
@@ -27,7 +28,7 @@ const POLL_CAP_MS = 2_000;
 const WAIT_LINE_IN_FLIGHT_LIMIT = 2;
 
 /** Child-process marker: a non-empty value means the cap is accounted above. */
-export const TEST_RUN_SLOT_ENV = "DISCERN_TEST_SLOT";
+export const TEST_RUN_SLOT_ENV = DISCERN_ENVIRONMENT_VARIABLES.testSlot;
 
 /** Canonical value written by the gate and queue wrapper. */
 export const TEST_RUN_SLOT_VALUE = "1";

@@ -14,6 +14,7 @@
  */
 
 import { dirname, join, SEPARATOR } from "@std/path";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import type { DiscernResult } from "./result.ts";
 
 /**
@@ -29,7 +30,8 @@ export interface EnvReader {
 }
 
 /** Suppress discern's co-author trailer when set to a non-empty value. */
-export const DISCERN_NO_ATTRIBUTION = "DISCERN_NO_ATTRIBUTION";
+export const DISCERN_NO_ATTRIBUTION =
+  DISCERN_ENVIRONMENT_VARIABLES.noAttribution;
 
 /** Whether discern-authored commits carry the co-author trailer. */
 export function discernCommitAttributionEnabled(
@@ -166,10 +168,10 @@ export interface ScriptEnv {
  */
 export function scriptEnvVars(e: ScriptEnv): Record<string, string> {
   return {
-    DISCERN_ROOT: e.root,
-    DISCERN_TOML: e.tomlPath,
-    DISCERN_SCRIPTS: e.scriptsAbs,
-    DISCERN_SCRIPTS_DIR: e.scriptsDir,
-    DISCERN_TRUNK: e.mainBranch,
+    [DISCERN_ENVIRONMENT_VARIABLES.root]: e.root,
+    [DISCERN_ENVIRONMENT_VARIABLES.toml]: e.tomlPath,
+    [DISCERN_ENVIRONMENT_VARIABLES.scripts]: e.scriptsAbs,
+    [DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory]: e.scriptsDir,
+    [DISCERN_ENVIRONMENT_VARIABLES.trunk]: e.mainBranch,
   };
 }

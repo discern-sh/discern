@@ -16,6 +16,7 @@ import {
   installedConfigRel,
 } from "../shared/env.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { normalizeMapDir } from "../shared/map_path.ts";
 import { guidanceSeedRel, SOURCE_PATHS } from "../shared/paths_registry.ts";
 // Runtime-only import (used inside a function body, never at module evaluation),
@@ -303,13 +304,14 @@ export async function resolveSetupDir(): Promise<string> {
 export async function resolveTemplatesDir(
   env: EnvReader = Deno.env,
 ): Promise<string> {
-  const override = env.get("DISCERN_TEMPLATES_DIR");
+  const variable = DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory;
+  const override = env.get(variable);
   if (override) {
     if (await isDir(override)) {
       return override;
     }
     throw new Error(
-      `DISCERN_TEMPLATES_DIR is set to "${override}" but that is not a directory.`,
+      `${variable} is set to "${override}" but that is not a directory.`,
     );
   }
 
@@ -328,7 +330,7 @@ export async function resolveTemplatesDir(
   }
 
   throw new Error(
-    "could not locate the templates/ tree. Set DISCERN_TEMPLATES_DIR to its path.",
+    `could not locate the templates/ tree. Set ${variable} to its path.`,
   );
 }
 
@@ -354,7 +356,7 @@ export async function resolveTemplatesDir(
  * rather than serving a project's docs by mistake.
  */
 export async function resolveBundledDocsDir(): Promise<string | undefined> {
-  const override = Deno.env.get("DISCERN_DOCS_DIR");
+  const override = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.docsDirectory);
   if (override) {
     return (await isDir(override)) ? override : undefined;
   }

@@ -34,6 +34,7 @@
 import { join } from "@std/path";
 import { ensureDir } from "@std/fs";
 import { ISSUES_URL, KIT_VERSION } from "../lib/version.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../shared/git_admin_state.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import { makeTempArtifact } from "../shared/temp_artifacts.ts";
@@ -49,7 +50,7 @@ export const MAX_CRASH_FILES = 20;
 /** The env var that makes each recorded invocation crash on purpose while set
  * — the deterministic probe the crash-path tests (and a user checking what a
  * crash report looks like) flip. Any non-empty value triggers it. */
-export const CRASH_PROBE_ENV = "DISCERN_CRASH_PROBE";
+export const CRASH_PROBE_ENV = DISCERN_ENVIRONMENT_VARIABLES.crashProbe;
 
 /** Throw a synthetic crash when {@link CRASH_PROBE_ENV} is set. Called inside
  * each surface's recording chokepoint, so a probe crash exercises the whole

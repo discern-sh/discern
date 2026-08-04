@@ -31,6 +31,7 @@ import { ensureDir } from "@std/fs";
 import { z } from "@zod/zod";
 import type { Logger } from "../../lib/log.ts";
 import type { DiscernConfig } from "../../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { GIT_ADMIN_STATE } from "../../shared/git_admin_state.ts";
 import {
   type IdentitySettings,
@@ -173,7 +174,7 @@ export function resourceEnvName(name: string): string {
     /^_+|_+$/g,
     "",
   );
-  return `DISCERN_RESOURCE_${tail}`;
+  return DISCERN_ENVIRONMENT_VARIABLES.resource.replace("<NAME>", tail);
 }
 
 // ── ledger I/O ──────────────────────────────────────────────────────────────
@@ -460,7 +461,10 @@ function resourceCommandEnv(
 ): Record<string, string> {
   return {
     [resourceEnvName(name)]: resourceIdentity,
-    DISCERN_WORKTREE: worktreeBase(settings.slug, identity.id),
+    [DISCERN_ENVIRONMENT_VARIABLES.worktree]: worktreeBase(
+      settings.slug,
+      identity.id,
+    ),
   };
 }
 
@@ -485,7 +489,7 @@ export async function recordResourceEnv(
   const files = ctx.config.worktree.env_files;
   await writeWorktreeEnvVar(
     ctx.cwd,
-    "DISCERN_WORKTREE",
+    DISCERN_ENVIRONMENT_VARIABLES.worktree,
     worktreeBase(settings.slug, identity.id),
     files,
   );

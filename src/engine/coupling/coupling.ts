@@ -43,6 +43,7 @@ import {
 import type { DiscernResult } from "../../shared/result.ts";
 import type { CouplingData } from "../../shared/result_schemas.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { emitResult } from "../../shared/emit.ts";
 import { observeResult } from "../../shared/result_capture.ts";
 import { fire, type FiredHint, HINTS, hintTexts } from "../../shared/hints.ts";
@@ -503,7 +504,7 @@ async function diffCoupling(
   generatedGroups: readonly ResolvedGeneratedGroup[],
   env: EnvReader,
 ): Promise<CouplingData> {
-  const mainBranch = env.get("DISCERN_TRUNK") ||
+  const mainBranch = env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
     config.repository.trunk;
   const raw = await collectPaths(root, mainBranch);
   const candidates = [

@@ -7,8 +7,10 @@
  * authority never depend on it.
  */
 
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
+
 /** Environment key inherited by every arbitrary-code child the desk launches. */
-export const DESK_SESSION_ENV = "DISCERN_DESK_SESSION";
+export const DESK_SESSION_ENV = DISCERN_ENVIRONMENT_VARIABLES.deskSession;
 
 const DESK_SESSION_VALUE = "1";
 

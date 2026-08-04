@@ -24,6 +24,7 @@ import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   DEFAULT_ENV_FILES,
   readEnvValueAcross,
@@ -194,8 +195,9 @@ export function resourceForId(slug: string, id: string, name: string): string {
 export function validateOverrideId(raw: string): string {
   if (!OVERRIDE_ID_RE.test(raw)) {
     throw new IdentityError(
-      `DISCERN_WORKTREE_ID '${raw}' is invalid. Use only letters, numbers, dots, ` +
-        `dashes, or underscores, then re-run \`discern identity\`.`,
+      `${DISCERN_ENVIRONMENT_VARIABLES.worktreeId} '${raw}' is invalid. ` +
+        `Use only letters, numbers, dots, dashes, or underscores, then re-run ` +
+        "`discern identity`.",
     );
   }
   return sanitizeSlug(raw);
@@ -437,8 +439,10 @@ export async function loadIdentitySettings(
   root: string,
   env: EnvReader = Deno.env,
 ): Promise<IdentitySettings> {
-  let rawSlug = env.get("DISCERN_PROJECT_SLUG") ?? "";
-  let branchPrefix = env.get("DISCERN_WORKTREE_BRANCH_PREFIX");
+  let rawSlug = env.get(DISCERN_ENVIRONMENT_VARIABLES.projectSlug) ?? "";
+  let branchPrefix = env.get(
+    DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix,
+  );
   let envFiles: readonly string[] | undefined;
   {
     // Tolerant config read: a missing or invalid toml just leaves the defaults in
@@ -460,8 +464,7 @@ export async function loadIdentitySettings(
   const slug = sanitizeSlug(rawSlug);
   if (slug === "") {
     throw new IdentityError(
-      "The project slug is empty. Set [project].slug or DISCERN_PROJECT_SLUG, then " +
-        "re-run `discern identity`.",
+      `The project slug is empty. Set [project].slug or ${DISCERN_ENVIRONMENT_VARIABLES.projectSlug}, then re-run \`discern identity\`.`,
     );
   }
   return {
@@ -516,7 +519,11 @@ async function readDotenvId(
   target: string,
   files: readonly string[],
 ): Promise<string | undefined> {
-  const value = await readEnvValueAcross(target, files, "DISCERN_WORKTREE_ID");
+  const value = await readEnvValueAcross(
+    target,
+    files,
+    DISCERN_ENVIRONMENT_VARIABLES.worktreeId,
+  );
   return value === undefined ? undefined : stripQuotes(value.trim());
 }
 
@@ -599,7 +606,7 @@ export async function resolveWorktreeId(
 ): Promise<string> {
   const canonical = await canonicalizeTarget(target);
 
-  const envOverride = env.get("DISCERN_WORKTREE_ID");
+  const envOverride = env.get(DISCERN_ENVIRONMENT_VARIABLES.worktreeId);
   if (envOverride !== undefined && envOverride !== "") {
     // The env override declares what THIS process's worktree is ("I am X") —
     // exported to child commands so nested discern calls agree with their
@@ -627,7 +634,8 @@ export async function resolveWorktreeId(
   if (id === "") {
     throw new IdentityError(
       `Git's worktree id '${rawId}' contains no safe characters. Set a safe ` +
-        `DISCERN_WORKTREE_ID, then re-run \`discern identity\`.`,
+        `${DISCERN_ENVIRONMENT_VARIABLES.worktreeId}, then re-run ` +
+        "`discern identity`.",
     );
   }
 

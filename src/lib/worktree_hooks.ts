@@ -27,6 +27,7 @@ import { join } from "@std/path";
 import { Logger } from "./log.ts";
 import { resolveWorktreeRoot } from "./paths.ts";
 import { loadConfig } from "../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import {
   createAndSetupWorktree,
   lifecycleContext,
@@ -174,7 +175,7 @@ export async function worktreeCreateHook(): Promise<number> {
           log.warn(
             `[discern] the new worktree's derived port ${port} is already ` +
               `claimed by a live sibling — two dev servers would fight over ` +
-              `it. Record a different DISCERN_WORKTREE_ID in the new ` +
+              `it. Record a different ${DISCERN_ENVIRONMENT_VARIABLES.worktreeId} in the new ` +
               `worktree's env file to give it a fresh identity (and port).`,
           );
         }

@@ -10,6 +10,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import type { DiscernResult } from "../../shared/result.ts";
 import type { ScopesData } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
@@ -265,7 +266,7 @@ export async function classifyScopes(
   const names = Object.keys(scopes);
   const fireScopes = names.filter((s) => !scopes[s]?.neutral);
 
-  const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+  const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
     config.repository.trunk;
   const paths = await collectPaths(root, mainBranch);
   if (paths === null) {

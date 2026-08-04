@@ -32,6 +32,7 @@ import {
   plainModeEnabled,
 } from "../../lib/prompts.ts";
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   generatedGroupForPath,
   type ResolvedGeneratedGroup,
@@ -389,7 +390,7 @@ async function recordPort(
   const port = String(identity.port);
   const wrote = await writeWorktreeEnvVar(
     ctx.cwd,
-    "DISCERN_WORKTREE_PORT",
+    DISCERN_ENVIRONMENT_VARIABLES.worktreePort,
     port,
     ctx.config.worktree.env_files,
   );
@@ -664,20 +665,23 @@ async function refreshWorktreeAgentFiles(
     return guidanceRefreshSucceeded(refreshed);
   }
 
+  const setupDeno = DISCERN_ENVIRONMENT_VARIABLES.setupDeno;
+  const setupConfig = DISCERN_ENVIRONMENT_VARIABLES.setupConfig;
+  const setupMain = DISCERN_ENVIRONMENT_VARIABLES.setupMain;
   const code = await runShellRouted(
-    'exec "$DISCERN_SETUP_DENO" run --no-check --config ' +
-      '"$DISCERN_SETUP_CONFIG" -A "$DISCERN_SETUP_MAIN" refresh',
+    `exec "$${setupDeno}" run --no-check --config ` +
+      `"$${setupConfig}" -A "$${setupMain}" refresh`,
     {
       cwd: ctx.root,
       log: ctx.log,
       env: {
-        DISCERN_SETUP_DENO: Deno.execPath(),
-        DISCERN_SETUP_CONFIG: join(ctx.root, "deno.json"),
-        DISCERN_SETUP_MAIN: sourceEntrypoint,
+        [setupDeno]: Deno.execPath(),
+        [setupConfig]: join(ctx.root, "deno.json"),
+        [setupMain]: sourceEntrypoint,
         // A launcher-side override would recreate the same version skew. An
         // empty value makes the target engine resolve its templates module-
         // relatively, exactly as the local-development wrapper does.
-        DISCERN_TEMPLATES_DIR: "",
+        [DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory]: "",
       },
     },
   );
@@ -2826,17 +2830,18 @@ async function compileGuidelinesForLandingRefresh(
     });
   }
 
-  const previous = Deno.env.get("DISCERN_TEMPLATES_DIR");
-  Deno.env.set("DISCERN_TEMPLATES_DIR", templatesDir);
+  const variable = DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory;
+  const previous = Deno.env.get(variable);
+  Deno.env.set(variable, templatesDir);
   try {
     return await compileGuidelines(root, logger, {
       reconcileReceiptNotesFetch: false,
     });
   } finally {
     if (previous === undefined) {
-      Deno.env.delete("DISCERN_TEMPLATES_DIR");
+      Deno.env.delete(variable);
     } else {
-      Deno.env.set("DISCERN_TEMPLATES_DIR", previous);
+      Deno.env.set(variable, previous);
     }
   }
 }

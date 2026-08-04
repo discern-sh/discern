@@ -35,6 +35,7 @@ import { providerFor } from "../src/lib/providers.ts";
 import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   AWAIT_WATCH_POLICY,
   OPERATING_POLICIES,
@@ -70,7 +71,9 @@ const ENCODER = new TextEncoder();
 
 /** Behavioural bound after the server has produced its first response. */
 const MCP_RECV_TIMEOUT_MS: number = (() => {
-  const raw = Number(Deno.env.get("DISCERN_TEST_MCP_TIMEOUT_MS") ?? "");
+  const raw = Number(
+    Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.testMcpTimeoutMs) ?? "",
+  );
   return Number.isFinite(raw) && raw > 0 ? raw : 20_000;
 })();
 
@@ -81,7 +84,9 @@ const MCP_RECV_TIMEOUT_MS: number = (() => {
  */
 const MCP_SERVER_READINESS_TIMEOUT_MS: number = (() => {
   const raw = Number(
-    Deno.env.get("DISCERN_TEST_MCP_READINESS_TIMEOUT_MS") ?? "",
+    Deno.env.get(
+      DISCERN_ENVIRONMENT_VARIABLES.testMcpReadinessTimeoutMs,
+    ) ?? "",
   );
   return Number.isFinite(raw) && raw > 0 ? raw : 180_000;
 })();

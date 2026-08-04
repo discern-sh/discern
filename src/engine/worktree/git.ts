@@ -20,6 +20,7 @@ import { basename, dirname, isAbsolute, join, resolve } from "@std/path";
 import type { Logger } from "../../lib/log.ts";
 import { adrNumberOf } from "../../lib/adr_numbers.ts";
 import type { EnvReader } from "../../shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
 import { type GitResult, runGit } from "../../shared/subprocess.ts";
@@ -85,7 +86,7 @@ export function integrationBranch(
   fallback?: string,
   envReader: EnvReader = Deno.env,
 ): string {
-  const env = envReader.get("DISCERN_TRUNK");
+  const env = envReader.get(DISCERN_ENVIRONMENT_VARIABLES.trunk);
   if (env !== undefined && env !== "") {
     return env;
   }

@@ -44,6 +44,7 @@ import type {
   StatusWorktree,
 } from "../../shared/result_schemas.ts";
 import { emitResult } from "../../shared/emit.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import {
   findRoot,
   installedConfigRel,
@@ -206,7 +207,7 @@ export async function statusResult(
   }
 
   const cfg = await loadConfig(root);
-  const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+  const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
     cfg.repository.trunk;
 
   // Location: a linked worktree has its own git admin dir (worktreeGitKey defined);
@@ -705,7 +706,7 @@ async function fleetEntryFor(
   const recordedId = await readEnvValueAcross(
     row.path,
     files,
-    "DISCERN_WORKTREE_ID",
+    DISCERN_ENVIRONMENT_VARIABLES.worktreeId,
   );
   if (recordedId !== undefined && recordedId.trim() !== "") {
     entry.id = stripQuotes(recordedId.trim());
@@ -713,7 +714,7 @@ async function fleetEntryFor(
   const recordedPort = await readEnvValueAcross(
     row.path,
     files,
-    "DISCERN_WORKTREE_PORT",
+    DISCERN_ENVIRONMENT_VARIABLES.worktreePort,
   );
   if (recordedPort !== undefined && /^\d+$/.test(recordedPort.trim())) {
     entry.port = Number(recordedPort.trim());

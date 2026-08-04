@@ -27,6 +27,7 @@ import { z } from "@zod/zod";
 import { parse as parseToml } from "@std/toml";
 import { join } from "@std/path";
 import { CONFIG_REL, installedConfigRel } from "./env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 import { isKnownJob, KNOWN_JOBS, STAGES } from "./capabilities.ts";
 import { logbookPoweredPhraseList } from "./logbook_powered.ts";
 import {
@@ -371,7 +372,7 @@ const projectSection = z.strictObject({
 
 const repositorySection = z.strictObject({
   trunk: z.string().default("main").describe(
-    "The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.",
+    `The shared branch the gate merges into and completed work lands on. Override per-invocation with the ${DISCERN_ENVIRONMENT_VARIABLES.trunk} env var.`,
   ),
   branch_prefix: z.string().default("agent/").describe(
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',

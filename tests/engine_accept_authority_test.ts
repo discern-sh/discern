@@ -24,6 +24,7 @@ import {
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
 import type { LandingConsent } from "../src/shared/consent.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   addWorktree,
   git,
@@ -691,8 +692,8 @@ Deno.test("post-recovery authority loss remains a partial acceptance", async () 
         '  if [ "$arg" = "--porcelain" ]; then saw_porcelain=1; fi',
         "done",
         'if [ "$saw_status" = 1 ] && [ "$saw_porcelain" = 1 ] && ' +
-        '[ ! -e "$DISCERN_TEST_ACCEPTANCE_JOURNAL" ]; then',
-        '  rm -f "$DISCERN_TEST_EFFORT_GRANT"',
+        `[ ! -e "$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptanceJournal}" ]; then`,
+        `  rm -f "$${DISCERN_ENVIRONMENT_VARIABLES.testEffortGrant}"`,
         "fi",
         'exec git "$@"',
         "",
@@ -703,8 +704,9 @@ Deno.test("post-recovery authority loss remains a partial acceptance", async () 
     const partial = await runAgent(worktree, ["accept", "--json"], {
       env: {
         GIT_BIN: gitWrapper,
-        DISCERN_TEST_EFFORT_GRANT: grant,
-        DISCERN_TEST_ACCEPTANCE_JOURNAL: interrupted.journal,
+        [DISCERN_ENVIRONMENT_VARIABLES.testEffortGrant]: grant,
+        [DISCERN_ENVIRONMENT_VARIABLES.testAcceptanceJournal]:
+          interrupted.journal,
       },
     });
     assertEquals(partial.code, 1, partial.output);
@@ -755,7 +757,7 @@ Deno.test("a trunk CAS whose checkout and rollback both fail reports the irrever
         '  if [ "$arg" = "read-tree" ]; then saw_read_tree=1; fi',
         "done",
         'if [ "$saw_read_tree" = 1 ]; then',
-        '  : > "$DISCERN_TEST_MAIN_REF_LOCK"',
+        `  : > "$${DISCERN_ENVIRONMENT_VARIABLES.testMainRefLock}"`,
         '  echo "forced checkout convergence failure" >&2',
         "  exit 1",
         "fi",
@@ -771,7 +773,7 @@ Deno.test("a trunk CAS whose checkout and rollback both fail reports the irrever
       {
         env: {
           GIT_BIN: gitWrapper,
-          DISCERN_TEST_MAIN_REF_LOCK: mainLock,
+          [DISCERN_ENVIRONMENT_VARIABLES.testMainRefLock]: mainLock,
         },
       },
     );
@@ -822,7 +824,7 @@ Deno.test("a post-landing worktree-removal failure returns partial effect state 
         '  if [ "$arg" = "remove" ]; then saw_remove=1; fi',
         "done",
         'if [ "$saw_worktree" = 1 ] && [ "$saw_remove" = 1 ]; then',
-        '  git worktree lock "$DISCERN_TEST_WORKTREE"',
+        `  git worktree lock "$${DISCERN_ENVIRONMENT_VARIABLES.testWorktree}"`,
         '  echo "forced worktree removal failure" >&2',
         "  exit 1",
         "fi",
@@ -838,7 +840,7 @@ Deno.test("a post-landing worktree-removal failure returns partial effect state 
       {
         env: {
           GIT_BIN: gitWrapper,
-          DISCERN_TEST_WORKTREE: worktree,
+          [DISCERN_ENVIRONMENT_VARIABLES.testWorktree]: worktree,
         },
       },
     );
@@ -1144,8 +1146,8 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
         '  if [ "$arg" = "--stdin" ]; then saw_stdin=1; fi',
         "done",
         'if [ "$saw_update_ref" = 1 ] && [ "$saw_stdin" = 1 ]; then',
-        '  : > "$DISCERN_TEST_ACCEPT_PAUSED"',
-        '  while [ ! -e "$DISCERN_TEST_ACCEPT_RELEASE" ]; do',
+        `  : > "$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptPaused}"`,
+        `  while [ ! -e "$${DISCERN_ENVIRONMENT_VARIABLES.testAcceptRelease}" ]; do`,
         "    sleep 0.01",
         "  done",
         "fi",
@@ -1156,8 +1158,8 @@ Deno.test("concurrent accept refuses without recovering the active transaction",
     await Deno.chmod(gitWrapper, 0o755);
     const env = {
       GIT_BIN: gitWrapper,
-      DISCERN_TEST_ACCEPT_PAUSED: paused,
-      DISCERN_TEST_ACCEPT_RELEASE: release,
+      [DISCERN_ENVIRONMENT_VARIABLES.testAcceptPaused]: paused,
+      [DISCERN_ENVIRONMENT_VARIABLES.testAcceptRelease]: release,
     };
 
     const first = runAgent(worktree, ["accept", "--json"], { env });

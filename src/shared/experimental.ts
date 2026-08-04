@@ -9,13 +9,14 @@
  */
 
 import type { EnvReader } from "./env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
 
 /** Exact value that enables an environment-only experiment. */
 export const EXPERIMENTAL_ENV_ENABLED_VALUE = "1";
 
 /** Every environment variable that enables an experimental behavior. */
 export const EXPERIMENTAL_ENVIRONMENT_VARIABLES = {
-  mcpPreload: "DISCERN_EXPERIMENTAL_MCP_PRELOAD",
+  mcpPreload: DISCERN_ENVIRONMENT_VARIABLES.experimentalMcpPreload,
 } as const;
 
 /** A registered environment-only experiment. */

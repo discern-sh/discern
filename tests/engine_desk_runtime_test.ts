@@ -231,7 +231,7 @@ Deno.test("desk-owned terminal children receive the desk-session marker", async 
   assertEquals(
     await runDeskInteractiveChild(
       "sh",
-      ["-c", 'test "$DISCERN_DESK_SESSION" = "1"'],
+      ["-c", `test "$${DESK_SESSION_ENV}" = "1"`],
       Deno.cwd(),
       deskSessionEnv(),
     ),
@@ -246,7 +246,7 @@ Deno.test("desk-owned Project Scripts receive the desk-session marker", async ()
       `${dir}/discern/scripts/record-desk-session`,
       [
         "#!/usr/bin/env sh",
-        "printf '%s' \"$DISCERN_DESK_SESSION\" > desk-session.txt",
+        `printf '%s' "$${DESK_SESSION_ENV}" > desk-session.txt`,
         "",
       ].join("\n"),
     );

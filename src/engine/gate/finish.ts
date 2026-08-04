@@ -17,6 +17,7 @@
  */
 
 import { type DiscernConfig, loadConfig } from "../../shared/config_schema.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { knownJobList, STAGES } from "../../shared/capabilities.ts";
 import type { JobResult } from "../jobs/types.ts";
 import {
@@ -464,7 +465,7 @@ async function runGate(
   //    stamp-time advisory below covers main moving during an otherwise-green run.
   //    No-op in the main checkout / outside a worktree (assertMainMerged self-skips),
   //    so the happy path pays one extra `merge-base --is-ancestor` and nothing more.
-  const mainBranch = Deno.env.get("DISCERN_TRUNK") ||
+  const mainBranch = Deno.env.get(DISCERN_ENVIRONMENT_VARIABLES.trunk) ||
     cfg.repository.trunk;
   let mergeWarning: FiredHint | undefined;
   const merged = await assertMainMerged(root, mainBranch);

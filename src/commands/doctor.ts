@@ -15,6 +15,7 @@ import {
   resolveSkillsDir,
 } from "../lib/paths.ts";
 import { CONFIG_REL, crossedRepoBoundaries, findRoot } from "../shared/env.ts";
+import { DISCERN_ENVIRONMENT_VARIABLES } from "../shared/environment_variables.ts";
 import { Logger } from "../lib/log.ts";
 import { terminalWidth, wrapText } from "../lib/text.ts";
 import { parseDiscernToml } from "../lib/toml_render.ts";
@@ -704,6 +705,8 @@ export async function runChecks(
   // generic filename — a project script running its own `bootstrap.sh` is
   // healthy. README.md is documentation, not an executable, so it is skipped.
   {
+    const retiredLibrary =
+      DISCERN_ENVIRONMENT_VARIABLES.retiredProjectScriptLibrary;
     const { abs: scriptsDir } = resolveScriptsDir(destDir, config);
     const offenders: string[] = [];
     let scanned = 0;
@@ -714,7 +717,7 @@ export async function runChecks(
         }
         scanned++;
         const body = await Deno.readTextFile(join(scriptsDir, entry.name));
-        if (body.includes("DISCERN_LIB")) {
+        if (body.includes(retiredLibrary)) {
           offenders.push(entry.name);
         }
       }
@@ -740,7 +743,9 @@ export async function runChecks(
             offenders.join(", ")
           }`,
           fix:
-            "Project scripts are standalone executables — read config with `discern config get` instead of sourcing the retired `$DISCERN_LIB` shell library",
+            `Project scripts are standalone executables — read config with ` +
+            `\`discern config get\` instead of sourcing the retired ` +
+            `\`$${retiredLibrary}\` shell library`,
         },
     );
   }

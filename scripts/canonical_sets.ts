@@ -229,6 +229,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
   },
   {
+    id: "environment-variables",
+    title: "Discern environment variables",
+    what:
+      "Every live, internal, test-only, or intentionally recognized retired DISCERN_* environment name, including the generated resource-handle family.",
+    source: {
+      kind: "module",
+      module: "src/shared/environment_variables.ts",
+      exportName: "DISCERN_ENVIRONMENT_VARIABLES",
+    },
+    guards: ["tests/environment_variables_enrolment_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "environment names label existing behaviors and process channels; they are reference spellings rather than product terms",
+      },
+      featureCanon: {
+        absent:
+          "the registry spans installer, runtime, worktree, development, and test infrastructure instead of defining one product capability",
+      },
+    },
+    members: async () => [
+      ...(await import("../src/shared/environment_variables.ts"))
+        .DISCERN_ENVIRONMENT_VARIABLE_NAMES,
+    ],
+  },
+  {
     id: "experimental-environment-variables",
     title: "Experimental environment variables",
     what:
