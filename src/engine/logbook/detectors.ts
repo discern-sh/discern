@@ -44,6 +44,8 @@
  */
 
 import { AGENT_CATALOGUE } from "../../shared/agent_catalogue.ts";
+import { KNOWN_VERBS } from "../../shared/verbs.ts";
+import { hiddenVerbNames } from "../../shared/hidden_verbs.ts";
 import { SETUP_BRANCH } from "../../shared/setup_state.ts";
 import {
   type DetectorFamily,
@@ -1296,6 +1298,95 @@ const confirmedRerun: Detector = {
       }]
       : [];
     return { considered: facts.agentish.length, findings };
+  },
+};
+
+/**
+ * Operator verbs whose absence from a logbook is expected, each with the
+ * recorded reason — the dormancy reader subtracts these, so their silence is
+ * never read as an unused capability. Keys are `KNOWN_VERBS` members; the
+ * registry test holds membership and non-empty reasons. `preset` enrols even
+ * while the operator help also hides it, so returning it to the listing can
+ * never silently turn an install-time verb into a dormancy finding.
+ */
+export const DORMANT_VERB_EXEMPTIONS: Readonly<Record<string, string>> = {
+  preset: "an install-time overlay; an established project may never apply one",
+  uninstall: "the exit verb; a project in use never runs it",
+  licenses: "informational notices; reading them is not a working practice",
+  help: "asking for help is not a practice the report should judge",
+  mcp: "the server host providers launch, not an operator practice",
+  patterns:
+    "the report's own verb — the invocation that would report it dormant " +
+    "records it, so its dormancy is unobservable",
+};
+
+/**
+ * The verbs the dormancy reader watches: every known verb minus those the
+ * operator help hides once bootstrapped and the enrolled expected-dormant
+ * exemptions. Derived from the verb and hidden-verb registries, so a newly
+ * registered verb auto-enrols into dormancy watching.
+ */
+export function dormantWatchedVerbs(): Set<string> {
+  const watched = new Set(KNOWN_VERBS);
+  for (const name of hiddenVerbNames(true)) {
+    watched.delete(name);
+  }
+  for (const name of Object.keys(DORMANT_VERB_EXEMPTIONS)) {
+    watched.delete(name);
+  }
+  return watched;
+}
+
+/**
+ * Reports the watched verbs this repository's history has never recorded —
+ * wired capability going unused. Usage can arrive through a human or an agent
+ * on any surface, so this project-wide reader uses every analyzable verb
+ * rather than the agent-only behaviour population.
+ */
+const dormantVerbs: Detector = {
+  id: "dormant-verbs",
+  title: "Dormant operator verbs",
+  family: "behaviour",
+  scope: "project",
+  tier: "batch",
+  tone: "neutral",
+  // 20 analyzable runs — a couple of recorded working sessions: enough room
+  // to have reached for more than one verb, so an absence reflects practice
+  // rather than a logbook too young to have needed it.
+  threshold: 20,
+  next_step:
+    "Skim `discern help` for the verbs named here — each is a wired capability this project has never reached for, and the read-only ones cost a single invocation to try.",
+  detect(facts): DetectorOutcome {
+    const watched = [...dormantWatchedVerbs()].sort();
+    // Compound recordings ("setup begin", "config get") count for their
+    // top-level verb.
+    const seen = new Set(
+      facts.verbs.map((e) => e.verb.split(" ")[0] ?? e.verb),
+    );
+    const dormant = watched.filter((name) => !seen.has(name));
+    const findings: DetectorFinding[] = dormant.length > 0
+      ? [{
+        brief: `${formatHumanNumber(dormant.length)} of ${
+          formatHumanNumber(watched.length)
+        } operator verbs never recorded`,
+        observed: `${formatHumanNumber(dormant.length)} of the ${
+          formatHumanNumber(watched.length)
+        } operator verbs ${
+          dormant.length === 1 ? "has" : "have"
+        } never been recorded in this repository's history: ${
+          dormant.map((name) => `\`${name}\``).join(", ")
+        }.`,
+        // The stream length stays out of the evidence: it is the detector
+        // row's `considered` denominator, and carrying it here would change
+        // the finding's identity on every recorded run.
+        evidence: {
+          dormant_verbs: dormant.length,
+          watched_verbs: watched.length,
+        },
+        strength: dormant.length,
+      }]
+      : [];
+    return { considered: facts.verbs.length, findings };
   },
 };
 
@@ -3385,6 +3476,7 @@ export const DETECTORS: readonly Detector[] = [
   trunkEdits,
   forceHabit,
   confirmedRerun,
+  dormantVerbs,
   preAuthorizedLandings,
   grantSuggestion,
   docsGap,

@@ -42,9 +42,12 @@ import {
   type Detector,
   type DetectorReport,
   DETECTORS,
+  DORMANT_VERB_EXEMPTIONS,
+  dormantWatchedVerbs,
   runDetector,
   tipAdoptionOutcome,
 } from "../src/engine/logbook/detectors.ts";
+import { KNOWN_VERBS } from "../src/shared/verbs.ts";
 import { SETUP_BRANCH } from "../src/shared/setup_state.ts";
 import {
   LOGBOOK_SCHEMA_VERSION,
@@ -740,6 +743,21 @@ const FIXTURES: Record<string, DetectorFixtures> = {
       { verb: "done", flags: ["confirmed"] },
     ]),
   },
+  "dormant-verbs": {
+    // The quiet stream derives from the watched universe itself (padded past
+    // the threshold), so a newly registered verb keeps it complete by
+    // construction.
+    firing: run(
+      Array.from({ length: 25 }, () => ({ verb: "done" as const })),
+    ),
+    quiet: run([
+      ...[...dormantWatchedVerbs()].sort().map((name) => ({ verb: name })),
+      ...Array.from({ length: 25 }, () => ({ verb: "done" })),
+    ]),
+    sparse: run(
+      Array.from({ length: 19 }, () => ({ verb: "done" as const })),
+    ),
+  },
   "pre-authorized-landings": {
     firing: run([
       accepted("conversation"),
@@ -1368,6 +1386,21 @@ Deno.test("patterns registry: every detector supplies its three fixtures", () =>
     "the fixture table must cover exactly the registry — a new detector " +
       "enrols here with firing/quiet/sparse streams (see DetectorFixtures)",
   );
+});
+
+Deno.test("patterns registry: dormant-verb exemptions name known verbs with recorded reasons", () => {
+  // The class: an exemption must be a deliberate, readable decision about a
+  // real verb — a stale or reasonless entry silently narrows what dormancy
+  // watching covers.
+  for (const [name, reason] of Object.entries(DORMANT_VERB_EXEMPTIONS)) {
+    assert(KNOWN_VERBS.has(name), `exemption ${name} names no known verb`);
+    assert(reason.length > 0, `exemption ${name} carries no reason`);
+  }
+  const watched = dormantWatchedVerbs();
+  for (const name of Object.keys(DORMANT_VERB_EXEMPTIONS)) {
+    assert(!watched.has(name), `exempt verb ${name} is still watched`);
+  }
+  assert(watched.size > 0, "the dormancy universe must not be empty");
 });
 
 // ── the three behaviours, parameterized ─────────────────────────────────────
