@@ -52,7 +52,8 @@ export const DISCERN_ENVIRONMENT_VARIABLE_GROUPS = [
   {
     id: "diagnostics",
     title: "Diagnostics",
-    description: "Controls for inspecting discern's failure reporting.",
+    description:
+      "Fault-injection controls for testing discern's failure reporting.",
   },
   {
     id: "repository-development",
@@ -273,9 +274,8 @@ export const DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS = {
     group: "diagnostics",
     lifecycle: "live",
     documentation: {
-      public: true,
-      description:
-        "Forces each normal CLI verb or MCP tool call to throw an internal error when set to a non-empty value.",
+      public: false,
+      reason: "Injects deterministic failures for discern's crash-path tests.",
     },
   },
 

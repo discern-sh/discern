@@ -1,4 +1,4 @@
-# ADR 0259: Every `DISCERN_*` environment contract has one membership authority
+# ADR 0258: Every `DISCERN_*` environment contract has one membership authority
 
 **Status:** Accepted
 
@@ -6,7 +6,7 @@
 
 discern uses `DISCERN_*` environment variables at several boundaries: the remote installer, the runtime engine, worktree exports, repository scripts, CI examples, subprocess tests, and shell launchers. Their exact names were repeated where each boundary needed them. No one set could answer which names were current, and a new name had no forcing function that enrolled its readers, writers, documentation, and fixtures together.
 
-The names also serve different audiences. Installer inputs, runtime overrides, Project Script exports, worktree values, diagnostics, and experimental controls are public contracts. Repository-development overrides, process markers, and test coordination values are implementation details. Comments grouped the original name list by rough purpose, while hand-authored reference tables selected their own public subsets and descriptions. That left purpose, visibility, and public copy outside the membership authority.
+The names also serve different audiences. Installer inputs, runtime overrides, Project Script exports, worktree values, and experimental controls are public contracts. Crash-path injection, repository-development overrides, process markers, and test coordination values are implementation details. Comments grouped the original name list by rough purpose, while hand-authored reference tables selected their own public subsets and descriptions. That left purpose, visibility, and public copy outside the membership authority.
 
 A prefix search cannot define the set. The same prefix also names brand constants, canonical registries, and the `DISCERN_METRIC` output protocol. Conversely, some genuine environment carriers live in shell, YAML, TOML, Markdown command examples, or external-process fixtures that cannot import a TypeScript registry. The experimental subset established by [ADR 0254](0254-mcp-preload-remains-an-environment-only-experiment.md) also needs to retain its narrower activation and documentation checks.
 

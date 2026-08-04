@@ -28,7 +28,7 @@
  * The CLI exits {@link CRASH_EXIT_CODE} (sysexits `EX_SOFTWARE`) on a crash,
  * so scripts can tell "discern is broken" from an ordinary failed verb's
  * exit 1. {@link throwIfCrashProbe} is the deterministic fault injection the
- * end-to-end tests (and a curious user) trigger via `DISCERN_CRASH_PROBE`.
+ * end-to-end tests trigger via `DISCERN_CRASH_PROBE`.
  */
 
 import { join } from "@std/path";

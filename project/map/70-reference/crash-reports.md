@@ -8,7 +8,6 @@ aliases:
   - crash report
   - exit code 70
   - internal_error
-  - DISCERN_CRASH_PROBE
 ---
 
 # Crash reports
@@ -30,13 +29,3 @@ Nothing is uploaded. discern makes no network calls, so a crash report exists on
 ## Reporting one
 
 Attach the report file to a new issue at [github.com/jackwh/discern/issues](https://github.com/jackwh/discern/issues). It includes the version and runtime block, command, full error, and stack. The error can quote paths from your machine, so skim the file before attaching it. If a CLI crash could not save the file, copy the error and stack from its stderr frame. An MCP envelope has no stack, so preserve the report file when one was written.
-
-## Trying it
-
-Run the probe from a configured project to exercise the CLI path:
-
-```bash
-DISCERN_CRASH_PROBE=1 discern status
-```
-
-The CLI prints the stderr frame, tries to save a report, records a logbook signature when the logbook is enabled, and exits `70`. The inline assignment applies only to that command. If you export the variable instead, every normal CLI verb or MCP tool run crashes until you unset it.
