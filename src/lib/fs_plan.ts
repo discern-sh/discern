@@ -31,7 +31,7 @@ import {
 import { reconcileDiscernGitignore } from "./agent_gitignore.ts";
 import { planDiscernGitattributesFile } from "./agent_gitattributes.ts";
 import { SOURCE_PATHS } from "../shared/paths_registry.ts";
-import type { ResolvedGeneratedGroup } from "../shared/generated_artifacts.ts";
+import type { DiscernConfig } from "../shared/config_schema.ts";
 import type { SettingsSeedMerge } from "./settings_merge.ts";
 import {
   providersWithHooks,
@@ -402,13 +402,13 @@ async function planGitignoreAppend(
 /** Plan reconciliation of the config-derived `.gitattributes` block. */
 export async function planGitattributesReconcile(
   destDir: string,
-  groups: readonly ResolvedGeneratedGroup[],
+  config: DiscernConfig,
   builtInCandidates: readonly string[] = [],
   env: EnvReader = Deno.env,
 ): Promise<PlanOp | undefined> {
   const reconciled = await planDiscernGitattributesFile(
     destDir,
-    groups,
+    config,
     builtInCandidates,
     env,
   );

@@ -150,6 +150,7 @@ for (const attributionCase of ATTRIBUTION_CASES) {
         canonicalDiscernGitattributesBlock(
           resolveGeneratedGroups(ALL_AGENT_CONFIG),
           [],
+          [],
           attributionCase.env,
         ).text,
       );

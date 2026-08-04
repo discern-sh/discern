@@ -1,5 +1,7 @@
 # ADR 0247: Declared generated artifacts regenerate; they are never merged textually
 
+> **Review-metadata amendment ([ADR 0259](0259-generated-groups-opt-in-to-review-metadata.md)):** `[generated.<name>]` now also accepts an optional, default-off `linguist_generated` presentation flag. The regeneration and merge contract below is unchanged.
+
 **Status**: accepted
 
 ## Context

@@ -68,7 +68,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 249     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 250     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -81,7 +81,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 68      | —                | node `canonical-sets`       |
 
-68 sets · 100 guard tests · 28 committed artifacts.
+68 sets · 102 guard tests · 28 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -92,6 +92,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/adr_citation_form_test.ts`                  | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/adr_citations_test.ts`                      | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/adr_index_test.ts`                          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `tests/agent_gitattributes_test.ts`                | [`config-tables`](#config-tables--config-tables), [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                           |
@@ -143,6 +144,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/first_party_licenses_test.ts`               | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                                                                                                                                                                                                                                                                                                                                                                                            |
 | `tests/gate_diagnostics_test.ts`                   | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/gate_plan_test.ts`                          | [`hints`](#hints--hints), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                                                                                                                                                                                                                                                                                                            |
+| `tests/generated_artifacts_test.ts`                | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/git_admin_state_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/glossary_codegen_test.ts`                   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/glossary_enrolment_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`glossary-terms`](#glossary-terms--glossary-terms)                                                                                                                                                                                                                                                                                                                                      |
@@ -663,7 +665,7 @@ The top-level tables of the config schema — the whole configuration surface.
   - `gate`
   - `coupling`
   - `scripts`
-- Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`
+- Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/generated_artifacts_test.ts`, `tests/agent_gitattributes_test.ts`
 - Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`
 - Glossary: not enrolled — config keys are reference material; the config reference documents every table
 - Feature canon: claimed as the `config` surface set
@@ -680,7 +682,7 @@ The configurable authored-source locations — guidance, map, skills, scripts, t
   - `scripts`
   - `todo`
   - `brief`
-- Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`
+- Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`, `tests/agent_gitattributes_test.ts`
 - Glossary: not enrolled — path names are configuration reference material; the config reference documents every key
 - Feature canon: described by the `one-file-footprint` node
 
@@ -1663,7 +1665,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 249
+- Members: 250
   - `0003`
   - `0005`
   - `0006`
@@ -1895,6 +1897,7 @@ The numbered decision records in the map, including records later superseded.
   - `0256`
   - `0257`
   - `0258`
+  - `0259`
   - `0001`
   - `0002`
   - `0004`

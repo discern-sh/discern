@@ -22,12 +22,8 @@ import {
   type WrittenArtifactClass,
   type WrittenArtifactClassDeclaration,
 } from "../shared/file_ownership.ts";
-import {
-  guidanceSeedRel,
-  SOURCE_PATH_NAMES,
-  SOURCE_PATHS,
-  type SourcePathEntry,
-} from "../shared/paths_registry.ts";
+import { SOURCE_PATHS } from "../shared/paths_registry.ts";
+import { resolveSourcePaths } from "../shared/source_path_resolution.ts";
 import { PROVIDERS, wiredMcp } from "./providers.ts";
 
 /** Whether one declaration admits one file or every file below a directory. */
@@ -81,7 +77,7 @@ export const FIXED_PROJECT_ARTIFACTS: readonly WrittenArtifactPathEntry[] = [
       ARTIFACT_PROVENANCE_SOURCES.gitattributes,
     ),
     description:
-      "Project attributes. discern maintains its marked generated-merge block.",
+      "Project attributes. discern maintains its marked generated-artifact and Markdown-diff block.",
   },
 ];
 
@@ -102,51 +98,16 @@ function environmentArtifacts(
   }));
 }
 
-/** Follow a dotted config path, stopping when a segment is absent or non-object. */
-function valueAt(config: DiscernConfig, dotted: string): unknown {
-  let value: unknown = config;
-  for (const segment of dotted.split(".")) {
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      return undefined;
-    }
-    value = (value as Record<string, unknown>)[segment];
-  }
-  return value;
-}
-
-/** Resolve one source declaration from its default, guidance seed, or config key. */
-function sourceArtifactPath(
-  entry: SourcePathEntry,
-  config: DiscernConfig,
-): string {
-  switch (entry.resolution) {
-    case "default":
-      return entry.defaultPath;
-    case "guidance-seed":
-      return guidanceSeedRel(config.guidance.sources);
-    case "configured": {
-      if (entry.key === null) {
-        throw new Error(
-          `${entry.defaultPath} uses configured resolution without a config key`,
-        );
-      }
-      const value = valueAt(config, entry.key);
-      if (typeof value !== "string") {
-        throw new Error(`${entry.key} must resolve to one path`);
-      }
-      return value;
-    }
-  }
-}
-
 /** Materialize configured source-path declarations as ownership entries. */
-function sourceArtifacts(config: DiscernConfig): ArtifactPathEntry[] {
-  return SOURCE_PATH_NAMES.map((name) => {
+export function sourceArtifactPaths(
+  config: DiscernConfig,
+): ArtifactPathEntry[] {
+  return resolveSourcePaths(config).map(({ name, path, pathKind }) => {
     const entry = SOURCE_PATHS[name];
     return {
       id: `source:${name}`,
-      path: sourceArtifactPath(entry, config),
-      pathKind: entry.pathKind,
+      path,
+      pathKind,
       ownership: entry.ownership,
       description: entry.description,
     };
@@ -297,7 +258,7 @@ export function projectArtifactPaths(
   config: DiscernConfig,
 ): ArtifactPathEntry[] {
   return normalizeArtifacts([
-    ...sourceArtifacts(config),
+    ...sourceArtifactPaths(config),
     ...FIXED_PROJECT_ARTIFACTS,
     ...environmentArtifacts(config),
     ...providerArtifacts(),

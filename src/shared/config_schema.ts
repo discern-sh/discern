@@ -233,6 +233,9 @@ const generatedValue = z.strictObject({
   ).describe(
     "The deterministic command(s) that rewrite this group's artifacts: the same tree must produce the same bytes, and the generator must remove orphaned artifacts it no longer emits.",
   ),
+  linguist_generated: z.boolean().default(false).describe(
+    "Whether GitHub should hide this group's files in diffs by default and exclude them from repository language statistics through the `linguist-generated` Git attribute. Default false.",
+  ),
   timeout: jobTimeout,
 });
 

@@ -89,7 +89,6 @@ import {
   parseConfigOrThrow,
   resolveConfiguredAgents,
 } from "../shared/config_schema.ts";
-import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import {
   CONFIG_REL,
   type EnvReader,
@@ -368,7 +367,7 @@ export async function assembleInitPlan(params: {
     : parseConfigOrThrow(TEXT_DECODER.decode(configOp.bytes));
   const gitattributes = await planGitattributesReconcile(
     destDir,
-    resolveGeneratedGroups(finalConfig),
+    finalConfig,
     agentFilePaths(finalConfig),
     params.env ?? Deno.env,
   );

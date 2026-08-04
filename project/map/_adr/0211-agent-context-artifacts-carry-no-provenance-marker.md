@@ -1,5 +1,7 @@
 # ADR 0211: Agent-context artifacts carry no provenance marker
 
+> **Review-metadata amendment ([ADR 0259](0259-generated-groups-opt-in-to-review-metadata.md)):** generated groups may now opt in to GitHub's `linguist-generated` attribute, and registered Markdown uses Git's built-in Markdown diff driver. Neither is an in-band provenance marker; the context-loaded artifact decision below is unchanged.
+
 > **Attribution-control amendment (2026-08-04; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** Comment-capable artifacts outside agent context now carry a shorter generation-and-source marker. By default it names discern and links to `https://discern.sh`. When `DISCERN_NO_ATTRIBUTION` is non-empty, it omits the byline and URL while keeping the generation notice and source. The longer overwrite warning no longer appears in the marker. Context-loaded and comment-incapable artifact policy is unchanged.
 
 **Status**: accepted

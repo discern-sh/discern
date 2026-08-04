@@ -9,16 +9,25 @@ import {
   canonicalDiscernGitattributesBlock,
   DISCERN_GITATTRIBUTES_BEGIN,
   DISCERN_GITATTRIBUTES_END,
+  discernMarkdownAttributePaths,
   reconcileDiscernGitattributes,
   translateScopeGlobToGitattributes,
 } from "../src/lib/agent_gitattributes.ts";
+import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import type { ResolvedGeneratedGroup } from "../src/shared/generated_artifacts.ts";
 
 /** Build resolved generated groups for concise test cases. */
 function groups(
-  ...entries: Array<[name: string, paths: string[]]>
+  ...entries: Array<
+    [name: string, paths: string[], linguistGenerated?: boolean]
+  >
 ): ResolvedGeneratedGroup[] {
-  return entries.map(([name, paths]) => ({ name, paths, run: ":" }));
+  return entries.map(([name, paths, linguistGenerated = false]) => ({
+    name,
+    paths,
+    run: ":",
+    linguistGenerated,
+  }));
 }
 
 Deno.test("scope globs translate to equivalent root .gitattributes patterns", () => {
@@ -65,29 +74,70 @@ Deno.test("scope globs with no faithful attributes spelling are refused", () => 
   }
 });
 
-Deno.test("a fresh file gets declared paths and built-in Agent files in one block", () => {
-  const declared = groups([
-    "reference",
-    ["reference/**", "README.generated.md"],
-  ]);
+Deno.test("one block composes generated, Linguist, and scoped Markdown attributes", () => {
+  const declared = groups(
+    ["reference", ["reference/**", "README.generated.md"], true],
+    ["schemas", ["schema/**"]],
+  );
   const result = reconcileDiscernGitattributes("", declared, [
     "AGENTS.md",
     "CLAUDE.md",
+  ], [
+    { surface: "map", path: "discern/map/**/*.md" },
+    { surface: "todo", path: "discern/TODO.md" },
   ]);
 
   assertEquals(result.operations, [
     { kind: "create-block", path: ".gitattributes" },
   ]);
   assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_BEGIN);
-  assertStringIncludes(result.text, "reference/** merge=discern-generated");
   assertStringIncludes(
     result.text,
-    "/README.generated.md merge=discern-generated",
+    "reference/** merge=discern-generated linguist-generated",
   );
-  assertStringIncludes(result.text, "/AGENTS.md merge=discern-generated");
-  assertStringIncludes(result.text, "/CLAUDE.md merge=discern-generated");
+  assertStringIncludes(
+    result.text,
+    "/README.generated.md merge=discern-generated linguist-generated",
+  );
+  assertStringIncludes(result.text, "schema/** merge=discern-generated\n");
+  assertStringIncludes(
+    result.text,
+    "/AGENTS.md merge=discern-generated diff=markdown",
+  );
+  assertStringIncludes(
+    result.text,
+    "/CLAUDE.md merge=discern-generated diff=markdown",
+  );
+  assertStringIncludes(result.text, "discern/map/**/*.md diff=markdown");
+  assertStringIncludes(result.text, "discern/TODO.md diff=markdown");
+  assertEquals(result.text.includes("\n*.md diff=markdown"), false);
+  assertEquals(result.patterns.includes("discern/map/**/*.md"), false);
   assertStringIncludes(result.text, DISCERN_GITATTRIBUTES_END);
   assertEquals(result.refused, []);
+});
+
+Deno.test("Markdown attributes derive from configured discern surfaces only", () => {
+  const config = parseConfigOrThrow(`
+[project]
+todo = "notes/discern-work.md"
+
+[map]
+dir = "knowledge/"
+
+[skills]
+dir = "agent-playbooks"
+
+[scripts]
+dir = "tools/discern"
+`);
+  assertEquals(discernMarkdownAttributePaths(config), [
+    { surface: "guidance", path: "discern/guidance.md" },
+    { surface: "map", path: "knowledge/**/*.md" },
+    { surface: "skills", path: "agent-playbooks/**/*.md" },
+    { surface: "scripts", path: "tools/discern/**/*.md" },
+    { surface: "todo", path: "notes/discern-work.md" },
+    { surface: "brief", path: "discern/brief.md" },
+  ]);
 });
 
 Deno.test("reconcile replaces only the marked bytes and is idempotent", () => {

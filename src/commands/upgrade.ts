@@ -64,8 +64,8 @@ import {
   type GitattributesReconcileOperation,
   planDiscernGitattributesBlock,
   type RefusedGitattributesPattern,
+  refusedGitattributesPatternLabel,
 } from "../lib/agent_gitattributes.ts";
-import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import {
   fire,
   type FiredHint,
@@ -207,7 +207,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
     ? { operations: [], patterns: [], refused: [] }
     : await planDiscernGitattributesBlock(
       destDir,
-      resolveGeneratedGroups(initialConfig),
+      initialConfig,
       agentFilePaths(initialConfig),
     );
   const pendingGitattributesReconciliationJson =
@@ -546,7 +546,7 @@ export async function runUpgrade(options: UpgradeOptions): Promise<number> {
   );
   const gitattributesReconciliation = await ensureDiscernGitattributesBlock(
     destDir,
-    resolveGeneratedGroups(reconciledConfig),
+    reconciledConfig,
     agentFilePaths(reconciledConfig),
   );
   renderUntranslatedGitattributes(
@@ -842,14 +842,14 @@ function gitattributesOperationLabel(
   }
 }
 
-/** Warn about generated path patterns that cannot map to .gitattributes. */
+/** Warn about declared paths that cannot map to .gitattributes. */
 function renderUntranslatedGitattributes(
   log: Logger,
   refused: readonly RefusedGitattributesPattern[],
 ): void {
   for (const pattern of refused) {
     log.warn(
-      `[generated.${pattern.group}].paths pattern ${
+      `${refusedGitattributesPatternLabel(pattern)} pattern ${
         JSON.stringify(pattern.pattern)
       } was omitted from .gitattributes: ${pattern.reason}.`,
     );

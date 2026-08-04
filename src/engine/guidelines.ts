@@ -53,8 +53,8 @@ import { reconcileReceiptNotesFetch } from "./gate/receipt_notes.ts";
 import {
   ensureDiscernGitattributesBlock,
   GITATTRIBUTES_REL,
+  refusedGitattributesPatternLabel,
 } from "../lib/agent_gitattributes.ts";
-import { resolveGeneratedGroups } from "../shared/generated_artifacts.ts";
 import type { EnvReader } from "../shared/env.ts";
 
 /** What a single `compileGuidelines` run accomplished. */
@@ -138,7 +138,7 @@ async function reconcileGeneratedMergeAttributes(
   try {
     const result = await ensureDiscernGitattributesBlock(
       root,
-      resolveGeneratedGroups(config),
+      config,
       agentFilePaths(config),
       env,
     );
@@ -148,7 +148,7 @@ async function reconcileGeneratedMergeAttributes(
     }
     for (const refused of result.refused) {
       log.warn(
-        `refresh: [generated.${refused.group}].paths pattern ${
+        `refresh: ${refusedGitattributesPatternLabel(refused)} pattern ${
           JSON.stringify(refused.pattern)
         } was omitted from ${GITATTRIBUTES_REL}: ${refused.reason}.`,
       );

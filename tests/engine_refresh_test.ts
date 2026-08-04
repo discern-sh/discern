@@ -19,7 +19,7 @@ import { ensureDir, exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
 import { agentFilePaths } from "../src/engine/guidance_render.ts";
 import { AGENT_NAMES, loadConfig } from "../src/shared/config_schema.ts";
-import { canonicalDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
+import { canonicalDiscernGitattributesBlockForConfig } from "../src/lib/agent_gitattributes.ts";
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
@@ -37,8 +37,8 @@ Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git
     const config = await loadConfig(dir);
     assertEquals(
       await Deno.readTextFile(join(dir, ".gitattributes")),
-      canonicalDiscernGitattributesBlock(
-        [],
+      canonicalDiscernGitattributesBlockForConfig(
+        config,
         agentFilePaths(config),
         fakeEnv(),
       ).text,
