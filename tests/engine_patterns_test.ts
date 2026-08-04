@@ -231,14 +231,20 @@ async function seedManyBranchLogbook(
   for (let b = 0; b < branches; b++) {
     const day = String(1 + (b % 27)).padStart(2, "0");
     const branch = `agent/streak-${b}`;
-    for (const [hour, outcome] of [
-      ["10", "failed"],
-      ["11", "failed"],
-      ["12", "failed"],
-      ["13", "ok"],
-    ] as const) {
+    for (
+      const [hour, outcome] of [
+        ["10", "failed"],
+        ["11", "failed"],
+        ["12", "failed"],
+        ["13", "ok"],
+      ] as const
+    ) {
       lines.push(
-        seededEvent(`2026-06-${day}T${hour}:0${b % 10}:00.000Z`, outcome, branch),
+        seededEvent(
+          `2026-06-${day}T${hour}:0${b % 10}:00.000Z`,
+          outcome,
+          branch,
+        ),
       );
     }
   }
