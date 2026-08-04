@@ -1917,7 +1917,7 @@ export async function wireProviderMcp(
   const context: McpWireContext = {
     agents,
     experimentalMcpPreload: experimentalEnvironmentEnabled(
-      "mcpPreload",
+      "experimentalMcpPreload",
       env,
     ),
   };

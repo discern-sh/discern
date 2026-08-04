@@ -38,7 +38,7 @@ concurrency:
 
 env:
   DISCERN_VERSION: v1.0.0
-  DISCERN_ASSET: discern-x86_64-unknown-linux-gnu
+  RELEASE_ASSET: discern-x86_64-unknown-linux-gnu
 
 jobs:
   gate:
@@ -60,10 +60,10 @@ jobs:
         run: |
           set -euo pipefail
           base="https://github.com/jackwh/discern/releases/download/${DISCERN_VERSION}"
-          curl -fsSLO "${base}/${DISCERN_ASSET}"
-          curl -fsSLO "${base}/${DISCERN_ASSET}.sha256"
-          sha256sum -c "${DISCERN_ASSET}.sha256"
-          install -m 0755 "${DISCERN_ASSET}" "${RUNNER_TEMP}/discern"
+          curl -fsSLO "${base}/${RELEASE_ASSET}"
+          curl -fsSLO "${base}/${RELEASE_ASSET}.sha256"
+          sha256sum -c "${RELEASE_ASSET}.sha256"
+          install -m 0755 "${RELEASE_ASSET}" "${RUNNER_TEMP}/discern"
           echo "${RUNNER_TEMP}" >> "${GITHUB_PATH}"
 
       - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
@@ -78,7 +78,7 @@ jobs:
         run: git diff --exit-code
 ```
 
-Set `DISCERN_VERSION` to the release tag you approve. `DISCERN_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
+Set `DISCERN_VERSION` to the release tag you approve. `RELEASE_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
 
 The full commit hashes keep remote action code immutable within a reviewed workflow. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
 

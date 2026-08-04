@@ -304,7 +304,7 @@ Deno.test("wireProviderMcp writes .mcp.json + approval for Claude Code, idempote
 });
 
 Deno.test("the MCP preload experiment projects only configured providers' shared-entry fields", async () => {
-  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.experimentalMcpPreload;
   const cases = [
     {
       agents: ["claude_code"],

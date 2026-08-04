@@ -1,23 +1,28 @@
 /**
  * Environment-only experimental behavior switches.
  *
- * These switches are intentionally outside `discern.toml`: they let maintainers
- * and power users exercise reversible behavior without creating a public project
- * contract. The registry is the single source of truth for their environment
- * variable names; its enrollment guard holds every use and the internal reference
- * page to the same set.
+ * These public, unstable switches stay outside `discern.toml`: they let users
+ * exercise reversible behavior without creating a stable project setting. The
+ * complete environment-variable definition registry owns their names and public
+ * reference copy; this module derives the typed experiment subset and owns its
+ * exact activation rule.
  */
 
 import type { EnvReader } from "./env.ts";
-import { DISCERN_ENVIRONMENT_VARIABLES } from "./environment_variables.ts";
+import {
+  DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+  environmentVariableNamesForGroup,
+} from "./environment_variables.ts";
 
 /** Exact value that enables an environment-only experiment. */
 export const EXPERIMENTAL_ENV_ENABLED_VALUE = "1";
 
 /** Every environment variable that enables an experimental behavior. */
-export const EXPERIMENTAL_ENVIRONMENT_VARIABLES = {
-  mcpPreload: DISCERN_ENVIRONMENT_VARIABLES.experimentalMcpPreload,
-} as const;
+export const EXPERIMENTAL_ENVIRONMENT_VARIABLES =
+  environmentVariableNamesForGroup(
+    DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS,
+    "experimental-features",
+  );
 
 /** A registered environment-only experiment. */
 export type ExperimentalEnvironmentVariable =

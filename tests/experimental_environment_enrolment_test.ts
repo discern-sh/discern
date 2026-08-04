@@ -44,23 +44,26 @@ function enrollmentFailures(
 }
 
 Deno.test("experimental flags use exact value 1", () => {
-  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.experimentalMcpPreload;
   assertEquals(EXPERIMENTAL_ENV_ENABLED_VALUE, "1");
   assertEquals(
-    experimentalEnvironmentEnabled("mcpPreload", fakeEnv({ [variable]: "1" })),
+    experimentalEnvironmentEnabled(
+      "experimentalMcpPreload",
+      fakeEnv({ [variable]: "1" }),
+    ),
     true,
   );
   for (const value of ["", "0", "true", "yes"]) {
     assertEquals(
       experimentalEnvironmentEnabled(
-        "mcpPreload",
+        "experimentalMcpPreload",
         fakeEnv({ [variable]: value }),
       ),
       false,
     );
   }
   assertEquals(
-    experimentalEnvironmentEnabled("mcpPreload", fakeEnv()),
+    experimentalEnvironmentEnabled("experimentalMcpPreload", fakeEnv()),
     false,
   );
 });
@@ -85,7 +88,7 @@ Deno.test("the internal experimental-behaviors page documents every flag", async
 
 Deno.test("experimental environment enrollment catches future drift", () => {
   const prefix = "DISCERN_EXPERIMENTAL_";
-  const current = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+  const current = EXPERIMENTAL_ENVIRONMENT_VARIABLES.experimentalMcpPreload;
   const future = prefix + "FUTURE";
   assertEquals(
     enrollmentFailures([current], [current, future]),

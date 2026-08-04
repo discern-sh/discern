@@ -342,7 +342,7 @@ Deno.test("Cursor-only refresh emits AGENTS.md with the compiled guidance body",
 Deno.test("refresh projects the environment-only MCP preload experiment and removes it when disabled", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir, { agents: ["claude_code", "copilot"] });
-    const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.mcpPreload;
+    const variable = EXPERIMENTAL_ENVIRONMENT_VARIABLES.experimentalMcpPreload;
     const enabled = await runAgent(dir, ["refresh", "--json"], {
       env: { [variable]: "1" },
     });

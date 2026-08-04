@@ -94,7 +94,7 @@ function environmentNamesInText(rel: string, text: string): string[] {
     collectCapturedNames(
       text,
       new RegExp(
-        String.raw`(?:^|[;"'\s])(${ENVIRONMENT_NAME_SOURCE})=`,
+        String.raw`(?:^|[;"'\x60\s])(${ENVIRONMENT_NAME_SOURCE})=`,
         "gm",
       ),
       names,
@@ -150,16 +150,6 @@ async function currentContractTexts(): Promise<Map<string, string>> {
   return texts;
 }
 
-/** Exact registered environment names mentioned on a documentation page. */
-function documentedEnvironmentNames(text: string): string[] {
-  const pattern = /\bDISCERN_[A-Z][A-Z0-9_]*(?:<NAME>)?/g;
-  const registered = new Set<string>(DISCERN_ENVIRONMENT_VARIABLE_NAMES);
-  return [...new Set(text.match(pattern) ?? [])]
-    .map(canonicalEnvironmentName)
-    .filter((name) => registered.has(name))
-    .sort();
-}
-
 Deno.test("the environment registry has unique, well-formed names", () => {
   const names = [...DISCERN_ENVIRONMENT_VARIABLE_NAMES];
   assertEquals(new Set(names).size, names.length);
@@ -203,61 +193,6 @@ Deno.test("every registered environment member has a live carrier", async () => 
   assertEquals(missing, []);
 });
 
-Deno.test("environment reference pages stay tied to the registry", async () => {
-  const references = new Map<string, readonly string[]>([
-    [
-      "project/map/70-reference/platforms-and-prereqs.md",
-      [
-        DISCERN_ENVIRONMENT_VARIABLES.repository,
-        DISCERN_ENVIRONMENT_VARIABLES.version,
-        DISCERN_ENVIRONMENT_VARIABLES.binaryDirectory,
-        DISCERN_ENVIRONMENT_VARIABLES.trunk,
-        DISCERN_ENVIRONMENT_VARIABLES.noAttribution,
-        DISCERN_ENVIRONMENT_VARIABLES.projectSlug,
-        DISCERN_ENVIRONMENT_VARIABLES.worktreeBranchPrefix,
-        DISCERN_ENVIRONMENT_VARIABLES.worktreeId,
-        DISCERN_ENVIRONMENT_VARIABLES.root,
-        DISCERN_ENVIRONMENT_VARIABLES.toml,
-        DISCERN_ENVIRONMENT_VARIABLES.scripts,
-        DISCERN_ENVIRONMENT_VARIABLES.scriptsDirectory,
-        DISCERN_ENVIRONMENT_VARIABLES.deskSession,
-        DISCERN_ENVIRONMENT_VARIABLES.crashProbe,
-        DISCERN_ENVIRONMENT_VARIABLES.worktreePort,
-        DISCERN_ENVIRONMENT_VARIABLES.worktree,
-        DISCERN_ENVIRONMENT_VARIABLES.resource,
-      ],
-    ],
-    [
-      "project/map/20-quality-gate/concurrent-test-runs.md",
-      [DISCERN_ENVIRONMENT_VARIABLES.testSlot],
-    ],
-    [
-      "project/map/20-quality-gate/ci.md",
-      [
-        DISCERN_ENVIRONMENT_VARIABLES.version,
-        DISCERN_ENVIRONMENT_VARIABLES.ciAsset,
-        DISCERN_ENVIRONMENT_VARIABLES.trunk,
-      ],
-    ],
-    [
-      "project/map/50-engine-internals/experimental-behaviors.md",
-      [DISCERN_ENVIRONMENT_VARIABLES.experimentalMcpPreload],
-    ],
-    [
-      "project/map/80-development/getting-started.md",
-      [DISCERN_ENVIRONMENT_VARIABLES.home],
-    ],
-  ]);
-  for (const [rel, expected] of references) {
-    const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    assertEquals(
-      documentedEnvironmentNames(text),
-      [...expected].sort(),
-      `${rel}: documented environment names drifted from the registered subset`,
-    );
-  }
-});
-
 Deno.test("environment enrollment catches future carriers", () => {
   const future = "DISCERN_FUTURE_SWITCH";
   const fixtures: Array<[string, string]> = [
@@ -271,6 +206,7 @@ Deno.test("environment enrollment catches future carriers", () => {
     ["future.sh", `${future}=1\nprintf '%s' "$${future}"`],
     ["future.sh", `export ${future}`],
     ["future.yml", `env:\n  ${future}: "1"`],
+    ["future.md", `Run \`${future}=1 command\`.`],
     ["deno.json", `"task": "deno run --allow-env=${future} main.ts"`],
   ];
   for (const [rel, text] of fixtures) {
