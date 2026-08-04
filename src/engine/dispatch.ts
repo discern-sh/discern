@@ -581,8 +581,7 @@ export function attachEngineCommands(
     )
     .option(
       "--all",
-      "Report every finding. By default each detector keeps only its strongest " +
-        "few and the report notes what it elided.",
+      "Report every finding, not just each detector's strongest few.",
     )
     .action(
       recordedExit("patterns", async (o) => {
