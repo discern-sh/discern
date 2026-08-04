@@ -1,7 +1,7 @@
 ---
 title: Temp files & retention
 description: What discern writes to your OS temp directory, how long each file lives, where the self-shim resolves, and how everything leaves with the tool.
-order: 120
+order: 130
 publish: true
 aliases:
   - temp files
@@ -35,4 +35,4 @@ Commands the gate runs resolve `discern` to the engine that spawned them through
 
 ## Leaving
 
-Runtime state under `.git/discern/` — the logbook, receipts, locks, the shim — exits with `discern uninstall`, which refuses while the resource ledger still records provisioned resources. [Files & ownership](artifact-ownership.md) lists every registered path and its lifetime.
+Runtime state under `.git/discern/` includes the logbook, receipts, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files & ownership](artifact-ownership.md) lists every registered path and its lifetime.

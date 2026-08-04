@@ -44,14 +44,7 @@ Reads may follow a symbolic link when its target stays inside the project. A mis
 
 `[worktree].inherit_env` names values copied from the main checkout into a new worktree. Inheritance creates the first env file when it is missing, so every declared value arrives. It copies only the named keys. The rest of the main checkout's local env stays there.
 
-The configured env files can carry these values. `[worktree].port` defaults to `false`; set it to `true` when project tooling reads `DISCERN_WORKTREE_PORT`. The lifecycle records that variable only when the setting is on and an env file exists. `discern identity --port` and the `@port@` setup token remain available either way. Resource handles are recorded when an env file exists. The id remains an optional override supplied by the project or user.
-
-| Variable                  | Contents                        |
-| ------------------------- | ------------------------------- |
-| `DISCERN_WORKTREE_ID`     | Optional explicit id override.  |
-| `DISCERN_WORKTREE_PORT`   | Deterministic development port. |
-| `DISCERN_WORKTREE`        | Generic worktree handle.        |
-| `DISCERN_RESOURCE_<NAME>` | Handle for a declared resource. |
+The configured env files can carry the values listed in the [environment-variable reference](../70-reference/environment-variables.md#worktree-environment). `[worktree].port` defaults to `false`; set it to `true` when project tooling reads the development-port value. The lifecycle records that value only when the setting is on and an env file exists. `discern identity --port` and the `@port@` setup token remain available either way. Resource handles are recorded when an env file exists. The id remains an optional override supplied by the project or user.
 
 Identity commands remain available when the project has no env file. `discern status` derives fleet ids and ports from each worktree's own identity rather than inventing values from branch names.
 

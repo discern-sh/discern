@@ -281,6 +281,7 @@
       "${map.dir}00-orientation/glossary.md",
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}70-reference/config-reference.md",
+      "${map.dir}70-reference/environment-variables.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}_internal/feature-canon-plain.md",
       "${map.dir}_internal/hint-inventory.md",

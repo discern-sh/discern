@@ -2,7 +2,7 @@
  * Closed-set enrollment guard for environment-only experiments.
  *
  * Every `DISCERN_EXPERIMENTAL_*` name in authored TypeScript must come from
- * the registry, and the internal experimental-behaviors page must account for
+ * the registry, and the contributor experimental-behaviors page must account for
  * every registered name. Synthetic controls prove the two-way comparison
  * catches a future source use and a future undocumented registry member.
  */
@@ -78,7 +78,7 @@ Deno.test("every experimental environment name comes from the registry", async (
   assertEquals(enrollmentFailures(registered, [...observed].sort()), []);
 });
 
-Deno.test("the internal experimental-behaviors page documents every flag", async () => {
+Deno.test("the contributor experimental-behaviors page documents every flag", async () => {
   const registered = Object.values(EXPERIMENTAL_ENVIRONMENT_VARIABLES).sort();
   const documented = experimentalEnvironmentNames(
     await Deno.readTextFile(join(REPO_ROOT, EXPERIMENTAL_DOC)),

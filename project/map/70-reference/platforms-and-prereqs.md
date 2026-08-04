@@ -1,7 +1,7 @@
 ---
 title: Platforms & prerequisites
-description: Supported operating systems and architectures, required tools, environment variables, identity selectors, and worktree tokens.
-order: 100
+description: Supported operating systems and architectures, required tools, identity selectors, and worktree command tokens.
+order: 110
 publish: true
 aliases:
   - platforms
@@ -14,18 +14,13 @@ aliases:
   - x86_64
   - aarch64
   - arm64
-  - environment variables
-  - DISCERN_NO_ATTRIBUTION
-  - DISCERN_WORKTREE_ID
-  - DISCERN_WORKTREE_PORT
-  - DISCERN_RESOURCE
   - discern identity
   - identity tokens
 ---
 
 # Platforms and prerequisites
 
-_The release targets and local tools discern requires, followed by the environment and identity values available to project commands._
+_The release targets and local tools discern requires, followed by identity selectors and worktree command tokens._
 
 ## Supported release targets
 
@@ -40,13 +35,13 @@ There is no native Windows release. Run the Linux binary inside Windows Subsyste
 
 ## Required tools
 
-| Context                    | Requirement                                                                                                  |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, `sha256sum` or `shasum`, and `curl` or `wget`.       |
-| Install destination        | A writable `DISCERN_BIN_DIR`. On macOS, the installer tries writable `/usr/local/bin` before `~/.local/bin`. |
-| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                         |
-| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.           |
-| Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.           |
+| Context                    | Requirement                                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, `sha256sum` or `shasum`, and `curl` or `wget`. |
+| Install destination        | A writable directory. On macOS, the installer tries writable `/usr/local/bin` before `~/.local/bin`.   |
+| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                   |
+| Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.     |
+| Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.     |
 
 The released binary is self-contained. A project does not need Deno or Node to run discern. Setup can create files outside a git repository, but `discern start` remains unavailable until the project is a repository with a first commit.
 
@@ -58,36 +53,13 @@ discern doctor
 
 `doctor` checks root discovery, config, schema, tools, repository shape, jobs, resources, guidance, skills, and integrations. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
 
-## Installer environment variables
+## Installer behavior
 
-| Variable          | Default or behavior                                                             |
-| ----------------- | ------------------------------------------------------------------------------- |
-| `DISCERN_REPO`    | GitHub release repository; defaults to `jackwh/discern`.                        |
-| `DISCERN_VERSION` | Release tag to download; defaults to `latest`.                                  |
-| `DISCERN_BIN_DIR` | Install directory; overrides the `/usr/local/bin` and `~/.local/bin` selection. |
-| `NO_COLOR`        | Disables styled installer output when set.                                      |
+The installer's `DISCERN_*` inputs are listed in [Environment variables](environment-variables.md#installation). `NO_COLOR` disables styled installer output when set.
 
 The installer makes up to three download attempts for transient failures. It places the binary and its `.sha256` file in a staging directory beside the install destination, so the final rename stays on one filesystem. It verifies the checksum before replacing an existing installation. If the installed command does not resolve on `PATH`, the installer prints a persistent shell-profile fix. It does not print the setup handoff until `discern` is directly usable.
 
 After installation, discern itself makes no network calls. Project commands remain free to use the network because they belong to the project.
-
-## Runtime and Project Script environment
-
-| Variable                         | Consumer and value                                                                      |
-| -------------------------------- | --------------------------------------------------------------------------------------- |
-| `DISCERN_TRUNK`                  | Per-process override for the configured trunk branch.                                   |
-| `DISCERN_NO_ATTRIBUTION`         | Omits the `discern` co-author trailer from discern-composed commits when non-empty.     |
-| `DISCERN_PROJECT_SLUG`           | Per-process override for the project slug used in derived identity.                     |
-| `DISCERN_WORKTREE_BRANCH_PREFIX` | Per-process override for the worktree branch prefix.                                    |
-| `DISCERN_WORKTREE_ID`            | Optional explicit worktree id; accepts letters, numbers, dots, dashes, and underscores. |
-| `DISCERN_ROOT`                   | Absolute project root exported to a Project Script.                                     |
-| `DISCERN_TOML`                   | Absolute path to the active config exported to a Project Script.                        |
-| `DISCERN_SCRIPTS`                | Absolute configured Project Scripts directory exported to a Project Script.             |
-| `DISCERN_SCRIPTS_DIR`            | The configured Project Scripts directory value exported to a Project Script.            |
-| `DISCERN_DESK_SESSION`           | `1` in desk-launched processes; `discern doctor` reports it.                            |
-| `DISCERN_CRASH_PROBE`            | Crashes each normal CLI verb or MCP tool run while non-empty, for crash-report testing. |
-
-Project Scripts also receive `DISCERN_TRUNK`. They read other config through `discern config get|array|has|subsections|keys` rather than parsing TOML or sourcing a helper library.
 
 ## Worktree identity selectors
 
@@ -110,19 +82,11 @@ For example:
 discern identity --resource database
 ```
 
-Identity resolution checks `DISCERN_WORKTREE_ID` in the process, then the configured env files, then git's linked-worktree metadata. An explicit path argument inspects another worktree.
+Identity resolution checks the [worktree id override](environment-variables.md#worktree-identity) in the process, then the configured env files, then git's linked-worktree metadata. An explicit path argument inspects another worktree.
 
-## Values written to worktree env files
+## Worktree env files
 
-`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle records these derived values when an env file exists:
-
-| Variable                  | Value                                      |
-| ------------------------- | ------------------------------------------ |
-| `DISCERN_WORKTREE_PORT`   | Deterministic port for this worktree.      |
-| `DISCERN_WORKTREE`        | Generic worktree handle.                   |
-| `DISCERN_RESOURCE_<NAME>` | Stable handle for one configured resource. |
-
-Resource commands receive their own `DISCERN_RESOURCE_<NAME>` and `DISCERN_WORKTREE` values in the process environment even when no env file exists. `discern identity --resource <name>` reports the same handle directly.
+`[worktree].env_files` defaults to `.env` followed by `.env.local`; the last file defining a key wins. `[worktree].inherit_env` names values copied from the main checkout. The lifecycle writes the public values listed under [Worktree environment](environment-variables.md#worktree-environment) when their conditions apply. Resource commands receive the same handles in their process environment even when no env file exists. `discern identity --resource <name>` reports the resource handle directly.
 
 ## Worktree command tokens
 

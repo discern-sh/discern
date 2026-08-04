@@ -26,6 +26,10 @@ import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
+import {
+  ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
+  renderEnvironmentVariableReferenceDoc,
+} from "./environment_variable_reference.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
   FEATURE_CANON_PAGE_REL,
@@ -83,6 +87,10 @@ const configReference = relative(
 const cliReference = relative(
   repoRoot,
   join(mapDir, "70-reference", "cli-reference.md"),
+);
+const environmentVariableReference = relative(
+  repoRoot,
+  join(mapDir, ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL),
 );
 const mcpReference = relative(
   repoRoot,
@@ -169,6 +177,13 @@ await write(
 await write(configReference, renderConfigReferenceDoc());
 console.log("Regenerating the CLI reference from the live command registry:");
 await write(cliReference, renderCliReferenceDoc(buildCli(false)));
+console.log(
+  "Regenerating the environment-variable reference from its definitions:",
+);
+await write(
+  environmentVariableReference,
+  renderEnvironmentVariableReferenceDoc(),
+);
 console.log(
   "Regenerating the browser docs-search module from its shared source:",
 );

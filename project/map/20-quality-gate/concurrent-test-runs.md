@@ -35,7 +35,7 @@ discern queue -- <command> [args...]
 
 `queue` holds one slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A missing or zero cap touches no slot files. Unusable slots warn once, then run uncapped.
 
-`DISCERN_TEST_SLOT=1` means an ancestor accounted for the cap, including after fail-open. Any non-empty marker suppresses another acquisition and passes onward, so every nesting direction consumes one slot. The marker provides cooperative back-pressure. It cannot enforce a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).[^raw-test-task]
+Nested gate and queue processes inherit an internal marker when an ancestor accounted for the cap, including after fail-open. A marked process skips another acquisition and passes the marker onward, so every nesting direction consumes one slot. This provides cooperative back-pressure. It cannot enforce a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).[^raw-test-task]
 
 [^raw-test-task]: Without discern, keep a separately named raw task. Default to the wrapper.
 

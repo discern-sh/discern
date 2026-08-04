@@ -4,7 +4,7 @@ Read [`project/map/_internal/documenter-agent-brief.md`](../documenter-agent-bri
 
 ## What this subtree documents
 
-The public reference tier for discern's commands, configuration, MCP results, written files, supported platforms, prerequisites, and worktree identity values. The neighboring guides explain workflows; this tier states the contracts readers need to verify them.
+The public reference tier for discern's commands, configuration, environment variables, MCP results, written files, supported platforms, prerequisites, and worktree identity values. The neighboring guides explain workflows; this tier states the contracts readers need to verify them.
 
 ## Files to produce
 
@@ -13,14 +13,15 @@ The public reference tier for discern's commands, configuration, MCP results, wr
 | `README.md`                | Public 200–350-word overview and curated reading order.                                      |
 | `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                            |
 | `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.               |
+| `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                 |
 | `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes. |
 | `artifact-ownership.md`    | Approved Files & ownership exemplar, relocated without re-styling.                           |
-| `platforms-and-prereqs.md` | Supported release targets, required tools, env variables, identity selectors, and tokens.    |
+| `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                   |
 
 ## Source files to read
 
-- `src/shared/cli_reference_codegen.ts`, `src/shared/config_codegen.ts`, and `scripts/codegen.ts` (generated references)
-- `tests/cli_reference_codegen_test.ts` and `tests/config_codegen_test.ts` (generated-output guards)
+- `src/shared/cli_reference_codegen.ts`, `src/shared/config_codegen.ts`, `src/shared/environment_variables.ts`, and `scripts/codegen.ts` (generated references)
+- `tests/cli_reference_codegen_test.ts`, `tests/config_codegen_test.ts`, and `tests/environment_variables_codegen_test.ts` (generated-output guards)
 - `src/engine/mcp/server.ts`, `src/shared/result.ts`, and `src/shared/result_contracts.ts` (public MCP/result interface)
 - `schema/discern-results.schema.json` and `types/discern-json.d.ts` (published result contracts)
 - `install.sh`, `scripts/build.ts`, and `src/commands/doctor.ts` (platforms and prerequisites)

@@ -1,7 +1,7 @@
 ---
 title: MCP call duration
 description: How discern fits long-running tool calls inside each coding agent's MCP timeout.
-order: 110
+order: 120
 aliases:
   - MCP timeout
   - tool-call timeout

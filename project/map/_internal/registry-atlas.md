@@ -17,7 +17,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
-| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLES`               | 37      | —                | —                           |
+| [`environment-variables`](#environment-variables--discern-environment-variables)                                      | `src/shared/environment_variables.ts#DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`    | 36      | —                | —                           |
 | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)       | `src/shared/experimental.ts#EXPERIMENTAL_ENVIRONMENT_VARIABLES`                   | 1       | —                | —                           |
 | [`operating-policies`](#operating-policies--operating-policies)                                                       | `src/shared/operating_policies.ts#OPERATING_POLICIES`                             | 9       | —                | —                           |
 | [`command-groups`](#command-groups--command-groups)                                                                   | `src/cli_help.ts#COMMAND_GROUPS`                                                  | 6       | —                | node `cli-help`             |
@@ -81,7 +81,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 68      | —                | node `canonical-sets`       |
 
-68 sets · 99 guard tests · 27 committed artifacts.
+68 sets · 100 guard tests · 28 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -133,6 +133,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/engine_verb_parity_test.ts`                 | [`verbs`](#verbs--top-level-verbs), [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/engine_write_preflight_test.ts`             | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `tests/environment_variables_codegen_test.ts`      | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
@@ -201,6 +202,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/70-reference/artifact-ownership.md`                   | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
 | `project/map/70-reference/cli-reference.md`                        | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
 | `project/map/70-reference/config-reference.md`                     | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `project/map/70-reference/environment-variables.md`                | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                          |
 | `project/map/70-reference/mcp-and-results.md`                      | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
 | `project/map/80-development/install-surface.md`                    | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
 | `project/map/_internal/feature-canon-plain.md`                     | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
@@ -356,20 +358,18 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
 
 ## `environment-variables` — Discern environment variables
 
-Every live, internal, test-only, or intentionally recognized retired DISCERN_* environment name, including the generated resource-handle family.
+Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
-- Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLES`
-- Members: 37
+- Source: `src/shared/environment_variables.ts` — `DISCERN_ENVIRONMENT_VARIABLE_DEFINITIONS`
+- Members: 36
   - `DISCERN_REPO`
   - `DISCERN_VERSION`
   - `DISCERN_BIN_DIR`
-  - `DISCERN_HOME`
   - `DISCERN_TRUNK`
   - `DISCERN_NO_ATTRIBUTION`
   - `DISCERN_PROJECT_SLUG`
   - `DISCERN_WORKTREE_BRANCH_PREFIX`
   - `DISCERN_WORKTREE_ID`
-  - `DISCERN_CRASH_PROBE`
   - `DISCERN_ROOT`
   - `DISCERN_TOML`
   - `DISCERN_SCRIPTS`
@@ -377,12 +377,13 @@ Every live, internal, test-only, or intentionally recognized retired DISCERN_* e
   - `DISCERN_WORKTREE_PORT`
   - `DISCERN_WORKTREE`
   - `DISCERN_RESOURCE_<NAME>`
+  - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
+  - `DISCERN_CRASH_PROBE`
+  - `DISCERN_HOME`
   - `DISCERN_PRESETS_DIR`
   - `DISCERN_TEMPLATES_DIR`
   - `DISCERN_DOCS_DIR`
-  - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
   - `DISCERN_GATE_TEST_REPORTER`
-  - `DISCERN_ASSET`
   - `DISCERN_DESK_SESSION`
   - `DISCERN_TEST_SLOT`
   - `DISCERN_SETUP_DENO`
@@ -397,7 +398,8 @@ Every live, internal, test-only, or intentionally recognized retired DISCERN_* e
   - `DISCERN_TEST_ACCEPT_PAUSED`
   - `DISCERN_TEST_ACCEPT_RELEASE`
   - `DISCERN_LIB`
-- Guards: `tests/environment_variables_enrolment_test.ts`
+- Guards: `tests/environment_variables_enrolment_test.ts`, `tests/environment_variables_codegen_test.ts`
+- Artifacts: `project/map/70-reference/environment-variables.md`
 - Glossary: not enrolled — environment names label existing behaviors and process channels; they are reference spellings rather than product terms
 - Feature canon: not enrolled — the registry spans installer, runtime, worktree, development, and test infrastructure instead of defining one product capability
 
@@ -409,7 +411,7 @@ The environment-only switches for reversible trials, with one exact activation r
 - Members: 1
   - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
 - Guards: `tests/experimental_environment_enrolment_test.ts`, `tests/providers_test.ts`, `tests/engine_agent_wiring_test.ts`
-- Glossary: not enrolled — internal environment-variable names for temporary trials, not stable product vocabulary
+- Glossary: not enrolled — experimental environment-variable spellings are reference controls rather than stable product terms
 - Feature canon: not enrolled — experimental escape hatches are intentionally outside the stable product feature account
 
 ## `operating-policies` — Operating policies
