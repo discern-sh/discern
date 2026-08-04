@@ -810,6 +810,39 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "agent-integration-seams",
+    title: "Agent integration seams",
+    what:
+      "The integration seams discern wires per agent; the private coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the gate until a new provider's verdict prose exists.",
+    source: {
+      kind: "module",
+      module: "scripts/agent_integration_registry.ts",
+      exportName: "INTEGRATION_SEAMS",
+    },
+    guards: ["tests/agent_integration_coverage_codegen_test.ts"],
+    artifacts: [
+      {
+        path: "project/map/_private/research/agent-integration-coverage.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "maintainer research vocabulary about discern's own wiring; the glossary carries the agent-file and skill concepts instead",
+      },
+      featureCanon: {
+        absent:
+          "a private research reference reading the provider registry; it ships no product surface of its own",
+      },
+    },
+    members: async () =>
+      (await import("./agent_integration_registry.ts")).INTEGRATION_SEAMS.map(
+        (seam) => seam.id,
+      ),
+  },
+  {
     id: "setup-subverbs",
     title: "Setup sub-verbs",
     what: "The staged-setup handshake's sub-verb sequence.",

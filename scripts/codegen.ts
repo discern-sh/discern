@@ -26,6 +26,7 @@ import { renderCliReferenceDoc } from "../src/shared/cli_reference_codegen.ts";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
 import { renderCrossAgentReferenceDoc } from "./cross_agent_registry.ts";
+import { renderAgentIntegrationCoverageDoc } from "./agent_integration_registry.ts";
 import {
   ENVIRONMENT_VARIABLE_REFERENCE_PAGE_REL,
   renderEnvironmentVariableReferenceDoc,
@@ -132,6 +133,10 @@ const crossAgentReference = relative(
   repoRoot,
   join(mapDir, "_private", "research", "cross-agent-behaviour-reference.md"),
 );
+const agentIntegrationCoverage = relative(
+  repoRoot,
+  join(mapDir, "_private", "research", "agent-integration-coverage.md"),
+);
 type EquivalentText = (before: string, after: string) => boolean;
 
 /** Every path this script may touch, from the canonical-sets meta-registry. */
@@ -212,6 +217,10 @@ console.log(
   "Regenerating the cross-agent reference from scripts/cross_agent_registry.ts:",
 );
 await write(crossAgentReference, renderCrossAgentReferenceDoc());
+console.log(
+  "Regenerating the agent-integration coverage from the provider registry:",
+);
+await write(agentIntegrationCoverage, renderAgentIntegrationCoverageDoc());
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),

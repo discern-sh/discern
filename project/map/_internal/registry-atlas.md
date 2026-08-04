@@ -38,6 +38,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 8       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                                 | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
+| [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
@@ -79,9 +80,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 68      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 69      | —                | node `canonical-sets`       |
 
-68 sets · 102 guard tests · 28 committed artifacts.
+69 sets · 103 guard tests · 29 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -93,6 +94,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/adr_citations_test.ts`                      | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/adr_index_test.ts`                          | [`adrs`](#adrs--architecture-decision-records)                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/agent_gitattributes_test.ts`                | [`config-tables`](#config-tables--config-tables), [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/agent_integration_coverage_codegen_test.ts` | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                           |
@@ -212,6 +214,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/hint-inventory.md`                          | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`                          | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `project/map/_internal/tip-inventory.md`                           | generated file   | [`tips`](#tips--tips)                                                                                     |
+| `project/map/_private/research/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
 | `project/map/_private/research/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
 | `schema/discern-config.schema.json`                                | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
 | `schema/discern-proof-note.schema.json`                            | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
@@ -740,6 +743,28 @@ The classified behavioural dimensions of the researched coding agents; the priva
 - Artifacts: `project/map/_private/research/cross-agent-behaviour-reference.md`
 - Glossary: not enrolled — maintainer research vocabulary about other vendors' agents, not discern product vocabulary
 - Feature canon: not enrolled — a private research reference informing integrations; it ships no product surface
+
+## `agent-integration-seams` — Agent integration seams
+
+The integration seams discern wires per agent; the private coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the gate until a new provider's verdict prose exists.
+
+- Source: `scripts/agent_integration_registry.ts` — `INTEGRATION_SEAMS`
+- Members: 11
+  - `guidance`
+  - `skills`
+  - `mcp`
+  - `worktree-hooks`
+  - `worktree-app`
+  - `project-rules`
+  - `trust`
+  - `ignore-posture`
+  - `currency`
+  - `default-set`
+  - `os-sandbox`
+- Guards: `tests/agent_integration_coverage_codegen_test.ts`
+- Artifacts: `project/map/_private/research/agent-integration-coverage.md`
+- Glossary: not enrolled — maintainer research vocabulary about discern's own wiring; the glossary carries the agent-file and skill concepts instead
+- Feature canon: not enrolled — a private research reference reading the provider registry; it ships no product surface of its own
 
 ## `setup-subverbs` — Setup sub-verbs
 
@@ -2108,7 +2133,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 68
+- Members: 69
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2135,6 +2160,7 @@ This meta-registry: the closed set of closed sets.
   - `bundled-skills`
   - `agent-providers`
   - `cross-agent-behaviours`
+  - `agent-integration-seams`
   - `setup-subverbs`
   - `authored-commit-sites`
   - `restricted-writer-modules`
