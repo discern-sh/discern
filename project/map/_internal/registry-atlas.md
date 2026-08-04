@@ -13,6 +13,7 @@ One row per set, in registry order; the sections below follow the same order and
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
 | [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 32      | per member       | surface `verb`              |
+| [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
@@ -76,9 +77,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 65      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 66      | —                | node `canonical-sets`       |
 
-65 sets · 97 guard tests · 26 committed artifacts.
+66 sets · 97 guard tests · 26 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -113,7 +114,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/engine_desk_runtime_test.ts`                | [`desk-actions`](#desk-actions--desk-actions)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_desk_tips_test.ts`                   | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/engine_effort_grant_test.ts`                | [`git-admin-state`](#git-admin-state--git-admin-state)                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| `tests/engine_help_groups_test.ts`                 | [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/engine_help_groups_test.ts`                 | [`hidden-verbs`](#hidden-verbs--hidden-verbs), [`command-groups`](#command-groups--command-groups)                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/engine_interrupt_surfaces_test.ts`          | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/engine_json_purity_test.ts`                 | [`hints`](#hints--hints), [`result-contracts`](#result-contracts--result-contracts), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes), [`cli-predicate-states`](#cli-predicate-states--cli-predicate-states)                                                                                                                                          |
 | `tests/engine_landing_authority_test.ts`           | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources), [`landing-authority-kinds`](#landing-authority-kinds--landing-authority-kinds)                                                                                                                                                                                                                                                                                                                        |
@@ -259,6 +260,18 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 - Artifacts: `project/map/70-reference/cli-reference.md`
 - Glossary: each member is held named-or-recorded-absent by `tests/glossary_enrolment_test.ts`
 - Feature canon: claimed as the `verb` surface set
+
+## `hidden-verbs` — Hidden verbs
+
+Every top-level verb kept out of the operator help listing, each with the recorded reason and revival condition; the CLI build applies the registry, and the help-groups guard holds the live hidden set equal to it in both bootstrap states.
+
+- Source: `src/shared/hidden_verbs.ts` — `HIDDEN_VERBS`
+- Members: 2
+  - `preset`
+  - `setup`
+- Guards: `tests/engine_help_groups_test.ts`
+- Glossary: not enrolled — help visibility is a modality of each verb, not a concept of its own; the registry's reasons are the documentation
+- Feature canon: not enrolled — a subset of the verbs set, whose entry already carries the canon enrolment; hiding changes a verb's listing, never its feature surface
 
 ## `dry-run-verbs` — Dry-run-capable verbs
 
@@ -2013,8 +2026,9 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 65
+- Members: 66
   - `verbs`
+  - `hidden-verbs`
   - `dry-run-verbs`
   - `mcp-tools`
   - `mcp-core-lifecycle`

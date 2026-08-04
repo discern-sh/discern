@@ -127,6 +127,33 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       async () => [...(await import("../src/engine/dispatch.ts")).KNOWN_VERBS],
   },
   {
+    id: "hidden-verbs",
+    title: "Hidden verbs",
+    what:
+      "Every top-level verb kept out of the operator help listing, each with the recorded reason and revival condition; the CLI build applies the registry, and the help-groups guard holds the live hidden set equal to it in both bootstrap states.",
+    source: {
+      kind: "module",
+      module: "src/shared/hidden_verbs.ts",
+      exportName: "HIDDEN_VERBS",
+    },
+    guards: ["tests/engine_help_groups_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "help visibility is a modality of each verb, not a concept of its own; the registry's reasons are the documentation",
+      },
+      featureCanon: {
+        absent:
+          "a subset of the verbs set, whose entry already carries the canon enrolment; hiding changes a verb's listing, never its feature surface",
+      },
+    },
+    members: async () =>
+      Object.keys(
+        (await import("../src/shared/hidden_verbs.ts")).HIDDEN_VERBS,
+      ),
+  },
+  {
     id: "dry-run-verbs",
     title: "Dry-run-capable verbs",
     what:
