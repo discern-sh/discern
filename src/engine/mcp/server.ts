@@ -749,9 +749,13 @@ export const TOOLS: McpTool[] = orderTools([
       "friction), and each quality standard's measured trajectory against " +
       "its limit's own history. data.findings is ranked by evidence " +
       "strength — each carries plain counts, a scope, and a recommended " +
-      "next step; data.detectors reports every detector including the ones " +
+      "next step — and keeps each detector's strongest few: when the bound " +
+      "elided anything, data.findings_total reports the uncapped count and " +
+      "all: true lifts the bound (a much larger result). data.detectors " +
+      "reports every detector including the ones " +
       "with insufficient evidence, so a young logbook reads as young, never " +
-      "as healthy. Trends compare only runs sharing one config epoch and " +
+      "as healthy — each row's findings field counts everything that " +
+      "detector found, elided or not. Trends compare only runs sharing one config epoch and " +
       "release — matched by equality, so runs from other setups interleaved " +
       "through the stream are named and excluded, never blended in. Strictly " +
       "ADVISORY: findings never block and never gate — standards remain the " +
@@ -772,9 +776,18 @@ export const TOOLS: McpTool[] = orderTools([
           "For the owner's own use; nothing is compared to anyone else's " +
           "numbers.",
       ),
+      all: z.boolean().optional().describe(
+        "Report every finding instead of each detector's strongest few. " +
+          "The result can be very large on a long history; prefer the " +
+          "default bound unless the elided findings are the question.",
+      ),
       ...PATH_PARAM,
     },
-    run: (root, args) => patternsResult(root, { stats: args.stats === true }),
+    run: (root, args) =>
+      patternsResult(root, {
+        stats: args.stats === true,
+        all: args.all === true,
+      }),
   }),
   defineTool({
     name: "discern_improvement",

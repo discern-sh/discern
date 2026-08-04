@@ -63,6 +63,13 @@ export type PatternFindingTone = (typeof PATTERN_FINDING_TONES)[number];
 /** Maximum readings carried by one finding's compact trajectory series. */
 export const PATTERNS_SERIES_MAX_POINTS = 24;
 
+/** Maximum findings one detector contributes to the default report. The
+ * ranked list keeps each detector's strongest evidence; `detectors` carries
+ * every true count, and `--all` lifts the bound. Keeps the report — and the
+ * wire result every surface serializes — bounded by the registry size instead
+ * of growing with recorded history. */
+export const PATTERNS_FINDINGS_PER_DETECTOR = 3;
+
 /** One `patterns` finding: which detector spoke, its presentation tone and
  * one-line brief, an optional bounded trajectory series, what it observed (one
  * plain-count sentence), the named counts behind it, and the recommended next
@@ -294,12 +301,17 @@ export type PatternsStats = z.infer<typeof PatternsStatsSchema>;
 /** `patterns` — the logbook read back as findings: `findings` ranked by
  * evidence strength, `detectors` reporting every registry member (fired,
  * quiet, or insufficient evidence), the `logbook` counts behind them, and the
- * scored driver `population`. `stats` joins when the invocation asked for
- * practice stats ({@link PatternsStatsSchema}). */
+ * scored driver `population`. By default `findings` keeps each detector's
+ * strongest {@link PATTERNS_FINDINGS_PER_DETECTOR}; when that bound elided
+ * anything, `findings_total` reports the uncapped count (absent means the
+ * list is complete) and each detector row still counts everything it found.
+ * `stats` joins when the invocation asked for practice stats
+ * ({@link PatternsStatsSchema}). */
 export const PatternsDataSchema = z.strictObject({
   logbook: patternsLogbookSchema,
   population: patternsPopulationSchema,
   findings: z.array(PatternsFindingSchema),
+  findings_total: z.number().int().optional(),
   detectors: z.array(patternsDetectorSchema),
   stats: PatternsStatsSchema.optional(),
 });

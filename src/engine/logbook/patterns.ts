@@ -32,6 +32,7 @@ import {
   DETECTOR_FAMILIES,
   type DetectorFamily,
   type PatternFindingTone,
+  PATTERNS_FINDINGS_PER_DETECTOR,
   type PatternsData,
   type PatternsFinding,
   type PatternsPopulation,
@@ -114,6 +115,26 @@ function noRepository(verb: string): DiscernResult<never> {
 export interface PatternsResultOptions {
   /** Also compute practice stats (`data.stats`) from the same stream. */
   stats?: boolean;
+  /** Report every finding instead of each detector's strongest few. */
+  all?: boolean;
+}
+
+/** Keep each detector's strongest findings, preserving the global rank order.
+ * The bound holds the report to the registry's size while the detector rows
+ * keep every true count. */
+function capFindingsPerDetector(
+  findings: readonly PatternsFinding[],
+): PatternsFinding[] {
+  const kept: PatternsFinding[] = [];
+  const perDetector = new Map<string, number>();
+  for (const finding of findings) {
+    const seen = perDetector.get(finding.detector) ?? 0;
+    if (seen < PATTERNS_FINDINGS_PER_DETECTOR) {
+      perDetector.set(finding.detector, seen + 1);
+      kept.push(finding);
+    }
+  }
+  return kept;
 }
 
 /**
@@ -141,9 +162,10 @@ export async function patternsResult(
     resolveConfiguredAgents(config),
   );
   const reports = runDetectors(facts);
-  const findings = routeDetectorReports(reports).patterns.map(
+  const ranked = routeDetectorReports(reports).patterns.map(
     routedFindingData,
   );
+  const findings = opts.all === true ? ranked : capFindingsPerDetector(ranked);
   const first = stream.events[0];
   const last = stream.events[stream.events.length - 1];
   const branches = new Set(
@@ -162,6 +184,9 @@ export async function patternsResult(
     },
     population: scorePopulation(facts),
     findings,
+    ...(findings.length < ranked.length
+      ? { findings_total: ranked.length }
+      : {}),
     detectors: reports.map((r) => ({
       id: r.detector.id,
       title: r.detector.title,
@@ -191,6 +216,14 @@ export async function patternsResult(
     }
     if (findings.length > 0) {
       hints.push(fire(HINTS["patterns-advisory-findings"]));
+    }
+    if (findings.length < ranked.length) {
+      hints.push(
+        fire(HINTS["patterns-findings-capped"], {
+          shown: findings.length,
+          total: ranked.length,
+        }),
+      );
     }
   }
   if (!config.project.logbook) {
@@ -243,6 +276,7 @@ export const PATTERNS_ATTENTION_HEADING = "Worth your attention";
 export const PATTERNS_ATTENTION_LIMIT = 3;
 
 const PIN_COMMAND = "`discern standards --pin`";
+const ALL_COMMAND = "`discern patterns --all`";
 
 /** Format a count with its singular or supplied plural noun. */
 function plural(
@@ -465,6 +499,7 @@ function renderFamily(
     return;
   }
   const groups = findingsByDetector(familyFindings);
+  const countById = new Map(data.detectors.map((d) => [d.id, d.findings]));
   const c = out.c;
   out.group(`family:${family}`);
   out.raw(
@@ -480,6 +515,17 @@ function renderFamily(
       (line) => `${c.bold}${line}${c.reset}`,
     );
     renderFindingRows(out, findings, width);
+    const elided = (countById.get(detector) ?? findings.length) -
+      findings.length;
+    if (elided > 0) {
+      writeWrapped(
+        out,
+        "    ",
+        `+${plural(elided, "more finding")} — ${ALL_COMMAND} lists every one.`,
+        width,
+        (line) => `${c.dim}${line}${c.reset}`,
+      );
+    }
     writeWrapped(
       out,
       `    ${c.cyan}→${c.reset} `,
@@ -1138,6 +1184,8 @@ export interface RunPatternsOptions {
   /** Render the practice-stats card (and carry `data.stats`) instead of the
    * detector report. */
   stats: boolean;
+  /** Report every finding instead of each detector's strongest few. */
+  all: boolean;
 }
 
 /** Run `discern patterns`. Returns a process exit code — 0 whenever the
@@ -1146,7 +1194,10 @@ export async function runPatterns(
   root: string,
   opts: RunPatternsOptions,
 ): Promise<number> {
-  const result = await patternsResult(root, { stats: opts.stats });
+  const result = await patternsResult(root, {
+    stats: opts.stats,
+    all: opts.all,
+  });
   observeResult(result);
   if (opts.json) {
     emitResult(result);

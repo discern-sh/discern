@@ -1553,8 +1553,8 @@ Deno.test("patterns: the compact human report enrolls every family, tone, detect
 
     // The old renderer spent four lines per finding, plus seven fixed lines.
     // This corpus is intentionally repetition-heavy: the recurring report must
-    // stay at or below half that legacy account.
-    const legacyLines = data.findings.length * 4 + 7;
+    // stay at or below half that legacy account of the full corpus.
+    const legacyLines = (data.findings_total ?? data.findings.length) * 4 + 7;
     assert(
       lines.length <= Math.floor(legacyLines / 2),
       `compact report used ${lines.length} lines; legacy shape used ${legacyLines}`,

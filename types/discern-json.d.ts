@@ -2986,6 +2986,7 @@ export type DiscernPatternsResult = {
       strength: number;
       next_step: string;
     }>;
+    findings_total?: number;
     detectors: Array<{
       id: string;
       title: string;

@@ -1041,6 +1041,19 @@ Rendered example:
 Use each finding's next step to investigate or improve the practice.
 ```
 
+## `patterns-findings-capped`
+
+- Category: `notice`
+- Audience: `all`
+- Family: —
+- Emitting context: `patterns` elides findings beyond each detector's per-report bound.
+
+Rendered example:
+
+```text
+The report keeps each detector's strongest findings — 42 of 93 shown, and every detector row still counts everything it found. `discern patterns --all` reports the complete list.
+```
+
 ## `patterns-insufficient-evidence`
 
 - Category: `notice`

@@ -579,12 +579,21 @@ export function attachEngineCommands(
         "standards trends, and agent cohorts, counted from the same local evidence. " +
         "With --json, the counts join the result as data.stats.",
     )
+    .option(
+      "--all",
+      "Report every finding. By default each detector keeps only its strongest " +
+        "few and the report notes what it elided.",
+    )
     .action(
       recordedExit("patterns", async (o) => {
         const { runPatterns } = await import("./logbook/patterns.ts");
         return await runPatterns(
           await requireRoot("patterns", o.json ?? false),
-          { json: o.json ?? false, stats: o.stats ?? false },
+          {
+            json: o.json ?? false,
+            stats: o.stats ?? false,
+            all: o.all ?? false,
+          },
         );
       }),
     )

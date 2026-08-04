@@ -1563,6 +1563,23 @@ export const HINTS = {
       "Use each finding's next step to investigate or improve the practice.",
   }),
 
+  "patterns-findings-capped": defineHint<{
+    shown: number;
+    total: number;
+  }>({
+    id: "patterns-findings-capped",
+    category: "notice",
+    audience: "all",
+    when: "`patterns` elides findings beyond each detector's per-report bound.",
+    example: { shown: 42, total: 93 },
+    template: ({ shown, total }): string =>
+      `The report keeps each detector's strongest findings — ${shown} of ` +
+      `${total} shown, and every detector row still counts everything it ` +
+      `found. ${
+        discernCommand("patterns", flag("all"))
+      } reports the complete list.`,
+  }),
+
   "patterns-recording-off": defineHint({
     id: "patterns-recording-off",
     category: "notice",
