@@ -37,6 +37,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 8       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
+| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                                 | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
 | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                  | `src/shared/setup_state.ts#SETUP_SUBVERBS`                                        | 5       | —                | node `setup`                |
 | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                      | `src/shared/discern_commit.ts#DISCERN_AUTHORED_COMMIT_SITES`                      | 4       | —                | —                           |
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
@@ -67,7 +68,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 248     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 249     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
@@ -78,9 +79,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 8       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 67      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 68      | —                | node `canonical-sets`       |
 
-67 sets · 98 guard tests · 26 committed artifacts.
+68 sets · 99 guard tests · 27 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -104,6 +105,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_schema_test.ts`                      | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/config_set_schema_guard_test.ts`            | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -191,34 +193,35 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 
 Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.
 
-| Artifact                                         | Kind             | Compiled from                                                                                             |
-| ------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| `.github/cla-assistant/metadata`                 | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
-| `THIRD_PARTY_NOTICES`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `project/map/00-orientation/glossary.md`         | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
-| `project/map/70-reference/artifact-ownership.md` | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/70-reference/cli-reference.md`      | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
-| `project/map/70-reference/config-reference.md`   | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `project/map/70-reference/mcp-and-results.md`    | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `project/map/80-development/install-surface.md`  | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/_internal/feature-canon-plain.md`   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/feature-canon.md`         | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/hint-inventory.md`        | generated file   | [`hints`](#hints--hints)                                                                                  |
-| `project/map/_internal/registry-atlas.md`        | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
-| `project/map/_internal/tip-inventory.md`         | generated file   | [`tips`](#tips--tips)                                                                                     |
-| `schema/discern-config.schema.json`              | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/discern-proof-note.schema.json`          | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `schema/discern-results.schema.json`             | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `schema/discern-results.schema.json`             | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
-| `schema/discern-results.schema.json`             | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `schema/discern-results.schema.json`             | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
-| `schema/discern-setup-config.schema.json`        | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `scripts/jsr_license_cache.json`                 | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `src/lib/first_party_license_bundle.ts`          | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
-| `src/lib/third_party_bundle.ts`                  | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `types/discern-json.d.ts`                        | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `types/discern-json.d.ts`                        | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `types/discern-json.d.ts`                        | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| Artifact                                                           | Kind             | Compiled from                                                                                             |
+| ------------------------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `.github/cla-assistant/metadata`                                   | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
+| `THIRD_PARTY_NOTICES`                                              | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `project/map/00-orientation/glossary.md`                           | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
+| `project/map/70-reference/artifact-ownership.md`                   | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/70-reference/cli-reference.md`                        | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
+| `project/map/70-reference/config-reference.md`                     | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `project/map/70-reference/mcp-and-results.md`                      | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
+| `project/map/80-development/install-surface.md`                    | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/_internal/feature-canon-plain.md`                     | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
+| `project/map/_internal/feature-canon.md`                           | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
+| `project/map/_internal/hint-inventory.md`                          | generated file   | [`hints`](#hints--hints)                                                                                  |
+| `project/map/_internal/registry-atlas.md`                          | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
+| `project/map/_internal/tip-inventory.md`                           | generated file   | [`tips`](#tips--tips)                                                                                     |
+| `project/map/_private/research/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
+| `schema/discern-config.schema.json`                                | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `schema/discern-proof-note.schema.json`                            | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
+| `schema/discern-results.schema.json`                               | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `schema/discern-results.schema.json`                               | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
+| `schema/discern-results.schema.json`                               | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `schema/discern-results.schema.json`                               | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| `schema/discern-setup-config.schema.json`                          | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `scripts/jsr_license_cache.json`                                   | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `src/lib/first_party_license_bundle.ts`                            | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
+| `src/lib/third_party_bundle.ts`                                    | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `types/discern-json.d.ts`                                          | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `types/discern-json.d.ts`                                          | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `types/discern-json.d.ts`                                          | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 
 ## `verbs` — Top-level verbs
 
@@ -711,6 +714,28 @@ The agent providers discern writes files for, each with a compact mark and horiz
 - Guards: `tests/agent_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
 - Glossary: not enrolled — provider names are product nouns; the glossary carries the agent-file concept instead
 - Feature canon: claimed as the `agent` surface set
+
+## `cross-agent-behaviours` — Cross-agent behaviour dimensions
+
+The classified behavioural dimensions of the researched coding agents; the private cross-agent reference compiles from the registry, whose typed cells force every dimension to answer for every researched agent.
+
+- Source: `scripts/cross_agent_registry.ts` — `BEHAVIOUR_DIMENSIONS`
+- Members: 11
+  - `pre-exec-interception`
+  - `input-rewriting`
+  - `native-sandbox`
+  - `sandbox-composition`
+  - `cwd-persistence`
+  - `mid-session-reroot`
+  - `mcp-root-mobility`
+  - `integration-surfaces`
+  - `committable-config`
+  - `mcp-schema-discovery`
+  - `mcp-call-duration`
+- Guards: `tests/cross_agent_reference_codegen_test.ts`
+- Artifacts: `project/map/_private/research/cross-agent-behaviour-reference.md`
+- Glossary: not enrolled — maintainer research vocabulary about other vendors' agents, not discern product vocabulary
+- Feature canon: not enrolled — a private research reference informing integrations; it ships no product surface
 
 ## `setup-subverbs` — Setup sub-verbs
 
@@ -1636,7 +1661,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 248
+- Members: 249
   - `0003`
   - `0005`
   - `0006`
@@ -1867,6 +1892,7 @@ The numbered decision records in the map, including records later superseded.
   - `0255`
   - `0256`
   - `0257`
+  - `0257`
   - `0001`
   - `0002`
   - `0004`
@@ -2076,7 +2102,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 67
+- Members: 68
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2102,6 +2128,7 @@ This meta-registry: the closed set of closed sets.
   - `source-paths`
   - `bundled-skills`
   - `agent-providers`
+  - `cross-agent-behaviours`
   - `setup-subverbs`
   - `authored-commit-sites`
   - `restricted-writer-modules`
