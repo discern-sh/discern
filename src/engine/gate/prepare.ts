@@ -195,6 +195,8 @@ export async function runPrepare(
       headline: failedStage === "fix" ? "A fixer failed." : "A check failed.",
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
+      // The live table quiets the runner, so the tail carries the output.
+      outputWithheld: liveTable,
     });
     return 1;
   }

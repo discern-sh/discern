@@ -1,8 +1,9 @@
 /**
  * The human failure tail shared by the gate verbs — finish, prepare, test. A failed
- * gate ends here, and the order is deliberate: the stage headline, then the gotchas
- * pointer, then the structured per-tool recap, then a one-line summary (the BLUF) —
- * the actionable recap LAST so a reader who keeps only the end of the stream
+ * gate ends here, and the order is deliberate: the withheld command output (quieted
+ * presentations only — see {@link renderFailureTail}), the stage headline, then the
+ * gotchas pointer, then the structured per-tool recap, then a one-line summary (the
+ * BLUF) — the actionable recap LAST so a reader who keeps only the end of the stream
  * (`… | tail`) still sees what failed and how to re-run it, not a generic pointer.
  * The recap and the BLUF are two renderings of the SAME `diagnostics[]` the `--json`
  * envelope carries — one source, never a second.
@@ -16,10 +17,34 @@ const GATE_FAILURE_HELP_COMMAND =
   "discern docs 20-quality-gate/when-the-gate-fails";
 
 /**
+ * The captured output a quieted run withheld: one bannered section per diagnostic
+ * that carries output, mirroring what the narrated runner would have printed after
+ * each failed command. Rendered FIRST, so the tail keeps its shape — output above,
+ * scannable recap and BLUF below — and a `… | tail` still lands on the summary.
+ * When the inline view was truncated to the capture cap, the full-capture path
+ * follows the excerpt.
+ */
+function renderWithheldOutput(out: Out, diagnostics: Diagnostic[]): void {
+  const c = out.c;
+  for (const d of diagnostics) {
+    if (d.output === undefined || d.output.trim() === "") {
+      continue;
+    }
+    out.group(`withheld-output:${d.tool}`);
+    out.raw(`${c.dim}── ${d.tool} ─${c.reset} ${c.red}output${c.reset}\n`);
+    out.raw(d.output.endsWith("\n") ? d.output : `${d.output}\n`);
+    if (d.truncated === true && d.output_path !== undefined) {
+      out.raw(`${c.dim}full output: ${d.output_path}${c.reset}\n`);
+    }
+  }
+}
+
+/**
  * The scannable per-tool failures block: each failed tool, its Tier-1 location when
  * parsed, and the exact command to reproduce it in isolation. The full tool output
- * already streamed above; this is the "what to fix and how to re-run it" summary, the
- * human mirror of the `diagnostics[]` an agent reads from `--json`.
+ * already appeared above — streamed by a narrated run, or led with by this tail when
+ * the run was quieted — so this is the "what to fix and how to re-run it" summary,
+ * the human mirror of the `diagnostics[]` an agent reads from `--json`.
  */
 function renderFailures(out: Out, diagnostics: Diagnostic[]): void {
   if (diagnostics.length === 0) {
@@ -73,20 +98,32 @@ function renderFailBluf(
 }
 
 /**
- * Print the shared human failure tail for a gate verb: the headline (the verb/stage
- * message), the gotchas section (the inlined matched trap, or the pointer, plus any
+ * Print the shared human failure tail for a gate verb: the withheld output (when the
+ * presentation quieted the runner), the headline (the verb/stage message), the
+ * gotchas section (the inlined matched trap, or the pointer, plus any
  * malformed-matcher warnings — the SAME fired hints the envelope carries), the
  * structured recap, and the tail-safe BLUF. The one place finish/prepare/test render
  * a failure, so the three stay consistent and a `… | tail` of any of them lands on
  * actionable signal.
+ *
+ * `outputWithheld` is required, not defaulted: every verb must say which
+ * presentation it ran. A narrated run streams each failed command's output through
+ * the job runner before this tail — pass false, or the output prints twice. The
+ * compact live-table presentation quiets that runner, leaving the captured output
+ * reachable only through `--json` — pass true, or a human at a terminal sees
+ * "failed (exit 1)" and nothing else.
  */
 export function renderFailureTail(out: Out, opts: {
   verb: string;
   headline: string;
   diagnostics: Diagnostic[];
   gotchas: GotchasFailureTail | undefined;
+  outputWithheld: boolean;
 }): void {
-  const { verb, headline, diagnostics, gotchas } = opts;
+  const { verb, headline, diagnostics, gotchas, outputWithheld } = opts;
+  if (outputWithheld) {
+    renderWithheldOutput(out, diagnostics);
+  }
   out.error(`discern ${verb} failed: ${headline}`);
   out.group("failure-guide");
   out.info(`Failure guide: \`${GATE_FAILURE_HELP_COMMAND}\`.`);

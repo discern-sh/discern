@@ -172,6 +172,8 @@ export async function runTestJob(
       headline: "Tests failed.",
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
+      // `test` never quiets its human run — the runner narrated the output.
+      outputWithheld: false,
     });
     renderSlotWait(out, result.waitedMs);
     return 1;
