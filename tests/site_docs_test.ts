@@ -15,7 +15,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { fromFileUrl } from "@std/path";
-import { DISCERN_FAVICON_PATH } from "../site/brand.ts";
+import { DISCERN_FAVICON_PATH, DISCERN_MARK } from "../site/brand.ts";
 import { DESIGN_SYSTEM_BUNDLES } from "../site/design_system.ts";
 import { handler } from "../site/serve.ts";
 import {
@@ -496,7 +496,7 @@ Deno.test("every published page renders for a browser, with title and shell", as
     assertStringIncludes(html, 'class="doc-body"', `route ${page.route}`);
     assertStringIncludes(
       html,
-      'class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">◮</span>',
+      `class="discern-logo discern-logo--md discern-logo--plain discern-logo--natural discern-brand__mark" aria-hidden="true">${DISCERN_MARK}</span>`,
       `design-system brand on route ${page.route}`,
     );
     assertStringIncludes(
@@ -747,7 +747,7 @@ Deno.test("rendered Markdown rules use the editorial discern mark", async () => 
   assert(!rule.includes("repeating-linear-gradient"));
   assertStringIncludes(rule, "background-size: 100% 1px");
   assertStringIncludes(css, ".doc-body hr::after {");
-  assertStringIncludes(css, 'content: "◮";');
+  assertStringIncludes(css, `content: "${DISCERN_MARK}";`);
   assertStringIncludes(css, "color: var(--discern-color-ink-faint)");
   assertStringIncludes(css, "font-size: 1rem");
   assertStringIncludes(css, "transform: translate(-50%, -60%)");
