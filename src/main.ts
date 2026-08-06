@@ -522,6 +522,20 @@ export function buildCli(
   // Out of the operator help — the hidden-verb registry records why and what
   // returns it to the listing.
   root
+    .command("triangle")
+    .description("Draw discern's mark as a triangle of triangles.")
+    .action(recordedExit("triangle", async (options) => {
+      const { runTriangle } = await import("./commands/triangle.ts");
+      return await runTriangle({
+        json: options.json ?? false,
+        noColor: noColorFrom(options.color),
+        plain: options.plain ?? false,
+      });
+    }));
+
+  // Out of the operator help — the hidden-verb registry records why and what
+  // returns it to the listing.
+  root
     .command("preset <name:string>")
     .description(
       "Overlay a reference preset from presets/<name>/ (ships none by default).",

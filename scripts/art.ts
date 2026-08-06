@@ -10,8 +10,8 @@ import {
   abortableWait,
   observeTerminalAnimationEnvironment,
   runTerminalPlayback,
-  type TerminalAnimationEnvironment,
   terminalAnimationAllowed,
+  type TerminalAnimationEnvironment,
   terminalPlaybackPort,
 } from "../src/lib/terminal_animation.ts";
 import { type TerminalSize, terminalSize } from "../src/lib/text.ts";

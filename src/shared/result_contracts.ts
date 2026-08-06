@@ -44,6 +44,7 @@ import {
   StatusOutputSchema,
   TestOutputSchema,
   TidyOutputSchema,
+  TriangleOutputSchema,
   UninstallOutputSchema,
   UpdateOutputSchema,
   UpgradeOutputSchema,
@@ -176,6 +177,12 @@ export const CLI_JSON_RESULT_CONTRACTS: readonly ResultContract[] = [
     commands: ["licenses"],
     verb: "licenses",
     schema: LicensesOutputSchema,
+  },
+  {
+    id: "triangle",
+    commands: ["triangle"],
+    verb: "triangle",
+    schema: TriangleOutputSchema,
   },
   {
     id: "preset",

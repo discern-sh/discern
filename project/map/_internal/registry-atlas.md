@@ -12,8 +12,8 @@ One row per set, in registry order; the sections below follow the same order and
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
-| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 32      | per member       | surface `verb`              |
-| [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 2       | —                | —                           |
+| [`verbs`](#verbs--top-level-verbs)                                                                                    | `src/engine/dispatch.ts#KNOWN_VERBS`                                              | 33      | per member       | surface `verb`              |
+| [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                         | `src/shared/hidden_verbs.ts#HIDDEN_VERBS`                                         | 3       | —                | —                           |
 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                              | `src/main.ts#dryRunCapableVerbs`                                                  | 21      | —                | node `plan-apply`           |
 | [`mcp-tools`](#mcp-tools--mcp-tools)                                                                                  | `src/engine/mcp/server.ts#TOOLS`                                                  | 17      | —                | node `mcp-surface`          |
 | [`mcp-core-lifecycle`](#mcp-core-lifecycle--mcp-core-lifecycle)                                                       | `src/engine/mcp/server.ts#MCP_CORE_LIFECYCLE`                                     | 8       | —                | node `mcp-surface`          |
@@ -47,7 +47,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 154     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 41      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
-| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 8       | —                | —                           |
+| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 9       | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
@@ -58,7 +58,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
 | [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 125     | —                | —                           |
-| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 41      | —                | node `published-contracts`  |
+| [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 42      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
 | [`cli-predicate-invocation-modes`](#cli-predicate-invocation-modes--cli-predicate-invocation-modes)                   | `src/shared/result_contracts.ts#CLI_PREDICATE_INVOCATION_MODES`                   | 3       | —                | node `published-contracts`  |
@@ -235,7 +235,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
-- Members: 32
+- Members: 33
   - `setup`
   - `upgrade`
   - `uninstall`
@@ -246,6 +246,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
   - `help`
   - `config`
   - `licenses`
+  - `triangle`
   - `done`
   - `prepare`
   - `test`
@@ -278,9 +279,10 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 Every top-level verb kept out of the operator help listing, each with the recorded reason and revival condition; the CLI build applies the registry, and the help-groups guard holds the live hidden set equal to it in both bootstrap states.
 
 - Source: `src/shared/hidden_verbs.ts` — `HIDDEN_VERBS`
-- Members: 2
+- Members: 3
   - `preset`
   - `setup`
+  - `triangle`
 - Guards: `tests/engine_help_groups_test.ts`
 - Glossary: not enrolled — help visibility is a modality of each verb, not a concept of its own; the registry's reasons are the documentation
 - Feature canon: not enrolled — a subset of the verbs set, whose entry already carries the canon enrolment; hiding changes a verb's listing, never its feature surface
@@ -1084,7 +1086,7 @@ The named terminal-art family: every static renderer carries one semantic animat
 The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.
 
 - Source: `src/lib/triangle_art.ts` — `DISCERN_TRIANGLE_MOTIFS`
-- Members: 8
+- Members: 9
   - `divider`
   - `ribbon`
   - `weave`
@@ -1093,6 +1095,7 @@ The reusable triangle treatments: every pure static frame carries one semantic a
   - `section-rule`
   - `stepper`
   - `beacon`
+  - `pyramid`
 - Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
 - Glossary: not enrolled — internal design names for decorative terminal output, not reader-facing product terms
 - Feature canon: not enrolled — the motifs supply decorative projections and a maintainer preview rather than a separate product capability
@@ -1435,7 +1438,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 The per-verb result contracts behind the published JSON schema and type declarations.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_RESULT_CONTRACTS`
-- Members: 41
+- Members: 42
   - `discern`
   - `setup`
   - `setupVerify`
@@ -1446,6 +1449,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `uninstall`
   - `doctor`
   - `licenses`
+  - `triangle`
   - `preset`
   - `map`
   - `docs`

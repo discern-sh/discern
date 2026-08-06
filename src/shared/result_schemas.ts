@@ -1690,6 +1690,13 @@ export const LicensesDataSchema = z.strictObject({
 });
 export type LicensesData = z.infer<typeof LicensesDataSchema>;
 
+/** `triangle` — the project mark and the composed terminal art. */
+export const TriangleDataSchema = z.strictObject({
+  mark: z.string(),
+  art: z.string(),
+});
+export type TriangleData = z.infer<typeof TriangleDataSchema>;
+
 const projectScriptSchema = z.strictObject({
   name: z.string(),
   description: z.string().optional(),
@@ -2018,6 +2025,12 @@ export const ConfigOutputSchema = resultOutputSchema(
 export const LicensesOutputSchema = resultOutputSchema(
   "licenses",
   LicensesDataSchema,
+);
+
+/** `triangle` output: envelope + the mark and its composed terminal art. */
+export const TriangleOutputSchema = resultOutputSchema(
+  "triangle",
+  TriangleDataSchema,
 );
 
 /** Bare `scripts` output: envelope + executable Project Script listing. */

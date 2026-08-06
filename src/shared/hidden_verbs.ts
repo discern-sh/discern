@@ -51,6 +51,14 @@ export const HIDDEN_VERBS: Readonly<Record<string, HiddenVerbEntry>> = {
     revival: "listed automatically whenever the install is not yet " +
       "bootstrapped; re-runs stay callable with --force while hidden.",
   },
+  // The mark on the box, drawable. Easter eggs are passed along, not listed.
+  triangle: {
+    when: "always",
+    reason: "an easter egg: it draws the project mark and nothing else, and " +
+      "a help listing that announces a surprise has already spent it.",
+    revival: "none planned; it stays dispatchable for anyone who heard " +
+      "about it or read the source.",
+  },
 };
 
 /** The verb names hidden in a given bootstrap state. */
