@@ -4,16 +4,20 @@
  */
 
 import { displayWidth } from "./text.ts";
+import { DISCERN_MARK } from "../shared/brand.ts";
 import {
   type DiscernArtAnimation,
   finishAnimation,
 } from "../shared/brand_animation.ts";
 import type { DiscernArtVariant } from "../shared/brand_art.ts";
 
-/** The four marks, named once by their Unicode orientation and filled half. */
+/**
+ * The four marks, named once by their Unicode orientation and filled half.
+ * `upRight` is the project mark itself, so it derives from the brand constant.
+ */
 export const DISCERN_TRIANGLE_GLYPHS = Object.freeze(
   {
-    upRight: "◮",
+    upRight: DISCERN_MARK,
     upLeft: "◭",
     downLeft: "⧨",
     downRight: "⧩",
