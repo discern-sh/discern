@@ -1527,6 +1527,8 @@ export async function runFinish(
       headline,
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
+      // The live table quiets the runner, so the tail carries the output.
+      outputWithheld: liveTable,
     });
     renderSlotWait(out, result.waitedMs);
     return 1;

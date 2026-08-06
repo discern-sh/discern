@@ -16,10 +16,14 @@ import {
   gitInit,
   runAgent,
   runAgentMerged,
+  runAgentPty,
   type RunResult,
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
+import { renderFailureTail } from "../src/engine/gate/failure_tail.ts";
+import { makeOut } from "../src/engine/output.ts";
+import type { Diagnostic } from "../src/shared/result.ts";
 
 const EXIT_127_TITLE = "A gate command fails with exit 127 (command not found)";
 const MATCHED_TRAP_GATE_LAUNCH_BUDGET = 4;
@@ -354,6 +358,137 @@ Deno.test("gate failure: a seeded matched trap reaches every result surface from
     assertEquals(result.data.doc.path, doc);
     assertEquals(result.data.doc.content, body);
   });
+});
+
+// The marker only the command's OUTPUT contains: the command text (echoed by the
+// job table, the reproduce lines, and the BLUF) reads `BROKE-''DETAIL`, which the
+// shell collapses to `BROKE-DETAIL` when it runs — so counting the collapsed form
+// counts real output, never command echoes.
+const OUTPUT_MARKER = "BROKE-DETAIL";
+const OUTPUT_COMMAND = "echo BROKE-''DETAIL; exit 7";
+
+/** Occurrences of `needle` in `haystack`. */
+function countOf(haystack: string, needle: string): number {
+  return haystack.split(needle).length - 1;
+}
+
+/**
+ * The withheld-output class guard, across every gate verb's human TTY surface: a
+ * failed command's captured output must reach the terminal EXACTLY once. `done` and
+ * `prepare` quiet the runner behind the live table, so their failure tail must carry
+ * the output (zero = the regression where only "failed (exit N)" reached a human);
+ * `test` narrates through the runner, so its tail must NOT repeat it (two = the
+ * double-print regression).
+ */
+Deno.test("gate TTY: every verb surfaces a failed command's output exactly once", async () => {
+  for (
+    const { verb, job } of [
+      { verb: "done", job: `lint = "${OUTPUT_COMMAND}"` },
+      { verb: "prepare", job: `lint = "${OUTPUT_COMMAND}"` },
+      { verb: "test", job: `test = "${OUTPUT_COMMAND}"` },
+    ]
+  ) {
+    await withTempDir(async (dir) => {
+      await scaffoldEngine(dir);
+      await writeConfig(
+        dir,
+        [
+          "[project]",
+          'slug = "engine-test"',
+          'gotchas_doc = "docs/g.md"',
+          "",
+          "[repository]",
+          'trunk = "main"',
+          "",
+          "[jobs]",
+          job,
+          "",
+        ].join("\n"),
+      );
+      await gitInit(dir);
+      const r = await runAgentPty(dir, [verb], {
+        env: { COLUMNS: "80", NO_COLOR: "1", CI: "false" },
+        timeoutMs: 20_000,
+      });
+      assertEquals(r.code, 1, `${verb}: ${r.output}`);
+      assertEquals(
+        countOf(r.output, OUTPUT_MARKER),
+        1,
+        `${verb}: a failed command's output must reach the terminal exactly ` +
+          `once.\n${r.output}`,
+      );
+    });
+  }
+});
+
+Deno.test("failure tail: a quieted run leads with the withheld output and the full-capture path", () => {
+  const chunks: string[] = [];
+  const out = makeOut(false, {
+    stdout: (text) => chunks.push(text),
+    stderr: () => {},
+  });
+  const withOutput: Diagnostic = {
+    tool: "prose",
+    severity: "error",
+    message: "prose failed (exit 1)",
+    reproduce_cmd: "run prose",
+    output: "docs/a.md:3: heading too wordy",
+    truncated: true,
+    output_path: "/tmp/discern-diag-full.log",
+  };
+  const withoutOutput: Diagnostic = {
+    tool: "quiet-job",
+    severity: "error",
+    message: "quiet-job failed (exit 2)",
+    reproduce_cmd: "run quiet-job",
+  };
+  renderFailureTail(out, {
+    verb: "done",
+    headline: "The gate failed.",
+    diagnostics: [withOutput, withoutOutput],
+    gotchas: undefined,
+    outputWithheld: true,
+  });
+  const text = chunks.join("");
+  assertStringIncludes(text, "── prose ─ output");
+  assertStringIncludes(text, "docs/a.md:3: heading too wordy");
+  assertStringIncludes(text, "full output: /tmp/discern-diag-full.log");
+  assertEquals(
+    text.includes("── quiet-job ─ output"),
+    false,
+    "a diagnostic with no captured output must not open an output section",
+  );
+  assert(
+    text.indexOf("── prose ─ output") < text.indexOf("Failures (2)"),
+    "withheld output must lead the tail, keeping the recap and BLUF last",
+  );
+});
+
+Deno.test("failure tail: a narrated run keeps the tail output-free", () => {
+  const chunks: string[] = [];
+  const out = makeOut(false, {
+    stdout: (text) => chunks.push(text),
+    stderr: () => {},
+  });
+  renderFailureTail(out, {
+    verb: "test",
+    headline: "Tests failed.",
+    diagnostics: [{
+      tool: "test",
+      severity: "error",
+      message: "test failed (exit 3)",
+      reproduce_cmd: "run tests",
+      output: "1 test failed: orbit_test",
+    }],
+    gotchas: undefined,
+    outputWithheld: false,
+  });
+  const text = chunks.join("");
+  assertEquals(
+    text.includes("orbit_test"),
+    false,
+    "the runner already narrated this output; the tail must not repeat it",
+  );
 });
 
 Deno.test("gate failure: a gotchas doc outside the map keeps the path pointer", async () => {

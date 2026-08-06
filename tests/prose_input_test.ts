@@ -12,7 +12,12 @@ import {
   blankFrontmatter,
   restoreStagePaths,
   stageProseInput,
+  valeJsonToSarif,
 } from "../scripts/prose_lib.ts";
+import {
+  extractSarif,
+  sarifToDiagnostics,
+} from "../src/engine/gate/diagnostics.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
 import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
@@ -94,6 +99,55 @@ Deno.test("stageProseInput blanks frontmatter and skips _private", async () => {
       await Deno.remove(stage.dir, { recursive: true });
     }
   });
+});
+
+Deno.test("valeJsonToSarif feeds the gate's own SARIF normalization", () => {
+  // The shape `vale --output=JSON` emits: a staged-path → alert-list map.
+  const stageDir = "/tmp/discern-prose-abc123";
+  const valeJson = {
+    [`${stageDir}/10-tier/page.md`]: [
+      {
+        Action: { Name: "", Params: null },
+        Span: [12, 20],
+        Check: "Style.Wordiness",
+        Description: "",
+        Link: "",
+        Message: "Consider a shorter phrase.",
+        Severity: "error",
+        Match: "in order to",
+        Line: 7,
+      },
+      {
+        Span: [3, 9],
+        Check: "Style.Passive",
+        Message: "Passive voice.",
+        Severity: "suggestion",
+        Line: 12,
+      },
+      "not an alert object", // skipped, never thrown
+    ],
+    unrelated: 42, // a non-array value is skipped
+  };
+  const sarifText = JSON.stringify(valeJsonToSarif(
+    valeJson,
+    (path) => restoreStagePaths(path, stageDir, "docs/map"),
+  ));
+
+  // Close the loop through the ACTUAL consumer: the gate must recognize the
+  // log and project one Tier-1 diagnostic per finding, with the real path.
+  const sarif = extractSarif(sarifText);
+  assert(sarif !== undefined, "the gate must auto-detect the emitted log");
+  const diagnostics = sarifToDiagnostics(sarif, "prose", "reproduce-cmd");
+  assert(diagnostics !== undefined);
+  assertEquals(diagnostics.length, 2);
+  assertEquals(diagnostics[0]?.file, "docs/map/10-tier/page.md");
+  assertEquals(diagnostics[0]?.line, 7);
+  assertEquals(diagnostics[0]?.col, 12);
+  assertEquals(diagnostics[0]?.rule, "Style.Wordiness");
+  assertEquals(diagnostics[0]?.message, "Consider a shorter phrase.");
+  assertEquals(diagnostics[0]?.severity, "error");
+  // Vale "suggestion" maps to SARIF "note", which the gate reads as a warning.
+  assertEquals(diagnostics[1]?.severity, "warning");
 });
 
 Deno.test("the prose standard divides by its staged-corpus word metric", async () => {

@@ -1244,6 +1244,98 @@ export type DiscernLicensesResult = {
   };
 };
 
+export type DiscernTriangleResult = {
+  ok: boolean;
+  dry_run?: boolean;
+  plan?: {
+    title: string;
+    details: Array<string>;
+    steps: Array<{
+      kind:
+        | "job"
+        | "scope-gate"
+        | "merge-check"
+        | "standards-limits-check"
+        | "tracked-artifacts-check"
+        | "guidance-check"
+        | "skills-check"
+        | "resource-create"
+        | "resource-destroy"
+        | "git"
+        | "setup-step"
+        | "repository-ensure"
+        | "checkout-clean-check"
+        | "setup-ensure"
+        | "env"
+        | "refresh"
+        | "tidy"
+        | "standard";
+      label: string;
+      disposition: "run" | "skip" | "gate";
+      note?: string;
+      group?: string;
+    }>;
+  };
+  steps?: Array<{
+    kind:
+      | "job"
+      | "scope-gate"
+      | "merge-check"
+      | "standards-limits-check"
+      | "tracked-artifacts-check"
+      | "guidance-check"
+      | "skills-check"
+      | "resource-create"
+      | "resource-destroy"
+      | "git"
+      | "setup-step"
+      | "repository-ensure"
+      | "checkout-clean-check"
+      | "setup-ensure"
+      | "env"
+      | "refresh"
+      | "tidy"
+      | "standard";
+    label: string;
+    disposition: "run" | "skip" | "gate";
+    note?: string;
+    group?: string;
+    outcome: "ok" | "failed" | "skipped" | "cancelled";
+    duration_s?: number;
+    output_path?: string;
+    output_lines?: number;
+    error_like_lines?: number;
+  }>;
+  waited_ms?: number;
+  diagnostics?: Array<{
+    tool: string;
+    severity: "error" | "warning";
+    message: string;
+    reproduce_cmd: string;
+    output?: string;
+    truncated?: boolean;
+    output_path?: string;
+    file?: string;
+    line?: number;
+    col?: number;
+    rule?: string;
+    fix_available?: boolean;
+  }>;
+  hints?: Array<string>;
+  error?: string;
+  message?: string;
+  verb: "triangle";
+  data?: {
+    mark: string;
+    art: string;
+  } | {
+    issues: Array<{
+      path: string;
+      message: string;
+    }>;
+  };
+};
+
 export type DiscernPresetResult = {
   ok: boolean;
   dry_run?: boolean;
@@ -4841,6 +4933,7 @@ export type DiscernCliJsonResult =
   | DiscernUninstallResult
   | DiscernDoctorResult
   | DiscernLicensesResult
+  | DiscernTriangleResult
   | DiscernPresetResult
   | DiscernMapResult
   | DiscernDocsResult
@@ -4884,6 +4977,7 @@ export interface DiscernResultByVerb {
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   licenses: DiscernLicensesResult;
+  triangle: DiscernTriangleResult;
   preset: DiscernPresetResult;
   map: DiscernMapResult;
   docs: DiscernDocsResult;
@@ -4929,6 +5023,7 @@ export interface DiscernResultByCommand {
   uninstall: DiscernUninstallResult;
   doctor: DiscernDoctorResult;
   licenses: DiscernLicensesResult;
+  triangle: DiscernTriangleResult;
   preset: DiscernPresetResult;
   map: DiscernMapResult;
   docs: DiscernDocsResult;

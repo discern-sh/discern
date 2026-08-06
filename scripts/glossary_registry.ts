@@ -645,6 +645,8 @@ export const DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
     "wraps a shell command with the configured concurrent test-run cap; the quality-gate guide and CLI reference document it, not a separate term of art",
   "verb:test":
     "runs the configured test stage on its own; the Gate job and Stage entries carry the concepts, and the CLI reference documents the verb",
+  "verb:triangle":
+    "draws the project mark as terminal art; an Easter egg with no concept behind it, hidden from the CLI reference on purpose",
   "verb:uninstall":
     "removes what setup laid down; the Installer entry carries the concept, the CLI reference the verb",
 };

@@ -937,6 +937,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "MCP hosts an agent-only protocol surface and stays out of human tips.",
   "verb:setup":
     "Setup is complete before the desk can show tips and is taught by the installer.",
+  "verb:triangle":
+    "An Easter egg is found, never taught; a curriculum that announces it has spent it.",
   "verb:uninstall":
     "Uninstall stays in explicit command help. The desk does not advertise leaving discern.",
 };

@@ -317,4 +317,4 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 ### Recorded absences
 
-- None: every closed-set member is claimed by a node.
+- `verb:triangle` — intentionally enigmatic, and shrouded in mystery

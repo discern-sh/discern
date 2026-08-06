@@ -106,6 +106,12 @@ const SPEC: Record<string, OutsideSpec> = {
     expect: "envelope",
     ok: true,
   },
+  triangle: {
+    run: ["triangle"],
+    verb: "triangle",
+    expect: "envelope",
+    ok: true,
+  },
 
   // Not executed — each reason names where the behavior is held instead.
   setup: {

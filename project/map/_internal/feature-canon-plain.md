@@ -317,4 +317,4 @@ Every member of the product's official fixed lists appears below beside the feat
 
 ### Missing entries
 
-- None. A feature entry covers every member of every fixed list.
+- `verb:triangle` — intentionally enigmatic, and shrouded in mystery

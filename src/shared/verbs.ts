@@ -45,6 +45,7 @@ export const KNOWN_INSTALLER_VERBS: ReadonlySet<string> = new Set([
   "help",
   "config",
   "licenses",
+  "triangle",
 ]);
 
 /** Every built-in verb the router dispatches itself. */
@@ -74,6 +75,7 @@ export const LOGBOOK_PURE_OBSERVATION_VERBS: ReadonlySet<string> = new Set([
   "licenses",
   "mcp",
   "status",
+  "triangle",
 ]);
 
 /** Effectful top-level verbs, derived from the routing vocabulary. */

@@ -1128,6 +1128,7 @@ export const MCP_SHELL_ONLY_VERBS: ReadonlyMap<string, string> = new Map([
     "human-readable CLI reference; MCP tool schemas carry their own help",
   ],
   ["licenses", "license-text dump for humans"],
+  ["triangle", "terminal art for humans at a terminal"],
 ]);
 
 /**

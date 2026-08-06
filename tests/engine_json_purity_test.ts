@@ -213,6 +213,11 @@ const PROJECT_CASES: readonly PurityCase[] = [
     args: ["licenses"],
   },
   {
+    commandPath: "triangle",
+    envelopeVerb: "triangle",
+    args: ["triangle"],
+  },
+  {
     commandPath: "preset",
     envelopeVerb: "preset",
     args: ["preset", "zz-missing", "--yes"],
