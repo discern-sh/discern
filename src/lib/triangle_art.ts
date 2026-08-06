@@ -85,6 +85,12 @@ export interface TriangleStepperOptions {
   readonly activeIndex: number;
 }
 
+/** Layout inputs for a centered solid pyramid of weave-cycle cells. */
+export interface TrianglePyramidOptions {
+  readonly rows: number;
+  readonly phase?: number;
+}
+
 /** State inputs for one frame of a moving packet on a dotted activity rail. */
 export interface TriangleBeaconOptions {
   readonly width: number;
@@ -353,6 +359,30 @@ export function renderTriangleStepper(
   return lines.join("\n");
 }
 
+/**
+ * Render a triangle built from triangles: 2r+1 weave-cycle cells on row r,
+ * centered under a one-cell apex, so every row leads with the canonical mark.
+ */
+export function renderTrianglePyramid(
+  options: TrianglePyramidOptions,
+): string {
+  assertArtDimension(options.rows, "triangle pyramid rows", 1);
+  const phase = options.phase ?? 0;
+  if (!Number.isSafeInteger(phase)) {
+    throw new TypeError(
+      `triangle pyramid phase must be a safe integer; received ${phase}`,
+    );
+  }
+  assertFrameCellBudget(options.rows * options.rows, "triangle pyramid area");
+  return Array.from(
+    { length: options.rows },
+    (_, row) =>
+      `${" ".repeat(options.rows - 1 - row)}${
+        renderCycle(2 * row + 1, phase, "forward")
+      }`,
+  ).join("\n");
+}
+
 /** Render one state of a four-glyph activity packet moving over a fixed rail. */
 export function renderTriangleBeacon(options: TriangleBeaconOptions): string {
   assertArtDimension(options.width, "triangle beacon width", 4);
@@ -383,6 +413,7 @@ const SECTION_LABEL = "quality gate";
 const SECTION_RULE = Object.freeze({ width: 30 });
 const STEPS = Object.freeze(["inspect", "plan", "apply", "verify"] as const);
 const BEACON = Object.freeze({ width: 32, offset: 14 });
+const PYRAMID = Object.freeze({ rows: 8 });
 
 /** Render the static storyboard that exposes every spinner phase without motion. */
 function renderSpinnerStoryboard(): string {
@@ -478,6 +509,21 @@ function animateStepper(staticArt: string): DiscernArtAnimation {
   );
 }
 
+/** Raise the pyramid from its apex, then swap the filled halves once. */
+function animatePyramid(staticArt: string): DiscernArtAnimation {
+  return finishAnimation(
+    staticArt,
+    [
+      ...[1, 2, 3, 4, 5, 6, 7].map((rows) =>
+        staticArt.split("\n").slice(0, rows).join("\n")
+      ),
+      renderTrianglePyramid({ ...PYRAMID, phase: 2 }),
+    ],
+    90,
+    400,
+  );
+}
+
 /** Send the activity packet out and back before it settles at the centre. */
 function animateBeacon(staticArt: string): DiscernArtAnimation {
   return finishAnimation(
@@ -538,6 +584,11 @@ export const DISCERN_TRIANGLE_MOTIFS = {
     charset: "unicode",
     render: () => renderTriangleBeacon(BEACON),
     animate: () => animateBeacon(renderTriangleBeacon(BEACON)),
+  },
+  pyramid: {
+    charset: "unicode",
+    render: () => renderTrianglePyramid(PYRAMID),
+    animate: () => animatePyramid(renderTrianglePyramid(PYRAMID)),
   },
 } as const satisfies Readonly<Record<string, DiscernArtVariant>>;
 

@@ -10,6 +10,7 @@ import {
   renderTriangleBeacon,
   renderTrianglePattern,
   renderTriangleProgress,
+  renderTrianglePyramid,
   renderTriangleSectionRule,
   renderTriangleSpinnerFrame,
   renderTriangleStepper,
@@ -49,6 +50,16 @@ const EXPECTED_MOTIFS = {
     "[⧩] verify",
   ].join("\n"),
   beacon: `${".".repeat(14)}◮⧩◭⧨${".".repeat(14)}`,
+  pyramid: [
+    "       ◮",
+    "      ◮⧩◭",
+    "     ◮⧩◭⧨◮",
+    "    ◮⧩◭⧨◮⧩◭",
+    "   ◮⧩◭⧨◮⧩◭⧨◮",
+    "  ◮⧩◭⧨◮⧩◭⧨◮⧩◭",
+    " ◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮",
+    "◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭",
+  ].join("\n"),
 } as const;
 
 /** Measure the first motif cell in one ANSI-free animation frame. */
@@ -157,6 +168,14 @@ Deno.test("triangle state renderers expose reusable exact frames", () => {
     renderTriangleBeacon({ width: 8, offset: 2, phase: 1 }),
     "..⧩◭⧨◮..",
   );
+  assertEquals(
+    renderTrianglePyramid({ rows: 3 }),
+    "  ◮\n ◮⧩◭\n◮⧩◭⧨◮",
+  );
+  assertEquals(
+    renderTrianglePyramid({ rows: 3, phase: 2 }),
+    "  ◭\n ◭⧨◮\n◭⧨◮⧩◭",
+  );
 });
 
 Deno.test("triangle state renderers reject impossible frames", () => {
@@ -181,6 +200,8 @@ Deno.test("triangle state renderers reject impossible frames", () => {
     () => renderTriangleStepper(["inspect\nplan"], { activeIndex: 0 }),
     () => renderTriangleBeacon({ width: 3, offset: 0 }),
     () => renderTriangleBeacon({ width: 8, offset: 5 }),
+    () => renderTrianglePyramid({ rows: 0 }),
+    () => renderTrianglePyramid({ rows: 2, phase: 0.5 }),
   ];
   for (const render of invalidRenders) {
     assertThrows(render, TypeError);
@@ -218,6 +239,7 @@ Deno.test("every triangle renderer holds the total visible-cell budget", () => {
         width: MAX_TRIANGLE_ART_CELLS + 1,
         offset: 0,
       }),
+    "pyramid area": () => renderTrianglePyramid({ rows: 101 }),
   } satisfies Readonly<Record<string, () => string>>;
   const unguarded: string[] = [];
   for (const [name, render] of Object.entries(overBudgetRenders)) {
