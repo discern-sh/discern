@@ -317,4 +317,4 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 ### Recorded absences
 
-- None: every closed-set member is claimed by a node.
+- `verb:triangle` — an Easter egg, not a feature: it draws the project mark and changes nothing, and a feature canon that documents a surprise has spent it

@@ -1,5 +1,5 @@
 /**
- * `discern triangle` — the easter egg behind the project mark: draw discern's
+ * `discern triangle` — the Easter egg behind the project mark: draw discern's
  * triangle as a triangle of triangles. The verb needs no project, config, or
  * network; the hidden-verb registry records why it stays out of the help
  * listing. On a capable interactive terminal the pyramid rises from its apex

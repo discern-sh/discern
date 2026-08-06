@@ -1,5 +1,5 @@
 /**
- * `discern triangle` verb behavior — the easter egg's shared core: the result
+ * `discern triangle` verb behavior — the Easter egg's shared core: the result
  * envelope carries the mark and the composed art, planning keeps motion off
  * non-interactive surfaces, and the animated reveal reuses the pyramid motif's
  * timeline before settling on the exact static art.

@@ -2122,8 +2122,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
  * claims are. The enrolment guard holds every member to exactly one of:
  * claimed in the tree, or recorded here.
  */
-export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> =
-  {};
+export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
+  "verb:triangle":
+    "an Easter egg, not a feature: it draws the project mark and changes " +
+    "nothing, and a feature canon that documents a surprise has spent it",
+};
 
 /**
  * General software jargon the plain register translates — vocabulary the

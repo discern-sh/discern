@@ -114,6 +114,7 @@ const MODELED_VERBS_DELIBERATELY_ABSENT: Readonly<
   setup: INSTALLER_ABSENCE,
   skills: "a command group whose subcommands act directly on one skill",
   status: READ_ONLY_ABSENCE,
+  triangle: READ_ONLY_ABSENCE,
   uninstall: INSTALLER_ABSENCE,
   upgrade: INSTALLER_ABSENCE,
 };
