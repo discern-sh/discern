@@ -2123,9 +2123,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
  * claimed in the tree, or recorded here.
  */
 export const FEATURES_DELIBERATELY_ABSENT: Readonly<Record<string, string>> = {
-  "verb:triangle":
-    "an Easter egg, not a feature: it draws the project mark and changes " +
-    "nothing, and a feature canon that documents a surprise has spent it",
+  "verb:triangle": "intentionally enigmatic, and shrouded in mystery",
 };
 
 /**

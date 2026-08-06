@@ -317,4 +317,4 @@ Every member of the product's closed sets, with the node that claims it. The enr
 
 ### Recorded absences
 
-- `verb:triangle` — an Easter egg, not a feature: it draws the project mark and changes nothing, and a feature canon that documents a surprise has spent it
+- `verb:triangle` — intentionally enigmatic, and shrouded in mystery
