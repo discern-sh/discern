@@ -6,12 +6,16 @@ import {
   type TerminalAnimationScene,
   type TerminalPlaybackPlan,
 } from "../src/lib/terminal_playback.ts";
+import {
+  abortableWait,
+  observeTerminalAnimationEnvironment,
+  runTerminalPlayback,
+  type TerminalAnimationEnvironment,
+  terminalAnimationAllowed,
+  terminalPlaybackPort,
+} from "../src/lib/terminal_animation.ts";
 import { type TerminalSize, terminalSize } from "../src/lib/text.ts";
 import { writeStderr, writeStdout } from "../src/engine/output.ts";
-import {
-  INTERRUPT_SIGNALS,
-  reraiseInterrupt,
-} from "../src/engine/process_signals.ts";
 import {
   DISCERN_ART_VARIANTS,
   type DiscernArtVariant,
@@ -21,13 +25,7 @@ import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
 const ART_USAGE = "Run `deno task art` or `deno task art --animate`.";
 
 /** The observed terminal policy inputs consumed by the pure command planner. */
-export interface ArtCommandEnvironment {
-  readonly stdoutIsTerminal: boolean;
-  readonly ci: string | undefined;
-  readonly term: string | undefined;
-  readonly terminalColumns: number;
-  readonly terminalRows: number;
-}
+export type ArtCommandEnvironment = TerminalAnimationEnvironment;
 
 /** The validated command decision computed before any terminal output. */
 export type ArtCommandPlan =
@@ -83,12 +81,6 @@ export function artAnimationScenes(): readonly TerminalAnimationScene[] {
   });
 }
 
-/** Interpret the conventional CI marker used by discern's static TTY policy. */
-function ciRequestsStatic(value: string | undefined): boolean {
-  const marker = value?.trim().toLowerCase();
-  return marker !== undefined && marker !== "" && marker !== "false";
-}
-
 /**
  * Validate arguments and compute the complete static or animated output plan.
  * Animation falls back to the unchanged static gallery off a capable TTY.
@@ -107,16 +99,7 @@ export function planArtCommand(
   }
 
   const gallery = `${renderArtGallery()}\n`;
-  if (args.length === 0) {
-    return { mode: "static", output: gallery };
-  }
-
-  const term = environment.term?.trim().toLowerCase();
-  if (
-    !environment.stdoutIsTerminal ||
-    ciRequestsStatic(environment.ci) ||
-    term === "dumb"
-  ) {
+  if (args.length === 0 || !terminalAnimationAllowed(environment)) {
     return { mode: "static", output: gallery };
   }
 
@@ -156,116 +139,26 @@ export async function executeArtCommand(
   return 0;
 }
 
-/** Wait for one frame and reject promptly when playback is interrupted. */
-function abortableWait(
-  milliseconds: number,
-  signal: AbortSignal,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(
-        new DOMException("Terminal playback was interrupted", "AbortError"),
-      );
-      return;
-    }
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      reject(
-        new DOMException("Terminal playback was interrupted", "AbortError"),
-      );
-    };
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, milliseconds);
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
-/** Read one narrowly permitted environment value without making imports effectful. */
-function readEnvironment(name: string): string | undefined {
-  try {
-    return Deno.env.get(name);
-  } catch {
-    return undefined;
-  }
-}
-
-/** Observe the live terminal inputs after the command's static code has loaded. */
-function observeArtEnvironment(): ArtCommandEnvironment {
-  const dimensions = terminalSize();
-  return {
-    stdoutIsTerminal: Deno.stdout.isTerminal(),
-    ci: readEnvironment("CI"),
-    term: readEnvironment("TERM"),
-    terminalColumns: dimensions.columns,
-    terminalRows: dimensions.rows,
-  };
-}
-
-/** Re-throw an unknown execution failure through a stable Error boundary. */
-function throwExecutionFailure(error: unknown): never {
-  if (error instanceof Error) {
-    throw error;
-  }
-  throw new Error("The terminal-art command failed", { cause: error });
-}
-
-/** Run an animated plan with catchable-signal cleanup and conventional exit status. */
-async function executeWithSignals(
-  plan: ArtCommandPlan,
-  port: ArtCommandPort,
-): Promise<number> {
-  if (plan.mode !== "animate") {
-    return await executeArtCommand(plan, port, new AbortController().signal);
-  }
-
-  const controller = new AbortController();
-  const handlers = new Map<Deno.Signal, () => void>();
-  let interruptedBy: Deno.Signal | null = null;
-  for (const signal of INTERRUPT_SIGNALS) {
-    const handler = (): void => {
-      interruptedBy ??= signal;
-      controller.abort();
-    };
-    Deno.addSignalListener(signal, handler);
-    handlers.set(signal, handler);
-  }
-
-  let code = 1;
-  let failure: unknown;
-  let failed = false;
-  try {
-    code = await executeArtCommand(plan, port, controller.signal);
-  } catch (error) {
-    if (interruptedBy === null) {
-      failed = true;
-      failure = error;
-    }
-  } finally {
-    for (const [signal, handler] of handlers) {
-      Deno.removeSignalListener(signal, handler);
-    }
-  }
-
-  if (interruptedBy !== null) {
-    reraiseInterrupt(interruptedBy);
-  }
-  if (failed) {
-    throwExecutionFailure(failure);
-  }
-  return code;
-}
-
 /** Plan and run the maintainer gallery against the real terminal boundaries. */
 async function main(): Promise<number> {
-  const plan = planArtCommand(Deno.args, observeArtEnvironment());
-  return await executeWithSignals(plan, {
-    stdout: writeStdout,
-    stderr: writeStderr,
-    wait: abortableWait,
-    terminalSize,
-  });
+  const plan = planArtCommand(
+    Deno.args,
+    observeTerminalAnimationEnvironment(),
+  );
+  if (plan.mode === "animate") {
+    await runTerminalPlayback(plan.playback, terminalPlaybackPort(writeStdout));
+    return 0;
+  }
+  return await executeArtCommand(
+    plan,
+    {
+      stdout: writeStdout,
+      stderr: writeStderr,
+      wait: abortableWait,
+      terminalSize,
+    },
+    new AbortController().signal,
+  );
 }
 
 if (import.meta.main) {
