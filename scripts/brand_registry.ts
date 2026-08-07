@@ -34,6 +34,7 @@ import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
+import { renderVisualIdentityDoc } from "./brand/docs/visual_identity.ts";
 
 /**
  * Where the brand documents live, relative to the configured map directory.
@@ -102,7 +103,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       `Records the visual system: the Editorial Engineering aesthetic, the ${DISCERN_MARK} mark, and the \`discern-design-system\` package.`,
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderVisualIdentityDoc },
   },
   {
     id: "voice-brand",
