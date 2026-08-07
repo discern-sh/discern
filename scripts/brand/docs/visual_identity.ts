@@ -6,10 +6,11 @@
  */
 
 import { DISCERN_MARK } from "../../../src/shared/brand.ts";
+import { DISCERN_TRIANGLE_GLYPHS } from "../../../src/lib/triangle_art.ts";
 
 /** The rules that travel with the mark, in rendering order. */
 export const MARK_RULES: readonly string[] = [
-  "The canonical reading is **filled versus unfilled**, never dark versus light. A glyph renders in the reader's foreground colour, so any dark/light reading inverts with the theme; for the same reason the mirror ◭ carries no distinct meaning.",
+  `The canonical reading is **filled versus unfilled**, never dark versus light. A glyph renders in the reader's foreground colour, so any dark/light reading inverts with the theme; for the same reason the mirror ${DISCERN_TRIANGLE_GLYPHS.upLeft} carries no distinct meaning.`,
   "In CLI and machine-facing output the glyph is decorative, never load-bearing. Output must read correctly in a font that lacks the codepoint.",
   "Drawn assets (favicon, social images) are bespoke theme-aware SVGs derived from the shape, never a rasterised glyph. At small sizes the half-fill may be exaggerated so the split survives.",
 ];
