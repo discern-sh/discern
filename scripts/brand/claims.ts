@@ -8,7 +8,12 @@
  * registry.
  */
 
-import type { Claim, EvidenceClass, EvidenceClassDefinition } from "./model.ts";
+import {
+  type Claim,
+  EVIDENCE_CLASS_NAMES,
+  type EvidenceClass,
+  type EvidenceClassDefinition,
+} from "./model.ts";
 
 /** The evidence-class table: meaning and permitted public use per class. */
 export const EVIDENCE_CLASSES: Readonly<
@@ -320,3 +325,91 @@ export const DO_NOT_CLAIM: readonly string[] = [
   "discern makes any builder an engineer.",
   "discern ranks which coding agent is best.",
 ];
+
+/** The heading a claim renders under in the ledger (also its anchor text). */
+export function claimHeading(slug: string, title: string): string {
+  return `\`${slug}\` — ${title}`;
+}
+
+/** An evidence class's display name, as the table capitalizes it. */
+function classDisplayName(name: EvidenceClass): string {
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
+}
+
+/** Render one claim's ledger entry. */
+function renderClaim(slug: string, claim: Claim): string {
+  const lines = [
+    `### ${claimHeading(slug, claim.title)}`,
+    "",
+    `- **Evidence:** ${claim.evidence.join(" / ")}`,
+    `- **Strongest supported public form:** “${claim.strongestPublicForm}”`,
+  ];
+  if (claim.mechanism !== undefined) {
+    lines.push(`- **Mechanism:** ${claim.mechanism}`);
+  }
+  if (claim.conditions !== undefined) {
+    lines.push(`- **Conditions:** ${claim.conditions}`);
+  }
+  lines.push(`- **Forbidden inference:** ${claim.forbiddenInference}`);
+  if (claim.evidenceNote !== undefined) {
+    lines.push(`- **Evidence note:** ${claim.evidenceNote}`);
+  }
+  if (claim.tacticalUse !== undefined) {
+    lines.push(`- **Current tactical use case:** ${claim.tacticalUse}`);
+  }
+  if (claim.wordingCorrection !== undefined) {
+    lines.push(
+      `- **Canonical wording correction:** ${claim.wordingCorrection}`,
+    );
+  }
+  lines.push(`- **Primary source:** ${claim.primarySource}`);
+  return lines.join("\n");
+}
+
+/**
+ * The whole public claims document, ready for the barrel to stamp and
+ * resolve. The private residue (the dated internal evidence snapshot, the
+ * anecdote ledger, and the claims requiring future validation) lives in the
+ * authored `claims-residue.md` overlay, not here.
+ */
+export function renderClaimsDoc(): string {
+  return [
+    "# Claims and evidence",
+    "",
+    "**Status:** Canonical claims ledger\\",
+    "**Purpose:** Allow bold public communication without losing the product's actual scope.",
+    "",
+    "## Evidence classes",
+    "",
+    "| Class | Meaning | Public use |",
+    "| --- | --- | --- |",
+    ...EVIDENCE_CLASS_NAMES.map((name) => {
+      const definition = EVIDENCE_CLASSES[name];
+      return `| **${
+        classDisplayName(name)
+      }** | ${definition.meaning} | ${definition.publicUse} |`;
+    }),
+    "",
+    "## Source hierarchy",
+    "",
+    "When a claim needs verification, consult:",
+    "",
+    "1. live behaviour and source code;",
+    "2. canonical registries and generated product canon;",
+    "3. the canonical glossary and documentation;",
+    "4. the setup brief and bundled Skills;",
+    "5. current `discern patterns --json` evidence;",
+    "6. founder account and approved user anecdotes.",
+    "",
+    "The product glossary defines each product term once and prohibits synonyms in product prose. The Brand Operating System may vary human language, but must preserve those meanings.",
+    "",
+    "## Claim ledger",
+    "",
+    Object.entries(CLAIMS).map(([slug, claim]) => renderClaim(slug, claim))
+      .join("\n\n"),
+    "",
+    "## Absolute do-not-claim list",
+    "",
+    DO_NOT_CLAIM.map((entry) => `- “${entry}”`).join("\n"),
+  ].join("\n");
+}

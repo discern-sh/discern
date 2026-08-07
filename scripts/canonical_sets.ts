@@ -855,6 +855,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/brand_registry_codegen_test.ts"],
     artifacts: [
       {
+        path: "project/map/_private/brand/claims-and-evidence.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_private/brand/messaging.md",
         kind: "generated-file",
         banner: true,
@@ -874,6 +879,31 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       (await import("./brand_registry.ts")).BRAND_DOCUMENTS.map(
         (doc) => doc.id,
       ),
+  },
+  {
+    id: "brand-claims",
+    title: "Brand claims ledger",
+    what:
+      "The public claims ledger behind brand copy: per-claim evidence classes, strongest supported wording, conditions, and forbidden inferences, rendered into the claims page the brand-documents set owns.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/claims.ts",
+      exportName: "CLAIMS",
+    },
+    guards: ["tests/brand_registry_codegen_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "brand-strategy vocabulary about public wording, not product terms the glossary defines",
+      },
+      featureCanon: {
+        absent:
+          "a brand evidence ledger informing copy; it ships no product surface",
+      },
+    },
+    members: async () =>
+      Object.keys((await import("./brand/claims.ts")).CLAIMS),
   },
   {
     id: "setup-subverbs",

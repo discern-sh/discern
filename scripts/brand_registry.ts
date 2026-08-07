@@ -23,7 +23,7 @@ import {
   type CitationContext,
   resolveCitationTokens,
 } from "./brand/model.ts";
-import { CLAIMS } from "./brand/claims.ts";
+import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 
 /**
@@ -85,7 +85,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       "States the strongest defensible public claims, evidence, conditions, and forbidden inferences.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderClaimsDoc },
   },
   {
     id: "visual-identity",
@@ -210,11 +210,6 @@ function headingAnchor(heading: string): string {
     throw new Error(`heading renders to no anchor: ${heading}`);
   }
   return id;
-}
-
-/** The heading a claim renders under in the claims ledger. */
-export function claimHeading(slug: string, title: string): string {
-  return `\`${slug}\` — ${title}`;
 }
 
 /** Live replacement tables for every citation-token kind. */

@@ -20,7 +20,7 @@
  */
 
 import { assert, assertEquals } from "@std/assert";
-import { basename, join } from "@std/path";
+import { basename, join, relative } from "@std/path";
 import {
   CANONICAL_SETS,
   type CanonicalSetEntry,
@@ -222,8 +222,12 @@ Deno.test("every members thunk imports the module its source declares", async ()
     if (entry.source.module === REGISTRY_MODULE) continue;
     const asSrc = `"../${entry.source.module}"`;
     const asSibling = `"./${basename(entry.source.module)}"`;
+    // A source under scripts/ may live in a subdirectory (scripts/brand/…);
+    // the thunk then imports it relative to the registry's own directory.
+    const asScriptsChild = `"./${relative("scripts", entry.source.module)}"`;
     assert(
-      registryText.includes(asSrc) || registryText.includes(asSibling),
+      registryText.includes(asSrc) || registryText.includes(asSibling) ||
+        registryText.includes(asScriptsChild),
       `${entry.id}: no import of ${entry.source.module} in ` +
         `${REGISTRY_MODULE} — the source declaration and the members thunk ` +
         "have drifted apart",
