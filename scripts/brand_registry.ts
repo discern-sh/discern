@@ -232,6 +232,11 @@ function citationContext(): CitationContext {
   return { claims, docs, concepts };
 }
 
+/** Resolve citation tokens against the live registry tables. */
+export function resolveBrandCitations(markdown: string): string {
+  return resolveCitationTokens(markdown, citationContext());
+}
+
 /**
  * Render one generated document, banner stamped and citation tokens
  * resolved — the exact bytes the codegen write chokepoint canonicalizes.
@@ -247,7 +252,7 @@ export function renderBrandDoc(id: BrandDocumentId): string {
   return [
     BANNER,
     "",
-    resolveCitationTokens(doc.mode.render(), citationContext()),
+    resolveBrandCitations(doc.mode.render()),
     "",
   ].join("\n");
 }
