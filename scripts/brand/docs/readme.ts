@@ -251,11 +251,6 @@ export const OUTSTANDING_WORK = [
     summary:
       "Once the launch site copy lands: add a scope for the public site's pages, bring their prose under the Vale guards, and pin new `[standards]` limits at launch-day values so the copy only improves.",
   },
-  {
-    id: "sign-offs",
-    task: "Sign-offs",
-    summary: "Every document-map row above carries the owner's ✓.",
-  },
 ] as const satisfies readonly OutstandingItem[];
 
 /** The marker an overlay document's “Stays private?” cell carries. */
@@ -266,13 +261,10 @@ function bullets(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join("\n");
 }
 
-/**
- * Render one document-map row. Every registered document is signed off —
- * sign-off gated its registry entry — so the column renders ✓ throughout.
- */
+/** Render one document-map row. */
 function documentRow(doc: BrandDocument): string {
   const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;
-  return `| [\`${doc.file}\`](${doc.file}) | ${doc.status} | ${doc.job} | ✓ | ${
+  return `| [\`${doc.file}\`](${doc.file}) | ${doc.status} | ${doc.job} | ${
     overlay ? PRIVATE_OVERLAY_MARKER : ""
   } |`;
 }
@@ -306,9 +298,7 @@ export function renderReadmeDoc(
     "",
     "> Repository-ready guidance for positioning, messaging, public copy, product copy, and agent-facing communication.",
     "",
-    "**Status:** Canonical working system\\",
-    "**Version:** 1.0\\",
-    "**Dated:** 2026-08-06",
+    "**Status:** Canonical working system",
     "",
     "## Purpose",
     "",
@@ -346,8 +336,8 @@ export function renderReadmeDoc(
     "",
     "## Document map",
     "",
-    "| Document | Status | Job | Signed off? | Stays private? |",
-    "| --- | --- | --- | --- | --- |",
+    "| Document | Status | Job | Stays private? |",
+    "| --- | --- | --- | --- |",
     ...mapped.map(documentRow),
     "",
     `**Stays private?** marks a document that stays authored under \`_private\`, outside the brand registry, and is wiped before the repository goes public — locally present as a private overlay thereafter. Unmarked documents graduate with the registry when the system is canonicalised: source of truth in \`scripts/brand/\`, generated pages under \`_internal/brand/\`. The anecdote ledger, claims requiring future validation, and the dated internal evidence snapshot carved out of \`claims-and-evidence.md\` live in \`claims-residue.md\`.`,
