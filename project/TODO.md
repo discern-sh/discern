@@ -56,7 +56,7 @@ _Work built but not merged, or otherwise at risk of being lost. Nothing outstand
 
 ## ⚪ Explorations / ideas (unscheduled)
 
-_Nothing queued._
+- [ ] **Verified-tree replay: make a tree-drift re-run free.** When `discern done` fails only with `failed_stage: "tree_drift"` and every stage ran green, the finish-time working tree was verified end-to-end for fix/build-origin strands (check∥test and the standard measurements all run after those stages mutate). Record the verified tree's hash plus the config identity and trunk head; when the next `done` starts on a clean HEAD whose tree matches, replay the green verdict and stamp the receipt instead of re-running the suite — the same replay doctrine as standards `inputs` (a replayed value is a real measurement of an identical input). Exclude strands originating in test or scope-gate stages (those mutate after verification) and keep the cheap fail-fast preconditions live. The owner wants a design discussion before any build; ADR 0261 records the complementary prevention half. Evidence: `src/engine/gate/tree_drift.ts`; `src/engine/gate/finish.ts` (receipt stamping); `project/map/_adr/0261-prepare-runs-the-generated-regenerations.md`.
 
 ## 📣 Marketing & positioning
 

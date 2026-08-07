@@ -52,7 +52,7 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 | `discern_status`      | Report the current branch, gate inputs, standards, receipt, fleet state, and verified landing authority. | Read-only and idempotent.                                       |
 | `discern_start`       | Create and set up a new isolated worktree, then report its prospective landing authority.                | Mutating; each successful call creates a new worktree.          |
 | `discern_done`        | Run the full gate and return steps, diagnostics, an optional receipt, and verified landing authority.    | Runs project commands; fix-stage commands may rewrite.          |
-| `discern_prepare`     | Run the fix and check stages for the fast inner loop.                                                    | Runs project commands; fix-stage commands may rewrite.          |
+| `discern_prepare`     | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                      | Runs project commands; fixers and regenerations may rewrite.    |
 | `discern_test`        | Run the configured test job on its own.                                                                  | Runs a project command.                                         |
 | `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                             | Mutating and idempotent for the same inputs.                    |
 | `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.    | Read-only and idempotent; timeouts return a normal result.      |

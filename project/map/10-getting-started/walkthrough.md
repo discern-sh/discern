@@ -53,7 +53,7 @@ The restart matters because MCP servers, hooks, and project instructions load wh
 
 In the fresh session, ask for a small, real change. The agent orients with `discern status`, then runs `discern start` from the main checkout. That creates a separate worktree and an `agent/…` branch for this task.
 
-The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter fix-and-check loop. When the change is ready, it runs `discern done`. The full gate runs the repository's configured commands and any triggered scope gates or standards.
+The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. When the change is ready, it runs `discern done`. The full gate runs the repository's configured commands and any triggered scope gates or standards.
 
 On green, discern records a receipt for the clean commit. The agent reports the change in its own words, ends with the one-line receipt, and waits; read the full receipt with `discern status --verbose`. Review the branch. If you request another commit, the receipt becomes stale and the agent must run `discern done` again.
 

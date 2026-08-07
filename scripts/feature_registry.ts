@@ -447,12 +447,12 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "prepare",
         title: "The fast inner loop",
         what:
-          "`discern prepare` runs the fix-stage jobs then the check-stage jobs, and never builds or tests — the quick pass while iterating, before the full `discern done`.",
+          "`discern prepare` runs the fix-stage jobs, regenerates every `[generated]` group, then runs the check-stage jobs — never build jobs or tests — the quick pass while iterating, before the full `discern done`.",
         why: "Cheap feedback while the change is still moving.",
         plain: {
           title: "The quick check while work is still moving",
           what:
-            "`discern prepare` runs the tidying steps and then the read-only checks, and never prepares the app or runs the trials — the fast pass to use while working, before the complete `discern done`.",
+            "`discern prepare` runs the tidying steps, remakes the files made by a tool, and then the read-only checks, and never prepares the app or runs the trials — the fast pass to use while working, before the complete `discern done`.",
           why: "Cheap feedback while the change is still taking shape.",
         },
         surfaces: ["verb:prepare"],

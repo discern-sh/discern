@@ -74,7 +74,7 @@ export interface BuildTestRunSlotsOptions {
  * Whether a group carries work the cap bounds: a firing test-stage job or a
  * standard's measurement. Derived from the group's own jobs, never from which
  * verb built it, so every current and future gate verb enrols by construction
- * — `prepare` (fix + check) never matches, and a replay-only standards group
+ * — `prepare` (fix, generated, check) never matches, and a replay-only standards group
  * (nothing runs) never matches either.
  */
 export function groupNeedsTestSlot(group: JobGroup): boolean {

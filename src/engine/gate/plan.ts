@@ -177,8 +177,8 @@ const STAGE_GROUP_META: Record<
 
 /**
  * A single stage's job group, or undefined when the stage has no real job. The unit
- * `prepare` (fix + check) and `discern test` (test) compose directly; `done` uses
- * it for fix and build, and runs check∥test as one combined group.
+ * `prepare` (fix, generated, check) and `discern test` (test) compose directly;
+ * `done` uses it for fix and build, and runs check∥test as one combined group.
  */
 export function stageGroup(
   cfg: DiscernConfig,
@@ -291,10 +291,39 @@ export function buildStageGroups(
   return groups;
 }
 
+/** The display label of the `[generated]` regeneration group `prepare` runs —
+ * exported so prepare's summary can recognize it without matching a literal. */
+export const GENERATED_GROUP_DISPLAY = "Generated";
+
+/**
+ * The `[generated]` regeneration jobs as their own group — the mutating subset of
+ * the build stage. Declared deterministic and fast, they belong in the inner loop:
+ * running them there leaves every committed artifact current before the final
+ * commit, so the full gate's build stage cannot dirty an already-committed tree
+ * (a `tree_drift` failure that costs a second full run). `done` is unchanged — it
+ * keeps running these jobs inside its build stage via {@link stageGroup}.
+ */
+export function generatedGroup(cfg: DiscernConfig): JobGroup | undefined {
+  const jobs = planStageJobs(cfg, "build").filter((j) =>
+    j.kind === "generated"
+  );
+  if (jobs.length === 0) {
+    return undefined;
+  }
+  return {
+    stage: "build",
+    mode: "parallel",
+    heading: "Regenerating artifacts...",
+    display: GENERATED_GROUP_DISPLAY,
+    jobs,
+  };
+}
+
 /**
  * The prepare job groups — the fast inner loop: the fix stage (serial), then the
- * check stage. No build, no tests (those belong to the full `discern done`). Pure:
- * derived from the typed config alone, so `discern prepare` and `discern doctor`'s
+ * `[generated]` regenerations ({@link generatedGroup}), then the check stage. No
+ * build jobs, no tests (those belong to the full `discern done`). Pure: derived
+ * from the typed config alone, so `discern prepare` and `discern doctor`'s
  * execution model both read this ONE composition rather than re-listing it.
  */
 export function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
@@ -302,6 +331,10 @@ export function preparePlanGroups(cfg: DiscernConfig): JobGroup[] {
   const fix = stageGroup(cfg, "fix");
   if (fix !== undefined) {
     groups.push(fix);
+  }
+  const generated = generatedGroup(cfg);
+  if (generated !== undefined) {
+    groups.push(generated);
   }
   const check = stageGroup(cfg, "check");
   if (check !== undefined) {
