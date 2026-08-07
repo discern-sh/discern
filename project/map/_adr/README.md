@@ -251,6 +251,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0258 — Every `DISCERN_*` environment contract has one membership authority](0258-every-discern-environment-contract-has-one-membership-authority.md)
 - [0259 — Generated groups opt in to review metadata; registered Markdown uses heading-aware diffs](0259-generated-groups-opt-in-to-review-metadata.md)
 - [0260 — The integration coverage compiles from the provider registry](0260-integration-coverage-compiles-from-the-provider-registry.md)
+- [0261 — The prepare inner loop runs the [generated] regenerations](0261-prepare-runs-the-generated-regenerations.md)
 
 <!-- END GENERATED: current ADR records -->
 
