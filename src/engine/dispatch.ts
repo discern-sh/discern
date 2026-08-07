@@ -257,7 +257,7 @@ export function attachEngineCommands(
   root
     .command("prepare")
     .description(
-      "Fast inner loop: the fixers, then the read-only checks (no build, no tests).",
+      "Fast inner loop: the fixers, the [generated] regenerations, then the read-only checks (no build jobs, no tests).",
     )
     .option(
       "--json",

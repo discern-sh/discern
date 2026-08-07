@@ -1,9 +1,10 @@
 /**
  * `prepare` — the fast inner loop behind `discern prepare`: the fix-stage fixers
- * (serial; order matters), then the read-only check-stage jobs (no build, no
- * tests). It runs through the gate's job runner, so a failure is captured into the
- * SAME `steps[]` + structured `diagnostics[]` `done` returns — the act→read→fix
- * loop, not a bare `ok:false` (ADR 0028).
+ * (serial; order matters), then the `[generated]` regenerations, then the
+ * read-only check-stage jobs (no build jobs, no tests). It runs through the
+ * gate's job runner, so a failure is captured into the SAME `steps[]` +
+ * structured `diagnostics[]` `done` returns — the act→read→fix loop, not a bare
+ * `ok:false` (ADR 0028).
  *
  * One core ({@link runPrepareGate}) builds the groups and runs them; {@link
  * prepareResult} runs it quiet and returns the {@link DiscernResult} the MCP server
@@ -24,7 +25,11 @@ import {
   hintTexts,
   interactiveHintTexts,
 } from "../../shared/hints.ts";
-import { preparePlanGroups, serializeJobSteps } from "./plan.ts";
+import {
+  GENERATED_GROUP_DISPLAY,
+  preparePlanGroups,
+  serializeJobSteps,
+} from "./plan.ts";
 import { gateRunContext, runJobGroups } from "./execute.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import { renderFailureTail } from "./failure_tail.ts";
@@ -192,7 +197,11 @@ export async function runPrepare(
   if (failedStage !== null) {
     renderFailureTail(out, {
       verb: "prepare",
-      headline: failedStage === "fix" ? "A fixer failed." : "A check failed.",
+      headline: failedStage === "fix"
+        ? "A fixer failed."
+        : failedStage === "build"
+        ? "A regeneration failed."
+        : "A check failed.",
       diagnostics: result.diagnostics ?? [],
       gotchas: gotchasTail,
       // The live table quiets the runner, so the tail carries the output.
@@ -200,9 +209,15 @@ export async function runPrepare(
     });
     return 1;
   }
-  const noJobs = (result.steps?.length ?? 0) === 0;
+  const steps = result.steps ?? [];
+  const noJobs = steps.length === 0;
+  const regenerated = steps.some((s) =>
+    s.step.group === GENERATED_GROUP_DISPLAY
+  );
   const success = noJobs
     ? "No fix or check job is configured. Build and test stages did not run."
+    : regenerated
+    ? "Fix and check stages passed; generated artifacts were regenerated. Build jobs and tests did not run."
     : "Fix and check stages passed. Build and test stages did not run.";
   if (ttyTable && ttyWidth !== undefined) {
     out.group("prepare-summary");

@@ -507,10 +507,12 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: MUTATING,
     description:
       "Run the fast inner-loop gate — the project's quick quality check — with the " +
-      "fix-stage fixers, then the read-only " +
-      "check-stage jobs (no build, no tests) — and return the result envelope. The " +
-      "quick check to run while iterating, before the full discern_done. NOTE: the " +
-      "fixers MUTATE the working tree (e.g. a formatter rewrites files).",
+      "fix-stage fixers, then the [generated] artifact regenerations, then the read-only " +
+      "check-stage jobs (no build jobs, no tests) — and return the result envelope. The " +
+      "quick check to run while iterating, before the full discern_done — and the pass " +
+      "to run before the FINAL commit, so the fixers and regenerations have nothing " +
+      "left to rewrite when discern_done runs on the committed tree. NOTE: the " +
+      "fixers and regenerations MUTATE the working tree (e.g. a formatter rewrites files).",
     inputSchema: { ...PATH_PARAM },
     run: (root, _args, signal) => prepareResult(root, signal),
   }),

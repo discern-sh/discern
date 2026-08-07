@@ -264,14 +264,14 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `prepare` — the fast inner loop, from the real {@link preparePlanGroups} (fix then
- * check; no build, no tests). */
+/** `prepare` — the fast inner loop, from the real {@link preparePlanGroups} (fix,
+ * then the `[generated]` regenerations, then check; no build jobs, no tests). */
 function prepareVerb(cfg: DiscernConfig): VerbPlan {
   const steps = preparePlanGroups(cfg).flatMap((g) => g.jobs.map(annotateJob));
   return {
     verb: "prepare",
     when:
-      "The fast inner loop while you iterate (fix, then check; no build, no tests).",
+      "The fast inner loop while you iterate (fix, regenerate, then check; no build jobs, no tests).",
     steps,
   };
 }
