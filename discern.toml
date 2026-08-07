@@ -295,6 +295,7 @@
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}_private/brand/claims-and-evidence.md",
       "${map.dir}_private/brand/copy-patterns.md",
+      "${map.dir}_private/brand/copy-review.md",
       "${map.dir}_private/brand/messaging.md",
       "${map.dir}_private/brand/register-bridge.md",
       "${map.dir}_private/research/agent-integration-coverage.md",

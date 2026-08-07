@@ -20,6 +20,7 @@ import { join } from "@std/path";
 import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
+import { SCORECARDS } from "../scripts/brand/docs/copy_review.ts";
 import {
   CTA_BANKS,
   DESCRIPTIONS,
@@ -99,6 +100,13 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
     TRANSLATIONS.map((translation) => translation.id),
   );
   unique("copy-pattern ids", COPY_PATTERNS.map((pattern) => pattern.id));
+  unique("scorecard ids", SCORECARDS.map((scorecard) => scorecard.id));
+  for (const scorecard of SCORECARDS) {
+    unique(
+      `${scorecard.id} scorecard dimensions`,
+      scorecard.rows.map((row) => row.dimension),
+    );
+  }
   // The resolver's token pattern only matches kebab ids, so anything else
   // could never be cited.
   for (const id of BRAND_DOCUMENTS.map((doc) => doc.id)) {

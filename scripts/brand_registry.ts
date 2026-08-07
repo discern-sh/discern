@@ -32,6 +32,7 @@ import {
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
+import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
 
 /**
  * Where the brand documents live, relative to the configured map directory.
@@ -169,7 +170,7 @@ export const BRAND_DOCUMENTS = [
     status: "Governance",
     job:
       "Reviews drafts for strategy, truth, register fit, distinctiveness, and contemporary AI-copy smells.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderCopyReviewDoc },
   },
   {
     id: "decisions",
