@@ -390,7 +390,7 @@ export const DRAFTING_PROCEDURE: readonly string[] = [
   "Decide whether that change deserves public prominence.",
   "Write the human proposition without product nouns.",
   "Reintroduce only the product nouns required to explain or prove it.",
-  "Check the proposed claim against `claims-and-evidence.md`.",
+  "Check the proposed claim against {{doc:claims-and-evidence}}.",
 ];
 
 /** Product-copy smells that flag a brand draft. */

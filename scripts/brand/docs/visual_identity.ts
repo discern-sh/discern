@@ -39,7 +39,7 @@ export function renderVisualIdentityDoc(): string {
     "",
     "discern's visual language is **Editorial Engineering**: tasteful typography, artefact-forward layouts, and a modern, simple, clean, premium appearance.",
     "",
-    "It is the visual counterpart of the brand voice. The verbal system leads with human meaning and proves it with authentic artefacts; the visual system gives those artefacts an editorial stage — specimens presented with care, rather than decoration layered over them. The exclusions in `website-brief.md` stand: no generic AI imagery, robot mascots, glowing brains, abstract swarms, or simulated dashboards.",
+    "It is the visual counterpart of the brand voice. The verbal system leads with human meaning and proves it with authentic artefacts; the visual system gives those artefacts an editorial stage — specimens presented with care, rather than decoration layered over them. The exclusions in {{doc:website-brief}} stand: no generic AI imagery, robot mascots, glowing brains, abstract swarms, or simulated dashboards.",
     "",
     "### Monospace is reserved",
     "",
@@ -55,7 +55,7 @@ export function renderVisualIdentityDoc(): string {
     "",
     bullets(MARK_RULES),
     "",
-    `The aspiration that ${DISCERN_MARK} becomes a recognised signal of project seriousness remains a strategic hypothesis in \`claims-and-evidence.md\`; do not present the mark as an established public meaning.`,
+    `The aspiration that ${DISCERN_MARK} becomes a recognised signal of project seriousness remains a strategic hypothesis in {{doc:claims-and-evidence}}; do not present the mark as an established public meaning.`,
     "",
     "## The design system: `discern-design-system`",
     "",
@@ -69,6 +69,6 @@ export function renderVisualIdentityDoc(): string {
     "",
     "## Relationship to the verbal brand",
     "",
-    "The artefact-first visual principle in `website-brief.md` (decision D-021) remains the content rule for what appears on a page; this document records how those pages should look and feel. When visual and verbal choices conflict, the precedence order in `README.md` applies.",
+    "The artefact-first visual principle in {{doc:website-brief}} (decision D-021) remains the content rule for what appears on a page; this document records how those pages should look and feel. When visual and verbal choices conflict, the precedence order in {{doc:readme}} applies.",
   ].join("\n");
 }
