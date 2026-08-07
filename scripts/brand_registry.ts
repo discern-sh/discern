@@ -34,6 +34,7 @@ import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
+import { renderReadmeDoc } from "./brand/docs/readme.ts";
 import { renderVisualIdentityDoc } from "./brand/docs/visual_identity.ts";
 
 /**
@@ -55,7 +56,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       "Maps the Brand Operating System: purpose, the document map, reading paths, precedence, and source-of-truth boundaries.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderReadmeFromRegistry },
   },
   {
     id: "positioning",
@@ -183,6 +184,16 @@ export const BRAND_DOCUMENTS = [
     mode: { kind: "authored", privateOverlay: false },
   },
 ] as const satisfies readonly BrandDocument[];
+
+/**
+ * Render the README from the live registry rows. A hoisted declaration with
+ * an explicit signature rather than an inline closure: citing the registry
+ * inside its own initializer would otherwise make the type inference cycle.
+ * The body only runs at render time, when the rows are fully initialized.
+ */
+function renderReadmeFromRegistry(): string {
+  return renderReadmeDoc(BRAND_DOCUMENTS);
+}
 
 export type BrandDocumentId = (typeof BRAND_DOCUMENTS)[number]["id"];
 

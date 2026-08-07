@@ -22,6 +22,11 @@ import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
 import { SCORECARDS } from "../scripts/brand/docs/copy_review.ts";
 import {
+  OUTSTANDING_WORK,
+  PRIVATE_OVERLAY_MARKER,
+  READING_PATHS,
+} from "../scripts/brand/docs/readme.ts";
+import {
   CTA_BANKS,
   DESCRIPTIONS,
   HEADLINES,
@@ -101,6 +106,8 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
   );
   unique("copy-pattern ids", COPY_PATTERNS.map((pattern) => pattern.id));
   unique("scorecard ids", SCORECARDS.map((scorecard) => scorecard.id));
+  unique("reading-path ids", READING_PATHS.map((path) => path.id));
+  unique("outstanding-work ids", OUTSTANDING_WORK.map((item) => item.id));
   for (const scorecard of SCORECARDS) {
     unique(
       `${scorecard.id} scorecard dimensions`,
@@ -154,6 +161,29 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
     assert(
       !renderBrandDoc(doc.id).includes("{{"),
       `${doc.id} renders an unresolved citation token`,
+    );
+  }
+});
+
+Deno.test("the rendered README document map equals the registry", () => {
+  const rendered = renderBrandDoc("readme");
+  for (const doc of BRAND_DOCUMENTS) {
+    if (doc.id === "readme") {
+      assert(
+        !rendered.includes(`[\`${doc.file}\`](${doc.file})`),
+        "the README must not list itself in the document map",
+      );
+      continue;
+    }
+    const row = rendered.split("\n").find((line) =>
+      line.includes(`[\`${doc.file}\`](${doc.file})`)
+    );
+    assert(row !== undefined, `${doc.id} is missing from the document map`);
+    const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;
+    assertEquals(
+      row.includes(PRIVATE_OVERLAY_MARKER),
+      overlay,
+      `${doc.id}: the map row and the registry disagree about the overlay`,
     );
   }
 });

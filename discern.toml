@@ -293,6 +293,7 @@
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/registry-atlas.md",
       "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}_private/brand/README.md",
       "${map.dir}_private/brand/claims-and-evidence.md",
       "${map.dir}_private/brand/copy-patterns.md",
       "${map.dir}_private/brand/copy-review.md",

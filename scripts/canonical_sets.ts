@@ -855,6 +855,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/brand_registry_codegen_test.ts"],
     artifacts: [
       {
+        path: "project/map/_private/brand/README.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_private/brand/claims-and-evidence.md",
         kind: "generated-file",
         banner: true,
