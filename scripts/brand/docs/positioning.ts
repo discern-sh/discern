@@ -381,9 +381,8 @@ export function renderPositioningDoc(): string {
     "",
     "## The promise hierarchy",
     "",
-    PROMISE_HIERARCHY.map((level) =>
-      `### ${level.title}\n\n> ${level.promise}`
-    ).join("\n\n"),
+    PROMISE_HIERARCHY.map((level) => `### ${level.title}\n\n> ${level.promise}`)
+      .join("\n\n"),
     "",
     "## Reasons to believe",
     "",
