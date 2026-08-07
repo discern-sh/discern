@@ -31,6 +31,7 @@ import {
 } from "./brand/bridge.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
+import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 
 /**
  * Where the brand documents live, relative to the configured map directory.
@@ -128,7 +129,7 @@ export const BRAND_DOCUMENTS = [
     status: "Operational",
     job:
       "Reusable structures for pages, sections, proof blocks, audience explanations, and CTAs.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderCopyPatternsDoc },
   },
   {
     id: "website-brief",

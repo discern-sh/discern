@@ -142,6 +142,36 @@ export interface Translation {
   readonly productNounEntry?: string;
 }
 
+/** One titled trailing section of a copy pattern, body verbatim. */
+export interface PatternSection {
+  readonly heading: string;
+  /** Verbatim section Markdown (examples, bullets, follow-on prose). */
+  readonly body: string;
+}
+
+/**
+ * One reusable copy pattern. The optional fields mirror the document's own
+ * variability: a pattern may lack a “Use when”, carry prose directly after
+ * its structure block, or close with a “Requirements” list.
+ */
+export interface CopyPattern {
+  readonly id: string;
+  /** The name after the number in the pattern's heading. */
+  readonly title: string;
+  /** Markdown body of “Use when” (bullets or a sentence). */
+  readonly useWhen?: string;
+  /** The fenced structure block's contents, byte-exact. */
+  readonly structure: string;
+  /** The structure fence's language when it is not `markdown`. */
+  readonly structureLang?: "text";
+  /** Prose directly after the structure block, before any titled section. */
+  readonly structureNote?: string;
+  /** Titled sections between the structure and any requirements. */
+  readonly sections?: readonly PatternSection[];
+  /** The closing “Requirements” bullets. */
+  readonly requirements?: readonly string[];
+}
+
 /** The document-map statuses the brand README table shows. */
 export type BrandDocumentStatus =
   | "Canonical"

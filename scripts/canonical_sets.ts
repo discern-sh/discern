@@ -860,6 +860,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: "project/map/_private/brand/copy-patterns.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: "project/map/_private/brand/messaging.md",
         kind: "generated-file",
         banner: true,
