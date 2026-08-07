@@ -24,6 +24,11 @@ import {
   type CitationContext,
   resolveCitationTokens,
 } from "./brand/model.ts";
+import {
+  CONCEPT_MAP_HEADING,
+  CONCEPTS,
+  renderBridgeDoc,
+} from "./brand/bridge.ts";
 import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 
@@ -78,7 +83,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       "Prevents product ontology from directly dictating brand copy; maps product truth into human situations and benefits.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderBridgeDoc },
   },
   {
     id: "claims-and-evidence",
@@ -227,9 +232,14 @@ function citationContext(): CitationContext {
   const docs = new Map(
     BRAND_DOCUMENTS.map((doc) => [doc.id, `[\`${doc.file}\`](${doc.file})`]),
   );
-  // The register-bridge concept table arrives with its conversion; until
-  // then every {{concept:…}} token is unknown and throws.
-  const concepts = new Map<string, string>();
+  const bridgeFile = documentById("register-bridge").file;
+  const conceptAnchor = headingAnchor(CONCEPT_MAP_HEADING);
+  const concepts = new Map(
+    CONCEPTS.map((concept) => [
+      concept.id,
+      `[${concept.name}](${bridgeFile}#${conceptAnchor})`,
+    ]),
+  );
   return { claims, docs, concepts };
 }
 

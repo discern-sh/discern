@@ -864,6 +864,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "generated-file",
         banner: true,
       },
+      {
+        path: "project/map/_private/brand/register-bridge.md",
+        kind: "generated-file",
+        banner: true,
+      },
     ],
     enrolledIn: {
       glossary: {

@@ -113,6 +113,35 @@ export interface HeroSystem {
   readonly signature?: string;
 }
 
+/**
+ * One row of the register bridge's core concept map. The fields are the
+ * table's columns: `productRole` is “Exact product role”, `plainFirstUse` is
+ * “Plain-language first use”, `prominence` is “Use prominently?”, and
+ * `doNotImply` is “Do not imply”.
+ */
+export interface Concept {
+  readonly id: string;
+  /** The display name, bolded in the table's first column. */
+  readonly name: string;
+  readonly productRole: string;
+  readonly humanSituation: string;
+  readonly brandInterpretation: string;
+  readonly plainFirstUse: string;
+  readonly prominence: string;
+  readonly doNotImply: string;
+}
+
+/** One product-to-brand translation worked example. */
+export interface Translation {
+  readonly id: string;
+  readonly title: string;
+  readonly productTruth: string;
+  readonly weakLiteralTranslation: string;
+  readonly betterHumanTranslations: readonly string[];
+  /** Rendered as the “Where the product noun enters” blockquote. */
+  readonly productNounEntry?: string;
+}
+
 /** The document-map statuses the brand README table shows. */
 export type BrandDocumentStatus =
   | "Canonical"

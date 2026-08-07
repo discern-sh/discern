@@ -17,6 +17,7 @@ import {
   assertThrows,
 } from "@std/assert";
 import { join } from "@std/path";
+import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import {
   CTA_BANKS,
@@ -91,6 +92,11 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
   unique("hero ids", HERO_SYSTEMS.map((hero) => hero.id));
   unique("CTA bank ids", CTA_BANKS.map((bank) => bank.id));
   unique("headline lines", HEADLINES.map((headline) => headline.line));
+  unique("concept ids", CONCEPTS.map((concept) => concept.id));
+  unique(
+    "translation ids",
+    TRANSLATIONS.map((translation) => translation.id),
+  );
   // The resolver's token pattern only matches kebab ids, so anything else
   // could never be cited.
   for (const id of BRAND_DOCUMENTS.map((doc) => doc.id)) {
@@ -98,6 +104,9 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
   }
   for (const slug of Object.keys(CLAIMS)) {
     assert(/^[a-z0-9-]+$/.test(slug), `claim slug ${slug} is not citable`);
+  }
+  for (const id of CONCEPTS.map((concept) => concept.id)) {
+    assert(/^[a-z0-9-]+$/.test(id), `concept id ${id} is not citable`);
   }
 });
 
@@ -110,6 +119,11 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
   assertEquals(
     resolveBrandCitations("{{doc:messaging}}"),
     "[`messaging.md`](messaging.md)",
+  );
+  assertEquals(
+    resolveBrandCitations("{{concept:gate}}"),
+    "[Gate](register-bridge.md#core-concept-map)",
+    "a concept citation must link into the register bridge's concept map",
   );
   assertThrows(
     () => resolveBrandCitations("{{claim:no-such-claim}}"),

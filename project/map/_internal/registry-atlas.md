@@ -84,7 +84,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 71      | —                | node `canonical-sets`       |
 
-71 sets · 104 guard tests · 31 committed artifacts.
+71 sets · 104 guard tests · 32 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -219,6 +219,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/_internal/tip-inventory.md`                           | generated file   | [`tips`](#tips--tips)                                                                                     |
 | `project/map/_private/brand/claims-and-evidence.md`                | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
 | `project/map/_private/brand/messaging.md`                          | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_private/brand/register-bridge.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
 | `project/map/_private/research/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
 | `project/map/_private/research/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
 | `schema/discern-config.schema.json`                                | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
@@ -797,7 +798,7 @@ The Brand Operating System's document map: every brand document as one typed row
   - `copy-review`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Artifacts: `project/map/_private/brand/claims-and-evidence.md`, `project/map/_private/brand/messaging.md`
+- Artifacts: `project/map/_private/brand/claims-and-evidence.md`, `project/map/_private/brand/messaging.md`, `project/map/_private/brand/register-bridge.md`
 - Glossary: not enrolled — internal brand strategy, not product vocabulary the glossary defines
 - Feature canon: not enrolled — internal brand strategy informing public copy; it ships no product surface
 
