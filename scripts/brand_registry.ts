@@ -33,6 +33,7 @@ import { claimHeading, CLAIMS, renderClaimsDoc } from "./brand/claims.ts";
 import { renderMessagingDoc } from "./brand/messaging.ts";
 import { renderCopyPatternsDoc } from "./brand/patterns.ts";
 import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
+import { renderPositioningDoc } from "./brand/docs/positioning.ts";
 
 /**
  * Where the brand documents live, relative to the configured map directory.
@@ -61,7 +62,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       "Defines why discern exists, who it serves, the market boundary, and the strategic choices that govern the brand.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderPositioningDoc },
   },
   {
     id: "audiences",

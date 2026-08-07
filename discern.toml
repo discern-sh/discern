@@ -297,6 +297,7 @@
       "${map.dir}_private/brand/copy-patterns.md",
       "${map.dir}_private/brand/copy-review.md",
       "${map.dir}_private/brand/messaging.md",
+      "${map.dir}_private/brand/positioning.md",
       "${map.dir}_private/brand/register-bridge.md",
       "${map.dir}_private/research/agent-integration-coverage.md",
       "${map.dir}_private/research/cross-agent-behaviour-reference.md",
