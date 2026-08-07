@@ -24,6 +24,7 @@ import {
   resolveCitationTokens,
 } from "./brand/model.ts";
 import { CLAIMS } from "./brand/claims.ts";
+import { renderMessagingDoc } from "./brand/messaging.ts";
 
 /**
  * Where the brand documents live, relative to the configured map directory.
@@ -68,7 +69,7 @@ export const BRAND_DOCUMENTS = [
     status: "Canonical",
     job:
       "Turns the positioning into message territories, descriptions, proof order, CTAs, and approved creative directions.",
-    mode: { kind: "authored", privateOverlay: false },
+    mode: { kind: "generated", render: renderMessagingDoc },
   },
   {
     id: "register-bridge",

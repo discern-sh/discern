@@ -33,6 +33,7 @@ import {
   UNAFFILIATED_CODEGEN_TARGETS,
   UNAFFILIATED_GUARDS,
 } from "../scripts/canonical_sets.ts";
+import { generatedBrandDocuments } from "../scripts/brand_registry.ts";
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { loadConfig, toCommandList } from "../src/shared/config_schema.ts";
@@ -321,9 +322,12 @@ Deno.test("codegen writes only through the enrolled chokepoint", async () => {
     "scripts/codegen.ts no longer formats Markdown at the write chokepoint",
   );
   const writeCalls = text.split("await write(").length - 1;
+  // A registry-driven loop writes several enrolled targets through one
+  // textual call site: subtract each loop's target count, add back its call.
+  const brandLoopTargets = generatedBrandDocuments().length;
   assertEquals(
     writeCalls,
-    codegenWriteTargets().size,
+    codegenWriteTargets().size - brandLoopTargets + 1,
     "codegen write calls and enrolled targets have drifted apart — declare " +
       `the new target in ${REGISTRY_MODULE} (or remove the stale entry)`,
   );

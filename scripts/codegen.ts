@@ -77,6 +77,11 @@ import {
   CLA_ASSISTANT_METADATA_PATH,
   renderClaAssistantMetadata,
 } from "./contributor_agreement.ts";
+import {
+  brandDocMapRel,
+  generatedBrandDocuments,
+  renderBrandDoc,
+} from "./brand_registry.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -221,6 +226,15 @@ console.log(
   "Regenerating the agent-integration coverage from the provider registry:",
 );
 await write(agentIntegrationCoverage, renderAgentIntegrationCoverageDoc());
+console.log(
+  "Regenerating the brand documents from scripts/brand_registry.ts:",
+);
+for (const doc of generatedBrandDocuments()) {
+  await write(
+    relative(repoRoot, join(mapDir, brandDocMapRel(doc))),
+    renderBrandDoc(doc.id),
+  );
+}
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(
   projectArtifactPaths(parseConfigOrThrow("")),

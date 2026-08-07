@@ -293,6 +293,7 @@
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/registry-atlas.md",
       "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}_private/brand/messaging.md",
       "${map.dir}_private/research/agent-integration-coverage.md",
       "${map.dir}_private/research/cross-agent-behaviour-reference.md",
       "site/pages/assets/search.js",

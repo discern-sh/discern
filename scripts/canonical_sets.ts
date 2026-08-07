@@ -843,6 +843,39 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "brand-documents",
+    title: "Brand documents",
+    what:
+      "The Brand Operating System's document map: every brand document as one typed row, where generated pages compile from the registry through the codegen chokepoint and authored overlay documents stay declared path-and-job rows without content.",
+    source: {
+      kind: "module",
+      module: "scripts/brand_registry.ts",
+      exportName: "BRAND_DOCUMENTS",
+    },
+    guards: ["tests/brand_registry_codegen_test.ts"],
+    artifacts: [
+      {
+        path: "project/map/_private/brand/messaging.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "internal brand strategy, not product vocabulary the glossary defines",
+      },
+      featureCanon: {
+        absent:
+          "internal brand strategy informing public copy; it ships no product surface",
+      },
+    },
+    members: async () =>
+      (await import("./brand_registry.ts")).BRAND_DOCUMENTS.map(
+        (doc) => doc.id,
+      ),
+  },
+  {
     id: "setup-subverbs",
     title: "Setup sub-verbs",
     what: "The staged-setup handshake's sub-verb sequence.",
