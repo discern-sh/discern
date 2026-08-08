@@ -410,7 +410,7 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
     );
     assert(
       bareBody.includes(
-        "either report the one-line receipt and stop, or land under the verified grant",
+        "either report the one-line proof and stop, or land under the verified grant",
       ),
       "a green finish still needs one verified source of landing authority",
     );
@@ -465,8 +465,8 @@ Deno.test("renderAgentFiles: the built-in guidance reflects config (interpolatio
           "commit each logical step — acceptance lands your branch history as-is",
         ],
         [
-          "the gate receipt belongs to the final clean commit",
-          "run `discern_done` once on the clean HEAD — acceptance honors that receipt",
+          "the gate proof belongs to the final clean commit",
+          "run `discern_done` once on the clean HEAD — acceptance reuses that proof",
         ],
         [
           "another effort's clean worktree remains off limits",
