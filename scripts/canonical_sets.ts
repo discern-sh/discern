@@ -894,6 +894,21 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "generated-file",
         banner: true,
       },
+      {
+        path: "project/skills/discern-brand-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/skills/discern-product-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/skills/discern-agent-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
     ],
     enrolledIn: {
       glossary: {
