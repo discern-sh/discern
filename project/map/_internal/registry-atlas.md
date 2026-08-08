@@ -75,7 +75,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
-| [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 10      | —                | —                           |
+| [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)             | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
@@ -85,7 +85,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 72      | —                | node `canonical-sets`       |
 
-72 sets · 105 guard tests · 50 committed artifacts.
+72 sets · 105 guard tests · 51 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -216,6 +216,7 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `.vale/DiscernBrand/StackedSlogans.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
 | `.vale/DiscernBrand/TemplateOpener.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
 | `.vale/DiscernProduct/AgentBlame.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernProduct/ProductName.yml`                             | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
 | `THIRD_PARTY_NOTICES`                                              | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `project/map/00-orientation/glossary.md`                           | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
 | `project/map/70-reference/artifact-ownership.md`                   | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
@@ -2155,7 +2156,7 @@ The voice registry's banned-words and banned-moves canon behind the generated vo
 The per-register Vale styles compiled from the voice registry's rule data — one generated style directory per register, scoped by map tier in .vale.ini, each rule citing the banned canon, voice rules, or proposed mechanical checks it enforces, with a recorded disposition for every proposal no rule implements.
 
 - Source: `scripts/brand/vale.ts` — `VALE_STYLE_RULES`
-- Members: 10
+- Members: 11
   - `brand/ProductName`
   - `brand/GenericVerbs`
   - `brand/GenericAdjectives`
@@ -2163,11 +2164,12 @@ The per-register Vale styles compiled from the voice registry's rule data — on
   - `brand/CtaGenericLabel`
   - `brand/RepeatedContrast`
   - `brand/StackedSlogans`
+  - `product/ProductName`
   - `product/AgentBlame`
   - `agent/BestJudgment`
   - `agent/PositionalReference`
 - Guards: `tests/brand_vale_codegen_test.ts`
-- Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
+- Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/ProductName.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
 - Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
 - Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
 

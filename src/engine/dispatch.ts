@@ -581,7 +581,7 @@ export function attachEngineCommands(
     )
     .option(
       "--all",
-      "Report every finding, not just each detector's strongest few.",
+      "Report every finding from every detector.",
     )
     .action(
       recordedExit("patterns", async (o) => {

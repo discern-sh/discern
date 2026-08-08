@@ -2011,6 +2011,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         banner: true,
       },
       {
+        path: ".vale/DiscernProduct/ProductName.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
         path: ".vale/DiscernProduct/AgentBlame.yml",
         kind: "generated-file",
         banner: true,

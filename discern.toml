@@ -173,17 +173,18 @@
   test = { run = "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}", timeout = 1200 }
   smoke = "deno task dev --version"
 
-  # `prose` lints the map with Vale at the check stage — error-severity findings block
-  # the gate; the advisory tiers (warnings, suggestions) are held by the
-  # [standards.prose] ceiling instead. The wrapper stages a frontmatter-blanked
-  # mirror first (scripts/prose_lib.ts): Vale measures prose, never metadata.
+  # `prose` lints the map with Vale at the check stage. Error-severity findings
+  # block map-wide; every discern-authored voice alert blocks on the exact public
+  # documentation projection. Other advisories are held by the [standards.prose]
+  # ceiling. The wrapper stages a frontmatter-blanked mirror first
+  # (scripts/prose_lib.ts): Vale measures prose, never metadata.
   # `--sarif` makes each finding a file/line/rule diagnostic in the gate's
   # failure recap; drop it (or use `discern scripts prose-page`) for Vale's
   # human line format.
   [jobs.prose]
     stage = "check"
-    run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif \"${map.dir}\""
-    provides = "docs prose lint (Vale; error-severity findings block the gate)"
+    run = "deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --public-custom-zero \"${map.dir}\""
+    provides = "docs prose lint (Vale; errors map-wide and discern voice alerts on public docs block the gate)"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # [scopes.<name>] — named regions of the repo. `paths` globs define a scope; the
@@ -313,6 +314,7 @@
       ".vale/DiscernBrand/CtaGenericLabel.yml",
       ".vale/DiscernBrand/RepeatedContrast.yml",
       ".vale/DiscernBrand/StackedSlogans.yml",
+      ".vale/DiscernProduct/ProductName.yml",
       ".vale/DiscernProduct/AgentBlame.yml",
       ".vale/DiscernAgent/BestJudgment.yml",
       ".vale/DiscernAgent/PositionalReference.yml",
@@ -725,6 +727,7 @@
     inputs = [
       "${map.dir}**",
       "scripts/public_doc_density.ts",
+      "scripts/public_doc_density_lib.ts",
       "src/lib/frontmatter.ts",
       "src/lib/docs.ts",
       "src/lib/paths.ts",

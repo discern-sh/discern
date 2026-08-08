@@ -62,7 +62,7 @@
         },
         "logbook": {
           "default": true,
-          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; configuration-change attribution and each Standard's limit history; advisory findings on `status`, the `done` Receipt, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
+          "description": "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds the practice report (`discern patterns`); each worktree's last action and work in flight; fleet activity times that include verb runs; configuration-change attribution and each Standard's limit history; advisory findings on `status`, the `done` Receipt, and `improvement`; wait estimates when concurrent test runs queue; the in-flight check on the contained-worktree offer. false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
           "type": "boolean"
         },
         "agents": {
@@ -99,7 +99,7 @@
         },
         "receipt_notes": {
           "default": "local",
-          "description": "How landed receipt notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. Discern never configures push behavior or starts a network request.",
+          "description": "How landed receipt notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. discern never configures push behavior or starts a network request.",
           "type": "string",
           "enum": [
             "local",
@@ -398,7 +398,7 @@
               ]
             },
             "smoke": {
-              "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes.",
+              "description": "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Keep end-to-end coverage and discern's built-in write probes separate.",
               "anyOf": [
                 {
                   "type": "string"
@@ -722,7 +722,7 @@
     },
     "standards": {
       "default": {},
-      "description": "[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = \"on-demand\" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count; a quality that scales (coverage, alert density) holds a rate — add `per` so growth alone stays within the limit; a total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows — pinned at today's value it fails the next legitimate change.",
+      "description": "[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = \"on-demand\" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count. A quality that scales (coverage, alert density) holds a rate; add `per` so growth alone stays within the limit. A total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows. At today's pinned value, it fails the next legitimate change.",
       "type": "object",
       "propertyNames": {
         "type": "string",

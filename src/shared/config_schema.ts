@@ -364,7 +364,7 @@ const projectSection = z.strictObject({
     "Where the deferred-work ledger (the running TODO list agents read and maintain) lives. The path is relative to the project root. discern removes leading `./` prefixes when it loads the config.",
   ),
   logbook: z.boolean().default(true).describe(
-    "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names, never code or output, under .git, never committed, never transmitted. The history feeds " +
+    "When true, record one line of local, metadata-only history per CLI verb run and Model Context Protocol (MCP) invocation resolved to this project: timings, outcomes, and names. The log contains no code or output. Its files stay under `.git`, outside commits and network transmission. The history feeds " +
       logbookPoweredPhraseList() +
       ". false stops all writes and switches those readers off (`discern patterns` alone keeps reading existing history); recorded lines stay until you delete them (`discern patterns reset`).",
   ),
@@ -381,7 +381,7 @@ const repositorySection = z.strictObject({
     'Branch prefix for worktrees created by discern, e.g. "agent/my-feature".',
   ),
   receipt_notes: z.enum(["local", "fetch"]).default("local").describe(
-    'How landed receipt notes travel: "local" records them only in this clone; "fetch" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. Discern never configures push behavior or starts a network request.',
+    'How landed receipt notes travel: "local" records them only in this clone; "fetch" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. discern never configures push behavior or starts a network request.',
   ),
   ensure: z.array(z.string()).default([]).describe(
     "Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run.",
@@ -441,7 +441,7 @@ const jobValuesObject = z.strictObject({
   ),
   test: knownJobCommand.optional().describe("test stage — the test suite."),
   smoke: knownJobCommand.optional().describe(
-    "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Not an e2e suite or a duplicate of Discern's built-in write probes.",
+    "test stage — the project's fast, side-effect-light readiness check: prove the app boots with real config and any essential shared runtime dependency in THIS checkout (a framework's about, a CLI --version, a config-load-and-exit). Both discern done and discern test include it in the fail-fast test group, so a quick failure cancels slower siblings. Keep end-to-end coverage and discern's built-in write probes separate.",
   ),
 }).catchall(customJobValue);
 const jobsObject = z.intersection(
@@ -552,7 +552,7 @@ const standardsSection = z.record(z.string().regex(NAME_RE), standardValue)
   .default(
     {},
   ).describe(
-    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count; a quality that scales (coverage, alert density) holds a rate — add `per` so growth alone stays within the limit; a total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows — pinned at today\'s value it fails the next legitimate change.',
+    '[standards.<name>] — quality standards, numbers that can never get worse. Every gate run (`discern done`) verifies no limit loosened versus the trunk and measures each standard in parallel with the tests. A standard replays its recorded value when the change touched none of its declared `inputs`; one marked measure = "on-demand" defers measurement to `discern standards`. Each limit may only improve. Sort the number before holding it: an invariant a healthy project never adds (suppressions, a banned pattern) holds the raw count. A quality that scales (coverage, alert density) holds a rate; add `per` so growth alone stays within the limit. A total that grows with the product (a size, a word count) needs `margin` and an owner willing to raise the limit as the product grows. At today\'s pinned value, it fails the next legitimate change.',
   );
 
 const gateSection = z.strictObject({

@@ -268,6 +268,29 @@ export const VALE_STYLE_RULES = [
   },
   // ── product: joins the map-wide scan beside the house style ──
   {
+    id: "ProductName",
+    register: "product",
+    comment:
+      "The product name is lower-case on human-facing product surfaces. Public documentation holds this warning at zero; internal pages may quote historical or provider-facing names while the wider editorial pass remains pending. Compound code identifiers keep their own word boundaries, and code spans are never linted.",
+    message:
+      "The product name is lower-case 'discern': recast the sentence rather than capitalizing the name.",
+    level: "warning",
+    sources: [
+      {
+        kind: "proposed-check",
+        register: "product",
+        check: "canonical-glossary-terms",
+      },
+      {
+        kind: "voice-rule",
+        register: "agent",
+        section: "language-rules",
+        item: "write-the-product-name-as-discern",
+      },
+    ],
+    check: { extends: "existence", tokens: ["Discern"] },
+  },
+  {
     id: "AgentBlame",
     register: "product",
     comment:
@@ -414,16 +437,6 @@ export const VALE_DISPOSITIONS = [
     disposition: "deferred",
     reason:
       "needs corpus-wide frequency counts; Vale lints one file at a time.",
-  },
-  {
-    check: {
-      kind: "proposed-check",
-      register: "product",
-      check: "canonical-glossary-terms",
-    },
-    disposition: "deferred",
-    reason:
-      "the published corpus writes the capitalized product name throughout the plain-language canon today, and canonical casing for product nouns is being settled by the glossary migration; the brand tier carries the name rule (DiscernBrand.ProductName) now.",
   },
   {
     check: {

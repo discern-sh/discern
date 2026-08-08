@@ -17,6 +17,8 @@
 import { assertEquals } from "@std/assert";
 import { join } from "@std/path";
 import { MANUAL_SECTION_REGISTRY } from "../src/lib/paths.ts";
+import { publicDocEntries } from "../scripts/public_doc_density_lib.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 /** Resolve the configured manual directory for one published audience tier. */
 function registrySection(audience: "public" | "contributor"): string {
@@ -56,6 +58,12 @@ Deno.test("the density metric counts only public published pages, frontmatter ex
     await Deno.writeTextFile(
       join(dir, "_private", "notes.md"),
       `# Notes\n\n${"secret ".repeat(300)}\n`,
+    );
+
+    assertEquals(
+      (await publicDocEntries(REPO_ROOT, dir)).map((entry) => entry.relToDocs),
+      ["README.md", `${publicSection}/published.md`],
+      "the reusable projection excludes withheld, contributor, and private pages",
     );
 
     const script = new URL("../scripts/public_doc_density.ts", import.meta.url);

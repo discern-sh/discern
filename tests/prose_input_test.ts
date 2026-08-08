@@ -11,6 +11,8 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
   blankFrontmatter,
   restoreStagePaths,
+  type SarifLog,
+  selectProseGateAlerts,
   stageProseInput,
   valeJsonToSarif,
 } from "../scripts/prose_lib.ts";
@@ -150,10 +152,141 @@ Deno.test("valeJsonToSarif feeds the gate's own SARIF normalization", () => {
   assertEquals(diagnostics[1]?.severity, "warning");
 });
 
+Deno.test("public prose holds discern voice alerts at exact zero", () => {
+  const stageDir = "/tmp/discern-prose-contract";
+  const publicRel = `${PUBLIC_SECTION}/published.md`;
+  const selected = selectProseGateAlerts(
+    {
+      [`${stageDir}/${publicRel}`]: [
+        {
+          Check: "Discern.Padding",
+          Severity: "suggestion",
+          Message: "Custom advisory on a published page.",
+        },
+        {
+          Check: "DiscernProduct.AgentBlame",
+          Severity: "warning",
+          Message: "Register advisory on a published page.",
+        },
+        {
+          Check: "Microsoft.Passive",
+          Severity: "warning",
+          Message: "Third-party advisory stays in the density metric.",
+        },
+      ],
+      [`${stageDir}/_internal/notes.md`]: [
+        {
+          Check: "Discern.Padding",
+          Severity: "suggestion",
+          Message: "Internal custom advisory remains editorial debt.",
+        },
+        {
+          Check: "Microsoft.Spelling",
+          Severity: "error",
+          Message: "Errors still block everywhere.",
+        },
+      ],
+      [`${stageDir}/${PUBLIC_SECTION}/withheld.md`]: [{
+        Check: "Discern.Hype",
+        Severity: "warning",
+        Message: "A withheld page is outside the published contract.",
+      }],
+    },
+    {
+      stageDir,
+      publicRelPaths: new Set([publicRel]),
+    },
+  );
+
+  assertEquals(
+    (selected[`${stageDir}/${publicRel}`] ?? []).map((alert) =>
+      (alert as { Check?: unknown }).Check
+    ),
+    ["Discern.Padding", "DiscernProduct.AgentBlame"],
+  );
+  assertEquals(
+    (selected[`${stageDir}/_internal/notes.md`] ?? []).map((alert) =>
+      (alert as { Check?: unknown }).Check
+    ),
+    ["Microsoft.Spelling"],
+  );
+  assertEquals(
+    selected[`${stageDir}/${PUBLIC_SECTION}/withheld.md`],
+    undefined,
+  );
+});
+
+Deno.test("the prose command blocks public voice advisories and ignores withheld ones", async () => {
+  await withTempDir(async (dir) => {
+    const map = join(dir, "map");
+    const section = join(map, PUBLIC_SECTION);
+    await Deno.mkdir(section, { recursive: true });
+    const published = join(section, "published.md");
+    const withheld = join(section, "withheld.md");
+    await Deno.writeTextFile(
+      published,
+      "# Published\n\nDiscern actually records the state.\n",
+    );
+    await Deno.writeTextFile(
+      withheld,
+      "---\npublish: false\n---\n\n# Withheld\n\nDiscern actually records the state.\n",
+    );
+
+    const run = async (): Promise<Deno.CommandOutput> =>
+      await new Deno.Command(Deno.execPath(), {
+        args: [
+          "run",
+          "--allow-read",
+          "--allow-write",
+          "--allow-env",
+          "--allow-run",
+          join(REPO_ROOT, "scripts/prose_check.ts"),
+          "--sarif",
+          "--public-custom-zero",
+          map,
+        ],
+        stdout: "piped",
+        stderr: "piped",
+      }).output();
+
+    const blocked = await run();
+    assertEquals(blocked.code, 1);
+    const blockedSarif = JSON.parse(
+      new TextDecoder().decode(blocked.stdout),
+    ) as SarifLog;
+    assertEquals(
+      blockedSarif.runs[0].results.map((result) => result.ruleId).sort(),
+      ["Discern.Padding", "DiscernProduct.ProductName"],
+    );
+    assert(
+      blockedSarif.runs[0].results.every((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri === published
+      ),
+      "only the published page belongs to the exact-zero projection",
+    );
+
+    await Deno.writeTextFile(
+      published,
+      "# Published\n\ndiscern records the state.\n",
+    );
+    const clean = await run();
+    assertEquals(clean.code, 0, new TextDecoder().decode(clean.stderr));
+    const cleanSarif = JSON.parse(
+      new TextDecoder().decode(clean.stdout),
+    ) as SarifLog;
+    assertEquals(cleanSarif.runs[0].results, []);
+  });
+});
+
 Deno.test("the prose standard divides by its staged-corpus word metric", async () => {
   const config = parseToml(
     await Deno.readTextFile(join(REPO_ROOT, "discern.toml")),
   ) as {
+    jobs?: {
+      prose?: {
+        run?: unknown;
+      };
+    };
     standards?: {
       prose?: {
         per?: unknown;
@@ -163,6 +296,10 @@ Deno.test("the prose standard divides by its staged-corpus word metric", async (
   };
   assertEquals(config.standards?.prose?.per, "prose_words");
   assertEquals(config.standards?.prose?.scale, 1000);
+  assertStringIncludes(
+    String(config.jobs?.prose?.run),
+    "--public-custom-zero",
+  );
 });
 
 Deno.test("the public-doc word count excludes frontmatter", async () => {

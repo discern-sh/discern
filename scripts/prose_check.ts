@@ -1,8 +1,11 @@
 /**
- * The `[jobs.prose]` gate command: Vale at error severity over the map's
- * PROSE — a staged mirror with frontmatter blanked and `_private` skipped
- * (see scripts/prose_lib.ts), so a metadata block can never trip the gate
- * and a diagnostic still names the real file and line.
+ * The `[jobs.prose]` gate command: Vale over the map's PROSE — a staged
+ * mirror with frontmatter blanked and `_private` skipped (see
+ * scripts/prose_lib.ts), so metadata can never trip the gate and a diagnostic
+ * still names the real file and line. Every error blocks map-wide. With
+ * `--public-custom-zero`, every discern-authored voice alert also blocks on
+ * the exact public documentation projection; third-party advisories remain
+ * inputs to the prose-density standard.
  *
  * With `--sarif` — how the gate job runs it — findings are emitted as a
  * SARIF 2.1.0 log, which the gate normalizes into one file/line/rule
@@ -15,8 +18,8 @@
  * past the gate's error-only default.
  *
  * Usage: `deno run --allow-read --allow-write --allow-env --allow-run
- * scripts/prose_check.ts <map-dir> [--min-level=<level>] [--sarif] [file ...]`
- * — exits with Vale's own exit code.
+ * scripts/prose_check.ts <map-dir> [--min-level=<level>] [--sarif]
+ * [--public-custom-zero] [file ...]`
  */
 
 import { dirname, fromFileUrl, join, relative, resolve } from "@std/path";
@@ -24,9 +27,12 @@ import { loadConfig } from "../src/shared/config_schema.ts";
 import { resolveMapDir } from "../src/lib/paths.ts";
 import {
   restoreStagePaths,
+  selectProseGateAlerts,
   stageProseInput,
+  valeAlertCount,
   valeJsonToSarif,
 } from "./prose_lib.ts";
+import { publicDocEntries } from "./public_doc_density_lib.ts";
 import { runVale } from "./vale_lib.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
@@ -34,12 +40,15 @@ const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 let mapDirArg: string | undefined;
 let minLevel = "error";
 let sarif = false;
+let publicCustomZero = false;
 const fileArgs: string[] = [];
 for (const arg of Deno.args) {
   if (arg.startsWith("--min-level=")) {
     minLevel = arg.slice("--min-level=".length);
   } else if (arg === "--sarif") {
     sarif = true;
+  } else if (arg === "--public-custom-zero") {
+    publicCustomZero = true;
   } else if (mapDirArg === undefined) {
     mapDirArg = arg;
   } else {
@@ -48,6 +57,11 @@ for (const arg of Deno.args) {
 }
 const docsDir = mapDirArg ??
   resolveMapDir(repoRoot, await loadConfig(repoRoot)).abs;
+const publicRelPaths = publicCustomZero
+  ? new Set(
+    (await publicDocEntries(repoRoot, docsDir)).map((entry) => entry.relToDocs),
+  )
+  : new Set<string>();
 
 const stage = await stageProseInput(docsDir);
 let code = 1;
@@ -72,28 +86,61 @@ try {
     );
     code = 2;
   } else {
+    const jsonOutput = sarif || publicCustomZero;
     const run = await runVale(repoRoot, [
       "--minAlertLevel",
-      minLevel,
-      ...(sarif ? ["--output=JSON"] : []),
+      publicCustomZero ? "suggestion" : minLevel,
+      ...(jsonOutput ? ["--output=JSON"] : []),
       ...(targets.length > 0 ? targets : [stage.dir]),
     ]);
     const decoder = new TextDecoder();
-    let stdout = restoreStagePaths(
-      decoder.decode(run.stdout),
-      stage.dir,
-      docsDir,
-    );
-    if (sarif) {
+    const rawStdout = decoder.decode(run.stdout);
+    let stdout = restoreStagePaths(rawStdout, stage.dir, docsDir);
+    let parsed: unknown;
+    let parsedOk = false;
+    if (jsonOutput) {
       try {
-        stdout = JSON.stringify(valeJsonToSarif(
-          JSON.parse(decoder.decode(run.stdout)),
-          (path) => restoreStagePaths(path, stage.dir, docsDir),
-        ));
+        parsed = JSON.parse(rawStdout);
+        parsedOk = true;
       } catch {
         // Unparseable Vale output (a crash, a version surprise): fall through
         // with the restored raw text, so the failure still shows its evidence.
       }
+    }
+    if (parsedOk) {
+      const gateAlerts = publicCustomZero
+        ? selectProseGateAlerts(parsed, { stageDir: stage.dir, publicRelPaths })
+        : parsed;
+      if (sarif) {
+        stdout = JSON.stringify(valeJsonToSarif(
+          gateAlerts,
+          (path) => restoreStagePaths(path, stage.dir, docsDir),
+        ));
+      } else if (publicCustomZero) {
+        stdout = restoreStagePaths(
+          JSON.stringify(gateAlerts),
+          stage.dir,
+          docsDir,
+        );
+      }
+      if (publicCustomZero) {
+        const rawHasAlerts = Object.values(
+          parsed as Record<string, unknown>,
+        ).some((value) => Array.isArray(value) && value.length > 0);
+        if (run.code !== 0 && !rawHasAlerts) {
+          code = run.code;
+        } else {
+          code = valeAlertCount(
+              gateAlerts as Record<string, unknown[]>,
+            ) > 0
+            ? 1
+            : 0;
+        }
+      } else {
+        code = run.code;
+      }
+    } else {
+      code = run.code;
     }
     const stderr = restoreStagePaths(
       decoder.decode(run.stderr),
@@ -102,7 +149,6 @@ try {
     );
     if (stdout) console.log(stdout.trimEnd());
     if (stderr) console.error(stderr.trimEnd());
-    code = run.code;
   }
 } finally {
   // Deno.exit skips finally blocks, so teardown precedes the exit below.

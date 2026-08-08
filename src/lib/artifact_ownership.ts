@@ -405,7 +405,7 @@ export function renderArtifactInventory(
         "Path",
         "Ownership",
         "Provenance class",
-        "Discern-authored portions",
+        "discern-authored portions",
         "What discern maintains",
       ],
       rows,

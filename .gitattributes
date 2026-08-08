@@ -34,6 +34,7 @@ project/skills/discern-agent-voice/SKILL.md merge=discern-generated linguist-gen
 .vale/DiscernBrand/CtaGenericLabel.yml merge=discern-generated linguist-generated
 .vale/DiscernBrand/RepeatedContrast.yml merge=discern-generated linguist-generated
 .vale/DiscernBrand/StackedSlogans.yml merge=discern-generated linguist-generated
+.vale/DiscernProduct/ProductName.yml merge=discern-generated linguist-generated
 .vale/DiscernProduct/AgentBlame.yml merge=discern-generated linguist-generated
 .vale/DiscernAgent/BestJudgment.yml merge=discern-generated linguist-generated
 .vale/DiscernAgent/PositionalReference.yml merge=discern-generated linguist-generated

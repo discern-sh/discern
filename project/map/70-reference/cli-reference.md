@@ -616,7 +616,7 @@ Usage: `discern patterns [options]`
 | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--json`  | Emit the report as a JSON DiscernResult on stdout (data.findings ranked by evidence).                                                                                                                          |
 | `--stats` | Report practice stats instead: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, counted from the same local evidence. With --json, the counts join the result as data.stats. |
-| `--all`   | Report every finding, not just each detector's strongest few.                                                                                                                                                  |
+| `--all`   | Report every finding from every detector.                                                                                                                                                                      |
 
 #### `discern patterns reset`
 

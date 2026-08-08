@@ -37,21 +37,31 @@ function docTopLevel(entry: DocEntry): string {
   return entry.relToDocs.split("/")[0] ?? entry.relToDocs;
 }
 
+/**
+ * Resolve the exact public documentation projection shared by publishing,
+ * density measurement, and public prose enforcement.
+ */
+export async function publicDocEntries(
+  repoRoot: string,
+  docsDir: string,
+): Promise<DocEntry[]> {
+  const tree = await discoverDocs({ cwd: repoRoot, dir: docsDir });
+  if (tree === undefined) {
+    throw new Error(`no documentation tree at ${docsDir}`);
+  }
+  return publicDocs(tree.entries).filter((entry) =>
+    isBundledDocEntry(docTopLevel(entry))
+  );
+}
+
 /** Count words and non-index leaves in the published documentation projection. */
 export async function measurePublicDocs(
   repoRoot: string,
   docsDir: string,
 ): Promise<PublicDocMetrics> {
-  const tree = await discoverDocs({ cwd: repoRoot, dir: docsDir });
-  if (tree === undefined) {
-    throw new Error(`no documentation tree at ${docsDir}`);
-  }
   let leaves = 0;
   let words = 0;
-  for (const entry of publicDocs(tree.entries)) {
-    if (!isBundledDocEntry(docTopLevel(entry))) {
-      continue;
-    }
+  for (const entry of await publicDocEntries(repoRoot, docsDir)) {
     const { body } = parseFrontmatter(await Deno.readTextFile(entry.absPath));
     words += wordCount(body);
     if (basename(entry.absPath) !== "README.md") {
