@@ -894,6 +894,21 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         kind: "generated-file",
         banner: true,
       },
+      {
+        path: "project/skills/discern-brand-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/skills/discern-product-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: "project/skills/discern-agent-voice/SKILL.md",
+        kind: "generated-file",
+        banner: true,
+      },
     ],
     enrolledIn: {
       glossary: {
@@ -1922,11 +1937,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "voice-banned-moves",
     title: "Voice banned moves",
     what:
-      "The voice skill's banned-moves table; the Vale style must match it pattern for pattern.",
+      "The voice registry's banned-words and banned-moves canon behind the generated voice skills; the Vale style must see every banned phrase the canon declares.",
     source: {
-      kind: "file",
-      path: "project/skills/discern-voice-and-tone/SKILL.md",
-      mustContain: "## LLM tells: banned moves",
+      kind: "module",
+      module: "scripts/brand/voice.ts",
+      exportName: "BANNED_WORDS",
     },
     guards: ["tests/voice_vale_parity_test.ts"],
     artifacts: [],
@@ -1939,6 +1954,13 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         absent:
           "an internal editorial practice for this repository, not a product feature",
       },
+    },
+    members: async () => {
+      const voice = await import("./brand/voice.ts");
+      return [
+        ...voice.BANNED_WORDS.map((word) => word.id),
+        ...voice.BANNED_MOVES.map((move) => move.id),
+      ];
     },
   },
   {

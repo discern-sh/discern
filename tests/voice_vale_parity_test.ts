@@ -1,54 +1,26 @@
 /**
- * The voice skill's banned-words table and the Discern Vale style encode one
- * rule set on two surfaces: the skill is the canon agents read; the style is
- * the tripwire the gate runs over the map. This guard forces the pair to move
- * together — every mechanically bannable phrase in the skill's table must be
- * matched by some pattern in `.vale/Discern/`, so adding a word to the canon
- * without teaching the lint fails the gate (the fix-the-class discipline,
- * applied to prose rules).
+ * The voice registry's banned canon (`BANNED_WORDS` and `BANNED_MOVES` in
+ * `scripts/brand/voice.ts`) and the Discern Vale style encode one rule set
+ * on two surfaces: the canon renders into the generated voice skills agents
+ * read; the style is the tripwire the gate runs over the map. This guard
+ * forces the pair to move together — every `phrases` entry the canon
+ * declares must be matched by some pattern in `.vale/Discern/`, so banning
+ * a phrase in the canon without teaching the lint fails the gate (the
+ * fix-the-class discipline, applied to prose rules).
  *
- * Direction matters: the style may encode MORE than the table (the skill's
- * banned *moves* — contrast-frames, recap headings — live there too), but the
- * table may never ban a phrase the style cannot see.
- *
- * Rows whose "Avoid" cell isn't purely quoted phrases (passive-voice dodging,
- * exclamation points, emoji) describe patterns no token list can hold; they
- * are skipped by shape, not by a hand-kept exception list.
+ * Direction matters: the style may encode MORE than the canon (extra tells
+ * with no documenting rule are legal), but the canon may never declare a
+ * phrase the style cannot see. Entries without `phrases` are judgment rules
+ * no token list can hold; they are exempt by shape, not by a hand-kept
+ * exception list.
  */
 
 import { join } from "@std/path";
 import { assert, assertEquals } from "@std/assert";
-import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { BANNED_MOVES, BANNED_WORDS } from "../scripts/brand/voice.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
-const SKILL_PATH = join(
-  REPO_AUTHORED_PATHS.skills,
-  "discern-voice-and-tone",
-  "SKILL.md",
-);
 const STYLE_DIR = join(REPO_ROOT, ".vale", "Discern");
-
-/** The quoted phrases of one banned-words table row, or undefined when the
- * row isn't a pure phrase list (prose descriptions can't be lint tokens). */
-function phrasesOfRow(avoidCell: string): string[] | undefined {
-  const quoted = [...avoidCell.matchAll(/"([^"]+)"/g)].map((m) => m[1] ?? "");
-  if (quoted.length === 0) return undefined;
-  const residue = avoidCell.replaceAll(/"[^"]+"/g, "");
-  if (/[A-Za-z]/.test(residue)) return undefined;
-  return quoted.flatMap(expandSlashes).map((p) =>
-    p.replace(/[.,;]+$/, "").trim().toLowerCase()
-  );
-}
-
-/** "We're excited/thrilled to announce" → both single-word alternatives. */
-function expandSlashes(phrase: string): string[] {
-  const m = phrase.match(/^(.*?)(\w+)\/(\w+)(.*)$/);
-  if (!m) return [phrase];
-  const [, pre, a, b, post] = m;
-  return [
-    ...expandSlashes(`${pre}${a}${post}`),
-    ...expandSlashes(`${pre}${b}${post}`),
-  ];
-}
 
 /** Every regex pattern the Discern style can fire on: `tokens:`/`raw:` list
  * items, `swap:` keys, and scalar `token:` values, from every rule file. */
@@ -112,23 +84,24 @@ function matchers(pattern: string): RegExp[] {
   return out;
 }
 
-Deno.test("every banned word in the voice skill is lintable by the Discern style", async () => {
-  const skill = await Deno.readTextFile(SKILL_PATH);
-  const section = skill.split(/^## Banned words$/m)[1]?.split(/^## /m)[0];
-  assert(
-    section !== undefined,
-    "the voice skill keeps a '## Banned words' section — the canon this guard reads",
+/** Flatten a canon set's declared phrases, tagged with their entry id. */
+function declaredPhrases(
+  entries: readonly { id: string; phrases?: readonly string[] }[],
+): { id: string; phrase: string }[] {
+  return entries.flatMap((entry) =>
+    (entry.phrases ?? []).map((phrase) => ({ id: entry.id, phrase }))
   );
+}
 
-  const rows = section.split("\n").filter((l) => l.startsWith("|"));
-  const phraseRows = rows
-    .slice(2) // header + separator
-    .map((row) => phrasesOfRow(row.split("|")[1] ?? ""))
-    .filter((p): p is string[] => p !== undefined);
+Deno.test("every banned phrase in the voice canon is lintable by the Discern style", async () => {
+  const declared = [
+    ...declaredPhrases(BANNED_WORDS),
+    ...declaredPhrases(BANNED_MOVES),
+  ];
   assert(
-    phraseRows.length >= 5,
-    "the banned-words table holds several mechanical rows — an empty parse " +
-      "means the table shape changed; update this guard's reader with it",
+    declared.length >= 25,
+    "the voice canon declares its mechanical phrases — a near-empty set " +
+      "means the canon was gutted; the banned tables carry `phrases`",
   );
 
   const patterns = await stylePatterns();
@@ -139,13 +112,13 @@ Deno.test("every banned word in the voice skill is lintable by the Discern style
   );
   const compiled = patterns.map((p) => matchers(p.pattern)).flat();
 
-  const unmatched = phraseRows.flat().filter((phrase) =>
+  const unmatched = declared.filter(({ phrase }) =>
     !compiled.some((re) => re.test(phrase))
   );
   assertEquals(
     unmatched,
     [],
-    "banned in the voice skill but invisible to .vale/Discern/ — add a " +
+    "banned in the voice canon but invisible to .vale/Discern/ — add a " +
       "pattern for each so the canon and the tripwire move together",
   );
 });

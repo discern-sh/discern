@@ -82,6 +82,8 @@ import {
   generatedBrandDocuments,
   renderBrandDoc,
 } from "./brand_registry.ts";
+import { REGISTERS } from "./brand/model.ts";
+import { renderVoiceSkill, voiceSkillRel } from "./brand/voice.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -234,6 +236,10 @@ for (const doc of generatedBrandDocuments()) {
     relative(repoRoot, join(mapDir, brandDocMapRel(doc))),
     renderBrandDoc(doc.id),
   );
+}
+console.log("Regenerating the voice skills from scripts/brand/voice.ts:");
+for (const register of REGISTERS) {
+  await write(voiceSkillRel(register), renderVoiceSkill(register));
 }
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(

@@ -8,6 +8,7 @@
  */
 
 import type { BrandDocument } from "../model.ts";
+import { voiceSkillRel } from "../voice.ts";
 
 /** One task-scoped reading path. */
 export interface ReadingPath {
@@ -47,7 +48,7 @@ export const READING_PATHS = [
       "`positioning.md`",
       "`audiences.md`",
       "`messaging.md`",
-      "`voice/brand/SKILL.md`",
+      "the `discern-brand-voice` skill",
       "the relevant section of `website-brief.md`",
       "only the relevant claims from `claims-and-evidence.md`",
     ],
@@ -60,7 +61,7 @@ export const READING_PATHS = [
     intro: "Read:",
     steps: [
       "the product glossary and relevant product documentation;",
-      "`voice/product/SKILL.md`;",
+      "the `discern-product-voice` skill;",
       "`claims-and-evidence.md` when a public-facing promise is involved;",
       "`register-bridge.md` only when a product concept must be introduced to a new audience.",
     ],
@@ -71,7 +72,7 @@ export const READING_PATHS = [
     intro: "Read:",
     steps: [
       "the relevant product contract or workflow;",
-      "`voice/agent/SKILL.md` in **operational mode**;",
+      "the `discern-agent-voice` skill in **operational mode**;",
       "the canonical glossary;",
       "relevant consent, authority, and stop-condition documentation.",
     ],
@@ -82,7 +83,7 @@ export const READING_PATHS = [
     intro: "Read:",
     steps: [
       "`for-agents-brief.md`;",
-      "`voice/agent/SKILL.md` in the appropriate mode;",
+      "the `discern-agent-voice` skill in the appropriate mode;",
       "`positioning.md` and `messaging.md` for brand alignment;",
       "the exact product contracts needed to support the claims.",
     ],
@@ -198,12 +199,6 @@ export const OUTSTANDING_WORK = [
       "Revisit the dated internal evidence snapshot in `claims-and-evidence.md` so it is accurate and fully up to date.",
   },
   {
-    id: "voice-skills-rollout",
-    task: "Voice skills rollout",
-    summary:
-      "Review and optimise the three voice skills, then roll them into the project's own skills folder — superseding the legacy voice-and-tone skill — before any delegated implementation work begins.",
-  },
-  {
     id: "llms-txt-rewrite",
     task: "`llms.txt` rewrite",
     summary:
@@ -261,10 +256,14 @@ function bullets(items: readonly string[]): string {
   return items.map((item) => `- ${item}`).join("\n");
 }
 
-/** Render one document-map row. */
+/** Render one document-map row. A skill row displays its repo-relative
+ * path while its link still traverses from this README's directory. */
 function documentRow(doc: BrandDocument): string {
   const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;
-  return `| [\`${doc.file}\`](${doc.file}) | ${doc.status} | ${doc.job} | ${
+  const display = doc.mode.kind === "skill"
+    ? voiceSkillRel(doc.mode.register)
+    : doc.file;
+  return `| [\`${display}\`](${doc.file}) | ${doc.status} | ${doc.job} | ${
     overlay ? PRIVATE_OVERLAY_MARKER : ""
   } |`;
 }

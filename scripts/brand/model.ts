@@ -10,8 +10,11 @@
  * citation tokens defined here at render time.
  */
 
-/** The three communication registers the Brand Operating System separates. */
-export type Register = "brand" | "product" | "agent";
+/** The three communication registers the Brand Operating System separates,
+ * in document-map order — the axis `VOICES` and the generated skills key on. */
+export const REGISTERS = ["brand", "product", "agent"] as const;
+
+export type Register = (typeof REGISTERS)[number];
 
 /** The claims ledger's evidence vocabulary, strongest class first. */
 export const EVIDENCE_CLASS_NAMES = [
@@ -172,6 +175,124 @@ export interface CopyPattern {
   readonly requirements?: readonly string[];
 }
 
+/** One numbered principle of a voice register's principle section. Its
+ * rendered number is its position in the section, so the sequence can never
+ * skip or repeat. */
+export interface VoicePrinciple {
+  readonly id: string;
+  /** The title after the number in the principle's heading. */
+  readonly title: string;
+  /** Verbatim principle Markdown under the numbered heading. */
+  readonly body: string;
+}
+
+/**
+ * One item of a structured voice rule list — a cadence rule, an
+ * anti-pattern, a mechanics rule. `phrases` carries the mechanically
+ * bannable wordings a prose lint can hold pattern-for-pattern; an entry
+ * without phrases is a judgment rule no token list can encode.
+ */
+export interface VoiceRule {
+  readonly id: string;
+  /** The list item exactly as the document renders it. */
+  readonly text: string;
+  readonly phrases?: readonly string[];
+}
+
+/**
+ * One banned-words table row. `registers` names the skills the row renders
+ * into, so one entry serves every register that bans it; `phrases` is the
+ * mechanically bannable subset the Vale parity guard holds to the style.
+ */
+export interface BannedWord {
+  readonly id: string;
+  /** The table's “Avoid” cell. */
+  readonly avoid: string;
+  /** The table's “Why” cell. */
+  readonly why: string;
+  /** The table's “Instead” cell. */
+  readonly instead: string;
+  readonly phrases?: readonly string[];
+  readonly registers: readonly [Register, ...Register[]];
+}
+
+/** One banned move: a named machine-tell pattern with its definitive rule. */
+export interface BannedMove {
+  readonly id: string;
+  /** The move's bold lead-in name. */
+  readonly name: string;
+  /** The definitive rule, verbatim Markdown after the name. */
+  readonly text: string;
+  readonly phrases?: readonly string[];
+}
+
+/** One intro-plus-checklist group of a voice criteria section. */
+export interface VoiceCriteriaGroup {
+  /** The single line introducing the checklist. */
+  readonly intro: string;
+  /** The checklist items, verbatim, punctuation included. */
+  readonly items: readonly string[];
+}
+
+/**
+ * One section of a voice document, in document order. Structure follows the
+ * signed-off documents: rule lists, numbered principles, and acceptance
+ * checklists are typed data (the entries later Vale generation reads);
+ * everything else stays verbatim authored Markdown. The `banned-words`,
+ * `banned-moves`, and `mechanics` kinds render from the shared canon sets,
+ * so the registers sharing a rule can never drift apart on it.
+ */
+export type VoiceSection =
+  | {
+    readonly kind: "prose";
+    readonly heading: string;
+    readonly body: string;
+  }
+  | {
+    readonly kind: "principles";
+    readonly heading: string;
+    readonly items: readonly VoicePrinciple[];
+  }
+  | {
+    readonly kind: "rules";
+    readonly id: string;
+    readonly heading: string;
+    /** Markdown between the heading and the rule list. */
+    readonly intro?: string;
+    readonly items: readonly VoiceRule[];
+    /** Markdown after the rule list, to the section's end. */
+    readonly outro?: string;
+  }
+  | {
+    readonly kind: "criteria";
+    readonly heading: string;
+    readonly groups: readonly VoiceCriteriaGroup[];
+  }
+  | {
+    readonly kind: "banned-words";
+    readonly heading: string;
+    readonly intro: string;
+  }
+  | {
+    readonly kind: "banned-moves";
+    readonly heading: string;
+    readonly intro: string;
+  }
+  | {
+    readonly kind: "mechanics";
+    readonly heading: string;
+  };
+
+/** One register's complete voice definition: the skill identity fields and
+ * the document's sections in rendering order. */
+export interface VoiceDefinition {
+  /** The skill frontmatter description, verbatim. */
+  readonly description: string;
+  /** The document's H1 title. */
+  readonly title: string;
+  readonly sections: readonly VoiceSection[];
+}
+
 /** The document-map statuses the brand README table shows. */
 export type BrandDocumentStatus =
   | "Canonical"
@@ -182,7 +303,9 @@ export type BrandDocumentStatus =
 /**
  * How a brand document is produced today. Conversion flips a row from
  * `authored` to `generated` without restructuring the registry; overlay
- * documents stay authored path-and-job rows without content.
+ * documents stay authored path-and-job rows without content. A `skill` row
+ * is generated too, but by the voice-skill codegen loop into the configured
+ * skills directory — the row is the document map's account of it.
  */
 export type BrandDocumentMode =
   | {
@@ -194,17 +317,28 @@ export type BrandDocumentMode =
     readonly kind: "authored";
     /** True for documents that stay private overlay files at launch. */
     readonly privateOverlay: boolean;
+  }
+  | {
+    readonly kind: "skill";
+    /** The register whose generated skill this row accounts for. */
+    readonly register: Register;
   };
 
 /** One row of the brand document map. */
 export interface BrandDocument {
   readonly id: string;
-  /** Path within the brand directory (e.g. `voice/brand/SKILL.md`). */
+  /** Path relative to the brand directory (e.g. `positioning.md`; a skill
+   * row traverses out to the configured skills directory). */
   readonly file: string;
   readonly status: BrandDocumentStatus;
   /** The document's job, as the document map states it. */
   readonly job: string;
   readonly mode: BrandDocumentMode;
+}
+
+/** The banner every generated brand artifact carries, naming its source. */
+export function generatedBrandBanner(source: string): string {
+  return `<!-- GENERATED by \`deno task codegen\` from ${source} — do NOT edit by hand. Change the brand registry (scripts/brand/) and regenerate. -->`;
 }
 
 /** Replacement text per citable id, one table per citation-token kind. */
