@@ -30,7 +30,7 @@ Everything lives under [`site/`](../../../site/):
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.             |
 | [`site/pages/`](../../../site/pages/)                     | Static assets and ignored build output served by the handler.             |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles. |
-| [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext edition — DISCERN(1) as a man-style text document.          |
+| [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext edition — the `llms.txt` document, per llmstxt.org.         |
 
 The routes, from the handler's exported `PAGES` table:
 
@@ -48,7 +48,7 @@ The routes, from the handler's exported `PAGES` table:
 
 ## Reader negotiation
 
-A browser declares `text/html` in its `Accept` header; nothing else reliably does. On `/`, the handler serves the plaintext edition to clients that omit `text/html` and either match a known text tool (curl, wget, and friends) or explicitly ask for `text/plain`. So `curl discern.sh` prints the agent's manual, and the same URL in a browser renders the homepage shell. Negotiated responses carry `Vary: Accept, User-Agent`.
+A browser declares `text/html` in its `Accept` header; nothing else reliably does. On `/`, the handler serves the plaintext edition to clients that omit `text/html` and either match a known text tool (curl, wget, and friends) or explicitly ask for `text/plain`. So `curl discern.sh` prints the machine edition, and the same URL in a browser renders the homepage shell. Negotiated responses carry `Vary: Accept, User-Agent`.
 
 ## URL and response contract
 

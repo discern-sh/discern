@@ -488,13 +488,15 @@ export async function runSiteSmoke(
   const llmsResponse = await get("/llms.txt");
   secure(llmsResponse, "/llms.txt");
   const llmsText = await llmsResponse.text();
-  const llms = llmsText.slice(llmsText.indexOf("DOCUMENTATION"))
+  const llms = llmsText.slice(llmsText.indexOf("## Documentation"))
     .split("\n")
     .flatMap((line): GuidanceItem[] => {
-      const match = /https:\/\/discern\.sh(\/docs\S*)\s+(.+)$/.exec(line);
+      const match = /^- \[(.+?)\]\(https:\/\/discern\.sh(\/docs[^)]*)\):/.exec(
+        line,
+      );
       return match === null
         ? []
-        : [{ route: match[1] ?? "", title: (match[2] ?? "").trim() }];
+        : [{ route: match[2] ?? "", title: (match[1] ?? "").trim() }];
     });
   sameItems("llms.txt", llms, guidance, fail);
 

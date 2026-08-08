@@ -33,7 +33,7 @@ An unknown path is a 404: the server has no evidence that it used to exist. Use 
 Check both readers:
 
 ```sh
-curl -s localhost:4507/           # prints the DISCERN(1) plaintext edition
+curl -s localhost:4507/           # prints the llms.txt plaintext edition
 open http://localhost:4507/       # renders the generated design-system homepage
 ```
 
@@ -85,7 +85,7 @@ deno run --allow-read --allow-env --allow-net scripts/site_smoke.ts https://disc
 The external pass treats ordinary HTTP errors as failures. Authentication responses, rate limits, timeouts, and transport errors are reported as inconclusive for manual follow-up rather than misclassified as dead links.
 
 ```sh
-curl -s https://discern.sh/ | head -3        # DISCERN(1) masthead
+curl -s https://discern.sh/ | head -3        # llms.txt heading and summary
 curl -s https://discern.sh/llms.txt | head -3
 curl -s https://discern.sh/llms-full.txt | head -3
 curl -s https://discern.sh/.well-known/security.txt
