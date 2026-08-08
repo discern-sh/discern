@@ -557,7 +557,7 @@
     scale = 1000
     # Corrected from the mismatched whole-map denominator: 4,863 alerts across
     # 312,085 staged words. Private prose and frontmatter stay outside the rate.
-    limit = 15.59
+    limit = 15.15
     run = "deno task prose \"${map.dir}\""
     inputs = [
       "${map.dir}**",
