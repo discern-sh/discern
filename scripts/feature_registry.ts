@@ -328,13 +328,13 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "strand-detection",
             title: "Strand detection",
             what:
-              "`discern done` fails any stage that leaves uncommitted changes behind, instead of letting a fixer's rewrites sit in the tree without review.",
+              "`discern done` fails any stage that leaves uncommitted changes behind, instead of letting a fixer's rewrites sit in the tree without review. A run that began on a clean, committed tree stops as soon as the fix/build groups strand a file, skipping the checks and tests that can no longer change the verdict; a dirty start still runs every stage for full feedback.",
             why:
               "What the gate verified and what gets committed are the same tree.",
             plain: {
               title: "Catching changes left behind",
               what:
-                "`discern done` fails any group that changed files but did not save those changes into the project's history, instead of letting a tidying tool's rewrites sit unnoticed.",
+                "`discern done` fails any group that changed files but did not save those changes into the project's history, instead of letting a tidying tool's rewrites sit unnoticed. When everything was saved before the check began, the run stops as soon as the early groups leave such a change, skipping the tests that can no longer change the answer; a run started with unsaved edits still runs everything, for complete feedback.",
               why:
                 "The exact files the check passed are the files that get saved.",
             },

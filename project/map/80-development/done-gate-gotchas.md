@@ -42,7 +42,7 @@ stage = "tracked_artifacts"
 
 ### A gate stage dirtied a file you already committed
 
-**Symptom.** `done` reaches the end with every stage green, then reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
+**Symptom.** `done` reports uncommitted changes on tracked files (`failed_stage: "tree_drift"`). A run that started on a clean, committed tree stops right after the fix and build groups, with the later steps marked skipped; a run that started dirty reports at the end, after every stage. The diagnostic names each file and the stage that produced it, such as a Markdown reflow from the fix stage or a regenerated artifact from the build stage.
 
 **Cause.** The fix stage (here `deno fmt`) mutates by design, and another stage can mutate because of its wiring. Here the build stage's `deno task codegen` rewrites tracked schema, type, and reference files. If you commit a generated file outside its canonical form, the next `done` rewrites it and leaves an uncommitted result. The gate attributes the change to its stage and blocks it from following `accept` into the main checkout.
 

@@ -20,12 +20,20 @@ A path a `[generated.<name>]` group owns fails earlier and more precisely: the b
 
 ## What the gate compares
 
-Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. At the end, a path is stranded when it meets both conditions:
+Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. A path is stranded when it meets both conditions:
 
 - it was tracked and clean when the gate started;
-- it is dirty when the otherwise-green gate finishes.
+- it is dirty in the latest recorded snapshot while the run is otherwise green.
 
 The first successful stage snapshot containing the path identifies its origin. This covers fix, build, the combined check-and-test group, and scope gates. A later stage that restores the file to its committed state leaves no strand, because the final tree is clean.
+
+## When the check runs
+
+A run that starts on a clean, committed tree can earn a receipt, and a strand from the fix or build group already forfeits it. So once those groups pass, `done` checks for strands and stops on any it finds: the standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](../_adr/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
+
+A run that starts dirty (tracked edits or untracked files) can earn no receipt, so it skips the checkpoint, runs every stage, and reports strands at the end. Running `done` on a dirty tree is how you ask for the full run's feedback.
+
+Either way, a strand from the check, test, or scope-gate stages surfaces at the end of the run: those stages run after the checkpoint.
 
 ## Fix the failure
 
@@ -38,11 +46,12 @@ The gate never commits its own output. Only the author can choose the right comm
 
 ## Where it lives in code
 
-| Concern                                 | Source                                                                            |
-| --------------------------------------- | --------------------------------------------------------------------------------- |
-| Dirty-path snapshots and attribution    | [`tree_drift.ts`](../../../src/engine/gate/tree_drift.ts)                         |
-| Snapshot timing and failure integration | [`finish.ts`](../../../src/engine/gate/finish.ts)                                 |
-| Cross-stage coverage                    | [`engine_gate_ergonomics_test.ts`](../../../tests/engine_gate_ergonomics_test.ts) |
+| Concern                                             | Source                                                                  |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| Dirty-path snapshots and attribution                | [`tree_drift.ts`](../../../src/engine/gate/tree_drift.ts)               |
+| Checkpoint and final-pass timing                    | [`finish.ts`](../../../src/engine/gate/finish.ts)                       |
+| Pre-checkpoint stage list (`PRE_CHECKPOINT_STAGES`) | [`plan.ts`](../../../src/engine/gate/plan.ts)                           |
+| Cross-stage and checkpoint coverage                 | [`engine_tree_drift_test.ts`](../../../tests/engine_tree_drift_test.ts) |
 
 ## Current state & gotchas
 
