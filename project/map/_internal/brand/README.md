@@ -34,7 +34,7 @@ The line carries two compatible readings:
 - experienced engineers recognise the care and standards they already bring;
 - new builders recognise the desire for their software to earn confidence from everyone else.
 
-The public brand should make that seriousness feel like an earned privilege: more ambition, more leverage, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.
+The public brand should make that seriousness feel like an earned privilege: more ambition, greater reach, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.
 
 ## Document map
 
@@ -138,7 +138,7 @@ The product glossary remains canonical for product terms. Brand copy may introdu
 
 ### Brand vocabulary
 
-This directory governs the interpretation and public presentation of the product. It may use broader human language that does not belong in the product glossary: ambition, confidence, pride, seriousness, momentum, leverage, and being taken seriously.
+This directory governs the interpretation and public presentation of the product. It may use broader human language that does not belong in the product glossary: ambition, confidence, pride, seriousness, momentum, expanded capability, and being taken seriously.
 
 ### Creative lines
 
@@ -187,7 +187,7 @@ Recommended candidates for later registry-backed generation:
 - **Energy:** a bolder way to build; build further.
 - **Human outcome:** ambitious software that holds up and earns confidence.
 - **Category:** an engineering practice for agent-built software, installed into the project.
-- **Conversion benefits:** greater personal leverage, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.
+- **Conversion benefits:** greater personal reach, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.
 - **Technical distinction:** agent ergonomics.
 - **Authority:** the human decides what becomes shared.
 - **Brand voice:** editorial confidence with creative momentum.

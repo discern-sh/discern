@@ -239,12 +239,13 @@ export const PROPOSED_MECHANICAL_CHECKS = {
     },
     {
       id: "generic-verbs",
-      text: "warn on generic verbs: unlock, empower, transform, reimagine;",
+      text:
+        "warn on generic verbs: `unlock`, `empower`, `transform`, `reimagine`;",
     },
     {
       id: "unsupported-adjectives",
       text:
-        "warn on unsupported adjectives: seamless, robust, powerful, enterprise-grade;",
+        "warn on unsupported adjectives: `seamless`, `robust`, `powerful`, `enterprise-grade`;",
     },
     {
       id: "cta-generic-label",
@@ -476,7 +477,7 @@ Date:
     bullets([
       "Does the copy respect their familiarity with Git, CI, testing, review, and architecture?",
       "Does it explain why the connected practice is valuable even when the components are familiar?",
-      "Does it promise leverage without implying deskilling?",
+      "Does it promise greater reach without implying deskilling?",
       "Does it avoid raw output worship?",
     ]),
     "",
@@ -539,12 +540,12 @@ Date:
     bullets([
       "“X, not Y” constructions;",
       "“This isn't just…”;",
-      "“In a world where…”;",
+      "`In a world where…`;",
       "“The future of…”;",
       "three-part abstract noun sequences;",
       "fragments in every heading and paragraph;",
       "over-neat mirrored sentences;",
-      "repeated commands beginning with “Unlock,” “Empower,” “Transform,” “Reimagine”;",
+      "repeated commands beginning with `Unlock`, `Empower`, `Transform`, `Reimagine`;",
       "solemn manifesto tone on routine pages;",
       "alliteration used more than once in a small section;",
       "several slogans stacked together;",

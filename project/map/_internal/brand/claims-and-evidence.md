@@ -106,7 +106,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 ### `standards-cannot-loosen` — a Standard cannot be loosened on a branch
 
 - **Evidence:** structural
-- **Strongest supported public form:** “A discern Standard may tighten, but a branch cannot quietly weaken its limit.”
+- **Strongest supported public form:** “A discern Standard may tighten, but a branch cannot weaken its limit.”
 - **Mechanism:** limits are compared with the trunk on every Gate run; floors and ceilings move only in the improving direction.
 - **Conditions:** applies to configured Standards and correctly chosen metrics.
 - **Forbidden inference:** every quality dimension is measured, or a metric cannot be poorly designed.

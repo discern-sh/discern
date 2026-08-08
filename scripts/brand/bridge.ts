@@ -58,8 +58,7 @@ export const CONCEPTS = [
     name: "Standard",
     productRole:
       "A measurable floor or ceiling held against the trunk and allowed to tighten only.",
-    humanSituation:
-      "A project improves, then later work quietly gives the gain back.",
+    humanSituation: "A project improves, then later work gives the gain back.",
     brandInterpretation:
       "Once the project earns a measurable improvement, it can keep it.",
     plainFirstUse: "“A quality measure that can only improve (a Standard).”",
@@ -178,7 +177,7 @@ export const CONCEPTS = [
     humanSituation:
       "A completed change must become shared without ambiguity about tree or authority.",
     brandInterpretation:
-      "A deliberate decision that turns verified work into shared work.",
+      "A recorded decision that turns verified work into shared work.",
     plainFirstUse: "“Accept the exact reviewed change onto the shared branch.”",
     prominence: "Supporting authority story.",
     doNotImply: "That a passing Gate independently grants permission.",
@@ -298,7 +297,7 @@ export const TRANSLATIONS = [
       "a floor may rise and a ceiling may fall; a branch cannot loosen either.",
     weakLiteralTranslation: "Ratcheting numerical quality constraints.",
     betterHumanTranslations: [
-      "Once the project improves, a later change cannot quietly give the gain back.",
+      "Once the project improves, a later change cannot give the gain back.",
       "Let quality accumulate rather than being renegotiated on every branch.",
       "Keep a hard-won improvement as the new starting point.",
     ],

@@ -92,7 +92,7 @@ The user should feel more capable, not more monitored; more liberated, not more 
 
 ## The master worldview: Consequential Code
 
-The internal name for the brand platform is **Consequential Code**. It pairs deliberately with the design system's **Editorial Engineering** (see [`visual-identity.md`](visual-identity.md)): two internal labels for one system — one names what discern stands for, the other how discern looks.
+The internal name for the brand platform is **Consequential Code**. It pairs with the design system's **Editorial Engineering** (see [`visual-identity.md`](visual-identity.md)): two internal labels for one system — one names what discern stands for, the other how discern looks.
 
 It contains a belief:
 
@@ -146,7 +146,7 @@ A discern practice includes:
 
 This provides the worldview, audience identity, cultural breadth, and durable reason to exist.
 
-### Creative energy: Personal leverage
+### Creative energy: Personal reach
 
 This supplies ambition and momentum through territories such as:
 
@@ -206,7 +206,7 @@ The brand promise is supported by a connected system rather than one isolated fe
 3. **Shaped delegation** — substantial work can become complete briefs, parallel waves, or staged dependencies with explicit authority and independent review.
 4. **Isolated work** — each task receives its own checkout, branch, identity, environment values, and declared resources.
 5. **Deterministic completion** — the project runs its declared checks rather than asking an AI model to judge another model's confidence.
-6. **Standards that retain gains** — a measurable improvement can be captured and may not be quietly surrendered by a later branch.
+6. **Standards that retain gains** — a measurable improvement can be captured and may not be surrendered by a later branch.
 7. **Exact-change evidence** — the completion artefact identifies the committed tree and declared conditions it covers.
 8. **Human acceptance** — passing conditions do not independently grant authority to land.
 9. **Practice evidence** — local history can reveal recurring friction, provider cohorts, cycle time, gate fit, and quality trajectories.
@@ -282,4 +282,4 @@ A proposed message belongs in the core brand only when it passes all of these:
 
 ## Canonical summary
 
-> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. The brand should feel ambitious, premium, culturally alive, and quietly exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.
+> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.

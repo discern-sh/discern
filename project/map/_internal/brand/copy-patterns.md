@@ -19,7 +19,7 @@ For every draft:
 6. apply the brand voice skill;
 7. run the copy review.
 
-Do not combine several patterns simply because each contains a good line.
+Do not combine several patterns because each contains a good line.
 
 ## Pattern 1 — Ambition-led hero
 
@@ -27,7 +27,7 @@ Do not combine several patterns simply because each contains a good line.
 
 - the reader already senses the possibility of coding agents;
 - the page needs launch energy;
-- personal leverage is the strongest entry point.
+- personal reach is the strongest entry point.
 
 ### Structure
 
@@ -64,7 +64,7 @@ Do not combine several patterns simply because each contains a good line.
 
 ---
 
-## Pattern 2 — Elegant open hero
+## Pattern 2 — Open hero
 
 ### Use when
 
@@ -348,7 +348,7 @@ The reader understands the components and needs to see why the whole is valuable
 ### Structure
 
 ```markdown
-## <A high-leverage engineering outcome>
+## <A high-impact engineering outcome>
 
 <Compressed acknowledgement of the current home-built workflow.>
 
@@ -476,7 +476,7 @@ Turning the origin story into credible narrative.
 - fixing one bug while another part broke;
 - increasing test coverage until confidence grew;
 - adding a second agent and becoming the bottleneck;
-- realising line-by-line review was no longer the highest-leverage contribution;
+- realising line-by-line review was no longer the most valuable contribution;
 - extracting the practice from the knowledge-graph project;
 - developing discern under discern itself.
 

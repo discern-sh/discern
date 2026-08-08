@@ -157,7 +157,7 @@ export const WORKING_SUMMARY = [
   {
     label: "Conversion benefits",
     value:
-      "greater personal leverage, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.",
+      "greater personal reach, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.",
   },
   { label: "Technical distinction", value: "agent ergonomics." },
   { label: "Authority", value: "the human decides what becomes shared." },
@@ -314,7 +314,7 @@ export function renderReadmeDoc(
       "new builders recognise the desire for their software to earn confidence from everyone else.",
     ]),
     "",
-    "The public brand should make that seriousness feel like an earned privilege: more ambition, more leverage, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.",
+    "The public brand should make that seriousness feel like an earned privilege: more ambition, greater reach, more confidence, and more pride. It should never make seriousness feel joyless, corporate, punitive, or fear-driven.",
     "",
     "## Document map",
     "",
@@ -352,7 +352,7 @@ export function renderReadmeDoc(
     "",
     "### Brand vocabulary",
     "",
-    "This directory governs the interpretation and public presentation of the product. It may use broader human language that does not belong in the product glossary: ambition, confidence, pride, seriousness, momentum, leverage, and being taken seriously.",
+    "This directory governs the interpretation and public presentation of the product. It may use broader human language that does not belong in the product glossary: ambition, confidence, pride, seriousness, momentum, expanded capability, and being taken seriously.",
     "",
     "### Creative lines",
     "",

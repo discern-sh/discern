@@ -25,7 +25,7 @@ export const COPY_PATTERNS = [
     title: "Ambition-led hero",
     useWhen: `- the reader already senses the possibility of coding agents;
 - the page needs launch energy;
-- personal leverage is the strongest entry point.`,
+- personal reach is the strongest entry point.`,
     structure: `<Audience signature or short recognition line>
 
 # <A concise expression of expanded possibility>
@@ -58,7 +58,7 @@ export const COPY_PATTERNS = [
   },
   {
     id: "elegant-open-hero",
-    title: "Elegant open hero",
+    title: "Open hero",
     useWhen: `- the design carries a large amount of atmosphere;
 - the page can explain the category immediately below;
 - a broad audience needs room to project their own ambition.`,
@@ -287,7 +287,7 @@ When <triggering situation>, <changed action or experience>.
     title: "Experienced-engineer section",
     useWhen:
       "The reader understands the components and needs to see why the whole is valuable.",
-    structure: `## <A high-leverage engineering outcome>
+    structure: `## <A high-impact engineering outcome>
 
 <Compressed acknowledgement of the current home-built workflow.>
 
@@ -395,7 +395,7 @@ The necessary contrast is allowed here because the boundary is the purpose of th
         body: `- fixing one bug while another part broke;
 - increasing test coverage until confidence grew;
 - adding a second agent and becoming the bottleneck;
-- realising line-by-line review was no longer the highest-leverage contribution;
+- realising line-by-line review was no longer the most valuable contribution;
 - extracting the practice from the knowledge-graph project;
 - developing discern under discern itself.
 
@@ -544,7 +544,7 @@ export function renderCopyPatternsDoc(): string {
     "",
     ...DRAFT_STEPS.map((step, index) => `${index + 1}. ${step}`),
     "",
-    "Do not combine several patterns simply because each contains a good line.",
+    "Do not combine several patterns because each contains a good line.",
     "",
     COPY_PATTERNS.map(renderPattern).join("\n\n---\n\n"),
     "",

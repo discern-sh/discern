@@ -115,7 +115,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 ## Message pillars
 
-### Ambition and personal leverage
+### Ambition and personal reach
 
 **Human truth:** Coding agents let one person attempt work that used to require more people, time, or specialist access.
 
@@ -271,7 +271,7 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### Approximately 100 words
 
-> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. The result is a bolder way to build: more ambition and leverage, with software that continues to earn confidence as it grows.
+> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. The result is a bolder way to build: more ambition and reach, with software that continues to earn confidence as it grows.
 
 ## Audience variants
 
@@ -308,7 +308,7 @@ These are testable systems, not final mandatory homepage copy.
 >
 > _An engineering practice for agent-built software._
 
-### Hero B — Elegant and open
+### Hero B — Open
 
 > **For people who take their software seriously.**
 >

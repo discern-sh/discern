@@ -160,7 +160,7 @@ export const CLAIMS = {
     title: "a Standard cannot be loosened on a branch",
     evidence: ["structural"],
     strongestPublicForm:
-      "A discern Standard may tighten, but a branch cannot quietly weaken its limit.",
+      "A discern Standard may tighten, but a branch cannot weaken its limit.",
     mechanism:
       "limits are compared with the trunk on every Gate run; floors and ceilings move only in the improving direction.",
     conditions: "applies to configured Standards and correctly chosen metrics.",

@@ -153,7 +153,7 @@ The answer does not need to be technically complete. It must be directionally co
 
 - Does the copy respect their familiarity with Git, CI, testing, review, and architecture?
 - Does it explain why the connected practice is valuable even when the components are familiar?
-- Does it promise leverage without implying deskilling?
+- Does it promise greater reach without implying deskilling?
 - Does it avoid raw output worship?
 
 ### New consequential builder
@@ -206,12 +206,12 @@ Flag repeated use of:
 
 - “X, not Y” constructions;
 - “This isn't just…”;
-- “In a world where…”;
+- `In a world where…`;
 - “The future of…”;
 - three-part abstract noun sequences;
 - fragments in every heading and paragraph;
 - over-neat mirrored sentences;
-- repeated commands beginning with “Unlock,” “Empower,” “Transform,” “Reimagine”;
+- repeated commands beginning with `Unlock`, `Empower`, `Transform`, `Reimagine`;
 - solemn manifesto tone on routine pages;
 - alliteration used more than once in a small section;
 - several slogans stacked together;
@@ -308,8 +308,8 @@ These are candidates for Vale, tests, or registries after the rules are accepted
 
 - warn when a hero contains more than two canonical product nouns;
 - warn on repeated “X, not Y” syntax within one page;
-- warn on generic verbs: unlock, empower, transform, reimagine;
-- warn on unsupported adjectives: seamless, robust, powerful, enterprise-grade;
+- warn on generic verbs: `unlock`, `empower`, `transform`, `reimagine`;
+- warn on unsupported adjectives: `seamless`, `robust`, `powerful`, `enterprise-grade`;
 - warn when a CTA is only “Learn more,” “Explore,” or “Discover”;
 - require a claim annotation in source for designated claim-bearing blocks;
 - warn when “serious” occurs near threat vocabulary without an approved context;

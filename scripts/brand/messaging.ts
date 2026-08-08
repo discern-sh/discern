@@ -125,7 +125,7 @@ export type TerritoryId = (typeof TERRITORIES)[number]["id"];
 export const PILLARS = [
   {
     id: "ambition-and-personal-leverage",
-    title: "Ambition and personal leverage",
+    title: "Ambition and personal reach",
     humanTruth:
       "Coding agents let one person attempt work that used to require more people, time, or specialist access.",
     promise: "discern helps that capability become usable at greater scope.",
@@ -321,7 +321,7 @@ export const DESCRIPTIONS = [
     group: "length",
     heading: "Approximately 100 words",
     body:
-      `> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. The result is a bolder way to build: more ambition and leverage, with software that continues to earn confidence as it grows.`,
+      `> discern is an engineering practice for software built with coding agents. Your agent studies the repository, learns what matters, wires the project's real checks, and leaves every future agent with a shared understanding and working methods. Each task gets its own isolated environment. Substantial work can be divided, coordinated, reviewed, and returned with evidence attached to the exact completed change. Measurable improvements can become the new floor, and the person responsible for the project retains authority over what lands. The result is a bolder way to build: more ambition and reach, with software that continues to earn confidence as it grows.`,
   },
   {
     id: "experienced-engineer",
@@ -368,7 +368,7 @@ export const HERO_SYSTEMS = [
   },
   {
     id: "hero-b",
-    title: "Hero B — Elegant and open",
+    title: "Hero B — Open",
     eyebrow: "For people who take their software seriously.",
     headline: "Build further.",
     sub:

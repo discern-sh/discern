@@ -97,7 +97,7 @@ export const REASONS_TO_BELIEVE = [
     id: "standards-retain-gains",
     name: "Standards that retain gains",
     detail:
-      "a measurable improvement can be captured and may not be quietly surrendered by a later branch.",
+      "a measurable improvement can be captured and may not be surrendered by a later branch.",
   },
   {
     id: "exact-change-evidence",
@@ -290,7 +290,7 @@ export function renderPositioningDoc(): string {
     "",
     "## The master worldview: Consequential Code",
     "",
-    "The internal name for the brand platform is **Consequential Code**. It pairs deliberately with the design system's **Editorial Engineering** (see {{doc:visual-identity}}): two internal labels for one system — one names what discern stands for, the other how discern looks.",
+    "The internal name for the brand platform is **Consequential Code**. It pairs with the design system's **Editorial Engineering** (see {{doc:visual-identity}}): two internal labels for one system — one names what discern stands for, the other how discern looks.",
     "",
     "It contains a belief:",
     "",
@@ -346,7 +346,7 @@ export function renderPositioningDoc(): string {
     "",
     "This provides the worldview, audience identity, cultural breadth, and durable reason to exist.",
     "",
-    "### Creative energy: Personal leverage",
+    "### Creative energy: Personal reach",
     "",
     "This supplies ambition and momentum through territories such as:",
     "",
@@ -431,6 +431,6 @@ export function renderPositioningDoc(): string {
     "",
     "## Canonical summary",
     "",
-    "> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. The brand should feel ambitious, premium, culturally alive, and quietly exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.",
+    "> discern is for people who take their software seriously. It responds to a world in which far more people can build far more software, while the attention and discipline required to stand behind it remain scarce. discern installs an engineering practice into the project so coding agents can take on substantial work, the project can retain what matters, and the resulting software can continue to earn confidence. The brand should feel ambitious, premium, culturally alive, and exhilarating. The product earns that confidence through exact mechanisms; the brand begins with the future those mechanisms make possible.",
   ].join("\n");
 }

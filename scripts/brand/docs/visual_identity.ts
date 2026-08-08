@@ -11,7 +11,7 @@ import { DISCERN_TRIANGLE_GLYPHS } from "../../../src/lib/triangle_art.ts";
 /** The rules that travel with the mark, in rendering order. */
 export const MARK_RULES: readonly string[] = [
   `The canonical reading is **filled versus unfilled**, never dark versus light. A glyph renders in the reader's foreground colour, so any dark/light reading inverts with the theme; for the same reason the mirror ${DISCERN_TRIANGLE_GLYPHS.upLeft} carries no distinct meaning.`,
-  "In CLI and machine-facing output the glyph is decorative, never load-bearing. Output must read correctly in a font that lacks the codepoint.",
+  "In CLI and machine-facing output the glyph is decorative, never required for meaning. Output must read correctly in a font that lacks the codepoint.",
   "Drawn assets (favicon, social images) are bespoke theme-aware SVGs derived from the shape, never a rasterised glyph. At small sizes the half-fill may be exaggerated so the split survives.",
 ];
 
@@ -43,7 +43,7 @@ export function renderVisualIdentityDoc(): string {
     "",
     "### Monospace is reserved",
     "",
-    "On web pages, monospaced type means exactly two things: the name `discern` and code — where code includes source, commands, file paths, and terminal output alike. Eyebrows, footer text, captions, and other general copy are never set in monospace. The reservation is what keeps the signal legible — when monospace appears, it is the product or its code, nothing else.",
+    "On web pages, monospaced type identifies two things: the name `discern` and code — where code includes source, commands, file paths, and terminal output alike. Eyebrows, footer text, captions, and other general copy are never set in monospace. The reservation is what keeps the signal legible — when monospace appears, it is the product or its code, nothing else.",
     "",
     `## The mark: ${DISCERN_MARK}`,
     "",
@@ -59,7 +59,7 @@ export function renderVisualIdentityDoc(): string {
     "",
     "## The design system: `discern-design-system`",
     "",
-    "The Editorial Engineering aesthetic is implemented by the in-house **`discern-design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site consumes an exact pinned release, so the visual identity changes by deliberate version adoption, never by drift.",
+    "The Editorial Engineering aesthetic is implemented by the in-house **`discern-design-system`** package: an independently versioned library, maintained in its own repository and published on JSR as `@discern-sh/design-system` (ADR 0139). The public site consumes a pinned release, so the visual identity changes through an explicit version update, never by drift.",
     "",
     "What the package means for the brand:",
     "",
