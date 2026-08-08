@@ -734,12 +734,22 @@ export const TIPS: readonly RegisteredTip[] = [
 
   defineTip({
     id: "delegate-with-a-complete-brief",
-    when: "Evergreen — the final reusable guide lesson.",
+    when: "Evergreen — a reusable guide lesson.",
     features: ["skill-delegate-work"],
     example: undefined,
     template: (): string =>
       "`discern-delegate-work` turns a discussed task into a complete brief " +
       "for a fresh coding agent, then reviews what comes back.",
+  }),
+
+  defineTip({
+    id: "await-with-one-call",
+    when: "Evergreen — the final reusable guide lesson.",
+    features: ["skill-await-the-fleet"],
+    example: undefined,
+    template: (): string =>
+      "`discern-await-the-fleet` guides a coding agent to wait for another " +
+      "task with one bounded call, then build on what arrives.",
   }),
 
   defineTip({

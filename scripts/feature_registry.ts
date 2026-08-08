@@ -1195,6 +1195,18 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             surfaces: ["skill:discern-delegate-work"],
           },
           {
+            id: "skill-await-the-fleet",
+            title: "Await the fleet",
+            what:
+              "Wait for another workstream with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.",
+            plain: {
+              title: "Wait for the fleet",
+              what:
+                "Wait for another line of work with one bounded request — a sibling task passing its final check, its work joining the main shared version, or the main shared version moving — choosing the right condition, waiting on the exact task name, then following the returned next step to build on what arrived.",
+            },
+            surfaces: ["skill:discern-await-the-fleet"],
+          },
+          {
             id: "skill-document-subsystem",
             title: "Document a subsystem",
             what:
