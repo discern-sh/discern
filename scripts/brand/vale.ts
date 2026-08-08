@@ -11,7 +11,7 @@
  *
  * Every rule cites its registry sources (a banned word or move, a voice
  * rule or principle, a proposed mechanical check from the copy review), and
- * `resolveValeSource` throws on an id the registry no longer declares — a
+ * `resolveValeSource` throws on any id the registry does not declare — a
  * rename can never strand a rule. The copy review's proposed checks that no
  * rule implements each carry a recorded disposition in `VALE_DISPOSITIONS`;
  * `tests/brand_vale_codegen_test.ts` holds the partition exact, so "to the
