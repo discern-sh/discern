@@ -27,14 +27,14 @@ The first experiment affects Model Context Protocol (MCP) schema loading at star
 
 ## Evaluating an experiment
 
-Run `discern refresh` from a process that carries the registered value, then begin a new agent session so the client reads the rewritten server entry. Inspecting `.mcp.json` proves the provider projection, but not the client outcome. For this experiment, measure whether the model can select a discern tool before tool search, together with startup latency and context use.
+Run `discern refresh` from a process that carries the registered value, then begin a new agent session so the client reads the rewritten server entry. Inspect `.mcp.json` to verify the provider projection. Measure the client outcome separately: whether the model can select a discern tool before tool search, together with startup latency and context use.
 
-Removing the value is only the first half of the rollback. Run `discern refresh` again and confirm its `.mcp.json` diff removes the experimental fields. A client may cache MCP configuration for a session, so begin another session before judging the off behavior.
+To roll back, remove the value, run `discern refresh` again, and confirm that the `.mcp.json` diff removes the experimental fields. A client may cache MCP configuration for a session, so begin another session before judging the off behavior.
 
 The experiment changes which discern MCP schemas a supporting client exposes to its model at session start. It does not change the server's tool inventory, MCP `tools/list`, or tool availability.
 
 Only providers named in project config contribute a field. A project with Claude Code alone receives `alwaysLoad`. One with GitHub Copilot alone receives `deferTools`. Either registration order receives the same combined entry when a project uses both. The experiment leaves Cursor's separate `.cursor/mcp.json`, Codex's TOML, and Gemini's settings file untouched.
 
-These fields are client-specific and version-sensitive. Claude Code and Copilot CLI currently accept the combined entry, but MCP does not define either property and other clients reading `.mcp.json` may treat them differently. Git tracks the file as project configuration, so a refresh from an environment without the flag removes the experimental fields. Use the switch only for local evaluation. Durable team behavior needs a stable supported setting.
+These fields are client-specific and version-sensitive. Claude Code and Copilot CLI currently accept the combined entry. MCP defines neither property, and other clients reading `.mcp.json` may treat them differently. Git tracks the file as project configuration, so a refresh from an environment without the flag removes the experimental fields. Use the switch only for local evaluation. Durable team behavior needs a stable supported setting.
 
 [ADR 0254](../_adr/0254-mcp-preload-remains-an-environment-only-experiment.md) records the decision and removal criteria.

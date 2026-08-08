@@ -11,7 +11,7 @@ aliases:
 
 # Result contracts and protocol adapters
 
-_Every verb builds one result object; types, runtime validation, generated contracts, and protocol adapters all converge on it._
+_Every verb builds one result object. Types, runtime validation, generated contracts, and protocol adapters converge on it._
 
 [`result.ts`](../../../src/shared/result.ts) defines plans, executed steps, diagnostics, and `DiscernResult<TData>`. Human output, `--json`, and the Model Context Protocol (MCP) render that one object ([ADR 0028](../_adr/0028-result-envelope-and-diagnostics.md)).
 
@@ -60,7 +60,7 @@ Runtime schemas stay strict. The generated schema admits additive fields and pub
 
 ## Protocol adapters
 
-[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool; the parity guard reconciles the two halves against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
+[`server.ts`](../../../src/engine/mcp/server.ts) adapts result cores to MCP `content`, `structuredContent`, `isError`, and effect annotations without duplicating outcome logic. Parity tests bind tools, schemas, and verbs. `MCP_SHELL_ONLY_VERBS`, declared beside `TOOLS` with a reason per member, records the verbs without a tool. The parity guard reconciles the registries against the verb vocabulary. Caller behavior belongs in [MCP tools & results](../70-reference/mcp-and-results.md).
 
 The MCP instructions render the policies required on that surface from the operating-policy registry. The guidance templates remain authored Markdown. The parity guard checks each required policy with its registered probes. Adding a policy enrolls both surfaces in the same test ([ADR 0214](../_adr/0214-mcp-instructions-render-operating-policies.md)).
 
