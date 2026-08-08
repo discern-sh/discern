@@ -8,7 +8,6 @@ aliases:
   - durable proof
   - proof subject
   - proof note
-  - proof note schema
 ---
 
 # Proof note format
