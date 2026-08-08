@@ -1,6 +1,6 @@
 ---
 title: Cursor
-description: How discern wires guidance, skills, MCP, hooks, trust, and worktrees for Cursor.
+description: How discern configures Guidance, Skills, MCP, hooks, trust, and worktrees for Cursor.
 order: 40
 aliases:
   - Cursor
@@ -13,6 +13,8 @@ aliases:
 
 # Cursor integration
 
+_The Cursor integration supplies canonical Guidance, shared Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+
 When `[project].agents` includes Cursor, discern uses these project-local files:
 
 | File                 | Role                                       | Ownership                       |
@@ -24,7 +26,7 @@ When `[project].agents` includes Cursor, discern uses these project-local files:
 
 Cursor is not in `DEFAULT_AGENTS`. Setup adds it only when installation evidence is present.
 
-## Using the IDE
+## Using Cursor's editor
 
 `discern setup` detects the separate [`cursor-agent` terminal agent](https://cursor.com/docs/cli/installation), the editor's `cursor` shell command, or a conventional host-specific application location. Portable AppImages can live anywhere, so nonstandard installs may need explicit configuration.
 
@@ -39,9 +41,9 @@ agents = ["cursor"]
 
 ### Local sessions
 
-A Local session stays rooted at its checkout. `discern start` creates a sibling outside that workspace. **External File Protection** can then pause each write for human approval after the agent requests it. The agent never sees the UI pause.
+A Local session stays rooted at its checkout. `discern start` creates a sibling outside that workspace. **External File Protection** can then pause each requested write for human approval. Cursor does not expose that interface pause to the agent process.
 
-Turn off External File Protection under **Cursor Settings → Agents → Auto-Run**. This user-wide setting lets Cursor's file tools write outside the open workspace. `discern setup done` reports the choice but never changes it. Cursor's [agent security guide](https://cursor.com/docs/agent/security) covers the setting. [`.cursor/cli.json` permissions](https://cursor.com/docs/cli/reference/permissions) apply only to the terminal agent.
+To let a Local session write into a sibling discern worktree, turn off External File Protection under **Cursor Settings → Agents → Auto-Run**. This user-wide setting lets Cursor's file tools write outside the open workspace. `discern setup done` reports the current choice but never changes it. Cursor's [agent security guide](https://cursor.com/docs/agent/security) covers the setting. [`.cursor/cli.json` permissions](https://cursor.com/docs/cli/reference/permissions) apply only to the terminal agent.
 
 ### Cursor's Worktree option
 
@@ -58,15 +60,15 @@ You can instead set `[worktree].root` to keep discern-created worktrees inside t
 root = ".worktrees"
 ```
 
-Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
+Add `/.worktrees/` to the root `.gitignore`. This keeps External File Protection enabled. The sibling default avoids nested checkouts. Run the full Gate and check formatters, linters, indexers, and file watchers for recursive scans. Exclude the directory where needed.
 
-## Guidance and skills
+## Guidance and Skills
 
 Cursor reads the root `AGENTS.md` natively, so discern reuses the canonical file instead of emitting a Cursor-specific copy or import pointer. Codex normally emits that file. Claude Code and Gemini import it too.
 
-discern generates `AGENTS.md` from its built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+discern generates `AGENTS.md` from its built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
-Cursor also reads `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
+Cursor also reads `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Gemini, and GitHub Copilot share it.
 
 ## Model Context Protocol configuration
 
@@ -88,19 +90,19 @@ Cursor requires `type: "stdio"`. Its entry matches Claude Code and GitHub Copilo
 
 ### Logbook identity
 
-Cursor declares `cursor-vscode`. The catalogue recognizes that exact name and has no `cursor-*` prefix rule. New name-only calls carry a Cursor `mcp-client` signal.
+Cursor declares `cursor-vscode`. The catalog recognizes that exact name and has no `cursor-*` prefix rule. New name-only calls carry a Cursor `mcp-client` signal.
 
 Readers also classify retained raw metadata, so `discern patterns` attributes old `cursor-vscode` events without rewriting them. Unknown names stay in the identity-gap finding.
 
-Setup detection remains separate: it checks `cursor-agent`, the editor command, and known application paths. MCP identity is advisory and selects no setup, timeout, gate path, or landing authority.
+Setup detection remains separate: it checks `cursor-agent`, the editor command, and known application paths. MCP identity is advisory and selects no setup, timeout, Gate path, or landing authority.
 
-### MCP tool-call duration
+### Model Context Protocol call duration
 
 Cursor does not use one MCP timeout across all of its surfaces. In the Cursor Agent CLI (`agent` / `cursor-agent`) and `agent acp`, each `tools/call` currently has an effective 60-second wall-clock limit. Cursor invokes the MCP TypeScript SDK without overriding its 60-second default, so `notifications/progress` do not renew the timer. Cursor exposes no supported per-server setting for changing this limit. [Cursor support confirms the CLI and ACP behavior](https://forum.cursor.com/t/agent-acp-mcp-tools-call-times-out-at-60s-with-no-way-to-configure-it/163925/5).
 
 The editor's IDE Agent follows a different path. Cursor support reports its timeout as around 60 minutes, but Cursor publishes no precise maximum. The Agents Window and cloud-agent limits remain unverified.
 
-The IDE and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. A not-yet result carries a 15-character continuation handle and `--resume` command that preserve the original watch. Continue it until the condition holds, the user stops the watch, or the task no longer needs the dependency.
+The editor and CLI read the same project `.cursor/mcp.json`. discern does not use advisory MCP client names to choose behavior, so the generated entry selects the shortest verified transport profile. `discern_await` uses 45-second calls, leaving 15 seconds for result delivery. When the condition has not been met, the result carries a 15-character continuation handle and `--resume` command that preserve the original watch. Continue until the condition holds, the user stops the watch, or the task no longer needs the dependency.
 
 ## `.cursor/hooks.json`
 
@@ -119,7 +121,7 @@ The discern-owned Cursor hook seed is:
 }
 ```
 
-`discern refresh` re-seeds this hook idempotently and preserves unrelated groups. It re-readies sessions opened or resumed inside a discern worktree.
+`discern refresh` re-seeds this hook idempotently and preserves unrelated groups. The hook reruns worktree setup for sessions opened or resumed inside a discern worktree.
 
 discern does not set Cursor sandbox options, static command permission lists, model settings, or approval defaults. Those remain user or project choices.
 
@@ -127,7 +129,7 @@ discern does not set Cursor sandbox options, static command permission lists, mo
 
 Cursor workspace trust gates committed `.cursor/` config. The MCP server can also require per-tool approval on first use. For headless runs, `--approve-mcps` bypasses the MCP approval prompt, but it does not replace workspace trust.
 
-Cursor's skill-loading behavior has changed during the CLI beta. The product supports `.agents/skills/`, but when diagnosing a missing skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
+Skill-loading behavior varies across Cursor CLI versions. When diagnosing a missing Skill in the CLI, verify the installed `cursor-agent` version before treating the materialized directory as stale.
 
 ## See also
 

@@ -1,6 +1,6 @@
 ---
 title: Gemini
-description: How discern wires guidance, shared skills, MCP, hooks, and workspace trust for Gemini.
+description: How discern configures Guidance, shared Skills, MCP, hooks, and workspace trust for Gemini.
 order: 30
 aliases:
   - Gemini
@@ -10,17 +10,19 @@ aliases:
 
 # Gemini integration
 
+_The Gemini integration supplies shared Guidance and Skills, a Model Context Protocol (MCP) server entry, and a session-start hook._
+
 discern's Gemini integration is project-local and registry-driven. It writes or co-manages the files below when Gemini is enabled in `[project].agents`:
 
-| File                    | Role                                    | Ownership             |
-| ----------------------- | --------------------------------------- | --------------------- |
-| `GEMINI.md`             | Pointer to the canonical agent file     | Generated, committed  |
-| `.agents/skills/`       | Materialized Agent Skills               | Generated, gitignored |
-| `.gemini/settings.json` | MCP server entry and session-start hook | Shared, tracked       |
+| File                    | Role                                                       | Ownership             |
+| ----------------------- | ---------------------------------------------------------- | --------------------- |
+| `GEMINI.md`             | Pointer to the canonical agent file                        | Generated, committed  |
+| `.agents/skills/`       | Materialized Agent Skills                                  | Generated, gitignored |
+| `.gemini/settings.json` | Model Context Protocol (MCP) server and session-start hook | Shared, tracked       |
 
 Gemini is not in `DEFAULT_AGENTS`; add `"gemini"` to `[project].agents` to emit these artifacts.
 
-## Guidance and skills
+## Guidance and Skills
 
 Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.md` as an import pointer:
 
@@ -28,9 +30,9 @@ Gemini reads `GEMINI.md` by default, not `AGENTS.md`, so discern writes `GEMINI.
 @AGENTS.md
 ```
 
-`AGENTS.md` remains the canonical agent file. The file is generated from discern's built-in guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
+`AGENTS.md` remains the canonical agent file. discern generates it from built-in Guidance plus the project's `[guidance].sources`. Edit the sources, then run `discern refresh`.
 
-Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled skills there and symlinks authored project skills from `[skills].dir`. That directory is shared with Codex, Cursor, and GitHub Copilot.
+Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern materializes bundled Skills there and creates symbolic links to authored project Skills from `[skills].dir`. Codex, Cursor, and GitHub Copilot use the same directory.
 
 ## `.gemini/settings.json`
 
@@ -64,22 +66,21 @@ Gemini reads the cross-tool Agent Skills directory `.agents/skills/`. discern ma
 }
 ```
 
-Gemini infers stdio from the presence of `command`, so discern does not write a `type` field for this server. The hook seed includes `hooksConfig.enabled:
-true` — the hooks system's canonical toggle, a separate section from the per-event `hooks` arrays (every key under `hooks` must be an event array; Gemini rejects a boolean there). Without the toggle, Gemini keeps the hook block inert.
+Gemini infers stdio from the presence of `command`, so discern does not write a `type` field for this server. The hook seed includes `hooksConfig.enabled: true`, the hooks system's canonical toggle. This field sits outside the per-event `hooks` arrays. Gemini requires every key under `hooks` to contain an event array and rejects a boolean there. Without the toggle, Gemini keeps the hook block inert.
 
-Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds; a longer watch continues from the returned 15-character resume handle.
+Gemini's [MCP server configuration](https://github.com/google-gemini/gemini-cli/blob/main/docs/reference/configuration.md#mcpservers) accepts a request timeout in milliseconds and otherwise defaults to 10 minutes. discern raises it to one hour. `discern_await` uses up to 55 minutes and returns immediately when its condition holds. A longer watch continues from the returned 15-character resume handle.
 
 discern does not set Gemini sandbox options, model settings, custom commands, `.env` loading, approval defaults, or worktree flags. Those remain user or project choices.
 
 ## Runtime behavior and gotchas
 
-Project `.gemini/settings.json` is ignored in safe mode until Gemini trusts the folder. That trust grant is outside the repository. `GEMINI.md` is still read as guidance before trust, but the committed MCP server and hooks do not load until the folder is trusted or the user chooses a bypass such as `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`.
+Project `.gemini/settings.json` is ignored in Gemini's safe mode until Gemini trusts the folder. That trust grant is outside the repository. Gemini still reads `GEMINI.md` as Guidance before trust, but the committed MCP server and hooks do not load until the folder is trusted or the user chooses a bypass such as `--skip-trust` or `GEMINI_CLI_TRUST_WORKSPACE=true`.
 
-Gemini has no mid-session project-root move. `/directory add` can widen the workspace, and the native `--worktree` flag is a launch-time choice, but a running session cannot move its root into a discern worktree. Use `discern start` / `discern_start` to create the worktree, then launch a Gemini session in that worktree when the agent's shell needs to live there.
+Gemini has no mid-session project-root move. `/directory add` can widen the workspace, and the native `--worktree` flag is a launch-time choice, but a running session cannot move its root into a discern worktree. Use `discern start` / `discern_start` to create the worktree, then launch a Gemini session there when commands must run from that root.
 
-The wired hook is a `SessionStart` setup hook only. Gemini does not expose Claude Code's `WorktreeCreate` or `WorktreeRemove` contract, and its `SessionEnd` hook is advisory. discern therefore owns worktree creation and teardown through its CLI and MCP verbs rather than relying on Gemini to fire teardown.
+The wired hook is a `SessionStart` setup hook only. Gemini does not expose Claude Code's `WorktreeCreate` or `WorktreeRemove` contract, and its `SessionEnd` hook is advisory. discern therefore runs worktree creation and teardown through its CLI and MCP verbs. It does not use `SessionEnd` as teardown authority.
 
-Gemini's native worktree and sandbox behaviors are changing quickly. Re-run `discern refresh` after changing the configured agent set or upgrading the project so the committed settings stay aligned with the provider registry.
+Run `discern refresh` after changing the configured agent set or upgrading the project. This keeps the committed settings aligned with the provider registry.
 
 ## See also
 
