@@ -252,6 +252,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0259 — Generated groups opt in to review metadata; registered Markdown uses heading-aware diffs](0259-generated-groups-opt-in-to-review-metadata.md)
 - [0260 — The integration coverage compiles from the provider registry](0260-integration-coverage-compiles-from-the-provider-registry.md)
 - [0261 — The prepare inner loop runs the [generated] regenerations](0261-prepare-runs-the-generated-regenerations.md)
+- [0262 — Receipt-eligible runs stop at the pre-group strand checkpoint](0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)
 
 <!-- END GENERATED: current ADR records -->
 
