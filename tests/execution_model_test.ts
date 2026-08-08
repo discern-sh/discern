@@ -322,7 +322,7 @@ Deno.test("execution model: update and accept derive their ordered cores from th
     worktreePath: "/repo.worktrees/model-test",
     mainRepo: "/repo",
     trunk: cfg.repository.trunk,
-    receiptNotes: cfg.repository.receipt_notes,
+    proofNotes: cfg.repository.proof_notes,
     repositoryEnsureSteps: cfg.repository.ensure,
     smokeSteps: [],
     hasResources: true,

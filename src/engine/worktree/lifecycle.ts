@@ -1546,7 +1546,7 @@ async function buildAcceptPlan(
     worktreePath,
     mainRepo,
     trunk: ctx.config.repository.trunk,
-    receiptNotes: ctx.config.repository.receipt_notes,
+    proofNotes: ctx.config.repository.proof_notes,
     repositoryEnsureSteps: ctx.config.repository.ensure,
     smokeSteps: planStageJobs(ctx.config, "test")
       .filter((job) =>
@@ -2256,23 +2256,23 @@ async function executeAcceptPlan(
   // opt-in fetch transport are deliberately fail-open from this boundary:
   // neither may roll back a successful landing or turn acceptance red.
   let convergenceHints: string[] = hintTexts([]);
-  const receiptFetch = await reconcileProofNotesFetch(
+  const proofFetch = await reconcileProofNotesFetch(
     mainRepo,
-    plan.receiptNotes,
+    plan.proofNotes,
   );
-  const receiptFetchOk = proofNotesFetchSucceeded(receiptFetch);
+  const proofFetchOk = proofNotesFetchSucceeded(proofFetch);
   results.push({
     step: {
       kind: "git",
       label: "reconcile-receipt-note-fetch",
       disposition: "run",
-      note: receiptFetchOk
-        ? `receipt-note transport is ${receiptFetch.status}`
-        : receiptFetch.errors.join("; "),
+      note: proofFetchOk
+        ? `receipt-note transport is ${proofFetch.status}`
+        : proofFetch.errors.join("; "),
     },
-    outcome: receiptFetchOk ? "ok" : "skipped",
+    outcome: proofFetchOk ? "ok" : "skipped",
   });
-  if (!receiptFetchOk) {
+  if (!proofFetchOk) {
     ctx.log.warn(
       "Receipt-note fetch transport could not converge — the landing is kept.",
     );
@@ -2284,7 +2284,7 @@ async function executeAcceptPlan(
     receiptData,
   );
   const receiptNote: AcceptProofNoteData = {
-    fetch: receiptFetch,
+    fetch: proofFetch,
     write: receiptWrite,
   };
   progress.receiptNote = receiptNote;
@@ -2310,11 +2310,11 @@ async function executeAcceptPlan(
     );
   }
 
-  const publicationRemote = receiptFetch.remotes.includes("origin")
+  const publicationRemote = proofFetch.remotes.includes("origin")
     ? "origin"
-    : receiptFetch.remotes[0];
+    : proofFetch.remotes[0];
   if (
-    plan.receiptNotes === "fetch" && receiptFetchOk &&
+    plan.proofNotes === "fetch" && proofFetchOk &&
     receiptWritten && publicationRemote !== undefined
   ) {
     convergenceHints = mergeHintTexts(

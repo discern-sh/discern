@@ -4,8 +4,8 @@
  * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
  * It lives where the worktree-ready sentinel does: a single file in the per-worktree
- * git admin dir, resolved via `git rev-parse --git-path discern/gate-receipt`
- * (`.git/worktrees/<name>/discern/gate-receipt`). It is therefore worktree-local
+ * git admin dir, resolved via `git rev-parse --git-path discern/gate-proof`
+ * (`.git/worktrees/<name>/discern/gate-proof`). It is therefore worktree-local
  * (never shared across branches), never tracked or committed (it sits inside
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at

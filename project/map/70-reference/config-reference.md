@@ -22,7 +22,7 @@ aliases:
   - repository
   - repository.trunk
   - repository.branch_prefix
-  - repository.receipt_notes
+  - repository.proof_notes
   - repository.ensure
   - guidance
   - guidance.sources
@@ -142,7 +142,7 @@ Repository-wide checkout policy: the trunk, discern-created branch names, and co
 | --------------- | ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `trunk`         | string             | `"main"`   | The shared branch the gate merges into and completed work lands on. Override per-invocation with the DISCERN_TRUNK env var.                                                                                                                                                                                  |
 | `branch_prefix` | string             | `"agent/"` | Branch prefix for worktrees created by discern, e.g. "agent/my-feature".                                                                                                                                                                                                                                     |
-| `receipt_notes` | `local` \| `fetch` | `"local"`  | How landed receipt notes travel: "local" records them only in this clone; "fetch" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. discern never configures push behavior or starts a network request.                                               |
+| `proof_notes`   | `local` \| `fetch` | `"local"`  | How landed proof notes travel: "local" records them only in this clone; "fetch" adds a fetch-only mapping for each remote, including remotes that have not published a proof note yet. discern never configures push behavior or starts a network request.                                                   |
 | `ensure`        | string[]           | `[]`       | Idempotent commands that converge any checkout on its current tracked tree (for example, install dependencies from a lockfile). Run in order on every managed worktree pass and after a branch lands on the trunk. A post-landing failure is recorded but cannot undo the landing; later commands still run. |
 
 ## `[guidance]`

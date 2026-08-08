@@ -125,7 +125,7 @@ Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gat
     worktreePath: "/repo/.wt/x",
     mainRepo: "/repo",
     trunk: "main",
-    receiptNotes: "local" as const,
+    proofNotes: "local" as const,
     repositoryEnsureSteps: ["install-deps"],
     smokeSteps: [{ label: "smoke", command: "app --version" }],
     ignoredFileChanges: {

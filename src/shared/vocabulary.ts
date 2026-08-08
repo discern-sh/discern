@@ -36,8 +36,9 @@ export function retiredConfigKeySuccessor(key: string): string | undefined {
   return RETIRED_CONFIG_KEY_REDIRECTS[key];
 }
 
-/** One retired config position that is DEAD — nothing to rename to, only
- * guidance — matched against a schema unrecognized-keys issue. */
+/** One retired config position that is DEAD — it no longer parses, and its
+ * guidance may name the canonical replacement — matched against a schema
+ * unrecognized-keys issue. */
 export interface DeadConfigPosition {
   /** Dotted parent path of the unrecognized key ("" is the document root). */
   readonly path: string;
@@ -57,14 +58,19 @@ export interface DeadConfigPosition {
  * position means adding a row here, nowhere else. Order matters: the first
  * matching row wins, so keyed rows precede a same-path wildcard.
  *
- * The table starts EMPTY, like the migration registry: dead-position guidance
- * exists to steer installs off keys they actually hold, and the first public
- * release ships no layout any install could hold a dead key from. A key
- * nobody can have written needs no epitaph — strict unknown-key rejection is
- * the whole contract. The mechanism stays armed for the first post-release
- * retirement.
+ * Pre-release contract corrections also live here when a known local install
+ * may still hold the old nested key. The retired spelling never parses as an
+ * alias; the row only makes the refusal actionable.
  */
-export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [];
+export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [
+  {
+    path: "repository",
+    key: "receipt_notes",
+    message: () =>
+      "[repository].receipt_notes has been retired; rename it to [repository].proof_notes before running discern upgrade.",
+    example: '[repository]\nreceipt_notes = "local"\n',
+  },
+];
 
 /** The first dead-position row matching an unrecognized-keys issue, if any.
  * `positions` is injectable so tests can prove the matching semantics

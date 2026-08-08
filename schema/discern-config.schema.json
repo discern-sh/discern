@@ -97,9 +97,9 @@
           "description": "Branch prefix for worktrees created by discern, e.g. \"agent/my-feature\".",
           "type": "string"
         },
-        "receipt_notes": {
+        "proof_notes": {
           "default": "local",
-          "description": "How landed receipt notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a receipt note yet. discern never configures push behavior or starts a network request.",
+          "description": "How landed proof notes travel: \"local\" records them only in this clone; \"fetch\" adds a fetch-only mapping for each remote, including remotes that have not published a proof note yet. discern never configures push behavior or starts a network request.",
           "type": "string",
           "enum": [
             "local",

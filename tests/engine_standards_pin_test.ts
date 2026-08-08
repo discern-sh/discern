@@ -8,7 +8,7 @@
  * commit so `accept` skips the redundant re-run. These tests drive the real engine
  * through `runAgent` and assert on the config, the commit, and the receipt file.
  *
- * The receipt lives at `.git/discern/gate-receipt` in a plain repo (what
+ * The proof lives at `.git/discern/gate-proof` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
  * exactly the (receipt names HEAD, clean tree) condition `accept` honors.
@@ -81,7 +81,7 @@ function limitOf(configText: string, name: string): string | undefined {
   return section?.match(/^\s*limit\s*=\s*(\S+)/m)?.[1];
 }
 
-/** Resolve the gate-receipt fixture through its registered Git-admin location. */
+/** Resolve the gate-proof fixture through its registered Git-admin location. */
 function receiptFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.gateProof.path);
 }

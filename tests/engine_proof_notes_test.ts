@@ -52,7 +52,7 @@ function receiptConfig(mode: "local" | "fetch"): string {
     "",
     "[repository]",
     'trunk = "main"',
-    `receipt_notes = "${mode}"`,
+    `proof_notes = "${mode}"`,
     "",
     "[guidance]",
     "sources = []",
@@ -150,7 +150,7 @@ async function notesIdentity(root: string, ref = PROOF_NOTES_REF): Promise<
 }
 
 /** Render the wildcard refspec that fetches every namespaced Discern receipt note. */
-function receiptFetchMapping(remote: string): string {
+function proofFetchMapping(remote: string): string {
   return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
 }
 
@@ -333,7 +333,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
         `remote.${remoteName}.fetch`,
       );
       assertEquals(
-        fetches.filter((value) => value === receiptFetchMapping(remoteName))
+        fetches.filter((value) => value === proofFetchMapping(remoteName))
           .length,
         1,
       );
@@ -356,7 +356,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(enrolled.code, 0, enrolled.output);
     assertEquals(
       (await localConfigValues(dir, "remote.mirror.fetch")).filter(
-        (value) => value === receiptFetchMapping("mirror"),
+        (value) => value === proofFetchMapping("mirror"),
       ).length,
       1,
     );
@@ -486,7 +486,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(
       (await localConfigValues(
         dir,
-        "discern.receiptNotesFetchRemote",
+        "discern.proofNotesFetchRemote",
       )).sort(),
       ["mirror", "origin"],
     );
@@ -517,13 +517,13 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       "remote.origin.fetch",
     );
     assertEquals(
-      remainingFetches.includes(receiptFetchMapping("origin")),
+      remainingFetches.includes(proofFetchMapping("origin")),
       false,
     );
     assert(remainingFetches.includes(foreignMapping));
     assertEquals(
       (await localConfigValues(dir, "remote.mirror.fetch")).includes(
-        receiptFetchMapping("mirror"),
+        proofFetchMapping("mirror"),
       ),
       false,
     );
@@ -547,9 +547,9 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
     await git(dir, "push", "-u", "origin", "main");
 
     const key = "remote.origin.fetch";
-    const marker = "discern.receiptNotesFetchRemote";
+    const marker = "discern.proofNotesFetchRemote";
     const legacy = legacyProofFetchMapping("origin");
-    const optional = receiptFetchMapping("origin");
+    const optional = proofFetchMapping("origin");
     await git(dir, "config", "--local", "--add", marker, "origin");
     await git(dir, "config", "--local", "--add", key, legacy);
     await git(dir, "config", "--local", "--add", key, legacy);

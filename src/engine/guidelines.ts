@@ -73,7 +73,7 @@ export interface GuidelinesResult {
   /** Project-local provider policy/rules files written, such as Codex exec rules. */
   projectRulesWired: string[];
   /** Local Git config keys whose managed receipt-note fetch mappings changed. */
-  receiptNotesFetchChanged: string[];
+  proofNotesFetchChanged: string[];
   /** The ADR README whose maintained record lists this run regenerated — at
    * most one path; empty when the index is current or the project carries no
    * index markers (the index is opt-in by construction). */
@@ -164,7 +164,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
     hooks_wired: result.hooksWired,
     worktree_app_wired: result.worktreeAppWired,
     project_rules_wired: result.projectRulesWired,
-    proof_notes_fetch_changed: result.receiptNotesFetchChanged,
+    proof_notes_fetch_changed: result.proofNotesFetchChanged,
     adr_index_written: result.adrIndexWritten,
     skills: {
       copied: result.skillsCopied,
@@ -303,24 +303,24 @@ export async function compileGuidelines(
   // Local receipt recording is unconditional at acceptance. Transport remains
   // opt-in: only "fetch" adds an optional additive mapping, and returning to
   // "local" removes only mappings marked as managed by this integration.
-  let receiptNotesFetchChanged: string[] = [];
+  let proofNotesFetchChanged: string[] = [];
   if (options.reconcileProofNotesFetch !== false) {
     try {
       const reconciled = await reconcileProofNotesFetch(
         root,
-        config.repository.receipt_notes,
+        config.repository.proof_notes,
       );
-      receiptNotesFetchChanged = [
+      proofNotesFetchChanged = [
         ...new Set([
           ...reconciled.added,
           ...reconciled.removed,
         ]),
       ];
       errors.push(...reconciled.errors);
-      if (receiptNotesFetchChanged.length > 0) {
+      if (proofNotesFetchChanged.length > 0) {
         log.info(
           `updated receipt-note fetch transport in: ${
-            receiptNotesFetchChanged.join(", ")
+            proofNotesFetchChanged.join(", ")
           }`,
         );
       }
@@ -390,7 +390,7 @@ export async function compileGuidelines(
       hooksWired,
       worktreeAppWired,
       projectRulesWired,
-      receiptNotesFetchChanged,
+      proofNotesFetchChanged,
       adrIndexWritten,
       hints,
       skills,
@@ -477,7 +477,7 @@ export async function compileGuidelines(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
-    receiptNotesFetchChanged,
+    proofNotesFetchChanged,
     adrIndexWritten,
     hints,
     skills,
@@ -545,7 +545,7 @@ function summarize(
   hooksWired: string[],
   worktreeAppWired: string[],
   projectRulesWired: string[],
-  receiptNotesFetchChanged: string[],
+  proofNotesFetchChanged: string[],
   adrIndexWritten: string[],
   hints: FiredHint[],
   skills: { copied: number; linked: number; pruned: number },
@@ -569,7 +569,7 @@ function summarize(
     hooksWired,
     worktreeAppWired,
     projectRulesWired,
-    receiptNotesFetchChanged,
+    proofNotesFetchChanged,
     adrIndexWritten,
     hints: hintTexts(hints),
     skillsCopied: skills.copied,

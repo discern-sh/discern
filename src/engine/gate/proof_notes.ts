@@ -31,7 +31,7 @@ export const PROOF_NOTES_REF = "refs/notes/discern";
 export const PROOF_NOTES_SHORT_REF = "discern";
 export const PROOF_NOTES_TRACKING_PREFIX = "refs/discern/remotes";
 
-const MANAGED_REMOTE_KEY = "discern.receiptNotesFetchRemote";
+const MANAGED_REMOTE_KEY = "discern.proofNotesFetchRemote";
 const UTF8_ENCODER = new TextEncoder();
 const UTF8_DECODER = new TextDecoder("utf-8", { fatal: true });
 

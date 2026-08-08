@@ -68,7 +68,7 @@ export interface AcceptPlan {
   /** The trunk the acceptance fast-forwards (`[repository].trunk`). */
   trunk: string;
   /** Whether refresh maintains receipt-note fetch mappings. */
-  receiptNotes: "local" | "fetch";
+  proofNotes: "local" | "fetch";
   /** Shared checkout-convergence commands run in the trunk after landing. */
   repositoryEnsureSteps: string[];
   /** Configured smoke jobs run in the trunk after convergence. */
@@ -111,7 +111,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     kind: "git",
     label: "reconcile-receipt-note-fetch",
     disposition: "run",
-    note: plan.receiptNotes === "fetch"
+    note: plan.proofNotes === "fetch"
       ? "add the receipt-note fetch mapping for each remote"
       : "remove only receipt-note fetch mappings discern previously managed",
   });
