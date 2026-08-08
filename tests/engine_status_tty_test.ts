@@ -10,9 +10,9 @@ import {
   interactiveHintTexts,
 } from "../src/shared/hints.ts";
 import {
-  GATE_RECEIPT_CHECK_STATUSES,
-  type GateReceiptCheckData,
-  type GateReceiptCheckStatus,
+  GATE_PROOF_CHECK_STATUSES,
+  type GateProofCheckData,
+  type GateProofCheckStatus,
   type StatusData,
   type StatusFleetCollision,
   type StatusFleetEntry,
@@ -126,7 +126,7 @@ function assertLinesFit(
     const line = plain(styled);
     const identity = overflowIdentities.some((value) => line.includes(value));
     const carriesField =
-      /(?:Status|Git|Receipt|Activity|Landing|Fleet|Paths|Records|Branches|Action|Standards):/u
+      /(?:Status|Git|Proof|Activity|Landing|Fleet|Paths|Records|Branches|Action|Standards):/u
         .test(line);
     assert(
       identity && !carriesField,
@@ -159,7 +159,7 @@ function assertSectionContentColumns(output: string): void {
       hangingColumn = undefined;
       continue;
     }
-    if (section === undefined || section === "Receipts") continue;
+    if (section === undefined || section === "Proofs") continue;
     const firstVisible = line.search(/\S/u);
     const content = line.slice(firstVisible);
     const leadingToken = content.match(/^(\S+) (.+)$/u)?.[1];
@@ -432,18 +432,18 @@ Deno.test("status dashboard: every typed row status is classified and rendered",
   }
 });
 
-const RECEIPT_LABELS = {
+const PROOF_LABELS = {
   honored: "honored",
   missing: "missing",
   stale: "stale",
   dirty: "dirty worktree",
   unavailable: "unavailable",
   read_failed: "unreadable",
-} as const satisfies Record<GateReceiptCheckStatus, string>;
+} as const satisfies Record<GateProofCheckStatus, string>;
 
 Deno.test("status dashboard: every receipt-check state auto-enrols in the human vocabulary", () => {
-  for (const status of GATE_RECEIPT_CHECK_STATUSES) {
-    const receipt: GateReceiptCheckData = {
+  for (const status of GATE_PROOF_CHECK_STATUSES) {
+    const receipt: GateProofCheckData = {
       status,
       ...((status === "unavailable" || status === "read_failed")
         ? { reason: "fixture reason" }
@@ -457,7 +457,7 @@ Deno.test("status dashboard: every receipt-check state auto-enrols in the human 
       ...(status === "honored" ? { receipt_honored: true } : {}),
     });
     const output = render(data([mainEntry(), row]), 72);
-    assertStringIncludes(output, `Receipt: ${RECEIPT_LABELS[status]}`);
+    assertStringIncludes(output, `Receipt: ${PROOF_LABELS[status]}`);
   }
 });
 

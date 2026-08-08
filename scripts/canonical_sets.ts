@@ -2320,7 +2320,7 @@ export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
 export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
   "site/design_system.ts#DESIGN_SYSTEM_BUNDLES":
     "site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project",
-  "src/engine/gate/receipt_render.ts":
+  "src/engine/gate/proof_render.ts":
     "the claim announces a derive-once rule — the receipt reads the result envelope, never recomputes — not a member set",
   "src/engine/worktree/side_restrictions.ts":
     "candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention",

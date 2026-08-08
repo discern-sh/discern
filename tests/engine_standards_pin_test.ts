@@ -83,18 +83,18 @@ function limitOf(configText: string, name: string): string | undefined {
 
 /** Resolve the gate-receipt fixture through its registered Git-admin location. */
 function receiptFile(dir: string): string {
-  return join(dir, ".git", GIT_ADMIN_STATE.gateReceipt.path);
+  return join(dir, ".git", GIT_ADMIN_STATE.gateProof.path);
 }
 
 /** Seed a prior `done` vouch: write `sha` (default current HEAD) to the receipt. */
-async function seedReceipt(dir: string, sha?: string): Promise<void> {
+async function seedProof(dir: string, sha?: string): Promise<void> {
   const head = sha ?? await gitOut(dir, "rev-parse", "HEAD");
   await Deno.mkdir(dirname(receiptFile(dir)), { recursive: true });
   await Deno.writeTextFile(receiptFile(dir), `${head}\n`);
 }
 
 /** Read a trimmed gate receipt while preserving missing state as absence. */
-async function readReceipt(dir: string): Promise<string | undefined> {
+async function readProof(dir: string): Promise<string | undefined> {
   try {
     return (await Deno.readTextFile(receiptFile(dir))).trim();
   } catch {
@@ -672,7 +672,7 @@ Deno.test("pin: carries an honored gate receipt onto the new commit", async () =
     );
     await gitInit(dir);
     // Simulate a prior green finish over this clean HEAD.
-    await seedReceipt(dir);
+    await seedProof(dir);
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
@@ -684,7 +684,7 @@ Deno.test("pin: carries an honored gate receipt onto the new commit", async () =
     // The receipt now names the NEW HEAD over a clean tree — accept's honored
     // condition — so accept would skip the redundant gate re-run.
     const head = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(await readReceipt(dir), head);
+    assertEquals(await readProof(dir), head);
   });
 });
 
@@ -752,7 +752,7 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
     assertEquals(r.code, 0, r.output);
     assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
     // Fail-closed: no receipt was written, so accept will re-run the gate.
-    assertEquals(await readReceipt(dir), undefined);
+    assertEquals(await readProof(dir), undefined);
   });
 });
 
@@ -771,14 +771,14 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
     await gitInit(dir);
     // A receipt naming some other commit — not the current HEAD.
     const stale = "0".repeat(40);
-    await seedReceipt(dir, stale);
+    await seedProof(dir, stale);
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
     assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(await readReceipt(dir), stale);
+    assertEquals(await readProof(dir), stale);
     assert(stale !== head);
   });
 });
@@ -796,11 +796,11 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
       }),
     );
     await gitInit(dir);
-    await seedReceipt(dir);
+    await seedProof(dir);
 
     await runAgent(dir, ["standards", "--pin"]);
     const pinnedHead = await gitOut(dir, "rev-parse", "HEAD");
-    assertEquals(await readReceipt(dir), pinnedHead);
+    assertEquals(await readProof(dir), pinnedHead);
 
     // The agent keeps working: another commit lands after the pin. The carried
     // receipt still names the pin commit, so it no longer matches HEAD — accept
@@ -817,7 +817,7 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
     const newHead = await gitOut(dir, "rev-parse", "HEAD");
     assert(newHead !== pinnedHead);
     assertEquals(
-      await readReceipt(dir),
+      await readProof(dir),
       pinnedHead,
       "receipt still names the pin commit",
     );

@@ -41,7 +41,7 @@ import {
   renderAgentFiles,
 } from "./guidance_render.ts";
 import { Logger } from "../lib/log.ts";
-import { reconcileReceiptNotesFetch } from "./gate/receipt_notes.ts";
+import { reconcileProofNotesFetch } from "./gate/proof_notes.ts";
 import {
   ensureDiscernGitattributesBlock,
   GITATTRIBUTES_REL,
@@ -100,7 +100,7 @@ export interface CompileGuidelinesOptions {
    * fail-open result is recorded. Its later checkout refresh skips the duplicate
    * pass so the same transport error cannot make a successful landing look red.
    */
-  readonly reconcileReceiptNotesFetch?: boolean;
+  readonly reconcileProofNotesFetch?: boolean;
 }
 
 /** The non-blank refresh errors a caller should treat as failed artifacts.
@@ -304,9 +304,9 @@ export async function compileGuidelines(
   // opt-in: only "fetch" adds an optional additive mapping, and returning to
   // "local" removes only mappings marked as managed by this integration.
   let receiptNotesFetchChanged: string[] = [];
-  if (options.reconcileReceiptNotesFetch !== false) {
+  if (options.reconcileProofNotesFetch !== false) {
     try {
-      const reconciled = await reconcileReceiptNotesFetch(
+      const reconciled = await reconcileProofNotesFetch(
         root,
         config.repository.receipt_notes,
       );

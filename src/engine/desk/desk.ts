@@ -45,7 +45,7 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
-import { gateReceiptHonored } from "../gate/receipt.ts";
+import { gateProofHonored } from "../gate/proof.ts";
 import {
   accept,
   IdentityError,
@@ -278,7 +278,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
-  receiptHonored: (path) => gateReceiptHonored(path),
+  receiptHonored: (path) => gateProofHonored(path),
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),

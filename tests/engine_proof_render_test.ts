@@ -1,6 +1,6 @@
 /**
- * The receipt renderer's diff-stability contract: `renderReceiptMarkdown` and
- * `renderReceiptLine` are pure functions of the envelope pieces (the gathered
+ * The receipt renderer's diff-stability contract: `renderProofMarkdown` and
+ * `renderProofLine` are pure functions of the envelope pieces (the gathered
  * git facts + `steps[]` + standards), so fixed inputs pin the EXACT output —
  * same tree, same result → same receipt (durations excepted, and durations here
  * are fixed inputs too). A wording or layout change must show up as a deliberate
@@ -9,10 +9,10 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
-  renderLandingReceiptLine,
-  renderReceiptLine,
-  renderReceiptMarkdown,
-} from "../src/engine/gate/receipt_render.ts";
+  renderLandingProofLine,
+  renderProofLine,
+  renderProofMarkdown,
+} from "../src/engine/gate/proof_render.ts";
 import { renderDoneTtySummary } from "../src/engine/gate/done_tty.ts";
 import {
   createGateTtyProgress,
@@ -27,11 +27,11 @@ import type { GatePlan } from "../src/engine/gate/plan.ts";
 import type { JobResult } from "../src/engine/jobs/types.ts";
 import type {
   GateStandard,
-  Receipt,
+  Proof,
   StandardsLimitsData,
 } from "../src/shared/result_schemas.ts";
 
-type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
+type ProofFacts = Omit<Proof, "markdown" | "line">;
 
 const SGR = new RegExp(
   `${String.fromCharCode(27)}\\[[0-9;]*m`,
@@ -42,7 +42,7 @@ const SGR_GLOBAL = new RegExp(
   "gu",
 );
 
-const FACTS: ReceiptFacts = {
+const FACTS: ProofFacts = {
   branch: "agent/upload-retry",
   trunk: "main",
   head: "abc1234def01",
@@ -185,7 +185,7 @@ Deno.test("receipt render: fixed facts + steps pin the exact page", () => {
     "",
     "Inspect: `git diff main...agent/upload-retry`",
   ].join("\n");
-  assertEquals(renderReceiptMarkdown(FACTS, STEPS), expected);
+  assertEquals(renderProofMarkdown(FACTS, STEPS), expected);
 });
 
 Deno.test("receipt render: standards render before the job table", () => {
@@ -208,13 +208,13 @@ Deno.test("receipt render: standards render before the job table", () => {
     "Inspect: `git diff main...agent/upload-retry`",
   ].join("\n");
   assertEquals(
-    renderReceiptMarkdown(FACTS, STEPS, [HELD], VERIFIED),
+    renderProofMarkdown(FACTS, STEPS, [HELD], VERIFIED),
     expected,
   );
 });
 
 Deno.test("receipt render: a timed sub-second standard says <1s", () => {
-  const md = renderReceiptMarkdown(
+  const md = renderProofMarkdown(
     FACTS,
     STEPS,
     [{ ...HELD, duration_s: 0 }],
@@ -231,15 +231,15 @@ Deno.test("receipt render: an untimed run claims no duration at all", () => {
     },
   ];
   assertStringIncludes(
-    renderReceiptMarkdown(FACTS, untimed),
+    renderProofMarkdown(FACTS, untimed),
     "| smoke | `true` | ok |",
   );
 });
 
 Deno.test("receipt render: is deterministic across calls", () => {
   assertEquals(
-    renderReceiptMarkdown(FACTS, STEPS),
-    renderReceiptMarkdown(FACTS, STEPS),
+    renderProofMarkdown(FACTS, STEPS),
+    renderProofMarkdown(FACTS, STEPS),
   );
 });
 
@@ -257,12 +257,12 @@ Deno.test("receipt render: a pipe in a command cannot break the table", () => {
       durationS: 2,
     },
   ];
-  const md = renderReceiptMarkdown(FACTS, steps);
+  const md = renderProofMarkdown(FACTS, steps);
   assertStringIncludes(md, "| lint | `grep -c TODO src \\| sort` | ok · 2s |");
 });
 
 Deno.test("receipt render: a no-op gate is stated honestly", () => {
-  const md = renderReceiptMarkdown(FACTS, []);
+  const md = renderProofMarkdown(FACTS, []);
   assertStringIncludes(
     md,
     "(no job is wired — nothing ran)",
@@ -270,10 +270,10 @@ Deno.test("receipt render: a no-op gate is stated honestly", () => {
 });
 
 Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => {
-  const receipt: Receipt = {
+  const receipt: Proof = {
     ...FACTS,
-    line: renderReceiptLine(FACTS),
-    markdown: renderReceiptMarkdown(FACTS, STEPS),
+    line: renderProofLine(FACTS),
+    markdown: renderProofMarkdown(FACTS, STEPS),
   };
   const expected = [
     "  JOB                 COMMAND                                    RESULT",
@@ -299,10 +299,10 @@ Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => 
 });
 
 Deno.test("done TTY render: color paints success and the receipt without widening lines", () => {
-  const receipt: Receipt = {
+  const receipt: Proof = {
     ...FACTS,
-    line: renderReceiptLine(FACTS),
-    markdown: renderReceiptMarkdown(FACTS, STEPS),
+    line: renderProofLine(FACTS),
+    markdown: renderProofMarkdown(FACTS, STEPS),
   };
   const rendered = renderDoneTtySummary(STEPS, receipt, {
     width: 80,
@@ -451,14 +451,14 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
 
 Deno.test("receipt line: fixed facts pin the exact sentence", () => {
   assertEquals(
-    renderReceiptLine(FACTS),
+    renderProofLine(FACTS),
     "Receipt: gate passed on agent/upload-retry @ abc1234def01 · " +
       "2 files +42 −7 vs main · full receipt: discern status --verbose",
   );
 });
 
 Deno.test("receipt line: a single file reads in the singular", () => {
-  const line = renderReceiptLine({
+  const line = renderProofLine({
     ...FACTS,
     files_total: 1,
     insertions: 5,
@@ -469,7 +469,7 @@ Deno.test("receipt line: a single file reads in the singular", () => {
 
 Deno.test("receipt line: held standards claim one segment", () => {
   assertStringIncludes(
-    renderReceiptLine(FACTS, [HELD], VERIFIED),
+    renderProofLine(FACTS, [HELD], VERIFIED),
     "· standards held ·",
   );
 });
@@ -487,7 +487,7 @@ Deno.test("receipt line: improved and deferred standards are counted", () => {
     measurement: "deferred",
   };
   assertStringIncludes(
-    renderReceiptLine(FACTS, [HELD, improved, deferred], VERIFIED),
+    renderProofLine(FACTS, [HELD, improved, deferred], VERIFIED),
     "· standards held, 1 improved, 1 deferred ·",
   );
 });
@@ -500,14 +500,14 @@ Deno.test("receipt line: all standards deferred is stated as such", () => {
     measurement: "deferred",
   };
   assertStringIncludes(
-    renderReceiptLine(FACTS, [deferred], VERIFIED),
+    renderProofLine(FACTS, [deferred], VERIFIED),
     "· standards deferred (1) ·",
   );
 });
 
 Deno.test("receipt line: unverified limits are disclosed loudly", () => {
   assertStringIncludes(
-    renderReceiptLine(FACTS, [HELD], {
+    renderProofLine(FACTS, [HELD], {
       status: "unverified",
       trunk: "main",
       reason: "trunk config unavailable",
@@ -517,25 +517,25 @@ Deno.test("receipt line: unverified limits are disclosed loudly", () => {
 });
 
 Deno.test("receipt line: no standards configured claims nothing", () => {
-  const line = renderReceiptLine(FACTS, []);
+  const line = renderProofLine(FACTS, []);
   assertEquals(line.includes("standards"), false);
 });
 
 Deno.test("landing receipt line records each canonical consent source", () => {
-  const line = renderReceiptLine(FACTS);
+  const line = renderProofLine(FACTS);
   assertEquals(
-    renderLandingReceiptLine(line, { source: "conversation" }),
+    renderLandingProofLine(line, { source: "conversation" }),
     `${line} · landed with conversation consent`,
   );
   assertEquals(
-    renderLandingReceiptLine(line, {
+    renderLandingProofLine(line, {
       source: "standing-grant",
       scopes: ["map", "site"],
     }),
     `${line} · landed under standing grant: map, site`,
   );
   assertEquals(
-    renderLandingReceiptLine(line, { source: "effort-grant" }),
+    renderLandingProofLine(line, { source: "effort-grant" }),
     `${line} · landed under effort grant`,
   );
 });
@@ -555,13 +555,13 @@ Deno.test("dimBlock wraps every non-empty line and leaves blank lines bare", () 
 });
 
 Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
-  const page = renderReceiptMarkdown(FACTS, STEPS);
+  const page = renderProofMarkdown(FACTS, STEPS);
   assertEquals(dimBlock(page, (s) => s), page);
 });
 
 Deno.test("a receipt page dims per line under the real ANSI palette", () => {
   const dim = outSink(makeOut(true)).dim;
-  const page = renderReceiptMarkdown(FACTS, STEPS);
+  const page = renderProofMarkdown(FACTS, STEPS);
   const block = dimBlock(page, dim);
   for (const line of block.split("\n")) {
     if (line === "") {

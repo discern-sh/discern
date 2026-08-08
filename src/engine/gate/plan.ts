@@ -43,7 +43,7 @@ const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 /** Labels distinguish the gate's initial refresh convergence check from the
  * repeated check that binds the final receipt to the post-job tree. */
 export const TRACKED_REFRESH_CHECK_LABEL = "tracked-refresh-check";
-export const TRACKED_REFRESH_RECEIPT_CHECK_LABEL =
+export const TRACKED_REFRESH_PROOF_CHECK_LABEL =
   "tracked-refresh-check (receipt boundary)";
 
 /**
@@ -740,7 +740,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.trackedRefreshCheck) {
     steps.push({
       kind: "tracked-refresh-check",
-      label: TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+      label: TRACKED_REFRESH_PROOF_CHECK_LABEL,
       disposition: "gate",
       note:
         "repeat the tracked refresh plan after every gate job, immediately before issuing the result and receipt",

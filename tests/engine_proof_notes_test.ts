@@ -13,10 +13,10 @@ import type { DiscernResult } from "../src/shared/result.ts";
 import {
   type AcceptData,
   type GateData,
+  type Proof,
   ProofNotePayloadSchema,
   ProofNoteSchema,
-  type Receipt,
-  ReceiptSchema,
+  ProofSchema,
   type RefreshData,
 } from "../src/shared/result_schemas.ts";
 import { PROOF_NOTE_PAYLOAD_TYPE } from "../src/shared/public_schemas.ts";
@@ -24,13 +24,13 @@ import { runGit } from "../src/shared/subprocess.ts";
 import {
   canonicalProofNote,
   canonicalProofNotePayload,
-  findLandedReceiptNoteForBranch,
-  findLatestLandedReceiptNoteForBranch,
-  readReceiptNoteAt,
-  RECEIPT_NOTES_REF,
-  writeReceiptNote,
-} from "../src/engine/gate/receipt_notes.ts";
-import { inspectGateReceipt } from "../src/engine/gate/receipt.ts";
+  findLandedProofNoteForBranch,
+  findLatestLandedProofNoteForBranch,
+  PROOF_NOTES_REF,
+  readProofNoteAt,
+  writeProofNote,
+} from "../src/engine/gate/proof_notes.ts";
+import { inspectGateProof } from "../src/engine/gate/proof.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -62,7 +62,7 @@ function receiptConfig(mode: "local" | "fetch"): string {
 
 interface Landing {
   readonly target: string;
-  readonly receipt: Receipt;
+  readonly receipt: Proof;
   readonly result: DiscernResult<AcceptData>;
 }
 
@@ -93,8 +93,8 @@ async function land(
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
   const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
-  const receipt = ReceiptSchema.parse(doneResult.data?.receipt);
-  const marker = await inspectGateReceipt(worktree);
+  const receipt = ProofSchema.parse(doneResult.data?.receipt);
+  const marker = await inspectGateProof(worktree);
   assertEquals(marker.receipt_data, receipt);
   const accepted = await runAgent(
     worktree,
@@ -109,7 +109,7 @@ async function land(
 
 /** Read one durable note and prove it is the strict current envelope, bound to
  * the commit that carries it, before handing back the receipt payload. */
-async function noteAt(root: string, commit: string): Promise<Receipt> {
+async function noteAt(root: string, commit: string): Promise<Proof> {
   const content = await gitOut(
     root,
     "notes",
@@ -122,7 +122,7 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
   assertEquals(envelope.signatures, []);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
   const payload = ProofNotePayloadSchema.parse(JSON.parse(payloadText));
-  const receipt = ReceiptSchema.parse({
+  const receipt = ProofSchema.parse({
     ...payload.proof,
     ...payload.presentation,
   });
@@ -137,7 +137,7 @@ async function noteAt(root: string, commit: string): Promise<Receipt> {
 }
 
 /** Read author and committer identity fields from the receipt-notes ref. */
-async function notesIdentity(root: string, ref = RECEIPT_NOTES_REF): Promise<
+async function notesIdentity(root: string, ref = PROOF_NOTES_REF): Promise<
   string[]
 > {
   return (await gitOut(
@@ -155,7 +155,7 @@ function receiptFetchMapping(remote: string): string {
 }
 
 /** Render the former single-ref mapping used to test migration cleanup. */
-function legacyReceiptFetchMapping(remote: string): string {
+function legacyProofFetchMapping(remote: string): string {
   return `+refs/notes/discern:refs/discern/remotes/${remote}/notes`;
 }
 
@@ -196,7 +196,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       DISCERN_MACHINE.email,
     ]);
     assertLacksHint(first.result, HINTS["accept-publish-receipt-note"]);
-    const firstNotesTip = await gitOut(dir, "rev-parse", RECEIPT_NOTES_REF);
+    const firstNotesTip = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
 
     const second = await land(dir, "second", {
       [DISCERN_NO_ATTRIBUTION]: "1",
@@ -222,7 +222,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     assertEquals(statusResult.data.landed_receipt, {
       commit: second.target,
       commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
-      ref: RECEIPT_NOTES_REF,
+      ref: PROOF_NOTES_REF,
       receipt: second.receipt,
     });
     assertEquals(statusResult.data.landed_receipt_unsupported, undefined);
@@ -261,7 +261,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     assertEquals(unreadResult.data.landed_receipt, undefined);
     assertEquals(unreadResult.data.landed_receipt_unsupported, {
       commit: newerCommit,
-      ref: RECEIPT_NOTES_REF,
+      ref: PROOF_NOTES_REF,
       format: newerFormat,
     });
     const unreadHuman = await runAgent(dir, ["status", "--plain"]);
@@ -338,7 +338,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
         1,
       );
       assertEquals(
-        fetches.includes(legacyReceiptFetchMapping(remoteName)),
+        fetches.includes(legacyProofFetchMapping(remoteName)),
         false,
       );
       const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
@@ -397,7 +397,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       "plain push must still publish the current branch",
     );
     const remoteNote = await runGit(
-      ["rev-parse", "--verify", "-q", RECEIPT_NOTES_REF],
+      ["rev-parse", "--verify", "-q", PROOF_NOTES_REF],
       { cwd: remote },
     );
     assertEquals(
@@ -406,7 +406,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       "plain push must not acquire a hidden receipt-note meaning",
     );
 
-    await git(dir, "push", "origin", RECEIPT_NOTES_REF);
+    await git(dir, "push", "origin", PROOF_NOTES_REF);
     assertEquals(
       await noteAt(remote, fetchedLanding.target),
       fetchedLanding.receipt,
@@ -414,7 +414,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     const remoteNotesTip = await gitOut(
       remote,
       "rev-parse",
-      RECEIPT_NOTES_REF,
+      PROOF_NOTES_REF,
     );
     await git(
       remote,
@@ -422,7 +422,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       "refs/notes/discern-preview",
       remoteNotesTip,
     );
-    await git(dir, "update-ref", "-d", RECEIPT_NOTES_REF);
+    await git(dir, "update-ref", "-d", PROOF_NOTES_REF);
     await git(dir, "fetch", "origin");
     const trackingRef = "refs/discern/remotes/origin/notes";
     const siblingTrackingRef = "refs/discern/remotes/origin/notes-preview";
@@ -461,7 +461,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     );
     await git(dir, "fetch", "origin");
 
-    await git(remote, "update-ref", "-d", RECEIPT_NOTES_REF);
+    await git(remote, "update-ref", "-d", PROOF_NOTES_REF);
     const fetchAfterDeletion = await runGit(["fetch", "origin"], {
       cwd: dir,
     });
@@ -548,7 +548,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
 
     const key = "remote.origin.fetch";
     const marker = "discern.receiptNotesFetchRemote";
-    const legacy = legacyReceiptFetchMapping("origin");
+    const legacy = legacyProofFetchMapping("origin");
     const optional = receiptFetchMapping("origin");
     await git(dir, "config", "--local", "--add", marker, "origin");
     await git(dir, "config", "--local", "--add", key, legacy);
@@ -649,7 +649,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
 });
 
 /** Build a branch-bound receipt with a shortened commit for note verification cases. */
-function syntheticReceipt(commit: string, branch: string): Receipt {
+function syntheticProof(commit: string, branch: string): Proof {
   return {
     branch,
     trunk: "main",
@@ -678,10 +678,10 @@ function encodedProofPayload(
 Deno.test("durable proof projection excludes live receipt telemetry", () => {
   const commit = "a".repeat(40);
   const receipt = {
-    ...syntheticReceipt(commit, "agent/orbit"),
+    ...syntheticProof(commit, "agent/orbit"),
     waited_ms: 70_000,
     orbit_delay: 42,
-  } as Receipt & { waited_ms: number; orbit_delay: number };
+  } as Proof & { waited_ms: number; orbit_delay: number };
   const payload = ProofNotePayloadSchema.parse(
     JSON.parse(canonicalProofNotePayload(receipt, commit)),
   );
@@ -719,9 +719,9 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "--no-gpg-sign",
     );
     const wantedCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const wantedReceipt = syntheticReceipt(wantedCommit, "agent/wanted");
+    const wantedProof = syntheticProof(wantedCommit, "agent/wanted");
     assertEquals(
-      (await writeReceiptNote(dir, wantedCommit, wantedReceipt)).status,
+      (await writeProofNote(dir, wantedCommit, wantedProof)).status,
       "recorded",
     );
 
@@ -735,23 +735,23 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "--no-gpg-sign",
     );
     const otherCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const otherReceipt = syntheticReceipt(otherCommit, "agent/other");
+    const otherProof = syntheticProof(otherCommit, "agent/other");
     assertEquals(
-      (await writeReceiptNote(dir, otherCommit, otherReceipt)).status,
+      (await writeProofNote(dir, otherCommit, otherProof)).status,
       "recorded",
     );
 
-    assertEquals(await readReceiptNoteAt(dir, wantedCommit), {
+    assertEquals(await readProofNoteAt(dir, wantedCommit), {
       status: "valid",
       commit: wantedCommit,
-      ref: RECEIPT_NOTES_REF,
-      receipt: wantedReceipt,
+      ref: PROOF_NOTES_REF,
+      receipt: wantedProof,
     });
     ProofNoteSchema.parse(
-      JSON.parse(canonicalProofNote(wantedReceipt, wantedCommit)),
+      JSON.parse(canonicalProofNote(wantedProof, wantedCommit)),
     );
     assertEquals(
-      await findLandedReceiptNoteForBranch(
+      await findLandedProofNoteForBranch(
         dir,
         "agent/wanted",
         "main",
@@ -759,12 +759,12 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       ),
       {
         commit: wantedCommit,
-        ref: RECEIPT_NOTES_REF,
-        receipt: wantedReceipt,
+        ref: PROOF_NOTES_REF,
+        receipt: wantedProof,
       },
     );
     assertEquals(
-      await findLandedReceiptNoteForBranch(
+      await findLandedProofNoteForBranch(
         dir,
         "agent/wanted",
         "main",
@@ -774,7 +774,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "the range excludes landings at or before the continuation baseline",
     );
     assertEquals(
-      await findLandedReceiptNoteForBranch(
+      await findLandedProofNoteForBranch(
         dir,
         "agent/missing",
         "main",
@@ -784,20 +784,20 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "an unrelated receipt cannot satisfy the watched branch",
     );
     assertEquals(
-      await findLatestLandedReceiptNoteForBranch(
+      await findLatestLandedProofNoteForBranch(
         dir,
         "agent/wanted",
         "main",
       ),
       {
         commit: wantedCommit,
-        ref: RECEIPT_NOTES_REF,
-        receipt: wantedReceipt,
+        ref: PROOF_NOTES_REF,
+        receipt: wantedProof,
       },
       "the newest matching receipt wins even when another branch landed later",
     );
     assertEquals(
-      await findLatestLandedReceiptNoteForBranch(
+      await findLatestLandedProofNoteForBranch(
         dir,
         "agent/missing",
         "main",
@@ -824,7 +824,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "not a receipt",
       malformedCommit,
     );
-    assertEquals(await readReceiptNoteAt(dir, malformedCommit), {
+    assertEquals(await readProofNoteAt(dir, malformedCommit), {
       status: "missing",
     });
     await git(
@@ -835,13 +835,13 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "--force",
       "-m",
       JSON.stringify({
-        ...syntheticReceipt(malformedCommit, "agent/x"),
+        ...syntheticProof(malformedCommit, "agent/x"),
         head: "",
       }),
       malformedCommit,
     );
     assertEquals(
-      await readReceiptNoteAt(dir, malformedCommit),
+      await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
       "a legacy note's empty receipt head cannot authenticate the commit carrying it",
     );
@@ -853,13 +853,13 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "--force",
       "-m",
       canonicalProofNote({
-        ...syntheticReceipt(malformedCommit, "agent/x"),
+        ...syntheticProof(malformedCommit, "agent/x"),
         head: "",
       }, malformedCommit),
       malformedCommit,
     );
     assertEquals(
-      await readReceiptNoteAt(dir, malformedCommit),
+      await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
       "a current note keeps its abbreviated receipt head coherent with its full subject",
     );
@@ -870,11 +870,11 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "add",
       "--force",
       "-m",
-      canonicalProofNote(wantedReceipt, wantedCommit),
+      canonicalProofNote(wantedProof, wantedCommit),
       malformedCommit,
     );
     assertEquals(
-      await readReceiptNoteAt(dir, malformedCommit),
+      await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
       "a valid receipt whose subject names another commit is not landing evidence",
     );
@@ -899,21 +899,21 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "--no-gpg-sign",
     );
     const legacyCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const legacyReceipt = syntheticReceipt(legacyCommit, "agent/legacy");
+    const legacyProof = syntheticProof(legacyCommit, "agent/legacy");
     await git(
       dir,
       "notes",
       "--ref=discern",
       "add",
       "-m",
-      `${JSON.stringify({ ...legacyReceipt, waited_ms: 70_000 })}\n`,
+      `${JSON.stringify({ ...legacyProof, waited_ms: 70_000 })}\n`,
       legacyCommit,
     );
-    assertEquals(await readReceiptNoteAt(dir, legacyCommit), {
+    assertEquals(await readProofNoteAt(dir, legacyCommit), {
       status: "valid",
       commit: legacyCommit,
-      ref: RECEIPT_NOTES_REF,
-      receipt: legacyReceipt,
+      ref: PROOF_NOTES_REF,
+      receipt: legacyProof,
     });
 
     // A pre-split same-major envelope still reads. Unknown additive fields in
@@ -929,10 +929,10 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       "--no-gpg-sign",
     );
     const futureCommit = await gitOut(dir, "rev-parse", "HEAD");
-    const futureReceipt = syntheticReceipt(futureCommit, "agent/future");
+    const futureProof = syntheticProof(futureCommit, "agent/future");
     const futurePayload = encodedProofPayload({
       subject: { commit: futureCommit, tree: "0".repeat(40) },
-      proof: { ...futureReceipt, waited_ms: 70_000, verdict: "green" },
+      proof: { ...futureProof, waited_ms: 70_000, verdict: "green" },
       issuer: { name: "Future Owner", role: "maintainer" },
       brief: "brief-0042",
       // Two astral characters guarantee a `+`/`/` sextet at every Base64
@@ -963,11 +963,11 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       }\n`,
       futureCommit,
     );
-    assertEquals(await readReceiptNoteAt(dir, futureCommit), {
+    assertEquals(await readProofNoteAt(dir, futureCommit), {
       status: "valid",
       commit: futureCommit,
-      ref: RECEIPT_NOTES_REF,
-      receipt: futureReceipt,
+      ref: PROOF_NOTES_REF,
+      receipt: futureProof,
       issuer: { name: "Future Owner" },
       brief: "brief-0042",
     });
@@ -977,7 +977,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     const malformedPayloads = [
       "***",
       encodeBase64(new Uint8Array([0xff])),
-      encodedProofPayload({ proof: futureReceipt }),
+      encodedProofPayload({ proof: futureProof }),
     ];
     for (const payload of malformedPayloads) {
       await git(
@@ -996,7 +996,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
         }\n`,
         futureCommit,
       );
-      assertEquals(await readReceiptNoteAt(dir, futureCommit), {
+      assertEquals(await readProofNoteAt(dir, futureCommit), {
         status: "missing",
       });
     }
@@ -1029,19 +1029,19 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       }\n`,
       unreadCommit,
     );
-    assertEquals(await readReceiptNoteAt(dir, unreadCommit), {
+    assertEquals(await readProofNoteAt(dir, unreadCommit), {
       status: "unsupported",
       commit: unreadCommit,
-      ref: RECEIPT_NOTES_REF,
+      ref: PROOF_NOTES_REF,
       format: futureFormat,
     });
 
     // The writer refuses to publish a record whose receipt contradicts the
     // commit it would annotate.
-    const mismatched = await writeReceiptNote(
+    const mismatched = await writeProofNote(
       dir,
       unreadCommit,
-      syntheticReceipt(legacyCommit, "agent/mismatch"),
+      syntheticProof(legacyCommit, "agent/mismatch"),
     );
     assertEquals(mismatched.status, "record_failed");
     assert(mismatched.reason?.includes("does not match the landed commit"));
@@ -1071,12 +1071,12 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
         four !== undefined && five !== undefined && six !== undefined,
     );
 
-    const receiptOne = syntheticReceipt(one, "agent/one");
+    const receiptOne = syntheticProof(one, "agent/one");
     assertEquals(
-      (await writeReceiptNote(dir, one, receiptOne)).status,
+      (await writeProofNote(dir, one, receiptOne)).status,
       "recorded",
     );
-    const commonNotes = await gitOut(dir, "rev-parse", RECEIPT_NOTES_REF);
+    const commonNotes = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
     await git(
       dir,
       "update-ref",
@@ -1095,17 +1095,17 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       "refs/discern/remotes/origin/notes-preview",
       commonNotes,
     );
-    await git(dir, "update-ref", "-d", RECEIPT_NOTES_REF);
+    await git(dir, "update-ref", "-d", PROOF_NOTES_REF);
 
-    const receiptTwo = syntheticReceipt(two, "agent/two");
-    const initialized = await writeReceiptNote(dir, two, receiptTwo);
+    const receiptTwo = syntheticProof(two, "agent/two");
+    const initialized = await writeProofNote(dir, two, receiptTwo);
     assertEquals(initialized.status, "recorded");
     assertEquals(initialized.merged_refs, [
       "refs/discern/remotes/origin/notes",
     ]);
     assertEquals(await noteAt(dir, one), receiptOne);
     assertEquals(await noteAt(dir, two), receiptTwo);
-    const receiptThree = syntheticReceipt(three, "agent/three");
+    const receiptThree = syntheticProof(three, "agent/three");
     await git(
       dir,
       "notes",
@@ -1122,8 +1122,8 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       await gitOut(dir, "rev-parse", "refs/notes/remote-copy"),
     );
 
-    const receiptFour = syntheticReceipt(four, "agent/four");
-    const merged = await writeReceiptNote(dir, four, receiptFour);
+    const receiptFour = syntheticProof(four, "agent/four");
+    const merged = await writeProofNote(dir, four, receiptFour);
     assertEquals(merged.status, "recorded");
     assertEquals(merged.merged_refs, [
       "refs/discern/remotes/origin/notes",
@@ -1133,19 +1133,19 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
     assertEquals(await noteAt(dir, three), receiptThree);
     assertEquals(await noteAt(dir, four), receiptFour);
 
-    const combinedNotes = await gitOut(dir, "rev-parse", RECEIPT_NOTES_REF);
+    const combinedNotes = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
     await git(
       dir,
       "update-ref",
       "refs/notes/conflicting-copy",
       combinedNotes,
     );
-    const localFive = syntheticReceipt(five, "agent/five-local");
+    const localFive = syntheticProof(five, "agent/five-local");
     assertEquals(
-      (await writeReceiptNote(dir, five, localFive)).status,
+      (await writeProofNote(dir, five, localFive)).status,
       "recorded",
     );
-    const remoteFive = syntheticReceipt(five, "agent/five-remote");
+    const remoteFive = syntheticProof(five, "agent/five-remote");
     await git(
       dir,
       "notes",
@@ -1162,10 +1162,10 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       await gitOut(dir, "rev-parse", "refs/notes/conflicting-copy"),
     );
 
-    const conflict = await writeReceiptNote(
+    const conflict = await writeProofNote(
       dir,
       six,
-      syntheticReceipt(six, "agent/six"),
+      syntheticProof(six, "agent/six"),
     );
     assertEquals(conflict.status, "record_failed");
     assert(conflict.reason?.includes("could not merge"));

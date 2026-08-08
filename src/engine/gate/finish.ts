@@ -43,7 +43,7 @@ import {
   recordStandardMeasurements,
   sameTreeIdentity,
   UNCHANGED_TREE_RERUN_SLUG,
-} from "./receipt.ts";
+} from "./proof.ts";
 import { sweepDueTempArtifacts } from "./temp_artifact_sweep.ts";
 import {
   type AdrNumberDuplicate,
@@ -57,9 +57,9 @@ import {
   liveCliModel,
 } from "../../lib/map_integrity.ts";
 import { type AdrIndexState, adrIndexState } from "../../lib/adr_index.ts";
-import { buildGateReceipt } from "./receipt_render.ts";
+import { buildGateProof } from "./proof_render.ts";
 import { renderSlotWait } from "./slot_wait_render.ts";
-import { renderDoneTtyReceiptPanel, renderDoneTtySummary } from "./done_tty.ts";
+import { renderDoneTtyProofPanel, renderDoneTtySummary } from "./done_tty.ts";
 import {
   createGateTtyProgress,
   gateTtyPresentation,
@@ -1033,7 +1033,7 @@ async function runGate(
   // agent relays to its owner at the review moment. Built before the marker write so
   // the marker can store the markdown beside the sha it vouches for.
   const receipt = failedStage === null
-    ? await buildGateReceipt(
+    ? await buildGateProof(
       root,
       mainBranch,
       result.steps ?? [],
@@ -1099,7 +1099,7 @@ async function runGate(
   // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
   // fail-fast precondition; the writer remains best-effort only against a later
   // point-in-time failure, whose outcome rides in `data` for suppressed loggers.
-  const gateReceipt: NonNullable<GateData["gate_receipt"]> =
+  const gateProof: NonNullable<GateData["gate_receipt"]> =
     writeAuthority === undefined
       ? {
         status: "unavailable",
@@ -1126,16 +1126,16 @@ async function runGate(
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
   // receipt: its git facts were gathered AFTER the move, so its markdown describes a
   // tree the gate never read — the hint tells the agent to re-run on the final commit.
-  const emittedReceipt = gateReceipt.status === "skipped_head_moved"
+  const emittedProof = gateProof.status === "skipped_head_moved"
     ? undefined
     : receipt;
-  const landingAuthority = failedStage === null && emittedReceipt !== undefined
+  const landingAuthority = failedStage === null && emittedProof !== undefined
     ? await inspectLandingAuthority(root, mainBranch)
     : undefined;
   if (result.data !== undefined) {
-    result.data.gate_receipt = gateReceipt;
-    if (emittedReceipt !== undefined) {
-      result.data.receipt = emittedReceipt;
+    result.data.gate_receipt = gateProof;
+    if (emittedProof !== undefined) {
+      result.data.receipt = emittedProof;
     }
     const authorityProjection = landingAuthority === undefined
       ? undefined
@@ -1162,13 +1162,13 @@ async function runGate(
   // also have a real receipt to sit beside, and the formatter caps the whole
   // addition at one line after applying its stricter evidence margin.
   const logbookHints = failedStage === null && cfg.meta.bootstrapped &&
-      emittedReceipt !== undefined
+      emittedProof !== undefined
     ? receiptFindingHints(
       (await inlineFindingRoutes(root, cfg)).done,
-      emittedReceipt.branch,
+      emittedProof.branch,
     )
     : [];
-  const receiptHint = gateReceiptHint(gateReceipt, failedStage);
+  const receiptHint = gateProofHint(gateProof, failedStage);
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
@@ -1192,7 +1192,7 @@ async function runGate(
       changed,
       failedStage,
       gotchasTail,
-      emittedReceipt !== undefined,
+      emittedProof !== undefined,
       deferredStandards,
       landingAuthority,
     ),
@@ -1218,7 +1218,7 @@ async function runGate(
 }
 
 /** Fire the post-gate hint that identifies the receipt bound to clean HEAD. */
-function gateReceiptHint(
+function gateProofHint(
   receipt: NonNullable<GateData["gate_receipt"]>,
   failedStage: FailedStage | null,
 ): FiredHint | undefined {
@@ -1322,7 +1322,7 @@ const DONE_TTY_ROUTINE_HINT_IDS = new Set([
  * its routine follow-ups in the envelope. The highlighted line already names
  * the full receipt, where deferred standards carry their command.
  */
-function doneTtyReceiptHintTexts(
+function doneTtyProofHintTexts(
   texts: readonly string[] | undefined,
 ): string[] {
   const routineTexts = new Set(
@@ -1362,7 +1362,7 @@ function printSuccessTail(
         `Add a known job (${knownJobList()}) or a custom [jobs.<name>] table to discern.toml so the gate has something to run.`,
       );
     }
-    for (const hint of doneTtyReceiptHintTexts(result.hints)) {
+    for (const hint of doneTtyProofHintTexts(result.hints)) {
       out.info(hint);
     }
     const options = {
@@ -1373,7 +1373,7 @@ function printSuccessTail(
     out.raw(
       `${
         tableAlreadyRendered
-          ? renderDoneTtyReceiptPanel(receipt, options)
+          ? renderDoneTtyProofPanel(receipt, options)
           : renderDoneTtySummary(result.steps ?? [], receipt, options)
       }\n`,
     );

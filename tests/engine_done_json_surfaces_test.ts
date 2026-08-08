@@ -501,7 +501,7 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
 
 // ── the receipt (v1): the review-moment summary a green gate emits ──────────────
 
-const RECEIPT_CONFIG = [
+const PROOF_CONFIG = [
   "[project]",
   'slug = "engine-test"',
   "",
@@ -522,7 +522,7 @@ function stripDurations(md: string): string {
 Deno.test("done --json: a green worktree gate emits the receipt in data and stores it in the marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, RECEIPT_CONFIG);
+    await writeConfig(dir, PROOF_CONFIG);
     await gitInit(dir);
     const wt = await addWorktree(dir, "alpha");
     await writeExecutable(join(wt, "feature.txt"), "feature");
@@ -593,7 +593,7 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
 Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, RECEIPT_CONFIG);
+    await writeConfig(dir, PROOF_CONFIG);
     await gitInit(dir);
 
     // The trunk: nothing ahead of main to review — no receipt, gate still records.

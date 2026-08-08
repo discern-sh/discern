@@ -35,7 +35,7 @@ import {
   hintTexts,
 } from "../../shared/hints.ts";
 import type {
-  GateReceiptCheckData,
+  GateProofCheckData,
   Location,
   StatusData,
   StatusFleetEntry,
@@ -58,7 +58,7 @@ import {
 import { runGit } from "../../shared/subprocess.ts";
 import { classifyScopes, isScopeMarker } from "../scopes/scopes.ts";
 import { planScopeGates } from "../gate/plan.ts";
-import { readLandedReceiptNote } from "../gate/receipt_notes.ts";
+import { readLandedProofNote } from "../gate/proof_notes.ts";
 import {
   checkGuidanceCurrent,
   type GuidanceDriftEntry,
@@ -113,7 +113,7 @@ import {
 } from "../worktree/containment.ts";
 import { readEnvValueAcross, stripQuotes } from "../worktree/env_file.ts";
 import { colorEnabled, makeOut } from "../output.ts";
-import { inspectGateReceipt } from "../gate/receipt.ts";
+import { inspectGateProof } from "../gate/proof.ts";
 import { isLandingCandidate, isReadyToLand } from "../worktree/readiness.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
 import {
@@ -296,23 +296,23 @@ export async function statusResult(
     git,
     standards: Object.keys(cfg.standards),
   };
-  const landedReceipt = await readLandedReceiptNote(root, mainBranch);
-  if (landedReceipt.status === "valid") {
-    const { status: _status, ...note } = landedReceipt;
+  const landedProof = await readLandedProofNote(root, mainBranch);
+  if (landedProof.status === "valid") {
+    const { status: _status, ...note } = landedProof;
     const commitAt = await landedCommitAt(root, note.commit);
     data.landed_receipt = {
       ...note,
       ...(commitAt === undefined ? {} : { commit_at: commitAt }),
     };
-  } else if (landedReceipt.status === "unsupported") {
-    const { status: _status, ...unread } = landedReceipt;
+  } else if (landedProof.status === "unsupported") {
+    const { status: _status, ...unread } = landedProof;
     data.landed_receipt_unsupported = unread;
   }
-  const gateReceipt = location === "worktree"
-    ? await inspectGateReceipt(root)
+  const gateProof = location === "worktree"
+    ? await inspectGateProof(root)
     : undefined;
-  if (gateReceipt !== undefined) {
-    data.gate_receipt = gateReceipt;
+  if (gateProof !== undefined) {
+    data.gate_receipt = gateProof;
   }
   const landingAuthority = location === "worktree"
     ? await inspectLandingAuthority(root, mainBranch)
@@ -586,7 +586,7 @@ export async function statusResult(
     trackedIgnoredArtifacts,
     untrackedGuidance,
     setupPending,
-    gateReceipt,
+    gateProof,
     landingAuthority,
     logbookEnabled: cfg.project.logbook,
   });
@@ -702,7 +702,7 @@ async function fleetEntryFor(
   // HERE, once, so the dashboard, ready hints, and wire fields cannot disagree.
   // An honored row also carries the compatibility page and line fields.
   if (!row.isMain && entry.broken !== true && entry.git_unavailable !== true) {
-    const receipt = await inspectGateReceipt(row.path);
+    const receipt = await inspectGateProof(row.path);
     entry.gate_receipt = receipt;
     if (receipt.status === "honored") {
       entry.receipt_honored = true;
@@ -876,7 +876,7 @@ interface HintContext {
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
   /** Whether the current clean HEAD has an honored receipt from `discern done`. */
-  gateReceipt: GateReceiptCheckData | undefined;
+  gateProof: GateProofCheckData | undefined;
   /** The current branch's authority, from the one resolver used by acceptance. */
   landingAuthority: LandingAuthorityResolution | undefined;
   /** Whether logbook-backed fleet activity can be read. */
@@ -1063,7 +1063,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
       } else if (
         isReadyToLand(
           readinessFacts,
-          ctx.gateReceipt?.status === "honored",
+          ctx.gateProof?.status === "honored",
         )
       ) {
         if (ctx.landingAuthority?.kind === "authorized") {

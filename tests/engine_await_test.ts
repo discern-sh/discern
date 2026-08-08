@@ -47,7 +47,7 @@ import {
   AWAIT_CALL_PROFILES,
   type AwaitCallProfile,
 } from "../src/shared/mcp_timeout_policy.ts";
-import { writeReceiptNote } from "../src/engine/gate/receipt_notes.ts";
+import { writeProofNote } from "../src/engine/gate/proof_notes.ts";
 import { resolveCommonGitDir } from "../src/engine/worktree/git.ts";
 
 const AWAIT_READINESS_TIMEOUT_MS = 180_000;
@@ -138,8 +138,8 @@ async function commitFile(
 }
 
 /** Stamp an honored-shaped gate receipt for the worktree's current HEAD. */
-async function writeHonoredReceipt(worktree: string): Promise<void> {
-  const path = await gitAdminStatePath(worktree, "gateReceipt");
+async function writeHonoredProof(worktree: string): Promise<void> {
+  const path = await gitAdminStatePath(worktree, "gateProof");
   assert(path !== undefined, "receipt path must resolve in a worktree");
   const head = await gitOut(worktree, "rev-parse", "HEAD");
   await Deno.mkdir(join(path, ".."), { recursive: true });
@@ -306,7 +306,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
 
     // An honored receipt over the worktree's clean HEAD meets the condition,
     // and the hint teaches the below-trunk composition move.
-    await writeHonoredReceipt(dep);
+    await writeHonoredProof(dep);
     const green = await awaitResult(dir, {
       green: "agent/dep",
       timeoutSeconds: 0,
@@ -460,7 +460,7 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
     await commitFile(dep, "dep.txt", "work", "dep work");
     const tip = await gitOut(dep, "rev-parse", "HEAD");
     await git(dir, "merge", "-q", "--ff-only", tip);
-    const receipt = await writeReceiptNote(dir, tip, {
+    const receipt = await writeProofNote(dir, tip, {
       branch: "agent/dep",
       trunk: "main",
       head: tip.slice(0, 12),
@@ -584,7 +584,7 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
           await git(dir, "worktree", "remove", "--force", dep);
           await git(dir, "branch", "-D", "agent/dep");
           await git(dir, "merge", "-q", "--ff-only", tip);
-          const receipt = await writeReceiptNote(dir, tip, {
+          const receipt = await writeProofNote(dir, tip, {
             branch: "agent/dep",
             trunk: "main",
             head: tip.slice(0, 12),
@@ -942,7 +942,7 @@ Deno.test("the CLI exits 0 on met, 124 on not-yet, 1 on refusal", async () => {
 
     const dep = await addWorktree(dir, "dep");
     await commitFile(dep, "dep.txt", "work", "dep work");
-    await writeHonoredReceipt(dep);
+    await writeHonoredProof(dep);
     const met = await runAgent(dir, [
       "await",
       "--green",

@@ -15,7 +15,7 @@
  * Single source of truth: both renderings derive from the {@link DiscernResult}
  * envelope — "what ran" is read from `steps[]`, never recomputed — plus git facts
  * gathered ONCE here and carried in the envelope's `data.receipt` beside the
- * rendered `line` and `markdown` ({@link ReceiptSchema}). Deterministic: same
+ * rendered `line` and `markdown` ({@link ProofSchema}). Deterministic: same
  * tree, same result → same receipt (durations excepted).
  *
  * A receipt exists only for the state the review moment is about: a GREEN gate
@@ -27,17 +27,17 @@
 import { runGit } from "../../shared/subprocess.ts";
 import type {
   GateStandard,
-  Receipt,
+  Proof,
   StandardsLimitsData,
 } from "../../shared/result_schemas.ts";
 import type { StepResult } from "../../shared/result.ts";
 import type { LandingConsent } from "../../shared/consent.ts";
 import { diffFiles } from "../worktree/git.ts";
-import { isWorktreeFullyClean } from "./receipt.ts";
+import { isWorktreeFullyClean } from "./proof.ts";
 import { fmtRate } from "./standards.ts";
 
-/** The facts half of a {@link Receipt} — everything but the two renderings. */
-type ReceiptFacts = Omit<Receipt, "markdown" | "line">;
+/** The facts half of a {@link Proof} — everything but the two renderings. */
+type ProofFacts = Omit<Proof, "markdown" | "line">;
 
 /** Escape a table-cell fragment so a `|` in a command can't break the row. */
 function cell(s: string): string {
@@ -157,7 +157,7 @@ function lineStandardsSegment(
 }
 
 /** The diffstat fragment both renderings share: `2 files +42 −7`. */
-function diffstat(facts: ReceiptFacts): string {
+function diffstat(facts: ProofFacts): string {
   const files = `${facts.files_total} file${
     facts.files_total === 1 ? "" : "s"
   }`;
@@ -168,8 +168,8 @@ function diffstat(facts: ReceiptFacts): string {
  * Render the receipt line — the one sentence an agent closes its report with.
  * Pure — exported so a test can pin the exact output for fixed inputs.
  */
-export function renderReceiptLine(
-  facts: ReceiptFacts,
+export function renderProofLine(
+  facts: ProofFacts,
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
 ): string {
@@ -188,7 +188,7 @@ export function renderReceiptLine(
  * underlying gate receipt stays a claim about validation; this derived line is
  * the acceptance record agents relay after the worktree is gone.
  */
-export function renderLandingReceiptLine(
+export function renderLandingProofLine(
   receiptLine: string,
   consent: LandingConsent,
 ): string {
@@ -209,8 +209,8 @@ export function renderLandingReceiptLine(
  * and the result's `steps[]`. Pure — exported so a test can pin the exact output
  * for fixed inputs (the diff-stability guarantee).
  */
-export function renderReceiptMarkdown(
-  facts: ReceiptFacts,
+export function renderProofMarkdown(
+  facts: ProofFacts,
   steps: StepResult[],
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
@@ -260,13 +260,13 @@ async function commitsAheadCount(cwd: string, trunk: string): Promise<number> {
  * or a branch with no commits ahead). Best-effort: never throws, never fails the
  * gate.
  */
-export async function buildGateReceipt(
+export async function buildGateProof(
   root: string,
   trunk: string,
   steps: StepResult[],
   standards: GateStandard[] = [],
   limits?: StandardsLimitsData,
-): Promise<Receipt | undefined> {
+): Promise<Proof | undefined> {
   if (!(await isWorktreeFullyClean(root))) {
     return undefined;
   }
@@ -289,7 +289,7 @@ export async function buildGateReceipt(
     return undefined;
   }
   const delta = await diffFiles(root, `${trunk}...HEAD`, 0);
-  const facts: ReceiptFacts = {
+  const facts: ProofFacts = {
     branch,
     trunk,
     head,
@@ -299,7 +299,7 @@ export async function buildGateReceipt(
   };
   return {
     ...facts,
-    line: renderReceiptLine(facts, standards, limits),
-    markdown: renderReceiptMarkdown(facts, steps, standards, limits),
+    line: renderProofLine(facts, standards, limits),
+    markdown: renderProofMarkdown(facts, steps, standards, limits),
   };
 }

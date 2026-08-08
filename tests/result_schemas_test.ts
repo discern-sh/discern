@@ -1012,7 +1012,7 @@ Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", a
     await Deno.writeTextFile(join(dep, "dep.txt"), "work");
     await git(dep, "add", "-A");
     await git(dep, "commit", "-q", "-m", "dep work", "--no-gpg-sign");
-    const receiptPath = await gitAdminStatePath(dep, "gateReceipt");
+    const receiptPath = await gitAdminStatePath(dep, "gateProof");
     assert(receiptPath !== undefined);
     await Deno.mkdir(join(receiptPath, ".."), { recursive: true });
     const depHead = await gitOut(dep, "rev-parse", "HEAD");

@@ -11,8 +11,8 @@ import { basename } from "@std/path";
 import { dimBlock } from "../../shared/result.ts";
 import { interactiveHintTexts } from "../../shared/hints.ts";
 import type {
-  GateReceiptCheckData,
-  GateReceiptCheckStatus,
+  GateProofCheckData,
+  GateProofCheckStatus,
   StatusData,
   StatusFleetCollision,
   StatusFleetEntry,
@@ -116,8 +116,8 @@ interface RowIdentity {
   secondary?: string;
 }
 
-interface ReceiptPresentation {
-  status: GateReceiptCheckStatus;
+interface ProofPresentation {
+  status: GateProofCheckStatus;
   label: string;
   tone: FleetRowTone;
   detail?: string;
@@ -145,9 +145,9 @@ export interface FleetRowPresentation {
   identity: RowIdentity;
   git: string;
   gitTone: FleetRowTone;
-  receipt: ReceiptPresentation;
+  receipt: ProofPresentation;
   activity: string;
-  /** Receipt-backed landing readiness that remains visible when a collision
+  /** Proof-backed landing readiness that remains visible when a collision
    * takes precedence as the row's primary status. */
   landingReady: boolean;
   authority?: AuthorityPresentation;
@@ -208,7 +208,7 @@ function fileCount(count: number): string {
 }
 
 /** Resolve the new full inspection field with compatibility fallbacks. */
-function receiptFromEntry(entry: StatusFleetEntry): GateReceiptCheckData {
+function receiptFromEntry(entry: StatusFleetEntry): GateProofCheckData {
   if (entry.gate_receipt !== undefined) return entry.gate_receipt;
   if (entry.receipt_honored === true) {
     return {
@@ -227,7 +227,7 @@ function receiptFromEntry(entry: StatusFleetEntry): GateReceiptCheckData {
 }
 
 /** Project the receipt-check vocabulary into a labelled, toned fact. */
-function receiptPresentation(entry: StatusFleetEntry): ReceiptPresentation {
+function receiptPresentation(entry: StatusFleetEntry): ProofPresentation {
   const receipt = receiptFromEntry(entry);
   const detail = receipt.reason ?? (
     receipt.status === "stale" && receipt.recorded !== undefined &&
@@ -237,7 +237,7 @@ function receiptPresentation(entry: StatusFleetEntry): ReceiptPresentation {
       }`
       : undefined
   );
-  const base = ((): Omit<ReceiptPresentation, "status" | "detail"> => {
+  const base = ((): Omit<ProofPresentation, "status" | "detail"> => {
     switch (receipt.status) {
       case "honored":
         return { label: "honored", tone: "green" };
@@ -404,7 +404,7 @@ function authorityPresentation(
  * intentionally absent: `status ok` is activity, never overall health evidence. */
 function classifyKind(
   entry: StatusFleetEntry,
-  receipt: ReceiptPresentation,
+  receipt: ProofPresentation,
   collisions: readonly RowCollision[],
   ready: boolean,
   nowMs: number,
@@ -442,7 +442,7 @@ function classifyKind(
 function attentionFor(
   kind: FleetRowStatusKind,
   entry: StatusFleetEntry,
-  receipt: ReceiptPresentation,
+  receipt: ProofPresentation,
   authority: AuthorityPresentation | undefined,
   trunk: string,
   nowMs: number,
@@ -1274,7 +1274,7 @@ function renderSetup(
 }
 
 /** Copyable stored Markdown pages shown only under `--verbose`. */
-function renderVerboseReceipts(
+function renderVerboseProofs(
   data: StatusData,
   rows: readonly FleetRowPresentation[],
   c: Palette,
@@ -1424,9 +1424,9 @@ export function renderStatusDashboard(
   if (landing.length > 0) blocks.push(section("Landing", landing, c));
 
   if (options.verbose === true) {
-    const receipts = renderVerboseReceipts(data, shownRows, c);
+    const receipts = renderVerboseProofs(data, shownRows, c);
     if (receipts.length > 0) {
-      blocks.push(section("Receipts", receipts, c));
+      blocks.push(section("Proofs", receipts, c));
     }
   }
   return `${blocks.join("\n\n")}\n`;

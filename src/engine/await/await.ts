@@ -69,12 +69,12 @@ import {
   worktreeGitKey,
   worktreePathForBranch,
 } from "../worktree/git.ts";
-import { inspectGateReceipt } from "../gate/receipt.ts";
+import { inspectGateProof } from "../gate/proof.ts";
 import {
-  findLandedReceiptNoteForBranch,
-  findLatestLandedReceiptNoteForBranch,
-  type LandedReceiptNote,
-} from "../gate/receipt_notes.ts";
+  findLandedProofNoteForBranch,
+  findLatestLandedProofNoteForBranch,
+  type LandedProofNote,
+} from "../gate/proof_notes.ts";
 import { nearestContainingBranch } from "../worktree/containment.ts";
 import { logbookDir } from "../logbook/store.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
@@ -649,7 +649,7 @@ export async function awaitResult(
   const branch = resumed?.branch ??
     (condition === "green" ? opts.green : opts.landed);
   let tip: string | undefined;
-  let recoveredLanding: LandedReceiptNote | undefined;
+  let recoveredLanding: LandedProofNote | undefined;
   if (resumed !== undefined) {
     tip = resumed.tip;
   } else if (branch !== undefined) {
@@ -658,7 +658,7 @@ export async function awaitResult(
     } catch {
       // Acceptance can remove the ref between the caller choosing it and this
       // first read. Its durable note is the only branch-bound recovery.
-      recoveredLanding = await findLatestLandedReceiptNoteForBranch(
+      recoveredLanding = await findLatestLandedProofNoteForBranch(
         root,
         branch,
         trunk,
@@ -894,7 +894,7 @@ async function evaluateCondition(
     trunk: string;
     trunkStart: string;
     branchState: BranchState | undefined;
-    recoveredLanding: LandedReceiptNote | undefined;
+    recoveredLanding: LandedProofNote | undefined;
   },
 ): Promise<Evaluation> {
   const {
@@ -955,7 +955,7 @@ async function evaluateCondition(
       };
     }
     if (reachable) {
-      const landed = await findLandedReceiptNoteForBranch(
+      const landed = await findLandedProofNoteForBranch(
         root,
         branch,
         trunk,
@@ -983,7 +983,7 @@ async function evaluateCondition(
   let receiptStatus: NonNullable<AwaitData["observed"]["receipt_status"]> =
     "no-worktree";
   if (worktree !== undefined) {
-    const receipt = await inspectGateReceipt(worktree);
+    const receipt = await inspectGateProof(worktree);
     if (receipt.status === "honored") {
       return {
         met: true,
@@ -1005,7 +1005,7 @@ async function evaluateCondition(
     };
   }
   if (reachable) {
-    const landed = await findLandedReceiptNoteForBranch(
+    const landed = await findLandedProofNoteForBranch(
       root,
       branch,
       trunk,

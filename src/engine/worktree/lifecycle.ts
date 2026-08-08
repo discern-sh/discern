@@ -116,9 +116,9 @@ import { observeResult } from "../../shared/result_capture.ts";
 import type {
   AcceptData,
   AcceptLandingState,
-  AcceptReceiptNoteData,
+  AcceptProofNoteData,
   GateData,
-  Receipt,
+  Proof,
   StartData,
   UpdateData,
 } from "../../shared/result_schemas.ts";
@@ -201,13 +201,13 @@ import {
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { finishResult } from "../gate/finish.ts";
-import { inspectGateReceipt, pinValidatedTree } from "../gate/receipt.ts";
-import { renderLandingReceiptLine } from "../gate/receipt_render.ts";
+import { inspectGateProof, pinValidatedTree } from "../gate/proof.ts";
+import { renderLandingProofLine } from "../gate/proof_render.ts";
 import {
   receiptNotesFetchSucceeded,
-  reconcileReceiptNotesFetch,
-  writeReceiptNote,
-} from "../gate/receipt_notes.ts";
+  reconcileProofNotesFetch,
+  writeProofNote,
+} from "../gate/proof_notes.ts";
 // update classifies the merge's incoming files into the project's scopes for its
 // "what landed beneath you" summary (ADR 0064), via the same matcher the gate uses.
 import { scopesForPaths } from "../scopes/scopes.ts";
@@ -1715,7 +1715,7 @@ interface AcceptExecutionProgress {
   gateValidation?: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown?: string;
   receiptLine?: string;
-  receiptNote?: AcceptReceiptNoteData;
+  receiptNote?: AcceptProofNoteData;
   readonly convergenceHints: string[];
   readonly diagnostics: Diagnostic[];
   readonly authorityWarnings: string[];
@@ -1963,7 +1963,7 @@ async function executeAcceptPlan(
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
   receiptMarkdown: string | undefined;
   receiptLine: string | undefined;
-  receiptNote: AcceptReceiptNoteData;
+  receiptNote: AcceptProofNoteData;
   convergenceHints: string[];
   diagnostics: Diagnostic[];
   authorityWarnings: string[];
@@ -1991,7 +1991,7 @@ async function executeAcceptPlan(
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
   //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
-  const receipt = await inspectGateReceipt(ctx.cwd);
+  const receipt = await inspectGateProof(ctx.cwd);
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
     receipt.status === "honored"
       ? { mode: "receipt", receipt }
@@ -2005,7 +2005,7 @@ async function executeAcceptPlan(
   // the (minutes-long) re-run must never ride along unvalidated.
   let receiptMarkdown: string | undefined;
   let receiptLine: string | undefined;
-  let receiptData: Receipt | undefined;
+  let receiptData: Proof | undefined;
   let validatedSha: string | undefined;
   if (gateValidation.mode === "receipt") {
     ctx.log.ok(
@@ -2073,7 +2073,7 @@ async function executeAcceptPlan(
     );
   }
   if (receiptLine !== undefined) {
-    receiptLine = renderLandingReceiptLine(receiptLine, consent);
+    receiptLine = renderLandingProofLine(receiptLine, consent);
   }
   if (receiptMarkdown !== undefined) {
     progress.receiptMarkdown = receiptMarkdown;
@@ -2252,11 +2252,11 @@ async function executeAcceptPlan(
     trackedDirtyAfterLanding = undefined;
   }
 
-  // The trunk now names the validated commit. Receipt-note recording and its
+  // The trunk now names the validated commit. Proof-note recording and its
   // opt-in fetch transport are deliberately fail-open from this boundary:
   // neither may roll back a successful landing or turn acceptance red.
   let convergenceHints: string[] = hintTexts([]);
-  const receiptFetch = await reconcileReceiptNotesFetch(
+  const receiptFetch = await reconcileProofNotesFetch(
     mainRepo,
     plan.receiptNotes,
   );
@@ -2278,12 +2278,12 @@ async function executeAcceptPlan(
     );
   }
 
-  const receiptWrite = await writeReceiptNote(
+  const receiptWrite = await writeProofNote(
     mainRepo,
     validatedSha,
     receiptData,
   );
-  const receiptNote: AcceptReceiptNoteData = {
+  const receiptNote: AcceptProofNoteData = {
     fetch: receiptFetch,
     write: receiptWrite,
   };

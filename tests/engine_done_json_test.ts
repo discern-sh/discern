@@ -15,7 +15,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import { CAPTURE_CAP } from "../src/shared/result.ts";
 import { HINTS } from "../src/shared/hints.ts";
-import { gateReceiptHonored } from "../src/engine/gate/receipt.ts";
+import { gateProofHonored } from "../src/engine/gate/proof.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
   addWorktree,
@@ -101,7 +101,7 @@ Deno.test("done --json: trunk advancing during a green gate warns and still reco
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
     assertEquals(obj.data.gate_receipt.status, "recorded");
-    assertEquals(await gateReceiptHonored(wt), true);
+    assertEquals(await gateProofHonored(wt), true);
     assert(
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,
       "the gate job must advance the shared trunk ref",

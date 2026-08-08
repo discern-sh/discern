@@ -18,7 +18,7 @@ import {
   scaffoldEngine,
   writeConfig,
 } from "./engine_helpers.ts";
-import { preflightAdminStateWrites } from "../src/engine/gate/receipt.ts";
+import { preflightAdminStateWrites } from "../src/engine/gate/proof.ts";
 import {
   GIT_ADMIN_STATE,
   type GitAdminStateKey,
@@ -71,7 +71,7 @@ async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,
 ): Promise<void> {
-  const path = await gitAdminPath(root, "gateReceipt");
+  const path = await gitAdminPath(root, "gateProof");
   const dir = dirname(path);
   await Deno.mkdir(dir, { recursive: true });
   const originalMode = (await Deno.stat(dir)).mode;
@@ -238,7 +238,7 @@ Deno.test("a successful admin-state preflight removes every temporary probe", as
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const adminDir = dirname(await gitAdminPath(dir, "gateReceipt"));
+    const adminDir = dirname(await gitAdminPath(dir, "gateProof"));
     assertEquals(await pathExists(adminDir), false);
 
     const result = await preflightAdminStateWrites(dir);

@@ -17,7 +17,7 @@ import type { JobRunObserver } from "../jobs/runner.ts";
 import type { Job, JobResult } from "../jobs/types.ts";
 import { type Palette, palette } from "../output.ts";
 import type { JobGroup } from "./plan.ts";
-import { fmtDuration } from "./receipt_render.ts";
+import { fmtDuration } from "./proof_render.ts";
 
 const INDENT = "  ";
 const GUTTER = "  ";

@@ -31,7 +31,7 @@ import {
   preparePlanGroups,
   stageGroup,
   TRACKED_REFRESH_CHECK_LABEL,
-  TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+  TRACKED_REFRESH_PROOF_CHECK_LABEL,
 } from "../src/engine/gate/plan.ts";
 import {
   buildStandardPlan,
@@ -288,7 +288,7 @@ Deno.test("execution model: done reports both tracked-refresh checkpoints in exe
   );
   assertEquals(refreshChecks.map((step) => step.label), [
     TRACKED_REFRESH_CHECK_LABEL,
-    TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+    TRACKED_REFRESH_PROOF_CHECK_LABEL,
   ]);
   assertEquals(done.steps.at(-1)?.label, refreshChecks.at(-1)?.label);
 });

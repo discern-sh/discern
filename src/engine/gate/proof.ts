@@ -25,7 +25,7 @@
  * and each changed limit is tighter while still held by the just-taken or same-HEAD
  * reused measurement. The pin therefore still passes both standards halves in the
  * gate, so the vouch stays truthful and `accept` need not re-run the whole gate for
- * a re-pin (see {@link carryReceiptForwardAcrossPin}).
+ * a re-pin (see {@link carryProofForwardAcrossPin}).
  *
  * The standard **measurement receipt** is its sibling on the same model: a green
  * `standards` check over a clean tree records every standard's measured value against
@@ -54,19 +54,19 @@ import {
   type WritePreflightFailure,
 } from "../../shared/write_preflight.ts";
 import {
-  canonicalReceipt,
+  canonicalProof,
   type GateData,
-  type GateReceiptCheckData,
-  type Receipt,
-  TolerantReceiptSchema,
+  type GateProofCheckData,
+  type Proof,
+  TolerantProofSchema,
 } from "../../shared/result_schemas.ts";
 
 type AdminStatePaths = Readonly<
   Record<ValidationAdminStateKey, string | undefined>
 >;
-type GateReceiptRecordData = NonNullable<GateData["gate_receipt"]>;
+type GateProofRecordData = NonNullable<GateData["gate_receipt"]>;
 
-/** Brand for a successful, real write probe. Receipt writers require this token,
+/** Brand for a successful, real write probe. Proof writers require this token,
  * making "probe before persist" a compile-time rule at every call site. */
 declare const ADMIN_STATE_WRITE_AUTHORITY: unique symbol;
 export interface AdminStateWriteAuthority {
@@ -81,7 +81,7 @@ export type AdminStateWritePreflight =
 
 /** This worktree's gate receipt path. */
 function receiptPath(cwd: string): Promise<string | undefined> {
-  return gitAdminStatePath(cwd, "gateReceipt");
+  return gitAdminStatePath(cwd, "gateProof");
 }
 
 /** Prove the real create/write/rename/remove authority every validation-state
@@ -284,9 +284,9 @@ export async function pinValidatedTree(cwd: string): Promise<ValidatedTreePin> {
 
 /** Bind a green gate result to HEAD, config, plan, trunk, and measured standards. */
 function receiptRecord(
-  status: GateReceiptRecordData["status"],
-  fields: Omit<GateReceiptRecordData, "status"> = {},
-): GateReceiptRecordData {
+  status: GateProofRecordData["status"],
+  fields: Omit<GateProofRecordData, "status"> = {},
+): GateProofRecordData {
   return { status, ...fields };
 }
 
@@ -320,9 +320,9 @@ export async function recordGateOutcome(
   authority: AdminStateWriteAuthority,
   passed: boolean,
   pin: ValidatedTreePin,
-  receipt?: Receipt,
-): Promise<GateReceiptRecordData> {
-  const path = authorityPath(cwd, authority, "gateReceipt");
+  receipt?: Proof,
+): Promise<GateProofRecordData> {
+  const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
     return receiptRecord("unavailable", {
       reason: "could not resolve the gate receipt path",
@@ -536,15 +536,15 @@ export async function inspectLastGateRun(
 
 /**
  * Inspect why the current worktree's gate receipt can or cannot be honored.
- * This is the verbose sibling of {@link gateReceiptHonored}: accept includes the
+ * This is the verbose sibling of {@link gateProofHonored}: accept includes the
  * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
  * visible even when the human logger is suppressed. An HONORED record also carries
  * the stored receipt markdown (when the recording finish rendered one) — the
  * summary an agent relays at the review moment without re-running the gate.
  */
-export async function inspectGateReceipt(
+export async function inspectGateProof(
   cwd: string,
-): Promise<GateReceiptCheckData> {
+): Promise<GateProofCheckData> {
   const path = await receiptPath(cwd);
   if (path === undefined) {
     return {
@@ -567,7 +567,7 @@ export async function inspectGateReceipt(
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
   let rest = newline < 0 ? "" : content.slice(newline + 1);
-  let receiptData: Receipt | undefined;
+  let receiptData: Proof | undefined;
   let line = "";
   while (rest.startsWith("data: ") || rest.startsWith("line: ")) {
     const eol = rest.indexOf("\n");
@@ -577,9 +577,9 @@ export async function inspectGateReceipt(
         : rest.slice("data: ".length, eol);
       try {
         const parsed: unknown = JSON.parse(raw);
-        const validated = TolerantReceiptSchema.safeParse(parsed);
+        const validated = TolerantProofSchema.safeParse(parsed);
         if (validated.success) {
-          receiptData = canonicalReceipt(validated.data);
+          receiptData = canonicalProof(validated.data);
         }
       } catch {
         // A malformed structured component does not invalidate the validation
@@ -630,8 +630,8 @@ export async function inspectGateReceipt(
  * current HEAD, and the tree is clean; any new commit, amend, or uncommitted edit
  * makes this false, so accept falls back to running the gate. Never throws.
  */
-export async function gateReceiptHonored(cwd: string): Promise<boolean> {
-  return (await inspectGateReceipt(cwd)).status === "honored";
+export async function gateProofHonored(cwd: string): Promise<boolean> {
+  return (await inspectGateProof(cwd)).status === "honored";
 }
 
 /**
@@ -656,11 +656,11 @@ export async function gateReceiptHonored(cwd: string): Promise<boolean> {
  * IS the tree the vouch is about. The pin preflights `authority` before measuring;
  * the writer remains best-effort against a later point-in-time hiccup.
  */
-export async function carryReceiptForwardAcrossPin(
+export async function carryProofForwardAcrossPin(
   cwd: string,
   authority: AdminStateWriteAuthority,
   priorHonored: boolean,
-): Promise<GateReceiptRecordData | undefined> {
+): Promise<GateProofRecordData | undefined> {
   if (!priorHonored) {
     return undefined;
   }

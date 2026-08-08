@@ -267,27 +267,27 @@ const PROOF_PRESENTATION_FIELDS = {
   markdown: z.string(),
 };
 
-const RECEIPT_FIELDS = {
+const PROOF_FIELDS = {
   ...DURABLE_PROOF_FACT_FIELDS,
   ...PROOF_PRESENTATION_FIELDS,
 };
 
-export const ReceiptSchema = z.strictObject(RECEIPT_FIELDS).meta({
+export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
   id: "DiscernProof",
   description:
     "The structured receipt a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
     "whole-diff stats, and the two renderings derived from those facts.",
 });
-export type Receipt = z.infer<typeof ReceiptSchema>;
+export type Proof = z.infer<typeof ProofSchema>;
 
 /** Compatibility readers' view of an earlier or structurally wider receipt.
  * Unknown fields remain readable but never enter the strict runtime receipt. */
-export const TolerantReceiptSchema = z.looseObject(RECEIPT_FIELDS);
+export const TolerantProofSchema = z.looseObject(PROOF_FIELDS);
 
 /** Project a tolerant or structurally wider receipt onto the strict runtime
  * fields in one fixed order. Every compatibility reader shares this boundary. */
-export function canonicalReceipt(receipt: Receipt): Receipt {
+export function canonicalProof(receipt: Proof): Proof {
   return {
     branch: receipt.branch,
     trunk: receipt.trunk,
@@ -549,7 +549,7 @@ export const GateDataSchema = z.strictObject({
   standards: z.array(GateStandardSchema).optional(),
   standards_limits: StandardsLimitsSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
-  receipt: ReceiptSchema.optional(),
+  receipt: ProofSchema.optional(),
   gate_receipt: z.strictObject({
     status: z.enum([
       "recorded",
@@ -569,7 +569,7 @@ export type GateData = z.infer<typeof GateDataSchema>;
 /** How a recorded receipt stands against the current worktree and HEAD.
  * `receipt` and `receipt_line` are present only when the marker is honored; the
  * remaining statuses preserve why it is not. Inspection never reruns the gate. */
-export const GATE_RECEIPT_CHECK_STATUSES = [
+export const GATE_PROOF_CHECK_STATUSES = [
   "honored",
   "missing",
   "stale",
@@ -577,11 +577,10 @@ export const GATE_RECEIPT_CHECK_STATUSES = [
   "unavailable",
   "read_failed",
 ] as const;
-export type GateReceiptCheckStatus =
-  (typeof GATE_RECEIPT_CHECK_STATUSES)[number];
+export type GateProofCheckStatus = (typeof GATE_PROOF_CHECK_STATUSES)[number];
 
-export const GateReceiptCheckSchema = z.strictObject({
-  status: z.enum(GATE_RECEIPT_CHECK_STATUSES),
+export const GateProofCheckSchema = z.strictObject({
+  status: z.enum(GATE_PROOF_CHECK_STATUSES),
   path: z.string().optional(),
   recorded: z.string().optional(),
   head: z.string().optional(),
@@ -590,13 +589,13 @@ export const GateReceiptCheckSchema = z.strictObject({
   receipt_line: z.string().optional(),
   /** The structured receipt cached by current writers. Older markers carry only
    * the rendered forms and therefore omit this field. */
-  receipt_data: ReceiptSchema.optional(),
+  receipt_data: ProofSchema.optional(),
 });
-export type GateReceiptCheckData = z.infer<typeof GateReceiptCheckSchema>;
+export type GateProofCheckData = z.infer<typeof GateProofCheckSchema>;
 
 const GateValidationSchema = z.strictObject({
   mode: z.enum(["receipt", "rerun"]),
-  receipt: GateReceiptCheckSchema,
+  receipt: GateProofCheckSchema,
 });
 export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
@@ -727,7 +726,7 @@ export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
 
 /** What one `await` evaluation observed — always authoritative state (a git
  * ancestry read, a receipt inspection), never logbook history. Per-condition:
- * `green` carries the sibling receipt's status ({@link GateReceiptCheckSchema}
+ * `green` carries the sibling receipt's status ({@link GateProofCheckSchema}
  * statuses, plus `no-worktree` when no checkout holds the branch) and the
  * sibling `worktree` path; `landed`/`green` carry the latest observed `tip` sha and
  * whether it `landed`; `trunk-moved` carries the trunk sha at call start and
@@ -804,7 +803,7 @@ export const LandingConsentDataSchema = z.strictObject({
 });
 export type LandingConsentData = z.infer<typeof LandingConsentDataSchema>;
 
-export const ReceiptNotesFetchSchema = z.strictObject({
+export const ProofNotesFetchSchema = z.strictObject({
   mode: z.enum(["local", "fetch"]),
   status: z.enum(["local", "wired", "unchanged", "no_remote", "failed"]),
   remotes: z.array(z.string()),
@@ -812,9 +811,9 @@ export const ReceiptNotesFetchSchema = z.strictObject({
   removed: z.array(z.string()),
   errors: z.array(z.string()),
 });
-export type ReceiptNotesFetchData = z.infer<typeof ReceiptNotesFetchSchema>;
+export type ProofNotesFetchData = z.infer<typeof ProofNotesFetchSchema>;
 
-export const ReceiptNoteWriteSchema = z.strictObject({
+export const ProofNoteWriteSchema = z.strictObject({
   status: z.enum([
     "recorded",
     "already_present",
@@ -826,13 +825,13 @@ export const ReceiptNoteWriteSchema = z.strictObject({
   merged_refs: z.array(z.string()),
   reason: z.string().optional(),
 });
-export type ReceiptNoteWriteData = z.infer<typeof ReceiptNoteWriteSchema>;
+export type ProofNoteWriteData = z.infer<typeof ProofNoteWriteSchema>;
 
-export const AcceptReceiptNoteSchema = z.strictObject({
-  fetch: ReceiptNotesFetchSchema,
-  write: ReceiptNoteWriteSchema,
+export const AcceptProofNoteSchema = z.strictObject({
+  fetch: ProofNotesFetchSchema,
+  write: ProofNoteWriteSchema,
 });
-export type AcceptReceiptNoteData = z.infer<typeof AcceptReceiptNoteSchema>;
+export type AcceptProofNoteData = z.infer<typeof AcceptProofNoteSchema>;
 
 /** `accept` — where the branch landed: `root` is the main checkout the worktree's
  * branch was landed into. The load-bearing field for the MCP working-root re-aim
@@ -863,7 +862,7 @@ export const AcceptDataSchema = z.strictObject({
   receipt_line: z.string().optional(),
   /** Repository-resident receipt recording and its optional fetch transport.
    * Both run after the trunk moves and therefore fail open. */
-  receipt_note: AcceptReceiptNoteSchema.optional(),
+  receipt_note: AcceptProofNoteSchema.optional(),
   ignored_file_changes: z.strictObject({
     status: z.enum([
       "disabled",
@@ -1041,7 +1040,7 @@ const statusFleetEntrySchema = z.strictObject({
   /** The complete receipt inspection for this worktree. Existing honored-only
    * fields stay for compatibility; this additive field preserves missing,
    * stale, dirty, unavailable, and read-failed states too. */
-  gate_receipt: GateReceiptCheckSchema.optional(),
+  gate_receipt: GateProofCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
@@ -1080,13 +1079,13 @@ export const StatusDataSchema = z.strictObject({
   scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
   standards: z.array(z.string()),
-  gate_receipt: GateReceiptCheckSchema.optional(),
+  gate_receipt: GateProofCheckSchema.optional(),
   landed_receipt: z.strictObject({
     commit: z.string(),
     /** Committer timestamp for the landed commit, when Git can read it. */
     commit_at: z.string().optional(),
     ref: z.string(),
-    receipt: ReceiptSchema,
+    receipt: ProofSchema,
     /** The payload's issuer assertion, when present. This field does not mean
      * the signature or the asserted identity has been verified. */
     issuer: ProofIssuerSchema.optional(),

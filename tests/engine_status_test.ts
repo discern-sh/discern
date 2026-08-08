@@ -769,7 +769,7 @@ Deno.test("status fleet (human): measured lines stay bounded while long identifi
     for (const line of r.stdout.split("\n")) {
       if (displayWidth(line) <= width) continue;
       const identifierLine = line.includes(branch) &&
-        !/(?:Git|Receipt|Activity|Status|clean|changed|ahead|behind)/.test(
+        !/(?:Git|Proof|Activity|Status|clean|changed|ahead|behind)/.test(
           line,
         );
       assert(

@@ -145,7 +145,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "acceptance recovery journal and advisory lock — registry-resolved .git-internal state outside the project tree",
   ],
   [
-    "src/engine/gate/receipt.ts",
+    "src/engine/gate/proof.ts",
     "the gate receipt — .git-internal, outside the project tree",
   ],
   [

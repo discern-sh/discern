@@ -10,7 +10,7 @@ import type { GateStandard } from "../../shared/result_schemas.ts";
 import { runGit } from "../../shared/subprocess.ts";
 import { pathMatchesPattern } from "../scopes/glob.ts";
 import { collectPaths } from "../scopes/scopes.ts";
-import { measurementBaselines } from "./receipt.ts";
+import { measurementBaselines } from "./proof.ts";
 import type { PlannedJob } from "./plan.ts";
 import type { PlannedStandard } from "./standard_plan.ts";
 import {

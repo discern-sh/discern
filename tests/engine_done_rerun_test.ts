@@ -22,7 +22,7 @@ import {
   writeConfig,
   writeExecutable,
 } from "./engine_helpers.ts";
-import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/receipt.ts";
+import { UNCHANGED_TREE_RERUN_SLUG } from "../src/engine/gate/proof.ts";
 import { finishResult } from "../src/engine/gate/finish.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";

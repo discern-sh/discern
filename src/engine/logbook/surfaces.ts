@@ -29,7 +29,7 @@ export const INLINE_EVENT_LIMIT = 200;
  * one qualifying event. The asked-for `patterns` report speaks at the registry
  * threshold; the gate tail waits for one more observation before interrupting.
  */
-export const RECEIPT_EVIDENCE_MARGIN = 1;
+export const PROOF_EVIDENCE_MARGIN = 1;
 
 /** Status keeps its logbook additions short beside live repository advice. */
 const STATUS_FINDING_CAP = 3;
@@ -98,7 +98,7 @@ export function receiptFindingHints(
   const eligible = findings.filter((routed) =>
     routed.finding.subject === branch &&
     routed.considered >=
-      routed.detector.threshold + RECEIPT_EVIDENCE_MARGIN
+      routed.detector.threshold + PROOF_EVIDENCE_MARGIN
   );
   const strongest = eligible[0];
   if (strongest === undefined) {

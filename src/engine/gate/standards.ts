@@ -16,7 +16,7 @@
  * (plan, results) through the shared renderer.
  *
  * The check → pin flow measures ONCE: a green check over a clean tree records a
- * measurement receipt (`receipt.ts`) naming every measured value against the exact
+ * measurement receipt (`proof.ts`) naming every measured value against the exact
  * HEAD, and a `--pin` on that same clean HEAD replays those values instead of
  * re-running the measurements — re-checking only the never-loosen half from the
  * invocation's trunk snapshot, since that baseline can advance while HEAD stands
@@ -83,15 +83,15 @@ import {
 } from "./standard_limits.ts";
 import {
   type AdminStateWriteAuthority,
-  carryReceiptForwardAcrossPin,
+  carryProofForwardAcrossPin,
   clearStandardMeasurements,
-  inspectGateReceipt,
+  inspectGateProof,
   inspectStandardMeasurements,
   pinValidatedTree,
   preflightAdminStateWrites,
   recordStandardMeasurements,
   type ValidatedTreePin,
-} from "./receipt.ts";
+} from "./proof.ts";
 import {
   preflightPlannedWrites,
   writePreflightDiagnostic,
@@ -885,7 +885,7 @@ async function reusableMeasurements(
  * measured-vs-limit half needs no rerun because the same clean HEAD fixes both
  * the values and limits, and only an all-green check records a receipt.
  */
-function replayExecutionFromReceipt(
+function replayExecutionFromProof(
   plan: StandardPlan,
   values: Record<string, number>,
   verification: TrunkLimitsVerification,
@@ -1320,7 +1320,7 @@ async function pinStandardsResult(
 
   // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
-  const priorReceipt = await inspectGateReceipt(root);
+  const priorProof = await inspectGateProof(root);
 
   const verification = opts.verification;
   if (verification === undefined) {
@@ -1333,7 +1333,7 @@ async function pinStandardsResult(
   const reused = await reusableMeasurements(root, plan);
   const slots = buildTestRunSlots(root, cfg);
   const execution = reused !== undefined
-    ? replayExecutionFromReceipt(plan, reused, verification)
+    ? replayExecutionFromProof(plan, reused, verification)
     : await executeStandardPlan(plan, root, verification, {
       timeoutS: cfg.gate.timeout,
       slots,
@@ -1436,10 +1436,10 @@ async function pinStandardsResult(
 
   // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
   // redundant gate re-run (the commit changed only standard limits — gate-neutral).
-  const receipt = await carryReceiptForwardAcrossPin(
+  const receipt = await carryProofForwardAcrossPin(
     root,
     writeAuthority.admin,
-    priorReceipt?.status === "honored",
+    priorProof?.status === "honored",
   );
   const carried = receipt?.status === "recorded";
   return standardsBuild(

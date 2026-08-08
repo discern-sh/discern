@@ -39,7 +39,7 @@ import {
   preparePlanGroups,
   stageGroup,
   TRACKED_REFRESH_CHECK_LABEL,
-  TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+  TRACKED_REFRESH_PROOF_CHECK_LABEL,
 } from "../gate/plan.ts";
 import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
 import { planStandardJobsFromConfig } from "../gate/standards_gate.ts";
@@ -289,7 +289,7 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
           "Built-in initial read-only precondition: the current refresh plan must have no pending tracked-file effect. Run `discern refresh`, review and commit the named paths, then rerun the gate.",
       });
     }
-    if (planned.label === TRACKED_REFRESH_RECEIPT_CHECK_LABEL) {
+    if (planned.label === TRACKED_REFRESH_PROOF_CHECK_LABEL) {
       return annotatePlanStep(planned, {
         hint:
           "Built-in final read-only check: repeat the current tracked refresh plan after every gate job, immediately before the result and Receipt. A pending or unprovable effect prevents a green result.",

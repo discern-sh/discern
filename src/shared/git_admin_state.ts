@@ -63,7 +63,7 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
-  gateReceipt: {
+  gateProof: {
     path: "discern/gate-receipt",
     scope: "worktree",
     kind: "file",

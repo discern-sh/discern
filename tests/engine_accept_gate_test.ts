@@ -31,14 +31,14 @@ import {
 } from "./engine_helpers.ts";
 import {
   type AdminStateWriteAuthority,
-  gateReceiptHonored,
-  inspectGateReceipt,
+  gateProofHonored,
+  inspectGateProof,
   pinValidatedTree,
   preflightAdminStateWrites,
   recordGateOutcome,
-} from "../src/engine/gate/receipt.ts";
+} from "../src/engine/gate/proof.ts";
 import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
-import type { Receipt } from "../src/shared/result_schemas.ts";
+import type { Proof } from "../src/shared/result_schemas.ts";
 
 const CSI = `${String.fromCharCode(27)}[`;
 
@@ -97,7 +97,7 @@ function parseJson(stdout: string): any {
 /** Every successful acceptance path carries the same two-form landing record:
  * the page for a PR body and the system-rendered line an agent relays verbatim. */
 // deno-lint-ignore no-explicit-any
-function assertLandingReceiptRelay(obj: any, branch: string): void {
+function assertLandingProofRelay(obj: any, branch: string): void {
   assertStringIncludes(
     obj.data.receipt,
     `### Receipt — \`agent/${branch}\``,
@@ -156,13 +156,13 @@ async function advanceMain(dir: string, file: string): Promise<void> {
 
 // ── the receipt primitive ───────────────────────────────────────────────────────
 
-Deno.test("receipt: a green+clean finish stamps HEAD, and gateReceiptHonored confirms it", async () => {
+Deno.test("receipt: a green+clean finish stamps HEAD, and gateProofHonored confirms it", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    assertEquals(await gateReceiptHonored(dir), false); // nothing stamped yet
+    assertEquals(await gateProofHonored(dir), false); // nothing stamped yet
     assertEquals((await recordGreenNow(dir)).status, "recorded");
-    assertEquals(await gateReceiptHonored(dir), true);
+    assertEquals(await gateProofHonored(dir), true);
   });
 });
 
@@ -172,7 +172,7 @@ Deno.test("receipt: a pre-correction marker drops runtime telemetry", async () =
     await gitInit(dir);
     const pin = await pinValidatedTree(dir);
     assert(pin.head !== undefined);
-    const receipt: Receipt = {
+    const receipt: Proof = {
       branch: "agent/legacy-marker",
       trunk: "main",
       head: pin.head.slice(0, 12),
@@ -186,7 +186,7 @@ Deno.test("receipt: a pre-correction marker drops runtime telemetry", async () =
       ...receipt,
       waited_ms: 70_000,
       orbit_delay: 42,
-    } as Receipt & { waited_ms: number; orbit_delay: number };
+    } as Proof & { waited_ms: number; orbit_delay: number };
 
     const recorded = await recordGateOutcome(
       dir,
@@ -196,7 +196,7 @@ Deno.test("receipt: a pre-correction marker drops runtime telemetry", async () =
       preCorrection,
     );
     assertEquals(recorded.status, "recorded");
-    assertEquals((await inspectGateReceipt(dir)).receipt_data, receipt);
+    assertEquals((await inspectGateProof(dir)).receipt_data, receipt);
   });
 });
 
@@ -204,7 +204,7 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
-    const receiptPath = await gitAdminStatePath(dir, "gateReceipt");
+    const receiptPath = await gitAdminStatePath(dir, "gateProof");
     assert(receiptPath !== undefined, "expected a Git repository");
     // Authority was available at workflow start; the path changes afterwards to
     // exercise the writer's best-effort TOCTOU fallback.
@@ -223,7 +223,7 @@ Deno.test("receipt: a failed stamp is visible to the caller", async () => {
       receipt.reason !== undefined && receipt.reason.length > 0,
       `expected a useful failure reason: ${JSON.stringify(receipt)}`,
     );
-    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals(await gateProofHonored(dir), false);
   });
 });
 
@@ -232,12 +232,12 @@ Deno.test("receipt: a new commit invalidates a stamped receipt (the update case,
     await scaffoldEngine(dir);
     await gitInit(dir);
     await recordGreenNow(dir);
-    assertEquals(await gateReceiptHonored(dir), true);
+    assertEquals(await gateProofHonored(dir), true);
     // A later commit moves HEAD past the validated sha — exactly what update's merge does.
     await Deno.writeTextFile(join(dir, "x.txt"), "x\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "x", "--no-gpg-sign");
-    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals(await gateProofHonored(dir), false);
   });
 });
 
@@ -246,9 +246,9 @@ Deno.test("receipt: an uncommitted change invalidates a stamped receipt", async 
     await scaffoldEngine(dir);
     await gitInit(dir);
     await recordGreenNow(dir);
-    assertEquals(await gateReceiptHonored(dir), true);
+    assertEquals(await gateProofHonored(dir), true);
     await Deno.writeTextFile(join(dir, "dirty.txt"), "dirty\n"); // untracked → not clean
-    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals(await gateProofHonored(dir), false);
   });
 });
 
@@ -257,14 +257,14 @@ Deno.test("receipt: a failed finish clears an existing receipt (fail-closed)", a
     await scaffoldEngine(dir);
     await gitInit(dir);
     await recordGreenNow(dir);
-    assertEquals(await gateReceiptHonored(dir), true);
+    assertEquals(await gateProofHonored(dir), true);
     await recordGateOutcome(
       dir,
       await receiptAuthority(dir),
       false,
       await pinValidatedTree(dir),
     ); // a later failing gate revokes the vouch
-    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals(await gateProofHonored(dir), false);
   });
 });
 
@@ -275,9 +275,9 @@ Deno.test("receipt: a green-but-dirty finish leaves a prior clean receipt intact
     await recordGreenNow(dir); // stamped at clean HEAD C
     await Deno.writeTextFile(join(dir, "wip.txt"), "wip\n"); // tree now dirty
     await recordGreenNow(dir); // green+dirty → must NOT overwrite/clear the vouch
-    assertEquals(await gateReceiptHonored(dir), false); // dirty → not honored right now
+    assertEquals(await gateProofHonored(dir), false); // dirty → not honored right now
     await Deno.remove(join(dir, "wip.txt")); // back to clean C
-    assertEquals(await gateReceiptHonored(dir), true); // the prior clean vouch still holds
+    assertEquals(await gateProofHonored(dir), true); // the prior clean vouch still holds
   });
 });
 
@@ -303,8 +303,8 @@ Deno.test("receipt: a commit made while the gate ran is never stamped (the pin c
       rec.reason !== undefined && rec.reason.includes("HEAD moved"),
       `expected a HEAD-moved reason: ${JSON.stringify(rec)}`,
     );
-    assertEquals(await gateReceiptHonored(dir), false);
-    assertEquals((await inspectGateReceipt(dir)).status, "missing");
+    assertEquals(await gateProofHonored(dir), false);
+    assertEquals((await inspectGateProof(dir)).status, "missing");
   });
 });
 
@@ -323,9 +323,9 @@ Deno.test("receipt: a mid-run commit leaves a prior clean vouch intact (still tr
       pin,
     );
     assertEquals(rec.status, "skipped_head_moved");
-    assertEquals((await inspectGateReceipt(dir)).status, "stale"); // still names C
+    assertEquals((await inspectGateProof(dir)).status, "stale"); // still names C
     await git(dir, "reset", "-q", "--hard", "HEAD~1"); // back at clean C
-    assertEquals(await gateReceiptHonored(dir), true); // the truthful vouch holds
+    assertEquals(await gateProofHonored(dir), true); // the truthful vouch holds
   });
 });
 
@@ -344,7 +344,7 @@ Deno.test("receipt: a tree that was dirty when the gate began is not stamped eve
       pin,
     );
     assertEquals(rec.status, "skipped_dirty");
-    assertEquals(await gateReceiptHonored(dir), false);
+    assertEquals(await gateProofHonored(dir), false);
   });
 });
 
@@ -486,7 +486,7 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
     );
     // The landing record: both forms from the honored marker ride the envelope,
     // with the verbatim relay instruction beside them.
-    assertLandingReceiptRelay(obj, "epsilon");
+    assertLandingProofRelay(obj, "epsilon");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });
@@ -509,7 +509,7 @@ Deno.test("accept: a legacy receipt cannot bypass tracked refresh convergence", 
     // convergence predicate. The receipt primitive deliberately does not run a
     // gate; acceptance must apply current cheap preconditions before landing.
     assertEquals((await recordGreenNow(wt)).status, "recorded");
-    assertEquals((await inspectGateReceipt(wt)).status, "honored");
+    assertEquals((await inspectGateProof(wt)).status, "honored");
 
     const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
     assertEquals(preview.code, 1, preview.output);
@@ -548,7 +548,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     assertEquals(grad.output.includes("JOB"), false);
     // The slow path's fresh gate run rendered both receipt forms — accept still
     // carries the same landing contract as the fast path.
-    assertLandingReceiptRelay(obj, "zeta");
+    assertLandingProofRelay(obj, "zeta");
     assertEquals(await exists(wt), false, `should have landed\n${grad.output}`);
   });
 });
