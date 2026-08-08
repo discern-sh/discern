@@ -7,7 +7,7 @@
  * proposals they implement and record a disposition for the rest.
  */
 
-import { REGISTERS, type Register } from "../model.ts";
+import { type Register, REGISTERS } from "../model.ts";
 
 /** One scored dimension of a review scorecard. */
 export interface ScorecardRow {
