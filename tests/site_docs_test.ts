@@ -1072,9 +1072,13 @@ Deno.test("the search index and llms.txt cover every published page", async () =
 
   const llms = await get("/llms.txt", CURL);
   const text = await llms.text();
-  assertStringIncludes(text, "DISCERN(1)");
   assert(
-    /https:\/\/discern\.sh\/docs\s+The discern manual/.test(text),
+    text.startsWith("# discern\n\n> "),
+    "llms.txt opens with the H1 and summary blockquote the convention requires",
+  );
+  assertStringIncludes(
+    text,
+    "- [The discern manual](https://discern.sh/docs):",
     "llms.txt lists the manual front door with its canonical label",
   );
   for (const page of site.pages) {
@@ -1082,7 +1086,7 @@ Deno.test("the search index and llms.txt cover every published page", async () =
   }
   assert(!text.includes(site.decisions.route));
   // The section is generated, not hand-kept.
-  assertStringIncludes(docsLlmsSection(site), "DOCUMENTATION");
+  assertStringIncludes(docsLlmsSection(site), "## Documentation");
 });
 
 Deno.test("the sitemap source contains guidance and project-history routes", async () => {

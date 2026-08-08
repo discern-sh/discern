@@ -86,7 +86,10 @@ Deno.test("negotiable routes serve the plaintext edition to text clients", async
       "User-Agent",
       `route ${path}`,
     );
-    assertStringIncludes(await res.text(), "DISCERN(1)", `route ${path}`);
+    assert(
+      (await res.text()).startsWith("# discern\n\n> "),
+      `route ${path} opens with the llms.txt H1 and summary blockquote`,
+    );
   }
 });
 
@@ -116,7 +119,10 @@ Deno.test("/llms.txt is the plaintext edition for every reader", async () => {
     const res = await get("/llms.txt", headers);
     assertEquals(res.status, 200);
     assertStringIncludes(res.headers.get("content-type") ?? "", "text/plain");
-    assertStringIncludes(await res.text(), "DISCERN(1)");
+    assert(
+      (await res.text()).startsWith("# discern\n\n> "),
+      "llms.txt opens with the H1 and summary blockquote the convention requires",
+    );
   }
 });
 

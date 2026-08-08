@@ -1173,29 +1173,33 @@ ${rendered.html}
 
 // ── Plain-text surfaces ────────────────────────────────────────────────────
 
-/** The DOCUMENTATION section appended to /llms.txt, man-page styled. */
+/** One llms.txt file-list row: the required link, then the page's description. */
+function llmsFileRow(
+  route: string,
+  title: string,
+  description: string,
+): string {
+  return `- [${title}](https://discern.sh${route}): ${description}`;
+}
+
+/** The documentation file lists appended to /llms.txt — one H2 section per
+ * manual section, in the llms.txt convention's link-list form (llmstxt.org),
+ * from the same tree the /docs section renders. */
 export function docsLlmsSection(site: DocsSite): string {
   const lines: string[] = [
-    "DOCUMENTATION",
-    "    The full manual, one URL per page. Every page returns raw Markdown",
-    "    to a text client, or with .md appended; browsers get the rendered",
-    "    edition at the same address.",
+    "## Documentation",
+    "",
+    llmsFileRow(
+      site.landing.route,
+      site.landing.entry.title,
+      site.landing.entry.description,
+    ),
     "",
   ];
-  const landingPad = " ".repeat(
-    Math.max(1, 42 - site.landing.route.length),
-  );
-  lines.push(
-    `        https://discern.sh${site.landing.route}${landingPad}${site.landing.entry.title}`,
-    "",
-  );
   for (const section of site.sections) {
-    lines.push(`    ${section.title}`);
+    lines.push(`## ${section.title}`, "");
     for (const p of section.pages) {
-      const pad = " ".repeat(Math.max(1, 42 - p.route.length));
-      lines.push(
-        `        https://discern.sh${p.route}${pad}${p.entry.title}`,
-      );
+      lines.push(llmsFileRow(p.route, p.entry.title, p.entry.description));
     }
     lines.push("");
   }

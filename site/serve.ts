@@ -2,8 +2,8 @@
  * The discern.sh site: one standard fetch handler serving the static editions,
  * with reader negotiation on the routes that have a plaintext edition —
  * browsers receive HTML; text clients (curl, wget, and friends) receive
- * DISCERN(1) as plain text. `/llms.txt` serves the same plaintext edition
- * unconditionally.
+ * the llms.txt edition as plain text. `/llms.txt` serves the same plaintext
+ * edition unconditionally.
  *
  * The same handler runs everywhere, which is the parity guarantee:
  *   locally      `deno task site` runs `dev.ts`, a loopback server over it
@@ -102,8 +102,9 @@ async function serveFile(
 }
 
 /**
- * /llms.txt: the handwritten DISCERN(1) edition, with the docs index appended
- * from the same tree the /docs section renders — one listing, never hand-kept.
+ * /llms.txt: the handwritten llms.txt edition (llmstxt.org), with the
+ * documentation file lists appended from the same tree the /docs section
+ * renders — one listing, never hand-kept.
  */
 async function llmsTxt(site: DocsSite): Promise<Response> {
   const base = await Deno.readTextFile(new URL(TEXT_EDITION, SITE_ROOT));
