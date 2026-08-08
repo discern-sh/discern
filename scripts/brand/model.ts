@@ -187,14 +187,41 @@ export interface VoicePrinciple {
 }
 
 /**
- * One item of a structured voice rule list — a banned move, a cadence rule,
- * an anti-pattern. `phrases` carries the mechanically bannable wordings a
- * prose lint can hold pattern-for-pattern; an entry without phrases is a
- * judgment rule no token list can encode.
+ * One item of a structured voice rule list — a cadence rule, an
+ * anti-pattern, a mechanics rule. `phrases` carries the mechanically
+ * bannable wordings a prose lint can hold pattern-for-pattern; an entry
+ * without phrases is a judgment rule no token list can encode.
  */
 export interface VoiceRule {
   readonly id: string;
   /** The list item exactly as the document renders it. */
+  readonly text: string;
+  readonly phrases?: readonly string[];
+}
+
+/**
+ * One banned-words table row. `registers` names the skills the row renders
+ * into, so one entry serves every register that bans it; `phrases` is the
+ * mechanically bannable subset the Vale parity guard holds to the style.
+ */
+export interface BannedWord {
+  readonly id: string;
+  /** The table's “Avoid” cell. */
+  readonly avoid: string;
+  /** The table's “Why” cell. */
+  readonly why: string;
+  /** The table's “Instead” cell. */
+  readonly instead: string;
+  readonly phrases?: readonly string[];
+  readonly registers: readonly [Register, ...Register[]];
+}
+
+/** One banned move: a named machine-tell pattern with its definitive rule. */
+export interface BannedMove {
+  readonly id: string;
+  /** The move's bold lead-in name. */
+  readonly name: string;
+  /** The definitive rule, verbatim Markdown after the name. */
   readonly text: string;
   readonly phrases?: readonly string[];
 }
@@ -211,7 +238,9 @@ export interface VoiceCriteriaGroup {
  * One section of a voice document, in document order. Structure follows the
  * signed-off documents: rule lists, numbered principles, and acceptance
  * checklists are typed data (the entries later Vale generation reads);
- * everything else stays verbatim authored Markdown.
+ * everything else stays verbatim authored Markdown. The `banned-words`,
+ * `banned-moves`, and `mechanics` kinds render from the shared canon sets,
+ * so the registers sharing a rule can never drift apart on it.
  */
 export type VoiceSection =
   | {
@@ -238,6 +267,20 @@ export type VoiceSection =
     readonly kind: "criteria";
     readonly heading: string;
     readonly groups: readonly VoiceCriteriaGroup[];
+  }
+  | {
+    readonly kind: "banned-words";
+    readonly heading: string;
+    readonly intro: string;
+  }
+  | {
+    readonly kind: "banned-moves";
+    readonly heading: string;
+    readonly intro: string;
+  }
+  | {
+    readonly kind: "mechanics";
+    readonly heading: string;
   };
 
 /** One register's complete voice definition: the skill identity fields and

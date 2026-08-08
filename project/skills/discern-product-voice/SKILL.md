@@ -2,7 +2,7 @@
 name: discern-product-voice
 description: "Write or review discern's human-facing product copy, CLI messages, documentation, tips, consent language, status text, errors, and reference material. Use when correctness, stable terminology, explicit state, and the next valid action matter more than persuasion. Do not use as the surface voice for marketing pages."
 metadata:
-  author: "discern"
+  author: "discern | https://discern.sh"
   version: "1.0"
 ---
 
@@ -22,6 +22,8 @@ It is calm, canonical, bounded, and useful under pressure.
 
 The product never uses personality to conceal uncertainty, state, authority, or consequences.
 
+When editing copy that predates this skill, bring it up to this standard rather than matching the surrounding tone.
+
 ## Sources of truth
 
 Before writing:
@@ -34,7 +36,7 @@ Before writing:
 
 Never invent a synonym for a canonical product concept merely to avoid repetition.
 
-## Voice behaviours
+## Voice behaviors
 
 ### 1. State the condition first
 
@@ -111,7 +113,7 @@ Avoid broad adjectives such as safe, secure, reliable, correct, complete, or pro
 
 Consent and authority language must identify:
 
-- who authorised;
+- who authorized;
 - what task, scope, or path set the authority covers;
 - when the evidence was recorded;
 - which action it permits;
@@ -147,11 +149,25 @@ For analytical surfaces:
 
 For Patterns, cohorts may be compared. Agents are not graded or ranked.
 
+### 9. Own faults, hand over credit
+
+Errors take the blame in active voice. Successes credit the person.
+
+Bad:
+
+> A connection error was encountered.
+
+Better:
+
+> We couldn't reach the server.
+
+Write "we" as an owner: "we broke this in 2.1," never "a regression was introduced."
+
 ## Canonical term discipline
 
 ### The product name
 
-The name is always written **discern**, entirely lower-case, on every surface and in every position — including at the start of a sentence. Recast the sentence rather than capitalising the name.
+The name is always written **discern**, entirely lower-case, on every surface and in every position — including at the start of a sentence. Recast the sentence rather than capitalizing the name.
 
 ### Use the glossary term
 
@@ -183,10 +199,10 @@ Until the product migration is complete:
 - treat **Receipt** as the current internal/product term;
 - treat **Proof** as the v1 launch term;
 - avoid mixed output in one surface;
-- define the technical record beneath the human artefact separately if needed;
+- define the technical record beneath the human artifact separately if needed;
 - keep the claim scoped to the declared Gate over the exact tree.
 
-Do not mechanically create awkward phrases such as “honoured Proof” without reviewing the resulting language.
+Do not mechanically create awkward phrases such as “honored Proof” without reviewing the resulting language.
 
 ## Sentence design
 
@@ -197,6 +213,8 @@ Do not mechanically create awkward phrases such as “honoured Proof” without 
 - Use a list when several independent facts must survive relay.
 - Avoid pronouns when “it” could refer to the branch, Gate, Proof, or command.
 - Keep diagnostic detail close to the state it supports.
+- Spend "never" and "always" on real guarantees; cut the absolute that is there for cadence.
+- Buttons and labels say what they do: "Delete 3 files," not "Confirm."
 
 ## Product-surface patterns
 
@@ -225,6 +243,7 @@ Include:
 - file and line when available;
 - the diagnostic;
 - the narrowest useful recovery;
+- discern named as the speaker when logs interleave;
 - a route to full output when abbreviated.
 
 ### Success
@@ -247,8 +266,8 @@ State:
 2. why it is proposed;
 3. what is reversible;
 4. what is difficult or consequential;
-5. what confirmation authorises;
-6. what it does not authorise.
+5. what confirmation authorizes;
+6. what it does not authorize.
 
 ### Tip
 
@@ -262,31 +281,33 @@ State:
 ### Documentation
 
 - conclusion or purpose first;
+- literal headings that state what the section contains;
 - canonical nouns;
 - mechanism and boundary;
 - examples that match live commands;
+- example values with personality: `ada`, `apollo-11`, `margaret@hamilton.space` — never `foo` or `user1`;
 - explicit links to deeper reference;
 - no marketing superlatives.
 
 ## Tone by state
 
-| State                   | Tone                                                  |
-| ----------------------- | ----------------------------------------------------- |
-| Routine orientation     | Quiet, concise, factual                               |
-| Recoverable failure     | Direct, helpful, unalarmed                            |
-| Destructive action      | Explicit, sober, confirmation-oriented                |
-| Consent or authority    | Precise, human, consequence-aware                     |
-| Setup narration         | Warm, transparent, stage-level                        |
-| Reference documentation | Dense only where precision requires it                |
-| Advisory analysis       | Evidence-led, non-judgemental, careful with inference |
-| Successful handoff      | Calm confidence; state what remains for the human     |
+| State                   | Tone                                                 |
+| ----------------------- | ---------------------------------------------------- |
+| Routine orientation     | Quiet, concise, factual                              |
+| Recoverable failure     | Direct, helpful, unalarmed                           |
+| Destructive action      | Explicit, sober, confirmation-oriented               |
+| Consent or authority    | Precise, human, consequence-aware                    |
+| Setup narration         | Warm, transparent, stage-level                       |
+| Reference documentation | Dense only where precision requires it               |
+| Advisory analysis       | Evidence-led, non-judgmental, careful with inference |
+| Successful handoff      | Calm confidence; state what remains for the human    |
 
 ## Agent language
 
 When a human-facing product surface mentions agents:
 
 - describe what the agent did, encountered, or needs;
-- avoid moral or personality judgement;
+- avoid moral or personality judgment;
 - attribute cohort observations to recorded evidence;
 - distinguish agent identity from task mix;
 - preserve the product philosophy that capable agents benefit from better conditions.
@@ -350,6 +371,55 @@ Reject copy that:
 - confuses an advisory with enforcement;
 - turns comparison into ranking.
 
+## Banned moves
+
+These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.
+
+1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," and the reversed "X, not Y." State the true half plainly.
+2. **Aphoristic antithesis:** The epigram cadence: short mirrored clauses striking a pose ("Agents forget. The repo remembers."), including two half-clauses sharing one verb for rhythm. State the fact once, plainly.
+3. **Self-narration:** Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.
+4. **Attitude fragments:** Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."
+5. **Echo-intensifiers:** Repeating a word with an intensifier: "Green means done. Actually done."
+6. **Trailing modifier fragments:** ", every time," ", by design," ", at scale."
+7. **Em-dash splices:** Never split with an em dash what a period or colon can handle. Two em dashes in one sentence is a chain: rebuild the sentence.
+8. **Typographic applause:** Italics or bold used to inject drama. If a sentence needs styling to land, rebuild the sentence. Bold is for scannability.
+9. **Counting the set out loud:** "Watch for four moments," "Two things remain." The spelled-out count duplicates the list it introduces and is wrong the day the set grows. Let the list carry the count; a number is welcome when the number itself is the fact.
+
+## Banned words
+
+Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.
+
+| Avoid                                                                                                      | Why                                                                            | Instead                                           |
+| ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------- |
+| "simply," "just," "easy," "obviously," "actually," "really"                                                | Padding that costs the writer nothing and charges the struggling reader double | Delete it. The sentence stands alone.             |
+| "powerful," "robust," "seamless," "elegant," "blazing," "effortless," "magical," "delightful," "beautiful" | Adjectives dodging _compared to what?_                                         | The sourced fact that earned it, or nothing       |
+| "supercharge," "game-changer," "unlock," "empower," "vibes," "just works"                                  | Hype vocabulary; the reader decides what it changes                            | Say what it does                                  |
+| "leverage," "utilize," "enables you to," "facilitate"                                                      | Vendor-speak; a friend would say "use"                                         | The plain verb                                    |
+| "We're excited/thrilled to announce"                                                                       | Announces the emotion instead of the thing                                     | Say the thing                                     |
+| "Please note that," "It's worth noting"                                                                    | Throat-clearing                                                                | Start with the fact                               |
+| "posture"                                                                                                  | Gym vocabulary for file state; readers picture ergonomics                      | "tracked or ignored," "how git treats it"         |
+| "the shape of"                                                                                             | Geometry vocabulary for architecture; names no actual thing                    | "how X fits together," or name the parts          |
+| "load-bearing"                                                                                             | Construction jargon for "important" — a meme-grade machine tell                | "doing real work," or name what breaks without it |
+| "the one `<noun>`," "the whole `<noun>`," and unnecessary enumeration ("all three checks," "both files")   | Totalizing emphasis that adds nothing and goes stale the day the set grows     | State the actual scope, or drop the emphasis      |
+| "silently," "quietly," "deliberately," "deliberate," "exactly"                                             | Drama adverbs seasoning a spec                                                 | The plain claim; name the mechanism instead       |
+| "honest," "honestly," "honesty"                                                                            | Prose vouching for its own sincerity                                           | Delete it; the facts carry the sincerity          |
+| "rides along," "ride along"                                                                                | Pet metaphor for "accompanies"                                                 | Say what actually happens                         |
+| "You may want to consider"                                                                                 | A stack of hedges where the reader came for a recommendation                   | "Do X," or "Do X unless Y"                        |
+| Passive-voice fault-dodging ("an error was encountered")                                                   | Hides the actor and dodges the blame                                           | "We couldn't…" / "`discern.toml` is missing"      |
+| Exclamation points                                                                                         | Unearned enthusiasm reads as sales                                             | A period.                                         |
+| Emoji in prose                                                                                             | Outsources tone the words should carry                                         | Words that carry the tone                         |
+
+## Enforcement
+
+The mechanical subset of these rules is encoded as a Vale style at `.vale/Discern/`, linted over every map page in the gate. When it flags a line, fix the prose rather than suppressing the rule, then re-check the page with `discern scripts prose-page <page…>`; new or rewritten pages pass at zero alerts. The lint catches the checkable subset; the rest of this skill still applies.
+
+## Mechanics
+
+- American English spelling throughout: color, behavior, -ize.
+- Sentence case for headings, titles, buttons, and labels.
+- Serial comma.
+- Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.
+
 ## Review checklist
 
 A product string is ready when:
@@ -362,6 +432,6 @@ A product string is ready when:
 - the reason is included when it helps recovery or authority;
 - certainty matches the evidence;
 - consent scope is clear;
-- the agent is described without judgement;
+- the agent is described without judgment;
 - human and machine renderings can derive from one meaning;
 - the copy remains useful when read under stress.

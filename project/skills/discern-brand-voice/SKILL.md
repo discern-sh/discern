@@ -2,7 +2,7 @@
 name: discern-brand-voice
 description: "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP guidance, or operational agent instructions."
 metadata:
-  author: "discern"
+  author: "discern | https://discern.sh"
   version: "1.0"
 ---
 
@@ -66,7 +66,7 @@ It should feel:
 - technically credible when proof enters;
 - visibly pleased by what coding agents make possible.
 
-The brand is serious **about** software. It is not sombre **around** software.
+The brand is serious **about** software. It is not somber **around** software.
 
 The product name is always written **discern**, entirely lower-case — even at the start of a sentence or headline. When an opening capital feels unavoidable, recast the line so the name is not the first word.
 
@@ -89,7 +89,7 @@ Avoid opening with anxiety, compliance, or technical completeness.
 Lead with:
 
 - a greater ambition;
-- a recognised threshold;
+- a recognized threshold;
 - a better experience of building;
 - the desire for the software to earn confidence;
 - a moment when one person's capability expands.
@@ -110,7 +110,7 @@ Write towards:
 
 Instead of:
 
-> Operationalise care.
+> Operationalize care.
 
 Write towards:
 
@@ -120,11 +120,11 @@ Write towards:
 
 A useful sequence is:
 
-1. recognise the reader;
+1. recognize the reader;
 2. show the changed experience;
 3. explain what kind of product discern is;
 4. reveal the mechanisms;
-5. show an artefact or evidence;
+5. show an artifact or evidence;
 6. state the boundary;
 7. offer depth.
 
@@ -150,7 +150,7 @@ Use technical terminology when it adds real precision after orientation.
 
 ### 5. Give every section one memorable proposition
 
-The heading should make a claim or express a recognisable possibility.
+The heading should make a claim or express a recognizable possibility.
 
 Weak:
 
@@ -172,7 +172,7 @@ Stronger:
 
 Avoid generic adjectives such as robust, powerful, seamless, intelligent, enterprise-grade, and transformative.
 
-Show the mechanism or artefact that earns the conclusion:
+Show the mechanism or artifact that earns the conclusion:
 
 - one project understanding across providers;
 - one prepared place per task;
@@ -182,9 +182,9 @@ Show the mechanism or artefact that earns the conclusion:
 
 ### 7. Respect both primary audiences
 
-The experienced engineer should feel recognised, not explained down to.
+The experienced engineer should feel recognized, not explained down to.
 
-The new builder should feel invited, not patronised or tested for credentials.
+The new builder should feel invited, not patronized or tested for credentials.
 
 Do not imply that engineering expertise has become irrelevant. Show that engineering discipline can be carried by the project and its agents, while experience remains valuable.
 
@@ -252,7 +252,7 @@ Tone: celebratory and forward-looking. Do not suggest the reader has been irresp
 
 ### Meaningful attention
 
-- Spend your attention where your judgement matters most.
+- Spend your attention where your judgment matters most.
 - Come back to work that is ready for a decision.
 
 Tone: calm, spacious, liberating.
@@ -270,7 +270,7 @@ Tone: technically elegant, imaginative, slightly playful.
 
 - Highest ambition and emotional pull.
 - Explain the category quickly.
-- Product detail enters through demonstrations and artefacts.
+- Product detail enters through demonstrations and artifacts.
 - No assumption that the reader already knows discern's nouns.
 
 ### Product or capability page
@@ -321,7 +321,7 @@ Tone: technically elegant, imaginative, slightly playful.
 
 Use rhythm, alliteration, or contrast when it genuinely strengthens the meaning.
 
-Avoid repeated templates that have become recognisable model mannerisms:
+Avoid repeated templates that have become recognizable model mannerisms:
 
 - constant “X, not Y” constructions;
 - three abstract nouns in a row;
@@ -335,6 +335,37 @@ Avoid repeated templates that have become recognisable model mannerisms:
 - solemn declarations that could introduce any AI product.
 
 One conspicuous verbal device in a hero or section is usually enough.
+
+## Banned moves
+
+These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.
+
+1. **Contrast-frames:** "not X, but Y," "isn't X, it's Y," and the reversed "X, not Y." State the true half plainly.
+2. **Aphoristic antithesis:** The epigram cadence: short mirrored clauses striking a pose ("Agents forget. The repo remembers."), including two half-clauses sharing one verb for rhythm. State the fact once, plainly.
+3. **Self-narration:** Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.
+4. **Attitude fragments:** Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."
+5. **Echo-intensifiers:** Repeating a word with an intensifier: "Green means done. Actually done."
+6. **Trailing modifier fragments:** ", every time," ", by design," ", at scale."
+7. **Em-dash splices:** Never split with an em dash what a period or colon can handle. Two em dashes in one sentence is a chain: rebuild the sentence.
+8. **Typographic applause:** Italics or bold used to inject drama. If a sentence needs styling to land, rebuild the sentence. Bold is for scannability.
+9. **Counting the set out loud:** "Watch for four moments," "Two things remain." The spelled-out count duplicates the list it introduces and is wrong the day the set grows. Let the list carry the count; a number is welcome when the number itself is the fact.
+
+## Banned words
+
+Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.
+
+| Avoid                                                                                                    | Why                                                                        | Instead                                           |
+| -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------- |
+| "leverage," "utilize," "enables you to," "facilitate"                                                    | Vendor-speak; a friend would say "use"                                     | The plain verb                                    |
+| "Please note that," "It's worth noting"                                                                  | Throat-clearing                                                            | Start with the fact                               |
+| "posture"                                                                                                | Gym vocabulary for file state; readers picture ergonomics                  | "tracked or ignored," "how git treats it"         |
+| "the shape of"                                                                                           | Geometry vocabulary for architecture; names no actual thing                | "how X fits together," or name the parts          |
+| "load-bearing"                                                                                           | Construction jargon for "important" — a meme-grade machine tell            | "doing real work," or name what breaks without it |
+| "the one `<noun>`," "the whole `<noun>`," and unnecessary enumeration ("all three checks," "both files") | Totalizing emphasis that adds nothing and goes stale the day the set grows | State the actual scope, or drop the emphasis      |
+| "silently," "quietly," "deliberately," "deliberate," "exactly"                                           | Drama adverbs seasoning a spec                                             | The plain claim; name the mechanism instead       |
+| "honest," "honestly," "honesty"                                                                          | Prose vouching for its own sincerity                                       | Delete it; the facts carry the sincerity          |
+| "rides along," "ride along"                                                                              | Pet metaphor for "accompanies"                                             | Say what actually happens                         |
+| Emoji in prose                                                                                           | Outsources tone the words should carry                                     | Words that carry the tone                         |
 
 ## Product ontology firewall
 
@@ -382,7 +413,7 @@ Why it works:
 - describes a changed experience;
 - leaves room for the product to prove the promise.
 
-### Generic humanisation: reject
+### Generic humanization: reject
 
 > Unlock your potential and build with confidence using a powerful, intelligent platform.
 
@@ -390,11 +421,11 @@ Why it fails:
 
 - could describe any product;
 - substitutes adjectives for mechanism;
-- contains no recognisable moment.
+- contains no recognizable moment.
 
-### Concrete humanisation: stronger
+### Concrete humanization: stronger
 
-> Turn a backlog into organised work. Let several agents move at once. Return when the decisions need you.
+> Turn a backlog into organized work. Let several agents move at once. Return when the decisions need you.
 
 ### Fear-led seriousness: reject
 
@@ -441,13 +472,21 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
 1. Write a one-sentence account of the reader's desired future without using product terms.
 2. Choose one message territory from `messaging.md`.
 3. Draft the headline and literal subhead.
-4. Add a recognisable scenario or artefact.
+4. Add a recognizable scenario or artifact.
 5. Introduce the category.
 6. Add only the mechanisms needed to support belief.
 7. Attach claim slugs.
-8. Add the honest boundary near the relevant claim.
-9. Read aloud.
-10. Run `copy-review.md`.
+8. Read every claim hostilely and literally: weaken it until it is literally true, or mark it `[claim — verify]`.
+9. Add the honest boundary near the relevant claim.
+10. Read aloud.
+11. Run `copy-review.md`.
+
+## Mechanics
+
+- American English spelling throughout: color, behavior, -ize.
+- Sentence case for headings, titles, buttons, and labels.
+- Serial comma.
+- Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.
 
 ## Acceptance criteria
 
@@ -455,12 +494,13 @@ A brand draft is ready only when:
 
 - a new reader can tell what kind of product discern is;
 - the opening describes something they want;
-- the relevant audience recognises their circumstance;
+- the relevant audience recognizes their circumstance;
 - the copy feels alive rather than manual-like;
 - seriousness reads as aspiration and earned confidence;
 - agents are treated as capable collaborators;
 - product terms are introduced rather than assumed;
 - important claims have claim slugs and correct scope;
+- the copy survives a hostile literal reading;
 - the page has one dominant argument;
 - the CTA names a real destination;
 - contemporary model-copy mannerisms are absent or rare;

@@ -43,6 +43,9 @@ import {
 } from "../scripts/brand_registry.ts";
 import { REGISTERS } from "../scripts/brand/model.ts";
 import {
+  BANNED_MOVES,
+  BANNED_WORDS,
+  MECHANICS,
   renderVoiceSkill,
   VOICES,
   voiceSkillName,
@@ -126,6 +129,33 @@ Deno.test("every generated voice skill carries the banner directly after its fro
   }
 });
 
+Deno.test("the shared canon renders where the owner placed it", () => {
+  // Owner selection, 2026-08-08: product and brand carry the banned canon;
+  // every register carries the mechanics. A dropped marker is a silent loss
+  // of enforcement canon, so the placement is held here.
+  const kinds = (register: (typeof REGISTERS)[number]): Set<string> =>
+    new Set(VOICES[register].sections.map((section) => section.kind));
+  for (const register of ["brand", "product"] as const) {
+    assert(
+      kinds(register).has("banned-words") &&
+        kinds(register).has("banned-moves"),
+      `${register}: the banned canon must render into this skill`,
+    );
+  }
+  for (const register of REGISTERS) {
+    assert(
+      kinds(register).has("mechanics"),
+      `${register}: the mechanics must render into this skill`,
+    );
+  }
+  for (const word of BANNED_WORDS) {
+    assert(
+      word.registers.includes("product"),
+      `${word.id}: every banned word renders at least into the product skill`,
+    );
+  }
+});
+
 Deno.test("every registered brand document exists on disk", async () => {
   for (const doc of BRAND_DOCUMENTS) {
     const path = join(REPO_AUTHORED_PATHS.map, brandDocMapRel(doc));
@@ -165,6 +195,9 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
   unique("scorecard ids", SCORECARDS.map((scorecard) => scorecard.id));
   unique("reading-path ids", READING_PATHS.map((path) => path.id));
   unique("outstanding-work ids", OUTSTANDING_WORK.map((item) => item.id));
+  unique("banned-word ids", BANNED_WORDS.map((word) => word.id));
+  unique("banned-move ids", BANNED_MOVES.map((move) => move.id));
+  unique("mechanics ids", MECHANICS.map((rule) => rule.id));
   for (const register of REGISTERS) {
     const sections = VOICES[register].sections;
     unique(

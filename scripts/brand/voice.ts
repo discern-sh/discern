@@ -10,9 +10,12 @@
  */
 
 import {
+  type BannedMove,
+  type BannedWord,
   generatedBrandBanner,
   type Register,
   type VoiceDefinition,
+  type VoiceRule,
   type VoiceSection,
 } from "./model.ts";
 
@@ -80,7 +83,7 @@ It should feel:
 - technically credible when proof enters;
 - visibly pleased by what coding agents make possible.
 
-The brand is serious **about** software. It is not sombre **around** software.
+The brand is serious **about** software. It is not somber **around** software.
 
 The product name is always written **discern**, entirely lower-case — even at the start of a sentence or headline. When an opening capital feels unavoidable, recast the line so the name is not the first word.
 
@@ -105,7 +108,7 @@ Avoid opening with anxiety, compliance, or technical completeness.`,
           body: `Lead with:
 
 - a greater ambition;
-- a recognised threshold;
+- a recognized threshold;
 - a better experience of building;
 - the desire for the software to earn confidence;
 - a moment when one person's capability expands.
@@ -127,7 +130,7 @@ Write towards:
 
 Instead of:
 
-> Operationalise care.
+> Operationalize care.
 
 Write towards:
 
@@ -138,11 +141,11 @@ Write towards:
           title: "Let desire arrive before proof",
           body: `A useful sequence is:
 
-1. recognise the reader;
+1. recognize the reader;
 2. show the changed experience;
 3. explain what kind of product discern is;
 4. reveal the mechanisms;
-5. show an artefact or evidence;
+5. show an artifact or evidence;
 6. state the boundary;
 7. offer depth.`,
         },
@@ -171,7 +174,7 @@ Use technical terminology when it adds real precision after orientation.`,
           id: "give-every-section-one-memorable-proposition",
           title: "Give every section one memorable proposition",
           body:
-            `The heading should make a claim or express a recognisable possibility.
+            `The heading should make a claim or express a recognizable possibility.
 
 Weak:
 
@@ -195,7 +198,7 @@ Stronger:
           body:
             `Avoid generic adjectives such as robust, powerful, seamless, intelligent, enterprise-grade, and transformative.
 
-Show the mechanism or artefact that earns the conclusion:
+Show the mechanism or artifact that earns the conclusion:
 
 - one project understanding across providers;
 - one prepared place per task;
@@ -207,9 +210,9 @@ Show the mechanism or artefact that earns the conclusion:
           id: "respect-both-primary-audiences",
           title: "Respect both primary audiences",
           body:
-            `The experienced engineer should feel recognised, not explained down to.
+            `The experienced engineer should feel recognized, not explained down to.
 
-The new builder should feel invited, not patronised or tested for credentials.
+The new builder should feel invited, not patronized or tested for credentials.
 
 Do not imply that engineering expertise has become irrelevant. Show that engineering discipline can be carried by the project and its agents, while experience remains valuable.`,
         },
@@ -302,7 +305,7 @@ Tone: celebratory and forward-looking. Do not suggest the reader has been irresp
 
 ### Meaningful attention
 
-- Spend your attention where your judgement matters most.
+- Spend your attention where your judgment matters most.
 - Come back to work that is ready for a decision.
 
 Tone: calm, spacious, liberating.
@@ -320,7 +323,7 @@ Tone: technically elegant, imaginative, slightly playful.`,
 
 - Highest ambition and emotional pull.
 - Explain the category quickly.
-- Product detail enters through demonstrations and artefacts.
+- Product detail enters through demonstrations and artifacts.
 - No assumption that the reader already knows discern's nouns.
 
 ### Product or capability page
@@ -373,7 +376,7 @@ Tone: technically elegant, imaginative, slightly playful.`,
       intro:
         `Use rhythm, alliteration, or contrast when it genuinely strengthens the meaning.
 
-Avoid repeated templates that have become recognisable model mannerisms:`,
+Avoid repeated templates that have become recognizable model mannerisms:`,
       items: [
         {
           id: "constant-x-not-y-constructions",
@@ -413,6 +416,16 @@ Avoid repeated templates that have become recognisable model mannerisms:`,
       ],
       outro:
         `One conspicuous verbal device in a hero or section is usually enough.`,
+    }, {
+      kind: "banned-moves",
+      heading: "Banned moves",
+      intro:
+        "These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.",
+    }, {
+      kind: "banned-words",
+      heading: "Banned words",
+      intro:
+        "Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.",
     }, {
       kind: "rules",
       id: "ontology-firewall",
@@ -461,7 +474,7 @@ Why it works:
 - describes a changed experience;
 - leaves room for the product to prove the promise.
 
-### Generic humanisation: reject
+### Generic humanization: reject
 
 > Unlock your potential and build with confidence using a powerful, intelligent platform.
 
@@ -469,11 +482,11 @@ Why it fails:
 
 - could describe any product;
 - substitutes adjectives for mechanism;
-- contains no recognisable moment.
+- contains no recognizable moment.
 
-### Concrete humanisation: stronger
+### Concrete humanization: stronger
 
-> Turn a backlog into organised work. Let several agents move at once. Return when the decisions need you.
+> Turn a backlog into organized work. Let several agents move at once. Return when the decisions need you.
 
 ### Fear-led seriousness: reject
 
@@ -521,13 +534,17 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
         `1. Write a one-sentence account of the reader's desired future without using product terms.
 2. Choose one message territory from \`messaging.md\`.
 3. Draft the headline and literal subhead.
-4. Add a recognisable scenario or artefact.
+4. Add a recognizable scenario or artifact.
 5. Introduce the category.
 6. Add only the mechanisms needed to support belief.
 7. Attach claim slugs.
-8. Add the honest boundary near the relevant claim.
-9. Read aloud.
-10. Run \`copy-review.md\`.`,
+8. Read every claim hostilely and literally: weaken it until it is literally true, or mark it \`[claim — verify]\`.
+9. Add the honest boundary near the relevant claim.
+10. Read aloud.
+11. Run \`copy-review.md\`.`,
+    }, {
+      kind: "mechanics",
+      heading: "Mechanics",
     }, {
       kind: "criteria",
       heading: "Acceptance criteria",
@@ -537,12 +554,13 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
           items: [
             `a new reader can tell what kind of product discern is;`,
             `the opening describes something they want;`,
-            `the relevant audience recognises their circumstance;`,
+            `the relevant audience recognizes their circumstance;`,
             `the copy feels alive rather than manual-like;`,
             `seriousness reads as aspiration and earned confidence;`,
             `agents are treated as capable collaborators;`,
             `product terms are introduced rather than assumed;`,
             `important claims have claim slugs and correct scope;`,
+            `the copy survives a hostile literal reading;`,
             `the page has one dominant argument;`,
             `the CTA names a real destination;`,
             `contemporary model-copy mannerisms are absent or rare;`,
@@ -568,7 +586,9 @@ The product voice is:
 
 It is calm, canonical, bounded, and useful under pressure.
 
-The product never uses personality to conceal uncertainty, state, authority, or consequences.`,
+The product never uses personality to conceal uncertainty, state, authority, or consequences.
+
+When editing copy that predates this skill, bring it up to this standard rather than matching the surrounding tone.`,
     }, {
       kind: "prose",
       heading: "Sources of truth",
@@ -583,7 +603,7 @@ The product never uses personality to conceal uncertainty, state, authority, or 
 Never invent a synonym for a canonical product concept merely to avoid repetition.`,
     }, {
       kind: "principles",
-      heading: "Voice behaviours",
+      heading: "Voice behaviors",
       items: [
         {
           id: "state-the-condition-first",
@@ -668,7 +688,7 @@ Avoid broad adjectives such as safe, secure, reliable, correct, complete, or pro
           title: "Preserve authority",
           body: `Consent and authority language must identify:
 
-- who authorised;
+- who authorized;
 - what task, scope, or path set the authority covers;
 - when the evidence was recorded;
 - which action it permits;
@@ -707,13 +727,29 @@ For analytical surfaces:
 
 For Patterns, cohorts may be compared. Agents are not graded or ranked.`,
         },
+        {
+          id: "own-faults-hand-over-credit",
+          title: "Own faults, hand over credit",
+          body:
+            `Errors take the blame in active voice. Successes credit the person.
+
+Bad:
+
+> A connection error was encountered.
+
+Better:
+
+> We couldn't reach the server.
+
+Write "we" as an owner: "we broke this in 2.1," never "a regression was introduced."`,
+        },
       ],
     }, {
       kind: "prose",
       heading: "Canonical term discipline",
       body: `### The product name
 
-The name is always written **discern**, entirely lower-case, on every surface and in every position — including at the start of a sentence. Recast the sentence rather than capitalising the name.
+The name is always written **discern**, entirely lower-case, on every surface and in every position — including at the start of a sentence. Recast the sentence rather than capitalizing the name.
 
 ### Use the glossary term
 
@@ -745,10 +781,10 @@ Until the product migration is complete:
 - treat **Receipt** as the current internal/product term;
 - treat **Proof** as the v1 launch term;
 - avoid mixed output in one surface;
-- define the technical record beneath the human artefact separately if needed;
+- define the technical record beneath the human artifact separately if needed;
 - keep the claim scoped to the declared Gate over the exact tree.
 
-Do not mechanically create awkward phrases such as “honoured Proof” without reviewing the resulting language.`,
+Do not mechanically create awkward phrases such as “honored Proof” without reviewing the resulting language.`,
     }, {
       kind: "rules",
       id: "sentence-design",
@@ -783,6 +819,16 @@ Do not mechanically create awkward phrases such as “honoured Proof” without 
           id: "keep-diagnostic-detail-close",
           text: `Keep diagnostic detail close to the state it supports.`,
         },
+        {
+          id: "spend-absolutes-on-real-guarantees",
+          text:
+            `Spend "never" and "always" on real guarantees; cut the absolute that is there for cadence.`,
+        },
+        {
+          id: "labels-say-what-they-do",
+          text:
+            `Buttons and labels say what they do: "Delete 3 files," not "Confirm."`,
+        },
       ],
     }, {
       kind: "prose",
@@ -812,6 +858,7 @@ Include:
 - file and line when available;
 - the diagnostic;
 - the narrowest useful recovery;
+- discern named as the speaker when logs interleave;
 - a route to full output when abbreviated.
 
 ### Success
@@ -834,8 +881,8 @@ State:
 2. why it is proposed;
 3. what is reversible;
 4. what is difficult or consequential;
-5. what confirmation authorises;
-6. what it does not authorise.
+5. what confirmation authorizes;
+6. what it does not authorize.
 
 ### Tip
 
@@ -849,9 +896,11 @@ State:
 ### Documentation
 
 - conclusion or purpose first;
+- literal headings that state what the section contains;
 - canonical nouns;
 - mechanism and boundary;
 - examples that match live commands;
+- example values with personality: \`ada\`, \`apollo-11\`, \`margaret@hamilton.space\` — never \`foo\` or \`user1\`;
 - explicit links to deeper reference;
 - no marketing superlatives.`,
     }, {
@@ -866,7 +915,7 @@ State:
 | Consent or authority    | Precise, human, consequence-aware                     |
 | Setup narration         | Warm, transparent, stage-level                        |
 | Reference documentation | Dense only where precision requires it                |
-| Advisory analysis       | Evidence-led, non-judgemental, careful with inference |
+| Advisory analysis       | Evidence-led, non-judgmental, careful with inference |
 | Successful handoff      | Calm confidence; state what remains for the human     |`,
     }, {
       kind: "prose",
@@ -874,7 +923,7 @@ State:
       body: `When a human-facing product surface mentions agents:
 
 - describe what the agent did, encountered, or needs;
-- avoid moral or personality judgement;
+- avoid moral or personality judgment;
 - attribute cohort observations to recorded evidence;
 - distinguish agent identity from task mix;
 - preserve the product philosophy that capable agents benefit from better conditions.
@@ -978,6 +1027,24 @@ Better:
         },
       ],
     }, {
+      kind: "banned-moves",
+      heading: "Banned moves",
+      intro:
+        "These patterns are the fingerprints of machine-written copy; readers recognize them, and each one costs trust. Treat them as hard failures.",
+    }, {
+      kind: "banned-words",
+      heading: "Banned words",
+      intro:
+        "Each entry is banned for a reason, and the reason is what matters — it catches the thousand variants not listed here.",
+    }, {
+      kind: "prose",
+      heading: "Enforcement",
+      body:
+        `The mechanical subset of these rules is encoded as a Vale style at \`.vale/Discern/\`, linted over every map page in the gate. When it flags a line, fix the prose rather than suppressing the rule, then re-check the page with \`discern scripts prose-page <page…>\`; new or rewritten pages pass at zero alerts. The lint catches the checkable subset; the rest of this skill still applies.`,
+    }, {
+      kind: "mechanics",
+      heading: "Mechanics",
+    }, {
       kind: "criteria",
       heading: "Review checklist",
       groups: [
@@ -992,7 +1059,7 @@ Better:
             `the reason is included when it helps recovery or authority;`,
             `certainty matches the evidence;`,
             `consent scope is clear;`,
-            `the agent is described without judgement;`,
+            `the agent is described without judgment;`,
             `human and machine renderings can derive from one meaning;`,
             `the copy remains useful when read under stress.`,
           ],
@@ -1143,7 +1210,7 @@ The agent should not need to guess whether to retry, inspect, ask the human, or 
 
 - what is currently observed;
 - what the agent intends to do;
-- what mutating command is authorised;
+- what mutating command is authorized;
 - what evidence proves completion;
 - what remains a human decision.
 
@@ -1166,22 +1233,22 @@ Tell the agent:
         {
           id: "give-one-owner-to-every-piece-of-work",
           title: "Give one owner to every piece of work",
-          body: `In multi-agent programmes:
+          body: `In multi-agent programs:
 
 - assign one workstream key;
 - name the exact files or territory;
 - make sibling streams explicitly out of scope;
 - state dependency and landing order;
-- prohibit launching or supervising sibling briefs unless the user authorised that topology;
+- prohibit launching or supervising sibling briefs unless the user authorized that topology;
 - name the exact returned branch for dependencies.`,
         },
         {
-          id: "write-for-summarisation-resilience",
-          title: "Write for summarisation resilience",
+          id: "write-for-summarization-resilience",
+          title: "Write for summarization resilience",
           body:
             `Important instructions should survive a model compressing earlier context.
 
-- Keep related behavioural guidance in one coherent passage.
+- Keep related behavioral guidance in one coherent passage.
 - Use explicit headings and stable identifiers.
 - Put critical stop conditions near the end as well as at the action point.
 - Avoid scattering one instruction across many independent fields.
@@ -1198,7 +1265,7 @@ Do provide:
 - the live anchors;
 - the constraints;
 - the non-goals;
-- the expected artefacts;
+- the expected artifacts;
 - the falsifiable completion bar;
 - the human outcome.
 
@@ -1273,13 +1340,13 @@ A strong Skill contains:
 - trigger and scope;
 - goal stated as an outcome;
 - decision points;
-- procedures with enough judgement to help a frontier model;
+- procedures with enough judgment to help a frontier model;
 - user authority boundaries;
 - evidence and completion criteria;
 - common failure modes;
 - handoff and review loop.
 
-Do not ship a Skill that merely restates behaviour an ordinary request already elicits reliably.
+Do not ship a Skill that merely restates behavior an ordinary request already elicits reliably.
 
 ### Delegated brief
 
@@ -1339,7 +1406,7 @@ Use this tone sparingly. The page still needs exact links to the machine contrac
       kind: "prose",
       heading: "`llms.txt` guidance",
       body:
-        `The file should optimise for accurate machine orientation, not human theatre.
+        `The file should optimize for accurate machine orientation, not human theatre.
 
 Include:
 
@@ -1351,7 +1418,7 @@ Include:
 6. CLI/MCP route;
 7. current source-of-truth pages;
 8. exact trust boundaries;
-9. instructions for quoting or summarising discern accurately;
+9. instructions for quoting or summarizing discern accurately;
 10. a compact list of prohibited overclaims.
 
 Avoid marketing headlines without explanatory context.`,
@@ -1408,11 +1475,14 @@ Avoid marketing headlines without explanatory context.`,
             `Do not ask the agent to self-certify model capability, authority, or completion where external evidence is required.`,
         },
         {
-          id: "do-not-say-use-your-best-judgement",
+          id: "do-not-say-use-your-best-judgment",
           text:
-            `Do not say “use your best judgement” where a real boundary can be stated.`,
+            `Do not say “use your best judgment” where a real boundary can be stated.`,
         },
       ],
+    }, {
+      kind: "mechanics",
+      heading: "Mechanics",
     }, {
       kind: "prose",
       heading: "Examples",
@@ -1503,8 +1573,8 @@ Avoid marketing headlines without explanatory context.`,
             `makes jokes inside failure or authority-critical instructions;`,
         },
         {
-          id: "anthropomorphises-or-belittles",
-          text: `anthropomorphises the product or belittles the agent.`,
+          id: "anthropomorphizes-or-belittles",
+          text: `anthropomorphizes the product or belittles the agent.`,
         },
       ],
     }, {
@@ -1522,7 +1592,7 @@ Avoid marketing headlines without explanatory context.`,
             `completion is falsifiable;`,
             `the human outcome is present where it affects quality;`,
             `relay obligations are explicit;`,
-            `the instruction survives summarisation without losing its critical boundary.`,
+            `the instruction survives summarization without losing its critical boundary.`,
           ],
         },
         {
@@ -1541,6 +1611,253 @@ Avoid marketing headlines without explanatory context.`,
   },
 } as const satisfies Record<Register, VoiceDefinition>;
 
+/**
+ * The banned-words canon, carried from the retired voice-and-tone skill by
+ * owner selection (2026-08-08). One row per ban; `registers` picks the
+ * skills that render it, and `phrases` is the mechanically bannable subset
+ * the Vale parity guard holds to `.vale/Discern/`.
+ */
+export const BANNED_WORDS = [
+  {
+    id: "padding",
+    avoid: `"simply," "just," "easy," "obviously," "actually," "really"`,
+    why:
+      "Padding that costs the writer nothing and charges the struggling reader double",
+    instead: "Delete it. The sentence stands alone.",
+    phrases: ["simply", "just", "easy", "obviously", "actually", "really"],
+    registers: ["product"],
+  },
+  {
+    id: "hype-adjectives",
+    avoid:
+      `"powerful," "robust," "seamless," "elegant," "blazing," "effortless," "magical," "delightful," "beautiful"`,
+    why: "Adjectives dodging _compared to what?_",
+    instead: "The sourced fact that earned it, or nothing",
+    phrases: [
+      "powerful",
+      "robust",
+      "seamless",
+      "elegant",
+      "blazing",
+      "effortless",
+      "magical",
+      "delightful",
+      "beautiful",
+    ],
+    registers: ["product"],
+  },
+  {
+    id: "hype-verbs",
+    avoid:
+      `"supercharge," "game-changer," "unlock," "empower," "vibes," "just works"`,
+    why: "Hype vocabulary; the reader decides what it changes",
+    instead: "Say what it does",
+    phrases: [
+      "supercharge",
+      "game-changer",
+      "unlock",
+      "empower",
+      "vibes",
+      "just works",
+    ],
+    registers: ["product"],
+  },
+  {
+    id: "vendor-speak",
+    avoid: `"leverage," "utilize," "enables you to," "facilitate"`,
+    why: `Vendor-speak; a friend would say "use"`,
+    instead: "The plain verb",
+    phrases: ["leverage", "utilize", "enables you to", "facilitate"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "emotion-announcements",
+    avoid: `"We're excited/thrilled to announce"`,
+    why: "Announces the emotion instead of the thing",
+    instead: "Say the thing",
+    phrases: ["We're excited to announce", "We're thrilled to announce"],
+    registers: ["product"],
+  },
+  {
+    id: "throat-clearing",
+    avoid: `"Please note that," "It's worth noting"`,
+    why: "Throat-clearing",
+    instead: "Start with the fact",
+    phrases: ["Please note that", "It's worth noting"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "posture",
+    avoid: `"posture"`,
+    why: "Gym vocabulary for file state; readers picture ergonomics",
+    instead: `"tracked or ignored," "how git treats it"`,
+    phrases: ["posture"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "the-shape-of",
+    avoid: `"the shape of"`,
+    why: "Geometry vocabulary for architecture; names no actual thing",
+    instead: `"how X fits together," or name the parts`,
+    phrases: ["the shape of"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "load-bearing",
+    avoid: `"load-bearing"`,
+    why: `Construction jargon for "important" — a meme-grade machine tell`,
+    instead: `"doing real work," or name what breaks without it`,
+    phrases: ["load-bearing"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "unnecessary-enumeration",
+    avoid:
+      `"the one \`<noun>\`," "the whole \`<noun>\`," and unnecessary enumeration ("all three checks," "both files")`,
+    why:
+      "Totalizing emphasis that adds nothing and goes stale the day the set grows",
+    instead: "State the actual scope, or drop the emphasis",
+    phrases: ["the one file", "the whole tree"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "drama-adverbs",
+    avoid: `"silently," "quietly," "deliberately," "deliberate," "exactly"`,
+    why: "Drama adverbs seasoning a spec",
+    instead: "The plain claim; name the mechanism instead",
+    phrases: ["silently", "quietly", "deliberately", "deliberate", "exactly"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "sincerity-vouching",
+    avoid: `"honest," "honestly," "honesty"`,
+    why: "Prose vouching for its own sincerity",
+    instead: "Delete it; the facts carry the sincerity",
+    phrases: ["honest", "honestly", "honesty"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "rides-along",
+    avoid: `"rides along," "ride along"`,
+    why: `Pet metaphor for "accompanies"`,
+    instead: "Say what actually happens",
+    phrases: ["rides along", "ride along"],
+    registers: ["product", "brand"],
+  },
+  {
+    id: "hedging",
+    avoid: `"You may want to consider"`,
+    why: "A stack of hedges where the reader came for a recommendation",
+    instead: `"Do X," or "Do X unless Y"`,
+    phrases: ["You may want to consider"],
+    registers: ["product"],
+  },
+  {
+    id: "passive-fault-dodging",
+    avoid: `Passive-voice fault-dodging ("an error was encountered")`,
+    why: "Hides the actor and dodges the blame",
+    instead: `"We couldn't…" / "\`discern.toml\` is missing"`,
+    registers: ["product"],
+  },
+  {
+    id: "exclamation-points",
+    avoid: "Exclamation points",
+    why: "Unearned enthusiasm reads as sales",
+    instead: "A period.",
+    registers: ["product"],
+  },
+  {
+    id: "emoji-in-prose",
+    avoid: "Emoji in prose",
+    why: "Outsources tone the words should carry",
+    instead: "Words that carry the tone",
+    registers: ["product", "brand"],
+  },
+] as const satisfies readonly BannedWord[];
+
+/**
+ * The banned-moves canon — the machine-tell patterns carried from the
+ * retired voice-and-tone skill by owner selection (2026-08-08). Rendered
+ * identically into the product and brand skills.
+ */
+export const BANNED_MOVES = [
+  {
+    id: "contrast-frames",
+    name: "Contrast-frames",
+    text:
+      `"not X, but Y," "isn't X, it's Y," and the reversed "X, not Y." State the true half plainly.`,
+  },
+  {
+    id: "aphoristic-antithesis",
+    name: "Aphoristic antithesis",
+    text:
+      `The epigram cadence: short mirrored clauses striking a pose ("Agents forget. The repo remembers."), including two half-clauses sharing one verb for rhythm. State the fact once, plainly.`,
+  },
+  {
+    id: "self-narration",
+    name: "Self-narration",
+    text:
+      `Announcing importance instead of stating the point: "this is the crux," "here's the key insight," and the colon-pivot opener that pre-announces its own sentence. Say the point; the reader decides what's crucial.`,
+  },
+  {
+    id: "attitude-fragments",
+    name: "Attitude fragments",
+    text:
+      `Fragments that strike a pose rather than state a spec ("Not vibes. A verdict."). Spec fragments listing facts are legal: "Any stack. Any coding agent. No API key."`,
+  },
+  {
+    id: "echo-intensifiers",
+    name: "Echo-intensifiers",
+    text:
+      `Repeating a word with an intensifier: "Green means done. Actually done."`,
+  },
+  {
+    id: "trailing-modifier-fragments",
+    name: "Trailing modifier fragments",
+    text: `", every time," ", by design," ", at scale."`,
+  },
+  {
+    id: "em-dash-splices",
+    name: "Em-dash splices",
+    text:
+      "Never split with an em dash what a period or colon can handle. Two em dashes in one sentence is a chain: rebuild the sentence.",
+  },
+  {
+    id: "typographic-applause",
+    name: "Typographic applause",
+    text:
+      "Italics or bold used to inject drama. If a sentence needs styling to land, rebuild the sentence. Bold is for scannability.",
+  },
+  {
+    id: "counting-the-set",
+    name: "Counting the set out loud",
+    text:
+      `"Watch for four moments," "Two things remain." The spelled-out count duplicates the list it introduces and is wrong the day the set grows. Let the list carry the count; a number is welcome when the number itself is the fact.`,
+  },
+] as const satisfies readonly BannedMove[];
+
+/**
+ * The mechanics shared by every register, carried from the retired
+ * voice-and-tone skill by owner selection (2026-08-08). Rendered into all
+ * three skills.
+ */
+export const MECHANICS = [
+  {
+    id: "american-english",
+    text: "American English spelling throughout: color, behavior, -ize.",
+  },
+  {
+    id: "sentence-case",
+    text: "Sentence case for headings, titles, buttons, and labels.",
+  },
+  { id: "serial-comma", text: "Serial comma." },
+  {
+    id: "numerals-in-technical-contexts",
+    text:
+      "Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.",
+  },
+] as const satisfies readonly VoiceRule[];
+
 /** A voice skill's canonical name, derived so it can never drift. */
 export function voiceSkillName(register: Register): string {
   return `discern-${register}-voice`;
@@ -1554,21 +1871,22 @@ export function voiceSkillRel(register: Register): string {
 /** The banner every generated voice skill carries after its frontmatter. */
 const BANNER = generatedBrandBanner("VOICES (scripts/brand/voice.ts)");
 
-/** The frontmatter block external agent runtimes parse for skill identity. */
+/** The frontmatter block external agent runtimes parse for skill identity,
+ * following the bundled skills' convention (`templates/skills/*`). */
 function skillFrontmatter(register: Register): string {
   return [
     "---",
     `name: ${voiceSkillName(register)}`,
     `description: ${JSON.stringify(VOICES[register].description)}`,
     "metadata:",
-    '  author: "discern"',
+    '  author: "discern | https://discern.sh"',
     '  version: "1.0"',
     "---",
   ].join("\n");
 }
 
 /** Render one voice section back to its authored Markdown. */
-function renderVoiceSection(section: VoiceSection): string {
+function renderVoiceSection(section: VoiceSection, register: Register): string {
   switch (section.kind) {
     case "prose":
       return `## ${section.heading}\n\n${section.body}`;
@@ -1595,6 +1913,35 @@ function renderVoiceSection(section: VoiceSection): string {
           group.items.map((item) => `- ${item}`).join("\n"),
         ]),
       ].join("\n\n");
+    case "banned-words": {
+      const rows = BANNED_WORDS.filter((word) =>
+        (word.registers as readonly Register[]).includes(register)
+      );
+      return [
+        `## ${section.heading}`,
+        section.intro,
+        [
+          "| Avoid | Why | Instead |",
+          "| --- | --- | --- |",
+          ...rows.map((word) =>
+            `| ${word.avoid} | ${word.why} | ${word.instead} |`
+          ),
+        ].join("\n"),
+      ].join("\n\n");
+    }
+    case "banned-moves":
+      return [
+        `## ${section.heading}`,
+        section.intro,
+        BANNED_MOVES.map(
+          (move, index) => `${index + 1}. **${move.name}:** ${move.text}`,
+        ).join("\n"),
+      ].join("\n\n");
+    case "mechanics":
+      return [
+        `## ${section.heading}`,
+        MECHANICS.map((rule) => `- ${rule.text}`).join("\n"),
+      ].join("\n\n");
   }
 }
 
@@ -1613,7 +1960,9 @@ export function renderVoiceSkill(register: Register): string {
     "",
     `# ${voice.title}`,
     "",
-    voice.sections.map(renderVoiceSection).join("\n\n"),
+    voice.sections
+      .map((section) => renderVoiceSection(section, register))
+      .join("\n\n"),
     "",
   ].join("\n");
 }

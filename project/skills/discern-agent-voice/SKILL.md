@@ -2,7 +2,7 @@
 name: discern-agent-voice
 description: "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON guidance, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting."
 metadata:
-  author: "discern"
+  author: "discern | https://discern.sh"
   version: "1.0"
 ---
 
@@ -139,7 +139,7 @@ Operational instructions should distinguish:
 
 - what is currently observed;
 - what the agent intends to do;
-- what mutating command is authorised;
+- what mutating command is authorized;
 - what evidence proves completion;
 - what remains a human decision.
 
@@ -160,20 +160,20 @@ Tell the agent:
 
 ### 7. Give one owner to every piece of work
 
-In multi-agent programmes:
+In multi-agent programs:
 
 - assign one workstream key;
 - name the exact files or territory;
 - make sibling streams explicitly out of scope;
 - state dependency and landing order;
-- prohibit launching or supervising sibling briefs unless the user authorised that topology;
+- prohibit launching or supervising sibling briefs unless the user authorized that topology;
 - name the exact returned branch for dependencies.
 
-### 8. Write for summarisation resilience
+### 8. Write for summarization resilience
 
 Important instructions should survive a model compressing earlier context.
 
-- Keep related behavioural guidance in one coherent passage.
+- Keep related behavioral guidance in one coherent passage.
 - Use explicit headings and stable identifiers.
 - Put critical stop conditions near the end as well as at the action point.
 - Avoid scattering one instruction across many independent fields.
@@ -189,7 +189,7 @@ Do provide:
 - the live anchors;
 - the constraints;
 - the non-goals;
-- the expected artefacts;
+- the expected artifacts;
 - the falsifiable completion bar;
 - the human outcome.
 
@@ -260,13 +260,13 @@ A strong Skill contains:
 - trigger and scope;
 - goal stated as an outcome;
 - decision points;
-- procedures with enough judgement to help a frontier model;
+- procedures with enough judgment to help a frontier model;
 - user authority boundaries;
 - evidence and completion criteria;
 - common failure modes;
 - handoff and review loop.
 
-Do not ship a Skill that merely restates behaviour an ordinary request already elicits reliably.
+Do not ship a Skill that merely restates behavior an ordinary request already elicits reliably.
 
 ### Delegated brief
 
@@ -325,7 +325,7 @@ Use this tone sparingly. The page still needs exact links to the machine contrac
 
 ## `llms.txt` guidance
 
-The file should optimise for accurate machine orientation, not human theatre.
+The file should optimize for accurate machine orientation, not human theatre.
 
 Include:
 
@@ -337,7 +337,7 @@ Include:
 6. CLI/MCP route;
 7. current source-of-truth pages;
 8. exact trust boundaries;
-9. instructions for quoting or summarising discern accurately;
+9. instructions for quoting or summarizing discern accurately;
 10. a compact list of prohibited overclaims.
 
 Avoid marketing headlines without explanatory context.
@@ -354,7 +354,14 @@ Avoid marketing headlines without explanatory context.
 - State whether evidence is current, stale, missing, or unavailable.
 - Use “human” or “owner” only where the product contract requires it; public agent copy may prefer “the person responsible for the project.”
 - Do not ask the agent to self-certify model capability, authority, or completion where external evidence is required.
-- Do not say “use your best judgement” where a real boundary can be stated.
+- Do not say “use your best judgment” where a real boundary can be stated.
+
+## Mechanics
+
+- American English spelling throughout: color, behavior, -ize.
+- Sentence case for headings, titles, buttons, and labels.
+- Serial comma.
+- Numerals for numbers in technical contexts (3 retries, 80ms), even under ten.
 
 ## Examples
 
@@ -405,7 +412,7 @@ Reject agent copy that:
 - hides a human decision inside routine narration;
 - spends context explaining product philosophy during a narrow operation;
 - makes jokes inside failure or authority-critical instructions;
-- anthropomorphises the product or belittles the agent.
+- anthropomorphizes the product or belittles the agent.
 
 ## Acceptance criteria
 
@@ -419,7 +426,7 @@ Operational copy is ready when:
 - completion is falsifiable;
 - the human outcome is present where it affects quality;
 - relay obligations are explicit;
-- the instruction survives summarisation without losing its critical boundary.
+- the instruction survives summarization without losing its critical boundary.
 
 Public agent-facing copy is ready when:
 
