@@ -6,11 +6,13 @@
  * otherwise conceal until `discern accept` scoops it up staged-but-uncommitted in the
  * main checkout.
  *
- * Three layers: the pure stranded-by-stage decision (and the shared porcelain parser
+ * Four layers: the pure stranded-by-stage decision (and the shared porcelain parser
  * it rests on), the wired gate behaviour driven across EVERY stage a project can wire
- * a command into (so a new mutating-stage escape hatch cannot appear silently), and
- * the inner-loop case that must NOT trip (a stage reworking the agent's own
- * uncommitted edits).
+ * a command into (so a new mutating-stage escape hatch cannot appear silently), the
+ * inner-loop case that must NOT trip (a stage reworking the agent's own
+ * uncommitted edits), and the strand checkpoint (ADR 0262) that stops a
+ * receipt-eligible run right after the pre-groups while a dirty start keeps its
+ * full end-of-run feedback.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -30,6 +32,7 @@ import {
   type StageSnapshot,
   strandedByStage,
 } from "../src/engine/gate/tree_drift.ts";
+import { PRE_CHECKPOINT_STAGES } from "../src/engine/gate/plan.ts";
 import { jobStage, STAGES } from "../src/shared/capabilities.ts";
 import { parsePorcelainZ } from "../src/shared/git_paths.ts";
 
@@ -335,6 +338,340 @@ Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT tri
     // The fixer DID reformat the WIP file (so this isn't a vacuous pass) — it was
     // already dirty at finish-start, so it is the agent's to commit, not a strand.
     assertEquals(await Deno.readTextFile(join(dir, "doc.md")), "world\n");
+  });
+});
+
+// ── wired: the strand checkpoint (ADR 0262) ───────────────────────────────────
+// A run that starts on a clean, committed tree is seeking a receipt, and a strand
+// left by the fix/build pre-groups already forfeits it — so `done` stops at the
+// post-pre-group checkpoint instead of paying for standards, check∥test, and
+// scope-gate work that cannot change the verdict. A dirty start (tracked or
+// untracked) skips the checkpoint: it can earn no receipt anyway, and the
+// end-of-run detection still reports its strands after the full run's feedback.
+
+/** A check-stage sentinel proving the expensive later work ran: it drops a marker
+ * file the assertions read. Its output is untracked, so it is never a strand. */
+const SENTINEL = [
+  "#!/usr/bin/env sh",
+  'echo "ran" > check-ran.txt',
+  "",
+].join("\n");
+
+/** The serialized step for `label` from a parsed done envelope. */
+const stepFor = (
+  obj: { steps?: { label: string; disposition: string; outcome: string }[] },
+  label: string,
+): { label: string; disposition: string; outcome: string } | undefined =>
+  (obj.steps ?? []).find((s) => s.label === label);
+
+/**
+ * Scaffold a committed-clean repo whose `mutatorJob` runs `mutatorScript` (default:
+ * append to the committed data.txt — a guaranteed strand) and whose check stage
+ * drops the {@link SENTINEL} marker. Everything is committed, so the run starts
+ * receipt-eligible unless a test dirties the tree afterwards.
+ */
+async function scaffoldCheckpointRepo(
+  dir: string,
+  mutatorJob: string,
+  mutatorScript = MUTATOR,
+): Promise<void> {
+  await scaffoldEngine(dir);
+  await writeConfig(
+    dir,
+    [
+      "[project]",
+      'slug = "engine-test"',
+      "",
+      "[repository]",
+      'trunk = "main"',
+      "",
+      "[jobs]",
+      `${mutatorJob} = "sh mutate.sh"`,
+      'lint = "sh sentinel.sh"',
+      "",
+    ].join("\n"),
+  );
+  await writeExecutable(join(dir, "mutate.sh"), mutatorScript);
+  await writeExecutable(join(dir, "sentinel.sh"), SENTINEL);
+  await Deno.writeTextFile(join(dir, "data.txt"), "committed\n");
+  await Deno.writeTextFile(join(dir, "wip.txt"), "committed\n");
+  await gitInit(dir);
+}
+
+/** The checkpoint's pre-group mutators — one per stage that runs before it. */
+const PRE_CHECKPOINT_MUTATORS: ReadonlyArray<{ job: string; phrase: string }> =
+  [
+    { job: "format", phrase: "the fix stage" },
+    { job: "build", phrase: "the build stage" },
+  ];
+
+Deno.test("the checkpoint mutator table exercises every pre-checkpoint stage", () => {
+  // The table's class promise, held to the plan's own registry: a stage added to
+  // PRE_CHECKPOINT_STAGES fails here until a mutator exercises its checkpoint.
+  assertEquals(
+    PRE_CHECKPOINT_MUTATORS.map((m) => jobStage(m.job)),
+    [...PRE_CHECKPOINT_STAGES],
+  );
+});
+
+for (const mutator of PRE_CHECKPOINT_MUTATORS) {
+  Deno.test(`done: a clean start whose ${mutator.job} job strands a tracked file stops at the checkpoint — later work never runs`, async () => {
+    await withTempDir(async (dir) => {
+      await scaffoldCheckpointRepo(dir, mutator.job);
+
+      const r = await runAgent(dir, ["done", "--json"]);
+      assertEquals(r.code, 1, r.output);
+
+      const obj = parseJson(r.stdout);
+      assertEquals(obj.ok, false);
+      assertEquals(obj.data.failed_stage, "tree_drift");
+      const diag = diagFor(obj, "tree-drift");
+      assert(
+        diag,
+        `expected a tree-drift diagnostic, got ${JSON.stringify(obj)}`,
+      );
+      assertStringIncludes(diag.message, mutator.phrase);
+      assertStringIncludes(diag.message, "data.txt");
+      // One detection, one diagnostic: the checkpoint REPLACES the final pass
+      // on this path rather than running beside it.
+      assertEquals(
+        obj.diagnostics.filter((d: { tool: string }) => d.tool === "tree-drift")
+          .length,
+        1,
+      );
+      // The doomed tail was cut: the check job serialized as skipped and its
+      // sentinel never ran.
+      assertEquals(stepFor(obj, "lint")?.outcome, "skipped");
+      assertEquals(await exists(join(dir, "check-ran.txt")), false);
+    });
+  });
+}
+
+Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, the strand reports at the end", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldCheckpointRepo(dir, "format");
+    // The agent's own work-in-progress: a committed file edited, not committed.
+    await Deno.writeTextFile(join(dir, "wip.txt"), "edited\n");
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "tree_drift");
+    const diag = diagFor(obj, "tree-drift");
+    assert(
+      diag,
+      `expected a tree-drift diagnostic, got ${JSON.stringify(obj)}`,
+    );
+    assertStringIncludes(diag.message, "data.txt");
+    // The WIP file was dirty at gate start — the agent's own edit, not a strand.
+    assert(!diag.message.includes("wip.txt"), diag.message);
+    // Full feedback: the check job really ran before the end-of-run verdict.
+    assertEquals(stepFor(obj, "lint")?.outcome, "ok");
+    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+  });
+});
+
+Deno.test("done: an untracked-dirty start is not receipt-eligible — the checkpoint stands down, the full run reports at the end", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldCheckpointRepo(dir, "format");
+    // Untracked dirt is invisible to the TRACKED-dirty snapshot (which stays
+    // empty here), but the receipt pin counts it — eligibility must read the pin.
+    await Deno.writeTextFile(join(dir, "stray.txt"), "untracked\n");
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "tree_drift");
+    assertStringIncludes(diagFor(obj, "tree-drift").message, "data.txt");
+    // No early abort: the check job ran to completion first.
+    assertEquals(stepFor(obj, "lint")?.outcome, "ok");
+    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+  });
+});
+
+/** Restore data.txt to its committed bytes — a build undoing the fixer's edit. */
+const RESTORER = [
+  "#!/usr/bin/env sh",
+  'printf "committed\\n" > data.txt',
+  "",
+].join("\n");
+
+Deno.test("done: a fixer edit the build stage restores does not trip the checkpoint — the gate runs on and passes", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'format = "sh mutate.sh"',
+        'build = "sh restore.sh"',
+        'lint = "sh sentinel.sh"',
+        "",
+      ].join("\n"),
+    );
+    await writeExecutable(join(dir, "mutate.sh"), MUTATOR);
+    await writeExecutable(join(dir, "restore.sh"), RESTORER);
+    await writeExecutable(join(dir, "sentinel.sh"), SENTINEL);
+    await Deno.writeTextFile(join(dir, "data.txt"), "committed\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data.failed_stage, null);
+    // The fixer ran (so the file WAS dirty between the pre-groups), the build
+    // restored it, and the checkpoint judged their combined result: no strand,
+    // no abort — the later work proceeded.
+    assertEquals(stepFor(obj, "format")?.outcome, "ok");
+    assertEquals(await Deno.readTextFile(join(dir, "data.txt")), "committed\n");
+    assertEquals(stepFor(obj, "lint")?.outcome, "ok");
+    assertEquals(await exists(join(dir, "check-ran.txt")), true);
+  });
+});
+
+/** A mutator that also fails: the command failure must outrank the strand. */
+const FAILING_MUTATOR = [
+  "#!/usr/bin/env sh",
+  'echo "regenerated" >> data.txt',
+  "exit 1",
+  "",
+].join("\n");
+
+Deno.test("done: a pre-group command failure outranks the checkpoint — failed_stage stays fix, no tree-drift diagnostic", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldCheckpointRepo(dir, "format", FAILING_MUTATOR);
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "fix");
+    assertEquals(diagFor(obj, "tree-drift"), undefined);
+  });
+});
+
+Deno.test("done: generated drift outranks the checkpoint — the owning group is named, not tree_drift", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[generated.reference]",
+        'paths = ["gen.txt"]',
+        'run = "sh regen.sh"',
+        "",
+      ].join("\n"),
+    );
+    await writeExecutable(
+      join(dir, "regen.sh"),
+      ["#!/usr/bin/env sh", 'echo "regenerated" >> gen.txt', ""].join("\n"),
+    );
+    await Deno.writeTextFile(join(dir, "gen.txt"), "committed\n");
+    await gitInit(dir); // clean, committed start — receipt-eligible
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "generated_drift");
+    assertEquals(diagFor(obj, "tree-drift"), undefined);
+  });
+});
+
+/** A fixer that strands AND breaks `git status` (a corrupt index): snapshot
+ * uncertainty must stand down rather than fabricate a failure. */
+const INDEX_BREAKING_MUTATOR = [
+  "#!/usr/bin/env sh",
+  'echo "regenerated" >> data.txt',
+  'printf "garbage" > .git/index',
+  "",
+].join("\n");
+
+Deno.test("done: snapshot uncertainty stays fail-open at the checkpoint — no fabricated tree_drift", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(dir, CONFIG);
+    await writeExecutable(join(dir, "fixer.sh"), INDEX_BREAKING_MUTATOR);
+    await Deno.writeTextFile(join(dir, "data.txt"), "committed\n");
+    await gitInit(dir);
+
+    const r = await runAgent(dir, ["done", "--json"]);
+    assertEquals(r.code, 0, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.ok, true);
+    assertEquals(obj.data.failed_stage, null);
+    assertEquals(diagFor(obj, "tree-drift"), undefined);
+  });
+});
+
+Deno.test("done: the checkpoint keeps post-pre-group scope classification — the fired scope rides in the result while its gate stays skipped", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await writeConfig(
+      dir,
+      [
+        "[project]",
+        'slug = "engine-test"',
+        "",
+        "[repository]",
+        'trunk = "main"',
+        "",
+        "[jobs]",
+        'format = "sh fixer.sh"',
+        "",
+        "[scopes.widget]",
+        'paths = ["widget/**"]',
+        'gate = "sh gate.sh"',
+        "",
+      ].join("\n"),
+    );
+    await writeExecutable(join(dir, "fixer.sh"), FIXER);
+    await writeExecutable(
+      join(dir, "gate.sh"),
+      ["#!/usr/bin/env sh", 'echo "ran" > gate-ran.txt', ""].join("\n"),
+    );
+    await Deno.mkdir(join(dir, "widget"), { recursive: true });
+    await Deno.writeTextFile(join(dir, "widget/data.txt"), "committed\n");
+    await Deno.writeTextFile(join(dir, "doc.md"), "hello\n");
+    await gitInit(dir);
+    const wt = await addWorktree(dir, "theta");
+
+    // The branch commits a widget change (so the widget gate would fire) plus a
+    // doc the fixer will reflow (the strand) — then runs done on the clean tree.
+    await Deno.writeTextFile(join(wt, "widget/data.txt"), "changed\n");
+    await Deno.writeTextFile(join(wt, "doc.md"), "hello   \n");
+    await git(wt, "add", "-A");
+    await git(wt, "commit", "-q", "-m", "widget change", "--no-gpg-sign");
+
+    const r = await runAgent(wt, ["done", "--json"]);
+    assertEquals(r.code, 1, r.output);
+
+    const obj = parseJson(r.stdout);
+    assertEquals(obj.data.failed_stage, "tree_drift");
+    // Classification still happened after the pre-groups ran…
+    assert(obj.data.scopes_changed.includes("widget"), r.stdout);
+    // …but the would-fire gate never did: planned to run, serialized skipped.
+    const gate = stepFor(obj, "scope:widget");
+    assertEquals(gate?.disposition, "run");
+    assertEquals(gate?.outcome, "skipped");
+    assertEquals(await exists(join(wt, "gate-ran.txt")), false);
   });
 });
 
