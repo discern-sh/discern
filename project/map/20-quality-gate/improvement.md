@@ -13,7 +13,7 @@ aliases:
 
 _`discern improvement` reports the project's objective baseline, keeps judgment work visible, and recommends one next action._
 
-Run the coach after the current change is under control. The gate answers whether this tree passed. The coach looks across the installed practices and points to the highest-value improvement you can make next ([ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md)).
+Run the coach after the current change is under control. The Gate reports whether this tree passed. The coach looks across the installed practices and points to the highest-weighted improvement available next ([ADR 0079](../_adr/0079-improvement-is-a-coach-not-an-audit.md)).
 
 ## Read the report
 
@@ -30,7 +30,7 @@ A deterministic rule checks a concrete fact such as whether tests are configured
 
 ## Findings from the logbook
 
-The `From the logbook` group carries owner decisions discovered in recent history. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed guidance line, config change, class guard, or standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+The `From the Logbook` group carries recorded conditions that may need an owner decision. It currently includes edits made on the trunk, repeated documentation misses, one diagnostic class recurring across branches, and each Standard's recent value and limit trajectory. Every item retains its detector id, plain-count evidence, ranking strength, and recommended next step. A proposed guidance line, config change, class guard, or Standards stanza remains a proposal for you to decide ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 This group is separate from the static catalogue. It changes no category score, weak-rule count, qualitative review, `next_action`, `ok`, or `--min-score` result. Inline detectors read at most the newest 200 logbook events here; longer analyses stay under `discern patterns`. Findings are strongest-first and disappear when the recent window is quiet, setup is unfinished, or recording is off.
 
@@ -45,10 +45,10 @@ Objective gaps lead. The coach chooses the fix that recovers the most weighted s
 | `gate`      | Tests, static analysis, structured diagnostics, formatting, depth, isolation, and feedback speed. |
 | `setup`     | Completed setup and useful failure memory.                                                        |
 | `guidance`  | Substantive authored guidance and current compiled files.                                         |
-| `map`       | A navigable map, decision records, and documentation accuracy.                                    |
+| `map`       | A navigable Map, decision records, and documentation accuracy.                                    |
 | `worktrees` | Isolation for shared external resources.                                                          |
-| `standards` | At least one defended metric and sensible use of rates.                                           |
-| `skills`    | Repeated workflows captured as executable, verifiable playbooks.                                  |
+| `standards` | At least one defended Standard and sensible use of rates.                                         |
+| `skills`    | Repeated workflows captured as executable, verifiable Skills.                                     |
 
 Every category applies to every install; discern has no feature-toggle layer ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)).
 

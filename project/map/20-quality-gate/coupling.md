@@ -1,6 +1,6 @@
 ---
 title: Coupling
-description: Use git history to find files that usually change with the work on your branch and may have been missed.
+description: Use Git history to find files that usually change with the work on your branch and may have been missed.
 order: 80
 aliases:
   - discern coupling
@@ -12,7 +12,7 @@ aliases:
 
 _`discern coupling` names files that usually move together, with the history behind each suggestion._
 
-`discern coupling` mines git history for habitual siblings such as a schema and its validator or an implementation and its test. It reports relationships and evidence. The result is an [advisory](../00-orientation/glossary.md#advisory). You decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
+`discern coupling` reads Git history for files that repeatedly change together, such as a schema and its validator or an implementation and its test. It reports relationships and evidence. The result is an [advisory](../00-orientation/glossary.md#advisory). You decide whether each relationship matters ([ADR 0084](../_adr/0084-co-change-coupling-advisory.md)).
 
 ## Choose a mode
 
@@ -54,13 +54,13 @@ Fresh configs append the diff-aware advisory to green `discern prepare` and `dis
 in_gate = true
 ```
 
-Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and only add `hints[]`. Set `in_gate = false` to keep the standalone command without the gate advisory ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
+Gate hints use a stricter threshold and fewer partners. They run at the end of a successful, set-up result and add only `hints[]`. Set `in_gate = false` to keep the standalone command without the Gate advisory ([ADR 0196](../_adr/0196-coupling-advice-runs-with-the-gate-by-default.md)).
 
 ## Decide what to enforce
 
-A repeated relationship asks you to inspect the pair. When the files express one essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
+A repeated relationship asks you to inspect the pair. When the files express an essential invariant, add a forcing function driven by the canonical set so future members enroll automatically. Incidental co-change needs no rule ([ADR 0051](../_adr/0051-canonical-set-parity.md)).
 
-The subsystem is core. It is read-only and self-calibrating; `in_gate` is its cost decision ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
+The subsystem is core. It is read-only and self-calibrating. `in_gate` controls whether the Gate pays its cost ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). The full config reference is in [config-reference.md](../70-reference/config-reference.md#coupling).
 
 The result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md).
 
@@ -77,5 +77,5 @@ The result fields and Model Context Protocol arguments are in [MCP tools & resul
 
 - Each invocation recomputes the model; there is no persisted cache.
 - Neutral-path classification comes from the same scope rules as the gate. A path classified as neutral contributes no edges.
-- If git history cannot be read, the advisory returns no partners and does not fail the command or gate.
+- If Git history cannot be read, the advisory returns no partners and does not fail the command or Gate.
 - The relevant source files contain no unfinished-work markers for coupling behavior.

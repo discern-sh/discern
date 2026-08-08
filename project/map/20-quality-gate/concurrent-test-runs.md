@@ -23,7 +23,7 @@ concurrent_test_runs = 1
 
 ## What the cap counts
 
-One slot covers a test-stage group: `done`, `test`, a `standards` measurement, or acceptance's landing-checkout smoke. Runner workers remain unchanged. Fix and check stages never wait, so a broken check fails before admission ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
+A slot covers a test-stage group: `done`, `test`, a `standards` measurement, or acceptance's landing-checkout smoke. Runner workers remain unchanged. Fix and check stages never wait, so a broken check fails before admission ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
 
 ## Wrap direct test invocations
 
@@ -33,7 +33,7 @@ Gate verbs acquire automatically. Wrap the project's canonical test command so d
 discern queue -- <command> [args...]
 ```
 
-`queue` holds one slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A missing or zero cap touches no slot files. Unusable slots warn once, then run uncapped.
+`queue` holds a slot for the child's lifetime and preserves its arguments, streams, interrupts, and status. A missing or zero cap touches no slot files. Unusable slots warn once, then run uncapped.
 
 Nested gate and queue processes inherit an internal marker when an ancestor accounted for the cap, including after fail-open. A marked process skips another acquisition and passes the marker onward, so every nesting direction consumes one slot. This provides cooperative back-pressure. It cannot enforce a security boundary ([ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).[^raw-test-task]
 
@@ -41,7 +41,7 @@ Nested gate and queue processes inherit an internal marker when an ancestor acco
 
 ## What a queued run looks like
 
-A waiting run names its holder:
+A waiting run names the slot holder:
 
 ```text
 Tests queued: 1 of 1 concurrent test runs in use across this repository's
@@ -49,7 +49,7 @@ checkouts ([gate].concurrent_test_runs); the tests start the moment a slot
 frees. In flight: queue on agent/profile-tests, typically ~3m.
 ```
 
-The [logbook](patterns.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Recording off omits the holder and estimate. Result `hints[]` carries the notice over JSON and Model Context Protocol.
+The [Logbook](../70-reference/the-logbook.md) begins an unmarked `queue` before admission and completes it after the child. Marker bypass writes no duplicate. Recording off omits the holder and estimate. Result `hints[]` carries the notice over JSON and Model Context Protocol.
 
 Timing stays split:
 
@@ -65,21 +65,21 @@ Tests passed.
 Waited 1m 10s for a test-run slot.
 ```
 
-`waited_ms` stays in the live result and logbook, outside receipts and durable proofs ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). End-to-end duration and execution-time priors remain separate ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
+`waited_ms` stays in the live result and Logbook, outside Receipts and durable Receipt notes ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). End-to-end duration and execution-time priors remain separate ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md), [ADR 0252](../_adr/0252-fleet-test-run-cap-at-test-command-boundary.md)).
 
-## Crash safety
+## Slot release after process exit
 
 Slots are OS advisory locks under the shared git directory. Process death releases them without a daemon or cleanup ([ADR 0212](../_adr/0212-fleet-test-run-cap-os-lock-slots.md)).
 
 ## Where it lives in code
 
-| Concern                           | Source                                                                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Slot primitive and wait policy    | [`test_run_slots.ts`](../../../src/engine/test_run_slots.ts)                                                                           |
-| Gate and wrapper presentation     | [`test_slots.ts`](../../../src/engine/gate/test_slots.ts), [`queue.ts`](../../../src/engine/queue.ts)                                  |
-| Plan split and the enrolment seam | [`plan.ts`](../../../src/engine/gate/plan.ts), [`execute.ts`](../../../src/engine/gate/execute.ts)                                     |
-| The config key                    | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                             |
-| Behavioral coverage               | [`engine_gate_slots_test.ts`](../../../tests/engine_gate_slots_test.ts), [`engine_queue_test.ts`](../../../tests/engine_queue_test.ts) |
+| Concern                            | Source                                                                                                                                 |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Slot primitive and wait policy     | [`test_run_slots.ts`](../../../src/engine/test_run_slots.ts)                                                                           |
+| Gate and wrapper presentation      | [`test_slots.ts`](../../../src/engine/gate/test_slots.ts), [`queue.ts`](../../../src/engine/queue.ts)                                  |
+| Plan split and the enrollment seam | [`plan.ts`](../../../src/engine/gate/plan.ts), [`execute.ts`](../../../src/engine/gate/execute.ts)                                     |
+| The config key                     | [`config_schema.ts`](../../../src/shared/config_schema.ts)                                                                             |
+| Behavioral coverage                | [`engine_gate_slots_test.ts`](../../../tests/engine_gate_slots_test.ts), [`engine_queue_test.ts`](../../../tests/engine_queue_test.ts) |
 
 ## Current state & gotchas
 

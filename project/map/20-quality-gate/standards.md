@@ -11,11 +11,11 @@ aliases:
 
 # Standards
 
-_Put a number behind a quality promise, then prevent later branches from moving it the wrong way._
+_Hold a quality measure at a floor or ceiling that later branches cannot weaken._
 
-A standard is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
+A quality measure that can only improve (a Standard) is a measured floor or ceiling in `discern.toml`. Every entry declares its direction: `direction = "up"` holds a floor; `direction = "down"` holds a ceiling. Omitting it is invalid. Before expensive work, `discern done` rejects a branch that weakens or deletes a trunk limit ([ADR 0133](../_adr/0133-standards-join-the-gate.md)).
 
-## Add a standard
+## Add a Standard
 
 ```toml
 [standards.coverage]
@@ -37,19 +37,19 @@ DISCERN_METRIC coverage 91.4
 
 Ask before wiring: does this number move when the project healthily grows? The answer decides how to hold it.
 
-- An **invariant** never moves with growth — lint suppressions, uses of a banned pattern. Hold the raw count and drive it to zero.
-- A **quality that scales** rises with the tree — coverage, alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
-- A **growing total** rises with every shipped feature — an asset size, a word count. A ceiling pinned at today's value fails the next legitimate change, and the pressure lands on qualities no standard measures: an agent shrinks unrelated content or trades readability for bytes, and the gate reports green. Prefer the rate that states the real claim; where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
+- An **invariant** never moves with growth, such as lint suppressions or uses of a banned pattern. Hold the raw count and drive it to zero.
+- A **quality that scales** rises with the tree, such as coverage or alert density. Hold the rate: `per` and `scale` divide the metric, so a per-1,000-word ceiling holds density without penalizing proportional growth ([ADR 0057](../_adr/0057-rate-standards.md)).
+- A **growing total** rises with each shipped feature, such as an asset size or word count. A ceiling pinned at today's value fails the next legitimate change. The resulting pressure can shrink unrelated content or trade readability for bytes while the Gate remains green. Prefer the rate that states the real claim. Where only the total will do, set a `margin` and treat raising the limit as a routine owner decision.
 
 Report a breach the work itself caused (the deliverable grew what the metric measures) instead of engineering the number back down. The owner moves the limit on the trunk, and the breach diagnostic says so at the moment it fires ([ADR 0161](../_adr/0161-growth-proof-standards-and-breach-escalation.md)).
 
-## What the gate does
+## What the Gate does
 
-The gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
+The Gate checks limits, then measures with checks and tests. It replays unchanged declared `inputs` and sends `measure = "on-demand"` to `discern standards`. Limits never defer. `discern prepare` skips measurement.
 
 ## Run standards directly
 
-`discern standards` freshly measures every standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
+`discern standards` freshly measures every Standard, including `measure = "on-demand"`. First it checks branch limits and trunk-only entries from one trunk snapshot. A loosened Standard skips its command. Deleted entries and malformed trunk config fail without suppressing valid measurements.
 
 Runnable measurements share one parallel, fail-fast-off group. The gate runner supplies global and per-standard timeouts, process-tree kill, durations, terminal interruption, and Model Context Protocol cancellation. Output stays buffered until the result envelope renders ([ADR 0155](../_adr/0155-standalone-standards-share-the-gate-job-pipeline.md)).
 
@@ -64,13 +64,13 @@ A failure puts its reason, value, limit, and command in `diagnostics[]`. [Tool r
 | The measurement emitted no matching metric | Make the command print `DISCERN_METRIC <name> <number>` and rerun it.                                             |
 | The measurement is too slow                | Add accurate `inputs`, set a per-job `timeout`, or use `measure = "on-demand"` when it cannot fit the final gate. |
 
-Only an owner can loosen a limit, directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
+An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-metric-standards.md)).
 
 ## Capture an improvement
 
-`discern standards --pin coverage` reuses a receipt or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). It proves write access. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+`discern standards --pin coverage` reuses a Receipt or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
-Pin records clean HEAD before reading values and rechecks before editing. A mismatch writes nothing. Settle and rerun. You can pin behind trunk. A hint says values describe that tree, the limit may fail after `discern update`, and recommends updating first.
+Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
 ## Where it lives in code
 

@@ -1,5 +1,5 @@
 ---
-title: When the gate fails
+title: When the Gate fails
 description: Read a red discern done result, reproduce the failed job, and take the shortest route to the fix.
 order: 10
 aliases:
@@ -9,9 +9,9 @@ aliases:
   - diagnostics
 ---
 
-# When the gate fails
+# When the Gate fails
 
-_Read the first real failure, use its reproduce command, and rerun the gate after the fix._
+_Read the first diagnostic, use its reproduce command, and rerun the Gate after the fix._
 
 Start with the first entry in `diagnostics[]`: the tool or precondition that failed, the problem, and a `reproduce_cmd` for a focused loop. The captured `output` contains the tool's error; if it was too large for the result, `output_path` points to the full normalized capture ([ADR 0083](../_adr/0083-normalize-and-offload-diagnostic-output.md)).
 
@@ -19,13 +19,13 @@ The terminal tail names the failed command: `discern done`, `discern prepare`, o
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A stage or precondition stopped the gate before it could issue a review receipt.
+**Failed:** A stage or precondition stopped the Gate before it could issue a review Receipt.
 
 **Next action:** Run `reproduce_cmd` from the first diagnostic, fix the reported problem, then return to `discern done`.
 
 <!-- /discern-workflow -->
 
-Your agent reads the diagnostic directly and usually fixes the failure without help. Handling it yourself? Work from that focused result instead of rerunning the full gate.
+Give the diagnostic to your agent, or work from that focused result yourself. Rerun the full Gate after the reported problem is fixed.
 
 ## Match the failure to the fix
 
@@ -34,17 +34,17 @@ Your agent reads the diagnostic directly and usually fixes the failure without h
 | The branch is behind trunk                   | Run `discern update`, review what came in, then rerun `discern done`. The merge check stops before expensive jobs ([ADR 0050](../_adr/0050-merge-check-fail-fast.md)).                                                                                                                                                                                                                  |
 | An agent file or materialized Skill is stale | Edit its authored source, run `discern refresh`, and include the regenerated files in the change.                                                                                                                                                                                                                                                                                       |
 | A Skill's frontmatter is invalid             | Edit the named `SKILL.md` until the block parses as YAML; quote values containing `:`.                                                                                                                                                                                                                                                                                                  |
-| Two ADR records claim one number             | Renumber the newer record to the next free number — filename, title, and references. Landed and superseded records keep theirs.                                                                                                                                                                                                                                                         |
-| The maintained ADR index is out of date      | Run `discern refresh` and commit the rewritten README. If the diagnostic says the index cannot be derived, fix what it names — a record's first heading, or a marker pair missing its END marker — then refresh.                                                                                                                                                                        |
+| Two ADR records claim one number             | Renumber the newer record to the next free number in its filename, title, and references. Landed and superseded records keep theirs.                                                                                                                                                                                                                                                    |
+| The maintained ADR index is out of date      | Run `discern refresh` and commit the rewritten README. If the diagnostic says the index cannot be derived, fix the named record heading or marker pair, then refresh.                                                                                                                                                                                                                   |
 | A map or guidance reference is broken        | Fix each `file:line` finding under its rule: repoint the link or anchor, repair the metadata block, update the stale `discern` example, or make the citation name a real skill.                                                                                                                                                                                                         |
-| A standard's metric regressed                | Move the metric back within its floor or ceiling. Never weaken the limit on the branch.                                                                                                                                                                                                                                                                                                 |
-| The branch loosened or deleted a standard    | Restore the trunk limit and tell the owner. Loosening a limit requires an owner decision on trunk.                                                                                                                                                                                                                                                                                      |
-| Discern's write-access preflight was denied  | Grant this invocation access to the exact path in the diagnostic, then rerun the same command. The probe stopped before project jobs ran.                                                                                                                                                                                                                                               |
+| A Standard's metric regressed                | Move the metric back within its floor or ceiling. Never weaken the limit on the branch.                                                                                                                                                                                                                                                                                                 |
+| The branch loosened or deleted a Standard    | Restore the trunk limit and tell the owner. Loosening a limit requires an owner decision on trunk.                                                                                                                                                                                                                                                                                      |
+| discern's write-access preflight was denied  | Grant this invocation access to the exact path in the diagnostic, then rerun the same command. The probe stopped before project jobs ran.                                                                                                                                                                                                                                               |
 | A declared job or scope gate failed          | Run its `reproduce_cmd`, fix the reported problem, then return to `discern done`.                                                                                                                                                                                                                                                                                                       |
 | A job timed out                              | Replace watch or server mode with a single-run command. Raise that job's `timeout` only when the command legitimately needs longer.                                                                                                                                                                                                                                                     |
 | `generated_drift`                            | Read each `generated:<name>` diagnostic for the owning group, changed files, and regeneration command. Review and commit the regenerated files, then rerun `discern done`. A `generated-coverage` diagnostic names paths outside every declared glob; widen the responsible group's `paths` before committing ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). |
 | The gate left tracked changes                | Review the named diff, commit the gate's output, and rerun on the clean commit ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).                                                                                                                                                                                                                                  |
-| `done` refused an unchanged-tree rerun       | Change the tree (fix the failure, or commit) and rerun. Probing a flaky verdict on purpose? Run `discern done --confirmed`; the probe is recorded.                                                                                                                                                                                                                                      |
+| `done` refused an unchanged-tree rerun       | Change the tree by fixing the failure or committing, then rerun. To probe a flaky verdict, run `discern done --confirmed`; discern records the attested probe.                                                                                                                                                                                                                          |
 
 ## Give the result to an agent
 
@@ -81,5 +81,5 @@ Each failed stage carries its remedy in `hints[]`. A sibling terminated by fail-
 ## Current state & gotchas
 
 - Output artifacts are temporary: later gate runs remove any older than 24 hours, so inspect an `output_path` while fresh.
-- A test that passes by itself and fails in the full gate often depends on shared state or execution order. Reproduce it in the same parallel context before treating it as a flake.
+- A test that passes by itself and fails in the full Gate may depend on shared state or execution order. Reproduce it in the same parallel context before treating it as a flake.
 - Run `discern doctor` when the failure points to a missing command, invalid config, or incomplete installation. It checks the configured commands directly.

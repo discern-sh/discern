@@ -1,5 +1,5 @@
 ---
-title: Run the gate in CI
+title: Run the Gate in CI
 description: Run discern done on GitHub Actions and require the result before a pull request can merge.
 order: 60
 aliases:
@@ -9,11 +9,11 @@ aliases:
   - continuous integration
 ---
 
-# Run the gate in GitHub Actions
+# Run the Gate in GitHub Actions
 
 _Run the same `discern done` command on pull requests, then make that check required on trunk._
 
-CI enforces the gate even when a change did not pass through a local discern worktree. The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and standards checks, runs the gate, and confirms that fixers left the committed tree unchanged.
+CI runs the Gate even when a change did not pass through a local discern worktree. The workflow installs a pinned binary, installs the project's toolchain, fetches the trunk ref used by merge and Standard checks, runs the Gate, and confirms that fixers left the committed tree unchanged. Requiring the job in repository policy makes that result a merge condition.
 
 ## Add the workflow
 
@@ -71,7 +71,7 @@ jobs:
           deno-version: v2.x
           cache: true
 
-      - name: Run the gate
+      - name: Run the Gate
         run: discern done
 
       - name: Assert a clean tree
@@ -80,9 +80,9 @@ jobs:
 
 Set `DISCERN_VERSION` to the release tag you approve. `RELEASE_ASSET` must match the runner architecture. Change both `main` references when your trunk has another name.
 
-The full commit hashes keep remote action code immutable within a reviewed workflow. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
+The full commit hashes pin remote action code to the reviewed commit. The comments name the release line for maintenance. Advance those pins through a reviewed automated dependency update instead of changing them back to mutable tags.
 
-The toolchain step belongs before the gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
+The toolchain step belongs before the Gate because discern runs the commands in `discern.toml`. It does not install their toolchain or dependencies.
 
 ## Wrapped test tasks
 
@@ -94,11 +94,11 @@ In the repository's rule set or branch-protection settings, require pull request
 
 ## Standards in CI
 
-`discern done` verifies every standard limit against trunk and measures standards whose `measure` is `"gate"`. The fetch step makes that comparison conclusive. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
+`discern done` verifies every Standard limit against trunk and measures Standards whose `measure` is `"gate"`. The fetch step supplies the trunk ref required for that comparison. If the project defers a metric with `measure = "on-demand"`, add a pull-request step that runs `discern standards` after the same toolchain setup.
 
 ## Cloud-agent changes
 
-A cloud coding agent may start from a clone without the discern binary or materialized skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed; this also supplies Model Context Protocol tools and skills.
+A cloud coding agent may start from a clone without the discern binary or materialized Skills. Committed agent guidance still travels with the clone. The required CI job installs discern and runs the repository's Gate before the change can merge. A wrapped task without the binary exits 127, so an agent that runs it needs discern installed. Installation also supplies Model Context Protocol tools and Skills.
 
 ## Where it lives in code
 
@@ -112,4 +112,4 @@ A cloud coding agent may start from a clone without the discern binary or materi
 
 - Do not run `discern refresh` in the gate job. CI verifies committed guidance and accepts an intentionally missing untracked copy; regenerating first can hide drift.
 - Pull-request checkouts may lack local `main`. Fetch it without exporting `DISCERN_TRUNK` into project jobs.
-- `git diff --exit-code` catches fixer output. A workflow that omits it can finish after changing the runner's checkout, which proves less than the commit contains.
+- `git diff --exit-code` catches fixer output. Without it, the workflow can finish after changing the runner's checkout and does not verify that the commit contains those changes.

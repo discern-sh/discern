@@ -1,6 +1,6 @@
 ---
 title: Practice patterns
-description: Read what the logbook shows about how agents drive discern here — thrash loops, gate fit, funnel flow, and each standard's trajectory.
+description: "Read what the Logbook shows about local workflow patterns: command loops, Gate fit, funnel flow, and each Standard's trajectory."
 order: 90
 aliases:
   - discern patterns
@@ -14,9 +14,9 @@ aliases:
 
 # Practice patterns
 
-_`discern patterns` reads the [logbook](../70-reference/the-logbook.md) and reports what keeps happening, with the counts behind each finding and one recommended next step._
+_`discern patterns` reads the [Logbook](../70-reference/the-logbook.md) and reports recurring local evidence, with the counts behind each finding and a recommended next step._
 
-The diagnostic verbs ask different questions: `discern doctor` whether the install is valid, `discern improvement` whether the setup follows best practice, `discern patterns` whether the practice itself is healthy — how agents drive the workflow, how the gate fits the stack, and how the numbers move over time ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is an [advisory](../00-orientation/glossary.md#advisory). Findings carry counts and durations, no scores and no severity tiers ([ADR 0063](../_adr/0063-doctor-execution-model.md)).
+The diagnostic verbs ask different questions. `discern doctor` checks whether the install is valid. `discern improvement` checks whether the setup follows the declared practices. `discern patterns` looks for recurring workflow evidence, Gate fit, and changes in measured values over time ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). It is an [advisory](../00-orientation/glossary.md#advisory). Findings carry counts and durations, with no scores or severity tiers ([ADR 0063](../_adr/0063-doctor-execution-model.md)).
 
 ## Run it
 
@@ -25,7 +25,7 @@ discern patterns
 discern patterns --json
 ```
 
-The human report uses a stable order: trajectory, gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, then one row per finding and one recommended next step; each keeps its strongest 3 findings and notes what it elided — `discern patterns --all` reports every one ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)). `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence; `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
+The human report uses a stable order: trajectory, Gate fit, agent behavior, then the task funnel. Within a section, the strongest detector block comes first. A detector's title appears once, followed by one row per finding and one recommended next step. Each block keeps its strongest 3 findings and notes what it omitted; `discern patterns --all` reports the full set ([ADR 0256](../_adr/0256-patterns-findings-bounded-per-detector.md)). `✓`, `·`, and `!` distinguish favorable, neutral, and attention-worthy evidence. `tone` never changes ranking or the advisory boundary ([ADR 0206](../_adr/0206-patterns-finding-tone-is-presentation-only.md)).
 
 The header gives the day span, event and branch counts, driver split, detector scoreboard, and landing audit's count, share, and source split. `Worth your attention` lists the strongest 3 attention findings by glyph, detector, and subject, with the full blocks below.
 
@@ -33,11 +33,11 @@ Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact e
 
 The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`; `data.findings_total` joins when the bound elided findings. `data.detectors` accounts for the registry; `data.population` carries the driver split.
 
-`patterns` remains the complete reader: every detector runs here, including batch detectors needing longitudinal history. Inline detectors can also meet you on the working command their scope names: branch findings appear after a qualifying green receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+`patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings appear after a qualifying green Receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The Receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
-An empty logbook is a normal state: the report says so. A repository that never recorded (or opted out with `[project].logbook = false`) still gets a readable answer.
+An empty Logbook is a normal state, and the report identifies it. A repository that never recorded, or opted out with `[project].logbook = false`, still gets a readable answer.
 
-`discern patterns --stats` reads the same logbook for what went well and renders [practice stats](practice-stats.md) instead of the detector report: changes accepted, green streaks, cycle times, standards trends, and agent cohorts, as one shareable card of plain counts.
+`discern patterns --stats` reads the same Logbook for what went well and renders [practice stats](practice-stats.md) instead of the detector report: changes accepted, green streaks, cycle times, Standards trends, and agent cohorts in a shareable card of plain counts.
 
 ## What the detectors watch
 
@@ -45,14 +45,14 @@ Registry detectors run over the event stream, grouped by family:
 
 | Family     | Watches for                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Trajectory | Each standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Trajectory | Each Standard's measured value over time beside its limit's own history (read from pin events), and the monthly red rate, extended past rotation by prune digests.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Gate fit   | One job or the generated family dominating gate time, material test-run slot contention, duration creep on an unchanged setup, an idle fix stage, one diagnostic class across branches, divergent verdicts on an identical tree, and failures discovered a run late after an early stop.                                                                                                                                                                                                                                                                                   |
 | Behavior   | Red `done` streaks, repeated refusals with one slug, `done`-only iteration with no `prepare`, hint follow-through by declared family, tip adoption by registry entry, dirty-tree churn, edits on the trunk, recurring `--force`, recurring `done --confirmed` reruns, missed doc lookups, worktrees started but never green, out-of-protocol orderings, recurring drivers the identity catalogue can't name, a returning agent whose native integration isn't configured, red streaks split by driver cohort, and a guidance-parity read of gaps one cohort keeps hitting. |
 | Funnel     | Red runs before the first green per branch and per driver cohort, start-to-accept cycle time, single giant-commit landings, update friction trending up.                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 ### Test-run slot contention
 
-After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap with spare capacity; reduce agents on a saturated machine.
+After 6 capped runs, `slot-contention` reads the latest 20. It reports when median wait reaches 30 seconds and 25% of median execution. Raise the cap when the machine has spare capacity. Lower concurrent test demand when the machine is saturated.
 
 Hint follow-through derives three families from the hint registry: branch update, red-gate remedy, and main-session worktree start. It reports `fired`, `followed`, `not_followed`, and `censored` after 3 resolved episodes; missing correlation stays censored. `skipped-prepare` uses done-heavy iteration without a hint ([ADR 0207](../_adr/0207-hint-follow-through-is-declared-and-episode-based.md)).
 
@@ -68,9 +68,9 @@ After 8 consent-recorded landings, 3 granted, `pre-authorized-landings` reports 
 
 Every detector declares an evidence threshold; below it the report says "insufficient evidence" rather than extrapolating: a young logbook produces a short report.
 
-The recorder stores raw driver signals; readers score them fresh on every read, so better scoring covers accumulated history without a migration. CI runs and `--dry-run` previews reach no detector. Agent-practice behavior detectors exclude runs that look interactively driven, so your exploratory poking does not read as agent pathology. Tip adoption keeps human-driven runs because the detector measures what a person did after seeing the tip ([ADR 0162](../_adr/0162-logbook-day-one-vocabulary.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)). Setup-branch events describe a project being configured and stay outside analysis ([ADR 0224](../_adr/0224-trend-comparability-is-setup-equality.md)).
+The recorder stores raw driver signals; readers score them fresh on every read, so improved scoring covers accumulated history without a migration. CI runs and `--dry-run` previews reach no detector. Agent-practice behavior detectors exclude runs that look interactively driven, so exploratory human runs do not enter agent-driven workflow evidence. Tip adoption keeps human-driven runs because the detector measures what a person did after seeing the tip ([ADR 0162](../_adr/0162-logbook-day-one-vocabulary.md), [ADR 0236](../_adr/0236-tip-adoption-clears-evidence-per-tip-across-setups.md)). Setup-branch events describe a project being configured and stay outside analysis ([ADR 0224](../_adr/0224-trend-comparability-is-setup-equality.md)).
 
-Identity evidence follows its recorded lifetime ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). A signal scoped to the invocation (a process marker, a recognized MCP client) can mark a run as agent-driven; persistent host state can never drive a reading, only sit beside one. A signal on an interactive-looking run makes that run ambiguous rather than proving either party, and evidence naming two different agents attributes nothing — corroboration strengthens a reading, disagreement voids it. A finding built on identity evidence only ever proposes: the provider-fit detector asks the owner to consider a configuration, and nothing detected changes setup, guidance, or output on its own.
+Identity evidence follows its recorded lifetime ([ADR 0166](../_adr/0166-agent-identity-is-advisory-logbook-evidence.md)). A signal scoped to the invocation, such as a process marker or recognized MCP client, can mark a run as agent-driven. Persistent host state remains supporting context and cannot determine a reading. A signal on an interactive-looking run makes that run ambiguous. Evidence naming two different agents attributes nothing. Corroboration strengthens a reading, while disagreement voids it. A finding built on identity evidence proposes an action: the provider-fit detector asks the owner to consider a configuration, and no detected condition changes setup, guidance, or output on its own.
 
 Trend detectors compare runs sharing one setup: one config epoch, one discern release, and one dominant-MCP-client version. The agent's own releases move the practice too. Setup equality keeps a setup's runs in one series however many other runs interleave ([ADR 0224](../_adr/0224-trend-comparability-is-setup-equality.md)). Beside a too-short series, the report attributes excluded runs by count and setup ([ADR 0190](../_adr/0190-cohort-findings-lift-the-provider-comparison-deferral.md)). A corpus with no client declarations has no client dimension.
 
@@ -89,9 +89,9 @@ discern patterns reset --dry-run
 discern patterns reset
 ```
 
-The reset deletes the logbook directory (every month file and the epoch sidecar) and prints what it removed; `--dry-run` lists the same plan without touching anything. It detaches the directory before deleting its files, so a recorder arriving mid-cleanup starts a new directory and new activity remains available. It is the family's one destructive action and lives on the CLI only: deleting recorded history is an owner's local decision, so no MCP tool exposes it ([ADR 0163](../_adr/0163-patterns-reset-cli-only.md)). Recording starts again unless `[project].logbook = false`.
+The reset deletes the Logbook directory, including each month file and the epoch sidecar, and prints what it removed. `--dry-run` lists the same plan without touching anything. It detaches the directory before deleting its files, so a recorder arriving mid-cleanup starts a new directory and new activity remains available. This destructive action lives on the CLI because deleting recorded history is an owner's local decision; no MCP tool exposes it ([ADR 0163](../_adr/0163-patterns-reset-cli-only.md)). Recording starts again unless `[project].logbook = false`.
 
-Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md); the recording substrate is covered in [the logbook](../50-engine-internals/the-logbook.md).
+Result fields and Model Context Protocol arguments are in [MCP tools & results](../70-reference/mcp-and-results.md). [The Logbook](../70-reference/the-logbook.md) covers the recording substrate.
 
 ## Where it lives in code
 

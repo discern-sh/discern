@@ -1,6 +1,6 @@
 ---
 title: Strand detection
-description: Find tracked files a gate stage changed after the final commit, with the responsible stage named.
+description: Find tracked files a Gate stage changed after the final commit, with the responsible stage named.
 order: 50
 aliases:
   - tree drift
@@ -10,17 +10,17 @@ aliases:
 
 # Strand detection
 
-_A green final gate must not leave a committed-clean tracked file changed._
+_A green final Gate must not leave a tracked file changed when that file was clean at the starting commit._
 
-Gate jobs can write files. Formatters commonly do so. A build may regenerate a manifest, and a test may update a golden file by accident. If `discern done` returned green while those changes remained uncommitted, the result would describe a different tree from the branch that would land.
+Gate jobs can write files. Formatters commonly do so. A build may regenerate a manifest, and a test may update a golden file by accident. If `discern done` returned green while those changes remained uncommitted, the result would describe a different tree from the branch eligible to land.
 
 Strand detection turns that situation into a `tree_drift` failure. The diagnostic names each changed file, attributes it to the first gate stage that made it dirty, includes a capped diff, and uses `git diff` as the reproduce command ([ADR 0148](../_adr/0148-strand-detection-covers-every-gate-stage.md)).
 
-A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). Strand detection stays the net for every other stage-written file.
+A path a `[generated.<name>]` group owns fails earlier and more precisely: the build stage attributes it as `generated_drift`, naming the owning group and its regeneration command ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)). Strand detection covers every other file written by a stage.
 
 ## What the gate compares
 
-Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. A path is stranded when it meets both conditions:
+Before any stage runs, discern records the tracked paths that already have staged or uncommitted changes. It records the set again after each successful stage group. A path is stranded when it meets these conditions:
 
 - it was tracked and clean when the gate started;
 - it is dirty in the latest recorded snapshot while the run is otherwise green.
@@ -29,9 +29,9 @@ The first successful stage snapshot containing the path identifies its origin. T
 
 ## When the check runs
 
-A run that starts on a clean, committed tree can earn a receipt, and a strand from the fix or build group already forfeits it. So once those groups pass, `done` checks for strands and stops on any it finds: the standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](../_adr/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
+A run that starts on a clean, committed tree can earn a Receipt, and a strand from the fix or build group forfeits it. Once those groups pass, `done` checks for strands and stops on any it finds. The Standards, check, test, and scope-gate work is skipped and reported as such, and the changed scopes are still classified and listed ([ADR 0262](../_adr/0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)). The checkpoint waits for the build group to finish because a build may consume or restore what a fixer wrote; convergence is judged on the combined result.
 
-A run that starts dirty (tracked edits or untracked files) can earn no receipt, so it skips the checkpoint, runs every stage, and reports strands at the end. Running `done` on a dirty tree is how you ask for the full run's feedback.
+A run that starts dirty (tracked edits or untracked files) cannot earn a Receipt. It skips the checkpoint, runs every stage, and reports strands at the end. Run `done` on a dirty tree when you need feedback from the full Gate.
 
 Either way, a strand from the check, test, or scope-gate stages surfaces at the end of the run: those stages run after the checkpoint.
 
@@ -56,6 +56,6 @@ The gate never commits its own output. Only the author can choose the right comm
 ## Current state & gotchas
 
 - Paths already dirty when the gate begins are excluded. This keeps the rule useful during an inner loop where a fixer is expected to rewrite the author's current edits.
-- New untracked files do not trigger strand detection. They remain visible in `git status` and still prevent a clean receipt or acceptance.
-- If git cannot produce a snapshot, the strand check skips rather than inventing a failure. Other gate jobs continue to decide the result.
+- New untracked files do not trigger strand detection. They remain visible in `git status` and still prevent a clean Receipt or acceptance.
+- If Git cannot produce a snapshot, the strand check skips rather than inventing a failure. Other Gate jobs continue to decide the result.
 - The relevant source files contain no unfinished-work markers for strand behavior.
