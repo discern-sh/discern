@@ -1065,6 +1065,22 @@ const statusAdrCollisionSchema = z.strictObject({
 });
 export type StatusAdrCollision = z.infer<typeof statusAdrCollisionSchema>;
 
+/** One path discern removed with a worktree that currently exists again. */
+const reappearedWorktreePathSchema = z.strictObject({
+  path: z.string(),
+  removed_at: z.string(),
+  kind: z.enum(["directory", "file", "symlink", "other"]),
+  /** Bounded relative names found beneath a recreated directory. */
+  contents: z.array(z.string()),
+  contents_truncated: z.boolean(),
+  entries: z.number().int().nonnegative(),
+  /** Present when confirmed prune still must preserve the path. */
+  cleanup_blocked_reason: z.string().optional(),
+});
+export type ReappearedWorktreePathData = z.infer<
+  typeof reappearedWorktreePathSchema
+>;
+
 /** `status` — the full situation payload. The local-only heavy blocks
  * (`scopes`/`gate`) are present in the local view and omitted when leading
  * with the fleet from main; `fleet` is present only when the survey is included. */
@@ -1133,6 +1149,9 @@ export const StatusDataSchema = z.strictObject({
   contained_refs: z.array(
     z.strictObject({ branch: z.string(), contained_in: z.string() }),
   ).optional(),
+  /** Paths removed through discern's worktree lifecycle that currently exist
+   * again without a live Git worktree registration. */
+  reappeared_worktree_paths: z.array(reappearedWorktreePathSchema).optional(),
   fleet: z.array(statusFleetEntrySchema).optional(),
   /** Cross-worktree changed-file collisions (fleet view; present when
    * non-empty): pairs of fleet branches whose fork diffs touch the same

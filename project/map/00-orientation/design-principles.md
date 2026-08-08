@@ -45,7 +45,7 @@ discern applies its conventions within the paths it owns: the root `discern.toml
 
 ### 8. Placement is consent
 
-A file at its `discern/` default carries an implicit write license, so agents maintain it and treat staleness as a defect. A config key you pointed at another path is an explicit license because you supplied the path ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). discern's write plan excludes every other path, and an architectural test enforces the boundary.
+A file at its `discern/` default carries an implicit write license, so agents maintain it and treat staleness as a defect. A config key you pointed at another path is an explicit license because you supplied the path ([ADR 0100](../_adr/0100-project-map-is-the-agents-map.md), [ADR 0195](../_adr/0195-fresh-maps-and-neutral-scopes-stay-inside-owned-paths.md)). discern's write plan excludes every other path, and an architectural test enforces the boundary. A prior worktree registration plus discern's recorded removal creates a time-bounded cleanup offer for that same path; prune still requires confirmation ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)).
 
 ### 9. Unused subsystems remain inert
 

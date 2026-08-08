@@ -8,23 +8,23 @@ aliases:
 
 # Working on this project
 
-_The contributor's view of the codebase — set up, write, test, ship._
+_How contributors set up the checkout, change code, run the checks, and prepare a release._
 
-This subtree documents the developer experience: getting set up locally, the testing approach, the conventions the tooling enforces, and where to look when the quality gate fails in a way the message did not explain.
+This subtree documents local setup, the testing approach, the conventions the tooling enforces, and the recovery reference for a Gate failure whose immediate diagnostic needs more context. The Gate is the project's final quality check.
 
-The loop is short and the same on every stack discern runs on. You drive it with `discern <verb>`; in this repo the local-dev wrapper runs that command against the current checkout's engine, as an end user would:
+Contributors use the same `discern <verb>` commands as installed projects. In this repository, the local-development wrapper runs each command against the current checkout's Engine:
 
-- `start` provisions an isolated checkout for a change (see the worktree note in the project guidance).
-- `prepare` is the fast inner loop: it applies the fix-stage work, then the check-stage work, omitting build and test stages.
-- `done` is the full gate: in a worktree, it first verifies that your branch contains the latest trunk. It then runs the fix- and build-stage work, runs `check` and `test` in parallel, and fires any scope `gate`s whose scope changed. Run it before declaring any change done; fix what it reports and re-run.
+- `start` provisions an isolated workspace for one task (a Git worktree). See the worktree rule in the project guidance.
+- `prepare` is the fast inner loop. It applies the fix-stage work, then the check-stage work, and omits build and test stages.
+- `done` runs the full Gate. In a worktree, it first verifies that the branch contains the latest trunk. It then runs the fix-stage and build-stage work, runs `check` and `test` in parallel, and fires the Gate for each changed scope that declares one. Run it on the intended final commit. Follow the first diagnostic, then run `discern done` again.
 
 ## Leaves
 
-| File                                         | What's in it                                                                                                                                                                                                       |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [done-gate-gotchas.md](done-gate-gotchas.md) | Non-obvious ways the gate fails — the stack-independent traps (merge check, parallel-run state, stale artifacts, masked exit codes), plus a section for your stack's own. The gate points here when a stage fails. |
-| [install-surface.md](install-surface.md)     | What `discern setup` lays down in a project, mapped by function, with each part's project-owned / shared / generated ownership and where to change it.                                                             |
-| [for-humans.md](for-humans.md)               | What a human with the repo checked out does: IDE color/exclude setup (JetBrains + VS Code), local prerequisites, and how to work alongside the agents.                                                             |
-| [getting-started.md](getting-started.md)     | From a fresh clone to a first green gate: prerequisites (Deno, git), running the tool from source, and the discern loop.                                                                                           |
-| [testing.md](testing.md)                     | The two test layers (installer subprocess + engine subprocess driving `src/main.ts` against the real templates), the temp-dir / hermetic-git fixture, and the parallel-safe patterns the gate assumes.             |
-| [code-conventions.md](code-conventions.md)   | What the fix- and check-stage work enforces, and the conventions they can't: file ownership, strict TypeScript, and the docs discipline.                                                                           |
+| File                                         | What's in it                                                                                                                                                                                                        |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [done-gate-gotchas.md](done-gate-gotchas.md) | Gate failures that need context beyond the immediate diagnostic: merge checks, parallel-run state, stale artifacts, masked exit codes, and project-specific entries. The Gate links this page when a stage fails.   |
+| [install-surface.md](install-surface.md)     | What `discern setup` lays down in a project, mapped by function, with each part's project-owned / shared / generated ownership and where to change it.                                                              |
+| [for-humans.md](for-humans.md)               | Maintainer prerequisites, editor settings for JetBrains and VS Code, and the actions used alongside coding-agent work.                                                                                              |
+| [getting-started.md](getting-started.md)     | From a fresh clone to a first green Gate: prerequisites (Deno, Git), running the tool from source, and the discern loop.                                                                                            |
+| [testing.md](testing.md)                     | The two test layers: installer and Engine subprocesses that drive `src/main.ts` against the real templates, the isolated temporary-directory and Git fixture, and the parallel-isolation patterns the Gate assumes. |
+| [code-conventions.md](code-conventions.md)   | What the fix-stage and check-stage work enforces, plus the File ownership, strict TypeScript, and documentation conventions that require contributor judgment.                                                      |

@@ -3601,6 +3601,15 @@ export type DiscernStatusResult = {
       branch: string;
       contained_in: string;
     }>;
+    reappeared_worktree_paths?: Array<{
+      path: string;
+      removed_at: string;
+      kind: "directory" | "file" | "symlink" | "other";
+      contents: Array<string>;
+      contents_truncated: boolean;
+      entries: number;
+      cleanup_blocked_reason?: string;
+    }>;
     fleet?: Array<{
       path: string;
       is_main: boolean;

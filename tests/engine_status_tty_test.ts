@@ -602,6 +602,40 @@ Deno.test("status dashboard: fleet and ADR collision paths are human-visible wit
   assertLinesFit(output, 60);
 });
 
+Deno.test("status dashboard: removed worktree paths report their current contents and cleanup boundary", () => {
+  const output = plain(render(
+    data([], {
+      reappeared_worktree_paths: [{
+        path: "/repo.worktrees/apollo-11",
+        removed_at: "2026-08-03T11:55:00.000Z",
+        kind: "directory",
+        contents: ["observer-state/checkpoint.bin"],
+        contents_truncated: false,
+        entries: 2,
+      }, {
+        path: "/repo.worktrees/voyager",
+        removed_at: "2026-08-03T11:50:00.000Z",
+        kind: "directory",
+        contents: ["project/.git/config"],
+        contents_truncated: false,
+        entries: 3,
+        cleanup_blocked_reason: "the path contains Git metadata",
+      }],
+    }),
+    80,
+  ));
+
+  assertStringIncludes(output, "── Attention");
+  assertStringIncludes(output, "/repo.worktrees/apollo-11");
+  assertStringIncludes(
+    output,
+    "discern removed the worktree 5m ago; the path is present again",
+  );
+  assertStringIncludes(output, "observer-state/checkpoint.bin");
+  assertStringIncludes(output, "Kept: the path contains Git metadata");
+  assertLinesFit(output, 80);
+});
+
 Deno.test("status dashboard: every backticked discern command is cyan without changing its text", () => {
   const behind = entry({ behind: 2 });
   const proofUnavailable = entry({

@@ -14,14 +14,14 @@ _The versioned steps that bring an installed project up to the current config._
 
 The first public install is [schema version](../00-orientation/glossary.md#schema-version) 1, with an empty production migration registry. The runner is already in place for the first public `1 → 2` change ([ADR 0219](../_adr/0219-public-install-schema-starts-at-one.md)).
 
-A [Migration](../00-orientation/glossary.md#migration) brings an install from schema `N` to `N+1`. `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). A config stamped by a newer binary is refused and keeps its recorded version.
+A versioned step that brings an install from schema `N` to `N+1` is a [Migration](../00-orientation/glossary.md#migration). `discern upgrade` reads `[meta].schema_version`, selects every pending step, validates the migrated config, reconciles discern-owned regions, and stamps the new number only after those checks pass ([ADR 0085](../_adr/0085-validate-migrations-before-schema-stamping.md)). `discern upgrade` refuses a config stamped by a newer binary and preserves its recorded version.
 
 The package version follows releases. The install schema changes only when an installed project needs a migration, so most releases leave it at its current number.
 
 ## The contract for a migration
 
 - **One version.** A step declares `from: N` and produces schema `N+1`. `isChainContiguous` requires one step for every version between 1 and `SCHEMA_VERSION`.
-- **Idempotent.** Re-running a step against its output changes nothing. If an upgrade stops partway through, the recorded schema stays behind and a retry safely replays the pending set.
+- **Idempotent.** Re-running a step against its output changes nothing. If an upgrade stops partway through, the recorded schema stays behind and a retry replays the pending set without changing completed output.
 - **Clean-tree gated.** `upgrade` refuses a dirty Git worktree unless the owner passes `--allow-dirty`, keeping the edits recoverable ([ADR 0014](../_adr/0014-versioned-migration-system.md)).
 - **Project-content preserving.** Config edits use `TomlEditor`, which keeps comments and surrounding layout. File renames carry the existing bytes to the new path.
 - **Validated before stamping.** A step sometimes spans several files. The config must parse and satisfy the current typed schema before the version moves forward.
@@ -53,7 +53,7 @@ Until that bump exists, the framework test proves the empty schema-1 chain and t
 
 ## Current state and gotchas
 
-`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 is forward skew and the schema-1 binary refuses it.
+`MIGRATIONS` is empty while `SCHEMA_VERSION` is 1. A config without `[meta].schema_version` resolves to schema 1. A recorded value above 1 comes from a newer schema, a condition called forward skew. The schema-1 binary refuses that config.
 
 The prerelease migrations remain visible in the decision records as project history. They are absent from the public compatibility path.
 

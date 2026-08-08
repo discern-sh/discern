@@ -46,6 +46,7 @@ import {
   type SideRestrictedOpName,
   type WorktreeSide,
 } from "./side_restrictions.ts";
+import { recordRetiredWorktreePath } from "./retired_paths.ts";
 
 /** A fatal worktree-git condition. */
 export class WorktreeGitError extends Error {
@@ -2127,6 +2128,44 @@ export async function removeWorktreeSafely(
       await git(["worktree", "prune"], cwd);
     }
   }
+
+  // Git can report success while another process still holds the checkout and
+  // writes into its path. Reconcile that immediate race once under the authorization
+  // established above, then prove the path is absent before recording it as
+  // retired. A later reappearance is surfaced by status and confirmed prune.
+  for (let attempt = 0; attempt < 3 && await pathExists(canonical); attempt++) {
+    try {
+      const stat = await Deno.lstat(canonical);
+      await Deno.remove(canonical, {
+        recursive: stat.isDirectory && !stat.isSymlink,
+      });
+    } catch (error) {
+      if (error instanceof Deno.errors.NotFound) {
+        break;
+      }
+      const reason = error instanceof Error ? error.message : String(error);
+      if (
+        attempt < 2 &&
+        (reason.includes("Directory not empty") || reason.includes("ENOTEMPTY"))
+      ) {
+        await delay(100);
+        continue;
+      }
+      throw new WorktreeGitError(
+        `The worktree at '${canonical}' could not be removed: ${reason}. Close ` +
+          "the program writing into this path, then re-run.",
+      );
+    }
+  }
+  if (await pathExists(canonical)) {
+    throw new WorktreeGitError(
+      `The worktree at '${canonical}' still exists after removal. Close the ` +
+        "program writing into this path, then re-run.",
+    );
+  }
+  // Advisory evidence cannot roll a completed filesystem removal back. Store
+  // failures leave cleanup successful and only lose later reappearance notice.
+  await recordRetiredWorktreePath(mainRepo, canonical);
 }
 
 /** Whether a path exists (file or directory). */

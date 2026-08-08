@@ -142,6 +142,10 @@ import {
   planTrackedRefresh,
   type TrackedRefreshPlan,
 } from "../tracked_refresh.ts";
+import {
+  type ReappearedWorktreePath,
+  reappearedWorktreePaths,
+} from "../worktree/retired_paths.ts";
 
 export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 
@@ -296,6 +300,13 @@ export async function statusResult(
     git,
     standards: Object.keys(cfg.standards),
   };
+  const reappearedPaths = await reappearedWorktreePaths(root);
+  if (reappearedPaths.length > 0) {
+    data.reappeared_worktree_paths = reappearedPaths.map((entry) => ({
+      ...entry,
+      contents: [...entry.contents],
+    }));
+  }
   const landedProof = await readLandedProofNote(root, mainBranch);
   if (landedProof.status === "valid") {
     const { status: _status, ...note } = landedProof;
@@ -574,6 +585,7 @@ export async function statusResult(
     divergence,
     unlandedBranches,
     containedRefs,
+    reappearedWorktreePaths: reappearedPaths,
     fleet,
     fleetCollisions: fleetCollisionPairs,
     adrCollisions,
@@ -850,6 +862,8 @@ interface HintContext {
   unlandedBranches: string[] | undefined;
   /** Reclaimed-stage refs riding inside live branches (main view only). */
   containedRefs: Array<{ branch: string; contained_in: string }> | undefined;
+  /** Removed worktree paths currently present again. */
+  reappearedWorktreePaths: readonly ReappearedWorktreePath[];
   fleet: StatusFleetEntry[] | undefined;
   /** Cross-worktree changed-file collisions (fleet view; hint fodder — the
    * rows themselves ride `data.fleet_collisions`). */
@@ -904,6 +918,13 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // early: every later hint assumes the work is happening where the tools point.
   if (ctx.divergence !== undefined) {
     hints.push(ctx.divergence);
+  }
+  if (ctx.reappearedWorktreePaths.length > 0) {
+    hints.push(
+      fire(HINTS["status-reappeared-worktree-paths"], {
+        total: ctx.reappearedWorktreePaths.length,
+      }),
+    );
   }
 
   if (ctx.trackedIgnoredArtifacts.paths.length > 0) {

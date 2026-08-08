@@ -110,6 +110,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/resources/`                           | repository | Resource ledger.                                                                                                    |
 | `discern/logbook/`                             | repository | [Logbook](../00-orientation/trust-and-data.md) events.                                                              |
 | `discern/continuations/`                       | repository | Short-handle continuation state, kept for up to 7 days.                                                             |
+| `discern/retired-worktree-paths/`              | repository | Up to 256 removed-path records; status ignores records 90 days after removal.                                       |
 | `discern/crash/`                               | repository | Crash reports.                                                                                                      |
 | `discern/test-slots/`                          | repository | Fleet test-run cap lock files.                                                                                      |
 | `discern/desk/tips.json`                       | repository | Desk tip evidence.                                                                                                  |
@@ -126,7 +127,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/worktree-ready`                       | worktree   | Completed-setup marker.                                                                                             |
 | `discern/shim/`                                | worktree   | Per-identity self-shim ([ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)). |
 
-Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Await continuation records also have a 7-day time limit and a 512-record repository cap ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)). Guards enforce namespace, lifetime, and reset behavior.
+Repository records use the common Git directory; worktree records disappear with that worktree ([ADR 0165](../_adr/0165-git-admin-state-namespaced-by-lifetime.md)). Await continuation records have a 7-day time limit and a 512-record repository cap ([ADR 0243](../_adr/0243-await-continuations-use-short-repository-local-handles.md)). Removed worktree path evidence has a 90-day limit and a 256-record cap; it authorizes only an explicit prune offer for the recorded path ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)). Guards enforce namespace, lifetime, and reset behavior.
 
 Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-transactions/<id>` under an advisory lock. Rollback reverses both; Git reaps the ref with the worktree. The marker keeps landed authority spent after a trunk reset or reflog expiry.
 

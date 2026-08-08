@@ -904,6 +904,23 @@ export const HINTS = {
       `Run ${CMD.start} to begin work. There are no active worktrees.`,
   }),
 
+  "status-reappeared-worktree-paths": defineHint<{ total: number }>({
+    id: "status-reappeared-worktree-paths",
+    category: "next-step",
+    audience: "all",
+    when:
+      "Status finds a path discern removed with a worktree that exists again.",
+    example: { total: 2 },
+    template: ({ total }): string =>
+      `${total} removed worktree path${total === 1 ? " is" : "s are"} ` +
+      `present again. Review ${total === 1 ? "it" : "them"} with ` +
+      `${
+        discernCommand("worktree prune", flag("dry-run"))
+      }. Close any program ` +
+      `still writing into ${total === 1 ? "the path" : "those paths"} before ` +
+      "confirming removal.",
+  }),
+
   /** One bounded summary for every fleet member with uncommitted changes. */
   "status-dirty-fleet-members": defineHint<{
     total: number;
