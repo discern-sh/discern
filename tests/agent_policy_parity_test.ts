@@ -255,11 +255,19 @@ Deno.test("await calling surfaces keep active calls and unmet continuations off 
   );
   const tool = TOOLS.find((candidate) => candidate.name === "discern_await");
   assert(tool !== undefined, "the await MCP tool must remain registered");
+  const skill = await Deno.readTextFile(join(
+    REPO_ROOT,
+    "templates",
+    "skills",
+    "discern-await-the-fleet",
+    "SKILL.md",
+  ));
   const surfaces = [
     { label: "canonical await policy", text: policy.statement },
     { label: "bundled guidance", text: await guidanceBlob() },
     { label: "MCP instructions", text: buildInstructions() },
     { label: "await MCP tool", text: tool.description },
+    { label: "await-the-fleet skill", text: skill },
   ];
   assertEquals(
     awaitCallingFailures(surfaces),
