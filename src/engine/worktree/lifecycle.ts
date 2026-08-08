@@ -86,6 +86,8 @@ import {
   acceptPlanToEngine,
   type DropPlan,
   dropPlanToEngine,
+  FULL_REFRESH_STEP_LABEL,
+  FULL_REFRESH_STEP_NOTE,
   type PrunePlan,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -467,7 +469,7 @@ async function buildSetupPlan(ctx: LifecycleContext): Promise<SetupPlan> {
   for (const step of ctx.config.worktree.setup.ensure) {
     steps.push({ kind: "setup-ensure", label: step });
   }
-  steps.push({ kind: "refresh", label: "refresh agent files" });
+  steps.push({ kind: "refresh", label: FULL_REFRESH_STEP_LABEL });
   return { branch, steps };
 }
 
@@ -664,7 +666,7 @@ async function discernSourceEntrypoint(
  * engine for this final composition step; otherwise the launcher can overwrite
  * committed agent files with its own older compiler or bundled guidance.
  */
-async function refreshWorktreeAgentFiles(
+async function refreshWorktreeArtifacts(
   ctx: LifecycleContext,
 ): Promise<boolean> {
   const sourceEntrypoint = await discernSourceEntrypoint(ctx.root);
@@ -841,17 +843,17 @@ export async function worktreeSetup(
     worktreeEnsureOutcomes = await runWorktreeEnsureSteps(ctx, { fatal: true });
   }
 
-  // 7. refresh the agent files, which also materializes skills into THIS
-  // worktree's .claude/skills/. A linked worktree does NOT inherit that gitignored
-  // directory from the main checkout, so it must be (re)built here. Non-fatal —
-  // but its real outcome is recorded, not reported as a blanket success.
-  ctx.log.info("Refreshing agent files…");
+  // 7. run the complete refresh reconciliation. This also materializes skills
+  // into THIS worktree's .claude/skills/; a linked worktree does not inherit that
+  // gitignored directory from the main checkout. Non-fatal — but its real outcome
+  // is recorded, not reported as a blanket success.
+  ctx.log.info("Refreshing artifacts…");
   let refreshOk = true;
   try {
-    refreshOk = await refreshWorktreeAgentFiles(ctx);
+    refreshOk = await refreshWorktreeArtifacts(ctx);
   } catch {
     refreshOk = false;
-    ctx.log.warn("Agent-file refresh reported an error — continuing.");
+    ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
 
   await recordIgnoredFileBaseline(
@@ -3481,7 +3483,7 @@ async function commitUpdateRegeneratedArtifacts(
 }
 
 /**
- * Re-materialize the agent files + skills, then re-run the convergent
+ * Run the complete refresh reconciliation, then re-run the convergent
  * `[worktree.setup].ensure` commands — the convergence tail every integration pass
  * shares, merge or no-op. Non-fatal throughout: a refresh or convergence hiccup is
  * recorded as a failed step, never undoing a landed merge or failing the pass (the
@@ -3498,7 +3500,7 @@ async function runUpdateConvergence(
   regenerated: string[];
 }> {
   const generated = await runUpdateGeneratedGroups(ctx, plan.generatedGroups);
-  ctx.log.info("Re-materializing agent files + skills…");
+  ctx.log.info("Refreshing artifacts…");
   let refreshOk = true;
   let refreshHints: string[] = hintTexts([]);
   const refreshedSharedPaths = new Set<string>();
@@ -3511,14 +3513,14 @@ async function runUpdateConvergence(
     }
   } catch {
     refreshOk = false;
-    ctx.log.warn("Agent-file refresh reported an error — continuing.");
+    ctx.log.warn("Artifact refresh reported an error — continuing.");
   }
   const steps: StepResult[] = [...generated.steps, {
     step: {
       kind: "refresh",
-      label: "refresh agent files",
+      label: FULL_REFRESH_STEP_LABEL,
       disposition: "run",
-      note: "re-materialized the agent files + skills",
+      note: FULL_REFRESH_STEP_NOTE,
     },
     outcome: refreshOk ? "ok" : "failed",
   }];
@@ -3578,7 +3580,7 @@ async function runUpdateConvergence(
 
 /**
  * Apply an integration: merge the source (the trunk, or the `--from` ref) in,
- * re-materialize the agent files + skills, then run checkout-shared
+ * run the complete refresh reconciliation, then run checkout-shared
  * `[repository].ensure` and linked-worktree `[worktree.setup].ensure` on the
  * merged tree. When the branch already contains the source nothing is merged, but
  * the refresh + ensure convergence STILL runs (like session start) — that is what
@@ -3701,8 +3703,8 @@ async function executeUpdatePlan(
           outcome: outcome.autoResolved.length > 0 ? "ok" : "skipped",
         },
       ];
-      // Re-materialize + converge — the shared tail; a merge can bring in another
-      // line of work's guidance/skill edits or a changed lockfile.
+      // Refresh + converge — the shared tail; a merge can bring in another line
+      // of work's guidance/skill edits, generated metadata, or a changed lockfile.
       const convergence = await runUpdateConvergence(ctx, plan, {
         commitRegenerated: true,
       });
@@ -3746,8 +3748,8 @@ async function executeUpdatePlan(
 }
 
 /**
- * Bring an integration source into this worktree's branch and re-materialize the
- * agent files + skills — the `discern update` command, the deterministic
+ * Bring an integration source into this worktree's branch and run the complete
+ * refresh reconciliation — the `discern update` command, the deterministic
  * inverse of `accept` and the action that resolves `done`'s fail-fast merge
  * check. The source is the trunk by default; `--from <ref>` pulls any ref instead
  * (the landing model's pull axis — how work composes below the trunk). Runs from

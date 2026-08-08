@@ -962,9 +962,8 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: UPDATE,
     description:
       "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
-      "worktree's branch and " +
-      "re-materialize the " +
-      "agent files + skills, in one deterministic step — the inverse of " +
+      "worktree's branch and run the complete refresh reconciliation, including " +
+      "shared generated metadata and checkout-local Agent artifacts — the inverse of " +
       "discern_accept, and the action that resolves discern_done's merge check " +
       "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
       "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
@@ -972,7 +971,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Just call it: you do NOT need to run git to check first — it performs every " +
       "precondition itself and returns exactly what to do next. It is idempotent and " +
       "safe to call anytime: when the branch already contains the source nothing is " +
-      "merged and the worktree is still re-converged (agent files re-materialized, " +
+      "merged and the worktree is still re-converged (complete refresh rerun, " +
       "[worktree.setup].ensure re-run). If that no-merge refresh changes a tracked " +
       "artifact, the result names the path and leaves it for review and an intentional " +
       "commit; it does not create a bookkeeping commit. A plain re-run is also the recovery " +
@@ -993,8 +992,8 @@ export const TOOLS: McpTool[] = orderTools([
       "touching anything. Never touches the main checkout; it updates the worktree " +
       "this call selects, using the current target by default or an explicit " +
       "absolute `path`. This updates the branch; run " +
-      "`discern upgrade` to update discern itself, or use discern_refresh to " +
-      "refresh agent files alone.",
+      "`discern upgrade` to update discern itself, or use discern_refresh to run " +
+      "the refresh reconciliation alone.",
     inputSchema: {
       from: z.string().optional().describe(
         "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +

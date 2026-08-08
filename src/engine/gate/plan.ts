@@ -40,6 +40,12 @@ import type {
 
 const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 
+/** Labels distinguish the gate's initial refresh convergence check from the
+ * repeated check that binds the final receipt to the post-job tree. */
+export const TRACKED_REFRESH_CHECK_LABEL = "tracked-refresh-check";
+export const TRACKED_REFRESH_RECEIPT_CHECK_LABEL =
+  "tracked-refresh-check (receipt boundary)";
+
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
  * needs. `willRun` is false for a configured-but-unchanged scope gate and for a
@@ -710,7 +716,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
   if (plan.trackedRefreshCheck) {
     steps.push({
       kind: "tracked-refresh-check",
-      label: "tracked-refresh-check",
+      label: TRACKED_REFRESH_CHECK_LABEL,
       disposition: "gate",
       note:
         "verify `discern refresh` has no pending effect on tracked files (run refresh, review, and commit if it does)",
@@ -730,6 +736,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
         group: group.display,
       });
     }
+  }
+  if (plan.trackedRefreshCheck) {
+    steps.push({
+      kind: "tracked-refresh-check",
+      label: TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+      disposition: "gate",
+      note:
+        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and receipt",
+    });
   }
   const changed = plan.scopesChanged.length > 0
     ? plan.scopesChanged.join(", ")

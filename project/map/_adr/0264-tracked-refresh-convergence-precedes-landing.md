@@ -35,6 +35,7 @@ The lifecycle binds that one predicate at these points:
 3. `accept` repeats the current plan before the fast-forward on both paths, including an honored receipt. This preserves old receipts while preventing them from bypassing a newer cheap invariant.
 4. After a successful fast-forward, acceptance records tracked cleanliness immediately. It materializes only local/ignored Agent artifacts, then runs repository ensure and smoke. It never invokes a tracked refresh writer in the receiving checkout. Any tracked dirt present immediately after checkout, or introduced later by ensure/smoke, is reported without undoing the landing.
 5. `update` remains the effectful convergence boundary inside a worktree. After a real merge it commits every tracked path the live refresh actually changed, not only Agent files, the ADR index, and `.gitattributes`. On an already-up-to-date pass it does not create a bookkeeping commit: it reports the exact refreshed tracked paths and leaves them for review and an intentional commit.
+6. `doctor --verbose` reports these as execution-model boundaries, not incidental implementation details: `done` shows its initial and receipt-boundary checks, `accept` shows its current-engine landing check before the fast-forward, and `update` shows regeneration plus the merge-only commit or no-merge report behavior. Those ordered cores derive from the same pure plans as dry-run output.
 
 The explicit noes: `done` does not run or commit refresh; `accept` does not repair tracked artifacts after landing; the gate does not infer currency from a hand-maintained filename list; provider files are not wholesale-generated or allowed to discard user-owned keys; and this decision does not try to police external `.gitattributes` rules outside discern's managed block.
 
@@ -47,6 +48,7 @@ The explicit noes: `done` does not run or commit refresh; `accept` does not repa
 - Update's regeneration commit is slightly broader but safer: enrollment comes from paths the shared live reconciler actually changed after a clean merge. Shared provider files keep user content through their merge functions before being staged.
 - Status and `done` pay for a read-only provider reconciliation. The work is file reads and in-memory transforms, substantially cheaper than any declared gate job, but it is more work than the old collection of partial checks.
 - First-materialization policy remains asymmetric by design. A missing artifact that has not yet been adopted is advisory; malformed tracked input and drift in an adopted tracked artifact block.
+- A human or agent can inspect the complete ordering through `discern doctor --verbose`; adding a step to the canonical `done`, `update`, or `accept` plan without enrolling that model fails the execution-model guard.
 
 ## Alternatives considered
 

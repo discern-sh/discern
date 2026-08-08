@@ -18,6 +18,19 @@ import type { LedgerItem } from "./resources.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
 
+/** The shared label for the complete refresh reconciliation. Keep the full
+ * operation distinct from acceptance's checkout-local materialization tail. */
+export const FULL_REFRESH_STEP_LABEL = "refresh artifacts";
+
+/** The shared note for the complete refresh reconciliation. */
+export const FULL_REFRESH_STEP_NOTE =
+  "run the complete refresh reconciliation for shared files and checkout-local Agent artifacts";
+
+/** Acceptance rechecks the current engine's tracked refresh plan immediately
+ * before it mutates the trunk. */
+export const ACCEPT_TRACKED_REFRESH_CHECK_LABEL =
+  "tracked-refresh-check (landing boundary)";
+
 // ── teardown ────────────────────────────────────────────────────────────────
 
 /** What `worktree teardown` would destroy: this worktree's ledger entries, in the
@@ -76,7 +89,13 @@ export interface AcceptPlan {
  * plan lands committed history only.
  */
 export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
-  const steps: PlanStep[] = [];
+  const steps: PlanStep[] = [{
+    kind: "tracked-refresh-check",
+    label: ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
+    disposition: "gate",
+    note:
+      "after receipt or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
+  }];
   // Land on the trunk FIRST: fast-forward it to the branch tip (always clean —
   // the gate guarantees the branch contains the trunk). Then converge and prove
   // the receiving checkout before the cleanup tail tears down resources and
@@ -130,7 +149,8 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     kind: "checkout-clean-check",
     label: "check trunk checkout",
     disposition: "run",
-    note: "report tracked files changed by post-landing convergence",
+    note:
+      "report tracked dirt present immediately after landing or introduced by ensure/smoke convergence",
   });
   steps.push({
     kind: "resource-destroy",
@@ -213,7 +233,7 @@ export interface UpdatePlan {
 
 /**
  * Project an integration onto the shared renderer: merge the source ref,
- * re-materialize the agent files + skills, then re-run the convergent
+ * run the complete refresh reconciliation, then re-run the convergent
  * checkout-shared and worktree-only ensure buckets to converge the merged tree. When the
  * branch already contains the source only the merge is `skip`ped — the refresh and
  * the ensure convergence run on EVERY pass (like session start), which is what
@@ -248,17 +268,16 @@ export function updatePlanToEngine(plan: UpdatePlan): EnginePlan {
     })),
     {
       kind: "refresh",
-      label: "refresh agent files",
+      label: FULL_REFRESH_STEP_LABEL,
       disposition: "run",
-      note: "re-materialize the agent files + skills",
+      note: FULL_REFRESH_STEP_NOTE,
     },
     {
       kind: "git",
       label: "commit regenerated artifacts",
       disposition: act ? "run" : "skip",
-      note: act
-        ? "commit regenerated outputs when their bytes changed"
-        : "no merge to record",
+      note:
+        "after a merge, commit successfully re-derived tracked paths whose bytes changed; without a merge, report changed tracked refresh paths for review and an intentional commit",
     },
   ];
   for (const step of plan.repositoryEnsureSteps) {

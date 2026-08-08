@@ -13,6 +13,7 @@ import {
   type ResourceEntry,
 } from "../src/engine/worktree/resources.ts";
 import {
+  ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
   acceptPlanToEngine,
   prunePlanIsEmpty,
   prunePlanToEngine,
@@ -118,7 +119,7 @@ Deno.test("teardownPlanToEngine: one destroy step per ledger entry", () => {
   assert(plan.steps.every((s) => s.kind === "resource-destroy"));
 });
 
-Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teardown step", () => {
+Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gate teardown", () => {
   const base = {
     worktreeBranch: "agent/x",
     worktreePath: "/repo/.wt/x",
@@ -139,6 +140,7 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
     hasResources: true,
   });
   assertEquals(withResources.steps.map((s) => s.label), [
+    ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
     "fast-forward-trunk",
     "reconcile-receipt-note-fetch",
     "write-receipt-note",
@@ -161,6 +163,7 @@ Deno.test("acceptPlanToEngine: fast-forwards the trunk; resources gate the teard
     hasResources: false,
   });
   assertEquals(clean.steps.map((s) => s.label), [
+    ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
     "fast-forward-trunk",
     "reconcile-receipt-note-fetch",
     "write-receipt-note",
