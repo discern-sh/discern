@@ -83,6 +83,8 @@ discern await --green agent/upload-retry-a1b2c3
 
 Follow the returned met hint. A live green receipt uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk instead. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews the incoming hot zone.
 
+The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents — condition choice, exact-branch resolution, quiet holding, and the composition step. A staged brief names the Skill instead of restating the contract.
+
 ## Where it lives in code
 
 | Responsibility                      | Source                                                                            |

@@ -151,6 +151,7 @@ The bundled skills a coding agent can invoke ship **in the binary**. Their sourc
 
 | Skill                                                                                         | What it does                                                                                                                            |
 | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| [`discern-await-the-fleet`](../../../templates/skills/discern-await-the-fleet/SKILL.md)       | Wait for a sibling branch or the trunk with one blocking call, then compose what arrived.                                               |
 | [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Sweep out agent-session clutter — proven-safe cuts, behavior-preserving commits, a standard capping the entropy.                        |
 | [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | Cure a whole class of defect — prove the cause, fix every instance, audit the guards — behind a permanent detector.                     |
 | [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Shape work into self-contained briefs — one handoff, a fan-out, or stages — then review what lands.                                     |

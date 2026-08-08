@@ -22,6 +22,7 @@ discern skills list
 
 | Skill                                                                                         | Reach for it when…                                                                                                                                            |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`discern-await-the-fleet`](../../../templates/skills/discern-await-the-fleet/SKILL.md)       | A task depends on another effort — hold one `await` call for green or landing, then compose what arrived.                                                     |
 | [`discern-clear-the-decks`](../../../templates/skills/discern-clear-the-decks/SKILL.md)       | Duplicated helpers, dead code, or leftover scaffolding need a proven-safe sweep.                                                                              |
 | [`discern-cure-a-bug`](../../../templates/skills/discern-cure-a-bug/SKILL.md)                 | A bug needs diagnosis, a class-level cure, or the suite needs auditing for guards weaker than they look.                                                      |
 | [`discern-delegate-work`](../../../templates/skills/discern-delegate-work/SKILL.md)           | Work needs a self-contained handoff, parallel fan-out, or staged briefs.                                                                                      |
@@ -38,7 +39,7 @@ The table summarizes each live `SKILL.md` description. Open a Skill for its trig
 - Bundled Skills ship inside the binary. Their source appears in this repository under `templates/skills/`; an installed project receives materialized copies instead of that source tree.
 - Bundled Markdown renders configured project paths when discern materializes it. The source remains generic across stacks and repository layouts.
 - A registry-driven gate test reads the same bundled directory set as the materialization code and fails when this catalog omits a name. Adding a bundled Skill therefore enrolls it in the documentation check automatically.
-- Before launch, the project reduced the set from thirteen to seven through merges, renames, and hint migrations ([ADR 0173](../_adr/0173-trim-the-bundled-skills-to-seven.md)). The owner later approved `discern-write-it-once` as the eighth member after it cleared that record's bar ([ADR 0191](../_adr/0191-an-eighth-bundled-skill-write-it-once.md)). Two `[standards.skills]` ceilings hold the count and the total description budget.
+- Before launch, the project reduced the set from thirteen to seven through merges, renames, and hint migrations ([ADR 0173](../_adr/0173-trim-the-bundled-skills-to-seven.md)). The owner later approved `discern-write-it-once` as the eighth member ([ADR 0191](../_adr/0191-an-eighth-bundled-skill-write-it-once.md)) and `discern-await-the-fleet` as the ninth ([ADR 0263](../_adr/0263-a-ninth-bundled-skill-await-the-fleet.md)), each after it cleared the trim record's bar. Two `[standards.skills]` ceilings hold the count and the total description budget.
 
 ## Where the catalog stays current
 

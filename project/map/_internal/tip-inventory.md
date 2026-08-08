@@ -530,7 +530,7 @@ Rendered line:
 
 ## `delegate-with-a-complete-brief`
 
-- Relevance: Evergreen — the final reusable guide lesson.
+- Relevance: Evergreen — a reusable guide lesson.
 - Predicate: —
 - Since: —
 - Teaches: `skill-delegate-work`
@@ -540,6 +540,20 @@ Rendered line:
 
 ```text
 `discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews what comes back.
+```
+
+## `await-with-one-call`
+
+- Relevance: Evergreen — the final reusable guide lesson.
+- Predicate: —
+- Since: —
+- Teaches: `skill-await-the-fleet`
+- Follow-through: —
+
+Rendered line:
+
+```text
+`discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
 ```
 
 ## `identity-stable-values`

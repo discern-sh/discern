@@ -238,8 +238,12 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
         "Name the exact returned branch, the readiness condition, and the composition move from §2",
       ],
       [
-        "the receiving agent's guidance owns the wait procedure",
-        "The receiving agent's built-in guidance owns the wait procedure",
+        "the bundled await skill owns the wait procedure",
+        "The `discern-await-the-fleet` skill owns the wait procedure the receiving agent follows",
+      ],
+      [
+        "dependent briefs route the wait through the bundled await skill",
+        "B's brief names the `discern-await-the-fleet` skill for that wait",
       ],
       [
         "a confirmed handoff can run without a human readiness relay",
