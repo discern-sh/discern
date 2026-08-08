@@ -14,13 +14,18 @@
 /.scratch/
 
 # Vale: ignore the synced style packages (`vale sync` writes Microsoft/,
-# proselint/ here), but track the authored sources — the project vocabulary
-# under .vale/config/ and the house-voice style under .vale/Discern/ are
-# source, not downloads. The `/*` + `!` re-include is required because git
+# proselint/ here), but track the authored sources and committed artifacts —
+# the project vocabulary under .vale/config/, the house-voice style under
+# .vale/Discern/, and the generated register styles (compiled from
+# scripts/brand/vale.ts by `deno task codegen`) are source or committed
+# output, not downloads. The `/*` + `!` re-include is required because git
 # can't un-ignore a path under a wholesale-ignored dir.
 /.vale/*
 !/.vale/config/
 !/.vale/Discern/
+!/.vale/DiscernAgent/
+!/.vale/DiscernBrand/
+!/.vale/DiscernProduct/
 
 # Public design-system artifacts are emitted from the exact package release by
 # `deno task site:build`. Discern's selections and compositions live in

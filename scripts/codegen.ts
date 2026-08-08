@@ -84,6 +84,7 @@ import {
 } from "./brand_registry.ts";
 import { REGISTERS } from "./brand/model.ts";
 import { renderVoiceSkill, voiceSkillRel } from "./brand/voice.ts";
+import { valeStyleFiles } from "./brand/vale.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -240,6 +241,12 @@ for (const doc of generatedBrandDocuments()) {
 console.log("Regenerating the voice skills from scripts/brand/voice.ts:");
 for (const register of REGISTERS) {
   await write(voiceSkillRel(register), renderVoiceSkill(register));
+}
+console.log(
+  "Regenerating the register Vale styles from scripts/brand/vale.ts:",
+);
+for (const file of valeStyleFiles()) {
+  await write(file.rel, file.text);
 }
 console.log("Regenerating the project artifact ownership inventory:");
 const inventory = renderArtifactInventory(

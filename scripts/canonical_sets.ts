@@ -1964,6 +1964,86 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
   },
   {
+    id: "brand-vale-styles",
+    title: "Register Vale styles",
+    what:
+      "The per-register Vale styles compiled from the voice registry's rule data — one generated style directory per register, scoped by map tier in .vale.ini, each rule citing the banned canon, voice rules, or proposed mechanical checks it enforces, with a recorded disposition for every proposal no rule implements.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/vale.ts",
+      exportName: "VALE_STYLE_RULES",
+    },
+    guards: ["tests/brand_vale_codegen_test.ts"],
+    artifacts: [
+      {
+        path: ".vale/DiscernBrand/ProductName.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/GenericVerbs.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/GenericAdjectives.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/TemplateOpener.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/CtaGenericLabel.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/RepeatedContrast.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernBrand/StackedSlogans.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernProduct/AgentBlame.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernAgent/BestJudgment.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+      {
+        path: ".vale/DiscernAgent/PositionalReference.yml",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "editorial tooling for this repository's prose, not product vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "an internal editorial practice for this repository, not a product feature",
+      },
+    },
+    members: async () => {
+      const vale = await import("./brand/vale.ts");
+      return vale.VALE_STYLE_RULES.map(
+        (rule) => `${rule.register}/${rule.id}`,
+      );
+    },
+  },
+  {
     id: "seeded-gotchas-traps",
     title: "Seeded gate traps",
     what:

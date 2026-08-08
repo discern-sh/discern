@@ -75,6 +75,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
+| [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 10      | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)             | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
@@ -82,9 +83,9 @@ One row per set, in registry order; the sections below follow the same order and
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 71      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 72      | —                | node `canonical-sets`       |
 
-71 sets · 104 guard tests · 40 committed artifacts.
+72 sets · 105 guard tests · 50 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -104,6 +105,7 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                          |
+| `tests/brand_vale_codegen_test.ts`                 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -204,6 +206,16 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | Artifact                                                           | Kind             | Compiled from                                                                                             |
 | ------------------------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
 | `.github/cla-assistant/metadata`                                   | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
+| `.vale/DiscernAgent/BestJudgment.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernAgent/PositionalReference.yml`                       | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/CtaGenericLabel.yml`                           | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/GenericAdjectives.yml`                         | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/GenericVerbs.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/ProductName.yml`                               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/RepeatedContrast.yml`                          | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/StackedSlogans.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/TemplateOpener.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernProduct/AgentBlame.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
 | `THIRD_PARTY_NOTICES`                                              | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
 | `project/map/00-orientation/glossary.md`                           | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
 | `project/map/70-reference/artifact-ownership.md`                   | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
@@ -2129,6 +2141,27 @@ The voice registry's banned-words and banned-moves canon behind the generated vo
 - Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
 - Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
 
+## `brand-vale-styles` — Register Vale styles
+
+The per-register Vale styles compiled from the voice registry's rule data — one generated style directory per register, scoped by map tier in .vale.ini, each rule citing the banned canon, voice rules, or proposed mechanical checks it enforces, with a recorded disposition for every proposal no rule implements.
+
+- Source: `scripts/brand/vale.ts` — `VALE_STYLE_RULES`
+- Members: 10
+  - `brand/ProductName`
+  - `brand/GenericVerbs`
+  - `brand/GenericAdjectives`
+  - `brand/TemplateOpener`
+  - `brand/CtaGenericLabel`
+  - `brand/RepeatedContrast`
+  - `brand/StackedSlogans`
+  - `product/AgentBlame`
+  - `agent/BestJudgment`
+  - `agent/PositionalReference`
+- Guards: `tests/brand_vale_codegen_test.ts`
+- Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
+- Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
+- Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
+
 ## `seeded-gotchas-traps` — Seeded gate traps
 
 The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
@@ -2238,7 +2271,7 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 71
+- Members: 72
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2302,6 +2335,7 @@ This meta-registry: the closed set of closed sets.
   - `project-artifacts`
   - `distribution-vocabulary`
   - `voice-banned-moves`
+  - `brand-vale-styles`
   - `seeded-gotchas-traps`
   - `contributor-agreement-gist-files`
   - `first-party-legal-documents`

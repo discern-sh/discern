@@ -35,6 +35,7 @@ import {
 } from "../scripts/canonical_sets.ts";
 import { generatedBrandDocuments } from "../scripts/brand_registry.ts";
 import { REGISTERS } from "../scripts/brand/model.ts";
+import { valeStyleFiles } from "../scripts/brand/vale.ts";
 import { GLOSSARY } from "../scripts/glossary_registry.ts";
 import { allFeatureNodes, SURFACE_SETS } from "../scripts/feature_registry.ts";
 import { loadConfig, toCommandList } from "../src/shared/config_schema.ts";
@@ -329,8 +330,9 @@ Deno.test("codegen writes only through the enrolled chokepoint", async () => {
   const writeCalls = text.split("await write(").length - 1;
   // A registry-driven loop writes several enrolled targets through one
   // textual call site: subtract each loop's target count, add back its call.
-  const loopTargets = generatedBrandDocuments().length + REGISTERS.length;
-  const loops = 2; // the brand-document loop and the voice-skill loop
+  const loopTargets = generatedBrandDocuments().length + REGISTERS.length +
+    valeStyleFiles().length;
+  const loops = 3; // the brand-document, voice-skill, and Vale-style loops
   assertEquals(
     writeCalls,
     codegenWriteTargets().size - loopTargets + loops,
