@@ -101,6 +101,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "provider hook settings files (provider registry)",
   ],
   [
+    "src/lib/refresh_file_ops.ts",
+    "the shared live/planning effect sink; live writes remain provider-registry targets",
+  ],
+  [
     "src/lib/skills.ts",
     "materialized skills + manifest (provider registry skills dirs)",
   ],

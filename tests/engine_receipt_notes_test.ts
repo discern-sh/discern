@@ -74,6 +74,12 @@ async function land(
 ): Promise<Landing> {
   const worktree = await addWorktree(main, name);
   await Deno.writeTextFile(join(worktree, `${name}.txt`), `${name}\n`);
+  if ((env[DISCERN_NO_ATTRIBUTION] ?? "") !== "") {
+    const refreshed = await runAgent(worktree, ["refresh", "--json"], {
+      env,
+    });
+    assertEquals(refreshed.code, 0, refreshed.output);
+  }
   await git(worktree, "add", "-A");
   await git(
     worktree,
@@ -84,13 +90,12 @@ async function land(
     "--no-gpg-sign",
   );
   const target = await gitOut(worktree, "rev-parse", "HEAD");
-  const done = await runAgent(worktree, ["done", "--json"]);
+  const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
   const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
   const receipt = ReceiptSchema.parse(doneResult.data?.receipt);
   const marker = await inspectGateReceipt(worktree);
   assertEquals(marker.receipt_data, receipt);
-
   const accepted = await runAgent(
     worktree,
     ["accept", "--confirmed", "--json"],
@@ -1180,7 +1185,13 @@ Deno.test("a post-landing note identity failure is carried without failing accep
     await gitInit(dir);
     const worktree = await addWorktree(dir, "missing-identity");
     await Deno.writeTextFile(join(worktree, "feature.txt"), "feature\n");
+    const noAttribution = { [DISCERN_NO_ATTRIBUTION]: "1" };
+    const refreshed = await runAgent(worktree, ["refresh", "--json"], {
+      env: noAttribution,
+    });
+    assertEquals(refreshed.code, 0, refreshed.output);
     await git(worktree, "add", "feature.txt");
+    await git(worktree, "add", ".gitattributes");
     await git(
       worktree,
       "commit",
@@ -1190,7 +1201,9 @@ Deno.test("a post-landing note identity failure is carried without failing accep
       "--no-gpg-sign",
     );
     const target = await gitOut(worktree, "rev-parse", "HEAD");
-    const done = await runAgent(worktree, ["done", "--json"]);
+    const done = await runAgent(worktree, ["done", "--json"], {
+      env: noAttribution,
+    });
     assertEquals(done.code, 0, done.output);
     await git(dir, "config", "--local", "--unset-all", "user.name");
     await git(dir, "config", "--local", "--unset-all", "user.email");
@@ -1199,7 +1212,7 @@ Deno.test("a post-landing note identity failure is carried without failing accep
     const accepted = await runAgent(
       worktree,
       ["accept", "--confirmed", "--json"],
-      { env: { [DISCERN_NO_ATTRIBUTION]: "1" } },
+      { env: noAttribution },
     );
     assertEquals(accepted.code, 0, accepted.output);
     const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;

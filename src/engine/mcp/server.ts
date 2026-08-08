@@ -196,8 +196,8 @@ const DESTRUCTIVE: ToolAnnotations = {
   destructiveHint: true,
 };
 /** Merges the integration branch in and re-materializes — mutates, but is not
- * destructive (it only adds a merge + regenerates build artifacts) and is safe to
- * re-run: a no-op once the branch already contains main, hence `idempotentHint`. */
+ * destructive (it only adds a merge + regenerates build artifacts) and converges
+ * on re-run, hence `idempotentHint`. */
 const UPDATE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
@@ -904,9 +904,11 @@ export const TOOLS: McpTool[] = orderTools([
       "landing branch. A worktree is a separate checkout and branch for one effort. " +
       "Tear down the worktree's resources, advance the trunk directly to the branch " +
       "tip, remove the clean worktree, and delete the " +
-      "now-merged branch. It then refreshes the trunk checkout it leaves behind, " +
-      "so generated guidance, skills, and provider integrations match the landed " +
-      "tree. This is the single deterministic implementation — " +
+      "now-merged branch. Before the fast-forward it verifies that the current " +
+      "tracked refresh plan is empty, even when an older gate receipt is honored. " +
+      "After the fast-forward it materializes only checkout-local Agent artifacts; " +
+      "tracked guidance and provider integrations must already be committed on the " +
+      "branch. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit. After a green landing, " +
       "report it in your own words and end with data.receipt_line verbatim; " +
@@ -960,9 +962,8 @@ export const TOOLS: McpTool[] = orderTools([
     annotations: UPDATE,
     description:
       "Update this branch: merge the trunk's latest (`{{main_branch}}`) into THIS " +
-      "worktree's branch and " +
-      "re-materialize the " +
-      "agent files + skills, in one deterministic step — the inverse of " +
+      "worktree's branch and run the complete refresh reconciliation, including " +
+      "shared generated metadata and checkout-local Agent artifacts — the inverse of " +
       "discern_accept, and the action that resolves discern_done's merge check " +
       "(which refuses a branch behind `{{main_branch}}`). Run it whenever the branch " +
       "is behind. The source is always `{{main_branch}}` unless you pass `from` — " +
@@ -970,8 +971,10 @@ export const TOOLS: McpTool[] = orderTools([
       "Just call it: you do NOT need to run git to check first — it performs every " +
       "precondition itself and returns exactly what to do next. It is idempotent and " +
       "safe to call anytime: when the branch already contains the source nothing is " +
-      "merged and the worktree is still re-converged (agent files re-materialized, " +
-      "[worktree.setup].ensure re-run) — which also makes a plain re-run the recovery " +
+      "merged and the worktree is still re-converged (complete refresh rerun, " +
+      "[worktree.setup].ensure re-run). If that no-merge refresh changes a tracked " +
+      "artifact, the result names the path and leaves it for review and an intentional " +
+      "commit; it does not create a bookkeeping commit. A plain re-run is also the recovery " +
       "after you resolve a merge conflict by hand; it merges into a tracked-clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted tracked changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +
@@ -989,8 +992,8 @@ export const TOOLS: McpTool[] = orderTools([
       "touching anything. Never touches the main checkout; it updates the worktree " +
       "this call selects, using the current target by default or an explicit " +
       "absolute `path`. This updates the branch; run " +
-      "`discern upgrade` to update discern itself, or use discern_refresh to " +
-      "refresh agent files alone.",
+      "`discern upgrade` to update discern itself, or use discern_refresh to run " +
+      "the refresh reconciliation alone.",
     inputSchema: {
       from: z.string().optional().describe(
         "Pull this ref (a branch, tag, or commit) into the worktree instead of the " +

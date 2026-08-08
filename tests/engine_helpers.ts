@@ -26,6 +26,8 @@ import { TomlEditor } from "../src/lib/toml_edit.ts";
 import { TomlFormatError, writeDiscernToml } from "../src/lib/tidy_format.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
+import { ensureDiscernGitattributesBlock } from "../src/lib/agent_gitattributes.ts";
+import { agentFilePaths } from "../src/engine/guidance_render.ts";
 import {
   SOURCE_PATH_NAMES,
   SOURCE_PATHS,
@@ -444,6 +446,39 @@ export async function writeConfig(dir: string, toml: string): Promise<void> {
   }
 }
 
+/**
+ * Converge the committed fixture baseline that a real setup + refresh would
+ * leave behind, without materializing unrelated first-install outputs. Invalid
+ * config fixtures deliberately skip this step so their malformed bytes survive.
+ */
+export async function convergeFixtureGitattributes(
+  dir: string,
+): Promise<void> {
+  let text: string;
+  try {
+    text = await Deno.readTextFile(join(dir, "discern.toml"));
+  } catch (error) {
+    if (error instanceof Deno.errors.NotFound) {
+      return;
+    }
+    throw error;
+  }
+  let config: ReturnType<typeof parseConfigOrThrow>;
+  try {
+    config = parseConfigOrThrow(text);
+  } catch {
+    return;
+  }
+  const agentPaths = agentFilePaths(config);
+  await ensureDiscernGitattributesBlock(
+    dir,
+    config,
+    agentPaths,
+    fakeEnv(),
+    agentPaths,
+  );
+}
+
 /** Write an executable file (e.g. a project script or a capability command). */
 export async function writeExecutable(
   path: string,
@@ -491,6 +526,7 @@ export async function gitInit(dir: string): Promise<void> {
       "[commit]\n\tgpgsign = false\n",
     { append: true },
   );
+  await convergeFixtureGitattributes(dir);
   await git("add", "-A");
   await git("commit", "-q", "-m", "scaffold", "--no-gpg-sign");
 }

@@ -10,6 +10,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
 import { exists } from "@std/fs";
 import { HINTS } from "../src/shared/hints.ts";
+import { FULL_REFRESH_STEP_LABEL } from "../src/engine/worktree/plan.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 import {
@@ -193,7 +194,9 @@ Deno.test("a no-op update still re-converges: refresh + ensure run with nothing 
     };
     const merge = result.steps.find((s) => s.label === "merge");
     assertEquals(merge?.outcome, "skipped", r.stdout);
-    const refresh = result.steps.find((s) => s.label === "refresh agent files");
+    const refresh = result.steps.find((s) =>
+      s.label === FULL_REFRESH_STEP_LABEL
+    );
     assertEquals(refresh?.outcome, "ok", r.stdout);
   });
 });

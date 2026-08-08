@@ -9,6 +9,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { join } from "@std/path";
+import { FULL_REFRESH_STEP_LABEL } from "../src/engine/worktree/plan.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -211,7 +212,7 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
     assertEquals(dry.code, 0, dry.output);
     assertStringIncludes(dry.stdout, "Worktree setup plan");
     assertStringIncludes(dry.stdout, "ensure-branch");
-    assertStringIncludes(dry.stdout, "refresh agent files");
+    assertStringIncludes(dry.stdout, FULL_REFRESH_STEP_LABEL);
 
     const json = await runAgent(wt, ["worktree", "setup", "--json"]);
     assertEquals(json.code, 0, json.output);
@@ -219,7 +220,7 @@ Deno.test("worktree setup --dry-run shows the setup plan; --json reports the ste
     assertEquals(obj.ok, true);
     assert(
       obj.steps.some((s: { label: string }) =>
-        s.label === "refresh agent files"
+        s.label === FULL_REFRESH_STEP_LABEL
       ),
       json.stdout,
     );

@@ -40,6 +40,12 @@ import type {
 
 const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 
+/** Labels distinguish the gate's initial refresh convergence check from the
+ * repeated check that binds the final receipt to the post-job tree. */
+export const TRACKED_REFRESH_CHECK_LABEL = "tracked-refresh-check";
+export const TRACKED_REFRESH_RECEIPT_CHECK_LABEL =
+  "tracked-refresh-check (receipt boundary)";
+
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
  * needs. `willRun` is false for a configured-but-unchanged scope gate and for a
@@ -99,6 +105,8 @@ export interface GatePlan {
    * fail-fast precondition like guidance; blocks on a STALE skills dir. Always true
    * (the field gates its plan-listing, not its run). */
   skillsCheck: boolean;
+  /** The complete tracked-refresh plan must be empty before and after gate jobs. */
+  trackedRefreshCheck: boolean;
   /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
    * in the main checkout. Always true (the field gates its plan-listing, not its run). */
   mergeCheck: boolean;
@@ -392,6 +400,7 @@ export function composeGatePlan(
     standardsLimitsCheck: true,
     guidanceCheck: true,
     skillsCheck: true,
+    trackedRefreshCheck: true,
     mergeCheck: true,
     trackedArtifactsCheck: true,
     scopesChanged: changed,
@@ -651,8 +660,8 @@ export async function buildGateResultWithHints(
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
  * prints. Leading `gate` steps stand for the fail-fast preconditions — the merge
- * check (ADR 0050), tracked-artifacts guard, then the guidance/skills currency
- * checks (ADR 0056) — followed by each job grouped under its stage, a firing job
+ * check (ADR 0050), tracked-artifacts guard, then the guidance/skills and complete
+ * tracked-refresh currency checks — followed by each job grouped under its stage, a firing job
  * `run`, an unchanged scope gate `skip`. Honest by construction:
  * declared jobs render as "run" — fail-fast may still skip some, which a
  * plan cannot predict.
@@ -704,6 +713,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
         "verify the materialized skills match the effective set (`discern refresh` if stale)",
     });
   }
+  if (plan.trackedRefreshCheck) {
+    steps.push({
+      kind: "tracked-refresh-check",
+      label: TRACKED_REFRESH_CHECK_LABEL,
+      disposition: "gate",
+      note:
+        "verify `discern refresh` has no pending effect on tracked files (run refresh, review, and commit if it does)",
+    });
+  }
   for (const group of plan.groups) {
     for (const j of group.jobs) {
       steps.push({
@@ -718,6 +736,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
         group: group.display,
       });
     }
+  }
+  if (plan.trackedRefreshCheck) {
+    steps.push({
+      kind: "tracked-refresh-check",
+      label: TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+      disposition: "gate",
+      note:
+        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and receipt",
+    });
   }
   const changed = plan.scopesChanged.length > 0
     ? plan.scopesChanged.join(", ")

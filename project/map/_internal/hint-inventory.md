@@ -52,12 +52,12 @@ Share this landing's receipt with other clones: `git push origin refs/notes/disc
 - Category: `next-step`
 - Audience: `all`
 - Family: `post-landing-convergence`
-- Emitting context: Landing succeeds but the post-landing refresh fails.
+- Emitting context: Landing succeeds but checkout-local materialization fails.
 
 Rendered example:
 
 ```text
-Run `discern refresh` in /workspace/project. Acceptance landed on main, but the post-landing refresh failed.
+Acceptance landed on main, but checkout-local Agent artifacts could not be materialized in /workspace/project. Run `discern refresh` there to retry and review any reported tracked effect before committing it.
 ```
 
 ## `accept-relay-landing-receipt`
@@ -584,6 +584,19 @@ Rendered example:
 
 ```text
 Run `discern update` to bring the trunk into this branch and re-materialize, then re-run `discern done`.
+```
+
+## `gate-failure-refresh-drift`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-failure-remedy`
+- Emitting context: The read-only tracked-refresh plan finds an uncommitted effect.
+
+Rendered example:
+
+```text
+Run `discern refresh`, review and commit the tracked artifacts named by the diagnostics, then re-run the current discern command.
 ```
 
 ## `gate-failure-scope-gates`
@@ -1927,6 +1940,32 @@ Rendered example:
 
 ```text
 Run `git rm -r --cached .claude/skills` to remove the discern-managed ignored artifacts from the Git index, then run `discern refresh`. Affected paths: .claude/skills.
+```
+
+## `tracked-refresh-pending`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `generated-drift`
+- Emitting context: The read-only refresh plan would change tracked project files.
+
+Rendered example:
+
+```text
+Run `discern refresh` to restore discern-managed artifacts. Tracked refresh artifacts are out of date (.gitattributes, .mcp.json).
+```
+
+## `tracked-refresh-plan-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `generated-drift`
+- Emitting context: Status cannot derive the tracked refresh plan.
+
+Rendered example:
+
+```text
+Tracked refresh convergence could not be checked: could not read .mcp.json. Repair the named input, run `discern refresh`, then run `discern status` again.
 ```
 
 ## `unknown-command-help`

@@ -118,17 +118,17 @@ Every production writer of `discern.toml` calls the same TOML formatter before w
 
 The worktree workflow is discern's spine and has no feature toggle or attached configuration ([ADR 0101](../_adr/0101-retire-the-features-toggles.md)). Generic git mechanics live in the engine ([`src/engine/worktree/`](../../../src/engine/worktree/)), driven by the hooks in [Bookkeeping & integration](#bookkeeping--integration). The stack-specific part is the per-worktree **resources** (`[worktree.resources.<name>]`) a project declares in `discern.toml`; a fresh install declares none.
 
-| Command                        | What it does                                                                                                 |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| `discern start`                | Creates + sets up an isolated worktree to begin a change in.                                                 |
-| `discern worktree hook create` | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).                          |
-| `discern worktree setup`       | Sets up a freshly-created worktree (what `worktree create` runs inside it).                                  |
-| `discern worktree ensure`      | Session-start idempotent setup (run by the `SessionStart` hook).                                             |
-| `discern accept`               | Accepts the branch into the main repo, tears the worktree down, and refreshes the checkout it leaves behind. |
-| `discern worktree hook remove` | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort).                         |
-| `discern worktree teardown`    | Destroys a worktree's resources (what `worktree remove` runs).                                               |
-| `discern worktree prune`       | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.                            |
-| `discern identity`             | Resolves a worktree's stable identity (id / site / branch / port / db / resource).                           |
+| Command                        | What it does                                                                                                                     |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `discern start`                | Creates + sets up an isolated worktree to begin a change in.                                                                     |
+| `discern worktree hook create` | Creates + sets up a worktree from the `WorktreeCreate` hook's JSON payload (stdin).                                              |
+| `discern worktree setup`       | Sets up a freshly-created worktree (what `worktree create` runs inside it).                                                      |
+| `discern worktree ensure`      | Session-start idempotent setup (run by the `SessionStart` hook).                                                                 |
+| `discern accept`               | Requires tracked refresh convergence, lands the branch, materializes only checkout-local artifacts, and tears the worktree down. |
+| `discern worktree hook remove` | Tears a worktree down from the `WorktreeRemove` hook's payload (stdin; best-effort).                                             |
+| `discern worktree teardown`    | Destroys a worktree's resources (what `worktree remove` runs).                                                                   |
+| `discern worktree prune`       | Sweeps stale worktrees, fully-merged branches, orphan dirs, and orphan resources.                                                |
+| `discern identity`             | Resolves a worktree's stable identity (id / site / branch / port / db / resource).                                               |
 
 The lifecycle logic lives in [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts); the stable worktree identity (POSIX-`cksum`-faithful) in [`src/engine/worktree/identity.ts`](../../../src/engine/worktree/identity.ts). Run `discern --help` for the full verb list.
 
@@ -142,6 +142,8 @@ The lifecycle logic lives in [`src/engine/worktree/lifecycle.ts`](../../../src/e
 | `.claude/skills/`, `.agents/skills/` | generated     | Materialized skills the configured agents discover — built-ins rendered, authored skills symlinked. Gitignored; stale rendered skills fail the skills currency check, and force-tracked materialized files fail the tracked-artifacts guard.                 |
 
 `discern refresh` ([`src/engine/guidelines.ts`](../../../src/engine/guidelines.ts)) regenerates the agent files, skills, and integration artifacts. It compiles the canonical body from **discern's built-in guidance**, followed by **your `[guidance].sources`**. It then writes each provider's full body or canonical pointer and materializes the skills again. `[project].agents` selects the files through the provider registry ([`src/lib/providers.ts`](../../../src/lib/providers.ts)). The MCP, hooks, and skills wiring for each agent are mapped in [`../60-agent-integrations/`](../60-agent-integrations/).
+
+The tracked-refresh planner runs provider transformations in memory. It derives the expected Agent files, `.gitattributes`, and ADR index for `status`, `done`, and `accept`; live refresh supplies the paths `update` handles during a merge ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
 
 ## Bundled skills
 

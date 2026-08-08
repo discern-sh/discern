@@ -28,6 +28,7 @@ import { join } from "@std/path";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
+  convergeFixtureGitattributes,
   git,
   gitInit,
   gitOut,
@@ -54,6 +55,7 @@ async function scaffoldNested(
   await Deno.mkdir(app, { recursive: true });
   await scaffoldEngine(app);
   await writeConfig(app, config);
+  await convergeFixtureGitattributes(app);
   await gitInit(repo);
   return app;
 }

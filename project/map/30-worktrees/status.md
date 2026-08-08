@@ -48,9 +48,11 @@ discern status --no-color
 
 `discern status --json` and `discern_status` return one `DiscernResult`, unaffected by layout. `data.project`, `location`, `root`, `worktree`, and `git` locate it; local results can add scopes, jobs, currency, resources, standards, receipt, and [landing authority](landing-authority.md).
 
+`data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists problems that prevent the plan from being derived. `stale_generated`, `stale_materialized`, `stale_integrations`, and `stale_adr_index` remain compatibility projections of the same plan.
+
 Fleet retains the main row for compatibility. Each readable worktree carries identity, Git state, divergence, activity, full `gate_receipt`, and authority. Honored-only receipt fields remain. `landed_receipt.commit_at` supplies landing age when Git can read it.
 
-`last_action` is the newest completion, `running` a fresh unmatched start, and `last_activity` the later Git or Logbook time. Disabling the Logbook removes action fields. Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
+`last_action` records the newest completion. `running` records a recent start with no matching completion, and `last_activity` takes the later Git or Logbook time. Disabling the Logbook removes the action fields; Git activity remains available ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).
 
 `fleet_collisions` pairs branches sharing changed files. `adr_collisions` includes duplicate record claims from branches without worktrees. Human output shows paths; machine hints retain field references. Stored Receipts remain in JSON and MCP regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-receipt states remain `ok: true`; operational refusals do not.
 

@@ -491,6 +491,49 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
   });
 });
 
+Deno.test("accept: a legacy receipt cannot bypass tracked refresh convergence", async () => {
+  await withTempDir(async (dir) => {
+    await mainWithCheck(dir);
+    const wt = await addWorktree(dir, "legacy-refresh-receipt");
+    await commitBranchWork(wt);
+    const refreshed = await runAgent(wt, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
+    await commitCurrentWorktree(wt, "adopt tracked refresh artifacts");
+    const mcpPath = join(wt, ".mcp.json");
+    const mcp = JSON.parse(await Deno.readTextFile(mcpPath));
+    mcp.mcpServers.discern.command = "wrong-discern";
+    await Deno.writeTextFile(mcpPath, `${JSON.stringify(mcp, null, 2)}\n`);
+    await commitCurrentWorktree(wt, "make a tracked refresh artifact stale");
+
+    // Simulate a receipt issued by an older gate that did not know this
+    // convergence predicate. The receipt primitive deliberately does not run a
+    // gate; acceptance must apply current cheap preconditions before landing.
+    assertEquals((await recordGreenNow(wt)).status, "recorded");
+    assertEquals((await inspectGateReceipt(wt)).status, "honored");
+
+    const preview = await runAgent(wt, ["accept", "--dry-run", "--json"]);
+    assertEquals(preview.code, 1, preview.output);
+    assertStringIncludes(preview.output, ".mcp.json");
+    assertEquals(
+      await exists(join(dir, "feature.txt")),
+      false,
+      "the read-only plan refusal must not touch the trunk",
+    );
+
+    const accepted = await runAgent(wt, ["accept", "--confirmed"]);
+
+    assertEquals(accepted.code, 1, accepted.output);
+    assertStringIncludes(accepted.output, ".mcp.json");
+    assertStringIncludes(accepted.output, "discern refresh");
+    assertEquals(await exists(wt), true, "the refused worktree must survive");
+    assertEquals(
+      await exists(join(dir, "feature.txt")),
+      false,
+      "the stale tree must not reach the trunk",
+    );
+  });
+});
+
 Deno.test("accept: with no prior `done`, accept runs the gate itself before landing", async () => {
   await withTempDir(async (dir) => {
     await mainWithCheck(dir);

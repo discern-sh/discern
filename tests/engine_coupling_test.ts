@@ -32,6 +32,7 @@ import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
 import { withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
 import {
+  convergeFixtureGitattributes,
   git,
   gitInit,
   runAgent,
@@ -68,6 +69,7 @@ async function setup(dir: string, inGate = true): Promise<void> {
       "",
     ].join("\n"),
   );
+  await convergeFixtureGitattributes(dir);
   await git(dir, "add", "-A");
   await git(dir, "commit", "-q", "-m", "config", "--no-gpg-sign");
 }
@@ -194,6 +196,7 @@ async function setupGeneratedFixture(dir: string): Promise<void> {
   await scaffoldEngine(dir);
   await gitInit(dir);
   await writeConfig(dir, generatedFixtureConfig());
+  await convergeFixtureGitattributes(dir);
   await git(dir, "add", "-A");
   await git(dir, "commit", "-q", "-m", "generated config", "--no-gpg-sign");
 

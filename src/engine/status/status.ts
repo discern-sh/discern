@@ -138,6 +138,10 @@ import {
   renderStatusDashboard,
   STALE_WORKTREE_DAYS,
 } from "./tty.ts";
+import {
+  planTrackedRefresh,
+  type TrackedRefreshPlan,
+} from "../tracked_refresh.ts";
 
 export { idleDaysOf, relativeAge, STALE_WORKTREE_DAYS } from "./tty.ts";
 
@@ -377,6 +381,19 @@ export async function statusResult(
     data.stale_adr_index = [adrIndex.path];
   }
 
+  // The complete read-only tracked-refresh plan. Focused stale_* projections
+  // above remain for compatibility and richer hints; this field is the one
+  // authoritative answer to "would refresh change a tracked file?".
+  const trackedRefreshPlan = await planTrackedRefresh(root, cfg);
+  if (trackedRefreshPlan.changes.length > 0) {
+    data.pending_tracked_refresh = trackedRefreshPlan.changes.map((change) =>
+      change.path
+    );
+  }
+  if (trackedRefreshPlan.errors.length > 0) {
+    data.tracked_refresh_plan_errors = [...trackedRefreshPlan.errors];
+  }
+
   const trackedIgnoredArtifacts = await trackedDiscernIgnoredArtifacts(root);
   if (trackedIgnoredArtifacts.paths.length > 0) {
     data.tracked_ignored_artifacts = trackedIgnoredArtifacts.paths;
@@ -565,6 +582,7 @@ export async function statusResult(
     skillsDrift,
     providerHookDrift,
     adrIndex,
+    trackedRefreshPlan,
     trackedIgnoredArtifacts,
     untrackedGuidance,
     setupPending,
@@ -848,6 +866,8 @@ interface HintContext {
   providerHookDrift: ProviderHookDriftEntry[];
   /** How the maintained ADR index stands against the record files on disk. */
   adrIndex: AdrIndexState;
+  /** Complete read-only plan for refresh-managed tracked files. */
+  trackedRefreshPlan: TrackedRefreshPlan;
   /** Discern-owned ignored artifacts currently tracked by Git. */
   trackedIgnoredArtifacts: TrackedDiscernIgnoredArtifacts;
   /** Compiled guidance files untracked and not ignored — commit recommended. */
@@ -946,6 +966,28 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
   // source problem whose diagnosis belongs to the gate.
   if (ctx.adrIndex.kind === "stale") {
     hints.push(fire(HINTS["adr-index-stale"], { path: ctx.adrIndex.path }));
+  }
+
+  // The focused hints above already explain guidance, hooks, and the ADR index.
+  // Speak once more only for paths they do not cover (or for mode-only drift,
+  // which their byte-oriented checks cannot see).
+  const focused = new Set([
+    ...ctx.guidanceDrift.map((entry) => entry.path),
+    ...ctx.providerHookDrift.map((entry) => entry.path),
+    ...(ctx.adrIndex.kind === "stale" ? [ctx.adrIndex.path] : []),
+  ]);
+  const remainingRefresh = ctx.trackedRefreshPlan.changes.filter((change) =>
+    change.modeChanged || !focused.has(change.path)
+  );
+  if (remainingRefresh.length > 0) {
+    hints.push(fire(HINTS["tracked-refresh-pending"], {
+      paths: remainingRefresh.map((change) => change.path).join(", "),
+    }));
+  }
+  if (ctx.trackedRefreshPlan.errors.length > 0) {
+    hints.push(fire(HINTS["tracked-refresh-plan-failed"], {
+      reason: ctx.trackedRefreshPlan.errors.slice(0, 3).join("; "),
+    }));
   }
 
   // In the main checkout with worktrees on, the agent may be beginning a new

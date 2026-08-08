@@ -23,9 +23,128 @@ import { canonicalDiscernGitattributesBlockForConfig } from "../src/lib/agent_gi
 import { generatedArtifactMarker } from "../src/shared/brand.ts";
 import { ARTIFACT_PROVENANCE_SOURCES } from "../src/shared/file_ownership.ts";
 import { DISCERN_NO_ATTRIBUTION } from "../src/shared/env.ts";
+import { planTrackedRefresh } from "../src/engine/tracked_refresh.ts";
+import { compileGuidelines } from "../src/engine/guidelines.ts";
+import { Logger } from "../src/lib/log.ts";
 import { fakeEnv, withTempDir } from "./helpers.ts";
 import { assertHasHint, assertLacksHint } from "./hint_asserts.ts";
-import { runAgent, scaffoldEngine, writeExecutable } from "./engine_helpers.ts";
+import {
+  gitInit,
+  runAgent,
+  scaffoldEngine,
+  writeExecutable,
+} from "./engine_helpers.ts";
+
+Deno.test("engine refresh: read-only plan and live apply share one tracked effect set", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["codex"] });
+    const initial = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(initial.code, 0, initial.output);
+    await gitInit(dir);
+
+    const configPath = join(dir, ".codex/config.toml");
+    const config = await Deno.readTextFile(configPath);
+    assertStringIncludes(config, 'command = "discern"');
+    await Deno.writeTextFile(
+      configPath,
+      config.replace('command = "discern"', 'command = "wrong-discern"'),
+    );
+    await Deno.chmod(join(dir, "AGENTS.md"), 0o755);
+
+    const planned = await planTrackedRefresh(dir);
+    assertEquals(planned.errors, []);
+    const applied = await compileGuidelines(
+      dir,
+      new Logger({ json: true, noColor: true }),
+    );
+
+    assertEquals(
+      [...applied.trackedArtifactsChanged].sort(),
+      planned.changes.map((change) => change.path).sort(),
+      "plan and apply must remain two modes of the same refresh transformations",
+    );
+    assertEquals((await planTrackedRefresh(dir)).changes, []);
+  });
+});
+
+Deno.test("engine refresh: a new provider cannot hide established MCP drift", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code"] });
+    const initial = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(initial.code, 0, initial.output);
+    await gitInit(dir);
+
+    const mcpPath = join(dir, ".mcp.json");
+    const mcp = await Deno.readTextFile(mcpPath);
+    await Deno.writeTextFile(
+      mcpPath,
+      mcp.replace('"command": "discern"', '"command": "wrong-discern"'),
+    );
+
+    const configPath = join(dir, "discern.toml");
+    const config = await Deno.readTextFile(configPath);
+    assertStringIncludes(config, 'agents = ["claude_code"]');
+    await Deno.writeTextFile(
+      configPath,
+      config.replace(
+        'agents = ["claude_code"]',
+        'agents = ["claude_code", "cursor"]',
+      ),
+    );
+
+    const planned = await planTrackedRefresh(dir);
+    assertEquals(planned.errors, []);
+    assert(
+      planned.changes.some((change) => change.path === ".mcp.json"),
+      "Cursor's first install must not suppress Claude's established MCP repair",
+    );
+    assert(
+      !planned.changes.some((change) => change.path === ".cursor/mcp.json"),
+      "Cursor's untracked first materialization remains advisory",
+    );
+  });
+});
+
+Deno.test("engine refresh: deleting an adopted MCP file is drift, not a first install", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code"] });
+    const initial = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(initial.code, 0, initial.output);
+    await gitInit(dir);
+
+    await Deno.remove(join(dir, ".mcp.json"));
+    const planned = await planTrackedRefresh(dir);
+    assertEquals(planned.errors, []);
+    assert(
+      planned.changes.some((change) => change.path === ".mcp.json"),
+      "a registration present at HEAD remains adopted when its file is deleted",
+    );
+  });
+});
+
+Deno.test("engine refresh: first registration in a tracked shared MCP file stays advisory", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir, { agents: ["claude_code"] });
+    await Deno.writeTextFile(
+      join(dir, ".mcp.json"),
+      `${
+        JSON.stringify(
+          { mcpServers: { existing: { command: "existing" } } },
+          null,
+          2,
+        )
+      }\n`,
+    );
+    await gitInit(dir);
+
+    const planned = await planTrackedRefresh(dir);
+    assertEquals(planned.errors, []);
+    assert(
+      !planned.changes.some((change) => change.path === ".mcp.json"),
+      "the first discern registration remains setup work even in a tracked container",
+    );
+  });
+});
 
 Deno.test("engine refresh: one pass enrolls every compiled Agent file before Git tracking", async () => {
   await withTempDir(async (dir) => {

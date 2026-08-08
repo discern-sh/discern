@@ -15,7 +15,7 @@
  * subprocess); the real-binary surface is covered in `doctor_test.ts`.
  */
 
-import { assert, assertEquals } from "@std/assert";
+import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { parseConfigOrThrow } from "../src/shared/config_schema.ts";
 import { STAGES } from "../src/shared/capabilities.ts";
 import { STEP_KINDS } from "../src/shared/result.ts";
@@ -30,12 +30,20 @@ import {
   gatePlanToEngine,
   preparePlanGroups,
   stageGroup,
+  TRACKED_REFRESH_CHECK_LABEL,
+  TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
 } from "../src/engine/gate/plan.ts";
 import {
   buildStandardPlan,
   standardPlanToEngine,
 } from "../src/engine/gate/standard_plan.ts";
 import { planStandardJobsFromConfig } from "../src/engine/gate/standards_gate.ts";
+import { resolveGeneratedGroups } from "../src/shared/generated_artifacts.ts";
+import {
+  acceptPlanToEngine,
+  FULL_REFRESH_STEP_LABEL,
+  updatePlanToEngine,
+} from "../src/engine/worktree/plan.ts";
 
 /** A config rich enough to induce EVERY step kind across the whole model: a job in
  * each stage, a scope gate, a standard, a per-worktree resource (create/destroy/
@@ -60,6 +68,10 @@ const RICH_TOML = [
   "[scopes.web]",
   'paths = ["web/**"]',
   'gate = "web-gate"',
+  "",
+  "[generated.bundle]",
+  'paths = ["generated/**"]',
+  'run = "build-generated"',
   "",
   "[standards.coverage]",
   'run = "measure-coverage"',
@@ -266,6 +278,93 @@ Deno.test("execution model: gate verbs are byte-derived from the real plan build
   );
 });
 
+Deno.test("execution model: done reports both tracked-refresh checkpoints in execution order", () => {
+  const done = buildExecutionModel(parseConfigOrThrow(RICH_TOML)).find((plan) =>
+    plan.verb === "done"
+  );
+  assert(done !== undefined);
+  const refreshChecks = done.steps.filter((step) =>
+    step.kind === "tracked-refresh-check"
+  );
+  assertEquals(refreshChecks.map((step) => step.label), [
+    TRACKED_REFRESH_CHECK_LABEL,
+    TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
+  ]);
+  assertEquals(done.steps.at(-1)?.label, refreshChecks.at(-1)?.label);
+});
+
+Deno.test("execution model: update and accept derive their ordered cores from the worktree plans", () => {
+  const cfg = parseConfigOrThrow(RICH_TOML);
+  const model = buildExecutionModel(cfg);
+  const update = model.find((plan) => plan.verb === "update");
+  const accept = model.find((plan) => plan.verb === "accept");
+  assert(update !== undefined);
+  assert(accept !== undefined);
+
+  const updatePlan = updatePlanToEngine({
+    source: cfg.repository.trunk,
+    fromOverride: false,
+    worktreeBranch: "agent/model-test",
+    behind: 1,
+    alreadyUpdated: false,
+    generatedGroups: resolveGeneratedGroups(cfg),
+    refreshCompiledPaths: [],
+    repositoryEnsureSteps: cfg.repository.ensure,
+    worktreeEnsureSteps: cfg.worktree.setup.ensure,
+  });
+  assertEquals(
+    update.steps.map((step) => step.label),
+    updatePlan.steps.map((step) => step.label),
+  );
+
+  const acceptPlan = acceptPlanToEngine({
+    worktreeBranch: "agent/model-test",
+    worktreePath: "/repo.worktrees/model-test",
+    mainRepo: "/repo",
+    trunk: cfg.repository.trunk,
+    receiptNotes: cfg.repository.receipt_notes,
+    repositoryEnsureSteps: cfg.repository.ensure,
+    smokeSteps: [],
+    hasResources: true,
+    ignoredFileChanges: {
+      status: "unchanged",
+      changed_roots: [],
+      changed_total: 0,
+      truncated: false,
+    },
+  });
+  const acceptLabels = acceptPlan.steps.flatMap((step) =>
+    step.kind === "resource-destroy" ? ["db"] : [step.label]
+  );
+  assertEquals(accept.steps.map((step) => step.label), acceptLabels);
+});
+
+Deno.test("execution model: every full refresh step names the complete operation", () => {
+  const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
+  const refreshSteps = model.flatMap((plan) =>
+    plan.steps.filter((step) => step.kind === "refresh").map((step) => ({
+      verb: plan.verb,
+      step,
+    }))
+  );
+  const fullRefreshSteps = refreshSteps.filter(({ step }) =>
+    step.label !== "materialize local agent artifacts"
+  );
+  assert(fullRefreshSteps.length > 0);
+  for (const { verb, step } of fullRefreshSteps) {
+    assertEquals(
+      step.label,
+      FULL_REFRESH_STEP_LABEL,
+      `${verb} must name the complete refresh operation`,
+    );
+    assertStringIncludes(
+      step.note ?? "",
+      "complete refresh",
+      `${verb} must explain the complete refresh boundary`,
+    );
+  }
+});
+
 Deno.test("execution model: actor matches the user-configured vs built-in split", () => {
   const model = buildExecutionModel(parseConfigOrThrow(RICH_TOML));
   // The two-way split must be consistent: a `project` step is a config-authored command;
@@ -325,7 +424,8 @@ Deno.test("execution model: every declared plan is always modeled (ADR 0101)", (
   // The subsystems are all core, so every plan in the model remains visible on
   // a bare config. The modeled-or-absent guard above holds this declared subset
   // against the full CLI/MCP verb surface.
-  assertEquals(buildExecutionModel(cfg).map((v) => v.verb), [
+  const model = buildExecutionModel(cfg);
+  assertEquals(model.map((v) => v.verb), [
     "done",
     "prepare",
     "test",
@@ -337,4 +437,9 @@ Deno.test("execution model: every declared plan is always modeled (ADR 0101)", (
     "accept",
     "worktree prune",
   ]);
+  const accept = model.find((plan) => plan.verb === "accept");
+  const teardown = accept?.steps.find((step) =>
+    step.kind === "resource-destroy"
+  );
+  assertStringIncludes(teardown?.condition ?? "", "skipped");
 });

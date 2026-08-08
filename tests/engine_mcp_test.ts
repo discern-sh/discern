@@ -36,6 +36,7 @@ import { ISSUES_URL, KIT_VERSION } from "../src/lib/version.ts";
 import { AGENT_NAMES } from "../src/shared/config_schema.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
+import { FULL_REFRESH_STEP_LABEL } from "../src/engine/worktree/plan.ts";
 import {
   AWAIT_WATCH_POLICY,
   OPERATING_POLICIES,
@@ -1527,6 +1528,8 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
 Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
     await gitInit(dir);
 
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
@@ -1550,7 +1553,11 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       params: { name: "discern_update", arguments: {} },
     });
     const noop = await wtMcp.recv();
-    assertEquals(noop.result.isError, false);
+    assertEquals(
+      noop.result.isError,
+      false,
+      JSON.stringify(noop.result, null, 2),
+    );
     assertEquals(noop.result.structuredContent.verb, "update");
     const steps = noop.result.structuredContent.steps as Array<
       { label: string; outcome: string }
@@ -1563,7 +1570,7 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       }`,
     );
     assertEquals(
-      steps.find((s) => s.label === "refresh agent files")?.outcome,
+      steps.find((s) => s.label === FULL_REFRESH_STEP_LABEL)?.outcome,
       "ok",
       `the no-op still re-converges (refresh runs): ${
         JSON.stringify(noop.result.structuredContent)

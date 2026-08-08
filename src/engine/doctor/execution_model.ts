@@ -9,11 +9,10 @@
  *    ({@link buildGatePlan}, {@link preparePlanGroups}, {@link stageGroup},
  *    {@link buildStandardPlan}) — a test asserts they are byte-derived, so they can
  *    never drift from what the gate actually runs;
- *  - the worktree verbs' plans need live runtime state (a resolved worktree identity,
- *    the ledger), so they can't render statically here. For those we author a small
- *    CONDITIONAL model that mirrors the lifecycle executor, pulling the *user*
- *    commands (resource `create`/`destroy`/`ensure`, `[worktree.setup]` steps) LIVE
- *    from the config so the command text can't go stale.
+ *  - `update` and `accept` use representative, config-derived inputs with their REAL
+ *    pure plan projections. Runtime identities stay descriptive, while those ordered
+ *    operation cores and project commands cannot drift from execution. Worktree verbs
+ *    without a complete projection retain a config-derived conditional model.
  *
  * Two closed vocabularies pin the annotations so a new engine concept can't slip in
  * undocumented: {@link STEP_KIND_ANNOTATIONS} is TOTAL over `StepKind` (a new step
@@ -29,17 +28,28 @@
 
 import type { DiscernConfig } from "../../shared/config_schema.ts";
 import type { Stage } from "../../shared/capabilities.ts";
-import type { Actor, StepKind } from "../../shared/result.ts";
+import type { Actor, PlanStep, StepKind } from "../../shared/result.ts";
 import type { ExecutionStep, VerbPlan } from "../../shared/result_schemas.ts";
+import { resolveGeneratedGroups } from "../../shared/generated_artifacts.ts";
 import {
   buildGatePlan,
+  gatePlanToEngine,
   type PlannedJob,
   planStageJobs,
   preparePlanGroups,
   stageGroup,
+  TRACKED_REFRESH_CHECK_LABEL,
+  TRACKED_REFRESH_RECEIPT_CHECK_LABEL,
 } from "../gate/plan.ts";
 import { buildStandardPlan, perNote } from "../gate/standard_plan.ts";
 import { planStandardJobsFromConfig } from "../gate/standards_gate.ts";
+import {
+  ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
+  acceptPlanToEngine,
+  FULL_REFRESH_STEP_LABEL,
+  FULL_REFRESH_STEP_NOTE,
+  updatePlanToEngine,
+} from "../worktree/plan.ts";
 
 // ── the annotation registries (the forcing functions) ───────────────────────
 
@@ -95,6 +105,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in fail-fast precondition: the materialized skills must match the effective set — run `discern refresh` if stale.",
   },
+  "tracked-refresh-check": {
+    actor: "discern",
+    hint:
+      "Built-in read-only precondition: the current refresh plan must have no pending tracked-file effect. Run `discern refresh`, review and commit the named paths, then rerun the gate.",
+  },
   "resource-create": {
     actor: "project",
     hint:
@@ -123,7 +138,7 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   "checkout-clean-check": {
     actor: "discern",
     hint:
-      "Built-in post-convergence check: report if a repository ensure command changed tracked files. It never rolls back a completed landing.",
+      "Built-in landing check: report tracked dirt present immediately after the fast-forward or introduced by repository ensure and smoke convergence. It never rolls back a completed landing.",
   },
   "setup-ensure": {
     actor: "project",
@@ -137,7 +152,8 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   },
   refresh: {
     actor: "discern",
-    hint: "Built-in: recompile the agent files and re-materialize the skills.",
+    hint:
+      "Built-in refresh work. The step note states whether it reconciles all artifacts or only checkout-local materializations.",
   },
   tidy: {
     actor: "discern",
@@ -223,6 +239,24 @@ function annotateJob(job: PlannedJob): ExecutionStep {
   });
 }
 
+/** Annotate a step from a canonical engine plan. This is the shared bridge from
+ * pure worktree/gate projections into doctor's actor-and-expectation model. */
+function annotatePlanStep(
+  planned: PlanStep,
+  overrides: StepOverrides = {},
+): ExecutionStep {
+  const groupHint = planned.group === "Smoke"
+    ? STAGE_HINTS.test
+    : planned.group === "Generated artifacts"
+    ? STAGE_HINTS.build
+    : undefined;
+  return step(planned.kind, planned.label, {
+    ...(planned.note !== undefined ? { note: planned.note } : {}),
+    ...(groupHint !== undefined ? { hint: groupHint } : {}),
+    ...overrides,
+  });
+}
+
 // ── gate verbs (byte-derived from the real plan builders) ───────────────────
 
 /** `done` — the full gate. Walks the REAL {@link buildGatePlan}: the fail-fast
@@ -236,27 +270,33 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
     Object.keys(cfg.scopes),
     planStandardJobsFromConfig(buildStandardPlan(cfg).standards),
   );
-  const steps: ExecutionStep[] = [];
-  if (plan.mergeCheck) {
-    steps.push(step("merge-check", "merge-check"));
-  }
-  if (plan.standardsLimitsCheck) {
-    steps.push(step("standards-limits-check", "standards-limits-check"));
-  }
-  if (plan.trackedArtifactsCheck) {
-    steps.push(step("tracked-artifacts-check", "tracked-artifacts-check"));
-  }
-  if (plan.guidanceCheck) {
-    steps.push(step("guidance-check", "guidance-check"));
-  }
-  if (plan.skillsCheck) {
-    steps.push(step("skills-check", "skills-check"));
-  }
-  for (const group of plan.groups) {
-    for (const job of group.jobs) {
-      steps.push(annotateJob(job));
+  const jobs = plan.groups.flatMap((group) => group.jobs);
+  let jobIndex = 0;
+  const steps = gatePlanToEngine(plan).steps.map((planned) => {
+    if (
+      planned.kind === "job" || planned.kind === "scope-gate" ||
+      planned.kind === "standard"
+    ) {
+      const job = jobs[jobIndex];
+      jobIndex += 1;
+      if (job !== undefined) {
+        return annotateJob(job);
+      }
     }
-  }
+    if (planned.label === TRACKED_REFRESH_CHECK_LABEL) {
+      return annotatePlanStep(planned, {
+        hint:
+          "Built-in initial read-only precondition: the current refresh plan must have no pending tracked-file effect. Run `discern refresh`, review and commit the named paths, then rerun the gate.",
+      });
+    }
+    if (planned.label === TRACKED_REFRESH_RECEIPT_CHECK_LABEL) {
+      return annotatePlanStep(planned, {
+        hint:
+          "Built-in final read-only check: repeat the current tracked refresh plan after every gate job, immediately before the result and Receipt. A pending or unprovable effect prevents a green result.",
+      });
+    }
+    return annotatePlanStep(planned);
+  });
   return {
     verb: "done",
     when: "Before you call a change done — the full gate.",
@@ -367,8 +407,8 @@ function startVerb(cfg: DiscernConfig): VerbPlan {
   for (const s of cfg.worktree.setup.ensure) {
     steps.push(step("setup-ensure", s));
   }
-  steps.push(step("refresh", "refresh agent files", {
-    note: "recompile agent files + materialize skills",
+  steps.push(step("refresh", FULL_REFRESH_STEP_LABEL, {
+    note: FULL_REFRESH_STEP_NOTE,
   }));
   return {
     verb: "start",
@@ -402,33 +442,43 @@ function ensureVerb(cfg: DiscernConfig): VerbPlan {
   };
 }
 
-/** `update` — bring the integration branch in and re-materialize (lifecycle.ts
- * `executeUpdatePlan`), then converge the worktree on the merged tree. */
+/** `update` — project the real update plan against representative runtime state;
+ * config supplies every generated and convergence command. */
 function updateVerb(cfg: DiscernConfig): VerbPlan {
-  const steps: ExecutionStep[] = [
-    step("git", "merge", {
-      note: "merge the trunk into this branch",
-    }),
-    step("refresh", "refresh agent files", {
-      note: "re-materialize agent files + skills",
-    }),
-  ];
-  for (const s of cfg.repository.ensure) {
-    steps.push(
-      step("repository-ensure", s, {
-        condition: "converge on the merged tree",
-      }),
-    );
-  }
-  for (const s of cfg.worktree.setup.ensure) {
-    steps.push(
-      step("setup-ensure", s, { condition: "converge on the merged tree" }),
-    );
-  }
+  const projected = updatePlanToEngine({
+    source: cfg.repository.trunk,
+    fromOverride: false,
+    worktreeBranch: "the worktree branch",
+    behind: 1,
+    alreadyUpdated: false,
+    generatedGroups: resolveGeneratedGroups(cfg),
+    refreshCompiledPaths: [],
+    repositoryEnsureSteps: cfg.repository.ensure,
+    worktreeEnsureSteps: cfg.worktree.setup.ensure,
+  });
+  const steps = projected.steps.map((planned) => {
+    if (planned.label === "merge") {
+      return annotatePlanStep(planned, {
+        condition: "only when the branch does not already contain the source",
+      });
+    }
+    if (planned.label === "auto-resolve generated conflicts") {
+      return annotatePlanStep(planned, {
+        condition: "after a real merge, before regeneration",
+      });
+    }
+    if (planned.label === "commit regenerated artifacts") {
+      return annotatePlanStep(planned, {
+        hint:
+          "Built-in convergence boundary: after a merge, commit successfully re-derived tracked paths whose bytes changed. Without a merge, report changed tracked refresh paths for review and an intentional commit; never create a bookkeeping commit.",
+      });
+    }
+    return annotatePlanStep(planned);
+  });
   return {
     verb: "update",
     when:
-      "When the branch is behind the trunk (the gate's merge check points here). A no-op when already up to date.",
+      "When bringing the trunk (or an explicit --from ref) into this branch. If there is nothing to merge, the complete refresh and convergence tail still runs.",
     steps,
   };
 }
@@ -438,43 +488,62 @@ function updateVerb(cfg: DiscernConfig): VerbPlan {
  * `destroy` (reverse order) so the `destroy` command a user wired is shown, not
  * hidden behind a generic step. */
 function acceptVerb(cfg: DiscernConfig): VerbPlan {
-  const steps: ExecutionStep[] = [];
-  steps.push(step("git", "fast-forward-trunk", {
-    note: "fast-forward the trunk to the branch tip",
-  }));
-  steps.push(step("refresh", "refresh agent files", {
-    note: "re-materialize agent files + skills in the trunk checkout",
-  }));
-  for (const s of cfg.repository.ensure) {
-    steps.push(step("repository-ensure", s, {
-      condition: "in the trunk checkout after the fast-forward",
-    }));
-  }
-  for (const job of planStageJobs(cfg, "test")) {
-    if (job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label)) {
-      steps.push(annotateJob(job));
-    }
-  }
-  steps.push(step("checkout-clean-check", "check trunk checkout", {
-    note: "report tracked files changed by post-landing convergence",
-  }));
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
-  for (const [name, r] of destroyable.reverse()) {
-    steps.push(step("resource-destroy", name, {
-      note: r.destroy,
-      condition: "if the resource was provisioned (reverse-creation order)",
+  const smokeSteps = planStageJobs(cfg, "test")
+    .filter((job) => job.kind === "known" && /^smoke(?:#\d+)?$/.test(job.label))
+    .map((job) => ({
+      label: job.label,
+      command: job.command,
+      ...(job.timeoutS !== undefined ? { timeoutS: job.timeoutS } : {}),
     }));
-  }
-  steps.push(step("git", "remove-worktree", {
-    note: "remove the worktree directory",
-  }));
-  steps.push(step("git", "delete-branch", {
-    note: "delete the now-merged branch",
-  }));
+  const projected = acceptPlanToEngine({
+    worktreeBranch: "the worktree branch",
+    worktreePath: "the worktree directory",
+    mainRepo: "the trunk checkout",
+    trunk: cfg.repository.trunk,
+    receiptNotes: cfg.repository.receipt_notes,
+    repositoryEnsureSteps: cfg.repository.ensure,
+    smokeSteps,
+    hasResources: destroyable.length > 0,
+    ignoredFileChanges: {
+      status: "unchanged",
+      changed_roots: [],
+      changed_total: 0,
+      truncated: false,
+    },
+  });
+  const steps = projected.steps.flatMap((planned): ExecutionStep[] => {
+    if (planned.label === ACCEPT_TRACKED_REFRESH_CHECK_LABEL) {
+      return [annotatePlanStep(planned, {
+        hint:
+          "Built-in landing-boundary check: after either an honored Receipt or an in-process gate rerun, verify the current engine's complete tracked refresh plan again. A pending or unprovable effect refuses before the trunk moves.",
+      })];
+    }
+    if (planned.kind === "resource-destroy" && destroyable.length > 0) {
+      return [...destroyable].reverse().map(([name, resource]) =>
+        step("resource-destroy", name, {
+          note: resource.destroy,
+          condition: "if the resource was provisioned (reverse-creation order)",
+        })
+      );
+    }
+    if (planned.kind === "resource-destroy") {
+      return [annotatePlanStep(planned, {
+        note: "no configured resource destroy command",
+        condition: "skipped for this configuration",
+      })];
+    }
+    if (planned.kind === "repository-ensure") {
+      return [annotatePlanStep(planned, {
+        condition: "in the trunk checkout after the fast-forward",
+      })];
+    }
+    return [annotatePlanStep(planned)];
+  });
   return {
     verb: "accept",
     when:
-      "When the work is done and updated — fast-forward the trunk to the branch and delete the now-merged branch. First validates the exact tree against the whole gate, skipped when a gate receipt proves the current HEAD already passed.",
+      "When the work is done and updated — prove the exact tree by an honored Receipt or a full gate rerun, recheck tracked refresh convergence with the current engine, then fast-forward the trunk and clean up.",
     steps,
   };
 }

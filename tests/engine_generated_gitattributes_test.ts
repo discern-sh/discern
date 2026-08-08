@@ -174,6 +174,66 @@ Deno.test("refresh regenerates the managed block after a config edit", async () 
   });
 });
 
+Deno.test("done refuses a tracked refresh artifact made stale by config", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const configPath = join(dir, "discern.toml");
+    const config = await Deno.readTextFile(configPath);
+    await Deno.writeTextFile(
+      configPath,
+      config.replace('paths = ["generated/**"]', 'paths = ["artifacts/**"]'),
+    );
+    const before = await Deno.readTextFile(join(dir, ".gitattributes"));
+
+    const status = await runAgent(dir, ["status", "--local", "--json"]);
+    assertEquals(status.code, 0, status.output);
+    assertEquals(JSON.parse(status.stdout).data.pending_tracked_refresh, [
+      ".gitattributes",
+    ]);
+
+    const done = await runAgent(dir, ["done", "--json"]);
+
+    assertEquals(done.code, 1, done.output);
+    const result = JSON.parse(done.stdout);
+    assertEquals(result.data.failed_stage, "refresh_drift");
+    assertEquals(
+      result.diagnostics.some((diagnostic: { output?: string }) =>
+        diagnostic.output?.includes(".gitattributes") === true
+      ),
+      true,
+      done.output,
+    );
+    assertEquals(
+      await Deno.readTextFile(join(dir, ".gitattributes")),
+      before,
+      "the read-only convergence check must not repair the file",
+    );
+  });
+});
+
+Deno.test("done refuses mode-only drift in a tracked refresh artifact", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const guidancePath = join(dir, "CLAUDE.md");
+    await Deno.chmod(guidancePath, 0o755);
+
+    const done = await runAgent(dir, ["done", "--json"]);
+
+    assertEquals(done.code, 1, done.output);
+    const result = JSON.parse(done.stdout);
+    assertEquals(result.data.failed_stage, "refresh_drift");
+    assertEquals(
+      result.diagnostics.some((diagnostic: { output?: string }) =>
+        diagnostic.output?.includes("CLAUDE.md") === true
+      ),
+      true,
+      done.output,
+    );
+    const mode = (await Deno.stat(guidancePath)).mode;
+    assert(mode !== null && (mode & 0o111) !== 0);
+  });
+});
+
 Deno.test("a provisioned worktree raw-merges generated conflicts and the gate regenerates", async () => {
   await withTempDir(async (dir) => {
     await scaffoldGeneratedProject(dir);

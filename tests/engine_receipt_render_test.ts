@@ -152,6 +152,7 @@ const PLAN: GatePlan = {
   standardsLimitsCheck: true,
   guidanceCheck: true,
   skillsCheck: true,
+  trackedRefreshCheck: true,
   mergeCheck: true,
   trackedArtifactsCheck: true,
   scopesChanged: [],
