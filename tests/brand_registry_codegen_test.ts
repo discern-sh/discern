@@ -44,7 +44,11 @@ import {
   renderBrandDoc,
   resolveBrandCitations,
 } from "../scripts/brand_registry.ts";
-import { REGISTERS } from "../scripts/brand/model.ts";
+import {
+  BRAND_OVERLAY_DIR,
+  brandDocHrefFromGenerated,
+  REGISTERS,
+} from "../scripts/brand/model.ts";
 import {
   BANNED_MOVES,
   BANNED_WORDS,
@@ -160,7 +164,16 @@ Deno.test("the shared canon renders where the owner placed it", () => {
 });
 
 Deno.test("every registered brand document exists on disk", async () => {
+  // Authored rows live in the `_private` overlay tree, which the launch
+  // scrub turns into a local, gitignored clone: present on the owner's
+  // machines, absent from a contributor's clean checkout. Their existence is
+  // only checkable when the overlay itself is present — a conditional, so
+  // the same commit passes identically on both kinds of machine.
+  const overlay = join(REPO_AUTHORED_PATHS.map, BRAND_OVERLAY_DIR);
+  const overlayPresent =
+    (await Deno.stat(overlay).catch(() => undefined))?.isDirectory === true;
   for (const doc of BRAND_DOCUMENTS) {
+    if (doc.mode.kind === "authored" && !overlayPresent) continue;
     const path = join(REPO_AUTHORED_PATHS.map, brandDocMapRel(doc));
     const info = await Deno.stat(path).catch(() => undefined);
     assert(
@@ -257,6 +270,11 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
     "[`messaging.md`](messaging.md)",
   );
   assertEquals(
+    resolveBrandCitations("{{doc:audiences}}"),
+    "[`audiences.md`](../../_private/brand/audiences.md)",
+    "an overlay-document citation must cross the tier boundary",
+  );
+  assertEquals(
     resolveBrandCitations("{{concept:gate}}"),
     "[Gate](register-bridge.md#core-concept-map)",
     "a concept citation must link into the register bridge's concept map",
@@ -287,19 +305,21 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
 Deno.test("the rendered README document map equals the registry", () => {
   const rendered = renderBrandDoc("readme");
   for (const doc of BRAND_DOCUMENTS) {
-    // A skill row displays its repo-relative path over the traversal href.
+    // A skill row displays its repo-relative path over the traversal href;
+    // an authored row's href crosses into the `_private` overlay tree.
     const display = doc.mode.kind === "skill"
       ? voiceSkillRel(doc.mode.register)
       : doc.file;
+    const href = brandDocHrefFromGenerated(doc);
     if (doc.id === "readme") {
       assert(
-        !rendered.includes(`[\`${display}\`](${doc.file})`),
+        !rendered.includes(`[\`${display}\`](${href})`),
         "the README must not list itself in the document map",
       );
       continue;
     }
     const row = rendered.split("\n").find((line) =>
-      line.includes(`[\`${display}\`](${doc.file})`)
+      line.includes(`[\`${display}\`](${href})`)
     );
     assert(row !== undefined, `${doc.id} is missing from the document map`);
     const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;

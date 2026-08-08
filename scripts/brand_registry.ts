@@ -1,7 +1,7 @@
 /**
  * The Brand Operating System's document map as a canonical registry: every
  * brand document — generated and authored overlay alike — lives here as one
- * typed set, and the generated pages under `project/map/_private/brand/`
+ * typed set, and the generated pages under `project/map/_internal/brand/`
  * compile from it through the codegen write chokepoint (following the
  * `cross_agent_registry.ts` idiom, ADR 0257).
  *
@@ -21,6 +21,8 @@ import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
   type BrandDocument,
+  brandDocDir,
+  brandDocHrefFromGenerated,
   type CitationContext,
   generatedBrandBanner,
   resolveCitationTokens,
@@ -37,13 +39,6 @@ import { renderCopyReviewDoc } from "./brand/docs/copy_review.ts";
 import { renderPositioningDoc } from "./brand/docs/positioning.ts";
 import { renderReadmeDoc } from "./brand/docs/readme.ts";
 import { renderVisualIdentityDoc } from "./brand/docs/visual_identity.ts";
-
-/**
- * Where the brand documents live, relative to the configured map directory.
- * Promotion out of `_private` (the registry's public-by-design end state)
- * changes this one constant.
- */
-export const BRAND_MAP_DIR = "_private/brand";
 
 /** The banner every generated brand page carries as its first line. */
 const BANNER = generatedBrandBanner(
@@ -217,9 +212,11 @@ export function generatedBrandDocuments(): readonly BrandDocumentRow[] {
   );
 }
 
-/** A document's path relative to the configured map directory. */
+/** A document's path relative to the configured map directory: generated
+ * pages under the public `_internal` tree, authored documents under the
+ * `_private` overlay tree. */
 export function brandDocMapRel(doc: BrandDocument): string {
-  return `${BRAND_MAP_DIR}/${doc.file}`;
+  return `${brandDocDir(doc)}/${doc.file}`;
 }
 
 /**
@@ -247,7 +244,10 @@ function citationContext(): CitationContext {
     ]),
   );
   const docs = new Map(
-    BRAND_DOCUMENTS.map((doc) => [doc.id, `[\`${doc.file}\`](${doc.file})`]),
+    BRAND_DOCUMENTS.map((doc) => [
+      doc.id,
+      `[\`${doc.file}\`](${brandDocHrefFromGenerated(doc)})`,
+    ]),
   );
   const bridgeFile = documentById("register-bridge").file;
   const conceptAnchor = headingAnchor(CONCEPT_MAP_HEADING);

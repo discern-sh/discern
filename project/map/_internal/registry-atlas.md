@@ -224,19 +224,19 @@ Alphabetical by path. `deno task codegen` rewrites a generated file whole; a mai
 | `project/map/70-reference/environment-variables.md`                | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                          |
 | `project/map/70-reference/mcp-and-results.md`                      | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
 | `project/map/80-development/install-surface.md`                    | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/_internal/brand/README.md`                            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/claims-and-evidence.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/copy-patterns.md`                     | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/copy-review.md`                       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/messaging.md`                         | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/positioning.md`                       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/register-bridge.md`                   | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/visual-identity.md`                   | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
 | `project/map/_internal/feature-canon-plain.md`                     | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
 | `project/map/_internal/feature-canon.md`                           | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
 | `project/map/_internal/hint-inventory.md`                          | generated file   | [`hints`](#hints--hints)                                                                                  |
 | `project/map/_internal/registry-atlas.md`                          | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
 | `project/map/_internal/tip-inventory.md`                           | generated file   | [`tips`](#tips--tips)                                                                                     |
-| `project/map/_private/brand/README.md`                             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/claims-and-evidence.md`                | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/copy-patterns.md`                      | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/copy-review.md`                        | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/messaging.md`                          | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/positioning.md`                        | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/register-bridge.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_private/brand/visual-identity.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
 | `project/map/_private/research/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
 | `project/map/_private/research/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
 | `project/skills/discern-agent-voice/SKILL.md`                      | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
@@ -819,7 +819,7 @@ The Brand Operating System's document map: every brand document as one typed row
   - `copy-review`
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Artifacts: `project/map/_private/brand/README.md`, `project/map/_private/brand/claims-and-evidence.md`, `project/map/_private/brand/copy-patterns.md`, `project/map/_private/brand/copy-review.md`, `project/map/_private/brand/messaging.md`, `project/map/_private/brand/positioning.md`, `project/map/_private/brand/register-bridge.md`, `project/map/_private/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
+- Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/copy-review.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
 - Glossary: not enrolled — internal brand strategy, not product vocabulary the glossary defines
 - Feature canon: not enrolled — internal brand strategy informing public copy; it ships no product surface
 

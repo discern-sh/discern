@@ -855,42 +855,42 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/brand_registry_codegen_test.ts"],
     artifacts: [
       {
-        path: "project/map/_private/brand/README.md",
+        path: "project/map/_internal/brand/README.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/claims-and-evidence.md",
+        path: "project/map/_internal/brand/claims-and-evidence.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/copy-patterns.md",
+        path: "project/map/_internal/brand/copy-patterns.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/copy-review.md",
+        path: "project/map/_internal/brand/copy-review.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/messaging.md",
+        path: "project/map/_internal/brand/messaging.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/positioning.md",
+        path: "project/map/_internal/brand/positioning.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/register-bridge.md",
+        path: "project/map/_internal/brand/register-bridge.md",
         kind: "generated-file",
         banner: true,
       },
       {
-        path: "project/map/_private/brand/visual-identity.md",
+        path: "project/map/_internal/brand/visual-identity.md",
         kind: "generated-file",
         banner: true,
       },

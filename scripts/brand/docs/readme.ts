@@ -7,7 +7,7 @@
  * authored Markdown. `README.md` compiles from this module.
  */
 
-import type { BrandDocument } from "../model.ts";
+import { type BrandDocument, brandDocHrefFromGenerated } from "../model.ts";
 import { voiceSkillRel } from "../voice.ts";
 
 /** One task-scoped reading path. */
@@ -223,18 +223,6 @@ export const OUTSTANDING_WORK = [
       "Model the brand system as typed registry data under `scripts/brand/` and generate these documents from it — byte-faithful conversion first, with each document's sign-off gating its conversion.",
   },
   {
-    id: "rehome-the-folder",
-    task: "Rehome the folder",
-    summary:
-      "Move the system to its decided home: registry source under `scripts/brand/`, generated documents under `project/map/_internal/brand/`, and the private residue left behind in `_private`.",
-  },
-  {
-    id: "test-alignment",
-    task: "Test alignment",
-    summary:
-      "Update the map vocabulary and prose tests to the new brand world so the full gate runs green again.",
-  },
-  {
     id: "site-prose-standards",
     task: "Site prose standards",
     summary:
@@ -251,13 +239,16 @@ function bullets(items: readonly string[]): string {
 }
 
 /** Render one document-map row. A skill row displays its repo-relative
- * path while its link still traverses from this README's directory. */
+ * path while its link still traverses from this README's directory; an
+ * authored row's link crosses into the `_private` overlay tree. */
 function documentRow(doc: BrandDocument): string {
   const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;
   const display = doc.mode.kind === "skill"
     ? voiceSkillRel(doc.mode.register)
     : doc.file;
-  return `| [\`${display}\`](${doc.file}) | ${doc.status} | ${doc.job} | ${
+  return `| [\`${display}\`](${
+    brandDocHrefFromGenerated(doc)
+  }) | ${doc.status} | ${doc.job} | ${
     overlay ? PRIVATE_OVERLAY_MARKER : ""
   } |`;
 }
@@ -333,7 +324,7 @@ export function renderReadmeDoc(
     "| --- | --- | --- | --- |",
     ...mapped.map(documentRow),
     "",
-    `**Stays private?** marks a document that stays authored under \`_private\`, outside the brand registry, and is wiped before the repository goes public — locally present as a private overlay thereafter. Unmarked documents graduate with the registry when the system is canonicalised: source of truth in \`scripts/brand/\`, generated pages under \`_internal/brand/\`. The anecdote ledger, claims requiring future validation, and the dated internal evidence snapshot carved out of \`claims-and-evidence.md\` live in \`claims-residue.md\`.`,
+    `**Stays private?** marks a document that stays authored under \`_private\`, outside the brand registry, and is wiped before the repository goes public — locally present as a private overlay thereafter, where the links above resolve. Unmarked documents are the registry's: source of truth in \`scripts/brand/\`, generated pages here under \`_internal/brand/\`. The anecdote ledger, claims requiring future validation, and the dated internal evidence snapshot carved out of \`claims-and-evidence.md\` live in \`claims-residue.md\`.`,
     "",
     "## Read only what the task needs",
     "",
