@@ -9,4 +9,6 @@ Two rules of the pairing:
 
 Scope: the map's published and `_internal` tiers. `.vale.ini` exempts `_adr/` because decision records are dated documents that stay unchanged. `_private/` sits outside the linted corpus.
 
+This authored style has generated siblings: `DiscernBrand/`, `DiscernProduct/`, and `DiscernAgent/` compile from the register rule data in `scripts/brand/vale.ts` (via `deno task codegen` — never hand-edit them) and add the per-register rules this style doesn't carry. `.vale.ini` scopes them: product and agent join this style's map-wide scan; brand scans `_internal/brand/` and activates when the brand pages promote there. `tests/brand_vale_codegen_test.ts` holds the trio to their registry.
+
 Quoting a banned phrase _about_ itself (in the documenter brief, a template, or a review note) is legitimate. Put it in backticks; Vale does not lint code spans.

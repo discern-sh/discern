@@ -175,12 +175,6 @@ export const WORKING_SUMMARY = [
  */
 export const OUTSTANDING_WORK = [
   {
-    id: "vale-enforcement",
-    task: "Vale enforcement",
-    summary:
-      "Bake the register bridge and supporting prose rules into Vale rules enforced mechanically across the codebase, to the extent practical.",
-  },
-  {
     id: "root-readme-rewrite",
     task: "Root README rewrite",
     summary:
