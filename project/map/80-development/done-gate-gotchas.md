@@ -122,7 +122,7 @@ evidence = 'failed \(exit 127\)'
 
 **Fix.** Run `discern done` bare to see its true exit code. If you must capture output, use a method that preserves the original exit status, such as redirecting to a file or enabling your shell's `pipefail` option.
 
-### The Gate skips a step you expected it to run (scope detection)
+### The gate skips a step you expected it to run (scope detection)
 
 **Symptom.** A changed path does not trigger the expected scope Gate, preview, or build. For example, a documentation-only change can run almost nothing.
 
