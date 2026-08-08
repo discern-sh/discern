@@ -110,7 +110,7 @@ Stage scheduling ([`src/engine/gate/stages.ts`](../../../src/engine/gate/stages.
 
 ### Embedded formatter
 
-[`src/lib/tidy_format.ts`](../../../src/lib/tidy_format.ts) owns the fixed Markdown and TOML settings and lazily instantiates the vendored dprint plugins under [`src/lib/tidy_plugins/`](../../../src/lib/tidy_plugins/). The depth indenter ([`src/lib/toml_indent.ts`](../../../src/lib/toml_indent.ts)) composes after the TOML plugin ([ADR 0221](../_adr/0221-depth-indent-discern-toml.md)). [`scripts/build.ts`](../../../scripts/build.ts) includes that directory in every compiled binary. No plugin download occurs during build or at run time.
+[`src/lib/tidy_format.ts`](../../../src/lib/tidy_format.ts) owns fixed Markdown and TOML settings and loads vendored dprint plugins from [`src/lib/tidy_plugins/`](../../../src/lib/tidy_plugins/). [`src/lib/toml_indent.ts`](../../../src/lib/toml_indent.ts) composes after the TOML plugin ([ADR 0221](../_adr/0221-depth-indent-discern-toml.md)). [`scripts/build.ts`](../../../scripts/build.ts) embeds the Git-authored plugin and template projection; exact exclusions reject other physical entries, including host metadata. Repo-wide source guards use the same metadata rule. No plugin download occurs.
 
 Every production writer of `discern.toml` calls the same TOML formatter before writing. The generated-map side converges at [`scripts/codegen.ts`](../../../scripts/codegen.ts): its single write helper formats every Markdown target before comparing or writing it. [`tests/engine_tidy_test.ts`](../../../tests/engine_tidy_test.ts) holds the real map and config to idempotence, parse-before-write behavior, scope, fenced-code preservation, and the frontmatter contract (refuse a block that does not parse, preserve a valid one — [ADR 0184](../_adr/0184-markdown-writers-preserve-or-refuse-frontmatter.md)); [`tests/canonical_sets_enrolment_test.ts`](../../../tests/canonical_sets_enrolment_test.ts) holds every generated map page to the same fixed point.
 
@@ -147,7 +147,7 @@ The tracked-refresh planner runs provider transformations in memory. It derives 
 
 ## Bundled skills
 
-The bundled skills a coding agent can invoke ship **in the binary**. Their source lives under [`templates/skills/`](../../../templates/skills/) and is included by `deno compile --include templates`; the table below is guard-checked against that set. A project can add its own skills under `[skills].dir` (default `discern/skills`), overriding a built-in by name.
+Bundled agent skills ship **in the binary** from [`templates/skills/`](../../../templates/skills/) through the same authored projection; the table below is guard-checked against that set. A project can add skills under `[skills].dir` (default `discern/skills`) and override a built-in by name.
 
 `discern refresh`, `setup`, and `upgrade` materialize the effective set into each configured agent's generated, gitignored skills directory. The strict template engine renders built-ins, replacing path tokens such as `{{map_dir}}` with configured paths ([ADR 0102](../_adr/0102-paths-registry-and-rendered-artifacts.md)). Authored skills are symlinked so edits are live (see [`src/lib/skills.ts`](../../../src/lib/skills.ts)). `discern skills list` shows the effective set and its overrides. `discern skills eject <name>` copies a built-in into your skills directory for customization. `[skills].exclude` drops named skills from materialization. Each skill is a `SKILL.md` under its directory:
 

@@ -13,6 +13,7 @@
 
 import { dirname, fromFileUrl, join, relative } from "@std/path";
 import { loadConfig } from "../src/shared/config_schema.ts";
+import { isHostMetadataPath } from "../scripts/host_metadata.ts";
 import {
   resolveGuidanceSources,
   resolveMapDir,
@@ -86,6 +87,7 @@ async function gitListedAuthoredFiles(
     .decode(stdout)
     .split("\0")
     .filter((rel) => rel.length > 0)
+    .filter((rel) => !isHostMetadataPath(rel))
     .filter((rel) => !NON_AUTHORED_PREFIXES.some((p) => rel.startsWith(p)));
   const present: string[] = [];
   for (const rel of listed) {
