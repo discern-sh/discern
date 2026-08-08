@@ -177,6 +177,11 @@ import {
 } from "./containment.ts";
 import { readFleetLogbookActivity } from "../logbook/read.ts";
 import { configEpoch } from "../logbook/epoch.ts";
+import {
+  pruneReappearedWorktreePaths,
+  type ReappearedWorktreePathPruneResult,
+  scanReappearedWorktreePaths,
+} from "./retired_paths.ts";
 
 // worktree setup recompiles the agent guidance as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -4389,10 +4394,12 @@ async function buildPrunePlan(
     mainBranch: ctx.config.repository.trunk,
     ...(extraScanDirs !== undefined ? { extraDirs: extraScanDirs } : {}),
   });
+  const reappearedPathScan = await scanReappearedWorktreePaths(ctx.root);
   const resources = await planResourceReclaims(ctx);
   return {
     gitScan,
     orphanScan,
+    reappearedPathScan,
     resourceReclaims: resources.reclaimable,
     resourceReclaimsKept: resources.kept,
     contained: await pruneContainedScan(ctx),
@@ -4514,6 +4521,12 @@ export async function worktreePrune(
   ctx.log.heading("Reclaiming orphaned worktree directories…");
   const sweep = await sweepOrphanWorktrees(plan.orphanScan, ctx.log);
 
+  ctx.log.heading("Reclaiming reappeared worktree paths…");
+  const reappeared = await pruneReappearedWorktreePaths(
+    plan.reappearedPathScan,
+    ctx.log,
+  );
+
   ctx.log.heading("Reclaiming orphaned worktree resources…");
   const gc = await gcWorktreeResources(
     ctx,
@@ -4561,7 +4574,10 @@ export async function worktreePrune(
       "Skipped stale worktree metadata pruning because an orphaned worktree directory was kept.",
     );
   }
-  if (prune.failed || sweep.failed || gc.failed || reclaim.failed) {
+  if (
+    prune.failed || sweep.failed || reappeared.failed || gc.failed ||
+    reclaim.failed
+  ) {
     throw new WorktreeGitError(
       "One or more worktree cleanups failed. Review the failed steps above, fix " +
         "their reported causes, then re-run `discern worktree prune`.",
@@ -4573,7 +4589,7 @@ export async function worktreePrune(
     ctx,
     appliedResult(
       "worktree prune",
-      pruneResults(prune, sweep, gc, plan, reclaim),
+      pruneResults(prune, sweep, reappeared, gc, plan, reclaim),
     ),
     json,
   );
@@ -4755,6 +4771,7 @@ function pruneResults(
     staleMetadata: string[];
   },
   sweep: { removed: string[] },
+  reappeared: ReappearedWorktreePathPruneResult,
   gc: GcResult,
   plan: PrunePlan,
   reclaim: ContainedReclaimResult,
@@ -4813,6 +4830,24 @@ function pruneResults(
     ...sweep.removed.map((d) =>
       step("git", d, "reclaimed orphan directory", "Orphan directories")
     ),
+    ...reappeared.removed.map((path) =>
+      step(
+        "git",
+        path,
+        "removed files written after worktree removal",
+        "Reappeared worktree paths",
+      )
+    ),
+    ...reappeared.skipped.map(({ fact, reason }): StepResult => ({
+      step: {
+        kind: "git",
+        label: fact.path,
+        disposition: "skip",
+        note: reason,
+        group: "Kept reappeared worktree paths",
+      },
+      outcome: "skipped",
+    })),
     ...prune.staleMetadata.map((d) =>
       step("git", d, "pruned stale metadata", "Stale metadata")
     ),

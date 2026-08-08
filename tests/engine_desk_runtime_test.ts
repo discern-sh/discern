@@ -381,6 +381,37 @@ Deno.test("desk session renders task-first fleet rows and checks proofs only for
   }
 });
 
+Deno.test("desk reports removed worktree paths that are present again", async () => {
+  const output = transcript();
+  const main = fleetEntry("main", ROOT, {
+    is_main: true,
+    is_current: true,
+  });
+  const data = {
+    ...statusData([main]),
+    reappeared_worktree_paths: [{
+      path: "/worktrees/apollo-11",
+      removed_at: "2026-08-08T11:00:00.000Z",
+      kind: "directory" as const,
+      contents: ["observer-state/checkpoint.bin"],
+      contents_truncated: false,
+      entries: 2,
+    }],
+  };
+  const runtime = scriptedRuntime(output, {
+    status: () => ({ ok: true, data }),
+    select: () => QUIT,
+  });
+
+  assertEquals(await runDesk({}, runtime), 0);
+  const text = joined(output);
+  assertStringIncludes(text, "1 removed worktree path is present again.");
+  assertStringIncludes(
+    text,
+    "Review with `discern worktree prune --dry-run`.",
+  );
+});
+
 Deno.test("desk grants and revokes one effort only through its human action", async () => {
   const output = transcript();
   const effort = fleetEntry("agent/overnight", "/worktrees/overnight", {

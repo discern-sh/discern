@@ -1001,7 +1001,7 @@ export function attachEngineCommands(
       "prune",
       new Command()
         .description(
-          "Sweep stale worktrees, fully-merged branches, and orphaned resources.",
+          "Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.",
         )
         .option("-y, --yes", "Non-interactive: skip the confirm prompt.")
         .option(

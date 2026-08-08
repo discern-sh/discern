@@ -259,7 +259,7 @@ Usage: `discern worktree drop <target> [options]`
 
 #### `discern worktree prune`
 
-Sweep stale worktrees, fully-merged branches, and orphaned resources.
+Sweep stale worktrees, fully-merged branches, reappeared worktree paths, and orphaned resources.
 
 Usage: `discern worktree prune [options]`
 

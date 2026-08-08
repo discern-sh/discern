@@ -3194,7 +3194,7 @@ Deno.test("discern mcp: accept requires the verbatim landing proof line", () => 
   );
 });
 
-Deno.test("discern mcp: discern_status documents its actionable data fields (incl. stale integrations)", async () => {
+Deno.test("discern mcp: discern_status documents its actionable data fields", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -3229,6 +3229,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
         "stale_integrations",
         "setup_unfinished",
         "incoming_overlap",
+        "reappeared_worktree_paths",
       ]
     ) {
       assert(

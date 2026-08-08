@@ -32,7 +32,7 @@ The other fields explain that status:
 
 Text and glyphs carry every state. Red is failure or unreadable; yellow needs attention; cyan is current, running, or a `discern …` command inside preserved backticks; green is Proof-backed evidence or granted authority; mechanical detail is dim. `--no-color` changes no facts.
 
-The supervisor view reports main once and shows collision paths. Recent changes remain normal work in progress; failures, stale or behind work, collisions, unreadable state, and ready Proofs receive attention.
+The supervisor view reports main once and shows collision paths. Recent changes remain normal work in progress; failures, stale or behind work, collisions, unreadable state, ready Proofs, and removed worktree paths that exist again receive attention. A reappeared path shows when discern removed its worktree, a bounded content sample, and any reason prune must keep it.
 
 Checks show configured changed scopes, planned Gate jobs, and a Standards count. Derived `code` and `previewable` markers stay machine-only. Port and resources sit under **Local environment**. Landing shows pass, branch, files changed, diff size, commit, and age. `--verbose` adds stored Proof Markdown.
 
@@ -56,6 +56,8 @@ Fleet retains the main row for compatibility. Each readable worktree carries ide
 
 `fleet_collisions` pairs branches sharing changed files. `adr_collisions` includes duplicate record claims from branches without worktrees. Human output shows paths; machine hints retain field references. Stored Proofs remain in JSON and MCP regardless of `--verbose` ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)). Dirty, behind, and missing-proof states remain `ok: true`; operational refusals do not.
 
+`reappeared_worktree_paths` lists paths removed through discern's worktree lifecycle that currently exist without a live Git registration. Each row carries `path`, `removed_at`, `kind`, `entries`, a bounded `contents` sample, and `cleanup_blocked_reason` when prune must preserve it. The related hint points to `discern worktree prune --dry-run`; status remains read-only ([ADR 0265](../_adr/0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)).
+
 ## Session findings
 
 After setup, detectors can add recent Logbook observations to `hints[]`. They inspect at most 200 events and exclude CI, previews, human activity, and other branches. Findings change no Git fact, Gate result, Proof, exit code, or `ok`; setup in progress and a disabled Logbook suppress them. Run `discern patterns` for retained evidence ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
@@ -76,4 +78,5 @@ After setup, detectors can add recent Logbook observations to `hints[]`. They in
 
 - `status` never runs the Gate. A valid Proof is evidence from an earlier `done` run on the current clean `HEAD`.
 - Fleet worktrees belong to separate efforts. A clean sibling remains occupied until its owner lands or discards it.
+- A reappeared worktree path is no longer an active fleet member. Review its contents and close any program still writing there before confirmed prune.
 - The dashboard is a projection. Use JSON or MCP when automation needs every structured field.
