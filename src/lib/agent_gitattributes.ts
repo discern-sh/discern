@@ -494,6 +494,7 @@ async function readTextIfExists(path: string): Promise<string | undefined> {
 async function activeBuiltInPaths(
   root: string,
   candidates: readonly string[],
+  materializedCandidates: readonly string[] = [],
 ): Promise<string[]> {
   if (candidates.length === 0) {
     return [];
@@ -504,9 +505,10 @@ async function activeBuiltInPaths(
   const tracked = new Set(
     listed.success ? splitNulRecords(listed.stdout) : [],
   );
+  const materialized = new Set(materializedCandidates);
   const active: string[] = [];
   for (const path of candidates) {
-    if (tracked.has(path)) {
+    if (materialized.has(path) || tracked.has(path)) {
       active.push(path);
       continue;
     }
@@ -528,9 +530,14 @@ export async function planDiscernGitattributesFile(
   config: DiscernConfig,
   builtInCandidates: readonly string[] = [],
   env: EnvReader = Deno.env,
+  materializedCandidates: readonly string[] = [],
 ): Promise<GitattributesFilePlan> {
   const existing = await readTextIfExists(join(root, GITATTRIBUTES_REL));
-  const builtIns = await activeBuiltInPaths(root, builtInCandidates);
+  const builtIns = await activeBuiltInPaths(
+    root,
+    builtInCandidates,
+    materializedCandidates,
+  );
   const result = reconcileDiscernGitattributes(
     existing ?? "",
     resolveGeneratedGroups(config),
@@ -573,12 +580,14 @@ export async function ensureDiscernGitattributesBlock(
   config: DiscernConfig,
   builtInCandidates: readonly string[] = [],
   env: EnvReader = Deno.env,
+  materializedCandidates: readonly string[] = [],
 ): Promise<GitattributesFileReconcileResult> {
   const result = await planDiscernGitattributesFile(
     root,
     config,
     builtInCandidates,
     env,
+    materializedCandidates,
   );
   if (result.operations.length > 0) {
     const path = join(root, GITATTRIBUTES_REL);

@@ -91,7 +91,7 @@ Path overrides preserve ownership: placement grants write consent, not overwrite
 
 ## How Git treats registered paths
 
-Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
+Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)). The broader tracked-refresh plan also covers discern's managed portions of tracked Shared files, including generated attributes and provider integrations. `done` and `accept` require that plan to be empty before landing; acceptance materializes only ignored/local artifacts afterward ([ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)).
 
 Project lines outside `.gitattributes`' discern markers survive. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active Agent registry; hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
 

@@ -27,6 +27,7 @@ import type { LandingConsent } from "../src/shared/consent.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   addWorktree,
+  convergeFixtureGitattributes,
   git,
   gitInit,
   gitOut,
@@ -1512,6 +1513,7 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
     await gitInit(dir);
     const worktree = await addWorktree(dir, "schema-migration");
     await writeConfig(worktree, authorityConfig());
+    await convergeFixtureGitattributes(worktree);
     await commitPaths(worktree, { "docs/migration.md": "migrated\n" });
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);
@@ -1569,6 +1571,7 @@ Deno.test("accept falls back loudly when trunk authority is unreadable and recor
     await gitInit(dir);
     const worktree = await addWorktree(dir, "broken-policy");
     await writeConfig(worktree, authorityConfig());
+    await convergeFixtureGitattributes(worktree);
     await commitPaths(worktree, { "docs/guide.md": "repair\n" });
 
     const flagless = await runAgent(worktree, ["accept", "--json"]);

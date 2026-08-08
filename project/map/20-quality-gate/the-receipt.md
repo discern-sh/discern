@@ -34,6 +34,8 @@ The gate pins `HEAD` and worktree cleanliness before jobs, then checks both befo
 - the current branch is trunk, detached, or has no commits ahead of trunk;
 - the git facts needed for the review summary could not be read.
 
+A green result and receipt require an empty tracked-refresh plan before jobs and at the receipt boundary. Pending effects fail as `refresh_drift`; `done` names paths without rewriting them.
+
 The gate can still pass when a review receipt is withheld for one of those identity or summary reasons. Its result explains why no receipt was emitted and tells you what to do next. Commit the intended tree, then rerun `discern done` on the clean final commit.
 
 Write authority is different. Before any declared job or standard measurement starts, Discern performs a tiny real create/write/rename/remove probe beside its Git-admin marker files. If a sandbox or filesystem permission blocks that later write, `done` fails immediately with `failed_stage = "write_access"` and a diagnostic naming the path. That early refusal prevents a complete green gate from being discarded merely because its receipt could not be saved ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
@@ -42,11 +44,11 @@ Write authority is different. Before any declared job or standard measurement st
 
 discern stores the validated commit, structured receipt, and both renderings in the worktree's git administration directory. The marker is local to that worktree and disappears when the worktree is removed ([ADR 0067](../_adr/0067-accept-validates-the-landed-tree.md)).
 
-| Surface          | What it does with the receipt                                                                                                                                                                                                                  |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`   | Prints the job table and line at a TTY, or the page when piped; returns `data.receipt` (`line` + `markdown`) and may print at most 1 branch finding beside it.                                                                                 |
-| `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored object, page, and line when honored. It also reads a landed trunk-tip receipt from the local or fetched notes ref as `data.landed_receipt`.              |
-| `discern accept` | Uses an honored marker to avoid repeating the gate, then returns the page in `data.receipt` and derives `data.receipt_line` by appending the recorded consent source. After the fast-forward, it records the structured receipt as a Git note. |
+| Surface          | What it does with the receipt                                                                                                                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `discern done`   | Prints the job table and line at a TTY, or the page when piped; returns `data.receipt` (`line` + `markdown`) and may print at most 1 branch finding beside it.                                                                                                                                                            |
+| `discern status` | Reports whether the marker still matches the clean current `HEAD`; returns the stored object, page, and line when honored. It also reads a landed trunk-tip receipt from the local or fetched notes ref as `data.landed_receipt`.                                                                                         |
+| `discern accept` | Uses an honored marker to avoid repeating the expensive gate jobs, but still checks the current tracked-refresh plan before fast-forwarding. It returns the page in `data.receipt`, derives `data.receipt_line` by appending the recorded consent source, and records the structured receipt as a Git note after landing. |
 
 Any commit, amend, or worktree edit invalidates the fast path because the marker no longer describes the tree that would land. `discern standards --pin` is the narrow exception: when it creates a limits-only commit from an honored state, it carries the gate receipt forward ([ADR 0106](../_adr/0106-standards-pin-carries-the-gate-receipt.md)).
 

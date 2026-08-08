@@ -153,6 +153,10 @@ import {
   type WritePreflightFailure,
   writePreflightFailureMessage,
 } from "../../shared/write_preflight.ts";
+import {
+  planTrackedRefresh,
+  type TrackedRefreshPlan,
+} from "../tracked_refresh.ts";
 
 /**
  * A compact, plain-text summary of how a stale generated file differs from what
@@ -198,6 +202,40 @@ async function guidanceDiagnostic(
     tool: "guidance",
     severity: "error",
     message: `agent file(s) out of date: ${files}`,
+    reproduce_cmd: "discern refresh",
+    ...outputFields,
+  };
+}
+
+/** The Tier-0 diagnostic for a non-empty read-only tracked-refresh plan. */
+async function trackedRefreshDiagnostic(
+  plan: TrackedRefreshPlan,
+): Promise<Diagnostic> {
+  const paths = plan.changes.map((change) => change.path);
+  const details = plan.changes.map((change) => {
+    const effects = [
+      change.bytesChanged ? "bytes" : undefined,
+      change.modeChanged ? "mode" : undefined,
+    ].filter((effect): effect is string => effect !== undefined).join(" + ");
+    return `  - ${change.path} (${effects}; ${change.kinds.join(" + ")})`;
+  });
+  const failures = plan.errors.map((error) => `  - ${error}`);
+  const outputFields = await diagnosticOutputFields(
+    "Tracked refresh artifacts are not converged. Running `discern refresh` " +
+      "would change the tree, so this commit cannot earn a gate receipt.\n\n" +
+      (details.length > 0 ? `Planned changes:\n${details.join("\n")}\n` : "") +
+      (failures.length > 0
+        ? `\nPlanning errors:\n${failures.join("\n")}\n`
+        : "") +
+      "\nRun `discern refresh`, review and commit the named tracked files, then " +
+      "re-run `discern done`.",
+  );
+  return {
+    tool: "refresh",
+    severity: "error",
+    message: paths.length > 0
+      ? `tracked refresh artifacts out of date: ${paths.join(", ")}`
+      : "tracked refresh convergence could not be planned",
     reproduce_cmd: "discern refresh",
     ...outputFields,
   };
@@ -625,7 +663,22 @@ async function runGate(
     }
   }
 
-  // 1d-quinquies. Map & guidance integrity — the documentation agents and the
+  // 1d-quinquies. The complete tracked-refresh convergence predicate. Earlier
+  //     specialist checks retain their precise remedies and stage names; this
+  //     plan catches every remaining tracked writer (generated attributes, MCP,
+  //     hooks, app config, project rules, and mode-only effects) through the same
+  //     transformations `discern refresh` applies. It is read-only and fail-closed:
+  //     a planning error cannot mint a receipt whose convergence was unproved.
+  let trackedRefreshDiag: Diagnostic | undefined;
+  if (failedStage === null) {
+    const refreshPlan = await planTrackedRefresh(root, cfg);
+    if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
+      failedStage = "refresh_drift";
+      trackedRefreshDiag = await trackedRefreshDiagnostic(refreshPlan);
+    }
+  }
+
+  // 1d-sexies. Map & guidance integrity — the documentation agents and the
   //     published projections read must not reference things that do not exist:
   //     dead intra-map links and anchors, metadata blocks the lenient reader
   //     would swallow, fenced `discern` examples the current CLI rejects,
@@ -870,6 +923,17 @@ async function runGate(
   //     and scope-gate stages introduced — and, on a dirty start, every stage's.
   await failOnStrandedTree();
 
+  // Re-evaluate at the receipt boundary. The early pass is the fast refusal;
+  // this closing pass is the invariant: no green result can outlive a source,
+  // config, mode, or provider-state change made while the jobs were running.
+  if (failedStage === null) {
+    const refreshPlan = await planTrackedRefresh(root, cfg);
+    if (refreshPlan.changes.length > 0 || refreshPlan.errors.length > 0) {
+      failedStage = "refresh_drift";
+      trackedRefreshDiag = await trackedRefreshDiagnostic(refreshPlan);
+    }
+  }
+
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.
   const { result, firedHints: jobOutputHints } = await buildGateResultWithHints(
@@ -936,6 +1000,9 @@ async function runGate(
   }
   if (adrIndexDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), adrIndexDiag];
+  }
+  if (trackedRefreshDiag !== undefined) {
+    result.diagnostics = [...(result.diagnostics ?? []), trackedRefreshDiag];
   }
   if (mapIntegrityDiag !== undefined) {
     result.diagnostics = [...(result.diagnostics ?? []), mapIntegrityDiag];
@@ -1356,7 +1423,7 @@ function printSuccessTail(
 /**
  * Print the gate plan without running it (`--dry-run`): the leading fail-fast
  * preconditions (the merge check, tracked-artifacts guard, then the guidance/skills
- * currency checks), the wired job groups, and the scope-gates selected for the
+ * and complete tracked-refresh currency checks), the wired job groups, and the scope-gates selected for the
  * changed scopes. Honest — it lists "what would run"; it cannot predict which jobs
  * fail-fast would skip.
  */

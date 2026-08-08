@@ -625,6 +625,32 @@ export const HINTS = {
       ),
   }),
 
+  /** Tracked refresh effects not covered by one of the focused stale hints. */
+  "tracked-refresh-pending": defineHint<{ paths: string }>({
+    id: "tracked-refresh-pending",
+    category: "next-step",
+    audience: "all",
+    when: "The read-only refresh plan would change tracked project files.",
+    family: "generated-drift",
+    example: { paths: ".gitattributes, .mcp.json" },
+    template: ({ paths }): string =>
+      generatedDriftHint(
+        `Tracked refresh artifacts are out of date (${paths}).`,
+      ),
+  }),
+
+  /** A read-only tracked refresh transformation could not be derived. */
+  "tracked-refresh-plan-failed": defineHint<{ reason: string }>({
+    id: "tracked-refresh-plan-failed",
+    category: "next-step",
+    audience: "all",
+    when: "Status cannot derive the tracked refresh plan.",
+    family: "generated-drift",
+    example: { reason: "could not read .mcp.json" },
+    template: ({ reason }): string =>
+      `Tracked refresh convergence could not be checked: ${reason}. Repair the named input, run ${CMD.refresh}, then run ${CMD.status} again.`,
+  }),
+
   /**
    * The on-the-trunk guardrail, agent-facing. It leads with the start-and-move
    * action, then preserves the ownership rule that prevents an agent from
@@ -2099,6 +2125,18 @@ export const HINTS = {
       }, commit the regeneration, then re-run ${CMD.done}. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.`,
   }),
 
+  /** A tracked artifact would change under the current refresh plan. */
+  "gate-failure-refresh-drift": defineHint({
+    id: "gate-failure-refresh-drift",
+    category: "next-step",
+    audience: "all",
+    when: "The read-only tracked-refresh plan finds an uncommitted effect.",
+    family: "gate-failure-remedy",
+    example: undefined,
+    template: (): string =>
+      `Run ${CMD.refresh}, review and commit the tracked artifacts named by the diagnostics, then re-run the current discern command.`,
+  }),
+
   /** A generated command changed paths outside every declared ownership glob. */
   "gate-failure-generated-undercoverage": defineHint<
     GeneratedUndercoverageRemedyParams
@@ -2620,17 +2658,18 @@ export const HINTS = {
       "change.",
   }),
 
-  /** Landing succeeded, but its best-effort agent-file refresh did not. */
+  /** Landing succeeded, but its best-effort local materialization did not. */
   "accept-refresh-failed": defineHint<{ trunk: string; mainRepo: string }>({
     id: "accept-refresh-failed",
     category: "next-step",
     audience: "all",
-    when: "Landing succeeds but the post-landing refresh fails.",
+    when: "Landing succeeds but checkout-local materialization fails.",
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
-      `Run ${CMD.refresh} in ${mainRepo}. Acceptance landed on ${trunk}, ` +
-      `but the post-landing refresh failed.`,
+      `Acceptance landed on ${trunk}, but checkout-local Agent artifacts could ` +
+      `not be materialized in ${mainRepo}. Run ${CMD.refresh} there to retry and ` +
+      `review any reported tracked effect before committing it.`,
   }),
 
   /** Post-landing convergence changed tracked files in the receiving checkout. */
@@ -3320,6 +3359,7 @@ export const GATE_FAILURE_REMEDIES = {
   scope_gates: HINTS["gate-failure-scope-gates"],
   tree_drift: HINTS["gate-failure-tree-drift"],
   generated_drift: exampleBoundHint(HINTS["gate-failure-generated-drift"]),
+  refresh_drift: HINTS["gate-failure-refresh-drift"],
   tracked_artifacts: HINTS["gate-failure-tracked-artifacts"],
   guidance: HINTS["gate-failure-guidance"],
   skills: HINTS["gate-failure-skills"],

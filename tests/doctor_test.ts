@@ -783,14 +783,14 @@ Deno.test("doctor: a stale generated-merge block warns with the refresh remedy",
   await withTempDir(async (dir) => {
     await setupInstall(dir);
     await disableLogbook(dir);
+    await Deno.mkdir(join(dir, "generated"));
+    await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
+    await gitInit(dir);
     await addGeneratedGroups(dir, [{
       name: "bundle",
       paths: ["generated/**"],
       run: "sh -c true",
     }]);
-    await Deno.mkdir(join(dir, "generated"));
-    await Deno.writeTextFile(join(dir, "generated/bundle.txt"), "bundle\n");
-    await gitInit(dir);
 
     const stale = await runDoctorJson(dir);
     assertEquals(stale.code, 0, JSON.stringify(stale.payload.data.checks));

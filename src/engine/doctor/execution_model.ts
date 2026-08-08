@@ -95,6 +95,11 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
     hint:
       "Built-in fail-fast precondition: the materialized skills must match the effective set — run `discern refresh` if stale.",
   },
+  "tracked-refresh-check": {
+    actor: "discern",
+    hint:
+      "Built-in read-only precondition: the current refresh plan must have no pending tracked-file effect. Run `discern refresh`, review and commit the named paths, then rerun the gate.",
+  },
   "resource-create": {
     actor: "project",
     hint:
@@ -137,7 +142,8 @@ export const STEP_KIND_ANNOTATIONS: Record<StepKind, StepKindAnnotation> = {
   },
   refresh: {
     actor: "discern",
-    hint: "Built-in: recompile the agent files and re-materialize the skills.",
+    hint:
+      "Built-in refresh work. The step note states whether it reconciles all artifacts or only checkout-local materializations.",
   },
   tidy: {
     actor: "discern",
@@ -251,6 +257,9 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
   }
   if (plan.skillsCheck) {
     steps.push(step("skills-check", "skills-check"));
+  }
+  if (plan.trackedRefreshCheck) {
+    steps.push(step("tracked-refresh-check", "tracked-refresh-check"));
   }
   for (const group of plan.groups) {
     for (const job of group.jobs) {
@@ -442,8 +451,9 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
   steps.push(step("git", "fast-forward-trunk", {
     note: "fast-forward the trunk to the branch tip",
   }));
-  steps.push(step("refresh", "refresh agent files", {
-    note: "re-materialize agent files + skills in the trunk checkout",
+  steps.push(step("refresh", "materialize local agent artifacts", {
+    note:
+      "materialize only ignored/local Agent artifacts in the trunk checkout",
   }));
   for (const s of cfg.repository.ensure) {
     steps.push(step("repository-ensure", s, {
@@ -456,7 +466,8 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     }
   }
   steps.push(step("checkout-clean-check", "check trunk checkout", {
-    note: "report tracked files changed by post-landing convergence",
+    note:
+      "report tracked dirt present immediately after checkout or introduced by ensure/smoke",
   }));
   const destroyable = resourceEntries(cfg).filter(([, r]) => r.destroy !== "");
   for (const [name, r] of destroyable.reverse()) {

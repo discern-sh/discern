@@ -196,8 +196,8 @@ const DESTRUCTIVE: ToolAnnotations = {
   destructiveHint: true,
 };
 /** Merges the integration branch in and re-materializes — mutates, but is not
- * destructive (it only adds a merge + regenerates build artifacts) and is safe to
- * re-run: a no-op once the branch already contains main, hence `idempotentHint`. */
+ * destructive (it only adds a merge + regenerates build artifacts) and converges
+ * on re-run, hence `idempotentHint`. */
 const UPDATE: ToolAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
@@ -904,9 +904,11 @@ export const TOOLS: McpTool[] = orderTools([
       "landing branch. A worktree is a separate checkout and branch for one effort. " +
       "Tear down the worktree's resources, advance the trunk directly to the branch " +
       "tip, remove the clean worktree, and delete the " +
-      "now-merged branch. It then refreshes the trunk checkout it leaves behind, " +
-      "so generated guidance, skills, and provider integrations match the landed " +
-      "tree. This is the single deterministic implementation — " +
+      "now-merged branch. Before the fast-forward it verifies that the current " +
+      "tracked refresh plan is empty, even when an older gate receipt is honored. " +
+      "After the fast-forward it materializes only checkout-local Agent artifacts; " +
+      "tracked guidance and provider integrations must already be committed on the " +
+      "branch. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit. After a green landing, " +
       "report it in your own words and end with data.receipt_line verbatim; " +
@@ -971,7 +973,9 @@ export const TOOLS: McpTool[] = orderTools([
       "precondition itself and returns exactly what to do next. It is idempotent and " +
       "safe to call anytime: when the branch already contains the source nothing is " +
       "merged and the worktree is still re-converged (agent files re-materialized, " +
-      "[worktree.setup].ensure re-run) — which also makes a plain re-run the recovery " +
+      "[worktree.setup].ensure re-run). If that no-merge refresh changes a tracked " +
+      "artifact, the result names the path and leaves it for review and an intentional " +
+      "commit; it does not create a bookkeeping commit. A plain re-run is also the recovery " +
       "after you resolve a merge conflict by hand; it merges into a tracked-clean tree only, so " +
       'it refuses (error:"precondition_failed") on uncommitted tracked changes; and on a merge ' +
       "conflict it aborts cleanly (leaving the tree untouched) and refuses, naming the " +

@@ -150,19 +150,21 @@ async function commitGuidanceMarker(
       `${existing}\n\n## ${marker}\n\nKeep this marker visible in generated guidance.\n`,
     ),
   );
-  await git(wt, "add", "discern/guidance.md");
+  const refreshed = await runAgent(wt, ["refresh", "--json"]);
+  assertEquals(refreshed.code, 0, refreshed.output);
+  await git(wt, "add", "-A");
   await git(wt, "commit", "-q", "-m", "update guidance", "--no-gpg-sign");
 }
 
-/** Prove acceptance compiled the branch's guidance into main without leaving generated drift. */
-async function assertLandingGuidanceRefreshed(
+/** Prove the fast-forward carried current branch guidance into main. */
+async function assertLandedGuidanceCurrent(
   dir: string,
   marker: string,
 ): Promise<void> {
   assertStringIncludes(
     await Deno.readTextFile(join(dir, "CLAUDE.md")),
     marker,
-    "acceptance should refresh generated guidance in the checkout it leaves behind",
+    "the landed commit should carry its generated guidance",
   );
   const status = await runAgent(dir, ["status", "--json"]);
   assertEquals(status.code, 0, status.output);
@@ -307,11 +309,20 @@ Deno.test("accept: fast-forwards the trunk, removes the worktree, deletes the me
   });
 });
 
-Deno.test("accept: refreshes the trunk checkout after landing", async () => {
+Deno.test("accept: materializes only checkout-local artifacts after landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "trunk-refresh");
     const marker = "Trunk Acceptance Refresh";
     await commitGuidanceMarker(wt, marker);
+    const localSkills = join(dir, ".claude/skills");
+    if (await exists(localSkills)) {
+      await Deno.remove(localSkills, { recursive: true });
+    }
+    assertEquals(
+      await exists(join(dir, ".claude/skills")),
+      false,
+      "precondition: the receiving checkout needs local skill materialization",
+    );
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(r.code, 0, r.output);
@@ -322,9 +333,9 @@ Deno.test("accept: refreshes the trunk checkout after landing", async () => {
     assertEquals(result.ok, true);
     assert(
       result.steps.some((s) =>
-        s.label === "refresh agent files" && s.outcome === "ok"
+        s.label === "materialize local agent artifacts" && s.outcome === "ok"
       ),
-      `accept should report the post-landing refresh\n${r.stdout}`,
+      `accept should report checkout-local materialization\n${r.stdout}`,
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
@@ -336,7 +347,18 @@ Deno.test("accept: refreshes the trunk checkout after landing", async () => {
       "",
       `the merged branch should be deleted\n${r.output}`,
     );
-    await assertLandingGuidanceRefreshed(dir, marker);
+    await assertLandedGuidanceCurrent(dir, marker);
+    assert(
+      await exists(
+        join(dir, ".claude/skills/discern-write-adr/SKILL.md"),
+      ),
+      "acceptance should materialize ignored skills in the receiving checkout",
+    );
+    assertEquals(
+      await gitOut(dir, "status", "--porcelain"),
+      "",
+      "post-landing local materialization must not dirty tracked trunk files",
+    );
   });
 });
 
@@ -477,7 +499,7 @@ Deno.test("accept: records a post-landing smoke failure without skipping cleanup
   });
 });
 
-Deno.test("accept: a partial post-landing refresh is recorded but does not undo landing", async () => {
+Deno.test("accept: malformed tracked refresh input is refused before landing", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "grad-refresh-fail");
     const malformed = '{ "mcpServers": { "other": true, }, }\n';
@@ -493,41 +515,23 @@ Deno.test("accept: a partial post-landing refresh is recorded but does not undo 
     );
 
     const r = await runAgent(wt, ["accept", "--confirmed", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
     assertEquals(
       await exists(wt),
-      false,
-      `worktree should still be removed after a partial refresh\n${r.output}`,
+      true,
+      `the refused worktree must remain intact\n${r.output}`,
     );
     assertEquals(
       await gitOut(dir, "branch", "--show-current"),
       "main",
-      `the trunk landing should be kept\n${r.output}`,
-    );
-
-    const result = JSON.parse(r.stdout) as {
-      ok: boolean;
-      steps: Array<{ kind: string; label: string; outcome: string }>;
-    };
-    const ffStep = result.steps.find((s) =>
-      s.kind === "git" && s.label === "fast-forward-trunk"
+      `the trunk must remain checked out\n${r.output}`,
     );
     assertEquals(
-      ffStep?.outcome,
-      "ok",
-      `the fast-forward should be recorded as landed\n${r.stdout}`,
-    );
-    const refreshStep = result.steps.find((s) => s.kind === "refresh");
-    assertEquals(
-      refreshStep?.outcome,
-      "failed",
-      `the partial refresh is recorded as a failed step\n${r.stdout}`,
-    );
-    assertEquals(
-      result.ok,
+      await exists(join(dir, ".mcp.json")),
       false,
-      `result.ok reflects the partial refresh\n${r.stdout}`,
+      "the malformed branch file must not reach the trunk checkout",
     );
+    assertStringIncludes(r.output, "tracked refresh convergence");
   });
 });
 

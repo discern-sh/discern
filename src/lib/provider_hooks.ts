@@ -9,7 +9,6 @@
  * means for every provider.
  */
 
-import { ensureDir } from "@std/fs";
 import { dirname, join } from "@std/path";
 import {
   type DiscernConfig,
@@ -18,6 +17,10 @@ import {
 import { resolveTemplatesDir } from "./paths.ts";
 import { type Provider, providerFor } from "./providers.ts";
 import { mergeJsonSettingsText } from "./settings_merge.ts";
+import {
+  LIVE_REFRESH_FILE_OPS,
+  type RefreshFileOps,
+} from "./refresh_file_ops.ts";
 
 export type ProviderHookDriftReason = "missing" | "stale" | "unreadable";
 
@@ -52,9 +55,12 @@ function hookProvidersForConfig(config: DiscernConfig): Provider[] {
 }
 
 /** Read a hook settings file, mapping absence to `undefined`. */
-async function readTextIfExists(path: string): Promise<string | undefined> {
+async function readTextIfExists(
+  path: string,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
+): Promise<string | undefined> {
   try {
-    return await Deno.readTextFile(path);
+    return await files.readTextFile(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       return undefined;
@@ -91,6 +97,7 @@ async function desiredHookText(
   root: string,
   templatesDir: string,
   provider: Provider,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<{ rel: string; existing: string | undefined; desired: string }> {
   const hooks = provider.hooks;
   if (hooks === undefined) {
@@ -98,7 +105,7 @@ async function desiredHookText(
   }
   const rel = hooks.settingsFile;
   const template = await Deno.readTextFile(join(templatesDir, `${rel}.tmpl`));
-  const existing = await readTextIfExists(join(root, rel));
+  const existing = await readTextIfExists(join(root, rel), files);
   const merge = hooks.mergeSeed ?? mergeJsonSettingsText;
   return { rel, existing, desired: merge(existing, template) };
 }
@@ -126,6 +133,7 @@ function hookTextCurrent(
 export async function wireProviderHooks(
   root: string,
   config: DiscernConfig,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<ProviderHooksRefreshResult> {
   const written: string[] = [];
   const errors: string[] = [];
@@ -150,14 +158,15 @@ export async function wireProviderHooks(
         root,
         templatesDir,
         provider,
+        files,
       );
       if (hookTextCurrent(rel, existing, desired)) {
         continue;
       }
       const out = join(root, rel);
-      await ensureDir(dirname(out));
-      await Deno.writeTextFile(out, desired);
-      await Deno.chmod(out, 0o644);
+      await files.ensureDir(dirname(out));
+      await files.writeTextFile(out, desired);
+      await files.chmod(out, 0o644);
       written.push(rel);
     } catch (error) {
       const rel = provider.hooks?.settingsFile ?? provider.name;

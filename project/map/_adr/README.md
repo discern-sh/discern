@@ -254,6 +254,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0261 — The prepare inner loop runs the [generated] regenerations](0261-prepare-runs-the-generated-regenerations.md)
 - [0262 — Receipt-eligible runs stop at the pre-group strand checkpoint](0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)
 - [0263 — A ninth bundled skill routes wait-shaped asks to `await`](0263-a-ninth-bundled-skill-await-the-fleet.md)
+- [0264 — Tracked refresh convergence precedes landing](0264-tracked-refresh-convergence-precedes-landing.md)
 
 <!-- END GENERATED: current ADR records -->
 

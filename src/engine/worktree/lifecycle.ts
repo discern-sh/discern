@@ -179,8 +179,16 @@ import { configEpoch } from "../logbook/epoch.ts";
 // worktree setup recompiles the agent guidance as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
 // linked worktree does not inherit that gitignored directory from the main checkout).
-import { compileGuidelines, guidanceRefreshSucceeded } from "../guidelines.ts";
+import {
+  compileGuidelines,
+  guidanceRefreshSucceeded,
+  materializeLocalRefreshArtifacts,
+} from "../guidelines.ts";
 import { agentFilePaths, renderAgentFiles } from "../guidance_render.ts";
+import {
+  planTrackedRefresh,
+  type TrackedRefreshPlan,
+} from "../tracked_refresh.ts";
 import { resolveTemplatesDir } from "../../lib/paths.ts";
 import {
   DISCERN_GENERATED_MERGE_DRIVER,
@@ -1495,6 +1503,10 @@ async function buildAcceptPlan(
         "creates a work-in-progress commit for you.",
     );
   }
+  const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
+  if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
+    throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
+  }
   const ignoredFileChanges = await inspectIgnoredFileChanges(
     ctx.cwd,
     ctx.config.worktree.ignored_file_drift,
@@ -1837,6 +1849,22 @@ function movedDuringAcceptanceRefusal(
     `${worktreePath}, then \`discern accept\` again.`;
 }
 
+/** Refuse acceptance while refresh still has tracked work to commit. */
+function trackedRefreshAcceptRefusal(plan: TrackedRefreshPlan): string {
+  const paths = plan.changes.map((change) => change.path);
+  const planned = paths.length > 0
+    ? ` Running \`discern refresh\` would change: ${paths.join(", ")}.`
+    : "";
+  const errors = plan.errors.length > 0
+    ? ` The read-only refresh plan also reported: ${plan.errors.join("; ")}.`
+    : "";
+  return "This branch's tracked refresh convergence is not proved." +
+    planned + errors +
+    " Nothing was landed and the worktree is intact. Run `discern refresh`, " +
+    "review and commit the named files, run `discern done`, then re-run " +
+    "`discern accept`.";
+}
+
 /** Refuse removal when the gated branch fell behind or lost its configured trunk. */
 async function assertAcceptBranchStillCurrent(
   cwd: string,
@@ -2019,6 +2047,15 @@ async function executeAcceptPlan(
     );
   }
 
+  // A receipt proves the gate implementation that issued it, not a newer
+  // engine's added preconditions. Re-run the cheap current tracked-refresh plan
+  // on BOTH paths so a legacy receipt cannot bypass convergence, and do it before
+  // the fast-forward so refusal is fully non-destructive.
+  const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
+  if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
+    throw new WorktreeGitError(trackedRefreshAcceptRefusal(trackedRefresh));
+  }
+
   await assertAcceptBranchStillCurrent(ctx.cwd, trunk);
   const expired = await landingAuthorityExpiry(
     ctx.cwd,
@@ -2055,7 +2092,7 @@ async function executeAcceptPlan(
     results.push({
       step: {
         kind: "refresh",
-        label: "refresh agent files",
+        label: "materialize local agent artifacts",
         disposition: "run",
         note,
       },
@@ -2081,7 +2118,7 @@ async function executeAcceptPlan(
   if (ignoredLine !== undefined) {
     ctx.log.detail(ignoredLine);
   }
-  const refreshTemplatesDir = await postLandingRefreshTemplatesDir(
+  const localTemplatesDir = await postLandingLocalTemplatesDir(
     worktreePath,
     mainRepo,
   );
@@ -2202,6 +2239,17 @@ async function executeAcceptPlan(
   ctx.log.ok(`${trunk} fast-forwarded to ${worktreeBranch} at ${mainRepo}.`);
   done("git", "fast-forward-trunk");
 
+  // Establish the tracked-checkout baseline immediately after the ref/checkout
+  // transition, before any receipt, local materialization, ensure, or smoke
+  // effect can obscure its source. A validated landing should be clean here.
+  let trackedDirtyAfterLanding: boolean | undefined;
+  try {
+    trackedDirtyAfterLanding = await hasUncommittedTrackedChanges(mainRepo) ??
+      undefined;
+  } catch {
+    trackedDirtyAfterLanding = undefined;
+  }
+
   // The trunk now names the validated commit. Receipt-note recording and its
   // opt-in fetch transport are deliberately fail-open from this boundary:
   // neither may roll back a successful landing or turn acceptance red.
@@ -2282,25 +2330,25 @@ async function executeAcceptPlan(
   // recorded: no dependency-install or smoke failure may strand the linked
   // worktree/resources by preventing the cleanup tail from running.
   const diagnostics = progress.diagnostics;
-  ctx.log.info(
-    "Re-materializing agent files + skills in the landing checkout…",
-  );
+  ctx.log.info("Materializing local agent skills in the landing checkout…");
   let refreshOk = true;
   try {
-    const refreshed = await compileGuidelinesForLandingRefresh(
+    const refreshed = await materializeLocalRefreshForLanding(
       mainRepo,
       ctx.log,
-      refreshTemplatesDir,
+      localTemplatesDir,
     );
     refreshOk = guidanceRefreshSucceeded(refreshed);
     convergenceHints = mergeHintTexts(convergenceHints, refreshed.hints);
   } catch {
     refreshOk = false;
-    ctx.log.warn("Agent-file refresh reported an error — continuing.");
+    ctx.log.warn(
+      "Local Agent artifact materialization reported an error — continuing.",
+    );
   }
   doneRefresh(
     refreshOk ? "ok" : "failed",
-    "re-materialized the trunk checkout's agent files + skills",
+    "materialized only the trunk checkout's local/ignored agent artifacts",
   );
   if (!refreshOk) {
     convergenceHints = mergeHintTexts(
@@ -2318,19 +2366,6 @@ async function executeAcceptPlan(
     ctx.log.warn(
       "Could not reload the landed config in the main checkout — using the validated worktree config for convergence.",
     );
-  }
-
-  // Attribute tracked drift only to repository convergence/smoke. A refresh can
-  // legitimately rewrite generated tracked artifacts in older installs; if the
-  // checkout is already dirty here, this pass cannot honestly blame a later
-  // command for that pre-existing state.
-  let trackedDirtyBeforeConvergence: boolean | undefined;
-  try {
-    trackedDirtyBeforeConvergence =
-      await hasUncommittedTrackedChanges(mainRepo) ??
-        undefined;
-  } catch {
-    trackedDirtyBeforeConvergence = undefined;
   }
 
   let repositoryOutcomes: StepOutcome[];
@@ -2387,7 +2422,9 @@ async function executeAcceptPlan(
   }
 
   let checkoutClean: boolean | undefined;
-  if (trackedDirtyBeforeConvergence === false) {
+  if (trackedDirtyAfterLanding === true) {
+    checkoutClean = false;
+  } else if (trackedDirtyAfterLanding === false) {
     try {
       checkoutClean = !(await hasUncommittedTrackedChanges(mainRepo) ?? true);
     } catch {
@@ -2400,7 +2437,9 @@ async function executeAcceptPlan(
       label: "check trunk checkout",
       disposition: "run",
       note: checkoutClean === undefined
-        ? "tracked changes already existed after refresh; later drift is not attributable"
+        ? "the immediate post-fast-forward tracked baseline was unavailable"
+        : trackedDirtyAfterLanding === true
+        ? "tracked changes existed immediately after the fast-forward checkout"
         : "report tracked files changed by post-landing convergence",
     },
     outcome: checkoutClean === undefined
@@ -2772,8 +2811,8 @@ function ignoredFileChangeDetail(
   }${more}`;
 }
 
-/** If the source templates for a post-landing refresh live inside the worktree that
- * accept is about to remove, point the refresh at the matching path in the main
+/** If local-artifact templates live inside the worktree that accept is about to
+ * remove, point materialization at the matching path in the main
  * checkout after landing. This is a no-op for installed binaries and external
  * projects, whose templates are outside the accepting worktree. */
 export function remapWorktreeLocalTemplatesDir(
@@ -2798,7 +2837,7 @@ async function directoryExists(path: string): Promise<boolean> {
 }
 
 /** Remap worktree-local templates into the landed checkout when that directory exists. */
-async function postLandingRefreshTemplatesDir(
+async function postLandingLocalTemplatesDir(
   worktreePath: string,
   mainRepo: string,
 ): Promise<string | undefined> {
@@ -2818,25 +2857,21 @@ async function postLandingRefreshTemplatesDir(
     : undefined;
 }
 
-/** Temporarily bind remapped templates while compiling the landed checkout, then restore the environment. */
-async function compileGuidelinesForLandingRefresh(
+/** Temporarily bind remapped templates while materializing the landed checkout. */
+async function materializeLocalRefreshForLanding(
   root: string,
   logger: Logger,
   templatesDir: string | undefined,
-): Promise<Awaited<ReturnType<typeof compileGuidelines>>> {
+): Promise<Awaited<ReturnType<typeof materializeLocalRefreshArtifacts>>> {
   if (templatesDir === undefined) {
-    return await compileGuidelines(root, logger, {
-      reconcileReceiptNotesFetch: false,
-    });
+    return await materializeLocalRefreshArtifacts(root, logger);
   }
 
   const variable = DISCERN_ENVIRONMENT_VARIABLES.templatesDirectory;
   const previous = Deno.env.get(variable);
   Deno.env.set(variable, templatesDir);
   try {
-    return await compileGuidelines(root, logger, {
-      reconcileReceiptNotesFetch: false,
-    });
+    return await materializeLocalRefreshArtifacts(root, logger);
   } finally {
     if (previous === undefined) {
       Deno.env.delete(variable);
@@ -3326,9 +3361,6 @@ async function commitUpdateRegeneratedArtifacts(
       outcome: "skipped",
     },
   });
-  if (!enabled) {
-    return skipped("no merge to record");
-  }
   const status = await makeGitRunner(ctx)([
     "status",
     "--porcelain",
@@ -3380,7 +3412,37 @@ async function commitUpdateRegeneratedArtifacts(
   }
   const committedPaths = [...paths].sort();
   if (committedPaths.length === 0) {
-    return skipped("regeneration changed no declared artifact bytes");
+    return skipped(
+      enabled
+        ? "regeneration changed no declared artifact bytes"
+        : "no merge; refresh changed no tracked artifact bytes",
+    );
+  }
+  if (!enabled) {
+    ctx.log.warn(
+      `Refresh changed tracked artifacts without a merge: ${
+        committedPaths.join(", ")
+      }. Review and commit them before continuing.`,
+    );
+    return {
+      step: {
+        step: {
+          kind: "git",
+          label: "commit regenerated artifacts",
+          disposition: "run",
+          note: `no merge; review and commit ${committedPaths.join(", ")}`,
+        },
+        outcome: "failed",
+      },
+      diagnostic: {
+        tool: "update-regeneration",
+        severity: "error",
+        message: `Refresh changed tracked artifacts without a merge: ${
+          committedPaths.join(", ")
+        }. Review and commit them.`,
+        reproduce_cmd: "git status --short",
+      },
+    };
   }
   const committed = await commitUpdateRegeneration(ctx.cwd, committedPaths);
   if (committed.success) {
@@ -3444,7 +3506,7 @@ async function runUpdateConvergence(
     const refreshed = await compileGuidelines(ctx.root, ctx.log);
     refreshOk = guidanceRefreshSucceeded(refreshed);
     refreshHints = refreshed.hints;
-    for (const path of refreshed.gitattributesChanged) {
+    for (const path of refreshed.trackedArtifactsChanged) {
       refreshedSharedPaths.add(path);
     }
   } catch {

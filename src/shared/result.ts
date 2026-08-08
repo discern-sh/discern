@@ -52,6 +52,7 @@ export const STEP_KINDS = [
   "tracked-artifacts-check", // assert discern-owned ignored artifacts are untracked
   "guidance-check", // assert the agent files match their sources
   "skills-check", // assert the materialized skills match the effective set
+  "tracked-refresh-check", // assert refresh has no pending tracked effect
   "resource-create", // create a per-worktree external resource
   "resource-destroy", // destroy / reclaim a per-worktree external resource
   "git", // a git mutation (branch, remove, checkout, fast-forward, sweep)
@@ -60,7 +61,7 @@ export const STEP_KINDS = [
   "checkout-clean-check", // report tracked drift left by checkout convergence
   "setup-ensure", // a [worktree.setup].ensure command (convergent, every pass)
   "env", // record port / inherit env / resource handles
-  "refresh", // recompile agent guidance + skills
+  "refresh", // reconcile all or checkout-local refresh artifacts
   "tidy", // canonically format a discern-convention source file
   "standard", // measure a metric and compare it to its limit
 ] as const;
@@ -147,6 +148,9 @@ export interface StepResult {
  *  - `generated_drift` — a declared generator changed one of its committed
  *    artifacts when re-run, meaning the committed regeneration is stale or the
  *    command does not produce the same bytes from the same tree (ADR 0247);
+ *  - `refresh_drift` — the read-only tracked-refresh plan would change a
+ *    committed/shared artifact, so the tree has not committed the result of its
+ *    own refresh transformations;
  *  - `tracked_artifacts` — a discern-owned generated/local artifact is tracked by Git;
  *  - `guidance` / `skills` — an agent file / materialized skills dir is stale
  *    (the currency checks, ADR 0034);
@@ -187,6 +191,7 @@ export const FAILED_STAGES = [
   "scope_gates",
   "tree_drift",
   "generated_drift",
+  "refresh_drift",
   "tracked_artifacts",
   "guidance",
   "skills",

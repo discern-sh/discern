@@ -104,9 +104,10 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   });
   steps.push({
     kind: "refresh",
-    label: "refresh agent files",
+    label: "materialize local agent artifacts",
     disposition: "run",
-    note: "re-materialize the trunk checkout's agent files + skills",
+    note:
+      "materialize only ignored/local Agent artifacts in the trunk checkout",
   });
   for (const command of plan.repositoryEnsureSteps) {
     steps.push({

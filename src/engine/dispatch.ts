@@ -720,8 +720,9 @@ export function attachEngineCommands(
     .command("accept")
     .description(
       `Accept and land this worktree's finished branch on the trunk${trunkName}, ` +
-        "the shared landing branch. Then remove the worktree and merged branch " +
-        "and refresh the main checkout.",
+        "the shared landing branch. Tracked refresh artifacts must already be " +
+        "current. After landing, materialize checkout-local Agent artifacts, then " +
+        "remove the worktree and merged branch.",
     )
     .option(
       "--json",
@@ -753,7 +754,7 @@ export function attachEngineCommands(
     .command("update")
     .description(
       `Update this branch: merge the trunk's latest${trunkName} into this branch and ` +
-        "re-materialize the agent files. The trunk is the shared landing " +
+        "re-run generated groups and refresh Agent artifacts. The trunk is the shared landing " +
         "branch. Use `discern upgrade` for discern itself; use `discern refresh` for " +
         "agent files alone.",
     )

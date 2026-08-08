@@ -122,6 +122,14 @@ async function commitAll(root: string, message: string): Promise<void> {
   await git(root, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
+/** Make an already-adopted tracked MCP integration stale without removing it. */
+async function staleMcpCommand(root: string): Promise<void> {
+  const path = join(root, ".mcp.json");
+  const doc = JSON.parse(await Deno.readTextFile(path));
+  doc.mcpServers.discern.command = "wrong-discern";
+  await Deno.writeTextFile(path, `${JSON.stringify(doc, null, 2)}\n`);
+}
+
 /** Resolve generated group names through the production config loader. */
 async function configuredGroupNames(root: string): Promise<string[]> {
   return resolveGeneratedGroups(await loadConfig(root)).map((group) =>
@@ -290,6 +298,67 @@ Deno.test("update commits a regenerated attributes block after generated config 
     );
     assertEquals(attributes.includes("generated/** merge="), false);
     assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("update commits every tracked refresh output changed after a merge", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const wt = await addWorktree(dir, "tracked-refresh-output");
+    await staleMcpCommand(dir);
+    await commitAll(dir, "make the tracked MCP integration stale");
+
+    const result = await runAgent(wt, ["update", "--json"]);
+
+    assertEquals(result.code, 0, result.output);
+    const parsed = parse(result.stdout);
+    assert(
+      parsed.steps?.some((step) =>
+        step.label === "commit regenerated artifacts" &&
+        step.note?.includes(".mcp.json") && step.outcome === "ok"
+      ),
+      result.stdout,
+    );
+    const mcp = JSON.parse(
+      await Deno.readTextFile(join(wt, ".mcp.json")),
+    );
+    assertEquals(mcp.mcpServers.discern.command, "discern");
+    assertEquals(await gitOut(wt, "status", "--porcelain"), "");
+  });
+});
+
+Deno.test("an up-to-date update reports rather than commits tracked refresh output", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldGeneratedProject(dir);
+    const wt = await addWorktree(dir, "no-merge-refresh-output");
+    await staleMcpCommand(wt);
+    await commitAll(wt, "make local tracked MCP integration stale");
+    const before = await gitOut(wt, "rev-parse", "HEAD");
+
+    const result = await runAgent(wt, ["update", "--json"]);
+
+    assertEquals(result.code, 0, result.output);
+    const parsed = parse(result.stdout);
+    assertEquals(parsed.ok, false, result.stdout);
+    assert(
+      parsed.steps?.some((step) =>
+        step.label === "commit regenerated artifacts" &&
+        step.note?.includes(".mcp.json") && step.outcome === "failed"
+      ),
+      result.stdout,
+    );
+    assert(
+      parsed.diagnostics?.some((diagnostic) =>
+        diagnostic.tool === "update-regeneration" &&
+        diagnostic.message.includes(".mcp.json")
+      ),
+      result.stdout,
+    );
+    assertEquals(await gitOut(wt, "rev-parse", "HEAD"), before);
+    assertStringIncludes(
+      await gitOut(wt, "status", "--porcelain"),
+      ".mcp.json",
+    );
   });
 });
 

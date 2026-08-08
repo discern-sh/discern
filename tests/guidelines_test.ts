@@ -126,8 +126,23 @@ Deno.test("compileGuidelines callers use the shared partial-refresh predicate", 
       continue;
     }
     const text = await Deno.readTextFile(path);
-    if (text.includes("compileGuidelines(") && /\.errors\.length/.test(text)) {
-      offenders.push(rel);
+    const compileResults = [
+      ...text.matchAll(
+        /\b([A-Za-z_][A-Za-z0-9_]*)\s*=\s*await\s+compileGuidelines\s*\(/gu,
+      ),
+    ].flatMap((match) => match[1] === undefined ? [] : [match[1]]);
+    const compileCalls = [...text.matchAll(/\bcompileGuidelines\s*\(/gu)];
+    if (compileCalls.length !== compileResults.length) {
+      offenders.push(`${rel} (unclassified compileGuidelines call)`);
+    }
+    for (const result of compileResults) {
+      const rawLengthCheck = new RegExp(
+        `\\b${result}\\s*\\.\\s*errors\\s*\\.\\s*length\\b`,
+        "u",
+      );
+      if (rawLengthCheck.test(text)) {
+        offenders.push(`${rel} (${result}.errors.length)`);
+      }
     }
   }
   assertEquals(offenders, []);

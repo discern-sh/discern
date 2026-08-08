@@ -594,8 +594,8 @@ Deno.test("done: generated drift outranks the checkpoint — the owning group is
   });
 });
 
-/** A fixer that strands AND breaks `git status` (a corrupt index): snapshot
- * uncertainty must stand down rather than fabricate a failure. */
+/** A fixer that strands AND breaks the index: the tree snapshot stays
+ * fail-open, while the final tracked-refresh proof fails closed. */
 const INDEX_BREAKING_MUTATOR = [
   "#!/usr/bin/env sh",
   'echo "regenerated" >> data.txt',
@@ -603,7 +603,7 @@ const INDEX_BREAKING_MUTATOR = [
   "",
 ].join("\n");
 
-Deno.test("done: snapshot uncertainty stays fail-open at the checkpoint — no fabricated tree_drift", async () => {
+Deno.test("done: refresh planning fails closed when a fixer corrupts the index", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, CONFIG);
@@ -612,12 +612,15 @@ Deno.test("done: snapshot uncertainty stays fail-open at the checkpoint — no f
     await gitInit(dir);
 
     const r = await runAgent(dir, ["done", "--json"]);
-    assertEquals(r.code, 0, r.output);
+    assertEquals(r.code, 1, r.output);
 
     const obj = parseJson(r.stdout);
-    assertEquals(obj.ok, true);
-    assertEquals(obj.data.failed_stage, null);
+    assertEquals(obj.ok, false);
+    assertEquals(obj.data.failed_stage, "refresh_drift");
     assertEquals(diagFor(obj, "tree-drift"), undefined);
+    const refresh = diagFor(obj, "refresh");
+    assert(refresh !== undefined, r.stdout);
+    assertStringIncludes(refresh.output ?? "", "git ls-files");
   });
 });
 

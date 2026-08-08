@@ -1527,6 +1527,8 @@ Deno.test("discern mcp: discern_accept previews an acceptance from inside a work
 Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date worktree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
+    const refreshed = await runAgent(dir, ["refresh", "--json"]);
+    assertEquals(refreshed.code, 0, refreshed.output);
     await gitInit(dir);
 
     // From inside a WORKTREE whose branch already contains main: a real (non-dry-run)
@@ -1550,7 +1552,11 @@ Deno.test("discern mcp: discern_update is an idempotent no-op from an up-to-date
       params: { name: "discern_update", arguments: {} },
     });
     const noop = await wtMcp.recv();
-    assertEquals(noop.result.isError, false);
+    assertEquals(
+      noop.result.isError,
+      false,
+      JSON.stringify(noop.result, null, 2),
+    );
     assertEquals(noop.result.structuredContent.verb, "update");
     const steps = noop.result.structuredContent.steps as Array<
       { label: string; outcome: string }

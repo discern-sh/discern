@@ -49,7 +49,7 @@ Every applied acceptance result may carry `data.landing`:
 
 A later failure after any of those effects returns `error: "partial_acceptance"` and the main-checkout path in `data.root`. Read both fields before choosing a command: the worktree may already be gone. MCP re-aims at the surviving root when cleanup removed its previous working directory.
 
-Post-landing refresh, repository ensure, smoke, tracked-clean, or branch-deletion failures cannot undo the trunk move. Acceptance reports them, consumes the grant, and continues safe cleanup.
+Checkout-local artifact materialization, repository ensure, smoke, tracked-clean, or branch-deletion failures cannot undo the trunk move. Acceptance reports them, consumes the grant, and continues safe cleanup. Tracked refresh work is excluded from this side of the transition; it must converge in the branch before landing.
 
 ## Where it lives in code
 

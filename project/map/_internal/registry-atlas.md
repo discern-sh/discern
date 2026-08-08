@@ -32,7 +32,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
-| [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 18      | —                | node `doctor`               |
+| [`step-kinds`](#step-kinds--step-kinds)                                                                               | `src/shared/result.ts#STEP_KINDS`                                                 | 19      | —                | node `doctor`               |
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
@@ -46,7 +46,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 154     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 157     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 9       | —                | —                           |
@@ -71,7 +71,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 254     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 255     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -652,7 +652,7 @@ The machine formats failed-job normalization auto-detects, in detection order; s
 The result-step operation vocabulary — what a step does; the doctor's annotations table (`STEP_KIND_ANNOTATIONS` in `src/engine/doctor/execution_model.ts`) is a satellite pinned to it, one actor and hint per kind.
 
 - Source: `src/shared/result.ts` — `STEP_KINDS`
-- Members: 18
+- Members: 19
   - `job`
   - `scope-gate`
   - `merge-check`
@@ -660,6 +660,7 @@ The result-step operation vocabulary — what a step does; the doctor's annotati
   - `tracked-artifacts-check`
   - `guidance-check`
   - `skills-check`
+  - `tracked-refresh-check`
   - `resource-create`
   - `resource-destroy`
   - `git`
@@ -931,7 +932,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 154
+- Members: 157
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -944,6 +945,8 @@ The advisory hint registry: every hint string enters results through it.
   - `provider-integrations-missing`
   - `provider-integrations-stale`
   - `adr-index-stale`
+  - `tracked-refresh-pending`
+  - `tracked-refresh-plan-failed`
   - `status-start-on-trunk`
   - `status-start-off-trunk`
   - `status-missing-trunk`
@@ -1020,6 +1023,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-scope-gates`
   - `gate-failure-tree-drift`
   - `gate-failure-generated-drift`
+  - `gate-failure-refresh-drift`
   - `gate-failure-generated-undercoverage`
   - `gate-failure-tracked-artifacts`
   - `gate-failure-guidance`
@@ -1781,7 +1785,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 254
+- Members: 255
   - `0003`
   - `0005`
   - `0006`
@@ -2018,6 +2022,7 @@ The numbered decision records in the map, including records later superseded.
   - `0261`
   - `0262`
   - `0263`
+  - `0264`
   - `0001`
   - `0002`
   - `0004`

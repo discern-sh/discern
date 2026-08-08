@@ -11,7 +11,6 @@
  */
 
 import { dirname, join, relative } from "@std/path";
-import { ensureDir } from "@std/fs";
 import { parse as parseToml } from "@std/toml";
 import type { AgentName } from "./config.ts";
 import {
@@ -51,6 +50,10 @@ import {
 import { fire, HINTS } from "../shared/hints.ts";
 import type { EnvReader } from "../shared/env.ts";
 import { experimentalEnvironmentEnabled } from "../shared/experimental.ts";
+import {
+  LIVE_REFRESH_FILE_OPS,
+  type RefreshFileOps,
+} from "./refresh_file_ops.ts";
 
 // ── the MCP server discern registers ────────────────────────────────────────
 
@@ -161,6 +164,15 @@ export interface McpWireResult {
   firstInstall: boolean;
 }
 
+/** Aggregate MCP wiring result with the paths written only by first installs. */
+export interface ProviderMcpWireResult extends McpWireResult {
+  /**
+   * Files changed exclusively by providers that added the server for the first
+   * time. A file also repaired by an established provider is excluded.
+   */
+  firstInstallPaths: string[];
+}
+
 /** Invocation-wide facts every provider's MCP writer may project into its own
  * configuration format. The full configured-agent list matters for files two
  * providers co-own: either registration order must write the same entry. */
@@ -168,6 +180,8 @@ export interface McpWireContext {
   readonly agents: readonly string[];
   readonly experimentalMcpPreload: boolean;
   readonly env: EnvReader;
+  /** Alternate effect sink used by the read-only tracked-refresh planner. */
+  readonly files?: RefreshFileOps;
 }
 
 /** How a provider registers an MCP server in a project — idempotently, preserving
@@ -316,7 +330,11 @@ export interface WorktreeAppIntegration {
   /** Merge discern's worktree setup/teardown into `configFile` under `root`,
    * idempotently, preserving the app's own keys. Returns the project-relative files
    * written (empty when already in place). */
-  register(root: string, env?: EnvReader): Promise<string[]>;
+  register(
+    root: string,
+    env?: EnvReader,
+    files?: RefreshFileOps,
+  ): Promise<string[]>;
 }
 
 /**
@@ -332,7 +350,11 @@ export interface ProjectRulesIntegration {
   /** How this discern-written artifact carries provenance. */
   readonly writtenArtifact: WrittenArtifactClassDeclaration;
   /** Write the rules file under `root`, returning it when bytes changed. */
-  register(root: string, env?: EnvReader): Promise<string[]>;
+  register(
+    root: string,
+    env?: EnvReader,
+    files?: RefreshFileOps,
+  ): Promise<string[]>;
 }
 
 /** A provider's worktree-automation surface: where its lifecycle hooks live and
@@ -658,10 +680,13 @@ function appendUnique(base: readonly string[], addition: string): string[] {
 }
 
 /** Read a JSON object file. Absence starts empty; malformed existing JSON refuses. */
-async function readJsonObject(path: string): Promise<Record<string, unknown>> {
+async function readJsonObject(
+  path: string,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
+): Promise<Record<string, unknown>> {
   let text: string;
   try {
-    text = await Deno.readTextFile(path);
+    text = await files.readTextFile(path);
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
       return {};
@@ -683,9 +708,13 @@ async function readJsonObject(path: string): Promise<Record<string, unknown>> {
 }
 
 /** Write a pretty JSON object with a trailing newline (creating parent dirs). */
-async function writeJsonObject(path: string, value: unknown): Promise<void> {
-  await ensureDir(dirname(path));
-  await Deno.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
+async function writeJsonObject(
+  path: string,
+  value: unknown,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
+): Promise<void> {
+  await files.ensureDir(dirname(path));
+  await files.writeTextFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** Write text only when bytes differ, creating the parent directory. */
@@ -693,11 +722,12 @@ async function writeTextIfChanged(
   root: string,
   rel: string,
   body: string,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<string | undefined> {
   const path = join(root, rel);
   let existing: string | undefined;
   try {
-    existing = await Deno.readTextFile(path);
+    existing = await files.readTextFile(path);
   } catch (error) {
     if (!(error instanceof Deno.errors.NotFound)) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -707,8 +737,8 @@ async function writeTextIfChanged(
   if (existing === body) {
     return undefined;
   }
-  await ensureDir(dirname(path));
-  await Deno.writeTextFile(path, body);
+  await files.ensureDir(dirname(path));
+  await files.writeTextFile(path, body);
   return rel;
 }
 
@@ -816,8 +846,9 @@ async function registerStdioMcpJson(
   context: McpWireContext,
   timeoutSeconds?: number,
 ): Promise<McpWireResult> {
+  const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, configFile);
-  const doc = await readJsonObject(path);
+  const doc = await readJsonObject(path, files);
   const servers = isObject(doc.mcpServers) ? doc.mcpServers : {};
   const firstInstall = !(server.name in servers);
   const desired = {
@@ -840,7 +871,7 @@ async function registerStdioMcpJson(
     return { written: [], firstInstall };
   }
   doc.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, doc);
+  await writeJsonObject(path, doc, files);
   return { written: [configFile], firstInstall };
 }
 
@@ -857,6 +888,7 @@ async function registerClaudeCodeMcp(
   _config: DiscernConfig,
   context: McpWireContext,
 ): Promise<McpWireResult> {
+  const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   // 1. .mcp.json — the project-scoped server definition (a local stdio command),
   //    via the shared writer (the file Copilot co-owns).
   const mcp = await registerStdioMcpJson(
@@ -874,11 +906,11 @@ async function registerClaudeCodeMcp(
   // 2. .claude/settings.json — pre-approve the project-scoped server by name,
   //    preserving every other setting (hooks, permissions) already written.
   const setPath = join(root, CLAUDE_SETTINGS_FILE);
-  const settings = await readJsonObject(setPath);
+  const settings = await readJsonObject(setPath, files);
   const approved = asStringArray(settings.enabledMcpjsonServers);
   if (!approved.includes(server.name)) {
     settings.enabledMcpjsonServers = [...approved, server.name];
-    await writeJsonObject(setPath, settings);
+    await writeJsonObject(setPath, settings, files);
     written.push(CLAUDE_SETTINGS_FILE);
   }
 
@@ -900,9 +932,12 @@ async function registerClaudeCodeMcp(
 async function registerGeminiMcp(
   root: string,
   server: McpServerSpec,
+  _config: DiscernConfig,
+  context: McpWireContext,
 ): Promise<McpWireResult> {
+  const files = context.files ?? LIVE_REFRESH_FILE_OPS;
   const path = join(root, GEMINI_SETTINGS_FILE);
-  const settings = await readJsonObject(path);
+  const settings = await readJsonObject(path, files);
   const servers = isObject(settings.mcpServers) ? settings.mcpServers : {};
   const firstInstall = !(server.name in servers);
   const desired = {
@@ -914,7 +949,7 @@ async function registerGeminiMcp(
     return { written: [], firstInstall };
   }
   settings.mcpServers = { ...servers, [server.name]: desired };
-  await writeJsonObject(path, settings);
+  await writeJsonObject(path, settings, files);
   return { written: [GEMINI_SETTINGS_FILE], firstInstall };
 }
 
@@ -936,11 +971,12 @@ async function editTomlFile(
   provenanceSource: string,
   edit: (editor: TomlEditor, existing: string | undefined) => void,
   env: EnvReader = Deno.env,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<string | undefined> {
   const path = join(root, rel);
   let existing: string | undefined;
   try {
-    existing = await Deno.readTextFile(path);
+    existing = await files.readTextFile(path);
   } catch {
     existing = undefined;
   }
@@ -956,8 +992,8 @@ async function editTomlFile(
   if (existing !== undefined && out === existing) {
     return undefined;
   }
-  await ensureDir(dirname(path));
-  await Deno.writeTextFile(path, out);
+  await files.ensureDir(dirname(path));
+  await files.writeTextFile(path, out);
   return rel;
 }
 
@@ -1056,6 +1092,7 @@ async function registerCodexProjectConfig(
       editor.deleteKey(`${section}.cwd`);
     },
     context.env,
+    context.files,
   );
   return { written: wrote !== undefined ? [wrote] : [], firstInstall };
 }
@@ -1090,6 +1127,7 @@ function shouldWriteCodexEnvScript(
 async function registerCodexEnvironment(
   root: string,
   env: EnvReader = Deno.env,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<string[]> {
   const wrote = await editTomlFile(
     root,
@@ -1115,6 +1153,7 @@ async function registerCodexEnvironment(
       }
     },
     env,
+    files,
   );
   return wrote !== undefined ? [wrote] : [];
 }
@@ -1128,11 +1167,13 @@ async function registerCodexEnvironment(
 async function registerCodexRules(
   root: string,
   env: EnvReader = Deno.env,
+  files: RefreshFileOps = LIVE_REFRESH_FILE_OPS,
 ): Promise<string[]> {
   const wrote = await writeTextIfChanged(
     root,
     CODEX_RULES_FILE,
     codexDiscernRules(env),
+    files,
   );
   return wrote !== undefined ? [wrote] : [];
 }
@@ -1926,7 +1967,8 @@ export async function wireProviderMcp(
   server: McpServerSpec = DISCERN_MCP_SERVER,
   config: DiscernConfig = parseConfigOrThrow(""),
   env: EnvReader = Deno.env,
-): Promise<McpWireResult> {
+  files?: RefreshFileOps,
+): Promise<ProviderMcpWireResult> {
   const context: McpWireContext = {
     agents,
     experimentalMcpPreload: experimentalEnvironmentEnabled(
@@ -1934,8 +1976,11 @@ export async function wireProviderMcp(
       env,
     ),
     env,
+    ...(files === undefined ? {} : { files }),
   };
   const written: string[] = [];
+  const firstInstallPaths = new Set<string>();
+  const establishedPaths = new Set<string>();
   let firstInstall = false;
   for (const agent of agents) {
     const provider = providerFor(agent);
@@ -1944,9 +1989,18 @@ export async function wireProviderMcp(
       const r = await mcp.register(root, server, config, context);
       written.push(...r.written);
       firstInstall = firstInstall || r.firstInstall;
+      for (const path of r.written) {
+        (r.firstInstall ? firstInstallPaths : establishedPaths).add(path);
+      }
     }
   }
-  return { written: [...new Set(written)], firstInstall };
+  return {
+    written: [...new Set(written)],
+    firstInstall,
+    firstInstallPaths: [...firstInstallPaths].filter((path) =>
+      !establishedPaths.has(path)
+    ),
+  };
 }
 
 /**
@@ -1961,12 +2015,13 @@ export async function wireProviderWorktreeApp(
   root: string,
   agents: readonly string[],
   env: EnvReader = Deno.env,
+  files?: RefreshFileOps,
 ): Promise<string[]> {
   const written: string[] = [];
   for (const agent of agents) {
     const integration = providerFor(agent)?.worktreeApp;
     if (integration !== undefined) {
-      written.push(...(await integration.register(root, env)));
+      written.push(...(await integration.register(root, env, files)));
     }
   }
   return [...new Set(written)];
@@ -1981,12 +2036,13 @@ export async function wireProviderProjectRules(
   root: string,
   agents: readonly string[],
   env: EnvReader = Deno.env,
+  files?: RefreshFileOps,
 ): Promise<string[]> {
   const written: string[] = [];
   for (const agent of agents) {
     const integration = providerFor(agent)?.projectRules;
     if (integration !== undefined) {
-      written.push(...(await integration.register(root, env)));
+      written.push(...(await integration.register(root, env, files)));
     }
   }
   return [...new Set(written)];

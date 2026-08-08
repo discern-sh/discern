@@ -48,6 +48,8 @@ discern status --no-color
 
 `discern status --json` and `discern_status` return one `DiscernResult`, unaffected by layout. `data.project`, `location`, `root`, `worktree`, and `git` locate it; local results can add scopes, jobs, currency, resources, standards, receipt, and [landing authority](landing-authority.md).
 
+`data.pending_tracked_refresh` lists tracked paths an ordinary refresh would change. `data.tracked_refresh_plan_errors` lists anything preventing proof. Focused guidance, Skill, hook, and ADR-index fields remain compatible projections.
+
 Fleet retains the main row for compatibility. Each readable worktree carries identity, Git state, divergence, activity, full `gate_receipt`, and authority. Honored-only receipt fields remain. `landed_receipt.commit_at` supplies landing age when Git can read it.
 
 `last_action` is the newest completion, `running` a fresh unmatched start, and `last_activity` the later Git or logbook time. Disabling the logbook removes action fields, not Git activity ([ADR 0210](../_adr/0210-effectful-verb-starts-are-paired-logbook-events.md)).

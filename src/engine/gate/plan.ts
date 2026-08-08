@@ -99,6 +99,8 @@ export interface GatePlan {
    * fail-fast precondition like guidance; blocks on a STALE skills dir. Always true
    * (the field gates its plan-listing, not its run). */
   skillsCheck: boolean;
+  /** The complete tracked-refresh plan must be empty before and after gate jobs. */
+  trackedRefreshCheck: boolean;
   /** The merge check runs FIRST, as a fail-fast precondition (ADR 0050); it self-skips
    * in the main checkout. Always true (the field gates its plan-listing, not its run). */
   mergeCheck: boolean;
@@ -392,6 +394,7 @@ export function composeGatePlan(
     standardsLimitsCheck: true,
     guidanceCheck: true,
     skillsCheck: true,
+    trackedRefreshCheck: true,
     mergeCheck: true,
     trackedArtifactsCheck: true,
     scopesChanged: changed,
@@ -651,8 +654,8 @@ export async function buildGateResultWithHints(
 /**
  * Project a gate plan onto the common {@link EnginePlan} the shared renderer
  * prints. Leading `gate` steps stand for the fail-fast preconditions — the merge
- * check (ADR 0050), tracked-artifacts guard, then the guidance/skills currency
- * checks (ADR 0056) — followed by each job grouped under its stage, a firing job
+ * check (ADR 0050), tracked-artifacts guard, then the guidance/skills and complete
+ * tracked-refresh currency checks — followed by each job grouped under its stage, a firing job
  * `run`, an unchanged scope gate `skip`. Honest by construction:
  * declared jobs render as "run" — fail-fast may still skip some, which a
  * plan cannot predict.
@@ -702,6 +705,15 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       disposition: "gate",
       note:
         "verify the materialized skills match the effective set (`discern refresh` if stale)",
+    });
+  }
+  if (plan.trackedRefreshCheck) {
+    steps.push({
+      kind: "tracked-refresh-check",
+      label: "tracked-refresh-check",
+      disposition: "gate",
+      note:
+        "verify `discern refresh` has no pending effect on tracked files (run refresh, review, and commit if it does)",
     });
   }
   for (const group of plan.groups) {
