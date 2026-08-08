@@ -33,5 +33,5 @@ Treat every worktree as occupied, even when Git reports it clean. [`discern stat
 |    95 | [Desk tips](desk-tips.md)                                           | One deterministic teaching line per session and where its record lands.         |
 |   100 | [Landing authority](landing-authority.md)                           | See how conversation consent and recorded grants control landing.               |
 |   110 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
-|   120 | [Hand work back](hand-work-back.md)                                 | Finish, report the Receipt, wait for review, and accept after approval.         |
+|   120 | [Hand work back](hand-work-back.md)                                 | Finish, report the Proof, wait for review, and accept after approval.           |
 |   130 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |

@@ -70,7 +70,7 @@ function discernBrandHtml(): string {
 /** One published docs page. */
 export interface DocsPage {
   kind: "guide";
-  /** Site route, e.g. `/docs/quality-gate/the-receipt`. */
+  /** Site route, e.g. `/docs/quality-gate/the-proof`. */
   route: string;
   entry: DocEntry;
   /** Map-relative source path that resolves local links. */
@@ -120,7 +120,7 @@ export interface DocsSite {
   /** Every page in linear reading order (section indexes included). */
   pages: DocsPage[];
   byRoute: Map<string, RoutedDocPage>;
-  /** Map-relative source path (`20-quality-gate/the-receipt.md`) → page. */
+  /** Map-relative source path (`20-quality-gate/the-proof.md`) → page. */
   byMapPath: Map<string, RoutedDocPage>;
   sections: DocsSection[];
   decisions: {

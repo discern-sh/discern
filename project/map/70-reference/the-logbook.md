@@ -39,12 +39,12 @@ Each detector declares a scope and a tier. Scope selects the reader. Tier contro
 
 | Reader                | Findings it carries                                                                                                                                                          |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `discern done`        | Inline branch findings after a qualifying green Receipt, capped at 1 line and held to a higher threshold.                                                                    |
+| `discern done`        | Inline branch findings after a qualifying green Proof, capped at 1 line and held to a higher threshold.                                                                      |
 | `discern status`      | Inline session findings as observation-plus-next-step hints after setup finishes.                                                                                            |
 | `discern improvement` | Inline project findings in the advisory `data.history.findings` group.                                                                                                       |
 | `discern patterns`    | Every finding: up to 3 attention pointers, blocks grouped by family and standard sparklines for humans, globally strength-ranked JSON, and insufficient-evidence accounting. |
 
-The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed Gate stage, score, Receipt identity, or acceptance decision.
+The working commands inspect at most the newest 200 events. `patterns` reads the full retained stream. Every route is advisory. Findings change no command outcome, exit code, failed Gate stage, score, Proof identity, or acceptance decision.
 
 ## What a line contains
 

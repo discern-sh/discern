@@ -13,7 +13,7 @@ aliases:
 
 _discern verifies landing authority before moving the trunk._
 
-A green [Receipt](../00-orientation/glossary.md#receipt) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+A green [Proof](../20-quality-gate/the-proof.md) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
 ## Authority sources
 
@@ -42,7 +42,7 @@ When a grant exists, `data.landing_authority` carries the result:
 | `uncovered`       | Paths that still need conversation review.              |
 | `warnings`        | Untrusted evidence, such as an invalid recorded grant.  |
 
-Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Receipt ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 

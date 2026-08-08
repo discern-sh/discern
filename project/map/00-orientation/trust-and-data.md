@@ -29,15 +29,15 @@ With recording on and the project's `discern.toml` readable, discern records one
 
 The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own Gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 
-## Receipt notes: local record, optional transport
+## Proof notes: local record, optional transport
 
-A green landing records a DSSE-compatible Receipt note under `refs/notes/discern`. Its Base64 payload separates structured result facts from human presentation and excludes runtime telemetry ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). `signatures: []` records no signature. discern performs no signing or identity verification today. A future policy will decide which signing keys to trust.
+A green landing records a DSSE-compatible Proof note under `refs/notes/discern`. Its Base64 payload separates structured result facts from human presentation and excludes runtime telemetry ([ADR 0253](../_adr/0253-durable-proofs-project-runtime-receipts.md)). `signatures: []` records no signature. discern performs no signing or identity verification today. A future policy will decide which signing keys to trust.
 
 Older bare and pre-correction notes still read. The note is authored by `discern <done@discern.sh>` unless `DISCERN_NO_ATTRIBUTION` asks Git to use the repository identity instead. Delete one with `git notes --ref=discern remove <commit>`, or delete the local channel with `git update-ref -d refs/notes/discern`.
 
-This local record is on by default. It changes no remote setting and sends nothing anywhere. `[repository].receipt_notes = "fetch"` separately opts into transport: refresh adds a fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no Receipt note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote Receipt history. discern still makes no network request.
+This local record is on by default. It changes no remote setting and sends nothing anywhere. `[repository].proof_notes = "fetch"` separately opts into transport: refresh adds a fetch mapping into `refs/discern/remotes/<remote>/notes`. The mapping remains valid when a remote has no Proof note, including before its first publication and after deletion. Your ordinary `git fetch` can carry the remote Proof history. discern still makes no network request.
 
-There is no push mapping. Configuring one would change plain `git push`, so publishing stays explicit. GitHub stores the ref but does not show it on commit pages. Branch and tag CI triggers ignore a notes-only push; raw push webhooks may still observe it. [Receipt notes](../20-quality-gate/receipt-notes.md) has the commands and recovery.
+There is no push mapping. Configuring one would change plain `git push`, so publishing stays explicit. GitHub stores the ref but does not show it on commit pages. Branch and tag CI triggers ignore a notes-only push; raw push webhooks may still observe it. [Proof notes](../20-quality-gate/proof-notes.md) has the commands and recovery.
 
 ## Gate verbs run your configured commands
 

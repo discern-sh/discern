@@ -175,11 +175,11 @@ A file discern may seed once, then leaves for the project to edit in place. `dis
 
 ### Receipt
 
-The review claim `discern done` emits after a clean, committed worktree passes the full gate. It includes a one-line summary the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-receipt.md).
+The review claim `discern done` emits after a clean, committed worktree passes the full gate. It includes a one-line summary the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-proof.md).
 
 ### Receipt note
 
-The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/receipt-notes.md).
+The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/proof-notes.md).
 
 ### Schema version
 

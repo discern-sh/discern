@@ -14,7 +14,7 @@ _Install discern, set up your repository, and take one real change through the p
 
 You need a Git repository, a supported coding agent, and macOS, Linux, or WSL2. discern is a self-contained binary. The project does not need Deno or Node to run discern.
 
-Start with the [quickstart](quickstart.md). It is the shortest path from installation to a reviewed change on your trunk. The [walkthrough](walkthrough.md) then explains the consent, branch, Gate, Receipt, and review boundaries you encounter while an agent works.
+Start with the [quickstart](quickstart.md). It is the shortest path from installation to a reviewed change on your trunk. The [walkthrough](walkthrough.md) then explains the consent, branch, Gate, Proof, and review boundaries you encounter while an agent works.
 
 When you already know the outcome you need, open [Tasks by lifecycle](tasks.md). It routes installation, worktree, Gate, guidance, Skill, Standard, and handoff tasks to the page that owns each procedure.
 

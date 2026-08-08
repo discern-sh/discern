@@ -114,7 +114,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/test-slots/`                          | repository | Fleet test-run cap lock files.                                                                                      |
 | `discern/desk/tips.json`                       | repository | Desk tip evidence.                                                                                                  |
 | `discern/temp-artifact-sweep`                  | repository | Temp-retention sweep stamp and cursor.                                                                              |
-| `discern/gate-receipt`                         | worktree   | Receipt from a clean `done` run.                                                                                    |
+| `discern/gate-proof`                           | worktree   | Proof from a clean `done` run.                                                                                      |
 | `discern/last-gate-run`                        | worktree   | Last gate verdict.                                                                                                  |
 | `discern/standard-measurements`                | worktree   | Reusable measurements.                                                                                              |
 | `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                                                                              |

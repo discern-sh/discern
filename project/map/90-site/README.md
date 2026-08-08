@@ -69,16 +69,16 @@ The exhaustive canonical HTML set is the result of [`liveHtmlRoutes(site)`](../.
 
 Each product-guidance row records its section landing and, after the colon, every leaf appended to that route:
 
-| Section route              | Frozen leaf suffixes                                                                                   |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `/docs/orientation`        | `concepts`, `design-principles`, `trust-and-data`, `system-map`, `glossary`                            |
-| `/docs/getting-started`    | `quickstart`, `walkthrough`, `after-setup`, `faq`, `upgrade-discern`                                   |
-| `/docs/quality-gate`       | `when-the-gate-fails`, `standards`, `the-receipt`, `strand-detection`, `ci`, `improvement`, `coupling` |
-| `/docs/worktrees`          | `lifecycle`, `the-resources`, `identity-and-env`, `team-workflow`, `the-desk`                          |
-| `/docs/agent-guidance`     | `write-project-guidance`, `compile-and-check-guidance`                                                 |
-| `/docs/skills`             | `what-a-skill-is`, `bundled-skills`, `author-a-skill`, `customize-or-exclude`, `teach-the-project`     |
-| `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                           |
-| `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs`  |
+| Section route              | Frozen leaf suffixes                                                                                  |
+| -------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `/docs/orientation`        | `concepts`, `design-principles`, `trust-and-data`, `system-map`, `glossary`                           |
+| `/docs/getting-started`    | `quickstart`, `walkthrough`, `after-setup`, `faq`, `upgrade-discern`                                  |
+| `/docs/quality-gate`       | `when-the-gate-fails`, `standards`, `the-proof`, `strand-detection`, `ci`, `improvement`, `coupling`  |
+| `/docs/worktrees`          | `lifecycle`, `the-resources`, `identity-and-env`, `team-workflow`, `the-desk`                         |
+| `/docs/agent-guidance`     | `write-project-guidance`, `compile-and-check-guidance`                                                |
+| `/docs/skills`             | `what-a-skill-is`, `bundled-skills`, `author-a-skill`, `customize-or-exclude`, `teach-the-project`    |
+| `/docs/agent-integrations` | `claude-code`, `codex`, `gemini`, `cursor`, `github-copilot`                                          |
+| `/docs/reference`          | `cli-reference`, `config-reference`, `mcp-and-results`, `artifact-ownership`, `platforms-and-prereqs` |
 
 The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `/llms-full.txt`, `/sitemap.xml`, `/robots.txt`, and `/.well-known/security.txt` — `/install` serves the repository's own `install.sh` byte-for-byte and joined the set with ADR 0156. `/docs.md` and the `.md` form of every guidance and decision route share the corresponding canonical HTML page's identity and redirect behavior.
 

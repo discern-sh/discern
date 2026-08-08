@@ -35,4 +35,4 @@ Commands the Gate runs resolve `discern` to the engine that started them through
 
 ## Removal
 
-Runtime state under `.git/discern/` includes the Logbook, Receipts, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files and ownership](artifact-ownership.md) lists every registered path and its lifetime.
+Runtime state under `.git/discern/` includes the Logbook, Proofs, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files and ownership](artifact-ownership.md) lists every registered path and its lifetime.

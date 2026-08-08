@@ -37,7 +37,7 @@ discern is a self-contained binary on your `PATH`; its engine requires `git`. An
 
 ## The loop
 
-An agent begins with `discern status`, which reports the current state and next action without changing the tree. The agent starts a worktree, makes the change, and iterates with `discern prepare`. `discern done` runs the final Gate. A clean, committed tree that passes produces a review claim for that exact commit (a Receipt). The agent reports the change and Receipt, then waits for your review. The branch lands only with recorded authority.
+An agent begins with `discern status`, which reports the current state and next action without changing the tree. The agent starts a worktree, makes the change, and iterates with `discern prepare`. `discern done` runs the final Gate. A clean, committed tree that passes produces a review claim for that exact commit (a Proof). The agent reports the change and Proof, then waits for your review. The branch lands only with recorded authority.
 
 From the main checkout, bare `discern` opens the human view over work in progress (the [Desk](glossary.md#desk)). `Start a task` creates and readies a worktree, then its action menu can open a configured coding-agent CLI there. The Desk also surveys, inspects, updates, lands, enters, or discards the current fleet without requiring you to copy branch names between commands.
 

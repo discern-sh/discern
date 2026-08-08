@@ -17,7 +17,7 @@ The repository's final quality check (the Gate) defines done. It checks that the
 
 Use `discern prepare` while you work, and once more before your final commit, so the mutating stages have nothing left to rewrite. It runs the fix jobs, regenerates every declared `generated:<name>` job, then runs the checks. Its terminal table tracks those jobs from `pending` through `running` to their outcomes. `--plain` and CI make it static. Streams and pipes keep their transcript. A successful result names the omitted build jobs and tests, including an empty fix or check configuration.
 
-Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a Receipt for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
+Use `discern done` on the intended final commit. A green run on a clean branch ahead of trunk records a Proof for review ([ADR 0114](../_adr/0114-the-gate-emits-the-receipt.md)).
 
 For the JSON fields and agent-facing tool contract, use [MCP tools & results](../70-reference/mcp-and-results.md).
 
@@ -25,8 +25,8 @@ For the JSON fields and agent-facing tool contract, use [MCP tools & results](..
 | ------------------------------------------------- | --------------------------------------------------------------------------- |
 | [When the gate fails](when-the-gate-fails.md)     | Read a red result and take the shortest route to the fix.                   |
 | [Standards](standards.md)                         | Hold a metric floor or ceiling and respond when it fires.                   |
-| [The Receipt](the-receipt.md)                     | Read the review evidence a clean green run records for one commit.          |
-| [Receipt notes](receipt-notes.md)                 | Carry a landed Receipt with its trunk commit and opt into fetch transport.  |
+| [The Proof](the-proof.md)                         | Read the review evidence a clean green run records for one commit.          |
+| [Proof notes](proof-notes.md)                     | Carry a landed Proof with its trunk commit and opt into fetch transport.    |
 | [Strand detection](strand-detection.md)           | Fix tracked files a gate stage changed after the final commit.              |
 | [Run the gate in CI](ci.md)                       | Require the same gate on pull requests and trunk pushes.                    |
 | [Continuous improvement](improvement.md)          | Find the highest-value practice to improve after the current change passes. |

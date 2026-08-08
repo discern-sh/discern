@@ -19,19 +19,19 @@ _Hold a call for the work you need. If the transport must return first, continue
 
 Pass one condition per call:
 
-| Condition           | Holds when                                                                                                | Grounded in               |
-| ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `--green <branch>`  | The worktree holds an honored Gate Receipt, or a landed Receipt note records acceptance.                  | Gate and landing Receipts |
-| `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry              |
-| `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself      |
+| Condition           | Holds when                                                                                                | Grounded in             |
+| ------------------- | --------------------------------------------------------------------------------------------------------- | ----------------------- |
+| `--green <branch>`  | The worktree holds a valid Gate Proof, or a landed Proof note records acceptance.                         | Gate and landing Proofs |
+| `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry            |
+| `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself    |
 
 Verdicts come from the state named in the table. The Logbook wakes the wait but never decides the condition ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
-Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk Receipt note. Without one, it refuses.
+Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk Proof note. Without one, it refuses.
 
-Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as Gate evidence. If that branch commits and lands between evaluations, its durable Receipt note identifies the validated work after cleanup.
+Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as Gate evidence. If that branch commits and lands between evaluations, its durable Proof note identifies the validated work after cleanup.
 
-`--green` refuses when no checkout holds the branch at call start. Its per-worktree Gate Receipt disappears with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
+`--green` refuses when no checkout holds the branch at call start. Its per-worktree Gate Proof disappears with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
 
 ## Use the longest reliable call
 
@@ -81,7 +81,7 @@ If the dependent has no worktree yet, wait from the main checkout:
 discern await --green agent/upload-retry-a1b2c3
 ```
 
-Follow the returned met hint. A live green Receipt uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews files changed by both branches.
+Follow the returned met hint. A live green Proof uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews files changed by both branches.
 
 The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact-branch resolution, an uninterrupted wait, and the composition step. A staged brief names the Skill instead of restating the contract.
 
@@ -101,4 +101,4 @@ The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill pa
 - A condition that is not met saves its continuation before the blocking wait. A Git directory without write access produces a refusal before the wait begins.
 - The Logbook can be off; polling still evaluates every condition.
 - Provider timeout changes take effect after `discern refresh` rewrites the MCP entry and the client restarts it.
-- A failed Receipt-note write can leave a green landing inside a retry gap without durable evidence. `await` stays not met instead of inferring from an unrelated trunk move.
+- A failed Proof-note write can leave a green landing inside a retry gap without durable evidence. `await` stays not met instead of inferring from an unrelated trunk move.

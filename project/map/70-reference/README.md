@@ -29,7 +29,7 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [CLI reference](cli-reference.md)                                         | Find every visible command, subcommand, positional argument, and flag.                   |
 | [`discern.toml` reference](config-reference.md)                           | Find every section, key, type, default, and repeatable named table.                      |
 | [MCP tools & results](mcp-and-results.md#compatibility-by-schema-version) | Integrate with tools, resources, result envelopes, schemas, and exit codes.              |
-| [Receipt note format](receipt-note-format.md)                             | Consume the durable Receipt record attached to each landed commit.                       |
+| [Proof note format](proof-note-format.md)                                 | Consume the durable Proof record attached to each landed commit.                         |
 | [Files & ownership](artifact-ownership.md)                                | See what discern writes, who may edit or overwrite it, Git treatment, and removal rules. |
 | [Licenses for project payloads](project-payload-license.md)               | See where Apache-2.0 begins and ends for discern-authored material.                      |
 | [The Logbook](the-logbook.md)                                             | See what discern records about its own runs, and read, delete, or disable it.            |

@@ -17,7 +17,7 @@ This subtree documents the public worktree workflow: isolation, identity, resour
 | `identity-and-env.md`      | Worktree ids, ports, environment values, and runtime discovery; `order: 40`.       |
 | `team-workflow.md`         | Fleet ownership and composing concurrent branches; `order: 50`.                    |
 | `multi-repo-workspaces.md` | Repository boundaries, registries, umbrellas, and submodules; `order: 60`.         |
-| `status.md`                | Local and fleet status, receipts, collisions, and session hints; `order: 70`.      |
+| `status.md`                | Local and fleet status, proofs, collisions, and session hints; `order: 70`.        |
 | `the-desk.md`              | The human fleet supervisor and its legal actions; `order: 80`.                     |
 | `landing-authority.md`     | Conversation consent and recorded grants across the lifecycle; `order: 90`.        |
 | `acceptance-recovery.md`   | Interrupted landing evidence, reconciliation, and partial results; `order: 100`.   |
@@ -34,17 +34,17 @@ This subtree documents the public worktree workflow: isolation, identity, resour
 ## Area owned
 
 - The public worktree lifecycle, fleet ownership model, identity, resources, status, desk, landing authority, and handoff workflow.
-- The relationship between a worktree's branch, the trunk, its receipt, and the evidence that authorizes landing.
+- The relationship between a worktree's branch, the trunk, its proof, and the evidence that authorizes landing.
 
 ## Existing-doc content to preserve
 
 - `lifecycle.md` keeps the complete setup order, update convergence, landing preconditions, and cleanup behavior.
-- `hand-work-back.md` keeps the receipt-first review workflow and dependent follow-on composition.
+- `hand-work-back.md` keeps the proof-first review workflow and dependent follow-on composition.
 - `multi-repo-workspaces.md` keeps one discern install per repository as its boundary.
 
 ## Known overlaps / handoffs
 
-- **`../20-quality-gate/`** owns gate scheduling, standards, and receipt construction. This subtree owns how a receipt participates in handoff and acceptance.
+- **`../20-quality-gate/`** owns gate scheduling, standards, and proof construction. This subtree owns how a proof participates in handoff and acceptance.
 - **`../50-engine-internals/`** owns the implementation architecture behind lifecycle plans and results.
 - **`../70-reference/`** owns exact CLI, config, MCP, and result-field contracts.
 

@@ -47,25 +47,25 @@ Human, JSON, and MCP tool forms share one result. `structuredContent` is machine
 
 ## Model Context Protocol tools
 
-| Tool                  | Purpose                                                                                                  | Effect contract                                                 |
-| --------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `discern_status`      | Report the current branch, Gate inputs, Standards, Receipt, fleet state, and verified landing authority. | Read-only and idempotent.                                       |
-| `discern_start`       | Create and set up a new isolated worktree, then report its prospective landing authority.                | Mutating; each successful call creates a new worktree.          |
-| `discern_done`        | Run the full Gate and return steps, diagnostics, an optional Receipt, and verified landing authority.    | Runs project commands; fix-stage commands may rewrite.          |
-| `discern_prepare`     | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                      | Runs project commands; fixers and regenerations may rewrite.    |
-| `discern_test`        | Run the configured test job on its own.                                                                  | Runs a project command.                                         |
-| `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                             | Mutating and idempotent for the same inputs.                    |
-| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.    | Read-only and idempotent; timeouts return a normal result.      |
-| `discern_standards`   | Measure Standards, compare limits, and optionally pin improvements.                                      | Runs project commands; pinning changes and commits config.      |
-| `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                      | Destructive; requires conversation consent or a verified grant. |
-| `discern_impact`      | List the scopes the current change activates.                                                            | Read-only and idempotent.                                       |
-| `discern_coupling`    | Report historical co-change partners for the current diff or named files.                                | Read-only, idempotent, and advisory.                            |
-| `discern_patterns`    | Report findings from the local Logbook of discern's own verb runs.                                       | Read-only, idempotent, and advisory.                            |
-| `discern_refresh`     | Rebuild generated Guidance, Skills, integrations, and the ADR index.                                     | Mutating, closed-world, and idempotent.                         |
-| `discern_map`         | Index, search, or read the project's agent-maintained Map.                                               | Read-only and idempotent.                                       |
-| `discern_docs`        | Index, search, or read discern's bundled public manual.                                                  | Read-only, idempotent, and project-independent.                 |
-| `discern_doctor`      | Check config, commands, repository shape, and integration health.                                        | Read-only and idempotent.                                       |
-| `discern_improvement` | Rank the next improvement and return the supporting health audit.                                        | Read-only and idempotent.                                       |
+| Tool                  | Purpose                                                                                                | Effect contract                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `discern_status`      | Report the current branch, Gate inputs, Standards, Proof, fleet state, and verified landing authority. | Read-only and idempotent.                                       |
+| `discern_start`       | Create and set up a new isolated worktree, then report its prospective landing authority.              | Mutating; each successful call creates a new worktree.          |
+| `discern_done`        | Run the full Gate and return steps, diagnostics, an optional Proof, and verified landing authority.    | Runs project commands; fix-stage commands may rewrite.          |
+| `discern_prepare`     | Run the fix stage, `[generated]` regenerations, and checks for the fast inner loop.                    | Runs project commands; fixers and regenerations may rewrite.    |
+| `discern_test`        | Run the configured test job on its own.                                                                | Runs a project command.                                         |
+| `discern_update`      | Merge the selected base into this branch and re-materialize generated files.                           | Mutating and idempotent for the same inputs.                    |
+| `discern_await`       | Block until a sibling branch is green, its work lands, or the trunk moves, then report the next step.  | Read-only and idempotent; timeouts return a normal result.      |
+| `discern_standards`   | Measure Standards, compare limits, and optionally pin improvements.                                    | Runs project commands; pinning changes and commits config.      |
+| `discern_accept`      | Land an authorized worktree and tear down its resources and branch.                                    | Destructive; requires conversation consent or a verified grant. |
+| `discern_impact`      | List the scopes the current change activates.                                                          | Read-only and idempotent.                                       |
+| `discern_coupling`    | Report historical co-change partners for the current diff or named files.                              | Read-only, idempotent, and advisory.                            |
+| `discern_patterns`    | Report findings from the local Logbook of discern's own verb runs.                                     | Read-only, idempotent, and advisory.                            |
+| `discern_refresh`     | Rebuild generated Guidance, Skills, integrations, and the ADR index.                                   | Mutating, closed-world, and idempotent.                         |
+| `discern_map`         | Index, search, or read the project's agent-maintained Map.                                             | Read-only and idempotent.                                       |
+| `discern_docs`        | Index, search, or read discern's bundled public manual.                                                | Read-only, idempotent, and project-independent.                 |
+| `discern_doctor`      | Check config, commands, repository shape, and integration health.                                      | Read-only and idempotent.                                       |
+| `discern_improvement` | Rank the next improvement and return the supporting health audit.                                      | Read-only and idempotent.                                       |
 
 Every project-operating tool accepts an optional `path` that selects the discern project or worktree for that call. Pass an absolute filesystem path anywhere inside the intended checkout, including another repository in a multi-repo workspace. discern resolves the project root. Omit `path` to use the checkout the MCP server currently targets. Relative paths are rejected because the server's process directory is not the caller's directory. `discern_docs` needs no project. After a successful `discern_start`, later calls use the new worktree by default. After `discern_accept` removes that worktree, the server re-aims at the surviving main checkout.
 
@@ -113,9 +113,9 @@ Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`
 
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
-`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_receipt`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `receipt_honored`, `receipt`, and `receipt_line` fields. When Git can read the latest landed Receipt's subject, `data.landed_receipt.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
+`status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `proof_honored`, `proof`, and `proof_line` fields. When Git can read the latest landed Proof's subject, `data.landed_proof.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
 
-A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.receipt_line` derives from the validated Receipt line and appends that consent evidence.
+A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.proof_line` derives from the validated Proof line and appends that consent evidence.
 
 ### Plans and executed steps
 

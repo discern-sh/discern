@@ -12,7 +12,7 @@ Include:
 
 Do not send credentials, private keys, personal data, or unrelated confidential material. If a proof needs sensitive data, describe what is needed before sharing it.
 
-We will confirm receipt, investigate the report, and coordinate disclosure with you. We will credit you unless you prefer to remain anonymous.
+We will acknowledge your report, investigate it, and coordinate disclosure with you. We will credit you unless you prefer to remain anonymous.
 
 ## What is in scope
 

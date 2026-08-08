@@ -33,7 +33,7 @@ Standard trajectories render a `▁▂▃▄▅▆▇█` sparkline with exact e
 
 The closing account names clear and young detectors. `--json` keeps findings ranked with their observation, scope, counts, next step, and optional `series`; `data.findings_total` joins when the bound elided findings. `data.detectors` accounts for the registry; `data.population` carries the driver split.
 
-`patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings appear after a qualifying green Receipt, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The Receipt waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
+`patterns` runs every detector, including batch detectors that need longitudinal history. Inline detectors also appear on the working command named by their scope: branch findings appear after a qualifying green Proof, session findings join `status` hints, and project findings form the advisory history group in `improvement`. The Proof waits for 1 event beyond the registry threshold and prints no more than 1 finding line ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)).
 
 An empty Logbook is a normal state, and the report identifies it. A repository that never recorded, or opted out with `[project].logbook = false`, still gets a readable answer.
 

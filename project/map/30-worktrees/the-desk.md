@@ -27,11 +27,11 @@ After creation, the desk opens the new row's action menu immediately. Open its s
 
 ## Read the decision order
 
-The Desk builds its rows from `discern status` and the recorded Gate Receipts. It groups active work by the decision it needs:
+The Desk builds its rows from `discern status` and the recorded Gate Proofs. It groups active work by the decision it needs:
 
 | Group           | Included worktrees                                            |
 | --------------- | ------------------------------------------------------------- |
-| Ready to land   | Clean, ahead, current with trunk, honored Receipt.            |
+| Ready to land   | Clean, ahead, current with trunk, valid Proof.                |
 | In flight       | Readable, active, behind trunk, or awaiting Gate.             |
 | Needs attention | Broken, unreadable, or stale worktrees that still carry work. |
 
@@ -62,7 +62,7 @@ The action menu separates **Landing**, **Work in this task**, **Review**, and **
 
 Every action echoes its CLI equivalent and calls the same core as the command. A landing pre-authorization belongs only to the selected effort: `accept` consumes it; revoke, drop, prune, and orphan cleanup remove it. Drop receives the selected row's absolute path. Dropping uncommitted or unlanded work requires the branch name typed back before the desk applies force.
 
-Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row: a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, Gate Receipt included). The core re-validates the predicate before acting.
+Reclaim appears only on a [contained](reclaiming-contained-worktrees.md) row: a spent `start --from` stage whose commits travel inside the live branch the row names. Its confirmation names what survives (the branch ref) and what the reclaim destroys (the checkout and its per-worktree state, Gate Proof included). The core re-validates the predicate before acting.
 
 Project Scripts use one picker and process contract. The root action runs from the main checkout with `DISCERN_ROOT` set there; the selected-task action runs from that worktree. Both inherit the terminal and return to a fresh survey. Ctrl-C, SIGTERM, or SIGHUP stops the owned process group first ([ADR 0159](../_adr/0159-inherited-terminal-children-have-one-owned-lifecycle.md)). Background jobs remain caller-owned.
 

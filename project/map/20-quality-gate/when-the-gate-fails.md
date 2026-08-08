@@ -19,7 +19,7 @@ The terminal tail names the failed command: `discern done`, `discern prepare`, o
 
 <!-- discern-workflow:result-summary -->
 
-**Failed:** A stage or precondition stopped the Gate before it could issue a review Receipt.
+**Failed:** A stage or precondition stopped the Gate before it could issue a review Proof.
 
 **Next action:** Run `reproduce_cmd` from the first diagnostic, fix the reported problem, then return to `discern done`.
 

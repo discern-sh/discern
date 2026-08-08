@@ -68,7 +68,7 @@ jobs:
 
   macos:
     name: macOS gate
-    # Private development already carries local macOS gate receipts. Keep the
+    # Private development already carries local macOS gate proofs. Keep the
     # hosted lane for public changes; releases repeat it before publication.
     if: github.event.repository.private == false
     runs-on: macos-15

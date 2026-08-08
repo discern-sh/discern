@@ -68,7 +68,7 @@ An owner may loosen a limit directly on trunk ([ADR 0003](../_adr/0003-named-met
 
 ## Capture an improvement
 
-`discern standards --pin coverage` reuses a Receipt or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
+`discern standards --pin coverage` reuses a Proof or measures, uses `margin`, tightens `coverage`, and commits `discern.toml`. The commit keeps your Git identity and adds `discern` as a co-author because discern composed the diff ([ADR 0203](../_adr/0203-discern-co-authors-only-commits-it-composes.md)). A write-access probe runs first. A denial returns `error = "write_access"` ([ADR 0152](../_adr/0152-slow-workflows-prove-write-authority-first.md)).
 
 Pin records a clean `HEAD` before reading values and rechecks before editing. A mismatch writes nothing. Restore a stable `HEAD` and rerun. You can pin behind trunk. A hint says the values describe that tree, the limit may fail after `discern update`, and recommends updating first.
 
@@ -87,4 +87,4 @@ Pin records a clean `HEAD` before reading values and rechecks before editing. A 
 ## Current state & gotchas
 
 - `inputs` is a correctness boundary: omitting a file the metric reads can replay a stale value.
-- An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and receipt. Fetch trunk where standards run.
+- An unreadable trunk produces a prominent `UNVERIFIED` warning; the gate records it in the result and proof. Fetch trunk where standards run.

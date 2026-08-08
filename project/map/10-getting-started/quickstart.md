@@ -63,13 +63,13 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 1. **Start the worktree.** The agent runs `discern start` and gets an isolated checkout on an `agent/…` branch without editing the main checkout.
 2. **Make the change.** It edits and checks the requested work inside that worktree.
 3. **Run the full Gate.** It runs `discern done`. The Gate runs the format, build, lint, and test commands declared in `discern.toml`. A failure gives the agent the failing command and its output.
-4. **Report the result.** On green, the agent ends its report with the one-line Receipt and waits. Read the full Receipt with `discern status --verbose`.
+4. **Report the result.** On green, the agent ends its report with the one-line Proof and waits. Read the full Proof with `discern status --verbose`.
 
-**You are done when:** The reviewed branch and its Receipt have been authorized, and `discern accept` has fast-forwarded the trunk.
+**You are done when:** The reviewed branch and its Proof have been authorized, and `discern accept` has fast-forwarded the trunk.
 
 <!-- /discern-workflow -->
 
-Review the branch. When you authorize landing, the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance honors the Receipt while the branch remains unchanged. A later commit invalidates the Receipt, so the agent must run `discern done` again.
+Review the branch. When you authorize landing, the agent runs `discern accept`, which fast-forwards your trunk to the reviewed branch and removes the worktree ([ADR 0110](../_adr/0110-the-landing-model.md)). Acceptance reuses the Proof while the branch remains unchanged. A later commit invalidates the Proof, so the agent must run `discern done` again.
 
 To drive the handoff yourself, run bare `discern` from the main checkout. The human view over work in progress ([the Desk](../30-worktrees/the-desk.md)) can start the task, open a configured coding-agent CLI found on `PATH` in its new worktree, and present the valid actions through review and landing.
 

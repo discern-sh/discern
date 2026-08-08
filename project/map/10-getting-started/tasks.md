@@ -53,6 +53,6 @@ Use the fast loop while editing. Run the project's final quality check (the Gate
 
 A green Gate begins review. The owner still decides whether the branch lands.
 
-| I want to…                | Go here                                                                                                                                           |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hand work back for review | [Report the branch and its Receipt](../30-worktrees/hand-work-back.md), wait for the owner's decision, then accept only with their authorization. |
+| I want to…                | Go here                                                                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hand work back for review | [Report the branch and its Proof](../30-worktrees/hand-work-back.md), wait for the owner's decision, then accept only with their authorization. |

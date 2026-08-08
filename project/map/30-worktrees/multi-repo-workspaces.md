@@ -14,7 +14,7 @@ aliases:
 
 _Each repository has its own install, linked to others through trunks, registries, or submodules._
 
-discern's unit is the repository. Each repository holds its own `discern.toml`, Gate, [trunk](../00-orientation/glossary.md#trunk), worktree fleet, and resource ledger. A workspace of several repositories runs an install in each one, and an agent session moves between them by passing `path` to the Model Context Protocol (MCP) tools ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)). [Parallel and team work](team-workflow.md) covers the mechanics. There is no workspace-level config. [Receipts](../00-orientation/glossary.md#receipt), Standards, and accepts never span repositories. A change that touches 2 repositories requires 2 worktrees, 2 Gate runs, and 2 landings.
+discern's unit is the repository. Each repository holds its own `discern.toml`, Gate, [trunk](../00-orientation/glossary.md#trunk), worktree fleet, and resource ledger. A workspace of several repositories runs an install in each one, and an agent session moves between them by passing `path` to the Model Context Protocol (MCP) tools ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)). [Parallel and team work](team-workflow.md) covers the mechanics. There is no workspace-level config. [Proofs](../20-quality-gate/the-proof.md), Standards, and accepts never span repositories. A change that touches 2 repositories requires 2 worktrees, 2 Gate runs, and 2 landings.
 
 ## Link sibling repositories through their trunks
 
@@ -66,5 +66,5 @@ ensure = ["git submodule update --init --recursive"]
 ## Current state and gotchas
 
 - Root discovery walks up from the working directory to the nearest `discern.toml` and does not stop at a repository boundary ([`src/shared/env.ts`](../../../src/shared/env.ts)). A repo without its own config, nested under a directory that has one, resolves to the outer project; `discern doctor`, run from the nested repo, discloses the crossing.
-- A consumer's Gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed, and the consumer's Receipt still describes only its own repository.
+- A consumer's Gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed, and the consumer's Proof still describes only its own repository.
 - `discern start` runs no submodule population of its own: the `[repository].ensure` command above is the supported path, and `start` hints at it when the fresh worktree carries a `.gitmodules` no configured command mentions.

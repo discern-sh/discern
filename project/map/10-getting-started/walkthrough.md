@@ -1,6 +1,6 @@
 ---
 title: Setup walkthrough
-description: Follow the setup conversation, verification run, first worktree, Gate Receipt, and reviewed landing in detail.
+description: Follow the setup conversation, verification run, first worktree, Gate Proof, and reviewed landing in detail.
 order: 30
 aliases:
   - walkthrough
@@ -55,7 +55,7 @@ In the fresh session, ask for a small, real change. The agent orients with `disc
 
 The agent edits and tests in that worktree. During iteration it can run `discern prepare`, the shorter loop of fixers, regenerations, and checks. For the intended final commit, it runs `discern done`. The full Gate runs the repository's configured commands and any triggered scope gates or Standards.
 
-On green, discern records a Receipt for the clean commit. The agent reports the change in its own words, ends with the one-line Receipt, and waits. Read the full Receipt with `discern status --verbose`, then review the branch. If you request another commit, the Receipt becomes stale and the agent must run `discern done` again.
+On green, discern records a Proof for the clean commit. The agent reports the change in its own words, ends with the one-line Proof, and waits. Read the full Proof with `discern status --verbose`, then review the branch. If you request another commit, the Proof becomes stale and the agent must run `discern done` again.
 
 When you approve the landing, the agent runs `discern accept`. It fast-forwards the reviewed branch onto the trunk, destroys any worktree resources, removes the worktree directory, and deletes the merged branch ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
