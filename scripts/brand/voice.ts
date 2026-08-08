@@ -441,7 +441,6 @@ Avoid repeated templates that have become recognizable model mannerisms:`,
         { id: "fleet", text: `Fleet` },
         { id: "deterministic", text: `deterministic` },
         { id: "owner", text: `owner` },
-        { id: "receipt", text: `receipt` },
         { id: "canon", text: `canon` },
       ],
       outro: `Read the remaining copy.
@@ -774,17 +773,16 @@ First use may include a plain-language explanation:
 
 After introduction, use the canonical term.
 
-### Proof migration
+### Proof
 
-Until the product migration is complete:
+**Proof** is the canonical term for discern's completion evidence:
 
-- treat **Receipt** as the current internal/product term;
-- treat **Proof** as the v1 launch term;
-- avoid mixed output in one surface;
-- define the technical record beneath the human artifact separately if needed;
-- keep the claim scoped to the declared Gate over the exact tree.
+- call the one-line form the **proof line**;
+- call the durable Git-note record a **proof note**;
+- keep the claim scoped to the declared Gate over the exact tree;
+- use the same term across CLI, JSON/MCP, documentation, tips, and hints.
 
-Do not mechanically create awkward phrases such as “honored Proof” without reviewing the resulting language.`,
+Review sentences around the machine state \`honored\` so they read naturally; in human copy, prefer “a valid proof” when that is the intended meaning.`,
     }, {
       kind: "rules",
       id: "sentence-design",

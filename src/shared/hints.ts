@@ -46,7 +46,7 @@ const CMD = {
   setupDone: discernCommand("setup done"),
 } as const;
 
-/** The owner's receipt-pull command — CLI-spelled on every surface because
+/** The owner's proof-pull command — CLI-spelled on every surface because
  * the executor is the human owner at a terminal, never the reading agent. */
 const OWNER_STATUS_VERBOSE = ownerDiscernCommand("status", flag("verbose"));
 
@@ -784,29 +784,29 @@ export const HINTS = {
       `user-requested landing. This branch is committed and up to date with ${trunk}.`,
   }),
 
-  /** Agent-audience: every fact here (clean HEAD, honored receipt, up to
+  /** Agent-audience: every fact here (clean HEAD, valid proof, up to
    * date) already renders in the interactive summary lines, and the
    * instructions — report, close with the line, wait, land only on an explicit
    * ask — are the agent's consent workflow, not a person's. The composition
-   * contract (account first, one-line receipt last, page stays with discern)
+   * contract (account first, one-line proof last, page stays with discern)
    * is ADR 0188's. */
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
     id: "status-ready-for-review",
     category: "next-step",
     audience: "agent",
-    when: "A clean, current branch has an honored gate receipt.",
+    when: "A clean, current branch has an honored gate proof.",
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words and end with the ` +
-      `receipt in \`data.gate_proof.proof_line\` verbatim, then wait. This ` +
+      `proof in \`data.gate_proof.proof_line\` verbatim, then wait. This ` +
       `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
-      `full receipt: your owner pulls it with ${OWNER_STATUS_VERBOSE}, ` +
+      `full proof: your owner pulls it with ${OWNER_STATUS_VERBOSE}, ` +
       `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
       `${CMD.accept} only after the user explicitly asks you to land it.`,
   }),
 
-  /** A ready receipt whose exact tree the authority resolver covered. */
+  /** A ready proof whose exact tree the authority resolver covered. */
   "status-land-under-verified-authority": defineHint<{
     source: LandingConsentSource;
     scopes: readonly string[];
@@ -815,18 +815,18 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A clean, current branch has an honored receipt and machine-verified landing authority.",
+      "A clean, current branch has a valid proof and machine-verified landing authority.",
     family: "landing-authority",
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and the clean HEAD has an honored receipt. Run ${CMD.accept} now to land it; the command rechecks the grant at the fast-forward boundary.`
+        ? `The owner pre-authorized this landing at the desk, and the clean HEAD has a valid proof. Run ${CMD.accept} now to land it; the command rechecks the grant at the fast-forward boundary.`
         : `The clean HEAD is covered by the standing grant for ${
           scopes.join(", ")
-        } and has an honored receipt. Run ${CMD.accept} now to land it; the command rechecks every changed path at the fast-forward boundary.`,
+        } and has a valid proof. Run ${CMD.accept} now to land it; the command rechecks every changed path at the fast-forward boundary.`,
   }),
 
-  /** A ready receipt whose recorded standing grant does not cover every path. */
+  /** A ready proof whose recorded standing grant does not cover every path. */
   "status-ready-uncovered-authority": defineHint<{
     uncovered: readonly string[];
     warnings: readonly string[];
@@ -837,7 +837,7 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A clean, current branch has an honored receipt but recorded authority does not cover it.",
+      "A clean, current branch has a valid proof but recorded authority does not cover it.",
     family: "landing-authority",
     example: {
       uncovered: ["`src/main.ts` (scopes: engine)"],
@@ -853,17 +853,17 @@ export const HINTS = {
       } Inspect the raw change with \`git diff ${trunk}...${branch}\`.`,
   }),
 
-  "status-missing-done-receipt": defineHint<{ trunk: string }>({
-    id: "status-missing-done-receipt",
+  "status-missing-done-proof": defineHint<{ trunk: string }>({
+    id: "status-missing-done-proof",
     category: "next-step",
     audience: "all",
-    when: "A clean, current branch has no honored gate receipt.",
+    when: "A clean, current branch has no honored gate proof.",
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
       `Run ${CMD.done} before reporting the branch ready for review or a ` +
       `user-requested landing. This clean HEAD is committed and up to date with ` +
-      `${trunk}, but it has no honored gate receipt.`,
+      `${trunk}, but it has no honored gate proof.`,
   }),
 
   /**
@@ -1397,7 +1397,7 @@ export const HINTS = {
     id: "await-green-met",
     category: "next-step",
     audience: "all",
-    when: "`await --green` finds the awaited branch's receipt honored.",
+    when: "`await --green` finds the awaited branch's proof honored.",
     family: "await-met",
     example: {
       branch: "agent/upload-retry",
@@ -1405,7 +1405,7 @@ export const HINTS = {
       callerHasWorktree: true,
     },
     template: ({ branch, tip, callerHasWorktree }): string =>
-      `\`${branch}\` is green — its worktree holds an honored receipt. ` +
+      `\`${branch}\` is green — its worktree holds a valid proof. ` +
       (callerHasWorktree
         ? `Build on it with ${discernCommand("update", flag("from", tip))}. ` +
           "The immutable commit remains valid if acceptance deletes the branch."
@@ -1480,7 +1480,7 @@ export const HINTS = {
     audience: "all",
     when: "`await` times out before its condition holds.",
     example: {
-      summary: "`agent/upload-retry` has no honored receipt yet",
+      summary: "`agent/upload-retry` has no valid proof yet",
       seconds: 45,
       command: discernCommand(
         "await",
@@ -1496,7 +1496,7 @@ export const HINTS = {
   }),
 
   /** The honest refusal when `--green` is asked about a branch no checkout
-   * holds: the receipt lives in per-worktree state, destroyed with the
+   * holds: the proof lives in per-worktree state, destroyed with the
    * checkout (a reclaimed contained worktree is the usual shape), so the
    * condition can never become true — the pointer names the target that can
    * answer instead. */
@@ -1548,7 +1548,7 @@ export const HINTS = {
     when: "`await` is asked to watch a branch that does not exist.",
     example: { branch: "agent/upload-retry", trunk: "main" },
     template: ({ branch, trunk }): string =>
-      `Branch \`${branch}\` was not found, and no accepted receipt identifies ` +
+      `Branch \`${branch}\` was not found, and no accepted proof identifies ` +
       `it on \`${trunk}\`. It may not have started yet. Check ${CMD.status} ` +
       "and use the exact branch returned when it starts; never guess " +
       "a generated suffix.",
@@ -1653,18 +1653,17 @@ export const HINTS = {
   }),
 
   /**
-   * The receipt-tail finding: one strongest current-branch observation plus the
+   * The proof-tail finding: one strongest current-branch observation plus the
    * count and the route to the full evidence report.
    */
-  "logbook-receipt-finding": defineHint<{
+  "logbook-proof-finding": defineHint<{
     count: number;
     observed: string;
   }>({
-    id: "logbook-receipt-finding",
+    id: "logbook-proof-finding",
     category: "next-step",
     audience: "all",
-    when:
-      "A gate receipt carries the strongest current-branch logbook finding.",
+    when: "A gate proof carries the strongest current-branch logbook finding.",
     family: "logbook-inline-finding",
     example: {
       count: 2,
@@ -1689,7 +1688,7 @@ export const HINTS = {
     family: "logbook-inline-finding",
     example: {
       observed: "The same worktree has been refused 3 times.",
-      next: "Inspect its current branch and receipt.",
+      next: "Inspect its current branch and proof.",
     },
     template: ({ observed, next }): string =>
       `${next} Logbook finding: ${observed}`,
@@ -1839,76 +1838,76 @@ export const HINTS = {
       `not read the trunk (${reason}).`,
   }),
 
-  "gate-receipt-skipped-dirty": defineHint<{
+  "gate-proof-skipped-dirty": defineHint<{
     reason: string | undefined;
   }>({
-    id: "gate-receipt-skipped-dirty",
+    id: "gate-proof-skipped-dirty",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot record a receipt because the worktree is dirty.",
-    family: "gate-receipt",
+    when: "A green gate cannot record a proof because the worktree is dirty.",
+    family: "gate-proof",
     example: { reason: "2 tracked files changed" },
     template: ({ reason }): string =>
       `Use ${CMD.prepare} or ${CMD.test} while iterating. Then commit ` +
       `the intended final tree and re-run ${CMD.done} on the clean HEAD before ` +
-      `handoff or acceptance. The gate passed but recorded no receipt because ` +
+      `handoff or acceptance. The gate passed but recorded no proof because ` +
       `the worktree is dirty${reasonSuffix(reason)}.`,
   }),
 
-  "gate-receipt-head-moved": defineHint<{ reason: string | undefined }>({
-    id: "gate-receipt-head-moved",
+  "gate-proof-head-moved": defineHint<{ reason: string | undefined }>({
+    id: "gate-proof-head-moved",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot record a receipt because the branch tip moved.",
-    family: "gate-receipt",
+    when: "A green gate cannot record a proof because the branch tip moved.",
+    family: "gate-proof",
     example: { reason: "HEAD changed from a1b2c3d to d4e5f6a" },
     template: ({ reason }): string =>
       `Re-run ${CMD.done} on the final commit before handoff or acceptance. ` +
-      `The gate passed but recorded no receipt because HEAD moved while it ran${
+      `The gate passed but recorded no proof because HEAD moved while it ran${
         reasonSuffix(reason)
-      }. A receipt can vouch only for the exact tree the gate tested.`,
+      }. A proof can vouch only for the exact tree the gate tested.`,
   }),
 
-  "gate-receipt-record-failed": defineHint<{
+  "gate-proof-record-failed": defineHint<{
     reason: string | undefined;
   }>({
-    id: "gate-receipt-record-failed",
+    id: "gate-proof-record-failed",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot write its receipt.",
-    family: "gate-receipt",
-    example: { reason: "the receipt file could not be written" },
+    when: "A green gate cannot write its proof.",
+    family: "gate-proof",
+    example: { reason: "the proof file could not be written" },
     template: ({ reason }): string =>
-      `Run ${CMD.done} again later to record a gate receipt. The gate passed, ` +
+      `Run ${CMD.done} again later to record a gate proof. The gate passed, ` +
       `but discern could not record one${reasonSuffix(reason)}. Until then, ` +
       `${CMD.accept} will re-run the gate.`,
   }),
 
-  "gate-receipt-unavailable": defineHint<{ reason: string | undefined }>({
-    id: "gate-receipt-unavailable",
+  "gate-proof-unavailable": defineHint<{ reason: string | undefined }>({
+    id: "gate-proof-unavailable",
     category: "notice",
     audience: "all",
-    when: "A green gate cannot prepare receipt state.",
-    family: "gate-receipt",
+    when: "A green gate cannot prepare proof state.",
+    family: "gate-proof",
     example: { reason: "write authority was not established" },
     template: ({ reason }): string =>
-      `Gate passed, but discern could not prepare the gate receipt${
+      `Gate passed, but discern could not prepare the gate proof${
         reasonSuffix(reason)
       }. ${CMD.accept} may need to re-run the gate.`,
   }),
 
-  "gate-receipt-clear-failed": defineHint<{
+  "gate-proof-clear-failed": defineHint<{
     reason: string | undefined;
   }>({
-    id: "gate-receipt-clear-failed",
+    id: "gate-proof-clear-failed",
     category: "next-step",
     audience: "all",
-    when: "The gate cannot clear an obsolete receipt.",
-    family: "gate-receipt",
-    example: { reason: "the receipt file could not be removed" },
+    when: "The gate cannot clear an obsolete proof.",
+    family: "gate-proof",
+    example: { reason: "the proof file could not be removed" },
     template: ({ reason }): string =>
       `Fix the failure, then re-run ${CMD.done}. discern could not clear the ` +
-      `previous gate receipt${reasonSuffix(reason)}.`,
+      `previous gate proof${reasonSuffix(reason)}.`,
   }),
 
   "done-unchanged-tree-red": defineHint({
@@ -1941,7 +1940,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `Run ${CMD.status} — this exact tree already passed ${CMD.done}, ` +
-      "and status shows the receipt's standing without re-running anything. " +
+      "and status shows the proof's standing without re-running anything. " +
       `To re-run the full gate on it anyway, run ${
         discernCommand("done", flag("confirmed"))
       }.`,
@@ -2279,36 +2278,36 @@ export const HINTS = {
   }),
 
   /** Green-gate humility: a passing gate is mechanical proof, not semantic
-   * proof. Fired only on a green run that emitted a receipt — the moment
+   * proof. Fired only on a green run that emitted a proof — the moment
    * "done" is about to be claimed. Carries the discipline of the retired
    * prove-it-works bundled skill (ADR 0173) at the moment it applies. */
   "gate-prove-it-works": defineHint({
     id: "gate-prove-it-works",
     category: "guardrail",
     audience: "agent",
-    when: "A green gate emits a receipt — before the agent offers it as done.",
+    when: "A green gate emits a proof — before the agent offers it as done.",
     example: undefined,
     template: (): string =>
-      "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
+      "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this proof as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
   }),
 
   /** The owner-consent step after a green gate. Agent-audience: reporting to an
    * owner and waiting is an agent's move — a person running `done` at a
    * terminal IS the owner, with nobody further to report to. The composition
-   * contract (account first, one-line receipt last, page stays with discern)
+   * contract (account first, one-line proof last, page stays with discern)
    * is ADR 0188's. */
-  "gate-relay-receipt": defineHint({
-    id: "gate-relay-receipt",
+  "gate-relay-proof": defineHint({
+    id: "gate-relay-proof",
     category: "next-step",
     audience: "agent",
-    when: "A successful gate records a receipt ready for owner review.",
+    when: "A successful gate records a proof ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with " +
+      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full proof: your owner pulls it with " +
       `${OWNER_STATUS_VERBOSE}. Run ${CMD.accept} only after they accept.`,
   }),
 
-  /** A green receipt whose exact tree the authority resolver covered. */
+  /** A green proof whose exact tree the authority resolver covered. */
   "gate-land-under-verified-authority": defineHint<{
     source: LandingConsentSource;
     scopes: readonly string[];
@@ -2317,18 +2316,18 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A successful gate records a receipt for a tree with machine-verified landing authority.",
+      "A successful gate records a proof for a tree with machine-verified landing authority.",
     family: "landing-authority",
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and the receipt covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
-        : `The receipt's clean HEAD is covered by the standing grant for ${
+        ? `The owner pre-authorized this landing at the desk, and the proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
+        : `The proof's clean HEAD is covered by the standing grant for ${
           scopes.join(", ")
         }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.proof_line\` afterward.`,
   }),
 
-  /** A green receipt whose recorded authority left changed paths uncovered. */
+  /** A green proof whose recorded authority left changed paths uncovered. */
   "gate-relay-uncovered-authority": defineHint<{
     uncovered: readonly string[];
     warnings: readonly string[];
@@ -2337,7 +2336,7 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A successful gate records a receipt but recorded authority does not cover its tree.",
+      "A successful gate records a proof but recorded authority does not cover its tree.",
     family: "landing-authority",
     example: {
       uncovered: ["`src/main.ts` (scopes: engine)"],
@@ -2348,7 +2347,7 @@ export const HINTS = {
         uncovered.length > 0 ? uncovered.join(", ") : "this landing"
       }.${
         warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Don't paste the full receipt: your owner pulls it with ${OWNER_STATUS_VERBOSE}.`,
+      } Don't paste the full proof: your owner pulls it with ${OWNER_STATUS_VERBOSE}.`,
   }),
 
   "gate-update-docs": defineHint({
@@ -2416,13 +2415,13 @@ export const HINTS = {
       "measurements. A pin dry-run measures nothing.",
   }),
 
-  /** A same-commit check receipt supplied every measurement for the pin pass. */
+  /** A same-commit check proof supplied every measurement for the pin pass. */
   "standards-pin-reused-measurements": defineHint({
     id: "standards-pin-reused-measurements",
     category: "notice",
     audience: "all",
     when:
-      "`standards --pin` reuses measurements from a same-commit check receipt.",
+      "`standards --pin` reuses measurements from a same-commit check proof.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -2466,28 +2465,28 @@ export const HINTS = {
       "Nothing to pin. Every selected standard already sits at its measured value within its margin.",
   }),
 
-  /** The limits-only pin commit inherited the honored receipt for its parent. */
-  "standards-pin-carried-receipt": defineHint({
-    id: "standards-pin-carried-receipt",
+  /** The limits-only pin commit inherited the valid proof for its parent. */
+  "standards-pin-carried-proof": defineHint({
+    id: "standards-pin-carried-proof",
     category: "notice",
     audience: "all",
-    when: "A limits-only pin commit inherits its parent's gate receipt.",
-    family: "standards-pin-receipt",
+    when: "A limits-only pin commit inherits its parent's gate proof.",
+    family: "standards-pin-proof",
     example: undefined,
     template: (): string =>
-      `The gate receipt now follows this pin commit. ${CMD.accept} will skip the redundant gate re-run.`,
+      `The gate proof now follows this pin commit. ${CMD.accept} will skip the redundant gate re-run.`,
   }),
 
-  /** The pin commit had no honored receipt available to carry forward. */
-  "standards-pin-no-receipt": defineHint({
-    id: "standards-pin-no-receipt",
+  /** The pin commit had no valid proof available to carry forward. */
+  "standards-pin-no-proof": defineHint({
+    id: "standards-pin-no-proof",
     category: "next-step",
     audience: "all",
-    when: "A pin commit has no honored gate receipt to carry forward.",
-    family: "standards-pin-receipt",
+    when: "A pin commit has no honored gate proof to carry forward.",
+    family: "standards-pin-proof",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. No current gate receipt was available to carry forward.`,
+      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. No current gate proof was available to carry forward.`,
   }),
 
   /** Standalone standards could not verify the branch limits against the trunk. */
@@ -2545,7 +2544,7 @@ export const HINTS = {
       measured: string;
       newLimit: number;
     }[];
-    receipted: boolean;
+    proofed: boolean;
   }>({
     id: "standards-pinnable-slack",
     category: "next-step",
@@ -2559,9 +2558,9 @@ export const HINTS = {
         measured: "92.4",
         newLimit: 92.4,
       }],
-      receipted: true,
+      proofed: true,
     },
-    template: ({ standards, receipted }): string => {
+    template: ({ standards, proofed }): string => {
       const shown = standards.slice(0, HINT_NAME_CAP);
       const slack = shown.map((standard) =>
         `${standard.name} (${standard.bound} ${standard.limit}, measured ${standard.measured}, pinning to ${standard.newLimit})`
@@ -2576,7 +2575,7 @@ export const HINTS = {
       return `Run ${
         discernCommand("standards", flag("pin"))
       } to capture pinnable slack: ${summary}.${overflow} ${
-        receipted
+        proofed
           ? "On this commit, the pin reuses this check's measurements"
           : "This check already measured, so no pin dry-run is needed"
       }.`;
@@ -2644,16 +2643,16 @@ export const HINTS = {
       "conversation; recorded standing and effort grants are checked directly.",
   }),
 
-  /** The status route to the receipt and raw diff needed for owner review. */
+  /** The status route to the proof and raw diff needed for owner review. */
   "accept-review-via-status": defineHint({
     id: "accept-review-via-status",
     category: "next-step",
     audience: "all",
-    when: "`accept` needs the receipt and diff surfaced by `status`.",
+    when: "`accept` needs the proof and diff surfaced by `status`.",
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.status} to get the honored receipt for the owner's review ` +
+      `Run ${CMD.status} to get the valid proof for the owner's review ` +
       "(data.gate_proof.proof) and the exact `git diff` command for the raw " +
       "change.",
   }),
@@ -2691,11 +2690,11 @@ export const HINTS = {
 
   /** A successful acceptance exposes the system-rendered line for the agent's
    * report and the full page as the durable landing record. */
-  "accept-relay-landing-receipt": defineHint({
-    id: "accept-relay-landing-receipt",
+  "accept-relay-landing-proof": defineHint({
+    id: "accept-relay-landing-proof",
     category: "next-step",
     audience: "agent",
-    when: "`accept` lands successfully and returns a one-line landing receipt.",
+    when: "`accept` lands successfully and returns a one-line landing proof.",
     example: undefined,
     template: (): string =>
       "Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.",
@@ -2703,17 +2702,17 @@ export const HINTS = {
 
   /** Fetch transport is enabled, but publication stays an explicit owner-side
    * Git operation so discern never makes a network request. */
-  "accept-publish-receipt-note": defineHint<{ remote: string }>({
-    id: "accept-publish-receipt-note",
+  "accept-publish-proof-note": defineHint<{ remote: string }>({
+    id: "accept-publish-proof-note",
     category: "next-step",
     audience: "all",
     when:
-      "A receipt note is recorded after landing with fetch transport enabled.",
+      "A proof note is recorded after landing with fetch transport enabled.",
     example: { remote: "origin" },
     template: ({ remote }): string =>
-      `Share this landing's receipt with other clones: ` +
+      `Share this landing's proof with other clones: ` +
       `\`git push ${remote} refs/notes/discern\`. ` +
-      "Discern records receipts locally and never fetches or pushes for you.",
+      "Discern records proofs locally and never fetches or pushes for you.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */

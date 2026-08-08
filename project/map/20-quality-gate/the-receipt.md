@@ -66,9 +66,9 @@ The public result fields are in [MCP tools & results](../70-reference/mcp-and-re
 
 | Concern                        | Source                                                            |
 | ------------------------------ | ----------------------------------------------------------------- |
-| Marker identity and validation | [`receipt.ts`](../../../src/engine/gate/receipt.ts)               |
+| Marker identity and validation | [`proof.ts`](../../../src/engine/gate/proof.ts)               |
 | Write-authority probe          | [`write_preflight.ts`](../../../src/shared/write_preflight.ts)    |
-| Receipt facts and markdown     | [`receipt_render.ts`](../../../src/engine/gate/receipt_render.ts) |
+| Receipt facts and markdown     | [`proof_render.ts`](../../../src/engine/gate/proof_render.ts) |
 | Shared gate-job TTY projection | [`gate_tty.ts`](../../../src/engine/gate/gate_tty.ts)             |
 | `done` receipt panel           | [`done_tty.ts`](../../../src/engine/gate/done_tty.ts)             |
 | `done` integration             | [`finish.ts`](../../../src/engine/gate/finish.ts)                 |

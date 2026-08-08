@@ -33,7 +33,7 @@ export const DETECTOR_SCOPES = ["branch", "session", "project"] as const;
 /** One detector scope ({@link DETECTOR_SCOPES}). */
 export type DetectorScope = (typeof DETECTOR_SCOPES)[number];
 
-/** How costly a detector is to run: `inline` is cheap enough for the receipt
+/** How costly a detector is to run: `inline` is cheap enough for the proof
  * and `status` to carry (a glance at recent events); `batch` runs only under
  * the `patterns` verb, so `done` never pays for longitudinal analysis. */
 export const DETECTOR_TIERS = ["inline", "batch"] as const;

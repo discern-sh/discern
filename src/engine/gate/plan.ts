@@ -41,10 +41,10 @@ import type {
 const LOUD_SUCCESS_ERROR_LIKE_LINES = 10;
 
 /** Labels distinguish the gate's initial refresh convergence check from the
- * repeated check that binds the final receipt to the post-job tree. */
+ * repeated check that binds the final proof to the post-job tree. */
 export const TRACKED_REFRESH_CHECK_LABEL = "tracked-refresh-check";
 export const TRACKED_REFRESH_PROOF_CHECK_LABEL =
-  "tracked-refresh-check (receipt boundary)";
+  "tracked-refresh-check (proof boundary)";
 
 /**
  * A gate job as planned: the command to run plus the metadata the ADR-0004 report
@@ -743,7 +743,7 @@ export function gatePlanToEngine(plan: GatePlan): EnginePlan {
       label: TRACKED_REFRESH_PROOF_CHECK_LABEL,
       disposition: "gate",
       note:
-        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and receipt",
+        "repeat the tracked refresh plan after every gate job, immediately before issuing the result and proof",
     });
   }
   const changed = plan.scopesChanged.length > 0

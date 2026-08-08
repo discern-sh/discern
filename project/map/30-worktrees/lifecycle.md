@@ -77,7 +77,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Lifecycle plans and execution | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                           |
 | Acceptance recovery journal   | [`src/engine/worktree/acceptance_transaction.ts`](../../../src/engine/worktree/acceptance_transaction.ts) |
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
-| Receipt-note recording        | [`src/engine/gate/receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                           |
+| Receipt-note recording        | [`src/engine/gate/proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                           |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |

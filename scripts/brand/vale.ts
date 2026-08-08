@@ -446,7 +446,7 @@ export const VALE_DISPOSITIONS = [
     },
     disposition: "deferred",
     reason:
-      "owned by the glossary-and-Proof migration stream: the retired-synonym scan lands with the rename's execution phase.",
+      "owned by the glossary-and-proof migration stream: the retired-synonym scan lands with the rename's execution phase.",
   },
   {
     check: {

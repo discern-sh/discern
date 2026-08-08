@@ -121,10 +121,7 @@ import {
   interactiveHintTexts,
 } from "../../shared/hints.ts";
 import { observeResult } from "../../shared/result_capture.ts";
-import {
-  inlineFindingRoutes,
-  receiptFindingHints,
-} from "../logbook/surfaces.ts";
+import { inlineFindingRoutes, proofFindingHints } from "../logbook/surfaces.ts";
 import {
   inspectLandingAuthority,
   landingAuthorityProjection,
@@ -222,7 +219,7 @@ async function trackedRefreshDiagnostic(
   const failures = plan.errors.map((error) => `  - ${error}`);
   const outputFields = await diagnosticOutputFields(
     "Tracked refresh artifacts are not converged. Running `discern refresh` " +
-      "would change the tree, so this commit cannot earn a gate receipt.\n\n" +
+      "would change the tree, so this commit cannot earn a gate proof.\n\n" +
       (details.length > 0 ? `Planned changes:\n${details.join("\n")}\n` : "") +
       (failures.length > 0
         ? `\nPlanning errors:\n${failures.join("\n")}\n`
@@ -455,7 +452,7 @@ async function runGate(
 > {
   // Pin the tree identity FIRST — before any precondition or job reads it. A green
   // outcome vouches for THIS (HEAD, clean) pair; recordGateOutcome re-verifies the
-  // pin at stamp time, so a commit made while the gate runs can never earn a receipt
+  // pin at stamp time, so a commit made while the gate runs can never earn a proof
   // naming a tree the jobs never read.
   const treePin = await pinValidatedTree(root);
   // Retention for the job output artifacts the run is about to create (ADR 0117)
@@ -523,7 +520,7 @@ async function runGate(
   //     precede it so the baseline is the freshest merged-in trunk copy. Not
   //     configurable — an escape hatch here would defeat the guarantee the
   //     product leads with. An unreadable trunk skips LOUDLY (a warning + the
-  //     receipt discloses it); a trunk config that was fetched but does not
+  //     proof discloses it); a trunk config that was fetched but does not
   //     parse fails hard; never a silent pass either way.
   const stdPlan = buildStandardPlan(cfg);
   let standardsLimits: StandardsLimitsData | undefined;
@@ -668,7 +665,7 @@ async function runGate(
   //     plan catches every remaining tracked writer (generated attributes, MCP,
   //     hooks, app config, project rules, and mode-only effects) through the same
   //     transformations `discern refresh` applies. It is read-only and fail-closed:
-  //     a planning error cannot mint a receipt whose convergence was unproved.
+  //     a planning error cannot mint a proof whose convergence was unproved.
   let trackedRefreshDiag: Diagnostic | undefined;
   if (failedStage === null) {
     const refreshPlan = await planTrackedRefresh(root, cfg);
@@ -702,7 +699,7 @@ async function runGate(
   //     after every outcome, so prove that tiny late effect before any project job
   //     can consume minutes. The branded token is then required by every writer.
   //     A denial on an otherwise-runnable gate is therefore an immediate failure,
-  //     with the exact path in diagnostics, rather than a green-but-unreceipted run
+  //     with the exact path in diagnostics, rather than a green-but-unproofed run
   //     that `accept` has to repeat. Existing cheap preconditions retain priority;
   //     when one already blocked, a successful probe merely lets its red outcome
   //     clear stale state, and a denied probe does not hide the actionable blocker.
@@ -821,7 +818,7 @@ async function runGate(
   }
 
   // 2-bis. The strand checkpoint (ADR 0262): a run that began on a clean,
-  //     committed tree is seeking a receipt, and a tracked strand left by the
+  //     committed tree is seeking a proof, and a tracked strand left by the
   //     pre-groups above already forfeits it — the standards, check∥test, and
   //     scope-gate work ahead cannot change that verdict, so stop here and
   //     surface the strands while nothing has been wasted on them. Judged only
@@ -829,14 +826,14 @@ async function runGate(
   //     edit, and convergence edits belong in one report), and gated on the
   //     PIN's full cleanliness, never the tracked-dirty snapshot: the pin
   //     counts untracked files, so an untracked-dirty start — whose tracked
-  //     snapshot is empty — must not read as receipt-eligible. A dirty start
-  //     skips the checkpoint entirely: it can earn no receipt anyway, and the
+  //     snapshot is empty — must not read as proof-eligible. A dirty start
+  //     skips the checkpoint entirely: it can earn no proof anyway, and the
   //     agent running `done` dirty is asking for the full run's feedback,
   //     which the final pass (step 5) still delivers. A failed pre-group or
   //     generated-drift verdict above wins outright — the closure yields to
   //     any recorded failure.
-  const receiptEligibleAtStart = treePin.head !== undefined && treePin.clean;
-  if (receiptEligibleAtStart) {
+  const proofEligibleAtStart = treePin.head !== undefined && treePin.clean;
+  if (proofEligibleAtStart) {
     await failOnStrandedTree();
   }
 
@@ -919,11 +916,11 @@ async function runGate(
   //     0148): a stage may MUTATE the tree (the fix stage by design, any other by
   //     accident of wiring), but a clean gate must not hide uncommitted gate
   //     output. The checkpoint (2-bis) already settled the pre-group half for a
-  //     receipt-eligible start; this closing pass catches strands the check∥test
+  //     proof-eligible start; this closing pass catches strands the check∥test
   //     and scope-gate stages introduced — and, on a dirty start, every stage's.
   await failOnStrandedTree();
 
-  // Re-evaluate at the receipt boundary. The early pass is the fast refusal;
+  // Re-evaluate at the proof boundary. The early pass is the fast refusal;
   // this closing pass is the invariant: no green result can outlive a source,
   // config, mode, or provider-state change made while the jobs were running.
   if (failedStage === null) {
@@ -947,7 +944,7 @@ async function runGate(
   }
   // 6a. The standards' envelope fields (ADR 0133): the per-standard outcomes and
   //     the Tier-1 verification, plus the measured value patched into each
-  //     measured step's note — the receipt renders FROM these, never a second
+  //     measured step's note — the proof renders FROM these, never a second
   //     computation.
   const standardsData: GateStandard[] = gateStandardsData(
     resolved,
@@ -1028,11 +1025,11 @@ async function runGate(
       diagnostics: result.diagnostics ?? [],
     })
     : undefined;
-  // The receipt (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
+  // The proof (v1): a GREEN run over a CLEAN committed tree ahead of the trunk
   // renders the compact review summary from this very envelope — the artifact the
   // agent relays to its owner at the review moment. Built before the marker write so
   // the marker can store the markdown beside the sha it vouches for.
-  const receipt = failedStage === null
+  const proof = failedStage === null
     ? await buildGateProof(
       root,
       mainBranch,
@@ -1041,7 +1038,7 @@ async function runGate(
       standardsLimits,
     )
     : undefined;
-  // Record the measurement receipt (ADR 0112, extended by ADR 0133): a green
+  // Record the measurement proof (ADR 0112, extended by ADR 0133): a green
   // gate over a clean committed tree records every value it holds (measured or
   // replayed — a replayed value is a real measurement of an identical input
   // set), so an immediate `standards --pin` replays instead of re-measuring and
@@ -1082,9 +1079,9 @@ async function runGate(
     await clearStandardMeasurements(root, writeAuthority);
   }
   // Linked worktrees share the trunk ref, so another worktree can advance it
-  // after the fail-fast check. Re-check beside the receipt stamp and report the
-  // new state without changing the green verdict or withholding the receipt:
-  // the receipt vouches for the pinned HEAD, while `accept` retains the final
+  // after the fail-fast check. Re-check beside the proof stamp and report the
+  // new state without changing the green verdict or withholding the proof:
+  // the proof vouches for the pinned HEAD, while `accept` retains the final
   // live-ref check. This observation can race too, so it stays advisory.
   let trunkAdvanceWarning: FiredHint | undefined;
   if (failedStage === null) {
@@ -1094,7 +1091,7 @@ async function runGate(
       runOut.warn(trunkAdvanceWarning.text);
     }
   }
-  // Record the gate receipt (ADR 0067): a GREEN run over a CLEAN tree stamps the
+  // Record the gate proof (ADR 0067): a GREEN run over a CLEAN tree stamps the
   // HEAD pinned at gate start so `accept` can prove THIS tree already passed without
   // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
   // fail-fast precondition; the writer remains best-effort only against a later
@@ -1115,20 +1112,20 @@ async function runGate(
         writeAuthority,
         failedStage === null,
         treePin,
-        receipt,
+        proof,
       );
   // The last-run marker remembers what this run judged — every verdict, red
-  // included, unlike the receipt above — so the next `done` can refuse an
+  // included, unlike the proof above — so the next `done` can refuse an
   // unchanged-tree rerun unless it carries `--confirmed`.
   if (writeAuthority !== undefined) {
     await recordLastGateRun(root, writeAuthority, failedStage === null);
   }
   // A stamp refused because HEAD moved mid-run also suppresses the rendered review
-  // receipt: its git facts were gathered AFTER the move, so its markdown describes a
+  // proof: its git facts were gathered AFTER the move, so its markdown describes a
   // tree the gate never read — the hint tells the agent to re-run on the final commit.
   const emittedProof = gateProof.status === "skipped_head_moved"
     ? undefined
-    : receipt;
+    : proof;
   const landingAuthority = failedStage === null && emittedProof !== undefined
     ? await inspectLandingAuthority(root, mainBranch)
     : undefined;
@@ -1159,16 +1156,16 @@ async function runGate(
       : [];
   // Logbook findings share the coupling advisory's presentation boundary:
   // green, bootstrapped, best-effort, and at the tail. A branch finding must
-  // also have a real receipt to sit beside, and the formatter caps the whole
+  // also have a real proof to sit beside, and the formatter caps the whole
   // addition at one line after applying its stricter evidence margin.
   const logbookHints = failedStage === null && cfg.meta.bootstrapped &&
       emittedProof !== undefined
-    ? receiptFindingHints(
+    ? proofFindingHints(
       (await inlineFindingRoutes(root, cfg)).done,
       emittedProof.branch,
     )
     : [];
-  const receiptHint = gateProofHint(gateProof, failedStage);
+  const proofHint = gateProofHint(gateProof, failedStage);
   const deferredStandards = standardsData
     .filter((o) => o.measurement === "deferred")
     .map((o) => o.name);
@@ -1186,7 +1183,7 @@ async function runGate(
     // The fleet test-run cap's wait notices (the same lines the human run
     // narrated live), so a --json/MCP caller sees why the run took longer.
     ...(slots?.waits ?? []),
-    ...(receiptHint !== undefined ? [receiptHint] : []),
+    ...(proofHint !== undefined ? [proofHint] : []),
     ...buildGateHints(
       cfg,
       changed,
@@ -1227,19 +1224,19 @@ function gateProofHint(
       case "recorded":
         return undefined;
       case "skipped_dirty":
-        return fire(HINTS["gate-receipt-skipped-dirty"], {
+        return fire(HINTS["gate-proof-skipped-dirty"], {
           reason: proof.reason,
         });
       case "skipped_head_moved":
-        return fire(HINTS["gate-receipt-head-moved"], {
+        return fire(HINTS["gate-proof-head-moved"], {
           reason: proof.reason,
         });
       case "record_failed":
-        return fire(HINTS["gate-receipt-record-failed"], {
+        return fire(HINTS["gate-proof-record-failed"], {
           reason: proof.reason,
         });
       case "unavailable":
-        return fire(HINTS["gate-receipt-unavailable"], {
+        return fire(HINTS["gate-proof-unavailable"], {
           reason: proof.reason,
         });
       case "cleared":
@@ -1248,7 +1245,7 @@ function gateProofHint(
     }
   }
   if (proof.status === "clear_failed") {
-    return fire(HINTS["gate-receipt-clear-failed"], {
+    return fire(HINTS["gate-proof-clear-failed"], {
       reason: proof.reason,
     });
   }
@@ -1268,7 +1265,7 @@ function buildGateHints(
   changed: string[],
   failedStage: FailedStage | null,
   gotchasTail: GotchasFailureTail | undefined,
-  receiptEmitted: boolean,
+  proofEmitted: boolean,
   deferredStandards: string[],
   landingAuthority: LandingAuthorityResolution | undefined,
 ): FiredHint[] {
@@ -1277,7 +1274,7 @@ function buildGateHints(
       ? []
       : [gotchasTail.hint, ...gotchasTail.warnings];
   }
-  const receiptRoute = landingAuthority?.kind === "authorized"
+  const proofRoute = landingAuthority?.kind === "authorized"
     ? fire(HINTS["gate-land-under-verified-authority"], {
       source: landingAuthority.consent.source,
       scopes: landingAuthority.consent.scopes ?? [],
@@ -1288,11 +1285,11 @@ function buildGateHints(
       uncovered: uncoveredLandingAuthorityDetails(landingAuthority),
       warnings: landingAuthority.warnings,
     })
-    : fire(HINTS["gate-relay-receipt"]);
-  const hints = receiptEmitted
+    : fire(HINTS["gate-relay-proof"]);
+  const hints = proofEmitted
     ? [
       fire(HINTS["gate-prove-it-works"]),
-      receiptRoute,
+      proofRoute,
     ]
     : [];
   hints.push(fire(HINTS["gate-update-docs"]));
@@ -1318,9 +1315,9 @@ const DONE_TTY_ROUTINE_HINT_IDS = new Set([
 ]);
 
 /**
- * Keep exceptional human advisories above the compact receipt, while leaving
+ * Keep exceptional human advisories above the compact proof, while leaving
  * its routine follow-ups in the envelope. The highlighted line already names
- * the full receipt, where deferred standards carry their command.
+ * the full proof, where deferred standards carry their command.
  */
 function doneTtyProofHintTexts(
   texts: readonly string[] | undefined,
@@ -1335,8 +1332,8 @@ function doneTtyProofHintTexts(
 
 /**
  * Print the informational success tail (non-`--json`). A TTY gets the compact
- * job table and highlighted one-line receipt. A pipe keeps the stored Markdown
- * page, preserving the copyable receipt surface used by scripts and agents.
+ * job table and highlighted one-line proof. A pipe keeps the stored Markdown
+ * page, preserving the copyable proof surface used by scripts and agents.
  */
 function printSuccessTail(
   cfg: DiscernConfig,
@@ -1352,8 +1349,8 @@ function printSuccessTail(
     }
   }
 
-  const receipt = result.data?.proof;
-  if (ttyWidth !== undefined && receipt !== undefined) {
+  const proof = result.data?.proof;
+  if (ttyWidth !== undefined && proof !== undefined) {
     if (unfilled === STAGES.length) {
       out.ok(
         "Gate passed — but no job is wired, so nothing was actually checked (a no-op gate).",
@@ -1373,8 +1370,8 @@ function printSuccessTail(
     out.raw(
       `${
         tableAlreadyRendered
-          ? renderDoneTtyProofPanel(receipt, options)
-          : renderDoneTtySummary(result.steps ?? [], receipt, options)
+          ? renderDoneTtyProofPanel(proof, options)
+          : renderDoneTtySummary(result.steps ?? [], proof, options)
       }\n`,
     );
     renderSlotWait(out, result.waitedMs);
@@ -1408,9 +1405,9 @@ function printSuccessTail(
       );
     }
   }
-  if (receipt?.markdown !== undefined) {
-    out.group("receipt");
-    out.raw(`${dimBlock(receipt.markdown, outSink(out).dim)}\n`);
+  if (proof?.markdown !== undefined) {
+    out.group("proof");
+    out.raw(`${dimBlock(proof.markdown, outSink(out).dim)}\n`);
   }
   renderSlotWait(out, result.waitedMs);
   const hints = interactiveHintTexts(result.hints);
@@ -1448,7 +1445,7 @@ async function dryRunGate(
  * The read-only refusal `done` serves when it is asked to re-run on the exact
  * tree the last run already judged, without a `--confirmed` attestation. An
  * unchanged tree expects an unchanged verdict, so the rerun is either wasted
- * gate time (the last run was green — `status` already shows the receipt) or a
+ * gate time (the last run was green — `status` already shows the proof) or a
  * flake probe that deserves to be deliberate and on the record (the last run
  * was red; retrying until green teaches that red is negotiable). Fires BEFORE
  * the gate machinery — the fix stage rewrites files, and a refusal must touch

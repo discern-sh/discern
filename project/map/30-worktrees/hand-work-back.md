@@ -55,7 +55,7 @@ Leave the ready worktree untouched while its landing decision is pending. Indepe
 
 | Concern                           | Source                                                                                                        |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Receipt creation and relay hints  | [`src/engine/gate/receipt_render.ts`](../../../src/engine/gate/receipt_render.ts)                             |
+| Receipt creation and relay hints  | [`src/engine/gate/proof_render.ts`](../../../src/engine/gate/proof_render.ts)                             |
 | Acceptance validation and cleanup | [`src/engine/worktree/lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)                               |
 | Landing-authority resolution      | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)               |
 | Consent-source vocabulary         | [`src/shared/consent.ts`](../../../src/shared/consent.ts)                                                     |

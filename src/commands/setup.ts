@@ -189,7 +189,7 @@ export const SETUP_HUMAN_AUDIENCES: Record<
   "setup accept": {
     offRamp: false,
     reason:
-      "a landing receipt — operational git output read the same way by both audiences",
+      "a landing proof — operational git output read the same way by both audiences",
   },
 };
 

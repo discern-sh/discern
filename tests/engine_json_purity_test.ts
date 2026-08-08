@@ -690,7 +690,7 @@ Deno.test("predicate modes preserve bare 0/1 and publish true/false JSON observa
 Deno.test("every swept --json verb emits ONLY the envelope (no human or subprocess leak)", async () => {
   // Every case drives its own scaffold, so the sweep fans out without cases
   // coupling through shared gate state (a real `done` beside a dry-run, a
-  // receipt a later verb would see).
+  // proof a later verb would see).
   const sweep = NOISY_CONFIGS.flatMap((config) => {
     const cases = config.name === "buffered"
       ? PROJECT_CASES

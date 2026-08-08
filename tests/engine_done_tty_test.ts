@@ -1,6 +1,6 @@
 /**
  * Black-box coverage for `done`'s human presentation boundary. A real
- * pseudo-terminal gets the live compact table and receipt panel; a pipe keeps
+ * pseudo-terminal gets the live compact table and proof panel; a pipe keeps
  * the stored Markdown page. Both drive the same result-producing engine.
  */
 
@@ -77,7 +77,7 @@ async function committedWorktree(
   return worktree;
 }
 
-Deno.test("done human output uses the compact receipt only on a TTY", async () => {
+Deno.test("done human output uses the compact proof only on a TTY", async () => {
   await withTempDir(async (main) => {
     await scaffoldEngine(main, { agents: [] });
     await writeConfig(main, CONFIG);
@@ -85,7 +85,7 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
 
     const ttyWorktree = await committedWorktree(
       main,
-      "tty-receipt",
+      "tty-proof",
       LIVE_CONFIG,
     );
     const tty = await runAgentPty(ttyWorktree, ["done"], {
@@ -110,9 +110,9 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
     assertEquals(tty.output.includes("Running gate checks"), false);
     assertStringIncludes(
       tty.output,
-      "Receipt: gate passed on agent/tty-receipt",
+      "Proof: gate passed on agent/tty-proof",
     );
-    assertEquals(tty.output.includes("### Receipt"), false);
+    assertEquals(tty.output.includes("### Proof"), false);
     assertEquals(tty.output.includes("| ran | command | result |"), false);
     assertEquals(
       tty.output.includes("Everything built and all checks passed."),
@@ -143,17 +143,17 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
     assertStringIncludes(failing.stdout.slice(failingFirstRedraw), "running");
     assertStringIncludes(failing.output, "failed · <1s");
     assertStringIncludes(failing.output, "skipped");
-    assertEquals(failing.output.includes("Receipt: gate passed"), false);
+    assertEquals(failing.output.includes("Proof: gate passed"), false);
 
     for (
       const { name, args, env } of [
         {
-          name: "plain-receipt",
+          name: "plain-proof",
           args: ["done", "--plain"],
           env: { COLUMNS: "80", NO_COLOR: "1" },
         },
         {
-          name: "ci-receipt",
+          name: "ci-proof",
           args: ["done"],
           env: { COLUMNS: "80", NO_COLOR: "1", CI: "1" },
         },
@@ -166,13 +166,13 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
       });
       assertEquals(staticTty.code, 0, staticTty.output);
       assertStringIncludes(staticTty.output, "JOB");
-      assertStringIncludes(staticTty.output, "Receipt: gate passed");
+      assertStringIncludes(staticTty.output, "Proof: gate passed");
       assertEquals(staticTty.output.includes("pending"), false);
       assertEquals(staticTty.output.includes("running"), false);
       assertEquals(staticTty.output.includes(CSI), false);
     }
 
-    const pipedWorktree = await committedWorktree(main, "piped-receipt");
+    const pipedWorktree = await committedWorktree(main, "piped-proof");
     const piped = await runAgent(pipedWorktree, ["done"]);
     assertEquals(piped.code, 0, piped.output);
     assertStringIncludes(
@@ -181,7 +181,7 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
     );
     assertStringIncludes(
       piped.output,
-      "### Receipt — `agent/piped-receipt`",
+      "### Proof — `agent/piped-proof`",
     );
     assertStringIncludes(piped.output, "| ran | command | result |");
     assertEquals(
@@ -189,7 +189,7 @@ Deno.test("done human output uses the compact receipt only on a TTY", async () =
       false,
     );
 
-    const jsonWorktree = await committedWorktree(main, "json-receipt");
+    const jsonWorktree = await committedWorktree(main, "json-proof");
     const json = await runAgentPty(jsonWorktree, ["done", "--json"], {
       env: { NO_COLOR: "1" },
       timeoutMs: 15_000,

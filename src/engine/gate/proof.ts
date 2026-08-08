@@ -1,5 +1,5 @@
 /**
- * The **receipt marker** — a tiny per-worktree file recording the commit `done`
+ * The **proof marker** — a tiny per-worktree file recording the commit `done`
  * last validated GREEN over a CLEAN tree, so `accept` can prove the exact tree it
  * is about to land already passed the gate WITHOUT re-running it (ADR 0067).
  *
@@ -10,11 +10,11 @@
  * `.git`), and self-cleaning (it vanishes with the worktree). Its first line is the
  * validated HEAD sha — PINNED before the gate run began and re-verified unmoved at
  * stamp time ({@link ValidatedTreePin}), so it can only ever name a commit whose
- * tree the gate actually read; the rest is the rendered **receipt** — the line and
+ * tree the gate actually read; the rest is the rendered **proof** — the line and
  * the page markdown finish emitted for that tree — the review-moment summary
  * `status` and `accept` surface without re-running the gate.
  *
- * The receipt is honored ONLY while it still names the current HEAD AND the tree is
+ * The proof is honored ONLY while it still names the current HEAD AND the tree is
  * clean — so any new commit (the merge `update` creates), amend, or uncommitted
  * edit silently invalidates it and `accept` falls back to running the gate. It is a
  * fast-path cache for "this tree already passed", never a substitute for the gate: a
@@ -27,7 +27,7 @@
  * gate, so the vouch stays truthful and `accept` need not re-run the whole gate for
  * a re-pin (see {@link carryProofForwardAcrossPin}).
  *
- * The standard **measurement receipt** is its sibling on the same model: a green
+ * The standard **measurement proof** is its sibling on the same model: a green
  * `standards` check over a clean tree records every standard's measured value against
  * the validated HEAD, so a `standards --pin` on that same clean HEAD can reuse the
  * values instead of re-running every (slow) measurement. Same admin-dir home, same
@@ -79,14 +79,14 @@ export type AdminStateWritePreflight =
   | { ok: true; authority: AdminStateWriteAuthority }
   | WritePreflightFailure;
 
-/** This worktree's gate receipt path. */
-function receiptPath(cwd: string): Promise<string | undefined> {
+/** This worktree's gate proof path. */
+function proofPath(cwd: string): Promise<string | undefined> {
   return gitAdminStatePath(cwd, "gateProof");
 }
 
 /** Prove the real create/write/rename/remove authority every validation-state
  * writer may need later. Existing marker files are also opened for write, without
- * changing them, so a read-only old receipt fails now rather than at stamp time. */
+ * changing them, so a read-only old proof fails now rather than at stamp time. */
 export async function preflightAdminStateWrites(
   cwd: string,
 ): Promise<AdminStateWritePreflight> {
@@ -191,7 +191,7 @@ async function headSha(cwd: string): Promise<string | undefined> {
 /**
  * Every path `git status --porcelain` reports at `cwd` — staged, unstaged, AND
  * untracked, both sides of a rename — sorted for stable output. This is the strict
- * dirt accept refuses to land, so a receipt refusal can NAME what blocks it instead
+ * dirt accept refuses to land, so a proof refusal can NAME what blocks it instead
  * of sending the agent on a diagnosis loop. `undefined` when git can't answer.
  */
 async function worktreeStatusPaths(
@@ -214,16 +214,16 @@ async function worktreeStatusPaths(
 /**
  * Whether the worktree at `cwd` is FULLY clean — `git status --porcelain` empty (no
  * staged, unstaged, OR untracked changes). This is the strict notion accept
- * requires before landing, so the receipt vouches for exactly what would land. A
- * failed status reads as NOT clean, so an unreadable tree never earns a receipt or a
- * fast-path skip (fail-closed). Exported so the receipt renderer applies the SAME
- * clean rule before building a receipt for the committed tree.
+ * requires before landing, so the proof vouches for exactly what would land. A
+ * failed status reads as NOT clean, so an unreadable tree never earns a proof or a
+ * fast-path skip (fail-closed). Exported so the proof renderer applies the SAME
+ * clean rule before building a proof for the committed tree.
  */
 export async function isWorktreeFullyClean(cwd: string): Promise<boolean> {
   return (await worktreeStatusPaths(cwd))?.length === 0;
 }
 
-/** How many dirty paths a receipt-refusal reason names before eliding the rest. */
+/** How many dirty paths a proof-refusal reason names before eliding the rest. */
 const DIRTY_PATHS_SHOWN = 6;
 
 /** Render a dirty-path list for a refusal reason: the first few paths, the rest
@@ -239,7 +239,7 @@ function describeDirtyPaths(paths: readonly string[]): string {
   return ` — uncommitted: ${shown}${more}`;
 }
 
-/** Summarize the first failed step or diagnostic that prevents a receipt. */
+/** Summarize the first failed step or diagnostic that prevents a proof. */
 function failureReason(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -250,7 +250,7 @@ declare const VALIDATED_TREE_PIN: unique symbol;
 
 /**
  * The tree identity a validation run is about to read, captured BEFORE the run
- * begins: the HEAD sha and full cleanliness at that moment. Every receipt stamp
+ * begins: the HEAD sha and full cleanliness at that moment. Every proof stamp
  * requires one and re-verifies it at stamp time — so a vouch can only ever name
  * a commit whose tree the validated work actually read (a commit made mid-run
  * moves HEAD past the pin, and the stamp is refused instead of vouching blind).
@@ -283,7 +283,7 @@ export async function pinValidatedTree(cwd: string): Promise<ValidatedTreePin> {
 }
 
 /** Bind a green gate result to HEAD, config, plan, trunk, and measured standards. */
-function receiptRecord(
+function proofRecord(
   status: GateProofRecordData["status"],
   fields: Omit<GateProofRecordData, "status"> = {},
 ): GateProofRecordData {
@@ -291,19 +291,19 @@ function receiptRecord(
 }
 
 /**
- * Record the outcome of a `done` run into the receipt marker. `pin` is the tree
+ * Record the outcome of a `done` run into the proof marker. `pin` is the tree
  * identity captured BEFORE the run began ({@link pinValidatedTree}); a stamp names
  * the PINNED sha, and only after re-verifying the tree still matches it — the
- * receipt must vouch only for the exact tree the gate actually read:
+ * proof must vouch only for the exact tree the gate actually read:
  *
  * - GREEN over a CLEAN tree that matches the pin → stamp the validated HEAD (the
- *   vouch accept honors), plus the structured receipt and its two renderings
+ *   vouch accept honors), plus the structured proof and its two renderings
  *   when the run rendered one, so `status` and `accept` can surface and publish
  *   the review summary without re-running the gate.
  * - GREEN but HEAD moved since the pin (a commit landed mid-run) → stamp nothing:
  *   the run validated the pinned tree, not the commit now at HEAD. Any prior vouch
  *   is left untouched (still truthful at its own sha).
- * - FAILED gate → clear any receipt (fail-closed: a tree the gate just rejected must
+ * - FAILED gate → clear any proof (fail-closed: a tree the gate just rejected must
  *   not stay vouched; clearing also closes the rare flake/environment-drift case where
  *   a clean HEAD's gate result turns failing with the tree unchanged).
  * - GREEN but DIRTY (at pin time or now) → leave the file untouched: it cannot vouch
@@ -320,38 +320,38 @@ export async function recordGateOutcome(
   authority: AdminStateWriteAuthority,
   passed: boolean,
   pin: ValidatedTreePin,
-  receipt?: Proof,
+  proof?: Proof,
 ): Promise<GateProofRecordData> {
   const path = authorityPath(cwd, authority, "gateProof");
   if (path === undefined) {
-    return receiptRecord("unavailable", {
-      reason: "could not resolve the gate receipt path",
+    return proofRecord("unavailable", {
+      reason: "could not resolve the gate proof path",
     });
   }
 
   if (passed) {
     if (pin.head === undefined) {
-      return receiptRecord("unavailable", {
+      return proofRecord("unavailable", {
         path,
         reason: "could not read HEAD when the run began",
       });
     }
     const headNow = await headSha(cwd);
     if (headNow === undefined) {
-      return receiptRecord("unavailable", {
+      return proofRecord("unavailable", {
         path,
         reason: "could not read HEAD",
       });
     }
     if (headNow !== pin.head) {
-      return receiptRecord("skipped_head_moved", {
+      return proofRecord("skipped_head_moved", {
         path,
         reason:
           `HEAD moved while the run was underway (validated ${pin.head}, now ${headNow})`,
       });
     }
     if (!pin.clean) {
-      return receiptRecord("skipped_dirty", {
+      return proofRecord("skipped_dirty", {
         path,
         reason: `the worktree was not clean when the run began${
           describeDirtyPaths(pin.dirtyPaths)
@@ -360,7 +360,7 @@ export async function recordGateOutcome(
     }
     const dirtyNow = await worktreeStatusPaths(cwd);
     if (dirtyNow === undefined || dirtyNow.length > 0) {
-      return receiptRecord("skipped_dirty", {
+      return proofRecord("skipped_dirty", {
         path,
         reason: `the worktree is not clean${
           describeDirtyPaths(dirtyNow ?? [])
@@ -368,22 +368,22 @@ export async function recordGateOutcome(
       });
     }
     try {
-      // Marker format: the sha, then (when the run rendered a receipt) its
+      // Marker format: the sha, then (when the run rendered a proof) its
       // compatibility `line: ` component, structured form, and page markdown.
       // Markers that omit either component also parse.
-      const data = receipt === undefined
+      const data = proof === undefined
         ? ""
-        : `data: ${JSON.stringify(receipt)}\n`;
-      const line = receipt?.line === undefined || receipt.line === ""
+        : `data: ${JSON.stringify(proof)}\n`;
+      const line = proof?.line === undefined || proof.line === ""
         ? ""
-        : `line: ${receipt.line}\n`;
-      const body = receipt?.markdown === undefined || receipt.markdown === ""
+        : `line: ${proof.line}\n`;
+      const body = proof?.markdown === undefined || proof.markdown === ""
         ? `${pin.head}\n`
-        : `${pin.head}\n${line}${data}\n${receipt.markdown.trim()}\n`;
+        : `${pin.head}\n${line}${data}\n${proof.markdown.trim()}\n`;
       await Deno.writeTextFile(path, body);
-      return receiptRecord("recorded", { path });
+      return proofRecord("recorded", { path });
     } catch (error) {
-      return receiptRecord("record_failed", {
+      return proofRecord("record_failed", {
         path,
         reason: failureReason(error),
       });
@@ -392,12 +392,12 @@ export async function recordGateOutcome(
 
   try {
     await Deno.remove(path);
-    return receiptRecord("cleared", { path });
+    return proofRecord("cleared", { path });
   } catch (error) {
     if (error instanceof Deno.errors.NotFound) {
-      return receiptRecord("cleared", { path });
+      return proofRecord("cleared", { path });
     }
-    return receiptRecord("clear_failed", {
+    return proofRecord("clear_failed", {
       path,
       reason: failureReason(error),
     });
@@ -463,7 +463,7 @@ export function sameTreeIdentity(a: TreeIdentity, b: TreeIdentity): boolean {
  * identity at the END of the run (the fix stage may have rewritten files, and
  * the verdict belongs to the tree the check/test jobs actually read) plus the
  * verdict. Written on EVERY completed run — green or red, clean or dirty —
- * because the rerun precondition needs the red runs the receipt marker
+ * because the rerun precondition needs the red runs the proof marker
  * deliberately forgets. Best-effort: an unreadable identity clears the marker
  * instead of leaving a stale claim, and a write failure changes nothing about
  * the run's verdict.
@@ -535,21 +535,21 @@ export async function inspectLastGateRun(
 }
 
 /**
- * Inspect why the current worktree's gate receipt can or cannot be honored.
+ * Inspect why the current worktree's gate proof can or cannot be honored.
  * This is the verbose sibling of {@link gateProofHonored}: accept includes the
  * result in its JSON/MCP envelope so a skipped vs re-run validation decision is
  * visible even when the human logger is suppressed. An HONORED record also carries
- * the stored receipt markdown (when the recording finish rendered one) — the
+ * the stored proof markdown (when the recording finish rendered one) — the
  * summary an agent relays at the review moment without re-running the gate.
  */
 export async function inspectGateProof(
   cwd: string,
 ): Promise<GateProofCheckData> {
-  const path = await receiptPath(cwd);
+  const path = await proofPath(cwd);
   if (path === undefined) {
     return {
       status: "unavailable",
-      reason: "could not resolve the gate receipt path",
+      reason: "could not resolve the gate proof path",
     };
   }
   let content: string;
@@ -562,12 +562,12 @@ export async function inspectGateProof(
     return { status: "read_failed", path, reason: failureReason(error) };
   }
   // First line: the validated HEAD sha. Then, when present: `line: ` and
-  // `data: ` components in either order, followed by the receipt page Markdown.
+  // `data: ` components in either order, followed by the proof page Markdown.
   // A marker may omit either component; absent pieces are simply empty.
   const newline = content.indexOf("\n");
   const recorded = (newline < 0 ? content : content.slice(0, newline)).trim();
   let rest = newline < 0 ? "" : content.slice(newline + 1);
-  let receiptData: Proof | undefined;
+  let proofData: Proof | undefined;
   let line = "";
   while (rest.startsWith("data: ") || rest.startsWith("line: ")) {
     const eol = rest.indexOf("\n");
@@ -579,12 +579,12 @@ export async function inspectGateProof(
         const parsed: unknown = JSON.parse(raw);
         const validated = TolerantProofSchema.safeParse(parsed);
         if (validated.success) {
-          receiptData = canonicalProof(validated.data);
+          proofData = canonicalProof(validated.data);
         }
       } catch {
         // A malformed structured component does not invalidate the validation
         // vouch. Acceptance honors the commit and reports that no structured
-        // receipt was available to publish.
+        // proof was available to publish.
       }
     } else {
       line = (eol < 0 ? rest.slice("line: ".length) : rest.slice(
@@ -596,7 +596,7 @@ export async function inspectGateProof(
   }
   const markdown = rest.trim();
   if (recorded === "") {
-    return { status: "missing", path, reason: "receipt file was empty" };
+    return { status: "missing", path, reason: "proof file was empty" };
   }
   const head = await headSha(cwd);
   if (head === undefined) {
@@ -620,13 +620,13 @@ export async function inspectGateProof(
     head,
     ...(markdown === "" ? {} : { proof: markdown }),
     ...(line === "" ? {} : { proof_line: line }),
-    ...(receiptData === undefined ? {} : { proof_data: receiptData }),
+    ...(proofData === undefined ? {} : { proof_data: proofData }),
   };
 }
 
 /**
- * Whether a receipt proves the worktree's CURRENT (HEAD, clean) state already passed
- * `done` — accept's fast path. True only when a receipt exists, names exactly the
+ * Whether a proof proves the worktree's CURRENT (HEAD, clean) state already passed
+ * `done` — accept's fast path. True only when a proof exists, names exactly the
  * current HEAD, and the tree is clean; any new commit, amend, or uncommitted edit
  * makes this false, so accept falls back to running the gate. Never throws.
  */
@@ -635,14 +635,14 @@ export async function gateProofHonored(cwd: string): Promise<boolean> {
 }
 
 /**
- * Carry a gate receipt across a `standards --pin` commit (ADR 0106).
+ * Carry a gate proof across a `standards --pin` commit (ADR 0106).
  *
  * `standards --pin` commits ONLY `[standards.*]` limit changes. Its `pinnedLimit`
  * arithmetic only tightens a limit to one the just-taken or same-HEAD reused
  * measurement satisfies. That tightened limit also passes the
  * never-loosen comparison against the trunk, so the pin commit still passes both
  * standards halves now enforced by `done` (ADR 0133). When the pre-pin HEAD carried
- * an HONORED receipt (it named that HEAD over a clean tree), re-stamp the vouch onto
+ * an HONORED proof (it named that HEAD over a clean tree), re-stamp the vouch onto
  * the new clean HEAD the commit created; otherwise the moved HEAD would strand a
  * truthful pass and force `accept` to re-run the whole gate for a change that cannot
  * alter its outcome.
@@ -650,7 +650,7 @@ export async function gateProofHonored(cwd: string): Promise<boolean> {
  * Fail-closed and narrow: it forwards ONLY a vouch that genuinely held a moment ago
  * (`priorHonored`), which only the caller — the author of the commit, so the one party
  * that knows it touched nothing but standard limits — may assert. With no prior vouch it
- * does nothing (returns `undefined`), leaving the now-stale receipt for `accept` to
+ * does nothing (returns `undefined`), leaving the now-stale proof for `accept` to
  * re-validate. The pin is captured here, at the stamp moment: the vouched "work" is the
  * pin commit itself, which the caller just made synchronously, so the tree sampled now
  * IS the tree the vouch is about. The pin preflights `authority` before measuring;
@@ -672,9 +672,9 @@ export async function carryProofForwardAcrossPin(
   );
 }
 
-// ── the standard measurement receipt ─────────────────────────────────────────────
+// ── the standard measurement proof ─────────────────────────────────────────────
 
-/** The measurement receipt's verdict: `honored` carries the per-standard values a pin
+/** The measurement proof's verdict: `honored` carries the per-standard values a pin
  * may reuse; every other status means "measure fresh" (a cache miss, never an error). */
 export type StandardMeasurementsCheck =
   | { status: "honored"; values: Record<string, number> }
@@ -686,15 +686,15 @@ export type StandardMeasurementsCheck =
  * green gate run over a clean committed tree, for a subsequent `--pin` on that
  * same clean HEAD to reuse and for the gate's input-keyed replay to baseline
  * against. Mirrors {@link recordGateOutcome}'s conditions: only a CLEAN tree
- * with a readable HEAD that still matches the pin earns a receipt (a dirty check —
+ * with a readable HEAD that still matches the pin earns a proof (a dirty check —
  * `--force` — records nothing, since the values describe a tree no pin will ever
  * see; a mid-measurement commit records nothing, since the values describe the
  * pinned tree, not the commit now at HEAD). A PARTIAL record (the gate with a
- * deferred standard) MERGES into an existing same-HEAD receipt rather than
+ * deferred standard) MERGES into an existing same-HEAD proof rather than
  * clobbering a fuller one, so check → done → pin still measures once.
  * `durations` (whole seconds per standard) ride along so a defer/replay decision
  * can be made from data. The caller preflights `authority` before measuring; a
- * later I/O hiccup remains best-effort. Returns whether a receipt was written.
+ * later I/O hiccup remains best-effort. Returns whether a proof was written.
  */
 export async function recordStandardMeasurements(
   cwd: string,
@@ -733,8 +733,8 @@ export async function recordStandardMeasurements(
 }
 
 /**
- * Clear the measurement receipt — a RED check's values must not stay reusable
- * (fail-closed, the same posture as a failed finish clearing the gate receipt).
+ * Clear the measurement proof — a RED check's values must not stay reusable
+ * (fail-closed, the same posture as a failed finish clearing the gate proof).
  * The caller preflights `authority`; a later hiccup remains best-effort, and a
  * missing file is already the desired state.
  */
@@ -749,14 +749,14 @@ export async function clearStandardMeasurements(
   try {
     await Deno.remove(path);
   } catch {
-    // NotFound or any other hiccup: the receipt is an optimization, never load-bearing.
+    // NotFound or any other hiccup: the proof is an optimization, never load-bearing.
   }
 }
 
 /**
- * Inspect whether the measurement receipt can be honored: it must parse, name exactly
+ * Inspect whether the measurement proof can be honored: it must parse, name exactly
  * the current HEAD, and the tree must be clean — the same identity rule as the
- * gate receipt, so any commit, amend, or uncommitted edit silently invalidates
+ * gate proof, so any commit, amend, or uncommitted edit silently invalidates
  * it. Anything unreadable or mis-shaped reads as `malformed` (measure fresh), never an
  * error. Never throws.
  */
@@ -792,9 +792,9 @@ export async function inspectStandardMeasurements(
   return { status: "honored", values: parsed.values };
 }
 
-/** A parsed measurement receipt: the commit its values describe, the values,
+/** A parsed measurement proof: the commit its values describe, the values,
  * and each measurement's recorded duration (whole seconds; may be empty — a
- * pre-durations receipt still parses). */
+ * pre-durations proof still parses). */
 export interface StandardMeasurements {
   head: string;
   values: Record<string, number>;
@@ -816,7 +816,7 @@ function finiteNumberMap(raw: unknown): Record<string, number> | undefined {
   return out;
 }
 
-/** Parse the receipt file's JSON defensively: a `head` sha string plus a `values`
+/** Parse the proof file's JSON defensively: a `head` sha string plus a `values`
  * map of finite numbers (and optional `durations`), or `undefined` for anything
  * else — the file sits on disk between runs, so its content is evidence to
  * validate, not a trusted structure. */
@@ -855,7 +855,7 @@ function parseMeasurements(
 
 /**
  * The recorded measurement baselines reachable from this worktree, nearest
- * first: its OWN measurement receipt, then the main checkout's (via the shared
+ * first: its OWN measurement proof, then the main checkout's (via the shared
  * git common dir) — the trunk's last recorded measurement, which gives a fresh
  * worktree a baseline before it has measured anything itself. Unlike
  * {@link inspectStandardMeasurements} (the pin's strict same-HEAD honor rule),

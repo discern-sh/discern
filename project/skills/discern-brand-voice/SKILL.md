@@ -380,7 +380,6 @@ Before approving a brand draft, temporarily remove these words:
 - Fleet
 - deterministic
 - owner
-- receipt
 - canon
 
 Read the remaining copy.

@@ -296,7 +296,7 @@ export const TIPS: readonly RegisteredTip[] = [
     id: "inspect-before-accepting",
     when: "A task has a passing proof ready for review.",
     predicate: { kind: "ready-to-review" },
-    features: ["accept", "receipt"],
+    features: ["accept", "proof"],
     example: undefined,
     template: (): string =>
       'Before accepting a task, choose "Inspect commits and changes" in the ' +
@@ -448,7 +448,7 @@ export const TIPS: readonly RegisteredTip[] = [
   defineTip({
     id: "done-records-proof",
     when: "Evergreen — the quality opener.",
-    features: ["gate", "receipt"],
+    features: ["gate", "proof"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -844,7 +844,7 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   "feature:gotchas-pointer":
     "The pointer appears in the failure that needs it, so a rotating tip would be less timely.",
   "feature:unchanged-tree-rerun":
-    "This is receipt-reuse plumbing; the proof tip covers the human-visible result.",
+    "This is proof-reuse plumbing; the proof tip covers the human-visible result.",
   "feature:standards-metric-protocol":
     "Metric authoring is an advanced path taught by the standard-setting guide.",
   "feature:standards-rates":

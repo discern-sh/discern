@@ -276,8 +276,8 @@ Deno.test("replay: a replayed value the branch's own tightened limit now fails i
 
 Deno.test("replay: a fresh worktree replays from the TRUNK checkout's recorded measurement", async () => {
   await withTempDir(async (dir) => {
-    // The trunk checkout measures once (recording its receipt); a fresh
-    // worktree has no receipt of its own, so the baseline chain falls through
+    // The trunk checkout measures once (recording its proof); a fresh
+    // worktree has no proof of its own, so the baseline chain falls through
     // to the trunk's — a new branch touching no inputs pays seconds, not a
     // measurement, from its very first gate run.
     const baseline = await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
@@ -302,12 +302,12 @@ Deno.test("replay: a fresh worktree replays from the TRUNK checkout's recorded m
   });
 });
 
-Deno.test("replay: the receipt names the replay's source commit", async () => {
+Deno.test("replay: the proof names the replay's source commit", async () => {
   await withTempDir(async (dir) => {
     const baseline = await setUpMeasuredBaseline(dir, { inputs: '"src/**"' });
     // A committed branch ahead of the trunk, changing only a non-input path,
-    // so a receipt renders AND the standard replays.
-    await git(dir, "checkout", "-qb", "agent/replay-receipt");
+    // so a proof renders AND the standard replays.
+    await git(dir, "checkout", "-qb", "agent/replay-proof");
     await commitDocsChange(dir);
 
     const r = await runAgent(dir, ["done", "--json"]);

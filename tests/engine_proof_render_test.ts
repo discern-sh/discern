@@ -1,8 +1,8 @@
 /**
- * The receipt renderer's diff-stability contract: `renderProofMarkdown` and
+ * The proof renderer's diff-stability contract: `renderProofMarkdown` and
  * `renderProofLine` are pure functions of the envelope pieces (the gathered
  * git facts + `steps[]` + standards), so fixed inputs pin the EXACT output —
- * same tree, same result → same receipt (durations excepted, and durations here
+ * same tree, same result → same proof (durations excepted, and durations here
  * are fixed inputs too). A wording or layout change must show up as a deliberate
  * edit to these golden strings.
  */
@@ -170,9 +170,9 @@ const HELD: GateStandard = {
 
 const VERIFIED: StandardsLimitsData = { status: "verified", trunk: "main" };
 
-Deno.test("receipt render: fixed facts + steps pin the exact page", () => {
+Deno.test("proof render: fixed facts + steps pin the exact page", () => {
   const expected = [
-    "### Receipt — `agent/upload-retry`",
+    "### Proof — `agent/upload-retry`",
     "",
     "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files +42 −7",
     "",
@@ -188,9 +188,9 @@ Deno.test("receipt render: fixed facts + steps pin the exact page", () => {
   assertEquals(renderProofMarkdown(FACTS, STEPS), expected);
 });
 
-Deno.test("receipt render: standards render before the job table", () => {
+Deno.test("proof render: standards render before the job table", () => {
   const expected = [
-    "### Receipt — `agent/upload-retry`",
+    "### Proof — `agent/upload-retry`",
     "",
     "All gate checks passed on a clean tree at `abc1234def01` · diff vs `main`: 2 files +42 −7",
     "",
@@ -213,7 +213,7 @@ Deno.test("receipt render: standards render before the job table", () => {
   );
 });
 
-Deno.test("receipt render: a timed sub-second standard says <1s", () => {
+Deno.test("proof render: a timed sub-second standard says <1s", () => {
   const md = renderProofMarkdown(
     FACTS,
     STEPS,
@@ -223,7 +223,7 @@ Deno.test("receipt render: a timed sub-second standard says <1s", () => {
   assertStringIncludes(md, "- coverage 83 (floor 80, held) · <1s");
 });
 
-Deno.test("receipt render: an untimed run claims no duration at all", () => {
+Deno.test("proof render: an untimed run claims no duration at all", () => {
   const untimed: StepResult[] = [
     {
       step: { kind: "job", label: "smoke", disposition: "run", note: "true" },
@@ -236,14 +236,14 @@ Deno.test("receipt render: an untimed run claims no duration at all", () => {
   );
 });
 
-Deno.test("receipt render: is deterministic across calls", () => {
+Deno.test("proof render: is deterministic across calls", () => {
   assertEquals(
     renderProofMarkdown(FACTS, STEPS),
     renderProofMarkdown(FACTS, STEPS),
   );
 });
 
-Deno.test("receipt render: a pipe in a command cannot break the table", () => {
+Deno.test("proof render: a pipe in a command cannot break the table", () => {
   const steps: StepResult[] = [
     {
       step: {
@@ -261,7 +261,7 @@ Deno.test("receipt render: a pipe in a command cannot break the table", () => {
   assertStringIncludes(md, "| lint | `grep -c TODO src \\| sort` | ok · 2s |");
 });
 
-Deno.test("receipt render: a no-op gate is stated honestly", () => {
+Deno.test("proof render: a no-op gate is stated honestly", () => {
   const md = renderProofMarkdown(FACTS, []);
   assertStringIncludes(
     md,
@@ -270,7 +270,7 @@ Deno.test("receipt render: a no-op gate is stated honestly", () => {
 });
 
 Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => {
-  const receipt: Proof = {
+  const proof: Proof = {
     ...FACTS,
     line: renderProofLine(FACTS),
     markdown: renderProofMarkdown(FACTS, STEPS),
@@ -288,23 +288,23 @@ Deno.test("done TTY render: fixed steps pin the plain 80-column summary", () => 
     "  ──────────────────────────────────────────────────────────────────────────────",
     "",
     "  │  ",
-    "  │  Receipt: gate passed on agent/upload-retry @ abc1234def01 · 2 files +42",
-    "  │  −7 vs main · full receipt: discern status --verbose",
+    "  │  Proof: gate passed on agent/upload-retry @ abc1234def01 · 2 files +42 −7",
+    "  │  vs main · full proof: discern status --verbose",
     "  │  ",
   ].join("\n");
   assertEquals(
-    renderDoneTtySummary(STEPS, receipt, { width: 80, color: false }),
+    renderDoneTtySummary(STEPS, proof, { width: 80, color: false }),
     expected,
   );
 });
 
-Deno.test("done TTY render: color paints success and the receipt without widening lines", () => {
-  const receipt: Proof = {
+Deno.test("done TTY render: color paints success and the proof without widening lines", () => {
+  const proof: Proof = {
     ...FACTS,
     line: renderProofLine(FACTS),
     markdown: renderProofMarkdown(FACTS, STEPS),
   };
-  const rendered = renderDoneTtySummary(STEPS, receipt, {
+  const rendered = renderDoneTtySummary(STEPS, proof, {
     width: 80,
     color: true,
   });
@@ -449,15 +449,15 @@ Deno.test("gate TTY render: color changes styling only and every line stays with
   }
 });
 
-Deno.test("receipt line: fixed facts pin the exact sentence", () => {
+Deno.test("proof line: fixed facts pin the exact sentence", () => {
   assertEquals(
     renderProofLine(FACTS),
-    "Receipt: gate passed on agent/upload-retry @ abc1234def01 · " +
-      "2 files +42 −7 vs main · full receipt: discern status --verbose",
+    "Proof: gate passed on agent/upload-retry @ abc1234def01 · " +
+      "2 files +42 −7 vs main · full proof: discern status --verbose",
   );
 });
 
-Deno.test("receipt line: a single file reads in the singular", () => {
+Deno.test("proof line: a single file reads in the singular", () => {
   const line = renderProofLine({
     ...FACTS,
     files_total: 1,
@@ -467,14 +467,14 @@ Deno.test("receipt line: a single file reads in the singular", () => {
   assertStringIncludes(line, "1 file +5 −0 vs main");
 });
 
-Deno.test("receipt line: held standards claim one segment", () => {
+Deno.test("proof line: held standards claim one segment", () => {
   assertStringIncludes(
     renderProofLine(FACTS, [HELD], VERIFIED),
     "· standards held ·",
   );
 });
 
-Deno.test("receipt line: improved and deferred standards are counted", () => {
+Deno.test("proof line: improved and deferred standards are counted", () => {
   const improved: GateStandard = {
     ...HELD,
     name: "guidance_words",
@@ -492,7 +492,7 @@ Deno.test("receipt line: improved and deferred standards are counted", () => {
   );
 });
 
-Deno.test("receipt line: all standards deferred is stated as such", () => {
+Deno.test("proof line: all standards deferred is stated as such", () => {
   const deferred: GateStandard = {
     name: "bundle_size",
     direction: "down",
@@ -505,7 +505,7 @@ Deno.test("receipt line: all standards deferred is stated as such", () => {
   );
 });
 
-Deno.test("receipt line: unverified limits are disclosed loudly", () => {
+Deno.test("proof line: unverified limits are disclosed loudly", () => {
   assertStringIncludes(
     renderProofLine(FACTS, [HELD], {
       status: "unverified",
@@ -516,12 +516,12 @@ Deno.test("receipt line: unverified limits are disclosed loudly", () => {
   );
 });
 
-Deno.test("receipt line: no standards configured claims nothing", () => {
+Deno.test("proof line: no standards configured claims nothing", () => {
   const line = renderProofLine(FACTS, []);
   assertEquals(line.includes("standards"), false);
 });
 
-Deno.test("landing receipt line records each canonical consent source", () => {
+Deno.test("landing proof line records each canonical consent source", () => {
   const line = renderProofLine(FACTS);
   assertEquals(
     renderLandingProofLine(line, { source: "conversation" }),
@@ -549,8 +549,8 @@ Deno.test("landing receipt line records each canonical consent source", () => {
 
 Deno.test("dimBlock wraps every non-empty line and leaves blank lines bare", () => {
   assertEquals(
-    dimBlock("### Receipt\n\n| ran |", (s) => `[${s}]`),
-    "[### Receipt]\n\n[| ran |]",
+    dimBlock("### Proof\n\n| ran |", (s) => `[${s}]`),
+    "[### Proof]\n\n[| ran |]",
   );
 });
 
@@ -559,7 +559,7 @@ Deno.test("dimBlock with a colour-off dim returns the block unchanged", () => {
   assertEquals(dimBlock(page, (s) => s), page);
 });
 
-Deno.test("a receipt page dims per line under the real ANSI palette", () => {
+Deno.test("a proof page dims per line under the real ANSI palette", () => {
   const dim = outSink(makeOut(true)).dim;
   const page = renderProofMarkdown(FACTS, STEPS);
   const block = dimBlock(page, dim);

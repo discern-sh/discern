@@ -1,9 +1,9 @@
 /**
- * The **receipt** (ADR 0114, relay contract amended by ADR 0188) — what a green
+ * The **proof** (ADR 0114, relay contract amended by ADR 0188) — what a green
  * gate hands the review moment, rendered in two forms from one set of facts:
  *
  * - the **line** — one sentence (branch, validated sha, diffstat vs the trunk,
- *   standards state, the command that prints the page). The only receipt content
+ *   standards state, the command that prints the page). The only proof content
  *   an agent puts in a message; the sha lets the owner check the claim against
  *   the marker instead of trusting the message.
  * - the **page** (`markdown`) — the review summary the owner pulls from discern
@@ -16,11 +16,11 @@
  * envelope — "what ran" is read from `steps[]`, never recomputed — plus git facts
  * gathered ONCE here and carried in the envelope's `data.proof` beside the
  * rendered `line` and `markdown` ({@link ProofSchema}). Deterministic: same
- * tree, same result → same receipt (durations excepted).
+ * tree, same result → same proof (durations excepted).
  *
- * A receipt exists only for the state the review moment is about: a GREEN gate
+ * A proof exists only for the state the review moment is about: a GREEN gate
  * over a CLEAN committed tree, on a branch ahead of the trunk. A dirty tree gets
- * no receipt — the diff vs the trunk would describe a different tree than the one
+ * no proof — the diff vs the trunk would describe a different tree than the one
  * the gate validated.
  */
 
@@ -128,7 +128,7 @@ function standardsSection(
 /** The line's standards segment: `standards held` with improved/deferred counts
  * appended, `standards deferred` when nothing was measured, the UNVERIFIED
  * disclosure when the trunk's limits could not be checked — or `undefined` when
- * no standards are configured (nothing to claim). A receipt only exists for a
+ * no standards are configured (nothing to claim). A proof only exists for a
  * green gate, so a measured standard here held or improved by construction. */
 function lineStandardsSegment(
   standards: GateStandard[],
@@ -165,7 +165,7 @@ function diffstat(facts: ProofFacts): string {
 }
 
 /**
- * Render the receipt line — the one sentence an agent closes its report with.
+ * Render the proof line — the one sentence an agent closes its report with.
  * Pure — exported so a test can pin the exact output for fixed inputs.
  */
 export function renderProofLine(
@@ -178,34 +178,34 @@ export function renderProofLine(
     `gate passed on ${facts.branch} @ ${facts.head}`,
     `${diffstat(facts)} vs ${facts.trunk}`,
     ...(standardsSegment !== undefined ? [standardsSegment] : []),
-    "full receipt: discern status --verbose",
+    "full proof: discern status --verbose",
   ];
-  return `Receipt: ${segments.join(" · ")}`;
+  return `Proof: ${segments.join(" · ")}`;
 }
 
 /**
- * Add the consent evidence to a gate receipt once that tree has landed. The
- * underlying gate receipt stays a claim about validation; this derived line is
+ * Add the consent evidence to a gate proof once that tree has landed. The
+ * underlying gate proof stays a claim about validation; this derived line is
  * the acceptance record agents relay after the worktree is gone.
  */
 export function renderLandingProofLine(
-  receiptLine: string,
+  proofLine: string,
   consent: LandingConsent,
 ): string {
   switch (consent.source) {
     case "conversation":
-      return `${receiptLine} · landed with conversation consent`;
+      return `${proofLine} · landed with conversation consent`;
     case "effort-grant":
-      return `${receiptLine} · landed under effort grant`;
+      return `${proofLine} · landed under effort grant`;
     case "standing-grant":
-      return `${receiptLine} · landed under standing grant: ${
+      return `${proofLine} · landed under standing grant: ${
         consent.scopes?.join(", ") ?? "(none)"
       }`;
   }
 }
 
 /**
- * Render the receipt page from its envelope pieces: the gathered git `facts`
+ * Render the proof page from its envelope pieces: the gathered git `facts`
  * and the result's `steps[]`. Pure — exported so a test can pin the exact output
  * for fixed inputs (the diff-stability guarantee).
  */
@@ -216,7 +216,7 @@ export function renderProofMarkdown(
   limits?: StandardsLimitsData,
 ): string {
   const lines: string[] = [
-    `### Receipt — ${code(facts.branch)}`,
+    `### Proof — ${code(facts.branch)}`,
     "",
     `All gate checks passed on a clean tree at ${code(facts.head)} · ` +
     `diff vs ${code(facts.trunk)}: ${diffstat(facts)}`,
@@ -245,7 +245,7 @@ export function renderProofMarkdown(
 }
 
 /** The branch's commit count ahead of the trunk. Fails open to 0 (no trunk, no
- * repo, unreadable log) — and 0 means "nothing to receipt". */
+ * repo, unreadable log) — and 0 means "nothing to proof". */
 async function commitsAheadCount(cwd: string, trunk: string): Promise<number> {
   const r = await runGit(["rev-list", "--count", `${trunk}..HEAD`], { cwd });
   const count = Number(r.stdout.trim());
@@ -253,10 +253,10 @@ async function commitsAheadCount(cwd: string, trunk: string): Promise<number> {
 }
 
 /**
- * Build the receipt for a green gate run at `root`: gather the git facts vs
+ * Build the proof for a green gate run at `root`: gather the git facts vs
  * `trunk`, render the line and the page from them plus the envelope's `steps`,
- * and return the complete {@link Receipt} — or `undefined` when there is nothing
- * to receipt (a dirty tree, detached HEAD, the trunk itself, an unreadable repo,
+ * and return the complete {@link Proof} — or `undefined` when there is nothing
+ * to proof (a dirty tree, detached HEAD, the trunk itself, an unreadable repo,
  * or a branch with no commits ahead). Best-effort: never throws, never fails the
  * gate.
  */

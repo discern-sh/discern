@@ -260,7 +260,7 @@ Deno.test("public JSON schema is additive-compatible for output objects", () => 
   collectClosedOutputMarkers(buildResultJsonSchema(), "$", offenders);
   collectClosedOutputMarkers(
     buildProofNoteJsonSchema(),
-    "$receiptNote",
+    "$proofNote",
     offenders,
   );
   assertEquals(

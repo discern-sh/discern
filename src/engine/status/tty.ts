@@ -46,9 +46,9 @@ export const FLEET_ROW_STATUS_KINDS = [
   "running",
   "stale",
   "in-progress",
-  "receipt-unreadable",
-  "receipt-unavailable",
-  "receipt-stale",
+  "proof-unreadable",
+  "proof-unavailable",
+  "proof-stale",
   "needs-gate",
   "idle",
 ] as const;
@@ -84,20 +84,20 @@ const STATUS_META = {
     tone: "cyan",
     priority: 7,
   },
-  "receipt-unreadable": {
-    label: "Receipt unreadable",
+  "proof-unreadable": {
+    label: "Proof unreadable",
     glyph: "✗",
     tone: "red",
     priority: 8,
   },
-  "receipt-unavailable": {
-    label: "Receipt unavailable",
+  "proof-unavailable": {
+    label: "Proof unavailable",
     glyph: "!",
     tone: "yellow",
     priority: 9,
   },
-  "receipt-stale": {
-    label: "Receipt stale",
+  "proof-stale": {
+    label: "Proof stale",
     glyph: "!",
     tone: "yellow",
     priority: 10,
@@ -145,7 +145,7 @@ export interface FleetRowPresentation {
   identity: RowIdentity;
   git: string;
   gitTone: FleetRowTone;
-  receipt: ProofPresentation;
+  proof: ProofPresentation;
   activity: string;
   /** Proof-backed landing readiness that remains visible when a collision
    * takes precedence as the row's primary status. */
@@ -208,12 +208,12 @@ function fileCount(count: number): string {
 }
 
 /** Resolve the new full inspection field with compatibility fallbacks. */
-function receiptFromEntry(entry: StatusFleetEntry): GateProofCheckData {
+function proofFromEntry(entry: StatusFleetEntry): GateProofCheckData {
   if (entry.gate_proof !== undefined) return entry.gate_proof;
   if (entry.proof_honored === true) {
     return {
       status: "honored",
-      ...(entry.proof === undefined ? {} : { receipt: entry.proof }),
+      ...(entry.proof === undefined ? {} : { proof: entry.proof }),
       ...(entry.proof_line === undefined
         ? {}
         : { proof_line: entry.proof_line }),
@@ -222,23 +222,23 @@ function receiptFromEntry(entry: StatusFleetEntry): GateProofCheckData {
   if (entry.clean === false) return { status: "dirty" };
   return {
     status: "unavailable",
-    reason: "receipt state was not inspected",
+    reason: "proof state was not inspected",
   };
 }
 
-/** Project the receipt-check vocabulary into a labelled, toned fact. */
-function receiptPresentation(entry: StatusFleetEntry): ProofPresentation {
-  const receipt = receiptFromEntry(entry);
-  const detail = receipt.reason ?? (
-    receipt.status === "stale" && receipt.recorded !== undefined &&
-      receipt.head !== undefined
-      ? `recorded at ${receipt.recorded.slice(0, 12)}; HEAD is ${
-        receipt.head.slice(0, 12)
+/** Project the proof-check vocabulary into a labelled, toned fact. */
+function proofPresentation(entry: StatusFleetEntry): ProofPresentation {
+  const proof = proofFromEntry(entry);
+  const detail = proof.reason ?? (
+    proof.status === "stale" && proof.recorded !== undefined &&
+      proof.head !== undefined
+      ? `recorded at ${proof.recorded.slice(0, 12)}; HEAD is ${
+        proof.head.slice(0, 12)
       }`
       : undefined
   );
   const base = ((): Omit<ProofPresentation, "status" | "detail"> => {
-    switch (receipt.status) {
+    switch (proof.status) {
       case "honored":
         return { label: "honored", tone: "green" };
       case "missing":
@@ -254,7 +254,7 @@ function receiptPresentation(entry: StatusFleetEntry): ProofPresentation {
     }
   })();
   return {
-    status: receipt.status,
+    status: proof.status,
     ...base,
     ...(detail === undefined ? {} : { detail }),
   };
@@ -404,7 +404,7 @@ function authorityPresentation(
  * intentionally absent: `status ok` is activity, never overall health evidence. */
 function classifyKind(
   entry: StatusFleetEntry,
-  receipt: ProofPresentation,
+  proof: ProofPresentation,
   collisions: readonly RowCollision[],
   ready: boolean,
   nowMs: number,
@@ -429,10 +429,10 @@ function classifyKind(
     (entry.clean === false || (entry.ahead ?? 0) > 0)
   ) return "stale";
   if (entry.clean === false) return "in-progress";
-  if (receipt.status === "read_failed") return "receipt-unreadable";
-  if (receipt.status === "unavailable") return "receipt-unavailable";
-  if (receipt.status === "stale") return "receipt-stale";
-  if ((entry.ahead ?? 0) > 0 && receipt.status !== "honored") {
+  if (proof.status === "read_failed") return "proof-unreadable";
+  if (proof.status === "unavailable") return "proof-unavailable";
+  if (proof.status === "stale") return "proof-stale";
+  if ((entry.ahead ?? 0) > 0 && proof.status !== "honored") {
     return "needs-gate";
   }
   return "idle";
@@ -442,7 +442,7 @@ function classifyKind(
 function attentionFor(
   kind: FleetRowStatusKind,
   entry: StatusFleetEntry,
-  receipt: ProofPresentation,
+  proof: ProofPresentation,
   authority: AuthorityPresentation | undefined,
   trunk: string,
   nowMs: number,
@@ -477,10 +477,10 @@ function attentionFor(
     }
     case "ready":
       return authority?.label === "granted"
-        ? "The clean branch has an honored receipt and granted landing authority."
+        ? "The clean branch has a valid proof and granted landing authority."
         : authority?.label === "scope-limited"
-        ? "The clean branch has an honored receipt. Its recorded grant does not cover every changed path."
-        : "The clean branch has an honored receipt and is ready for owner review; landing needs approval.";
+        ? "The clean branch has a valid proof. Its recorded grant does not cover every changed path."
+        : "The clean branch has a valid proof and is ready for owner review; landing needs approval.";
     case "running":
       return undefined;
     case "stale": {
@@ -491,18 +491,18 @@ function attentionFor(
     }
     case "in-progress":
       return undefined;
-    case "receipt-unreadable":
-      return `The clean branch's receipt is unreadable${
-        receipt.detail === undefined ? "" : `: ${receipt.detail}`
-      }. Repair the receipt state or run \`discern done\` again.`;
-    case "receipt-unavailable":
-      return `The clean branch's receipt is unavailable${
-        receipt.detail === undefined ? "" : `: ${receipt.detail}`
+    case "proof-unreadable":
+      return `The clean branch's proof is unreadable${
+        proof.detail === undefined ? "" : `: ${proof.detail}`
+      }. Repair the proof state or run \`discern done\` again.`;
+    case "proof-unavailable":
+      return `The clean branch's proof is unavailable${
+        proof.detail === undefined ? "" : `: ${proof.detail}`
       }. Run \`discern done\` before review.`;
-    case "receipt-stale":
-      return "The recorded receipt names another commit. Run `discern done` on the current clean HEAD before review.";
+    case "proof-stale":
+      return "The recorded proof names another commit. Run `discern done` on the current clean HEAD before review.";
     case "needs-gate":
-      return "This clean branch has committed work and no honored receipt. Run `discern done` before review.";
+      return "This clean branch has committed work and no valid proof. Run `discern done` before review.";
     case "idle":
       return undefined;
   }
@@ -514,18 +514,18 @@ export function presentFleetRow(
   options: FleetRowPresentationOptions,
 ): FleetRowPresentation {
   const nowMs = options.nowMs ?? Date.now();
-  const receipt = receiptPresentation(entry);
+  const proof = proofPresentation(entry);
   const collisions = rowCollisions(entry, options.collisions ?? []);
-  const receiptReady = isReadyToLand(entry, receipt.status === "honored");
-  const kind = classifyKind(entry, receipt, collisions, receiptReady, nowMs);
+  const proofReady = isReadyToLand(entry, proof.status === "honored");
+  const kind = classifyKind(entry, proof, collisions, proofReady, nowMs);
   const meta = STATUS_META[kind];
-  const landingReady = receiptReady &&
+  const landingReady = proofReady &&
     (kind === "ready" || kind === "collision");
   const authority = authorityPresentation(entry, landingReady);
   const attention = attentionFor(
     kind,
     entry,
-    receipt,
+    proof,
     authority,
     options.trunk,
     nowMs,
@@ -537,7 +537,7 @@ export function presentFleetRow(
     identity: rowIdentity(entry),
     git: gitPresentation(entry),
     gitTone: gitTone(entry),
-    receipt,
+    proof,
     activity: activityPresentation(entry, nowMs),
     landingReady,
     ...(authority === undefined ? {} : { authority }),
@@ -647,7 +647,7 @@ interface GlyphSectionLine {
 }
 
 interface VerbatimSectionLine {
-  /** Stored receipt Markdown bypasses dashboard indentation so it stays
+  /** Stored proof Markdown bypasses dashboard indentation so it stays
    * copyable. */
   verbatim: string;
 }
@@ -738,10 +738,10 @@ function renderStackedRow(
       width,
     ),
   );
-  const receiptText = `${tone(row.receipt.label, row.receipt.tone, c)}${
-    row.receipt.detail === undefined ? "" : ` · ${row.receipt.detail}`
+  const proofText = `${tone(row.proof.label, row.proof.tone, c)}${
+    row.proof.detail === undefined ? "" : ` · ${row.proof.detail}`
   }`;
-  lines.push(...wrappedField("Receipt", receiptText, width));
+  lines.push(...wrappedField("Proof", proofText, width));
   lines.push(
     ...wrappedField(
       "Activity",
@@ -800,7 +800,7 @@ function tableLines(
   if (
     rows.some((row) =>
       row.identity.secondary !== undefined ||
-      row.receipt.detail !== undefined ||
+      row.proof.detail !== undefined ||
       row.authority?.detail !== undefined ||
       row.collisions.length > 0 ||
       row.entry.contained_in !== undefined
@@ -826,8 +826,8 @@ function tableLines(
       values: rows.map((row) => tone(row.git, row.gitTone, c)),
     },
     {
-      header: "Receipt",
-      values: rows.map((row) => tone(row.receipt.label, row.receipt.tone, c)),
+      header: "Proof",
+      values: rows.map((row) => tone(row.proof.label, row.proof.tone, c)),
     },
     {
       header: "Activity",
@@ -1053,7 +1053,7 @@ function localEntry(data: StatusData): StatusFleetEntry | undefined {
         proof_honored: true,
         ...(data.gate_proof.proof === undefined
           ? {}
-          : { receipt: data.gate_proof.proof }),
+          : { proof: data.gate_proof.proof }),
         ...(data.gate_proof.proof_line === undefined
           ? {}
           : { proof_line: data.gate_proof.proof_line }),
@@ -1195,7 +1195,7 @@ function renderLocalEnvironment(
   return [];
 }
 
-/** Useful landed-receipt facts without exposing Git-note storage plumbing. */
+/** Useful landed-proof facts without exposing Git-note storage plumbing. */
 function renderLastLanding(
   data: StatusData,
   width: number,
@@ -1203,15 +1203,13 @@ function renderLastLanding(
   nowMs: number,
 ): string[] {
   if (data.landed_proof !== undefined) {
-    const receipt = data.landed_proof.proof;
+    const proof = data.landed_proof.proof;
     const age = relativeAge(data.landed_proof.commit_at, nowMs);
     return wrappedField(
       "Last landing",
-      `${tone("passed", "green", c)} · ${
-        styledIdentifier(receipt.branch, c)
-      } · ${
-        fileCount(receipt.files_total)
-      } · +${receipt.insertions} −${receipt.deletions} · ${receipt.head}${
+      `${tone("passed", "green", c)} · ${styledIdentifier(proof.branch, c)} · ${
+        fileCount(proof.files_total)
+      } · +${proof.insertions} −${proof.deletions} · ${proof.head}${
         age === "—" ? "" : ` · ${age}`
       }`,
       width,
@@ -1222,7 +1220,7 @@ function renderLastLanding(
       "Last landing",
       `${
         data.landed_proof_unsupported.commit.slice(0, 12)
-      } · receipt unavailable in this discern version (${data.landed_proof_unsupported.format})`,
+      } · proof unavailable in this discern version (${data.landed_proof_unsupported.format})`,
       width,
     );
   }
@@ -1292,10 +1290,10 @@ function renderVerboseProofs(
       },
     );
   };
-  add("Last landed receipt", data.landed_proof?.proof.markdown);
-  add("Current worktree receipt", data.gate_proof?.proof);
+  add("Last landed proof", data.landed_proof?.proof.markdown);
+  add("Current worktree proof", data.gate_proof?.proof);
   for (const row of rows) {
-    add(`Receipt · ${row.identity.primary}`, row.entry.proof);
+    add(`Proof · ${row.identity.primary}`, row.entry.proof);
   }
   return blocks;
 }
@@ -1312,7 +1310,7 @@ function sectionContentWidth(width: number): number {
 }
 
 /** Render one complete static dashboard. Every fact comes from `data`; this
- * function performs no Git, receipt, authority, collision, or logbook reads. */
+ * function performs no Git, proof, authority, collision, or logbook reads. */
 export function renderStatusDashboard(
   data: StatusData,
   hints: readonly string[] | undefined,
@@ -1422,9 +1420,9 @@ export function renderStatusDashboard(
   if (landing.length > 0) blocks.push(section("Landing", landing, c));
 
   if (options.verbose === true) {
-    const receipts = renderVerboseProofs(data, shownRows, c);
-    if (receipts.length > 0) {
-      blocks.push(section("Proofs", receipts, c));
+    const proofs = renderVerboseProofs(data, shownRows, c);
+    if (proofs.length > 0) {
+      blocks.push(section("Proofs", proofs, c));
     }
   }
   return `${blocks.join("\n\n")}\n`;

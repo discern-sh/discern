@@ -4,8 +4,8 @@
  * waiting instead of guessing at poll intervals.
  *
  * Three conditions, one per call:
- *  - `--green <branch>` — the branch's worktree holds an honored gate receipt
- *    (or a durable receipt note proves its work landed);
+ *  - `--green <branch>` — the branch's worktree holds an honored gate proof
+ *    (or a durable proof note proves its work landed);
  *  - `--landed <branch>` — the branch's work is reachable from the trunk. The
  *    freshest observed tip follows the live branch, then outlives the ref when
  *    acceptance deletes it;
@@ -13,7 +13,7 @@
  *
  * The architectural line (the logbook's advisory-only constitution): every
  * condition grounds in AUTHORITATIVE state — git ancestry for "landed", the
- * gate receipt for "green" — while the logbook serves only as a wake signal
+ * gate proof for "green" — while the logbook serves only as a wake signal
  * (every verb completion anywhere in the fleet is one append to one file).
  * History never decides truth, and `await` gates nothing: it blocks only its
  * own caller, at the caller's request.
@@ -27,7 +27,7 @@
  * without the envelope calling the wait a defect.
  *
  * The verdict remains observational: continuation state changes no project
- * file, ref, receipt, or condition truth. It lives under the Git common dir,
+ * file, ref, proof, or condition truth. It lives under the Git common dir,
  * shared by sibling worktrees and reaped by age and capacity. `await` needs no
  * daemon. It IS begin-recorded (deliberately not a pure-observation verb), so a
  * blocked agent's fleet row reads `running: await` while it holds.
@@ -103,7 +103,7 @@ const AWAIT_OVERLAP_CAP = 20;
 
 /** Options for one `await` call. Exactly one condition must be set. */
 export interface AwaitOptions {
-  /** Wait for this branch's worktree to hold an honored gate receipt. */
+  /** Wait for this branch's worktree to hold an honored gate proof. */
   green?: string;
   /** Wait for this branch's work to become reachable from the trunk. */
   landed?: string;
@@ -278,7 +278,7 @@ interface Evaluation {
   observed: AwaitData["observed"];
   /** How the condition was satisfied — landing satisfies `green` too, and the
    * next-step hint differs (`update` vs `update --from`). */
-  via?: "receipt" | "landed" | "trunk";
+  via?: "proof" | "landed" | "trunk";
 }
 
 /** Build a failed await result with the recovery hint appropriate to its cause. */
@@ -494,8 +494,8 @@ function notYetSummary(
     const status = observed.proof_status;
     const detail = status === "no-worktree"
       ? "no checkout holds it"
-      : `receipt ${status ?? "unreadable"}`;
-    return `\`${branch}\` has no honored receipt yet (${detail})`;
+      : `proof ${status ?? "unreadable"}`;
+    return `\`${branch}\` has no valid proof yet (${detail})`;
   }
   if (condition === "landed") {
     return `the work from \`${branch}\` has not reached \`${trunk}\` yet`;
@@ -666,14 +666,14 @@ export async function awaitResult(
       if (recoveredLanding === undefined) {
         return refusal(
           "not_found",
-          `Branch \`${branch}\` was not found in this repository, and no accepted receipt identifies its work on \`${trunk}\`.`,
+          `Branch \`${branch}\` was not found in this repository, and no accepted proof identifies its work on \`${trunk}\`.`,
           hintTexts([fire(HINTS["await-branch-missing"], { branch, trunk })]),
         );
       }
       tip = recoveredLanding.commit;
     }
   }
-  // `green` needs a checkout for the receipt to ever be recorded in: it lives
+  // `green` needs a checkout for the proof to ever be recorded in: it lives
   // in per-worktree state and dies with the worktree (a contained checkout
   // reclaimed by `worktree prune --contained` is the usual shape). A branch
   // with no worktree at call start therefore cannot meet the condition —
@@ -691,7 +691,7 @@ export async function awaitResult(
       return refusal(
         "not_found",
         `No checkout holds branch \`${branch}\` — its worktree was reclaimed ` +
-          `or removed, and a gate receipt can only be recorded inside one, so ` +
+          `or removed, and a gate proof can only be recorded inside one, so ` +
           `\`--green ${branch}\` can never be met.`,
         hintTexts([
           fire(HINTS["await-green-no-worktree"], {
@@ -710,7 +710,7 @@ export async function awaitResult(
   const trunkStart = resumed?.trunk_start ??
     await resolveCommitRef(root, `refs/heads/${trunk}`);
   // A branch landing is TRANSITION-based: only work observed unreachable and
-  // later reachable counts without a receipt note. A freshly forked branch's
+  // later reachable counts without a proof note. A freshly forked branch's
   // tip already belongs to the trunk, so it cannot release a dependent before
   // the branch commits any work. The state follows later branch tips and
   // survives continuation boundaries.
@@ -802,7 +802,7 @@ export async function awaitResult(
     if (resumeHandle !== undefined) {
       await removeContinuation(root, resumeHandle);
     }
-    const greenSource = last.via === "receipt"
+    const greenSource = last.via === "proof"
       ? last.observed.tip ?? branchState?.tip
       : undefined;
     const source = greenSource !== undefined ? greenSource : trunk;
@@ -811,7 +811,7 @@ export async function awaitResult(
       ...(await updatePreview(root, source)),
     };
     const overlapTotal = observed.overlap_total ?? 0;
-    const hint = last.via === "receipt" &&
+    const hint = last.via === "proof" &&
         branch !== undefined &&
         greenSource !== undefined
       ? fire(HINTS["await-green-met"], {
@@ -976,22 +976,22 @@ async function evaluateCondition(
       observed: { tip: state.tip, landed: false },
     };
   }
-  // green: the receipt is the truth. A landing observed mid-wait satisfies it
+  // green: the proof is the truth. A landing observed mid-wait satisfies it
   // too, but only after the branch armed the transition above or a durable
-  // landed receipt note identifies the accepted work.
+  // landed proof note identifies the accepted work.
   const worktree = await worktreePathForBranch(root, branch);
-  let receiptStatus: NonNullable<AwaitData["observed"]["proof_status"]> =
+  let proofStatus: NonNullable<AwaitData["observed"]["proof_status"]> =
     "no-worktree";
   if (worktree !== undefined) {
-    const receipt = await inspectGateProof(worktree);
-    if (receipt.status === "honored") {
+    const proof = await inspectGateProof(worktree);
+    if (proof.status === "honored") {
       return {
         met: true,
         observed: { proof_status: "honored", worktree, tip: state.tip },
-        via: "receipt",
+        via: "proof",
       };
     }
-    receiptStatus = receipt.status;
+    proofStatus = proof.status;
   }
   if (reachable && state.everUnreachable) {
     return {
@@ -1029,7 +1029,7 @@ async function evaluateCondition(
   return {
     met: false,
     observed: {
-      proof_status: receiptStatus,
+      proof_status: proofStatus,
       tip: state.tip,
       ...(worktree !== undefined ? { worktree } : {}),
     },

@@ -175,7 +175,7 @@ Deno.test("the NOT_SWEPT exception set stays honest against the engine-verb regi
 Deno.test("every swept engine verb honours --no-color on the real CLI (zero ANSI, combined streams)", async () => {
   // A working gate config so finish/prepare/test/standards actually run to output
   // rather than erroring out before the colour path is reached. Every verb
-  // drives its own scaffold — gate verbs write receipts and rerun markers, so
+  // drives its own scaffold — gate verbs write proofs and rerun markers, so
   // a shared one would couple concurrent cases — and the sweep fans out.
   const config = [
     "[project]",

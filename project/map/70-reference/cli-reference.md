@@ -99,12 +99,12 @@ Show what's true right now and what to do next (read-only; does not run the gate
 
 Usage: `discern status [options]`
 
-| Option      | Description                                                                                                                                    |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                              |
-| `--local`   | Show only this checkout, even in the main checkout.                                                                                            |
-| `--verbose` | Also print the full receipt page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the receipt. |
-| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                                  |
+| Option      | Description                                                                                                                                |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--all`     | Include every worktree even when called from one (local view plus all worktrees).                                                          |
+| `--local`   | Show only this checkout, even in the main checkout.                                                                                        |
+| `--verbose` | Also print the full proof page for an honored branch (and each ready fleet row). Interactive output only; --json always carries the proof. |
+| `--json`    | Emit the status as a JSON DiscernResult on stdout (data.location/git/fleet…).                                                              |
 
 ### `discern prepare`
 
@@ -186,14 +186,14 @@ Usage: `discern update [options]`
 
 ### `discern await`
 
-Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate receipt), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.
+Block until a fleet condition holds: a sibling branch is green (its worktree holds an honored gate proof), a branch's work has landed on the trunk, or the trunk has moved. Timing out is not an error; the result carries a short continuation handle that preserves the original condition across calls. To wrap a command behind the concurrent test-run cap, use `discern queue -- <command> [args...]`.
 
 Usage: `discern await [options]`
 
 | Option                | Description                                                                                                            |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | `--json`              | Emit a JSON DiscernResult (verdict in `data.met`, state in `data.observed`).                                           |
-| `--green <branch>`    | Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).                         |
+| `--green <branch>`    | Wait until this branch's worktree holds an honored gate proof (a landing also satisfies it).                           |
 | `--landed <branch>`   | Wait until this branch has work and its latest observed tip reaches the trunk.                                         |
 | `--trunk-moved`       | Wait until the trunk ref moves from its position at call start.                                                        |
 | `--resume <handle>`   | Continue a previous not-met wait without resetting its pinned state; pass no condition flag with it.                   |
@@ -552,12 +552,12 @@ Measure every quality standard: numbers that can never get worse. `discern done`
 
 Usage: `discern standards [names...] [options]`
 
-| Option      | Description                                                                                                                                                                                                           |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--json`    | Emit the result as a JSON DiscernResult object on stdout.                                                                                                                                                             |
-| `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                             |
-| `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                           |
-| `--pin`     | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree. |
+| Option      | Description                                                                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--json`    | Emit the result as a JSON DiscernResult object on stdout.                                                                                                                                                           |
+| `--dry-run` | Show the standards that would be measured; touch nothing.                                                                                                                                                           |
+| `--force`   | Run standards on a dirty worktree; intended only while authoring standards.                                                                                                                                         |
+| `--pin`     | Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree. |
 
 ### `discern skills <subcommand>`
 

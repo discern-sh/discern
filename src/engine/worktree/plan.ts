@@ -67,7 +67,7 @@ export interface AcceptPlan {
   mainRepo: string;
   /** The trunk the acceptance fast-forwards (`[repository].trunk`). */
   trunk: string;
-  /** Whether refresh maintains receipt-note fetch mappings. */
+  /** Whether refresh maintains proof-note fetch mappings. */
   proofNotes: "local" | "fetch";
   /** Shared checkout-convergence commands run in the trunk after landing. */
   repositoryEnsureSteps: string[];
@@ -94,7 +94,7 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
     label: ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
     disposition: "gate",
     note:
-      "after receipt or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
+      "after proof or gate validation, verify the current engine's refresh plan has no pending tracked-file effect",
   }];
   // Land on the trunk FIRST: fast-forward it to the branch tip (always clean —
   // the gate guarantees the branch contains the trunk). Then converge and prove
@@ -109,17 +109,17 @@ export function acceptPlanToEngine(plan: AcceptPlan): EnginePlan {
   });
   steps.push({
     kind: "git",
-    label: "reconcile-receipt-note-fetch",
+    label: "reconcile-proof-note-fetch",
     disposition: "run",
     note: plan.proofNotes === "fetch"
-      ? "add the receipt-note fetch mapping for each remote"
-      : "remove only receipt-note fetch mappings discern previously managed",
+      ? "add the proof-note fetch mapping for each remote"
+      : "remove only proof-note fetch mappings discern previously managed",
   });
   steps.push({
     kind: "git",
-    label: "write-receipt-note",
+    label: "write-proof-note",
     disposition: "run",
-    note: `attach the landed receipt under refs/notes/discern`,
+    note: `attach the landed proof under refs/notes/discern`,
   });
   steps.push({
     kind: "refresh",
@@ -578,7 +578,7 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       plan.reclaimContained
         ? `Contained (reclaiming): ${n} checkout${n === 1 ? "" : "s"} — ` +
           `branch refs kept; each checkout and its per-worktree state ` +
-          `(gate receipt included) destroyed`
+          `(gate proof included) destroyed`
         : `Contained (kept): ${n} checkout${n === 1 ? "" : "s"} whose ` +
           `commits travel inside a live branch — reclaim with --contained; ` +
           `branch refs are always kept`,

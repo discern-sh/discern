@@ -69,7 +69,7 @@ export const CONCEPTS = [
     id: "proof",
     name: "Proof",
     productRole:
-      "Launch name for the current Receipt: evidence that one exact clean committed tree passed the declared Gate and held applicable Standards.",
+      "Evidence that one exact clean committed tree passed the declared Gate and held applicable Standards.",
     humanSituation:
       "The person needs to know which result the evidence actually covers.",
     brandInterpretation: "Evidence attached to the exact completed change.",

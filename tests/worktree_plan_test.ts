@@ -142,8 +142,8 @@ Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gat
   assertEquals(withResources.steps.map((s) => s.label), [
     ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
     "fast-forward-trunk",
-    "reconcile-receipt-note-fetch",
-    "write-receipt-note",
+    "reconcile-proof-note-fetch",
+    "write-proof-note",
     "materialize local agent artifacts",
     "install-deps",
     "smoke",
@@ -165,8 +165,8 @@ Deno.test("acceptPlanToEngine: checks refresh before fast-forward; resources gat
   assertEquals(clean.steps.map((s) => s.label), [
     ACCEPT_TRACKED_REFRESH_CHECK_LABEL,
     "fast-forward-trunk",
-    "reconcile-receipt-note-fetch",
-    "write-receipt-note",
+    "reconcile-proof-note-fetch",
+    "write-proof-note",
     "materialize local agent artifacts",
     "install-deps",
     "smoke",
@@ -361,7 +361,7 @@ Deno.test("prunePlanToEngine: the contained group is offer-only by default and r
   assert(
     reclaimingPlan.details.some(
       (d) =>
-        d.includes("branch refs kept") && d.includes("gate receipt included"),
+        d.includes("branch refs kept") && d.includes("gate proof included"),
     ),
     "the reclaim confirmation must name what is kept and what is destroyed",
   );

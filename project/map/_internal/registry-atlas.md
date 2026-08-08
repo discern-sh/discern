@@ -603,7 +603,7 @@ Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and
   - `worktreeReady`
   - `selfShim`
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
-- Glossary: not enrolled — internal storage vocabulary spanning receipts, measurements, logbook data, and worktree lifecycle state
+- Glossary: not enrolled — internal storage vocabulary spanning proofs, measurements, logbook data, and worktree lifecycle state
 - Feature canon: not enrolled — one internal storage registry supports several independently documented product features
 
 ## `jobs` — Gate jobs
@@ -958,7 +958,7 @@ The advisory hint registry: every hint string enters results through it.
   - `status-ready-for-review`
   - `status-land-under-verified-authority`
   - `status-ready-uncovered-authority`
-  - `status-missing-done-receipt`
+  - `status-missing-done-proof`
   - `fleet-ownership`
   - `status-fleet-logbook-disabled`
   - `status-no-active-worktrees`
@@ -996,7 +996,7 @@ The advisory hint registry: every hint string enters results through it.
   - `patterns-reset-empty`
   - `patterns-reset-preview`
   - `patterns-reset-recording-resumes`
-  - `logbook-receipt-finding`
+  - `logbook-proof-finding`
   - `logbook-status-finding`
   - `improvement-logbook-off`
   - `setup-unfinished-gate`
@@ -1006,11 +1006,11 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-test-run-queued`
   - `gate-test-slots-unavailable`
   - `gate-standards-limits-unverified`
-  - `gate-receipt-skipped-dirty`
-  - `gate-receipt-head-moved`
-  - `gate-receipt-record-failed`
-  - `gate-receipt-unavailable`
-  - `gate-receipt-clear-failed`
+  - `gate-proof-skipped-dirty`
+  - `gate-proof-head-moved`
+  - `gate-proof-record-failed`
+  - `gate-proof-unavailable`
+  - `gate-proof-clear-failed`
   - `done-unchanged-tree-red`
   - `done-unchanged-tree-green`
   - `gate-failure-gotchas`
@@ -1037,7 +1037,7 @@ The advisory hint registry: every hint string enters results through it.
   - `gate-failure-standards`
   - `gate-failure-write-access`
   - `gate-prove-it-works`
-  - `gate-relay-receipt`
+  - `gate-relay-proof`
   - `gate-land-under-verified-authority`
   - `gate-relay-uncovered-authority`
   - `gate-update-docs`
@@ -1048,8 +1048,8 @@ The advisory hint registry: every hint string enters results through it.
   - `standards-pin-reused-measurements`
   - `standards-pin-blocked`
   - `standards-pin-no-slack`
-  - `standards-pin-carried-receipt`
-  - `standards-pin-no-receipt`
+  - `standards-pin-carried-proof`
+  - `standards-pin-no-proof`
   - `standards-limits-unverified`
   - `standards-pin-behind`
   - `standards-none-configured`
@@ -1061,8 +1061,8 @@ The advisory hint registry: every hint string enters results through it.
   - `accept-review-via-status`
   - `accept-refresh-failed`
   - `accept-convergence-changed-tracked`
-  - `accept-relay-landing-receipt`
-  - `accept-publish-receipt-note`
+  - `accept-relay-landing-proof`
+  - `accept-publish-proof-note`
   - `update-summary-fallback`
   - `update-overlap`
   - `update-no-overlap`
@@ -1418,7 +1418,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `test-verb`
   - `diagnostics`
   - `gotchas-pointer`
-  - `receipt`
+  - `proof`
   - `unchanged-tree-rerun`
   - `standards`
   - `standards-direction`
@@ -2388,7 +2388,7 @@ Write targets recorded in `UNAFFILIATED_CODEGEN_TARGETS`; the write chokepoint i
 Modules whose doc comments claim single-source-of-truth status without anchoring a declared entry, recorded in `UNAFFILIATED_SETS`.
 
 - `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project
-- `src/engine/gate/proof_render.ts` — the claim announces a derive-once rule — the receipt reads the result envelope, never recomputes — not a member set
+- `src/engine/gate/proof_render.ts` — the claim announces a derive-once rule — the proof reads the result envelope, never recomputes — not a member set
 - `src/engine/worktree/side_restrictions.ts` — candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention
 - `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — a single staging-directory name shared by the build writer and the bundled-docs reader — one value, not a member set
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member

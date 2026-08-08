@@ -510,15 +510,15 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         },
       },
       {
-        id: "receipt",
-        title: "The receipt",
+        id: "proof",
+        title: "The proof",
         what:
-          "A green `discern done` over a clean, committed tree ahead of the trunk emits a review summary: the branch and the pinned `HEAD`, the commits, changed files, check results, and held standards. `discern accept` can reuse it while that commit and worktree stand; a later commit invalidates it. The same green run fires a registered hint to exercise the real artifact along the changed paths before offering the receipt.",
+          "A green `discern done` over a clean, committed tree ahead of the trunk emits a review summary: the branch and the pinned `HEAD`, the commits, changed files, check results, and held standards. `discern accept` can reuse it while that commit and worktree stand; a later commit invalidates it. The same green run fires a registered hint to exercise the real artifact along the changed paths before offering the proof.",
         why:
           "The owner reviews a verified claim that names the tree it vouches for.",
         agent:
-          "A commit made while the gate ran can never earn the receipt: the tree is pinned before the first job and re-checked at stamp time. When a green run cannot record one because the tree is dirty, the refusal names the blocking paths, and at the moment done is about to be claimed a hint reminds the agent that a green gate is necessary but not sufficient — exercise the artifact, then relay the receipt and wait.",
-        hints: ["gate-prove-it-works", "gate-relay-receipt"],
+          "A commit made while the gate ran can never earn the proof: the tree is pinned before the first job and re-checked at stamp time. When a green run cannot record one because the tree is dirty, the refusal names the blocking paths, and at the moment done is about to be claimed a hint reminds the agent that a green gate is necessary but not sufficient — exercise the artifact, then relay the proof and wait.",
+        hints: ["gate-prove-it-works", "gate-relay-proof"],
         plain: {
           title: "The proof-of-completion summary",
           what:
@@ -535,7 +535,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         what:
           "Each completed `discern done` records the exact tree it judged — `HEAD` plus a fingerprint of everything uncommitted — and the verdict, in the worktree's Git admin area. Asked to run again on that identical tree, `done` refuses read-only before the fix stage can touch a file; `discern done --confirmed` re-runs it as an attested, recorded probe. Any change to the tree runs as normal, and so does `--dry-run`.",
         why:
-          "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for a receipt `discern status` already shows; a red one retried until it passes teaches that red is negotiable.",
+          "An unchanged tree expects an unchanged verdict. A green rerun pays full gate time for a proof `discern status` already shows; a red one retried until it passes teaches that red is negotiable.",
         agent:
           "The refusal names the verdict that already stands and both recoveries: change the tree, or attest the probe. A confirmed rerun lands in the logbook as a flag the patterns reader watches, so a flaky suite surfaces as evidence — the flake detector names the tree whose verdict flipped, and routine `--confirmed` is itself a finding.",
         hints: ["done-unchanged-tree-red", "done-unchanged-tree-green"],
@@ -628,7 +628,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         why:
           "A docs-only change pays seconds for a coverage standard, and the never-loosen check still runs.",
         agent:
-          "A fresh worktree inherits its measurement baseline from the trunk's receipt, so the first gate run replays what an untouched metric already proved.",
+          "A fresh worktree inherits its measurement baseline from the trunk's proof, so the first gate run replays what an untouched metric already proved.",
         plain: {
           title: "Reusing a measurement when nothing it reads has changed",
           what:
@@ -654,7 +654,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "standards-pin",
         title: "Capturing a gain",
         what:
-          "`discern standards --pin` tightens each improved limit to the value just measured and commits the change on its own, carrying the gate receipt across the pin commit. It measures once: a green check records a measurement receipt the pin replays.",
+          "`discern standards --pin` tightens each improved limit to the value just measured and commits the change on its own, carrying the gate proof across the pin commit. It measures once: a green check records a measurement proof the pin replays.",
         why:
           "Tightening is mechanical and provable; a hand-edit can't tell a real gain from a quiet loosening.",
         plain: {
@@ -739,7 +739,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "accept",
         title: "Accept",
         what:
-          "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by the receipt), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. Authority comes from a fresh `--confirmed` conversation attestation or a machine-checked standing or effort grant.",
+          "`discern accept` lands the reviewed branch on the trunk as a clean fast-forward, validates the exact tree it lands (fast-pathed by the proof), tears down resources, removes the worktree and branch, refreshes the landing checkout, and runs `[repository].ensure` and `smoke` after landing. Authority comes from a fresh `--confirmed` conversation attestation or a machine-checked standing or effort grant.",
         why:
           "Landing is atomic and consented: the tree the owner reviewed is the tree that lands, and nothing of the task is left behind.",
         agent:
@@ -894,7 +894,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "await",
         title: "Awaiting a fleet condition",
         what:
-          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed receipt notes, and gate receipts decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call.",
+          "`discern await` blocks until a sibling branch is green, a branch has work whose latest observed tip has landed on the trunk, or the trunk has moved. Git refs, landed proof notes, and gate proofs decide the condition; logbook appends only wake it, with a polling fallback. Omit the timeout to use the configured client's longest reliable call. If that call ends first, a 15-character repository-local continuation handle preserves the branch transition or trunk baseline across the next call.",
         why:
           "A dependent agent spends one bounded call waiting for the work it builds on instead of guessing poll intervals or asking a human.",
         agent:
@@ -1436,11 +1436,11 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "status",
         title: "Status",
         what:
-          "`discern status` projects one read-only result as a width-capped human dashboard or a structured JSON and MCP envelope. The main-checkout dashboard leads with the fleet's derived attention states, complete identities, receipt evidence, activity, divergence, collisions, and concrete next steps.",
+          "`discern status` projects one read-only result as a width-capped human dashboard or a structured JSON and MCP envelope. The main-checkout dashboard leads with the fleet's derived attention states, complete identities, proof evidence, activity, divergence, collisions, and concrete next steps.",
         why:
           "Orientation is one cheap read-only call, for agents and humans alike.",
         agent:
-          "The structured result retains location, gate inputs, resources, configured standards, generated-file currency, and advisory hints. Every readable fleet worktree carries its complete receipt check and landing authority, while the honored-only receipt fields remain compatible.",
+          "The structured result retains location, gate inputs, resources, configured standards, generated-file currency, and advisory hints. Every readable fleet worktree carries its complete proof check and landing authority, while the honored-only proof fields remain compatible.",
         hints: [
           "status-start-on-trunk",
           "status-start-off-trunk",
@@ -1936,7 +1936,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         kind: "benefit",
         title: "The agent is the user",
         what:
-          "Humans install discern and review its receipts; nearly every other surface — the verbs, the tools, the hints, the compiled guidance — is read by an agent, and the interaction design aims at that reader.",
+          "Humans install discern and review its proofs; nearly every other surface — the verbs, the tools, the hints, the compiled guidance — is read by an agent, and the interaction design aims at that reader.",
         why:
           "The happy path is the one agents take by default, whether or not they notice the steering.",
         agent:

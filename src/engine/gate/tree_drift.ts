@@ -85,7 +85,7 @@ export interface StageStrands {
  * The stranded paths, attributed to the stage that produced them. A path is
  * stranded when it is dirty in the FINAL snapshot but was not dirty before any
  * stage ran — so a path a later stage restores to its committed state never
- * counts (the finished tree is what the receipt vouches for). Each strand is
+ * counts (the finished tree is what the proof vouches for). Each strand is
  * attributed to the FIRST snapshot that shows it dirty; stages appear in run
  * order, paths sorted within a stage. Pure — the testable core of the strand
  * decision.

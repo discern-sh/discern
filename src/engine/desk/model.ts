@@ -3,7 +3,7 @@
  * each row's state to the actions that are legal for it (ADR 0119).
  *
  * The desk owns NO state of its own — every field here comes from the `status`
- * fleet survey plus the gate-receipt check, and every mutation it offers is one
+ * fleet survey plus the gate-proof check, and every mutation it offers is one
  * of the existing lifecycle verbs. This module is the desk's only decision
  * logic, kept pure (time is a parameter) so `tests/engine_desk_model_test.ts`
  * can pin the whole classification table.
@@ -68,8 +68,8 @@ export interface DeskTaskLabel {
 export interface DeskRow {
   readonly entry: StatusFleetEntry;
   readonly task: DeskTaskLabel;
-  /** Whether the row's clean HEAD holds a recorded gate receipt. */
-  readonly receiptHonored: boolean;
+  /** Whether the row's clean HEAD holds a recorded gate proof. */
+  readonly proofHonored: boolean;
   /** Whether the desk has granted this branch a worktree-scoped landing. */
   readonly effortGranted: boolean;
   /** Executable Project Scripts discovered through this worktree's config. */
@@ -125,7 +125,7 @@ function isStale(entry: StatusFleetEntry, nowMs: number): boolean {
 /** Classify one fleet entry into its decision-order bucket. */
 export function classifyBucket(
   entry: StatusFleetEntry,
-  receiptHonored: boolean,
+  proofHonored: boolean,
   nowMs: number,
 ): DeskBucket {
   if (isUnhealthy(entry)) {
@@ -134,7 +134,7 @@ export function classifyBucket(
   if ((entry.behind ?? 0) > 0) {
     return "in_flight";
   }
-  if (isReadyToLand(entry, receiptHonored)) {
+  if (isReadyToLand(entry, proofHonored)) {
     return "ready";
   }
   if (isStale(entry, nowMs)) {
@@ -148,8 +148,8 @@ export function classifyBucket(
  * authoritative: the desk offers only what can plausibly succeed, but every
  * action still runs the real verb core, whose own preconditions keep the final
  * word (a refusal renders; it is never bypassed). Accept is offered without
- * requiring a receipt — acceptance validates the tree at the landing boundary
- * itself, so a receiptless clean branch simply pays for a full gate run there.
+ * requiring a proof — acceptance validates the tree at the landing boundary
+ * itself, so a proofless clean branch simply pays for a full gate run there.
  */
 export function legalActions(
   entry: StatusFleetEntry,
@@ -228,7 +228,7 @@ export function buildAgentLaunches(
 /** The plain-text state summary rendered beside a row's branch name. */
 export function rowSummary(
   entry: StatusFleetEntry,
-  receiptHonored: boolean,
+  proofHonored: boolean,
   nowMs: number,
 ): string {
   if (entry.broken === true) {
@@ -245,7 +245,7 @@ export function rowSummary(
   }
   if (behind > 0) {
     parts.push("Update needed");
-  } else if (receiptHonored) {
+  } else if (proofHonored) {
     parts.push("Gate passed");
   } else if (entry.clean === true && ahead > 0) {
     parts.push("Awaiting gate");
@@ -289,7 +289,7 @@ function byActivityDesc(a: StatusFleetEntry, b: StatusFleetEntry): number {
  */
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
-  receiptHonoredByPath: ReadonlyMap<string, boolean>,
+  proofHonoredByPath: ReadonlyMap<string, boolean>,
   effortGrantedByPath: ReadonlyMap<string, boolean>,
   scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
   agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
@@ -298,25 +298,25 @@ export function buildDeskRows(
   const rows = fleet
     .filter((entry) => !entry.is_main)
     .map((entry): DeskRow => {
-      const receiptHonored = receiptHonoredByPath.get(entry.path) ?? false;
+      const proofHonored = proofHonoredByPath.get(entry.path) ?? false;
       const effortGranted = effortGrantedByPath.get(entry.path) ?? false;
       const scripts = scriptsByPath.get(entry.path) ?? [];
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
       return {
         entry,
         task: taskLabel(entry),
-        receiptHonored,
+        proofHonored,
         effortGranted,
         scripts,
         agentLaunches,
-        bucket: classifyBucket(entry, receiptHonored, nowMs),
+        bucket: classifyBucket(entry, proofHonored, nowMs),
         actions: legalActions(
           entry,
           effortGranted,
           scripts,
           agentLaunches,
         ),
-        summary: rowSummary(entry, receiptHonored, nowMs),
+        summary: rowSummary(entry, proofHonored, nowMs),
       };
     });
   return rows.sort((a, b) =>

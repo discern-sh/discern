@@ -72,7 +72,7 @@ export interface GuidelinesResult {
   worktreeAppWired: string[];
   /** Project-local provider policy/rules files written, such as Codex exec rules. */
   projectRulesWired: string[];
-  /** Local Git config keys whose managed receipt-note fetch mappings changed. */
+  /** Local Git config keys whose managed proof-note fetch mappings changed. */
   proofNotesFetchChanged: string[];
   /** The ADR README whose maintained record lists this run regenerated — at
    * most one path; empty when the index is current or the project carries no
@@ -299,8 +299,8 @@ export async function compileGuidelines(
     log.info(`co-managed project rules in: ${projectRulesWired.join(", ")}`);
   }
 
-  // --- job 2d: receipt-note fetch transport -----------------------------------
-  // Local receipt recording is unconditional at acceptance. Transport remains
+  // --- job 2d: proof-note fetch transport -----------------------------------
+  // Local proof recording is unconditional at acceptance. Transport remains
   // opt-in: only "fetch" adds an optional additive mapping, and returning to
   // "local" removes only mappings marked as managed by this integration.
   let proofNotesFetchChanged: string[] = [];
@@ -319,13 +319,13 @@ export async function compileGuidelines(
       errors.push(...reconciled.errors);
       if (proofNotesFetchChanged.length > 0) {
         log.info(
-          `updated receipt-note fetch transport in: ${
+          `updated proof-note fetch transport in: ${
             proofNotesFetchChanged.join(", ")
           }`,
         );
       }
     } catch (error) {
-      const msg = `could not update receipt-note fetch transport: ${
+      const msg = `could not update proof-note fetch transport: ${
         errText(error)
       }`;
       log.warn(msg);

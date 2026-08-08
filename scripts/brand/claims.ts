@@ -188,11 +188,11 @@ export const CLAIMS = {
     mechanism:
       "the tree is pinned before evaluation and rechecked at stamping; a later commit invalidates the evidence.",
     conditions:
-      "“Proof” is the launch rename of Receipt; migrate product terminology consistently before public release.",
+      "Use “Proof” consistently across product surfaces, and keep the claim scoped to the declared Gate over the exact tree.",
     forbiddenInference:
       "formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.",
     primarySource:
-      "Receipt/Proof implementation, glossary, Gate behaviour, DSSE-compatible note boundary.",
+      "Proof implementation, glossary, Gate behaviour, and DSSE-compatible note boundary.",
   },
   "gate-grants-no-authority": {
     title: "a passing Gate does not grant authority to land",

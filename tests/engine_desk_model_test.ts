@@ -68,13 +68,13 @@ const BUCKET_CASES: ReadonlyArray<{
     expect: "attention",
   },
   {
-    name: "clean, ahead, receipt honored → ready to land",
+    name: "clean, ahead, proof honored → ready to land",
     entry: entry({ ahead: 3 }),
     proof: true,
     expect: "ready",
   },
   {
-    name: "clean, ahead, receipt honored, but behind trunk → in flight",
+    name: "clean, ahead, proof honored, but behind trunk → in flight",
     entry: entry({ ahead: 3, behind: 2, last_activity: daysAgo(20) }),
     proof: true,
     expect: "in_flight",
@@ -86,7 +86,7 @@ const BUCKET_CASES: ReadonlyArray<{
     expect: "ready",
   },
   {
-    name: "clean and ahead but no receipt → still in flight",
+    name: "clean and ahead but no proof → still in flight",
     entry: entry({ ahead: 3 }),
     proof: false,
     expect: "in_flight",
@@ -104,7 +104,7 @@ const BUCKET_CASES: ReadonlyArray<{
     expect: "attention",
   },
   {
-    name: "unlanded commits idle past the threshold, no receipt → attention",
+    name: "unlanded commits idle past the threshold, no proof → attention",
     entry: entry({ ahead: 2, last_activity: daysAgo(9) }),
     proof: false,
     expect: "attention",
@@ -116,7 +116,7 @@ const BUCKET_CASES: ReadonlyArray<{
     expect: "in_flight",
   },
   {
-    name: "ready outranks stale: clean+ahead+receipt even when idle",
+    name: "ready outranks stale: clean+ahead+proof even when idle",
     entry: entry({ ahead: 1, last_activity: daysAgo(20) }),
     proof: true,
     expect: "ready",
@@ -279,7 +279,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     changed_files: 7,
   });
 
-  const receipts = new Map<string, boolean>([
+  const proofs = new Map<string, boolean>([
     ["/p/ready-old", true],
     ["/p/ready-new", true],
   ]);
@@ -288,7 +288,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
   ]);
   const rows = buildDeskRows(
     [stale, main, readyOld, flying, readyNew],
-    receipts,
+    proofs,
     new Map(),
     scripts,
     new Map(),
@@ -307,7 +307,7 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
   assertEquals(rows[1]?.scripts, []);
 });
 
-Deno.test("buildDeskRows: a path absent from the receipt map is never treated as vouched", () => {
+Deno.test("buildDeskRows: a path absent from the proof map is never treated as vouched", () => {
   const rows = buildDeskRows(
     [entry({ ahead: 5, path: "/p/unvouched" })],
     new Map(),
@@ -317,7 +317,7 @@ Deno.test("buildDeskRows: a path absent from the receipt map is never treated as
     NOW,
   );
   assertEquals(rows.length, 1);
-  assertEquals(rows[0]?.receiptHonored, false);
+  assertEquals(rows[0]?.proofHonored, false);
   assertEquals(rows[0]?.bucket, "in_flight");
 });
 

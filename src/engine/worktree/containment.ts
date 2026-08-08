@@ -296,7 +296,7 @@ async function nearestHeldContainer(
 /**
  * The nearest branch strictly containing `branch`'s tip AND holding a
  * registered checkout, or undefined — the pointer `await --green` uses when a
- * branch's own checkout is gone. Only a checkout can ever record a receipt,
+ * branch's own checkout is gone. Only a checkout can ever record a proof,
  * so a ref-only container (another reclaimed stage) would be an equally
  * impossible target; the pointer skips past it to a stage that can answer.
  */

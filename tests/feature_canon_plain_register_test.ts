@@ -160,11 +160,14 @@ Deno.test("the jargon scan discriminates (positive controls)", () => {
     what: "A fixture.",
     plain: {
       title: "Fixture",
-      what: "The worktree holds the receipt until the gate passes.",
+      what: "The worktree holds the standards until the gate passes.",
     },
   };
   const hits = scanNode(jargon);
-  assert(hits.length >= 3, `expected worktree/receipt/gate hits, got: ${hits}`);
+  assert(
+    hits.length >= 3,
+    `expected worktree/standard/gate hits, got: ${hits}`,
+  );
   const quoted: FeatureNode = {
     id: "fixture-quoted",
     title: "Fixture",

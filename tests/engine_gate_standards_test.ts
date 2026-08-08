@@ -384,9 +384,9 @@ Deno.test("tier 2: the dry-run plan lists the standards inside the check/test gr
   });
 });
 
-// ── the measurement receipt: a green gate records it; --pin replays it ───────
+// ── the measurement proof: a green gate records it; --pin replays it ───────
 
-Deno.test("a green gate over a clean committed tree records the measurement receipt, and `standards --pin` replays it without re-measuring", async () => {
+Deno.test("a green gate over a clean committed tree records the measurement proof, and `standards --pin` replays it without re-measuring", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // The measurement appends to a counter file, so the test can prove pin
@@ -451,15 +451,15 @@ Deno.test("zero cost when [standards] is empty: the gate plan is byte-identical 
   assertEquals(withStandards, without);
 });
 
-// ── the receipt's standards section ───────────────────────────────────────────
+// ── the proof's standards section ───────────────────────────────────────────
 
-Deno.test("the receipt renders the standards section and the limits-verified line", async () => {
+Deno.test("the proof renders the standards section and the limits-verified line", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, covConfig({ limit: 80 }));
     await gitInit(dir);
-    // A committed branch ahead of the trunk, so a receipt is rendered.
-    await git(dir, "checkout", "-qb", "agent/std-receipt");
+    // A committed branch ahead of the trunk, so a proof is rendered.
+    await git(dir, "checkout", "-qb", "agent/std-proof");
     await Deno.writeTextFile(join(dir, "work.txt"), "w\n");
     await git(dir, "add", "work.txt");
     await git(dir, "commit", "-qm", "work", "--no-gpg-sign");

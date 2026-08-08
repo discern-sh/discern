@@ -2,7 +2,7 @@
  * End-to-end coverage for ADR 0160's working-surface routes. A single seeded
  * logbook carries branch-, session-, and project-scope evidence; each real verb
  * must expose only its own scope, through its normal envelope, without changing
- * any outcome. The focused cases pin the green-only receipt rule, the one-line
+ * any outcome. The focused cases pin the green-only proof rule, the one-line
  * cap, the logbook toggle, and setup suppression.
  */
 
@@ -85,7 +85,7 @@ function event(n: number, over: Partial<VerbEvent>): VerbEvent {
 async function seedMixedLogbook(main: string): Promise<void> {
   const events: VerbEvent[] = [];
   // Branch: 4 consecutive red done runs plus one green clears both the
-  // detector threshold and the receipt's stricter one-extra-event bar.
+  // detector threshold and the proof's stricter one-extra-event bar.
   for (let i = 0; i < 4; i += 1) {
     events.push(event(i, {
       outcome: "failed",
@@ -166,8 +166,8 @@ function gateConfig(testCommand: "true" | "false", logbook = true): string {
   ].join("\n");
 }
 
-/** Create one committed branch ahead of main, ready to earn a receipt. */
-async function receiptBranch(
+/** Create one committed branch ahead of main, ready to earn a proof. */
+async function proofBranch(
   main: string,
   testCommand: "true" | "false" = "true",
   logbook = true,
@@ -207,7 +207,7 @@ function withoutHistory(data: Record<string, unknown> | undefined): unknown {
 
 Deno.test("findings route end to end to done, status, improvement, and nowhere else", async () => {
   await withTempDir(async (main) => {
-    const worktree = await receiptBranch(main);
+    const worktree = await proofBranch(main);
 
     // Capture the static improvement catalogue before history exists. The
     // command records afterwards; the seed below replaces that month file.
@@ -223,17 +223,17 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     assertEquals(done.data?.failed_stage, null);
     assert(
       done.data?.proof !== undefined,
-      "the green clean branch needs a receipt",
+      "the green clean branch needs a proof",
     );
-    const receiptHint = assertHasHint(
+    const proofHint = assertHasHint(
       done,
-      HINTS["logbook-receipt-finding"],
+      HINTS["logbook-proof-finding"],
       { count: 2, observed: BRANCH_OBSERVED },
     );
     assertEquals(
-      receiptHint.includes("\n"),
+      proofHint.includes("\n"),
       false,
-      "the receipt advisory must stay one physical line",
+      "the proof advisory must stay one physical line",
     );
 
     const statusRun = await runAgent(worktree, ["status", "--json"]);
@@ -302,7 +302,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     assertEquals(
       gateValidation?.mode,
       "proof",
-      "the advisory must leave the receipt honor path intact",
+      "the advisory must leave the proof honor path intact",
     );
   });
 });
@@ -315,7 +315,7 @@ Deno.test("done finding line is absent on red, while quiet, and with recording o
   ];
   for (const fixture of cases) {
     await withTempDir(async (main) => {
-      const worktree = await receiptBranch(
+      const worktree = await proofBranch(
         main,
         fixture.test,
         fixture.logbook,
@@ -326,7 +326,7 @@ Deno.test("done finding line is absent on red, while quiet, and with recording o
       const run = await runAgent(worktree, ["done", "--json"]);
       const result = parse(run.stdout);
       assertEquals(result.ok, fixture.test === "true", fixture.name);
-      assertLacksHint(result, HINTS["logbook-receipt-finding"], {
+      assertLacksHint(result, HINTS["logbook-proof-finding"], {
         count: 2,
         observed: BRANCH_OBSERVED,
       });

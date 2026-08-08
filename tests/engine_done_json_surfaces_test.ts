@@ -1,7 +1,7 @@
 /**
  * Engine tests for `done --json` surfaces past the core envelope: the dry-run
  * preview, human-mode parity, hint carriage, the artifact-currency checks
- * (guidance, skills, ADR numbers, tracked artifacts), and the receipt.
+ * (guidance, skills, ADR numbers, tracked artifacts), and the proof.
  * Split from `engine_done_json_test.ts` so `deno test --parallel` (which
  * distributes per FILE) can spread these serial `done` runs across workers.
  */
@@ -499,7 +499,7 @@ Deno.test("done --json: a hand-edited materialized skill blocks (skills); a fore
   });
 });
 
-// ── the receipt (v1): the review-moment summary a green gate emits ──────────────
+// ── the proof (v1): the review-moment summary a green gate emits ──────────────
 
 const PROOF_CONFIG = [
   "[project]",
@@ -509,17 +509,17 @@ const PROOF_CONFIG = [
   'trunk = "main"',
   "",
   "[jobs]",
-  'test = "echo receipt-gate-ok"',
+  'test = "echo proof-gate-ok"',
   "",
 ].join("\n");
 
-/** Strip the duration fragments (`· 3s`) — the one part of a receipt allowed to
+/** Strip the duration fragments (`· 3s`) — the one part of a proof allowed to
  * differ between runs of the same tree. */
 function stripDurations(md: string): string {
   return md.replaceAll(/ · \d+s/g, "");
 }
 
-Deno.test("done --json: a green worktree gate emits the receipt in data and stores it in the marker", async () => {
+Deno.test("done --json: a green worktree gate emits the proof in data and stores it in the marker", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
@@ -534,50 +534,50 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
 
-    // The structured receipt: git facts + the two renderings, one derivation.
-    const receipt = obj.data.proof;
-    assert(receipt !== undefined, `expected data.proof: ${r.stdout}`);
-    assertEquals(receipt.branch, "agent/alpha");
-    assertEquals(receipt.trunk, "main");
-    assertEquals(receipt.files_total, 1);
+    // The structured proof: git facts + the two renderings, one derivation.
+    const proof = obj.data.proof;
+    assert(proof !== undefined, `expected data.proof: ${r.stdout}`);
+    assertEquals(proof.branch, "agent/alpha");
+    assertEquals(proof.trunk, "main");
+    assertEquals(proof.files_total, 1);
     const shortHead = (await gitOut(wt, "rev-parse", "--short=12", "HEAD"))
       .trim();
-    assertEquals(receipt.head, shortHead);
+    assertEquals(proof.head, shortHead);
     assertStringIncludes(
-      receipt.line,
-      `Receipt: gate passed on agent/alpha @ ${shortHead} · 1 file `,
+      proof.line,
+      `Proof: gate passed on agent/alpha @ ${shortHead} · 1 file `,
     );
     assertStringIncludes(
-      receipt.line,
-      "full receipt: discern status --verbose",
+      proof.line,
+      "full proof: discern status --verbose",
     );
-    assertStringIncludes(receipt.markdown, "### Receipt — `agent/alpha`");
+    assertStringIncludes(proof.markdown, "### Proof — `agent/alpha`");
     assertStringIncludes(
-      receipt.markdown,
-      "| test | `echo receipt-gate-ok` | ok",
+      proof.markdown,
+      "| test | `echo proof-gate-ok` | ok",
     );
     assertStringIncludes(
-      receipt.markdown,
+      proof.markdown,
       "Inspect: `git diff main...agent/alpha`",
     );
 
     // The relay affordance rides the envelope's hints, led by the
     // prove-before-claiming guardrail that replaced the prove-it-works skill.
     assertHasHint(obj, HINTS["gate-prove-it-works"]);
-    assertHasHint(obj, HINTS["gate-relay-receipt"]);
+    assertHasHint(obj, HINTS["gate-relay-proof"]);
 
     // The marker stores the line and the page beside the sha it vouches for, so
-    // status and accept can surface the receipt without re-running the gate.
+    // status and accept can surface the proof without re-running the gate.
     assertEquals(obj.data.gate_proof.status, "recorded");
     const marker = await Deno.readTextFile(obj.data.gate_proof.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
-      marker.startsWith(`${head}\nline: Receipt: `),
+      marker.startsWith(`${head}\nline: Proof: `),
       `marker must carry sha + line: ${marker.slice(0, 80)}`,
     );
-    assertStringIncludes(marker, "\n\n### Receipt");
+    assertStringIncludes(marker, "\n\n### Proof");
 
-    // Deterministic: the same tree and result render the same receipt (durations
+    // Deterministic: the same tree and result render the same proof (durations
     // excepted). The unchanged tree makes this a rerun, so it carries the
     // attestation the rerun precondition requires.
     const again = parseJson(
@@ -585,18 +585,18 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     );
     assertEquals(
       stripDurations(again.data.proof.markdown),
-      stripDurations(receipt.markdown),
+      stripDurations(proof.markdown),
     );
   });
 });
 
-Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", async () => {
+Deno.test("done --json: no proof on the trunk itself, or over a dirty tree", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, PROOF_CONFIG);
     await gitInit(dir);
 
-    // The trunk: nothing ahead of main to review — no receipt, gate still records.
+    // The trunk: nothing ahead of main to review — no proof, gate still records.
     const onMain = parseJson(
       (await runAgent(dir, ["done", "--json"])).stdout,
     );
@@ -604,7 +604,7 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
     assertEquals(onMain.data.proof, undefined);
 
     // A dirty worktree: the diff vs the trunk would describe a different tree than
-    // the one the gate validated — no receipt, and no relay hint.
+    // the one the gate validated — no proof, and no relay hint.
     const wt = await addWorktree(dir, "beta");
     await writeExecutable(join(wt, "feature.txt"), "feature");
     await git(wt, "add", "-A");
@@ -614,13 +614,13 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
     assertEquals(dirty.ok, true);
     assertEquals(dirty.data.proof, undefined);
     assertEquals(dirty.data.gate_proof.status, "skipped_dirty");
-    // The refusal NAMES what blocks the receipt — in the reason and the hint —
+    // The refusal NAMES what blocks the proof — in the reason and the hint —
     // so the agent commits the right file instead of diagnosing a bare "dirty".
     assertStringIncludes(dirty.data.gate_proof.reason, "wip.txt");
-    assertHasHint(dirty, HINTS["gate-receipt-skipped-dirty"], {
+    assertHasHint(dirty, HINTS["gate-proof-skipped-dirty"], {
       reason: dirty.data.gate_proof.reason,
     });
-    assertLacksHint(dirty, HINTS["gate-relay-receipt"]);
+    assertLacksHint(dirty, HINTS["gate-relay-proof"]);
     assertLacksHint(dirty, HINTS["gate-prove-it-works"]);
   });
 });

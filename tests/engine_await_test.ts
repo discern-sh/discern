@@ -5,7 +5,7 @@
  *
  *  - each condition grounds in authoritative state: `--landed` in git ancestry
  *    (the latest observed branch transition survives acceptance deleting the
- *    branch), `--green` in the sibling worktree's gate receipt (a landing
+ *    branch), `--green` in the sibling worktree's gate proof (a landing
  *    satisfies it too), `--trunk-moved` in the trunk ref against its at-start
  *    position;
  *  - the wait wakes on git-ref changes mid-hold, not just at the deadline;
@@ -137,10 +137,10 @@ async function commitFile(
   await git(dir, "commit", "-q", "-m", message, "--no-gpg-sign");
 }
 
-/** Stamp an honored-shaped gate receipt for the worktree's current HEAD. */
+/** Stamp an honored-shaped gate proof for the worktree's current HEAD. */
 async function writeHonoredProof(worktree: string): Promise<void> {
   const path = await gitAdminStatePath(worktree, "gateProof");
-  assert(path !== undefined, "receipt path must resolve in a worktree");
+  assert(path !== undefined, "proof path must resolve in a worktree");
   const head = await gitOut(worktree, "rev-parse", "HEAD");
   await Deno.mkdir(join(path, ".."), { recursive: true });
   await Deno.writeTextFile(path, `${head}\nline: gate green\n`);
@@ -285,7 +285,7 @@ Deno.test("await --landed met from a sibling worktree previews what update would
   });
 });
 
-Deno.test("await --green reads the sibling's receipt, and a landing satisfies it too", async () => {
+Deno.test("await --green reads the sibling's proof, and a landing satisfies it too", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);
@@ -293,7 +293,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     await commitFile(dep, "dep.txt", "work", "dep work");
     const depTip = await gitOut(dep, "rev-parse", "HEAD");
 
-    // No receipt yet → not met, with the receipt state named.
+    // No proof yet → not met, with the proof state named.
     const missing = await awaitResult(dir, {
       green: "agent/dep",
       timeoutSeconds: 0,
@@ -304,7 +304,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     // The observed path is canonicalized (macOS /var → /private/var).
     assertEquals(missing.data?.observed.worktree, await Deno.realPath(dep));
 
-    // An honored receipt over the worktree's clean HEAD meets the condition,
+    // An valid proof over the worktree's clean HEAD meets the condition,
     // and the hint teaches the below-trunk composition move.
     await writeHonoredProof(dep);
     const green = await awaitResult(dir, {
@@ -341,7 +341,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
       "the immutable green tip also drives the update preview",
     );
 
-    // A branch with NO worktree refuses honestly at call start: a receipt is
+    // A branch with NO worktree refuses honestly at call start: a proof is
     // per-worktree state and can only be recorded inside a checkout, so the
     // condition can never become true — waiting would be dishonest. The
     // pointer routes to the question that CAN be answered.
@@ -406,7 +406,7 @@ Deno.test("await --green is satisfied by a landing it watched happen", async () 
 
     // The wait observes the branch unreachable, then the landing mid-hold:
     // only a validated tree lands, so the transition proves the gate held —
-    // no receipt observation window required.
+    // no proof observation window required.
     const readiness = await armAwaitReadinessProbe(dir);
     const wait = awaitResult(dir, {
       green: "agent/dep",
@@ -460,7 +460,7 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
     await commitFile(dep, "dep.txt", "work", "dep work");
     const tip = await gitOut(dep, "rev-parse", "HEAD");
     await git(dir, "merge", "-q", "--ff-only", tip);
-    const receipt = await writeProofNote(dir, tip, {
+    const proof = await writeProofNote(dir, tip, {
       branch: "agent/dep",
       trunk: "main",
       head: tip.slice(0, 12),
@@ -470,7 +470,7 @@ Deno.test("a fresh branch wait recovers accepted work after branch cleanup", asy
       line: "gate green",
       markdown: "gate green",
     });
-    assertEquals(receipt.status, "recorded");
+    assertEquals(proof.status, "recorded");
     await git(dir, "worktree", "remove", "--force", dep);
     await git(dir, "branch", "-D", "agent/dep");
 
@@ -584,7 +584,7 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
           await git(dir, "worktree", "remove", "--force", dep);
           await git(dir, "branch", "-D", "agent/dep");
           await git(dir, "merge", "-q", "--ff-only", tip);
-          const receipt = await writeProofNote(dir, tip, {
+          const proof = await writeProofNote(dir, tip, {
             branch: "agent/dep",
             trunk: "main",
             head: tip.slice(0, 12),
@@ -595,9 +595,9 @@ Deno.test("every await condition resumes across the gap between bounded calls", 
             markdown: "gate green",
           });
           assert(
-            receipt.status === "recorded" ||
-              receipt.status === "already_present",
-            "the simulated acceptance must leave its durable receipt note",
+            proof.status === "recorded" ||
+              proof.status === "already_present",
+            "the simulated acceptance must leave its durable proof note",
           );
         },
       };

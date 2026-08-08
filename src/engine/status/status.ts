@@ -157,9 +157,9 @@ export interface StatusOptions {
   local?: boolean;
 }
 
-/** CLI-only presentation flags. `verbose` prints the full receipt page for an
+/** CLI-only presentation flags. `verbose` prints the full proof page for an
  * honored branch (and each ready fleet row); the wire payload is identical with
- * or without it — `--json` and MCP always carry the receipt (ADR 0188). */
+ * or without it — `--json` and MCP always carry the proof (ADR 0188). */
 export interface StatusRenderOptions {
   verbose?: boolean;
 }
@@ -172,7 +172,7 @@ export interface StatusRenderOptions {
 
 // ── the result core (the single source the CLI and the MCP tool both render) ────
 
-/** Committer timestamp for one landed receipt subject, when Git can read it. */
+/** Committer timestamp for one landed proof subject, when Git can read it. */
 async function landedCommitAt(
   root: string,
   commit: string,
@@ -698,19 +698,19 @@ async function fleetEntryFor(
   if (!row.isMain && (await installedConfigRel(row.path)) === undefined) {
     entry.broken = true;
   }
-  // The row's complete gate-receipt state, read from its own marker — inspected
+  // The row's complete gate-proof state, read from its own marker — inspected
   // HERE, once, so the dashboard, ready hints, and wire fields cannot disagree.
   // An honored row also carries the compatibility page and line fields.
   if (!row.isMain && entry.broken !== true && entry.git_unavailable !== true) {
-    const receipt = await inspectGateProof(row.path);
-    entry.gate_proof = receipt;
-    if (receipt.status === "honored") {
+    const proof = await inspectGateProof(row.path);
+    entry.gate_proof = proof;
+    if (proof.status === "honored") {
       entry.proof_honored = true;
-      if (receipt.proof !== undefined) {
-        entry.proof = receipt.proof;
+      if (proof.proof !== undefined) {
+        entry.proof = proof.proof;
       }
-      if (receipt.proof_line !== undefined) {
-        entry.proof_line = receipt.proof_line;
+      if (proof.proof_line !== undefined) {
+        entry.proof_line = proof.proof_line;
       }
     }
     const authority = landingAuthorityProjection(
@@ -875,7 +875,7 @@ interface HintContext {
   /** Scaffolded files still carrying skeleton markers while setup is unfinished;
    * undefined once `[meta].bootstrapped` is recorded. Drives the lead setup hint. */
   setupPending: string[] | undefined;
-  /** Whether the current clean HEAD has an honored receipt from `discern done`. */
+  /** Whether the current clean HEAD has an honored proof from `discern done`. */
   gateProof: GateProofCheckData | undefined;
   /** The current branch's authority, from the one resolver used by acceptance. */
   landingAuthority: LandingAuthorityResolution | undefined;
@@ -1097,7 +1097,7 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
         }
       } else {
         hints.push(
-          fire(HINTS["status-missing-done-receipt"], { trunk: main }),
+          fire(HINTS["status-missing-done-proof"], { trunk: main }),
         );
       }
     }

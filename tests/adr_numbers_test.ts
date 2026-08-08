@@ -10,7 +10,7 @@ import { join } from "@std/path";
 import { adrNumberOf, duplicateAdrNumbers } from "../src/lib/adr_numbers.ts";
 
 Deno.test("adrNumberOf: reads the number from a record basename, at any depth", () => {
-  assertEquals(adrNumberOf("map/_adr/0184-receipt-line.md"), "0184");
+  assertEquals(adrNumberOf("map/_adr/0184-proof-line.md"), "0184");
   assertEquals(adrNumberOf("map/_adr/_superseded/0002-side-gates.md"), "0002");
   assertEquals(adrNumberOf("0000-template.md"), "0000");
 });

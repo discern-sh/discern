@@ -124,12 +124,12 @@ Deno.test("standards: coverage passes when the emitted metric meets the floor", 
     const r = await runAgent(dir, ["standards"]);
     assertEquals(r.code, 0, r.output);
     assertStringIncludes(r.stdout, "meets the floor");
-    const receipt = JSON.parse(
+    const proof = JSON.parse(
       await Deno.readTextFile(
         `${dir}/.git/${GIT_ADMIN_STATE.standardMeasurements.path}`,
       ),
     ) as { durations?: Record<string, number> };
-    assertEquals(receipt.durations?.coverage, 0);
+    assertEquals(proof.durations?.coverage, 0);
   });
 });
 

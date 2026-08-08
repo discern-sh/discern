@@ -70,5 +70,5 @@ discern v1.0.0 neither signs nor verifies. A later profile chooses the algorithm
 | Concern                     | Source                                                                             |
 | --------------------------- | ---------------------------------------------------------------------------------- |
 | Envelope, payload, issuer   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                       |
-| Writer, reader, cross-check | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts)                    |
+| Writer, reader, cross-check | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                    |
 | Published schema            | [`discern-proof-note.schema.json`](../../../schema/discern-proof-note.schema.json) |

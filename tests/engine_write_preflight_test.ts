@@ -66,7 +66,7 @@ async function gitAdminPath(
   return path;
 }
 
-/** Make the receipt directory read-only for one operation and always restore its original mode. */
+/** Make the proof directory read-only for one operation and always restore its original mode. */
 async function withUnwritableGitAdmin(
   root: string,
   fn: () => Promise<void>,

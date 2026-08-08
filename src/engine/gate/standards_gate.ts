@@ -1,6 +1,6 @@
 /**
  * The gate-specific side of `[standards]`: decide whether each standard is
- * measured, replayed from a receipt, or deferred, then project those decisions
+ * measured, replayed from a proof, or deferred, then project those decisions
  * into the shared measurement jobs. Tier-1 trunk verification and measurement
  * execution are shared with the standalone verb; this module owns only the
  * gate's replay/defer policy.
@@ -61,8 +61,8 @@ export function resolveStandardActionsFromConfig(
 
 /**
  * Resolve each standard's gate action from the tree. Deferred standards remain
- * on demand; an input-keyed receipt replays only when every path changed since
- * that receipt falls outside the standard's declared inputs; every other
+ * on demand; an input-keyed proof replays only when every path changed since
+ * that proof falls outside the standard's declared inputs; every other
  * standard measures. This runs after the fix stage so fixer edits count.
  */
 export async function resolveStandardActions(

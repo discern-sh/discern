@@ -398,7 +398,7 @@ export function attachEngineCommands(
     )
     .option(
       "--pin",
-      "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate receipt forward. Requires a clean worktree.",
+      "Capture measured improvements: tighten each limit to the measured value (the named standards, or every one with slack), commit that change on its own, and carry the gate proof forward. Requires a clean worktree.",
     )
     .action(
       recordedExit("standards", async (o, ...names: string[]) => {
@@ -521,7 +521,7 @@ export function attachEngineCommands(
     .command("await")
     .description(
       "Block until a fleet condition holds: a sibling branch is green (its " +
-        "worktree holds an honored gate receipt), a branch's work has landed " +
+        "worktree holds an honored gate proof), a branch's work has landed " +
         "on the trunk, or the trunk has moved. Timing out is not an error; " +
         "the result carries a short continuation handle that preserves the " +
         "original condition across calls. To wrap a command behind the " +
@@ -533,7 +533,7 @@ export function attachEngineCommands(
     )
     .option(
       "--green <branch:string>",
-      "Wait until this branch's worktree holds an honored gate receipt (a landing also satisfies it).",
+      "Wait until this branch's worktree holds an honored gate proof (a landing also satisfies it).",
     )
     .option(
       "--landed <branch:string>",
@@ -644,8 +644,8 @@ export function attachEngineCommands(
     )
     .option(
       "--verbose",
-      "Also print the full receipt page for an honored branch (and each ready " +
-        "fleet row). Interactive output only; --json always carries the receipt.",
+      "Also print the full proof page for an honored branch (and each ready " +
+        "fleet row). Interactive output only; --json always carries the proof.",
     )
     .option(
       "--json",

@@ -3184,7 +3184,7 @@ Deno.test("the MCP instruction detector rejects future over-budget and misordere
   );
 });
 
-Deno.test("discern mcp: accept requires the verbatim landing receipt line", () => {
+Deno.test("discern mcp: accept requires the verbatim landing proof line", () => {
   const accept = TOOLS.find((tool) => tool.name === "discern_accept");
   assert(accept !== undefined, "discern_accept should be registered");
   assertStringIncludes(accept.description, "data.proof_line verbatim");
@@ -3241,7 +3241,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
   });
 });
 
-Deno.test("discern mcp: status carries project identity and complete fleet receipt checks", async () => {
+Deno.test("discern mcp: status carries project identity and complete fleet proof checks", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await gitInit(dir);

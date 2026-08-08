@@ -156,7 +156,7 @@ function scriptedRuntime(
     loadConfig: () => CONFIG,
     status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
-    receiptHonored: () => false,
+    proofHonored: () => false,
     grantEffort: (_path, branch) => ({
       status: "granted",
       grant: {
@@ -291,7 +291,7 @@ Deno.test("a desk-owned child refuses a nested desk before surveying the fleet",
   assert(!joined(output).includes("cd /"));
 });
 
-Deno.test("desk session renders task-first fleet rows and checks receipts only for healthy tasks", async () => {
+Deno.test("desk session renders task-first fleet rows and checks proofs only for healthy tasks", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,
@@ -327,12 +327,12 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
     ...statusData([main, ready, flying, broken, unreadable]),
     unlanded_branches: ["agent/orphan"],
   };
-  const receiptPaths: string[] = [];
+  const proofPaths: string[] = [];
   const optionText: string[] = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
-    receiptHonored: (path) => {
-      receiptPaths.push(path);
+    proofHonored: (path) => {
+      proofPaths.push(path);
       return path === ready.path;
     },
     select: (options) => {
@@ -345,7 +345,7 @@ Deno.test("desk session renders task-first fleet rows and checks receipts only f
   });
 
   assertEquals(await runDesk({}, runtime), 0);
-  assertEquals(receiptPaths, [ready.path, flying.path]);
+  assertEquals(proofPaths, [ready.path, flying.path]);
   const text = joined(output);
   assertStringIncludes(text, `heading:${DISCERN_WORDMARK} | demo`);
   assertStringIncludes(text, "4 tasks");
@@ -824,7 +824,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
-    receiptHonored: () => true,
+    proofHonored: () => true,
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       const choice = choices.shift();
@@ -854,7 +854,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   assertStringIncludes(text, "diff unavailable");
   assertStringIncludes(
     text,
-    "gate receipt: this clean HEAD holds a recorded pass",
+    "gate proof: this clean HEAD holds a recorded pass",
   );
   const actionMenu = menus.join("\n");
   for (
@@ -1184,7 +1184,7 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   const data = statusData([main, spent]);
 
   // Declined: the confirmation names the specific worktree, what is kept (the
-  // branch ref), where the work travels, and the receipt consequence — and a
+  // branch ref), where the work travels, and the proof consequence — and a
   // "no" runs nothing.
   const declinedOutput = transcript();
   const declinedChoices = [spent.path, "reclaim", BACK, QUIT];
@@ -1217,7 +1217,7 @@ Deno.test("desk reclaims a contained checkout only through its explicit confirma
   assertStringIncludes(message, "agent/stage-a");
   assertStringIncludes(message, "KEPT");
   assertStringIncludes(message, "agent/stage-b");
-  assertStringIncludes(message, "gate receipt included");
+  assertStringIncludes(message, "gate proof included");
 
   // Confirmed: the validated core runs against the selected worktree, and the
   // action menu offered the reclaim with its containing branch named.

@@ -19,7 +19,7 @@
  * routing signal), coupling, the fix-stage strand snapshot, and the worktree
  * lifecycle's deliberate refusal. Out of scope (deliberate, not silent): the
  * clean-tree guards read `git status` repo-wide (conservative — sibling dirt
- * blocks with a loud message), and receipt renderings show repo-relative paths
+ * blocks with a loud message), and proof renderings show repo-relative paths
  * (cosmetic).
  */
 

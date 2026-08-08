@@ -118,7 +118,7 @@ Deno.test("no unquoted policed jargon appears in a rendered tip", () => {
 Deno.test("the tip jargon scan rejects dense beginner-hostile prose", () => {
   const hits = registerHits(
     "fixture",
-    "The receipt keeps gate metadata in the repository while the agent waits.",
+    "The proof keeps gate metadata in the repository while the agent waits.",
   );
   assert(
     hits.length >= 4,

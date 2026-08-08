@@ -691,7 +691,7 @@ Deno.test("status fleet (human): the wide projection is bounded and merges task 
     assertStringIncludes(r.output, "Worktree");
     assertStringIncludes(r.output, "Status");
     assertStringIncludes(r.output, "Git");
-    assertStringIncludes(r.output, "Receipt");
+    assertStringIncludes(r.output, "Proof");
     assertStringIncludes(r.output, "Activity");
     assertStringIncludes(r.output, "agent/alpha");
     assertEquals(r.output.match(/Main checkout/gu)?.length, 1);
@@ -981,7 +981,7 @@ Deno.test("status: ignored local scratch does not make a worktree read dirty", a
   });
 });
 
-Deno.test("status: a clean worktree ahead of main without a receipt asks for final finish", async () => {
+Deno.test("status: a clean worktree ahead of main without a proof asks for final finish", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -999,7 +999,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "missing");
-    assertHasHint(obj, HINTS["status-missing-done-receipt"], {
+    assertHasHint(obj, HINTS["status-missing-done-proof"], {
       trunk: "main",
     });
     assertLacksHint(obj, HINTS["status-ready-for-review"], {
@@ -1022,7 +1022,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
   });
 });
 
-Deno.test("status: a clean worktree ahead of main with a finish receipt is ready for owner review", async () => {
+Deno.test("status: a clean worktree ahead of main with a finish proof is ready for owner review", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -1041,34 +1041,34 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
     assertEquals(obj.data.gate_proof.status, "honored");
-    // The honored record carries the stored receipt page, and the one-line form
+    // The honored record carries the stored proof page, and the one-line form
     // the review-ready hint tells the agent to end its report with.
-    assertStringIncludes(obj.data.gate_proof.proof, "### Receipt");
+    assertStringIncludes(obj.data.gate_proof.proof, "### Proof");
     assertStringIncludes(
       obj.data.gate_proof.proof_line,
-      "Receipt: gate passed on agent/alpha @ ",
+      "Proof: gate passed on agent/alpha @ ",
     );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
       trunk: "main",
       branch: "agent/alpha",
     });
 
-    // Interactive: the dashboard exposes the receipt state in the task row and
+    // Interactive: the dashboard exposes the proof state in the task row and
     // reserves the stored Markdown page for --verbose.
     const plain = await runAgent(wt, ["status"]);
     assertEquals(plain.code, 0, plain.output);
-    assertStringIncludes(plain.output, "Receipt: honored");
+    assertStringIncludes(plain.output, "Proof: honored");
     assert(
-      !plain.output.includes("### Receipt"),
+      !plain.output.includes("### Proof"),
       `plain status must not print the page:\n${plain.output}`,
     );
     const verbose = await runAgent(wt, ["status", "--verbose"]);
     assertEquals(verbose.code, 0, verbose.output);
-    assertStringIncludes(verbose.output, "### Receipt — `agent/alpha`");
+    assertStringIncludes(verbose.output, "### Proof — `agent/alpha`");
 
     // From the main checkout, the fleet's review-ready hint names the same
     // inspection command, so the owner can look at the work from where they sit —
-    // and the ready row carries the receipt itself, page and line.
+    // and the ready row carries the proof itself, page and line.
     const fleet = await runAgent(dir, ["status", "--json"]);
     assertEquals(fleet.code, 0, fleet.output);
     const fleetObj = parseStatus(fleet.stdout);
@@ -1082,21 +1082,21 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     );
     assertEquals(row.gate_proof.status, "honored");
     assertEquals(row.proof_honored, true);
-    assertStringIncludes(row.proof, "### Receipt — `agent/alpha`");
+    assertStringIncludes(row.proof, "### Proof — `agent/alpha`");
     assertStringIncludes(
       row.proof_line,
-      "Receipt: gate passed on agent/alpha @ ",
+      "Proof: gate passed on agent/alpha @ ",
     );
 
     // The supervisor's pull: --verbose from the main checkout prints the ready
     // row's page beneath the fleet table.
     const fleetVerbose = await runAgent(dir, ["status", "--verbose"]);
     assertEquals(fleetVerbose.code, 0, fleetVerbose.output);
-    assertStringIncludes(fleetVerbose.output, "### Receipt — `agent/alpha`");
+    assertStringIncludes(fleetVerbose.output, "### Proof — `agent/alpha`");
 
-    // The additive fleet check preserves a receipt that exists but is no longer
+    // The additive fleet check preserves a proof that exists but is no longer
     // honored, while the legacy honored-only projection remains compatible.
-    await writeExecutable(join(wt, "tests/after-receipt.txt"), "dirty");
+    await writeExecutable(join(wt, "tests/after-proof.txt"), "dirty");
     const dirtyFleet = parseStatus(
       (await runAgent(dir, ["status", "--json"])).stdout,
     );
@@ -1108,7 +1108,7 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
   });
 });
 
-Deno.test("status: a behind worktree with an honored receipt is not ready for owner review", async () => {
+Deno.test("status: a behind worktree with a valid proof is not ready for owner review", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);
@@ -1156,7 +1156,7 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
   });
 });
 
-Deno.test("status: a landed receipt carries its commit time for the human age", async () => {
+Deno.test("status: a landed proof carries its commit time for the human age", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(dir, SCOPE_CONFIG);

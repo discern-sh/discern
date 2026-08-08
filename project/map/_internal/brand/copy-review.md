@@ -127,7 +127,7 @@ Any 0 in authority, working root, completion, or relay blocks release.
 
 For brand copy:
 
-1. Remove the words Gate, Standard, Proof, Map, Desk, Worktree, Fleet, deterministic, owner, receipt, and canon.
+1. Remove the words Gate, Standard, Proof, Map, Desk, Worktree, Fleet, deterministic, owner, and canon.
 2. Read the draft again.
 3. Ask whether the human proposition still stands.
 4. Check whether the page order follows a buyer's questions or the feature canon.

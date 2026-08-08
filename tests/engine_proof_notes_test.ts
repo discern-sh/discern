@@ -1,5 +1,5 @@
 /**
- * Landing receipt notes: durable local recording, fetch-only opt-in transport,
+ * Landing proof notes: durable local recording, fetch-only opt-in transport,
  * authorship, divergence repair, and the post-fast-forward fail-open boundary.
  */
 
@@ -43,8 +43,8 @@ import {
 } from "./engine_helpers.ts";
 import { withTempDir } from "./helpers.ts";
 
-/** Render a minimal project configured for local or fetched receipt-note discovery. */
-function receiptConfig(mode: "local" | "fetch"): string {
+/** Render a minimal project configured for local or fetched proof-note discovery. */
+function proofConfig(mode: "local" | "fetch"): string {
   return [
     "[project]",
     'slug = "engine-test"',
@@ -66,7 +66,7 @@ interface Landing {
   readonly result: DiscernResult<AcceptData>;
 }
 
-/** Create, gate, and accept one branch, returning both its target commit and parsed receipt. */
+/** Create, gate, and accept one branch, returning both its target commit and parsed proof. */
 async function land(
   main: string,
   name: string,
@@ -93,9 +93,9 @@ async function land(
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
   const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
-  const receipt = ProofSchema.parse(doneResult.data?.proof);
+  const proof = ProofSchema.parse(doneResult.data?.proof);
   const marker = await inspectGateProof(worktree);
-  assertEquals(marker.proof_data, receipt);
+  assertEquals(marker.proof_data, proof);
   const accepted = await runAgent(
     worktree,
     ["accept", "--confirmed", "--json"],
@@ -104,11 +104,11 @@ async function land(
   assertEquals(accepted.code, 0, accepted.output);
   const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;
   assertEquals(result.ok, true, accepted.output);
-  return { target, proof: receipt, result };
+  return { target, proof: proof, result };
 }
 
 /** Read one durable note and prove it is the strict current envelope, bound to
- * the commit that carries it, before handing back the receipt payload. */
+ * the commit that carries it, before handing back the proof payload. */
 async function noteAt(root: string, commit: string): Promise<Proof> {
   const content = await gitOut(
     root,
@@ -122,21 +122,21 @@ async function noteAt(root: string, commit: string): Promise<Proof> {
   assertEquals(envelope.signatures, []);
   const payloadText = new TextDecoder().decode(decodeBase64(envelope.payload));
   const payload = ProofNotePayloadSchema.parse(JSON.parse(payloadText));
-  const receipt = ProofSchema.parse({
+  const proof = ProofSchema.parse({
     ...payload.proof,
     ...payload.presentation,
   });
   assertEquals(
     payloadText,
-    canonicalProofNotePayload(receipt, commit),
+    canonicalProofNotePayload(proof, commit),
   );
   assertEquals(payload.subject.commit, commit);
   assertEquals(payload.issuer, undefined);
   assertEquals(payload.brief, undefined);
-  return receipt;
+  return proof;
 }
 
-/** Read author and committer identity fields from the receipt-notes ref. */
+/** Read author and committer identity fields from the proof-notes ref. */
 async function notesIdentity(root: string, ref = PROOF_NOTES_REF): Promise<
   string[]
 > {
@@ -149,7 +149,7 @@ async function notesIdentity(root: string, ref = PROOF_NOTES_REF): Promise<
   )).split("\0");
 }
 
-/** Render the wildcard refspec that fetches every namespaced Discern receipt note. */
+/** Render the wildcard refspec that fetches every namespaced Discern proof note. */
 function proofFetchMapping(remote: string): string {
   return `+refs/notes/discern*:refs/discern/remotes/${remote}/notes*`;
 }
@@ -177,10 +177,10 @@ async function localConfigValues(
     : [];
 }
 
-Deno.test("accept records matching receipt notes without a remote, status reads them, and later landings preserve earlier notes", async () => {
+Deno.test("accept records matching proof notes without a remote, status reads them, and later landings preserve earlier notes", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, receiptConfig("fetch"));
+    await writeConfig(dir, proofConfig("fetch"));
     await gitInit(dir);
 
     const first = await land(dir, "first");
@@ -195,7 +195,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
       DISCERN_MACHINE.name,
       DISCERN_MACHINE.email,
     ]);
-    assertLacksHint(first.result, HINTS["accept-publish-receipt-note"]);
+    assertLacksHint(first.result, HINTS["accept-publish-proof-note"]);
     const firstNotesTip = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
 
     const second = await land(dir, "second", {
@@ -268,7 +268,7 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     assertEquals(unreadHuman.code, 0, unreadHuman.output);
     assertStringIncludes(
       unreadHuman.stdout.replaceAll(/\s+/gu, ""),
-      `receipt unavailable in this discern version (${newerFormat})`.replaceAll(
+      `proof unavailable in this discern version (${newerFormat})`.replaceAll(
         /\s+/gu,
         "",
       ),
@@ -276,10 +276,10 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
   });
 });
 
-Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves plain push unchanged", async () => {
+Deno.test("proof-note transport is opt-in, fetch-only, managed, and leaves plain push unchanged", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, receiptConfig("local"));
+    await writeConfig(dir, proofConfig("local"));
     await gitInit(dir);
     const remote = join(dir, "remote.git");
     await git(dir, "init", "--bare", remote);
@@ -302,7 +302,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     const localLanding = await land(dir, "local-remote");
     assertLacksHint(
       localLanding.result,
-      HINTS["accept-publish-receipt-note"],
+      HINTS["accept-publish-proof-note"],
     );
     const localFetches = await gitOut(
       dir,
@@ -313,14 +313,14 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     );
     assertEquals(localFetches.includes("refs/notes/discern"), false);
 
-    await writeConfig(dir, receiptConfig("fetch"));
+    await writeConfig(dir, proofConfig("fetch"));
     await git(dir, "add", "discern.toml");
     await git(
       dir,
       "commit",
       "-q",
       "-m",
-      "Enable receipt fetch",
+      "Enable proof fetch",
       "--no-gpg-sign",
     );
     const wired = await runAgent(dir, ["refresh", "--json"]);
@@ -344,7 +344,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       const emptyFetch = await runGit(["fetch", remoteName], { cwd: dir });
       assert(
         emptyFetch.success,
-        `ordinary fetch from ${remoteName} must succeed before the first receipt-note publication: ${emptyFetch.stderr}`,
+        `ordinary fetch from ${remoteName} must succeed before the first proof-note publication: ${emptyFetch.stderr}`,
       );
     }
 
@@ -363,7 +363,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     const mirrorFetch = await runGit(["fetch", "mirror"], { cwd: dir });
     assert(
       mirrorFetch.success,
-      `ordinary fetch from a newly enrolled remote must succeed before the first receipt-note publication: ${mirrorFetch.stderr}`,
+      `ordinary fetch from a newly enrolled remote must succeed before the first proof-note publication: ${mirrorFetch.stderr}`,
     );
     for (const remoteName of ["backup", "mirror", "origin"]) {
       assertEquals(
@@ -379,7 +379,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     );
     assertHasHint(
       fetchedLanding.result,
-      HINTS["accept-publish-receipt-note"],
+      HINTS["accept-publish-proof-note"],
     );
     assertEquals(
       fetchedLanding.result.data?.proof_note?.write.status,
@@ -403,7 +403,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(
       remoteNote.success,
       false,
-      "plain push must not acquire a hidden receipt-note meaning",
+      "plain push must not acquire a hidden proof-note meaning",
     );
 
     await git(dir, "push", "origin", PROOF_NOTES_REF);
@@ -457,7 +457,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(
       JSON.parse(siblingOnlyStatus.stdout).data.landed_proof,
       undefined,
-      "receipt refs that only share discern's reserved prefix must not be read as landing receipts",
+      "proof refs that only share discern's reserved prefix must not be read as landing proofs",
     );
     await git(dir, "fetch", "origin");
 
@@ -467,7 +467,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     });
     assert(
       fetchAfterDeletion.success,
-      `ordinary fetch must succeed after the remote receipt ref is deleted: ${fetchAfterDeletion.stderr}`,
+      `ordinary fetch must succeed after the remote proof ref is deleted: ${fetchAfterDeletion.stderr}`,
     );
     await git(dir, "fetch", "--prune", "origin");
     const prunedTracking = await runGit(
@@ -500,14 +500,14 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       "remote.origin.fetch",
       foreignMapping,
     );
-    await writeConfig(dir, receiptConfig("local"));
+    await writeConfig(dir, proofConfig("local"));
     await git(dir, "add", "discern.toml");
     await git(
       dir,
       "commit",
       "-q",
       "-m",
-      "Disable receipt fetch",
+      "Disable proof fetch",
       "--no-gpg-sign",
     );
     const unwired = await runAgent(dir, ["refresh", "--json"]);
@@ -536,10 +536,10 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
   });
 });
 
-Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and explains unowned collisions", async () => {
+Deno.test("proof-note fetch reconciliation migrates managed exact mappings and explains unowned collisions", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, receiptConfig("fetch"));
+    await writeConfig(dir, proofConfig("fetch"));
     await gitInit(dir);
     const remote = join(dir, "remote.git");
     await git(dir, "init", "--bare", remote);
@@ -639,7 +639,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
     );
     assertLacksHint(
       landing.result,
-      HINTS["accept-publish-receipt-note"],
+      HINTS["accept-publish-proof-note"],
     );
     assertLacksHint(
       landing.result,
@@ -648,7 +648,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
   });
 });
 
-/** Build a branch-bound receipt with a shortened commit for note verification cases. */
+/** Build a branch-bound proof with a shortened commit for note verification cases. */
 function syntheticProof(commit: string, branch: string): Proof {
   return {
     branch,
@@ -657,8 +657,8 @@ function syntheticProof(commit: string, branch: string): Proof {
     files_total: 1,
     insertions: 1,
     deletions: 0,
-    line: `Receipt for ${branch}`,
-    markdown: `### Receipt for ${branch}`,
+    line: `Proof for ${branch}`,
+    markdown: `### Proof for ${branch}`,
   };
 }
 
@@ -675,15 +675,15 @@ function encodedProofPayload(
     : encoded.replaceAll("+", "-").replaceAll("/", "_").replace(/=+$/u, "");
 }
 
-Deno.test("durable proof projection excludes live receipt telemetry", () => {
+Deno.test("durable proof projection excludes live proof telemetry", () => {
   const commit = "a".repeat(40);
-  const receipt = {
+  const proof = {
     ...syntheticProof(commit, "agent/orbit"),
     waited_ms: 70_000,
     orbit_delay: 42,
   } as Proof & { waited_ms: number; orbit_delay: number };
   const payload = ProofNotePayloadSchema.parse(
-    JSON.parse(canonicalProofNotePayload(receipt, commit)),
+    JSON.parse(canonicalProofNotePayload(proof, commit)),
   );
 
   assertEquals(payload, {
@@ -697,13 +697,13 @@ Deno.test("durable proof projection excludes live receipt telemetry", () => {
       deletions: 0,
     },
     presentation: {
-      line: "Receipt for agent/orbit",
-      markdown: "### Receipt for agent/orbit",
+      line: "Proof for agent/orbit",
+      markdown: "### Proof for agent/orbit",
     },
   });
 });
 
-Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry", async () => {
+Deno.test("proof-note lookup binds the branch to newly landed trunk ancestry", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
@@ -781,7 +781,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
         baseline,
       ),
       undefined,
-      "an unrelated receipt cannot satisfy the watched branch",
+      "an unrelated proof cannot satisfy the watched branch",
     );
     assertEquals(
       await findLatestLandedProofNoteForBranch(
@@ -794,7 +794,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
         ref: PROOF_NOTES_REF,
         proof: wantedProof,
       },
-      "the newest matching receipt wins even when another branch landed later",
+      "the newest matching proof wins even when another branch landed later",
     );
     assertEquals(
       await findLatestLandedProofNoteForBranch(
@@ -821,7 +821,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       "--ref=discern",
       "add",
       "-m",
-      "not a receipt",
+      "not a proof",
       malformedCommit,
     );
     assertEquals(await readProofNoteAt(dir, malformedCommit), {
@@ -843,7 +843,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
     assertEquals(
       await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
-      "a legacy note's empty receipt head cannot authenticate the commit carrying it",
+      "a legacy note's empty proof head cannot authenticate the commit carrying it",
     );
     await git(
       dir,
@@ -861,7 +861,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
     assertEquals(
       await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
-      "a current note keeps its abbreviated receipt head coherent with its full subject",
+      "a current note keeps its abbreviated proof head coherent with its full subject",
     );
     await git(
       dir,
@@ -876,7 +876,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
     assertEquals(
       await readProofNoteAt(dir, malformedCommit),
       { status: "missing" },
-      "a valid receipt whose subject names another commit is not landing evidence",
+      "a valid proof whose subject names another commit is not landing evidence",
     );
   });
 });
@@ -918,7 +918,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
 
     // A pre-split same-major envelope still reads. Unknown additive fields in
     // the envelope, signature entries, and decoded payload pass the tolerant
-    // reader, while old runtime telemetry is dropped from the live receipt.
+    // reader, while old runtime telemetry is dropped from the live proof.
     await git(
       dir,
       "commit",
@@ -973,7 +973,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     });
 
     // A readable envelope still needs valid Base64, UTF-8, JSON, and the
-    // required payload core. Malformed payload bytes are not receipt evidence.
+    // required payload core. Malformed payload bytes are not proof evidence.
     const malformedPayloads = [
       "***",
       encodeBase64(new Uint8Array([0xff])),
@@ -1002,7 +1002,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
     }
 
     // An unknown format major is an explicit refusal naming the format —
-    // never a crash, never read as "no receipt exists".
+    // never a crash, never read as "no proof exists".
     await git(
       dir,
       "commit",
@@ -1036,7 +1036,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       format: futureFormat,
     });
 
-    // The writer refuses to publish a record whose receipt contradicts the
+    // The writer refuses to publish a record whose proof contradicts the
     // commit it would annotate.
     const mismatched = await writeProofNote(
       dir,
@@ -1048,7 +1048,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
   });
 });
 
-Deno.test("receipt-note recording merges fetched divergence and fails open on a conflicting note", async () => {
+Deno.test("proof-note recording merges fetched divergence and fails open on a conflicting note", async () => {
   await withTempDir(async (dir) => {
     await Deno.writeTextFile(join(dir, "seed.txt"), "seed\n");
     await gitInit(dir);
@@ -1071,9 +1071,9 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
         four !== undefined && five !== undefined && six !== undefined,
     );
 
-    const receiptOne = syntheticProof(one, "agent/one");
+    const proofOne = syntheticProof(one, "agent/one");
     assertEquals(
-      (await writeProofNote(dir, one, receiptOne)).status,
+      (await writeProofNote(dir, one, proofOne)).status,
       "recorded",
     );
     const commonNotes = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
@@ -1097,22 +1097,22 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
     );
     await git(dir, "update-ref", "-d", PROOF_NOTES_REF);
 
-    const receiptTwo = syntheticProof(two, "agent/two");
-    const initialized = await writeProofNote(dir, two, receiptTwo);
+    const proofTwo = syntheticProof(two, "agent/two");
+    const initialized = await writeProofNote(dir, two, proofTwo);
     assertEquals(initialized.status, "recorded");
     assertEquals(initialized.merged_refs, [
       "refs/discern/remotes/origin/notes",
     ]);
-    assertEquals(await noteAt(dir, one), receiptOne);
-    assertEquals(await noteAt(dir, two), receiptTwo);
-    const receiptThree = syntheticProof(three, "agent/three");
+    assertEquals(await noteAt(dir, one), proofOne);
+    assertEquals(await noteAt(dir, two), proofTwo);
+    const proofThree = syntheticProof(three, "agent/three");
     await git(
       dir,
       "notes",
       "--ref=remote-copy",
       "add",
       "-m",
-      canonicalProofNote(receiptThree, three),
+      canonicalProofNote(proofThree, three),
       three,
     );
     await git(
@@ -1122,16 +1122,16 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
       await gitOut(dir, "rev-parse", "refs/notes/remote-copy"),
     );
 
-    const receiptFour = syntheticProof(four, "agent/four");
-    const merged = await writeProofNote(dir, four, receiptFour);
+    const proofFour = syntheticProof(four, "agent/four");
+    const merged = await writeProofNote(dir, four, proofFour);
     assertEquals(merged.status, "recorded");
     assertEquals(merged.merged_refs, [
       "refs/discern/remotes/origin/notes",
     ]);
-    assertEquals(await noteAt(dir, one), receiptOne);
-    assertEquals(await noteAt(dir, two), receiptTwo);
-    assertEquals(await noteAt(dir, three), receiptThree);
-    assertEquals(await noteAt(dir, four), receiptFour);
+    assertEquals(await noteAt(dir, one), proofOne);
+    assertEquals(await noteAt(dir, two), proofTwo);
+    assertEquals(await noteAt(dir, three), proofThree);
+    assertEquals(await noteAt(dir, four), proofFour);
 
     const combinedNotes = await gitOut(dir, "rev-parse", PROOF_NOTES_REF);
     await git(
@@ -1181,7 +1181,7 @@ Deno.test("receipt-note recording merges fetched divergence and fails open on a 
 Deno.test("a post-landing note identity failure is carried without failing acceptance", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
-    await writeConfig(dir, receiptConfig("local"));
+    await writeConfig(dir, proofConfig("local"));
     await gitInit(dir);
     const worktree = await addWorktree(dir, "missing-identity");
     await Deno.writeTextFile(join(worktree, "feature.txt"), "feature\n");

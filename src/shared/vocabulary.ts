@@ -36,8 +36,8 @@ export function retiredConfigKeySuccessor(key: string): string | undefined {
   return RETIRED_CONFIG_KEY_REDIRECTS[key];
 }
 
-/** One retired config position that is DEAD — it no longer parses, and its
- * guidance may name the canonical replacement — matched against a schema
+/** One retired config position that is DEAD — it is rejected during parsing,
+ * and its guidance may name the canonical replacement — matched against a schema
  * unrecognized-keys issue. */
 export interface DeadConfigPosition {
   /** Dotted parent path of the unrecognized key ("" is the document root). */
@@ -59,7 +59,7 @@ export interface DeadConfigPosition {
  * matching row wins, so keyed rows precede a same-path wildcard.
  *
  * Pre-release contract corrections also live here when a known local install
- * may still hold the old nested key. The retired spelling never parses as an
+ * may still hold the retired nested key. The retired spelling never parses as an
  * alias; the row only makes the refusal actionable.
  */
 export const DEAD_CONFIG_POSITIONS: readonly DeadConfigPosition[] = [

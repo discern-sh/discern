@@ -568,7 +568,7 @@ Deno.test("gate slots: a contended done displays slot wait beside run timings", 
       );
       assertEquals(
         output.split("\n").some((line) =>
-          line.startsWith("Receipt:") && line.includes("waited")
+          line.startsWith("Proof:") && line.includes("waited")
         ),
         false,
         "the proof line excludes slot telemetry",

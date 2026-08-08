@@ -158,7 +158,7 @@ Deno.test("covered standing authority agrees across green done, local status, an
       source: "standing-grant",
       scopes: ["map"],
     });
-    assertLacksHint(done, HINTS["gate-relay-receipt"]);
+    assertLacksHint(done, HINTS["gate-relay-proof"]);
 
     const local = parseResult<StatusData>(
       (await runAgent(worktree, ["status", "--json"])).stdout,
@@ -280,7 +280,7 @@ Deno.test("no grant preserves the existing relay fork at done and status", async
       (await runAgent(worktree, ["done", "--json"])).stdout,
     );
     assertEquals(done.data?.landing_authority, undefined);
-    assertHasHint(done, HINTS["gate-relay-receipt"]);
+    assertHasHint(done, HINTS["gate-relay-proof"]);
 
     const status = parseResult<StatusData>(
       (await runAgent(worktree, ["status", "--json"])).stdout,
@@ -329,7 +329,7 @@ Deno.test("MCP and CLI carry the same authority projection at every lifecycle mo
     await commitPath(worktree, "docs/parity.md", "covered\n");
 
     // Let the gate's fix stage converge before comparing the two wire
-    // projections. The parity assertion is about the clean, receipt-bearing
+    // projections. The parity assertion is about the clean, proof-bearing
     // finish moment, not a first pass that may have just rewritten an artifact.
     const convergence = parseResult<GateData>(
       (await runAgent(worktree, ["done", "--json"])).stdout,

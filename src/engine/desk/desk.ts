@@ -4,7 +4,7 @@
  * `discern desk` is the named form the guards and docs see.
  *
  * The desk is a renderer and a dispatcher, never a source of truth: state comes
- * from `statusResult` (the fleet survey) plus the gate-receipt check, and every
+ * from `statusResult` (the fleet survey) plus the gate-proof check, and every
  * mutation runs the same lifecycle core the CLI verb runs — a core's refusal is
  * rendered, never bypassed. Its only owned logic is the pure classification in
  * `model.ts`. Lifecycle actions echo their CLI command. The effort-grant action
@@ -127,7 +127,7 @@ export interface DeskRuntime {
     message?: string | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  receiptHonored(path: string): DeskMaybePromise<boolean>;
+  proofHonored(path: string): DeskMaybePromise<boolean>;
   grantEffort(
     path: string,
     branch: string,
@@ -213,7 +213,7 @@ function clearBoard(out: Out): void {
   out.raw("\x1b[2J\x1b[H");
 }
 
-/** Hold the board until ↵, so output worth reading (an acceptance's receipt, a
+/** Hold the board until ↵, so output worth reading (an acceptance's proof, a
  * drop's summary) isn't wiped by the next survey pass's clear. */
 async function awaitEnter(out: Out): Promise<void> {
   out.group("return-to-desk");
@@ -278,7 +278,7 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
-  receiptHonored: (path) => gateProofHonored(path),
+  proofHonored: (path) => gateProofHonored(path),
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
@@ -904,7 +904,7 @@ async function dispatchAction(
       // The reclaim confirmation is the whole consent: it names the specific
       // worktree, what is kept (the branch ref — the work travels inside its
       // containing branch), and what is destroyed (the checkout and its
-      // per-worktree state, gate receipt included, so a sibling's
+      // per-worktree state, gate proof included, so a sibling's
       // `await --green` on this branch refuses afterwards).
       echoCommand(
         out,
@@ -915,7 +915,7 @@ async function dispatchAction(
         !(await runtime.confirm(
           `Reclaim ${target}? Branch ${row.entry.branch} is KEPT (its commits ` +
             `are contained in ${containedIn}); the checkout and its ` +
-            `per-worktree state — gate receipt included — are destroyed.`,
+            `per-worktree state — gate proof included — are destroyed.`,
           false,
         ))
       ) {
@@ -1076,8 +1076,8 @@ async function dispatchAction(
         `Diffstat vs ${trunk}`,
         runtime,
       );
-      if (row.receiptHonored) {
-        out.ok("gate receipt: this clean HEAD holds a recorded pass");
+      if (row.proofHonored) {
+        out.ok("gate proof: this clean HEAD holds a recorded pass");
       }
       return false;
     }
@@ -1238,7 +1238,7 @@ export async function runDesk(
   while (true) {
     clearBoard(out);
     const fleet = data.fleet ?? [];
-    const receiptByPath = new Map<string, boolean>();
+    const proofByPath = new Map<string, boolean>();
     const effortGrantByPath = new Map<string, boolean>();
     const scriptsByPath = new Map<string, readonly ProjectScript[]>();
     const agentLaunchesByPath = new Map<
@@ -1254,12 +1254,12 @@ export async function runDesk(
         !entry.is_main && entry.broken !== true &&
         entry.git_unavailable !== true
       ) {
-        const [receiptHonored, scripts, worktreeConfig] = await Promise.all([
-          runtime.receiptHonored(entry.path),
+        const [proofHonored, scripts, worktreeConfig] = await Promise.all([
+          runtime.proofHonored(entry.path),
           runtime.scripts(entry.path),
           loadWorktreeConfig(entry.path, runtime),
         ]);
-        receiptByPath.set(entry.path, receiptHonored);
+        proofByPath.set(entry.path, proofHonored);
         effortGrantByPath.set(
           entry.path,
           entry.landing_authority?.kind === "authorized" &&
@@ -1276,7 +1276,7 @@ export async function runDesk(
     }
     const rows = buildDeskRows(
       fleet,
-      receiptByPath,
+      proofByPath,
       effortGrantByPath,
       scriptsByPath,
       agentLaunchesByPath,

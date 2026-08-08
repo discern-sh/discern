@@ -51,7 +51,7 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
     assert(
       typeof obj.data.gate_proof.path === "string" &&
         obj.data.gate_proof.path.length > 0,
-      `expected a receipt path, got ${JSON.stringify(obj.data.gate_proof)}`,
+      `expected a proof path, got ${JSON.stringify(obj.data.gate_proof)}`,
     );
     // A fresh install wires only discern's own formatter. Project-specific
     // capabilities remain unset until setup discovers the stack.
@@ -71,7 +71,7 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
   });
 });
 
-Deno.test("done --json: trunk advancing during a green gate warns and still records the receipt", async () => {
+Deno.test("done --json: trunk advancing during a green gate warns and still records the proof", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(

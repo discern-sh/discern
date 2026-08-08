@@ -82,7 +82,7 @@ GitHub stores the ref but does not render it. Git-native readers and discern con
 
 | Concern                    | Source                                                          |
 | -------------------------- | --------------------------------------------------------------- |
-| Note, merge, and transport | [`receipt_notes.ts`](../../../src/engine/gate/receipt_notes.ts) |
+| Note, merge, and transport | [`proof_notes.ts`](../../../src/engine/gate/proof_notes.ts) |
 | Acceptance boundary        | [`lifecycle.ts`](../../../src/engine/worktree/lifecycle.ts)     |
 
 ## Current state and gotchas

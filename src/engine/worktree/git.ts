@@ -1170,7 +1170,7 @@ export interface IntegrationDelta {
  * pre-cap total, whole-range `insertions`/`deletions` sums (binary files count 0),
  * and the full ordered path set. The status list is authoritative for order and
  * membership; numstat only supplies the `+`/`-` counts. Fails open to an empty
- * result. Exported because the gate's receipt reads its diffstat vs the trunk
+ * result. Exported because the gate's proof reads its diffstat vs the trunk
  * through this same machinery — one definition of "what changed in a range".
  */
 export async function diffFiles(

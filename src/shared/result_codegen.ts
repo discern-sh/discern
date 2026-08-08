@@ -52,7 +52,7 @@ function isObject(value: unknown): value is JsonObject {
 
 /**
  * Convert one Zod schema to its JSON-schema body. Sub-schemas registered with
- * a metadata `id` (the named definitions, e.g. the receipt) convert to
+ * a metadata `id` (the named definitions, e.g. the proof) convert to
  * root-relative `$refs` with their definition beside the body — `hoisted`
  * collects those definitions so the caller can place them in the document's
  * root `$defs`, where the generated references point. Identical repeats

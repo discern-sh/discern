@@ -640,7 +640,7 @@ Deno.test("await --green skips a ref-only container and points at a stage that c
     await scaffoldEngine(dir);
     await gitInit(dir);
     // Both early stages of A → B → C are reclaimed (refs kept, checkouts
-    // gone). Awaiting A must point at C — B's receipt is equally impossible.
+    // gone). Awaiting A must point at C — B's proof is equally impossible.
     const a = await addWorktree(dir, "a");
     await commitFile(a, "a.txt", "a\n", "stage a");
     const b = await addWorktreeFrom(dir, "b", "agent/a");

@@ -197,7 +197,7 @@ import {
   planDiscernGitattributesBlock,
 } from "../../lib/agent_gitattributes.ts";
 // accept validates the exact tree it lands by running the full gate at the landing
-// boundary (ADR 0067) — fast-pathed by a gate receipt when nothing changed since
+// boundary (ADR 0067) — fast-pathed by a gate proof when nothing changed since
 // the agent's own `done`, so a clean-merging but gate-breaking `update` (or any
 // tree never run through `done`) cannot fast-forward onto the trunk unvalidated.
 import { finishResult } from "../gate/finish.ts";
@@ -1580,12 +1580,12 @@ function offTrunkAcceptRefusal(
 
 /** The relay-and-recovery sentence the consent refusal serves on every surface
  * — the Error's message (the human render) and the envelope's `message`. It
- * re-serves the review moment (relay the receipt, wait for the owner) and names
+ * re-serves the review moment (relay the proof, wait for the owner) and names
  * the recovery (re-run with the attestation). Mutation-free: it fires before any
  * git runs, so the worktree, its branch, and the trunk are genuinely untouched. */
 const ACCEPT_AWAITING_CONSENT_BASE =
   "Landing is the owner's decision, so `discern accept` needs their explicit " +
-  "acceptance before it lands. Relay the receipt to your owner and wait for " +
+  "acceptance before it lands. Relay the proof to your owner and wait for " +
   "their go-ahead, then re-run `discern accept --confirmed`. The flag attests " +
   "to that conversation; recorded grants in the trunk's `[acceptance]` section " +
   "or at the desk are checked automatically.";
@@ -1615,7 +1615,7 @@ function acceptAwaitingConsentMessage(
  * under context pressure that runs `accept` without authority is handed the
  * review moment, not silently landed. Shares the
  * {@link AWAITING_CONSENT_SLUG} slug with `setup begin` so the consent-gated
- * class is one contract. Carries ≥1 actionable hint; the honored receipt and
+ * class is one contract. Carries ≥1 actionable hint; the honored proof and
  * the raw-diff command it points at live once, on `discern status`.
  */
 function acceptAwaitingConsentResult(
@@ -1713,9 +1713,9 @@ interface AcceptExecutionProgress {
   readonly landing: AcceptLandingState;
   readonly scopesChanged: string[];
   gateValidation?: NonNullable<AcceptData["gate_validation"]>;
-  receiptMarkdown?: string;
-  receiptLine?: string;
-  receiptNote?: AcceptProofNoteData;
+  proofMarkdown?: string;
+  proofLine?: string;
+  proofNote?: AcceptProofNoteData;
   readonly convergenceHints: string[];
   readonly diagnostics: Diagnostic[];
   readonly authorityWarnings: string[];
@@ -1762,15 +1762,15 @@ function partialAcceptanceResult(
       ...(progress.gateValidation === undefined
         ? {}
         : { gate_validation: progress.gateValidation }),
-      ...(progress.receiptMarkdown === undefined
+      ...(progress.proofMarkdown === undefined
         ? {}
-        : { proof: progress.receiptMarkdown }),
-      ...(progress.receiptLine === undefined
+        : { proof: progress.proofMarkdown }),
+      ...(progress.proofLine === undefined
         ? {}
-        : { proof_line: progress.receiptLine }),
-      ...(progress.receiptNote === undefined
+        : { proof_line: progress.proofLine }),
+      ...(progress.proofNote === undefined
         ? {}
-        : { proof_note: progress.receiptNote }),
+        : { proof_note: progress.proofNote }),
     },
     ...(progress.convergenceHints.length === 0
       ? {}
@@ -1946,7 +1946,7 @@ async function runLandingSmoke(
 /**
  * Apply an acceptance plan — the mutation dance. Ensures the named branch
  * (creating one if the worktree is detached), validates the exact tree against
- * the whole gate (ADR 0067, fast-pathed by a gate receipt), fast-forwards the
+ * the whole gate (ADR 0067, fast-pathed by a gate proof), fast-forwards the
  * trunk, then refreshes, converges, and smoke-tests the receiving checkout before
  * the cleanup tail tears down resources, removes the worktree, and deletes the
  * merged branch. Returns the per-step results for `--json`.
@@ -1961,9 +1961,9 @@ async function executeAcceptPlan(
 ): Promise<{
   steps: StepResult[];
   gateValidation: NonNullable<AcceptData["gate_validation"]>;
-  receiptMarkdown: string | undefined;
-  receiptLine: string | undefined;
-  receiptNote: AcceptProofNoteData;
+  proofMarkdown: string | undefined;
+  proofLine: string | undefined;
+  proofNote: AcceptProofNoteData;
   convergenceHints: string[];
   diagnostics: Diagnostic[];
   authorityWarnings: string[];
@@ -1987,34 +1987,34 @@ async function executeAcceptPlan(
   // `done` — e.g. a docs edit gated only by a prose linter) cannot fast-forward onto the
   // trunk LOCALLY, where CI's checks never run. This precedes every teardown/removal below,
   // so a refusal leaves the branch and worktree intact.
-  //   FAST PATH: a gate receipt proves the current clean HEAD already passed `done`
+  //   FAST PATH: a gate proof proves the current clean HEAD already passed `done`
   //   (the common case — nothing changed since the agent finished), so skip the re-run.
   //   SLOW PATH: run the full gate now and refuse to land on any failure. A merge `update`
-  //   created, a new commit, or a dirty tree invalidates the receipt, landing us here.
-  const receipt = await inspectGateProof(ctx.cwd);
+  //   created, a new commit, or a dirty tree invalidates the proof, landing us here.
+  const proof = await inspectGateProof(ctx.cwd);
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
-    receipt.status === "honored"
-      ? { mode: "proof", proof: receipt }
-      : { mode: "rerun", proof: receipt };
+    proof.status === "honored"
+      ? { mode: "proof", proof: proof }
+      : { mode: "rerun", proof: proof };
   progress.gateValidation = gateValidation;
-  // The two receipt renderings for the tree that lands: the honored marker
+  // The two proof renderings for the tree that lands: the honored marker
   // stored both on the fast path; the fresh gate run rendered both on the slow
   // path. `validatedSha` is the ONE commit this validation vouches for — the
-  // honored receipt's recorded sha, or the HEAD pinned before the gate re-run —
+  // honored proof's recorded sha, or the HEAD pinned before the gate re-run —
   // and it is the exact rev the fast-forward below lands: a commit made during
   // the (minutes-long) re-run must never ride along unvalidated.
-  let receiptMarkdown: string | undefined;
-  let receiptLine: string | undefined;
-  let receiptData: Proof | undefined;
+  let proofMarkdown: string | undefined;
+  let proofLine: string | undefined;
+  let proofData: Proof | undefined;
   let validatedSha: string | undefined;
   if (gateValidation.mode === "proof") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
-    receiptMarkdown = receipt.proof;
-    receiptLine = receipt.proof_line;
-    receiptData = receipt.proof_data;
-    validatedSha = receipt.head;
+    proofMarkdown = proof.proof;
+    proofLine = proof.proof_line;
+    proofData = proof.proof_data;
+    validatedSha = proof.head;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
     const pin = await pinValidatedTree(ctx.cwd);
@@ -2036,22 +2036,22 @@ async function executeAcceptPlan(
       );
     }
     ctx.log.ok("Gate passed against the tree to be landed.");
-    receiptMarkdown = gate.data?.proof?.markdown;
-    receiptLine = gate.data?.proof?.line;
-    receiptData = gate.data?.proof;
+    proofMarkdown = gate.data?.proof?.markdown;
+    proofLine = gate.data?.proof?.line;
+    proofData = gate.data?.proof;
     validatedSha = pin.head;
   }
   if (validatedSha === undefined) {
-    // Defensive: an honored receipt always carries its head; refuse rather than
+    // Defensive: an honored proof always carries its head; refuse rather than
     // fall back to landing whatever the branch name resolves to at merge time.
     throw new WorktreeGitError(
       movedDuringAcceptanceRefusal(worktreeBranch, worktreePath),
     );
   }
 
-  // A receipt proves the gate implementation that issued it, not a newer
+  // A proof proves the gate implementation that issued it, not a newer
   // engine's added preconditions. Re-run the cheap current tracked-refresh plan
-  // on BOTH paths so a legacy receipt cannot bypass convergence, and do it before
+  // on BOTH paths so a legacy proof cannot bypass convergence, and do it before
   // the fast-forward so refusal is fully non-destructive.
   const trackedRefresh = await planTrackedRefresh(ctx.cwd, ctx.config);
   if (trackedRefresh.changes.length > 0 || trackedRefresh.errors.length > 0) {
@@ -2072,14 +2072,14 @@ async function executeAcceptPlan(
         "Nothing was landed and the worktree is intact. Re-run `discern accept` so authority is checked against the final tree.",
     );
   }
-  if (receiptLine !== undefined) {
-    receiptLine = renderLandingProofLine(receiptLine, consent);
+  if (proofLine !== undefined) {
+    proofLine = renderLandingProofLine(proofLine, consent);
   }
-  if (receiptMarkdown !== undefined) {
-    progress.receiptMarkdown = receiptMarkdown;
+  if (proofMarkdown !== undefined) {
+    progress.proofMarkdown = proofMarkdown;
   }
-  if (receiptLine !== undefined) {
-    progress.receiptLine = receiptLine;
+  if (proofLine !== undefined) {
+    progress.proofLine = proofLine;
   }
 
   const results = progress.steps;
@@ -2242,7 +2242,7 @@ async function executeAcceptPlan(
   done("git", "fast-forward-trunk");
 
   // Establish the tracked-checkout baseline immediately after the ref/checkout
-  // transition, before any receipt, local materialization, ensure, or smoke
+  // transition, before any proof, local materialization, ensure, or smoke
   // effect can obscure its source. A validated landing should be clean here.
   let trackedDirtyAfterLanding: boolean | undefined;
   try {
@@ -2264,48 +2264,48 @@ async function executeAcceptPlan(
   results.push({
     step: {
       kind: "git",
-      label: "reconcile-receipt-note-fetch",
+      label: "reconcile-proof-note-fetch",
       disposition: "run",
       note: proofFetchOk
-        ? `receipt-note transport is ${proofFetch.status}`
+        ? `proof-note transport is ${proofFetch.status}`
         : proofFetch.errors.join("; "),
     },
     outcome: proofFetchOk ? "ok" : "skipped",
   });
   if (!proofFetchOk) {
     ctx.log.warn(
-      "Receipt-note fetch transport could not converge — the landing is kept.",
+      "Proof-note fetch transport could not converge — the landing is kept.",
     );
   }
 
-  const receiptWrite = await writeProofNote(
+  const proofWrite = await writeProofNote(
     mainRepo,
     validatedSha,
-    receiptData,
+    proofData,
   );
-  const receiptNote: AcceptProofNoteData = {
+  const proofNote: AcceptProofNoteData = {
     fetch: proofFetch,
-    write: receiptWrite,
+    write: proofWrite,
   };
-  progress.receiptNote = receiptNote;
-  const receiptWritten = receiptWrite.status === "recorded" ||
-    receiptWrite.status === "already_present";
+  progress.proofNote = proofNote;
+  const proofWritten = proofWrite.status === "recorded" ||
+    proofWrite.status === "already_present";
   results.push({
     step: {
       kind: "git",
-      label: "write-receipt-note",
+      label: "write-proof-note",
       disposition: "run",
-      note: receiptWrite.reason ??
-        `${receiptWrite.ref} at ${receiptWrite.commit}`,
+      note: proofWrite.reason ??
+        `${proofWrite.ref} at ${proofWrite.commit}`,
     },
-    outcome: receiptWritten ? "ok" : "skipped",
+    outcome: proofWritten ? "ok" : "skipped",
   });
-  if (receiptWritten) {
-    ctx.log.ok(`Recorded the landing receipt under ${receiptWrite.ref}.`);
+  if (proofWritten) {
+    ctx.log.ok(`Recorded the landing proof under ${proofWrite.ref}.`);
   } else {
     ctx.log.warn(
-      `The landing receipt note was not recorded — the landing is kept. ${
-        receiptWrite.reason ?? receiptWrite.status
+      `The landing proof note was not recorded — the landing is kept. ${
+        proofWrite.reason ?? proofWrite.status
       }`,
     );
   }
@@ -2315,12 +2315,12 @@ async function executeAcceptPlan(
     : proofFetch.remotes[0];
   if (
     plan.proofNotes === "fetch" && proofFetchOk &&
-    receiptWritten && publicationRemote !== undefined
+    proofWritten && publicationRemote !== undefined
   ) {
     convergenceHints = mergeHintTexts(
       convergenceHints,
       hintTexts([
-        fire(HINTS["accept-publish-receipt-note"], {
+        fire(HINTS["accept-publish-proof-note"], {
           remote: publicationRemote,
         }),
       ]),
@@ -2511,14 +2511,14 @@ async function executeAcceptPlan(
 
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
-  // The landing record: the receipt for the tree that just landed, pasteable
+  // The landing record: the proof for the tree that just landed, pasteable
   // into a PR body. Printed unindented so it relays as clean markdown; dimmed
   // so the quoted page stays visually secondary (dim is display-only — a
   // terminal copies the plain text).
-  if (receiptMarkdown !== undefined) {
-    ctx.log.group("receipt");
+  if (proofMarkdown !== undefined) {
+    ctx.log.group("proof");
     for (
-      const line of dimBlock(receiptMarkdown, loggerSink(ctx.log).dim)
+      const line of dimBlock(proofMarkdown, loggerSink(ctx.log).dim)
         .split("\n")
     ) {
       ctx.log.line(line);
@@ -2527,9 +2527,9 @@ async function executeAcceptPlan(
   return {
     steps: results,
     gateValidation,
-    receiptMarkdown,
-    receiptLine,
-    receiptNote,
+    proofMarkdown,
+    proofLine,
+    proofNote,
     convergenceHints,
     diagnostics,
     authorityWarnings,
@@ -2747,20 +2747,20 @@ async function executeAcceptResult(
         }
         : {}),
       gate_validation: executed.gateValidation,
-      ...(executed.receiptMarkdown !== undefined
-        ? { proof: executed.receiptMarkdown }
+      ...(executed.proofMarkdown !== undefined
+        ? { proof: executed.proofMarkdown }
         : {}),
-      ...(executed.receiptLine !== undefined
-        ? { proof_line: executed.receiptLine }
+      ...(executed.proofLine !== undefined
+        ? { proof_line: executed.proofLine }
         : {}),
-      proof_note: executed.receiptNote,
+      proof_note: executed.proofNote,
       ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
         ? { ignored_file_changes: plan.ignoredFileChanges }
         : {}),
     };
-    result.hints = executed.receiptLine !== undefined
+    result.hints = executed.proofLine !== undefined
       ? mergeHintTexts(
-        hintTexts([fire(HINTS["accept-relay-landing-receipt"])]),
+        hintTexts([fire(HINTS["accept-relay-landing-proof"])]),
         executed.convergenceHints,
       )
       : executed.convergenceHints;

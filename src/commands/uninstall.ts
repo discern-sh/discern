@@ -19,7 +19,7 @@
  * them and leaving the user's own settings byte-for-byte; the delimited
  * `.gitignore` and `.gitattributes` blocks; and the `discern/` runtime-state
  * namespace under Git's administrative directories (the logbook, gate
- * receipts, the self-shim, coordination locks — every registered entry, whole,
+ * proofs, the self-shim, coordination locks — every registered entry, whole,
  * so a future entry auto-enrols). A co-owned file discern created
  * outright empties to nothing and is deleted; one the user shares keeps their
  * content.
@@ -117,7 +117,7 @@ interface IncompleteStrip {
 interface UninstallPlan {
   ops: RemovalOp[];
   /** Absolute `discern/` namespace dirs under Git's administrative area —
-   * runtime records (logbook, receipts, shim, locks) that exit with the tool. */
+   * runtime records (logbook, proofs, shim, locks) that exit with the tool. */
   gitAdminDirs: string[];
   kept: KeptItem[];
   /** Directories to remove if they empty out once their discern files are gone. */
@@ -528,7 +528,7 @@ function renderPlan(log: Logger, plan: UninstallPlan, applied: boolean): void {
         : "would remove runtime records under Git's administrative directory",
     );
     for (const dir of plan.gitAdminDirs) {
-      log.detail(`${dir}/ — logbook, gate receipts, shim, locks`);
+      log.detail(`${dir}/ — logbook, gate proofs, shim, locks`);
     }
   }
   if (rewrites.length > 0) {

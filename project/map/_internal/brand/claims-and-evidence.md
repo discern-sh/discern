@@ -126,9 +126,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Evidence:** structural
 - **Strongest supported public form:** “A discern Proof identifies the exact clean committed change that passed the project's declared Gate and held Standards.”
 - **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; a later commit invalidates the evidence.
-- **Conditions:** “Proof” is the launch rename of Receipt; migrate product terminology consistently before public release.
+- **Conditions:** Use “Proof” consistently across product surfaces, and keep the claim scoped to the declared Gate over the exact tree.
 - **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.
-- **Primary source:** Receipt/Proof implementation, glossary, Gate behaviour, DSSE-compatible note boundary.
+- **Primary source:** Proof implementation, glossary, Gate behaviour, and DSSE-compatible note boundary.
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 

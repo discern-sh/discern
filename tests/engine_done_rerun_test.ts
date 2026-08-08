@@ -4,7 +4,7 @@
  * that exact tree without `--confirmed` refuses read-only, with a
  * verdict-specific recovery: a red tree deserves a fix (or a deliberate,
  * recorded flake probe), a green tree already stands and `status` shows the
- * receipt. Any change to the tree — a commit, an edit — runs the gate
+ * proof. Any change to the tree — a commit, an edit — runs the gate
  * normally, and so does `--dry-run`; the precondition guards only the
  * literal-rerun case where the verdict is already known.
  */
@@ -28,7 +28,7 @@ import { gitAdminStatePath } from "../src/shared/git_admin_state.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
 
-/** Decode successive done envelopes so rerun and receipt effects can be compared. */
+/** Decode successive done envelopes so rerun and proof effects can be compared. */
 // deno-lint-ignore no-explicit-any
 function parseJson(stdout: string): any {
   return JSON.parse(stdout.trim());
@@ -123,7 +123,7 @@ Deno.test("done: an unchanged tree the gate judged GREEN refuses a bare rerun to
     assertEquals(env.error, UNCHANGED_TREE_RERUN_SLUG);
     assertHasHint(env, HINTS["done-unchanged-tree-green"]);
 
-    // The confirmed rerun is green exactly as before, receipt included.
+    // The confirmed rerun is green exactly as before, proof included.
     const again = await runAgent(wt, ["done", "--confirmed", "--json"]);
     assertEquals(again.code, 0, again.output);
     assertEquals(parseJson(again.stdout).data.gate_proof.status, "recorded");

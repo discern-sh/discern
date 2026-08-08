@@ -292,7 +292,7 @@ function finishVerb(cfg: DiscernConfig): VerbPlan {
     if (planned.label === TRACKED_REFRESH_PROOF_CHECK_LABEL) {
       return annotatePlanStep(planned, {
         hint:
-          "Built-in final read-only check: repeat the current tracked refresh plan after every gate job, immediately before the result and Receipt. A pending or unprovable effect prevents a green result.",
+          "Built-in final read-only check: repeat the current tracked refresh plan after every gate job, immediately before the result and Proof. A pending or unprovable effect prevents a green result.",
       });
     }
     return annotatePlanStep(planned);
@@ -516,7 +516,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
     if (planned.label === ACCEPT_TRACKED_REFRESH_CHECK_LABEL) {
       return [annotatePlanStep(planned, {
         hint:
-          "Built-in landing-boundary check: after either an honored Receipt or an in-process gate rerun, verify the current engine's complete tracked refresh plan again. A pending or unprovable effect refuses before the trunk moves.",
+          "Built-in landing-boundary check: after either a valid Proof or an in-process gate rerun, verify the current engine's complete tracked refresh plan again. A pending or unprovable effect refuses before the trunk moves.",
       })];
     }
     if (planned.kind === "resource-destroy" && destroyable.length > 0) {
@@ -543,7 +543,7 @@ function acceptVerb(cfg: DiscernConfig): VerbPlan {
   return {
     verb: "accept",
     when:
-      "When the work is done and updated — prove the exact tree by an honored Receipt or a full gate rerun, recheck tracked refresh convergence with the current engine, then fast-forward the trunk and clean up.",
+      "When the work is done and updated — prove the exact tree by a valid Proof or a full gate rerun, recheck tracked refresh convergence with the current engine, then fast-forward the trunk and clean up.",
     steps,
   };
 }

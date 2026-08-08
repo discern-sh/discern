@@ -3,7 +3,7 @@
 import type { Out } from "../output.ts";
 import { elapsedDuration } from "../output.ts";
 
-/** A receipt segment for a positive wait, absent for uncapped or immediate runs. */
+/** A proof segment for a positive wait, absent for uncapped or immediate runs. */
 export function slotWaitSegment(
   waitedMs: number | undefined,
 ): string | undefined {

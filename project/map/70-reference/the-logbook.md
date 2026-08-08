@@ -29,7 +29,7 @@ Setting `[project].logbook = false` stops new evidence for every feature below. 
 - fleet activity times that include verb runs, so a long test run does not appear dormant
 - configuration-change attribution and each Standard's limit history: the `config-change` and `pin` events
 - `tip-adoption` counts: whether each shown tip's invited verb ran before that tip appeared again
-- advisory findings on `status`, the `done` Receipt, and `improvement`
+- advisory findings on `status`, the `done` Proof, and `improvement`
 - wait estimates when concurrent test runs queue, and contention readings
 - the in-flight check on the contained-worktree offer; an installation with recording off uses a one-hour inactivity period
 

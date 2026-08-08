@@ -1,6 +1,6 @@
 /**
  * Acceptance's recorded-authority paths: standing coverage, per-effort grants,
- * fail-closed refusals, dry-run disclosure, receipt evidence, and logbook lift.
+ * fail-closed refusals, dry-run disclosure, proof evidence, and logbook lift.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -1034,7 +1034,7 @@ Deno.test("landing compare-and-swap preserves ignored file, directory, and symli
   }
 });
 
-Deno.test("accept records confirmed conversation consent in its receipt and logbook", async () => {
+Deno.test("accept records confirmed conversation consent in its proof and logbook", async () => {
   await withTempDir(async (dir) => {
     const worktree = await readyWorktree(
       dir,

@@ -99,7 +99,7 @@ Rendered line:
 - Relevance: A task has a passing proof ready for review.
 - Predicate: `ready-to-review`
 - Since: —
-- Teaches: `accept`, `receipt`
+- Teaches: `accept`, `proof`
 - Follow-through: —
 
 Rendered line:
@@ -239,7 +239,7 @@ Rendered line:
 - Relevance: Evergreen — the quality opener.
 - Predicate: —
 - Since: —
-- Teaches: `gate`, `receipt`
+- Teaches: `gate`, `proof`
 - Follow-through: `verb-run-after-tip` (`done`)
 
 Rendered line:
@@ -668,7 +668,7 @@ The enrolment guard derives every feature node and top-level verb from its live 
 | `feature:standards-rates`                 | Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.                              |
 | `feature:standards-replay`                | Replay is measurement plumbing with no separate beginner action.                                                             |
 | `feature:strand-detection`                | This is gate safety plumbing; its diagnostic teaches the recovery when it fires.                                             |
-| `feature:unchanged-tree-rerun`            | This is receipt-reuse plumbing; the proof tip covers the human-visible result.                                               |
+| `feature:unchanged-tree-rerun`            | This is proof-reuse plumbing; the proof tip covers the human-visible result.                                                 |
 | `feature:uninstall`                       | Uninstall stays in explicit command help. The desk does not advertise leaving discern.                                       |
 | `feature:write-preflight`                 | This is an internal safety check with no separate beginner action.                                                           |
 | `verb:help`                               | Help is already present beside every command and needs no rotating lesson.                                                   |

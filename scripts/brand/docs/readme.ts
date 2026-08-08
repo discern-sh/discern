@@ -214,7 +214,7 @@ export const OUTSTANDING_WORK = [
     id: "glossary-and-proof-migration",
     task: "Glossary and Proof migration",
     summary:
-      "Update the canonical glossary with new and refined definitions, and plan the proper Receipt → Proof renaming across the product.",
+      "Keep the canonical glossary definitions and Proof terminology aligned across the product.",
   },
   {
     id: "registry-canonicalisation",

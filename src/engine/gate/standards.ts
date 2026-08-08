@@ -16,7 +16,7 @@
  * (plan, results) through the shared renderer.
  *
  * The check → pin flow measures ONCE: a green check over a clean tree records a
- * measurement receipt (`proof.ts`) naming every measured value against the exact
+ * measurement proof (`proof.ts`) naming every measured value against the exact
  * HEAD, and a `--pin` on that same clean HEAD replays those values instead of
  * re-running the measurements — re-checking only the never-loosen half from the
  * invocation's trunk snapshot, since that baseline can advance while HEAD stands
@@ -209,7 +209,7 @@ export interface StandardVerdict {
 
 /**
  * Compare an already-known `value` to a standard's limit — the pure final third
- * of a standard's verdict, shared by a fresh measurement, the pin's receipt
+ * of a standard's verdict, shared by a fresh measurement, the pin's proof
  * replay, and the gate's input-keyed replay, so "past the limit" is decided by
  * ONE comparison (epsilon tolerance included) everywhere. `shown`/`breakdown`
  * carry the human rendering when the caller normalized a rate.
@@ -823,12 +823,12 @@ function standardExecutionResult(execution: StandardExecution): DiscernResult {
   };
 }
 
-/** Route a plain check's outcome into the measurement receipt: green over a clean
+/** Route a plain check's outcome into the measurement proof: green over a clean
  * tree records every measured value against the HEAD pinned before the measurements
- * ran (for a `--pin` on that same clean HEAD to reuse), red clears any receipt
+ * ran (for a `--pin` on that same clean HEAD to reuse), red clears any proof
  * (fail-closed). The caller already preflighted `authority`; the writer remains
  * best-effort only against a later point-in-time failure. Returns whether a
- * reusable receipt now exists. */
+ * reusable proof now exists. */
 async function recordCheckMeasurements(
   root: string,
   authority: AdminStateWriteAuthority,
@@ -862,28 +862,28 @@ async function recordCheckMeasurements(
 // ── `--pin`: capture a measured improvement into the limit (ADR 0106) ──────────
 
 /** The measured values a pin may reuse instead of re-measuring: the measurement
- * receipt must be honored (recorded by a green check against this exact HEAD, tree
+ * proof must be honored (recorded by a green check against this exact HEAD, tree
  * still clean) and name every planned standard. Anything short of that returns
  * undefined — a cache miss the caller answers by measuring fresh, never an error. */
 async function reusableMeasurements(
   root: string,
   plan: StandardPlan,
 ): Promise<Record<string, number> | undefined> {
-  const receipt = await inspectStandardMeasurements(root);
-  if (receipt.status !== "honored") {
+  const proof = await inspectStandardMeasurements(root);
+  if (proof.status !== "honored") {
     return undefined;
   }
   const complete = plan.standards.every((r) =>
-    receipt.values[r.name] !== undefined
+    proof.values[r.name] !== undefined
   );
-  return complete ? receipt.values : undefined;
+  return complete ? proof.values : undefined;
 }
 
 /**
- * Rebuild a {@link StandardExecution} from the measurement receipt's values.
+ * Rebuild a {@link StandardExecution} from the measurement proof's values.
  * The caller's one Tier-1 snapshot supplies the live never-loosen verdict; the
  * measured-vs-limit half needs no rerun because the same clean HEAD fixes both
- * the values and limits, and only an all-green check records a receipt.
+ * the values and limits, and only an all-green check records a proof.
  */
 function replayExecutionFromProof(
   plan: StandardPlan,
@@ -898,11 +898,11 @@ function replayExecutionFromProof(
   for (const standard of plan.standards) {
     const value = values[standard.name];
     if (value === undefined) {
-      // Unreachable — the caller replays only a receipt naming every planned
+      // Unreachable — the caller replays only a proof naming every planned
       // standard — but fail closed as a plain failure rather than pinning blind.
       ok = false;
       const reason =
-        `standard '${standard.name}': the measurement receipt carries no value for it. Re-run \`discern standards\` to measure.`;
+        `standard '${standard.name}': the measurement proof carries no value for it. Re-run \`discern standards\` to measure.`;
       results.push({
         step: { kind: "standard", label: standard.name, disposition: "run" },
         outcome: "failed",
@@ -1129,7 +1129,7 @@ async function restorePinEdits(root: string, rel: string): Promise<boolean> {
 /** Rewrite the pinned limits in discern.toml (comment-preservingly, via {@link
  * TomlEditor}) and commit that file ALONE with an audit message. The clean-tree
  * precondition guarantees the config is the only change the commit carries — which is
- * what makes the commit gate-neutral and its receipt safe to carry forward.
+ * what makes the commit gate-neutral and its proof safe to carry forward.
  *
  * The write → stage → commit sequence is a multi-step mutation, so ANY step that
  * fails after the file is rewritten rolls the config back to HEAD before returning —
@@ -1215,9 +1215,9 @@ function standardsBuild(
  * Apply `standards --pin` (ADR 0106): measure every standard, and for each one asked for
  * — all of them, or the named subset — that improved past its limit by more than its
  * margin, tighten the limit toward the measured value, commit that change on its own,
- * and carry any gate receipt forward across the (gate-neutral) commit so
+ * and carry any gate proof forward across the (gate-neutral) commit so
  * `accept` need not re-run the whole gate. When a green check already measured this
- * exact clean HEAD, its measurement receipt stands in for the measurements — the
+ * exact clean HEAD, its measurement proof stands in for the measurements — the
  * check → pin flow measures once — with only the never-loosen half re-checked live
  * (main can advance while HEAD stands still). A FAILING standard pins nothing — you can't
  * capture a good state from a red tree — and returns the ordinary failing result.
@@ -1313,12 +1313,12 @@ async function pinStandardsResult(
   }
   const writeAuthority = writePreflight.authority;
 
-  // Pin the tree before any measurement receipt is read or measurement runs. The
+  // Pin the tree before any measurement proof is read or measurement runs. The
   // mutation below re-validates this exact HEAD and full cleanliness immediately
   // before writing, so limits can only describe the tree that supplied the values.
   const treePin = await pinValidatedTree(root);
 
-  // Capture the pre-pin vouch BEFORE anything changes: only an honored receipt may be
+  // Capture the pre-pin vouch BEFORE anything changes: only an honored proof may be
   // carried across the commit we are about to make (ADR 0106 / 0067).
   const priorProof = await inspectGateProof(root);
 
@@ -1329,7 +1329,7 @@ async function pinStandardsResult(
     );
   }
   // A green check on this exact clean HEAD already paid for every measurement and
-  // recorded a measurement receipt; replay its values rather than measuring again.
+  // recorded a measurement proof; replay its values rather than measuring again.
   const reused = await reusableMeasurements(root, plan);
   const slots = buildTestRunSlots(root, cfg);
   const execution = reused !== undefined
@@ -1436,12 +1436,12 @@ async function pinStandardsResult(
 
   // The commit moved HEAD; carry an honored pre-pin vouch onto it so accept skips the
   // redundant gate re-run (the commit changed only standard limits — gate-neutral).
-  const receipt = await carryProofForwardAcrossPin(
+  const proof = await carryProofForwardAcrossPin(
     root,
     writeAuthority.admin,
     priorProof?.status === "honored",
   );
-  const carried = receipt?.status === "recorded";
+  const carried = proof?.status === "recorded";
   return standardsBuild(
     {
       ...appliedResult("standards", steps),
@@ -1461,8 +1461,8 @@ async function pinStandardsResult(
       ...slotWaits,
       ...(reuseHint !== undefined ? [reuseHint] : []),
       carried
-        ? fire(HINTS["standards-pin-carried-receipt"])
-        : fire(HINTS["standards-pin-no-receipt"]),
+        ? fire(HINTS["standards-pin-carried-proof"])
+        : fire(HINTS["standards-pin-no-proof"]),
     ],
     slots?.waitedMs,
   );
@@ -1491,7 +1491,7 @@ function unverifiedTrunkHint(
  *
  * With `pin`, it instead runs the pin pass (ADR 0106): measure, tighten each
  * asked-for limit that improved past its margin, commit that change alone, and carry
- * a gate receipt forward across it. `pinNames` restricts the pin to those
+ * a gate proof forward across it. `pinNames` restricts the pin to those
  * standards (empty = all with slack). `dryRun` previews without measuring in BOTH
  * modes; a green check's hints name any pinnable slack, so check → pin is the whole
  * flow.
@@ -1586,7 +1586,7 @@ export async function standardsResult(
             "discern standards",
           );
         } else {
-          // Pin the tree before the measurements: the receipt may only vouch for
+          // Pin the tree before the measurements: the proof may only vouch for
           // the exact tree the parallel jobs read.
           const treePin = await pinValidatedTree(root);
           const slots = buildTestRunSlots(root, cfg);
@@ -1606,7 +1606,7 @@ export async function standardsResult(
           if (slots?.waitedMs !== undefined) {
             result.waitedMs = slots.waitedMs;
           }
-          const receipted = await recordCheckMeasurements(
+          const proofed = await recordCheckMeasurements(
             root,
             writePreflight.authority,
             execution,
@@ -1644,7 +1644,7 @@ export async function standardsResult(
               firedHints.push(
                 fire(HINTS["standards-pinnable-slack"], {
                   standards: slack,
-                  receipted,
+                  proofed,
                 }),
               );
             }

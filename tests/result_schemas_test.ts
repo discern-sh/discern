@@ -1007,16 +1007,16 @@ Deno.test("await result is faithful (refusals, not-yet, and both met shapes)", a
     expectFaithful("await", notYet, "await not-yet");
     assert(notYet.ok && notYet.data?.met === false);
 
-    // Met via receipt: a sibling worktree with an honored-shaped marker.
+    // Met via proof: a sibling worktree with an honored-shaped marker.
     const dep = await addWorktree(dir, "await-dep");
     await Deno.writeTextFile(join(dep, "dep.txt"), "work");
     await git(dep, "add", "-A");
     await git(dep, "commit", "-q", "-m", "dep work", "--no-gpg-sign");
-    const receiptPath = await gitAdminStatePath(dep, "gateProof");
-    assert(receiptPath !== undefined);
-    await Deno.mkdir(join(receiptPath, ".."), { recursive: true });
+    const proofPath = await gitAdminStatePath(dep, "gateProof");
+    assert(proofPath !== undefined);
+    await Deno.mkdir(join(proofPath, ".."), { recursive: true });
     const depHead = await gitOut(dep, "rev-parse", "HEAD");
-    await Deno.writeTextFile(receiptPath, `${depHead}\nline: gate green\n`);
+    await Deno.writeTextFile(proofPath, `${depHead}\nline: gate green\n`);
     const green = await awaitResult(dir, {
       green: "agent/await-dep",
       timeoutSeconds: 0,
@@ -1365,7 +1365,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
       '[meta]\nbootstrapped = true\n\n[project]\nslug = "engine-test"\n',
     );
     await gitInit(dir);
-    const wt = await addWorktree(dir, "grad-receipt");
+    const wt = await addWorktree(dir, "grad-proof");
     await commitFiles(wt, { "feature.txt": "branch\n" }, "branch work");
     const finish = await finishResult(wt, {
       surface: { kind: "quiet" },
@@ -1388,7 +1388,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
         branch_deleted: true,
       },
     );
-    expectFaithful("accept", applied, "accept applied receipt");
+    expectFaithful("accept", applied, "accept applied proof");
   });
 });
 

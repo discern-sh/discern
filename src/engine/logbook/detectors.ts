@@ -2,7 +2,7 @@
  * The `patterns` **detector registry** — the single source of truth for every
  * named detector the verb runs over the logbook's event stream. Each entry is a
  * checkable predicate with a stable id, a family, the scope its findings apply
- * to, a tier (wave 3's receipt/status surfacing may carry `inline` findings;
+ * to, a tier (wave 3's proof/status surfacing may carry `inline` findings;
  * `batch` runs only under the verb), an evidence threshold, and a recommended
  * next step. Parameterized tests iterate this registry, so a new detector
  * auto-enrols into the harness — including the fixture obligation.
@@ -1165,7 +1165,7 @@ const dirtyDoneChurn: Detector = {
   // for enough of them to call the pattern a habit rather than a moment.
   threshold: 5,
   next_step:
-    "Only a clean committed HEAD earns an honored receipt, so a dirty `done` can never be the final one — iterate with `prepare` and `test`, then commit and run `done` once on the finished tree.",
+    "Only a clean committed HEAD earns a valid proof, so a dirty `done` can never be the final one — iterate with `prepare` and `test`, then commit and run `done` once on the finished tree.",
   detect(facts): DetectorOutcome {
     const dones = facts.agentish.filter((e) => e.verb === "done");
     const findings: DetectorFinding[] = [];
@@ -1779,7 +1779,7 @@ const sequenceAnomaly: Detector = {
   // 2 qualifying events before judging orderings at all.
   threshold: 2,
   next_step:
-    "The flow is `start` → `prepare` → `done` → `accept`: `done` produces the receipt and `accept` verifies it — acceptance can't substitute for a green gate.",
+    "The flow is `start` → `prepare` → `done` → `accept`: `done` produces the proof and `accept` verifies it — acceptance can't substitute for a green gate.",
   detect(facts): DetectorOutcome {
     const findings: DetectorFinding[] = [];
     const accepts = facts.agentish.filter((e) => e.verb === "accept");
@@ -1816,7 +1816,7 @@ const sequenceAnomaly: Detector = {
       });
     }
     // Named ordering 2: a green done re-run on the identical tree — the
-    // receipt already honors it, so the second full gate bought nothing.
+    // proof already honors it, so the second full gate bought nothing.
     let redundant = 0;
     for (const [, events] of byBranch(dones)) {
       for (let i = 1; i < events.length; i += 1) {
@@ -1843,7 +1843,7 @@ const sequenceAnomaly: Detector = {
         evidence: { redundant_reruns: redundant },
         strength: redundant,
         next_step:
-          "A green `done` on an unchanged tree is already honored — `discern status` shows the receipt's standing without re-running anything.",
+          "A green `done` on an unchanged tree is already honored — `discern status` shows the proof's standing without re-running anything.",
       });
     }
     return { considered: accepts.length + dones.length, findings };

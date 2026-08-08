@@ -624,7 +624,7 @@ export interface RenderSink {
 
 /**
  * Dim a multi-line block for terminal output — how quoted page content (the
- * receipt) reads as secondary against the narration around it. Wrapped per
+ * proof) reads as secondary against the narration around it. Wrapped per
  * line, not per block: attributes never straddle a newline, so the shading
  * survives pagers and partial scrollback. Empty lines stay bare, and a
  * colour-off `dim` passes the block through unchanged.

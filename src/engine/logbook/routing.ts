@@ -115,7 +115,7 @@ export function routedFindingData(routed: RoutedFinding): PatternsFinding {
 /**
  * Attach advisory text to the envelope's only advisory channel. This helper's
  * narrow write surface is guarded in `logbook_routing_test.ts`: outcome,
- * diagnostics, failed stage, receipt data, and every other field are preserved.
+ * diagnostics, failed stage, proof data, and every other field are preserved.
  */
 export function addAdvisoryHints<T>(
   result: DiscernResult<T>,

@@ -4,14 +4,14 @@
  *
  * `--pin` measures every standard, tightens each asked-for limit that improved past
  * its margin toward the measured value, commits that change on its own (comment-
- * preservingly), and carries a gate receipt forward across the gate-neutral
+ * preservingly), and carries a gate proof forward across the gate-neutral
  * commit so `accept` skips the redundant re-run. These tests drive the real engine
- * through `runAgent` and assert on the config, the commit, and the receipt file.
+ * through `runAgent` and assert on the config, the commit, and the proof file.
  *
  * The proof lives at `.git/discern/gate-proof` in a plain repo (what
  * `git rev-parse --git-path` resolves), so a test can seed a prior finish vouch by
  * writing HEAD there, then assert the pin carried it onto the new HEAD — which is
- * exactly the (receipt names HEAD, clean tree) condition `accept` honors.
+ * exactly the (proof names HEAD, clean tree) condition `accept` honors.
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
@@ -82,21 +82,21 @@ function limitOf(configText: string, name: string): string | undefined {
 }
 
 /** Resolve the gate-proof fixture through its registered Git-admin location. */
-function receiptFile(dir: string): string {
+function proofFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.gateProof.path);
 }
 
-/** Seed a prior `done` vouch: write `sha` (default current HEAD) to the receipt. */
+/** Seed a prior `done` vouch: write `sha` (default current HEAD) to the proof. */
 async function seedProof(dir: string, sha?: string): Promise<void> {
   const head = sha ?? await gitOut(dir, "rev-parse", "HEAD");
-  await Deno.mkdir(dirname(receiptFile(dir)), { recursive: true });
-  await Deno.writeTextFile(receiptFile(dir), `${head}\n`);
+  await Deno.mkdir(dirname(proofFile(dir)), { recursive: true });
+  await Deno.writeTextFile(proofFile(dir), `${head}\n`);
 }
 
-/** Read a trimmed gate receipt while preserving missing state as absence. */
+/** Read a trimmed gate proof while preserving missing state as absence. */
 async function readProof(dir: string): Promise<string | undefined> {
   try {
-    return (await Deno.readTextFile(receiptFile(dir))).trim();
+    return (await Deno.readTextFile(proofFile(dir))).trim();
   } catch {
     return undefined;
   }
@@ -651,14 +651,14 @@ Deno.test("a green check hints any pinnable slack, so check → pin needs no mea
         measured: "95",
         newLimit: 95,
       }],
-      receipted: true,
+      proofed: true,
     });
   });
 });
 
-// ── the gate receipt carries across the pin commit ────────────────────────
+// ── the gate proof carries across the pin commit ────────────────────────
 
-Deno.test("pin: carries an honored gate receipt onto the new commit", async () => {
+Deno.test("pin: carries an honored gate proof onto the new commit", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -678,10 +678,10 @@ Deno.test("pin: carries an honored gate receipt onto the new commit", async () =
     assertEquals(r.code, 0, r.output);
     assertHasHint(
       JSON.parse(r.stdout),
-      HINTS["standards-pin-carried-receipt"],
+      HINTS["standards-pin-carried-proof"],
     );
 
-    // The receipt now names the NEW HEAD over a clean tree — accept's honored
+    // The proof now names the NEW HEAD over a clean tree — accept's honored
     // condition — so accept would skip the redundant gate re-run.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readProof(dir), head);
@@ -734,7 +734,7 @@ Deno.test("pin: the tightened pin commit still passes both standards gate halves
   });
 });
 
-Deno.test("pin: does NOT forge a receipt when none was honored beforehand", async () => {
+Deno.test("pin: does NOT forge a proof when none was honored beforehand", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -746,17 +746,17 @@ Deno.test("pin: does NOT forge a receipt when none was honored beforehand", asyn
         run: "echo 'DISCERN_METRIC coverage 95'",
       }),
     );
-    await gitInit(dir); // no receipt seeded
+    await gitInit(dir); // no proof seeded
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
-    // Fail-closed: no receipt was written, so accept will re-run the gate.
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-proof"]);
+    // Fail-closed: no proof was written, so accept will re-run the gate.
     assertEquals(await readProof(dir), undefined);
   });
 });
 
-Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () => {
+Deno.test("pin: a STALE prior proof is not carried (fail-closed)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -769,13 +769,13 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
       }),
     );
     await gitInit(dir);
-    // A receipt naming some other commit — not the current HEAD.
+    // A proof naming some other commit — not the current HEAD.
     const stale = "0".repeat(40);
     await seedProof(dir, stale);
 
     const r = await runAgent(dir, ["standards", "--pin", "--json"]);
     assertEquals(r.code, 0, r.output);
-    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-receipt"]);
+    assertHasHint(JSON.parse(r.stdout), HINTS["standards-pin-no-proof"]);
     // The stale marker is left untouched (still ≠ HEAD) — accept re-validates.
     const head = await gitOut(dir, "rev-parse", "HEAD");
     assertEquals(await readProof(dir), stale);
@@ -783,7 +783,7 @@ Deno.test("pin: a STALE prior receipt is not carried (fail-closed)", async () =>
   });
 });
 
-Deno.test("pin: a further commit after the pin strands the carried receipt (fail-closed)", async () => {
+Deno.test("pin: a further commit after the pin strands the carried proof (fail-closed)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -803,7 +803,7 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
     assertEquals(await readProof(dir), pinnedHead);
 
     // The agent keeps working: another commit lands after the pin. The carried
-    // receipt still names the pin commit, so it no longer matches HEAD — accept
+    // proof still names the pin commit, so it no longer matches HEAD — accept
     // correctly falls back to re-running the gate rather than trusting a stale vouch.
     await git(
       dir,
@@ -819,7 +819,7 @@ Deno.test("pin: a further commit after the pin strands the carried receipt (fail
     assertEquals(
       await readProof(dir),
       pinnedHead,
-      "receipt still names the pin commit",
+      "proof still names the pin commit",
     );
   });
 });
@@ -920,7 +920,7 @@ Deno.test("pin: a failed commit rolls discern.toml back to HEAD (the retry is ne
   });
 });
 
-// ── the measurement receipt: check → pin measures once ─────────────────────────
+// ── the measurement proof: check → pin measures once ─────────────────────────
 
 /** A run command that counts its own executions in `.git/measure-count` (inside the
  * git admin dir, so the sentinel never dirties the tree) before emitting `value`. */
@@ -943,7 +943,7 @@ function measurementsFile(dir: string): string {
   return join(dir, ".git", GIT_ADMIN_STATE.standardMeasurements.path);
 }
 
-Deno.test("receipt: a pin after a green check reuses its measurements — one measurement total", async () => {
+Deno.test("proof: a pin after a green check reuses its measurements — one measurement total", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -972,7 +972,7 @@ Deno.test("receipt: a pin after a green check reuses its measurements — one me
           measured: "95",
           newLimit: 95,
         }],
-        receipted: true,
+        proofed: true,
       },
     );
 
@@ -993,7 +993,7 @@ Deno.test("receipt: a pin after a green check reuses its measurements — one me
   });
 });
 
-Deno.test("receipt: a commit between check and pin invalidates it — the pin re-measures", async () => {
+Deno.test("proof: a commit between check and pin invalidates it — the pin re-measures", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1030,7 +1030,7 @@ Deno.test("receipt: a commit between check and pin invalidates it — the pin re
   });
 });
 
-Deno.test("receipt: a red check clears it, so a later pin measures fresh", async () => {
+Deno.test("proof: a red check clears it, so a later pin measures fresh", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // The metric is controlled by a flag file inside .git (never dirties the tree):
@@ -1048,12 +1048,12 @@ Deno.test("receipt: a red check clears it, so a later pin measures fresh", async
     );
     await gitInit(dir);
 
-    // Green check (human path) records the receipt.
+    // Green check (human path) records the proof.
     const green = await runAgent(dir, ["standards"]);
     assertEquals(green.code, 0, green.output);
     assertEquals(await measureCount(dir), 1);
 
-    // Same HEAD turns red (environment drift): the check must clear the receipt.
+    // Same HEAD turns red (environment drift): the check must clear the proof.
     await Deno.writeTextFile(join(dir, ".git", "fail"), "");
     const red = await runAgent(dir, ["standards"]);
     assertEquals(red.code, 1, red.output);
@@ -1066,13 +1066,13 @@ Deno.test("receipt: a red check clears it, so a later pin measures fresh", async
     assertEquals(
       await measureCount(dir),
       3,
-      "a cleared receipt must not be reused",
+      "a cleared proof must not be reused",
     );
     assertEquals(limitOf(await readConfig(dir), "coverage"), "95");
   });
 });
 
-Deno.test("receipt: a malformed receipt file is ignored — the pin measures fresh", async () => {
+Deno.test("proof: a malformed proof file is ignored — the pin measures fresh", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1099,7 +1099,7 @@ Deno.test("receipt: a malformed receipt file is ignored — the pin measures fre
   });
 });
 
-Deno.test("receipt: a --force check over a dirty tree records nothing", async () => {
+Deno.test("proof: a --force check over a dirty tree records nothing", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1116,18 +1116,16 @@ Deno.test("receipt: a --force check over a dirty tree records nothing", async ()
 
     const check = await runAgent(dir, ["standards", "--force"]);
     assertEquals(check.code, 0, check.output);
-    const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
-      undefined
-    );
+    const proof = await Deno.stat(measurementsFile(dir)).catch(() => undefined);
     assertEquals(
-      receipt,
+      proof,
       undefined,
       "a dirty tree's values describe a state no pin will see",
     );
   });
 });
 
-Deno.test("receipt: a commit made while the check measured is never recorded (the pin catches it)", async () => {
+Deno.test("proof: a commit made while the check measured is never recorded (the pin catches it)", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     // The measurement itself commits — a deterministic stand-in for "someone
@@ -1147,18 +1145,16 @@ Deno.test("receipt: a commit made while the check measured is never recorded (th
 
     const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
-    const receipt = await Deno.stat(measurementsFile(dir)).catch(() =>
-      undefined
-    );
+    const proof = await Deno.stat(measurementsFile(dir)).catch(() => undefined);
     assertEquals(
-      receipt,
+      proof,
       undefined,
       "values measured before a mid-run commit must not vouch for the new HEAD",
     );
   });
 });
 
-Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main", async () => {
+Deno.test("proof: a reusing pin still re-checks never-loosen against LIVE main", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);
     await writeConfig(
@@ -1173,13 +1169,13 @@ Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main
     await gitInit(dir);
     await git(dir, "checkout", "-q", "-b", "work");
 
-    // Green check on the branch records the receipt (main's floor is also 80).
+    // Green check on the branch records the proof (main's floor is also 80).
     const check = await runAgent(dir, ["standards", "--json"]);
     assertEquals(check.code, 0, check.output);
     assertEquals(await measureCount(dir), 1);
 
     // Main advances underneath the unchanged branch HEAD: its floor rises to 90,
-    // so the branch's 80 is now a loosening the receipt knows nothing about.
+    // so the branch's 80 is now a loosening the proof knows nothing about.
     await git(dir, "checkout", "-q", "main");
     const cfg = await readConfig(dir);
     await Deno.writeTextFile(
@@ -1199,7 +1195,7 @@ Deno.test("receipt: a reusing pin still re-checks never-loosen against LIVE main
       hints?: string[];
     };
     assertEquals(obj.ok, false);
-    // The verdict came from the receipt replay, and it carries the live reason.
+    // The verdict came from the proof replay, and it carries the live reason.
     assertStringIncludes(
       obj.steps?.[0]?.note ?? "",
       "reused from the green check",

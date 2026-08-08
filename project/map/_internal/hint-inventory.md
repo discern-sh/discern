@@ -34,17 +34,17 @@ Rendered example:
 Review `git status` in /workspace/project. Acceptance landed on main, but post-landing convergence changed tracked files there.
 ```
 
-## `accept-publish-receipt-note`
+## `accept-publish-proof-note`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: —
-- Emitting context: A receipt note is recorded after landing with fetch transport enabled.
+- Emitting context: A proof note is recorded after landing with fetch transport enabled.
 
 Rendered example:
 
 ```text
-Share this landing's receipt with other clones: `git push origin refs/notes/discern`. Discern records receipts locally and never fetches or pushes for you.
+Share this landing's proof with other clones: `git push origin refs/notes/discern`. Discern records proofs locally and never fetches or pushes for you.
 ```
 
 ## `accept-refresh-failed`
@@ -60,12 +60,12 @@ Rendered example:
 Acceptance landed on main, but checkout-local Agent artifacts could not be materialized in /workspace/project. Run `discern refresh` there to retry and review any reported tracked effect before committing it.
 ```
 
-## `accept-relay-landing-receipt`
+## `accept-relay-landing-proof`
 
 - Category: `next-step`
 - Audience: `agent`
 - Family: —
-- Emitting context: `accept` lands successfully and returns a one-line landing receipt.
+- Emitting context: `accept` lands successfully and returns a one-line landing proof.
 
 Rendered example:
 
@@ -78,12 +78,12 @@ Report the landing in your own words, then end your response with `data.proof_li
 - Category: `next-step`
 - Audience: `all`
 - Family: `accept-consent`
-- Emitting context: `accept` needs the receipt and diff surfaced by `status`.
+- Emitting context: `accept` needs the proof and diff surfaced by `status`.
 
 Rendered example:
 
 ```text
-Run `discern status` to get the honored receipt for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
+Run `discern status` to get the valid proof for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
 ```
 
 ## `adr-index-stale`
@@ -109,7 +109,7 @@ Run `discern refresh` to restore discern-managed artifacts. The ADR index is out
 Rendered example:
 
 ```text
-Branch `agent/upload-retry` was not found, and no accepted receipt identifies it on `main`. It may not have started yet. Check `discern status` and use the exact branch returned when it starts; never guess a generated suffix.
+Branch `agent/upload-retry` was not found, and no accepted proof identifies it on `main`. It may not have started yet. Check `discern status` and use the exact branch returned when it starts; never guess a generated suffix.
 ```
 
 ## `await-green-met`
@@ -117,12 +117,12 @@ Branch `agent/upload-retry` was not found, and no accepted receipt identifies it
 - Category: `next-step`
 - Audience: `all`
 - Family: `await-met`
-- Emitting context: `await --green` finds the awaited branch's receipt honored.
+- Emitting context: `await --green` finds the awaited branch's proof honored.
 
 Rendered example:
 
 ```text
-`agent/upload-retry` is green — its worktree holds an honored receipt. Build on it with `discern update --from abc1234def567890`. The immutable commit remains valid if acceptance deletes the branch.
+`agent/upload-retry` is green — its worktree holds a valid proof. Build on it with `discern update --from abc1234def567890`. The immutable commit remains valid if acceptance deletes the branch.
 ```
 
 ## `await-green-no-worktree`
@@ -161,7 +161,7 @@ The work from `agent/upload-retry` landed on `main` — run `discern update` to 
 Rendered example:
 
 ```text
-Not yet: `agent/upload-retry` has no honored receipt yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
+Not yet: `agent/upload-retry` has no valid proof yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
 ```
 
 ## `await-trunk-moved-met`
@@ -343,7 +343,7 @@ Apply the fix listed under each failed check, then run `discern doctor` again.
 Rendered example:
 
 ```text
-Run `discern status` — this exact tree already passed `discern done`, and status shows the receipt's standing without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
+Run `discern status` — this exact tree already passed `discern done`, and status shows the proof's standing without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
 ```
 
 ## `done-unchanged-tree-red`
@@ -721,12 +721,12 @@ Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 erro
 - Category: `next-step`
 - Audience: `agent`
 - Family: `landing-authority`
-- Emitting context: A successful gate records a receipt for a tree with machine-verified landing authority.
+- Emitting context: A successful gate records a proof for a tree with machine-verified landing authority.
 
 Rendered example:
 
 ```text
-The receipt's clean HEAD is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
+The proof's clean HEAD is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
 ```
 
 ## `gate-previewable-change`
@@ -742,95 +742,95 @@ Rendered example:
 Start this worktree's dev server to view the previewable change.
 ```
 
+## `gate-proof-clear-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-proof`
+- Emitting context: The gate cannot clear an obsolete proof.
+
+Rendered example:
+
+```text
+Fix the failure, then re-run `discern done`. discern could not clear the previous gate proof (the proof file could not be removed).
+```
+
+## `gate-proof-head-moved`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-proof`
+- Emitting context: A green gate cannot record a proof because the branch tip moved.
+
+Rendered example:
+
+```text
+Re-run `discern done` on the final commit before handoff or acceptance. The gate passed but recorded no proof because HEAD moved while it ran (HEAD changed from a1b2c3d to d4e5f6a). A proof can vouch only for the exact tree the gate tested.
+```
+
+## `gate-proof-record-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-proof`
+- Emitting context: A green gate cannot write its proof.
+
+Rendered example:
+
+```text
+Run `discern done` again later to record a gate proof. The gate passed, but discern could not record one (the proof file could not be written). Until then, `discern accept` will re-run the gate.
+```
+
+## `gate-proof-skipped-dirty`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `gate-proof`
+- Emitting context: A green gate cannot record a proof because the worktree is dirty.
+
+Rendered example:
+
+```text
+Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. The gate passed but recorded no proof because the worktree is dirty (2 tracked files changed).
+```
+
+## `gate-proof-unavailable`
+
+- Category: `notice`
+- Audience: `all`
+- Family: `gate-proof`
+- Emitting context: A green gate cannot prepare proof state.
+
+Rendered example:
+
+```text
+Gate passed, but discern could not prepare the gate proof (write authority was not established). `discern accept` may need to re-run the gate.
+```
+
 ## `gate-prove-it-works`
 
 - Category: `guardrail`
 - Audience: `agent`
 - Family: —
-- Emitting context: A green gate emits a receipt — before the agent offers it as done.
+- Emitting context: A green gate emits a proof — before the agent offers it as done.
 
 Rendered example:
 
 ```text
-A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this receipt as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.
+A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this proof as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.
 ```
 
-## `gate-receipt-clear-failed`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: `gate-receipt`
-- Emitting context: The gate cannot clear an obsolete receipt.
-
-Rendered example:
-
-```text
-Fix the failure, then re-run `discern done`. discern could not clear the previous gate receipt (the receipt file could not be removed).
-```
-
-## `gate-receipt-head-moved`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: `gate-receipt`
-- Emitting context: A green gate cannot record a receipt because the branch tip moved.
-
-Rendered example:
-
-```text
-Re-run `discern done` on the final commit before handoff or acceptance. The gate passed but recorded no receipt because HEAD moved while it ran (HEAD changed from a1b2c3d to d4e5f6a). A receipt can vouch only for the exact tree the gate tested.
-```
-
-## `gate-receipt-record-failed`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: `gate-receipt`
-- Emitting context: A green gate cannot write its receipt.
-
-Rendered example:
-
-```text
-Run `discern done` again later to record a gate receipt. The gate passed, but discern could not record one (the receipt file could not be written). Until then, `discern accept` will re-run the gate.
-```
-
-## `gate-receipt-skipped-dirty`
-
-- Category: `next-step`
-- Audience: `all`
-- Family: `gate-receipt`
-- Emitting context: A green gate cannot record a receipt because the worktree is dirty.
-
-Rendered example:
-
-```text
-Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. The gate passed but recorded no receipt because the worktree is dirty (2 tracked files changed).
-```
-
-## `gate-receipt-unavailable`
-
-- Category: `notice`
-- Audience: `all`
-- Family: `gate-receipt`
-- Emitting context: A green gate cannot prepare receipt state.
-
-Rendered example:
-
-```text
-Gate passed, but discern could not prepare the gate receipt (write authority was not established). `discern accept` may need to re-run the gate.
-```
-
-## `gate-relay-receipt`
+## `gate-relay-proof`
 
 - Category: `next-step`
 - Audience: `agent`
 - Family: —
-- Emitting context: A successful gate records a receipt ready for owner review.
+- Emitting context: A successful gate records a proof ready for owner review.
 
 Rendered example:
 
 ```text
-If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full proof: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-relay-uncovered-authority`
@@ -838,12 +838,12 @@ If this completes the task, report it to your owner in your own words — the ch
 - Category: `next-step`
 - Audience: `agent`
 - Family: `landing-authority`
-- Emitting context: A successful gate records a receipt but recorded authority does not cover its tree.
+- Emitting context: A successful gate records a proof but recorded authority does not cover its tree.
 
 Rendered example:
 
 ```text
-Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Don't paste the full receipt: your owner pulls it with `discern status --verbose`.
+Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Don't paste the full proof: your owner pulls it with `discern status --verbose`.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -963,12 +963,12 @@ Rendered example:
 Practice-history findings aren't available because `[project].logbook` is off.
 ```
 
-## `logbook-receipt-finding`
+## `logbook-proof-finding`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: `logbook-inline-finding`
-- Emitting context: A gate receipt carries the strongest current-branch logbook finding.
+- Emitting context: A gate proof carries the strongest current-branch logbook finding.
 
 Rendered example:
 
@@ -986,7 +986,7 @@ Run `discern patterns` for full evidence and next steps. The logbook has 2 branc
 Rendered example:
 
 ```text
-Inspect its current branch and receipt. Logbook finding: The same worktree has been refused 3 times.
+Inspect its current branch and proof. Logbook finding: The same worktree has been refused 3 times.
 ```
 
 ## `materialized-skills-missing`
@@ -1405,17 +1405,17 @@ Rendered example:
 Fix coverage, bundle_size, then re-run `discern standards --pin` once green. They are failing, and diagnostics[] carries each reason. No limits were pinned.
 ```
 
-## `standards-pin-carried-receipt`
+## `standards-pin-carried-proof`
 
 - Category: `notice`
 - Audience: `all`
-- Family: `standards-pin-receipt`
-- Emitting context: A limits-only pin commit inherits its parent's gate receipt.
+- Family: `standards-pin-proof`
+- Emitting context: A limits-only pin commit inherits its parent's gate proof.
 
 Rendered example:
 
 ```text
-The gate receipt now follows this pin commit. `discern accept` will skip the redundant gate re-run.
+The gate proof now follows this pin commit. `discern accept` will skip the redundant gate re-run.
 ```
 
 ## `standards-pin-dry-run`
@@ -1444,17 +1444,17 @@ Rendered example:
 No standards configured, so there is nothing to pin.
 ```
 
-## `standards-pin-no-receipt`
+## `standards-pin-no-proof`
 
 - Category: `next-step`
 - Audience: `all`
-- Family: `standards-pin-receipt`
-- Emitting context: A pin commit has no honored gate receipt to carry forward.
+- Family: `standards-pin-proof`
+- Emitting context: A pin commit has no honored gate proof to carry forward.
 
 Rendered example:
 
 ```text
-Run `discern done` before accepting, or acceptance will re-run the gate. No current gate receipt was available to carry forward.
+Run `discern done` before accepting, or acceptance will re-run the gate. No current gate proof was available to carry forward.
 ```
 
 ## `standards-pin-no-slack`
@@ -1475,7 +1475,7 @@ Nothing to pin. Every selected standard already sits at its measured value withi
 - Category: `notice`
 - Audience: `all`
 - Family: `standards-pin`
-- Emitting context: `standards --pin` reuses measurements from a same-commit check receipt.
+- Emitting context: `standards --pin` reuses measurements from a same-commit check proof.
 
 Rendered example:
 
@@ -1791,12 +1791,12 @@ Investigate 5 worktrees whose git state cannot be read: damaged, missing, unread
 - Category: `next-step`
 - Audience: `agent`
 - Family: `landing-authority`
-- Emitting context: A clean, current branch has an honored receipt and machine-verified landing authority.
+- Emitting context: A clean, current branch has a valid proof and machine-verified landing authority.
 
 Rendered example:
 
 ```text
-The clean HEAD is covered by the standing grant for map and has an honored receipt. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
+The clean HEAD is covered by the standing grant for map and has a valid proof. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
 ```
 
 ## `status-main-checkout-dirty`
@@ -1812,17 +1812,17 @@ Rendered example:
 Commit or stash the main checkout's tracked changes before a user-requested landing. This branch is committed and up to date with main.
 ```
 
-## `status-missing-done-receipt`
+## `status-missing-done-proof`
 
 - Category: `next-step`
 - Audience: `all`
 - Family: `status-review-readiness`
-- Emitting context: A clean, current branch has no honored gate receipt.
+- Emitting context: A clean, current branch has no honored gate proof.
 
 Rendered example:
 
 ```text
-Run `discern done` before reporting the branch ready for review or a user-requested landing. This clean HEAD is committed and up to date with main, but it has no honored gate receipt.
+Run `discern done` before reporting the branch ready for review or a user-requested landing. This clean HEAD is committed and up to date with main, but it has no honored gate proof.
 ```
 
 ## `status-missing-trunk`
@@ -1856,12 +1856,12 @@ Run `discern start` to begin work. There are no active worktrees.
 - Category: `next-step`
 - Audience: `agent`
 - Family: `status-review-readiness`
-- Emitting context: A clean, current branch has an honored gate receipt.
+- Emitting context: A clean, current branch has an honored gate proof.
 
 Rendered example:
 
 ```text
-Report this branch to your owner in your own words and end with the receipt in `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the proof in `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full proof: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-ready-uncovered-authority`
@@ -1869,7 +1869,7 @@ Report this branch to your owner in your own words and end with the receipt in `
 - Category: `next-step`
 - Audience: `agent`
 - Family: `landing-authority`
-- Emitting context: A clean, current branch has an honored receipt but recorded authority does not cover it.
+- Emitting context: A clean, current branch has a valid proof but recorded authority does not cover it.
 
 Rendered example:
 

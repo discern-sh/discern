@@ -5,7 +5,7 @@
  * resolvers); the agent files, materialized skills dirs, and provider
  * integration files (the provider registry); the delimited `.gitignore` and
  * `.gitattributes` blocks; and the worktree `.env` upsert. Everything else it
- * records lives inside `.git` (the gate receipt, the ready sentinel, the
+ * records lives inside `.git` (the gate proof, the ready sentinel, the
  * resource ledger, the ignored-file baseline, the logbook), at a user-typed
  * output path, or in a temp file — outside the project tree and outside this
  * contract. Setup retry evidence is another registry-resolved Git-admin record.
@@ -146,7 +146,7 @@ const WRITE_SITE_HOMES = new Map<string, string>([
   ],
   [
     "src/engine/gate/proof.ts",
-    "the gate receipt — .git-internal, outside the project tree",
+    "the gate proof — .git-internal, outside the project tree",
   ],
   [
     "src/engine/test_run_slots.ts",

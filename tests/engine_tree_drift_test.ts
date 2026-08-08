@@ -11,7 +11,7 @@
  * a command into (so a new mutating-stage escape hatch cannot appear silently), the
  * inner-loop case that must NOT trip (a stage reworking the agent's own
  * uncommitted edits), and the strand checkpoint (ADR 0262) that stops a
- * receipt-eligible run right after the pre-groups while a dirty start keeps its
+ * proof-eligible run right after the pre-groups while a dirty start keeps its
  * full end-of-run feedback.
  */
 
@@ -115,7 +115,7 @@ Deno.test("strandedByStage: each strand names the FIRST stage that dirtied it", 
 });
 
 Deno.test("strandedByStage: a path a later stage RESTORES to committed state is not stranded", () => {
-  // The finished tree is what the receipt vouches for: dirty mid-run, clean at the
+  // The finished tree is what the proof vouches for: dirty mid-run, clean at the
   // end, means nothing is left to commit.
   const strands = strandedByStage(new Set(), [
     snap("fix", "roundtrip.md"),
@@ -342,11 +342,11 @@ Deno.test("done: a fixer reworking the agent's OWN uncommitted edit does NOT tri
 });
 
 // ── wired: the strand checkpoint (ADR 0262) ───────────────────────────────────
-// A run that starts on a clean, committed tree is seeking a receipt, and a strand
+// A run that starts on a clean, committed tree is seeking a proof, and a strand
 // left by the fix/build pre-groups already forfeits it — so `done` stops at the
 // post-pre-group checkpoint instead of paying for standards, check∥test, and
 // scope-gate work that cannot change the verdict. A dirty start (tracked or
-// untracked) skips the checkpoint: it can earn no receipt anyway, and the
+// untracked) skips the checkpoint: it can earn no proof anyway, and the
 // end-of-run detection still reports its strands after the full run's feedback.
 
 /** A check-stage sentinel proving the expensive later work ran: it drops a marker
@@ -368,7 +368,7 @@ const stepFor = (
  * Scaffold a committed-clean repo whose `mutatorJob` runs `mutatorScript` (default:
  * append to the committed data.txt — a guaranteed strand) and whose check stage
  * drops the {@link SENTINEL} marker. Everything is committed, so the run starts
- * receipt-eligible unless a test dirties the tree afterwards.
+ * proof-eligible unless a test dirties the tree afterwards.
  */
 async function scaffoldCheckpointRepo(
   dir: string,
@@ -472,11 +472,11 @@ Deno.test("done: a tracked-dirty start skips the checkpoint — later jobs run, 
   });
 });
 
-Deno.test("done: an untracked-dirty start is not receipt-eligible — the checkpoint stands down, the full run reports at the end", async () => {
+Deno.test("done: an untracked-dirty start is not proof-eligible — the checkpoint stands down, the full run reports at the end", async () => {
   await withTempDir(async (dir) => {
     await scaffoldCheckpointRepo(dir, "format");
     // Untracked dirt is invisible to the TRACKED-dirty snapshot (which stays
-    // empty here), but the receipt pin counts it — eligibility must read the pin.
+    // empty here), but the proof pin counts it — eligibility must read the pin.
     await Deno.writeTextFile(join(dir, "stray.txt"), "untracked\n");
 
     const r = await runAgent(dir, ["done", "--json"]);
@@ -583,7 +583,7 @@ Deno.test("done: generated drift outranks the checkpoint — the owning group is
       ["#!/usr/bin/env sh", 'echo "regenerated" >> gen.txt', ""].join("\n"),
     );
     await Deno.writeTextFile(join(dir, "gen.txt"), "committed\n");
-    await gitInit(dir); // clean, committed start — receipt-eligible
+    await gitInit(dir); // clean, committed start — proof-eligible
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 1, r.output);

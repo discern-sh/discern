@@ -17,7 +17,7 @@
  *     `.git`: the logbook (which records every verb run, dry or not) may only
  *     APPEND, and git's `index` files (whose stat-cache is legitimately
  *     refreshed by read-only git commands) are not compared. Everything else
- *     under `.git` — refs, HEAD, receipts, standard measurements, resource
+ *     under `.git` — refs, HEAD, proofs, standard measurements, resource
  *     state — must not move.
  *
  *  2. **Applied ⊆ planned** (by `kind:label`), the safety direction: apply may

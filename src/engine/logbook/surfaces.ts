@@ -25,7 +25,7 @@ import {
 export const INLINE_EVENT_LIMIT = 200;
 
 /**
- * Unsolicited receipt evidence must clear the detector's own threshold plus
+ * Unsolicited proof evidence must clear the detector's own threshold plus
  * one qualifying event. The asked-for `patterns` report speaks at the registry
  * threshold; the gate tail waits for one more observation before interrupting.
  */
@@ -88,10 +88,10 @@ function oneLine(text: string): string {
 }
 
 /**
- * The receipt-tail advisory: zero or one hint, with a count, the strongest
+ * The proof-tail advisory: zero or one hint, with a count, the strongest
  * current-branch observation, and the asked-for verb that carries full detail.
  */
-export function receiptFindingHints(
+export function proofFindingHints(
   findings: readonly RoutedFinding[],
   branch: string,
 ): FiredHint[] {
@@ -106,7 +106,7 @@ export function receiptFindingHints(
   }
   const count = eligible.length;
   return [
-    fire(HINTS["logbook-receipt-finding"], {
+    fire(HINTS["logbook-proof-finding"], {
       count,
       observed: oneLine(strongest.finding.observed),
     }),

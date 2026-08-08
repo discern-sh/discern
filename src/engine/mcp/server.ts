@@ -396,9 +396,9 @@ export const TOOLS: McpTool[] = orderTools([
       "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (declared jobs and triggered scope " +
-      "gates); data.gate_proof reports whether the receipt is honored, missing, " +
+      "gates); data.gate_proof reports whether the proof is honored, missing, " +
       "stale, dirty, unavailable, or read_failed (when honored, data.gate_proof.proof_line " +
-      "carries the one-line receipt you copy verbatim to end your report at the review moment — " +
+      "carries the one-line proof you copy verbatim to end your report at the review moment — " +
       "data.gate_proof.proof is the full page, for your owner to read, never to paste " +
       "into a message); data.landing_authority is present when a recorded standing " +
       "or effort grant exists, resolving the exact tree as authorized or naming " +
@@ -548,7 +548,7 @@ export const TOOLS: McpTool[] = orderTools([
       "pin. Set pin to " +
       "capture measured improvements INSTEAD of just checking: it tightens each " +
       "limit to the measured value (the pin_names standards, or every one with " +
-      "slack), commits that change on its own, and carries the gate receipt " +
+      "slack), commits that change on its own, and carries the gate proof " +
       "forward so accept skips the redundant gate re-run — the ergonomic way to " +
       "tighten a standard, never hand-edit discern.toml. Pin needs a clean worktree " +
       "and pins nothing while any standard is failing. A green check's hints[] " +
@@ -568,7 +568,7 @@ export const TOOLS: McpTool[] = orderTools([
         "Override the clean-worktree guard while authoring or debugging standards; ignored with pin (default false).",
       ),
       pin: z.boolean().optional().describe(
-        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate receipt forward. Requires a clean worktree (default false).",
+        "Capture measured improvements: tighten each limit to the measured value, commit it alone, and carry the gate proof forward. Requires a clean worktree (default false).",
       ),
       pin_names: z.array(z.string()).optional().describe(
         "With pin, restrict pinning to these standards (default: every standard with slack).",
@@ -670,13 +670,13 @@ export const TOOLS: McpTool[] = orderTools([
       "Block until a fleet condition holds, then return the observed state and " +
       "the next step — one call instead of guessed polling while a sibling " +
       "worktree finishes. Pass exactly ONE condition: `green` (a branch name) " +
-      "waits until that branch's worktree holds an honored gate receipt — a " +
+      "waits until that branch's worktree holds an honored gate proof — a " +
       "green `discern_done` on its current clean HEAD (the work landing on " +
       "`{{main_branch}}` also satisfies it, since only a validated tree " +
       "lands); `landed` (a branch name) waits until that branch's work — its " +
       "latest observed tip after it has work — is reachable from `{{main_branch}}`; `trunk_moved` " +
       "waits until `{{main_branch}}` moves at all. Conditions ground in git " +
-      "ancestry, gate receipts, and landed receipt notes, never in recorded " +
+      "ancestry, gate proofs, and landed proof notes, never in recorded " +
       "activity. If the bound expires, the result stays ok with data.met false. " +
       "Pass data.resume by itself on the next call: it preserves the original " +
       "branch transition or trunk baseline, so a condition crossed between calls is " +
@@ -691,7 +691,7 @@ export const TOOLS: McpTool[] = orderTools([
       "result's immutable commit as `from` when composing below the trunk.",
     inputSchema: {
       green: z.string().optional().describe(
-        "Branch whose worktree must hold an honored gate receipt (e.g. an " +
+        "Branch whose worktree must hold an honored gate proof (e.g. an " +
           "agent/* sibling this task builds on). Its landing also satisfies " +
           "the wait.",
       ),
@@ -905,7 +905,7 @@ export const TOOLS: McpTool[] = orderTools([
       "Tear down the worktree's resources, advance the trunk directly to the branch " +
       "tip, remove the clean worktree, and delete the " +
       "now-merged branch. Before the fast-forward it verifies that the current " +
-      "tracked refresh plan is empty, even when an older gate receipt is honored. " +
+      "tracked refresh plan is empty, even when an older gate proof is honored. " +
       "After the fast-forward it materializes only checkout-local Agent artifacts; " +
       "tracked guidance and provider integrations must already be committed on the " +
       "branch. This is the single deterministic implementation — " +
@@ -922,7 +922,7 @@ export const TOOLS: McpTool[] = orderTools([
       "also accepts consent bound to that recorded transaction. Journal-bound " +
       "consent finishes only that transaction; it never authorizes a new trunk " +
       "transition. Without current or journal-bound authority, it refuses " +
-      "read-only and re-serves the review moment (relay the receipt, wait for " +
+      "read-only and re-serves the review moment (relay the proof, wait for " +
       "the owner) instead of landing. Set dry_run to preview " +
       "the plan without touching anything. " +
       "Operates on the worktree this call selects: the server's current target by " +

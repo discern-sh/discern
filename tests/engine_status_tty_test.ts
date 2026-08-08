@@ -137,7 +137,7 @@ function assertLinesFit(
 
 /** Every dashboard item starts its text beneath the heading text. A glyph may
  * occupy the gutter, and labelled fields may use a deeper hanging continuation.
- * Stored receipt Markdown is deliberately verbatim. */
+ * Stored proof Markdown is deliberately verbatim. */
 function assertSectionContentColumns(output: string): void {
   let section: string | undefined;
   let contentColumn = 0;
@@ -278,13 +278,13 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
       gate_proof: { status: "dirty" },
     },
   },
-  "receipt-unreadable": {
+  "proof-unreadable": {
     patch: { gate_proof: { status: "read_failed", reason: "bad marker" } },
   },
-  "receipt-unavailable": {
+  "proof-unavailable": {
     patch: { gate_proof: { status: "unavailable", reason: "no admin dir" } },
   },
-  "receipt-stale": {
+  "proof-stale": {
     patch: {
       gate_proof: {
         status: "stale",
@@ -441,9 +441,9 @@ const PROOF_LABELS = {
   read_failed: "unreadable",
 } as const satisfies Record<GateProofCheckStatus, string>;
 
-Deno.test("status dashboard: every receipt-check state auto-enrols in the human vocabulary", () => {
+Deno.test("status dashboard: every proof-check state auto-enrols in the human vocabulary", () => {
   for (const status of GATE_PROOF_CHECK_STATUSES) {
-    const receipt: GateProofCheckData = {
+    const proof: GateProofCheckData = {
       status,
       ...((status === "unavailable" || status === "read_failed")
         ? { reason: "fixture reason" }
@@ -453,11 +453,11 @@ Deno.test("status dashboard: every receipt-check state auto-enrols in the human 
       clean: status === "dirty" ? false : true,
       changed_files: status === "dirty" ? 1 : 0,
       ahead: status === "honored" ? 1 : 0,
-      gate_proof: receipt,
+      gate_proof: proof,
       ...(status === "honored" ? { proof_honored: true } : {}),
     });
     const output = render(data([mainEntry(), row]), 72);
-    assertStringIncludes(output, `Receipt: ${PROOF_LABELS[status]}`);
+    assertStringIncludes(output, `Proof: ${PROOF_LABELS[status]}`);
   }
 });
 
@@ -604,10 +604,10 @@ Deno.test("status dashboard: fleet and ADR collision paths are human-visible wit
 
 Deno.test("status dashboard: every backticked discern command is cyan without changing its text", () => {
   const behind = entry({ behind: 2 });
-  const receiptUnavailable = entry({
-    path: "/repo.worktrees/receipt-def456",
-    branch: "agent/receipt-def456",
-    id: "receipt-def456",
+  const proofUnavailable = entry({
+    path: "/repo.worktrees/proof-def456",
+    branch: "agent/proof-def456",
+    id: "proof-def456",
     gate_proof: { status: "unavailable", reason: "admin dir missing" },
   });
   const hints = hintTexts([
@@ -617,11 +617,11 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
       overlap: undefined,
     }),
   ]);
-  const fixture = data([mainEntry(), behind, receiptUnavailable], {
+  const fixture = data([mainEntry(), behind, proofUnavailable], {
     gate_proof: {
       status: "honored",
       proof:
-        "### Receipt\n\nRun `discern standards` to inspect the measurements.",
+        "### Proof\n\nRun `discern standards` to inspect the measurements.",
     },
   });
   const noColor = render(fixture, 104, false, hints, true);
@@ -647,7 +647,7 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
   assertLinesFit(color, 104);
 });
 
-Deno.test("status dashboard: collision precedence retains receipt readiness and landing authority", () => {
+Deno.test("status dashboard: collision precedence retains proof readiness and landing authority", () => {
   const ready = entry({
     ahead: 2,
     gate_proof: { status: "honored" },
@@ -763,8 +763,8 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
           files_total: 6,
           insertions: 20,
           deletions: 4,
-          line: "Receipt: passed",
-          markdown: "### Receipt\n\nStored table row that may remain copyable.",
+          line: "Proof: passed",
+          markdown: "### Proof\n\nStored table row that may remain copyable.",
         },
       },
     }),
@@ -786,7 +786,7 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
     data([mainEntry(), ready], {
       gate_proof: {
         status: "honored",
-        proof: "### Receipt\n\n| ran | result |\n| --- | --- |",
+        proof: "### Proof\n\n| ran | result |\n| --- | --- |",
       },
     }),
     48,
