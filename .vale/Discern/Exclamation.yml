@@ -1,0 +1,9 @@
+# Exclamation points announce enthusiasm instead of earning it (voice skill:
+# banned words). Literal commands and source belong in code spans, which Vale
+# excludes from prose checks.
+extends: existence
+message: "Exclamation point: let the fact carry the emphasis and use a period."
+level: error
+nonword: true
+tokens:
+  - '!(?:\s|$)'

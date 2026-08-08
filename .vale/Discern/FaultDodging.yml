@@ -1,0 +1,12 @@
+# Stock passive fault reports hide the responsible state or component (voice
+# skill: banned words). Name what failed, or use the owning "we" when people
+# caused it. The narrower pattern avoids treating every passive construction
+# as fault-dodging.
+extends: existence
+message: "'%s' hides what failed: name the state, component, or responsible owner."
+ignorecase: true
+level: error
+nonword: true
+tokens:
+  - '\b(?:an|the)\s+(?:error|failure|issue|problem|regression|bug)\s+(?:was|has\s+been)\s+(?:encountered|introduced|caused|observed|detected|found)\b'
+  - '\b(?:an|the)\s+(?:error|failure|issue|problem|regression|bug)\s+occurred\b'

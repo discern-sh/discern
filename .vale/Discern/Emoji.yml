@@ -1,0 +1,10 @@
+# Emoji outsource tone that the prose should carry (voice skill: banned words).
+# Cover the modern supplementary emoji blocks plus common BMP symbol emoji;
+# exhaustive grapheme classification remains an editorial residual.
+extends: existence
+message: "Emoji in prose: replace the symbol with words that carry the tone."
+level: error
+nonword: true
+tokens:
+  - '[\x{1F300}-\x{1FAFF}]'
+  - "(?:✅|❌|⚠️?|✨|❤(?:️)?|⭐)"
