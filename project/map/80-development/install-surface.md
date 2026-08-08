@@ -89,7 +89,7 @@ Every source path has a prescriptive default and a config key that points it any
 | deferred-work ledger | `discern/TODO.md`     | `[project].todo`     |
 | project brief        | `discern/brief.md`    | — (fixed)            |
 
-This repo itself points every ongoing configurable authored source beneath `project/`: the map, guidance, authored skills, project scripts, and ledger. The registry-driven self-hosting guard makes a future configurable source auto-enrol, while the shipped defaults in the table above remain unchanged.
+This repo itself points every ongoing configurable authored source beneath `project/`: the map, guidance, authored skills, project scripts, and ledger. The registry-driven self-hosting guard makes a future configurable source auto-enrol, while the shipped defaults in this table remain unchanged.
 
 ## The quality gate
 
