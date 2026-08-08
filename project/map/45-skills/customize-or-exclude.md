@@ -10,7 +10,7 @@ aliases:
 
 # Customize or exclude a Skill
 
-_Copy a built-in into project ownership when its procedure needs editing, or exclude an unused Skill._
+_Copy a built-in Skill into project ownership when its procedure needs editing, or exclude a Skill the project does not use._
 
 ## Eject a bundled Skill
 
@@ -21,7 +21,7 @@ discern skills eject discern-write-adr
 discern skills list
 ```
 
-The listing now reports `discern-write-adr` as `yours (overrides built-in)`. The authored directory wins because Skill resolution uses the directory name as its key. Edit that source as you would any [project Skill](author-a-skill.md).
+The listing now reports `discern-write-adr` as `yours (overrides built-in)`. Skill resolution uses the directory name as its key, so the authored directory becomes effective. Edit that source as you would any [project Skill](author-a-skill.md).
 
 Eject does not overwrite an authored directory. If the destination already exists, the command refuses and names the path. It also refuses a name that is absent from the bundled set and lists the available names.
 
@@ -51,7 +51,7 @@ An unknown exclusion warns during materialization and excludes nothing. The warn
 
 - `eject` copies the bundled Skill at the discern version currently installed. Later upgrades do not replace the project-owned override.
 - An exclusion applies to the name after override resolution. The same entry excludes either the bundled source or an authored source with that name.
-- Materialization reconciles every configured agent directory and prunes discern-owned entries that are no longer effective. Foreign entries remain untouched and produce a warning.
+- Materialization reconciles every configured agent directory and removes discern-owned entries that are no longer effective. Entries discern does not own remain unchanged and produce a warning.
 
 ## Where it lives in code
 

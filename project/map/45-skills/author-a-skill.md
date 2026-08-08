@@ -10,13 +10,13 @@ aliases:
 
 # Author a project Skill
 
-_Add a named `SKILL.md` under `[skills].dir`, then refresh so every configured agent can discover it._
+_Add a named `SKILL.md` under `[skills].dir`, then refresh to make it available to every configured agent._
 
-Installed projects default to `discern/skills`; this repository points the same source at `project/skills/`. The path is project-owned: commit authored Skills and edit them in place.
+Installed projects default to `discern/skills`; this repository points the same source at `project/skills/`. The project owns this path. Commit authored Skills and edit them in place.
 
 ## Create the Skill directory
 
-Give one procedure one directory. The directory name is the Skill's identity.
+Create one directory for each procedure. The directory name is the Skill's identity.
 
 ```text
 discern/skills/
@@ -24,9 +24,9 @@ discern/skills/
     └── SKILL.md
 ```
 
-Open `SKILL.md` with `name` and `description` frontmatter, `name` matching the directory. Write the description as a trigger-rich sentence: what the Skill does and when an agent reaches for it.
+Open `SKILL.md` with `name` and `description` frontmatter, with `name` matching the directory. Write one description sentence that states what the Skill does and when it applies.
 
-The block is YAML, and `discern done` holds every effective Skill to it: the block parses, `name` and `description` are non-empty strings, and `name` uses lowercase letters, digits, and hyphens. Quote a value containing `:`.
+The block uses YAML. The `discern done` Gate checks every effective Skill: the block must parse, `name` and `description` must be non-empty strings, and `name` must use lowercase letters, digits, and hyphens. Quote a value containing `:`.
 
 ```markdown
 ---
@@ -39,7 +39,7 @@ description: Verify a release candidate against the changelog, built artifacts, 
 Describe the evidence to gather, the ordered checks, the judgment points, and the observable conditions that mean the release is ready.
 ```
 
-The body is a playbook for an agent with no memory of the session that authored it. Name real project commands and paths. Separate the fixed steps from decisions that need judgment. End with a falsifiable “done when” list.
+The body is a playbook for an agent with no memory of the session that authored it. Name real project commands and paths. Separate the fixed steps from decisions that need judgment. End with observable completion conditions.
 
 ## Materialize and inspect it
 
@@ -54,9 +54,9 @@ discern skills list
 
 ## Current state & gotchas
 
-- discern links authored Skills as relative symlinks, so edits reach every agent directory live. Commit the source directory; the materialized one stays ignored by git.
+- discern links authored Skills as relative symbolic links, so source edits appear in every agent directory immediately. Commit the source directory. Git ignores the materialized directory.
 - discern does not template authored Markdown. A literal `{{token}}` stays literal. Only bundled Skill Markdown receives configured path substitutions.
-- A generic description leaves a good Skill undiscovered. Put task language and trigger situations in it.
+- A generic description may not match the relevant work. Include task language and trigger situations.
 - Use an authored name that matches a bundled name only when you intend to [override it](customize-or-exclude.md).
 
 ## Where it lives in code
@@ -66,5 +66,5 @@ discern skills list
 | `[skills].dir` default and schema     | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
 | Authored resolution and links         | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
 | Frontmatter validation                | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
-| This repo's example in `[skills].dir` | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) — generated from [`voice.ts`](../../../scripts/brand/voice.ts) |
+| This repo's example in `[skills].dir` | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](../../../scripts/brand/voice.ts)) |
 | Materialization coverage              | [`guidelines_test.ts`](../../../tests/guidelines_test.ts)                                                                             |

@@ -12,9 +12,9 @@ aliases:
 
 _A Skill is a focused agent playbook that becomes available when its description matches the work._
 
-Each Skill lives in a named directory with a `SKILL.md`. Frontmatter gives it a name and a description. The description carries the trigger: the kinds of request, failure, or situation that call for the playbook. The body explains the procedure and the judgment needed to apply it.
+Each Skill lives in a named directory with a `SKILL.md`. Frontmatter gives it a name and description. The description defines its trigger: the requests, failures, or situations that call for the playbook. The body explains the procedure and the judgment needed to apply it.
 
-discern makes the same effective set available to every configured coding agent. Its built-in guidance tells agents to reach for a Skill when a task matches. Naming the Skill in your request is the most portable explicit invocation because provider-specific command syntax varies.
+discern makes the same effective set available to every configured coding agent. Its built-in Guidance instructs agents to load a Skill when a task matches. Naming the Skill in your request works across integrations even when their command syntax differs.
 
 ## Inspect the effective set
 
@@ -29,22 +29,22 @@ The human listing marks each Skill as built-in, yours, an override, or excluded.
 
 ## Choose the right home
 
-Use a Skill when the work has a repeatable sequence and still needs judgment. A good Skill tells an agent when to pause, what evidence to gather, which branch to take, and what observable condition means done.
+Use a Skill when the work has a repeatable sequence and still needs judgment. Specify when to pause, what evidence to gather, which branch to take, and which observable conditions mark completion.
 
 | Knowledge to preserve                   | Put it here       | Reason                                         |
 | --------------------------------------- | ----------------- | ---------------------------------------------- |
-| A rule every session must follow        | Agent guidance    | Every agent reads it from the start.           |
+| A rule every session must follow        | Agent Guidance    | Each configured agent reads it from the start. |
 | A repeatable procedure needing judgment | Skill             | The agent loads it when the task matches.      |
 | A deterministic command sequence        | Project Script    | Executable steps stay executable.              |
-| Durable facts about a subsystem         | Documentation map | Readers and agents use it as reference.        |
+| Durable facts about a subsystem         | Documentation Map | Readers and agents use it as reference.        |
 | A significant, hard-to-reverse decision | ADR               | The record preserves the reason and trade-off. |
 
-A single command does not need a Skill. Put it in a Project Script. A paragraph of project truth belongs in [guidance](../40-agent-guidance/) or the map. This boundary keeps Skills procedural and keeps always-on instructions short.
+A deterministic command does not need a Skill. Put it in a Project Script. Durable project facts belong in [Guidance](../40-agent-guidance/) or the Map. This boundary keeps Skills procedural and always-loaded instructions short.
 
 ## Current state & gotchas
 
-- discern controls resolution and materialization. The coding agent controls when a matching Skill loads.
-- Skill descriptions carry discovery cues. A vague description makes a complete playbook hard to find.
+- discern controls resolution and materialization. Each coding agent controls when a matching Skill loads.
+- Skill descriptions carry discovery cues. A vague description may not match the relevant request.
 - Agent-specific invocation syntax is outside discern's contract. The name and description travel across every configured integration.
 - Materialized directories are generated outputs. Edit the bundled or authored source, then refresh the set.
 
