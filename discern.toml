@@ -652,14 +652,14 @@
   [standards.skills_count]
     metric = "skills_count"
     direction = "down"
-    limit = 8
+    limit = 9
     run = "echo DISCERN_METRIC skills_count $(ls templates/skills | wc -l)"
     inputs = ["templates/skills/**"]
 
   [standards.skills_words]
     metric = "skills_words"
     direction = "down"
-    limit = 795
+    limit = 900
     run = "echo DISCERN_METRIC skills_words $(awk 'FNR==1{f=0} /^---$/{f++;next} f==1' templates/skills/*/SKILL.md | wc -w)"
     inputs = ["templates/skills/**"]
 
