@@ -13,26 +13,26 @@ aliases:
 
 # Temp files & retention
 
-_Gate output outlives its run so you can inspect it; a registry names every temp file discern mints, and an hourly sweep reaps them by age._
+_discern keeps selected temporary output for 24 hours so you can inspect it after a run. A registry defines each file family and its retention rule._
 
-## What lands in your temp directory
+## Files in your temp directory
 
 Every family carries a registered prefix and a random name:
 
-| Prefix           | What it holds                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `discern-job-`   | A gate job's full output — the `output_path` in results, kept so a loud-but-passing job stays inspectable after the run. |
-| `discern-diag-`  | The full text behind a truncated diagnostic.                                                                             |
-| `discern-crash-` | A crash report written outside any repository ([crash reports](crash-reports.md)).                                       |
-| `discern-self-`  | A fallback self-shim for a run with no repository root.                                                                  |
-| `discern-test-`  | Scaffolds from discern's own test suite; inert on your machine.                                                          |
+| Prefix           | What it holds                                                                                              |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| `discern-job-`   | A Gate job's full output. Results expose this file as `output_path` so it remains available after the run. |
+| `discern-diag-`  | The full text behind a truncated diagnostic.                                                               |
+| `discern-crash-` | A crash report written outside any repository ([crash reports](crash-reports.md)).                         |
+| `discern-self-`  | A fallback self-shim for a run with no repository root.                                                    |
+| `discern-test-`  | Scaffolds from discern's own test suite. Installed runtime commands do not create this family.             |
 
-Each file lives 24 hours past its run. Retention is bounded and repository-throttled: gate verbs reap expired files in pages of at most 500, one page per repository per hour, coordinated through a lock under the shared Git directory — so a burst of runs scans your temp directory once, and no single gate start pays more than one bounded page ([ADR 0216](../_adr/0216-temp-retention-is-repository-throttled-and-inspection-bounded.md), [ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
+Each file remains for 24 hours after its run. Gate verbs remove expired files in pages of at most 500. A lock under the shared Git directory limits each repository to one page per hour. A burst of runs therefore scans the temp directory once, and each Gate start performs at most one page of cleanup ([ADR 0216](../_adr/0216-temp-retention-is-repository-throttled-and-inspection-bounded.md), [ADR 0249](../_adr/0249-self-shims-cache-per-identity-sweep-pages-stay-budget-bounded.md)).
 
 ## The self-shim
 
-Commands the gate runs resolve `discern` to the engine that spawned them through a small shim script ([ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)). It normally lives outside temp altogether: one content-addressed directory per engine under the worktree's Git administrative area, shared by every process of that engine and removed with the worktree. Only a run with no repository root falls back to a per-process temp directory the sweep reaps.
+Commands the Gate runs resolve `discern` to the engine that started them through a small shim script ([ADR 0182](../_adr/0182-operator-commands-resolve-discern-to-the-running-engine.md)). The shim normally lives in one content-addressed directory per engine under the worktree's Git administrative area. Every process for that engine shares the directory, and worktree removal removes it. A run with no repository root instead uses a per-process temp directory that the retention sweep removes.
 
-## Leaving
+## Removal
 
-Runtime state under `.git/discern/` includes the logbook, receipts, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files & ownership](artifact-ownership.md) lists every registered path and its lifetime.
+Runtime state under `.git/discern/` includes the Logbook, Receipts, locks, and shim. `discern uninstall` removes it, but refuses while the resource ledger still records provisioned resources. [Files and ownership](artifact-ownership.md) lists every registered path and its lifetime.

@@ -18,7 +18,7 @@ aliases:
 
 _For every project path discern writes: who may edit it, and can discern overwrite it?_
 
-One registry drives this inventory and its write-surface guard. A path without [File ownership](../00-orientation/glossary.md#file-ownership) fails the gate ([ADR 0170](../_adr/0170-file-ownership-is-registry-data.md)).
+One registry drives this inventory and its write-surface guard. A path without [File ownership](../00-orientation/glossary.md#file-ownership) fails the Gate ([ADR 0170](../_adr/0170-file-ownership-is-registry-data.md)).
 
 File ownership is an operational term for edit and overwrite authority. It does not assign copyright or change a file's license.
 
@@ -40,8 +40,8 @@ The discern-authored portions of every canonical project artifact are available 
 
 Shared and Generated artifacts also declare one provenance class:
 
-- **Context-loaded:** unmarked. Agent files and skills load whole, so markers repeatedly spend tokens; providers also render comments differently. Guidance and drift checks enforce ownership.
-- **Comment-incapable:** no marker; JSON forbids comments.
+- **Context-loaded:** unmarked. Agent files and Skills load in full, so each marker would spend context tokens. Providers also render comments differently. Guidance and drift checks enforce ownership.
+- **Comment-incapable:** no marker because JSON forbids comments.
 - **Comment-capable non-context:** its marker identifies the source. By default, it also names discern and links to [discern.sh](https://discern.sh). `DISCERN_NO_ATTRIBUTION` keeps the source and removes the product byline and link.
 
 Registry tests enforce classification and both marker rules ([ADR 0211](../_adr/0211-agent-context-artifacts-carry-no-provenance-marker.md)).
@@ -87,19 +87,19 @@ The table uses fresh-install defaults. Configured worktree environment paths rep
 
 <!-- END GENERATED: project artifact ownership -->
 
-Path overrides preserve ownership: placement grants write consent, not overwrite authority ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
+Path overrides change placement. The ownership bucket still determines edit and overwrite authority ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)).
 
 ## How Git treats registered paths
 
 Agent files (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`) are tracked for bare clones. `discern done` blocks stale copies ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md), [ADR 0128](../_adr/0128-enumerated-ownership-tracked-guidance.md)).
 
-Project lines outside `.gitattributes`' discern markers survive. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active Agent registry; hand edits inside are lost ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
+Project lines outside `.gitattributes`' discern markers remain unchanged. `setup`, `refresh`, and `upgrade` rebuild the block from `discern.toml`, the source-path registry, and the active agent registry. A rebuild replaces hand edits inside the block ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md), [ADR 0259](../_adr/0259-generated-groups-opt-in-to-review-metadata.md)).
 
-Every declared [generated artifact](../00-orientation/glossary.md#generated-artifact) receives the `discern-generated` merge driver. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub: GitHub hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
+Every declared [Generated artifact](../00-orientation/glossary.md#generated-artifact) receives the `discern-generated` merge driver. Set `linguist_generated = true` inside one `[generated.<name>]` table to mark only that group's paths as generated for GitHub. GitHub then hides them in diffs by default and excludes them from language statistics. The default is false ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
 Markdown inside discern's registered surfaces uses Git's built-in `markdown` diff driver. This covers configured Map, guidance, skills, scripts, TODO, and brief paths plus active Agent files. There is no repo-wide `*.md` rule: a project's README and other Markdown stay under the project's own attributes policy unless one of those paths is explicitly configured as a discern surface.
 
-Materialized skills and provider-local state are ignored by exact registry path, leaving neighboring files alone. Add agent-file ignores outside the managed block if preferred; currency accepts a missing copy.
+Materialized Skills and provider-local state are ignored by exact registry path, leaving neighboring files unchanged. Add agent-file ignores outside the managed block if preferred. The currency check accepts a missing copy.
 
 ## Runtime state inside `.git`
 
@@ -114,7 +114,7 @@ Git-admin runtime records live under `discern/`; do not commit or edit them.
 | `discern/test-slots/`                          | repository | Fleet test-run cap lock files.                                                                                      |
 | `discern/desk/tips.json`                       | repository | Desk tip evidence.                                                                                                  |
 | `discern/temp-artifact-sweep`                  | repository | Temp-retention sweep stamp and cursor.                                                                              |
-| `discern/gate-receipt`                         | worktree   | Clean `done` receipt.                                                                                               |
+| `discern/gate-receipt`                         | worktree   | Receipt from a clean `done` run.                                                                                    |
 | `discern/last-gate-run`                        | worktree   | Last gate verdict.                                                                                                  |
 | `discern/standard-measurements`                | worktree   | Reusable measurements.                                                                                              |
 | `discern/ignored-baseline`                     | worktree   | Ignored-file baseline.                                                                                              |
@@ -134,7 +134,7 @@ Acceptance atomically moves the trunk and `refs/worktree/discern/acceptance-tran
 
 `discern uninstall` removes Generated files, discern-owned Shared entries, the managed `.gitignore` and `.gitattributes` blocks, and the whole `discern/` runtime-state namespace under Git's administrative directories ([ADR 0104](../_adr/0104-uninstall-is-the-exit-honesty-verb.md)). Preview with `discern uninstall --dry-run`.
 
-It keeps Project-owned files and `discern.toml`, names Shared settings it cannot clean without bundled templates, and refuses while a worktree is in flight or while the resource ledger records provisioned resources — those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. It is CLI-only. Delete the binary reported by `which discern`.
+It keeps Project-owned files and `discern.toml`, and it names Shared settings that it cannot clean without bundled templates. It refuses while a worktree is in flight or while the resource ledger records provisioned resources. Those entries hold their only destroy commands, so reclaim them with `discern worktree prune` first. Uninstall is CLI-only. Delete the binary reported by `which discern`.
 
 ## Where it lives in code
 
@@ -154,7 +154,7 @@ It keeps Project-owned files and `discern.toml`, names Shared settings it cannot
 
 ## See also
 
-- [The install surface](../80-development/install-surface.md) — the exhaustive engineering inventory by ownership bucket.
-- [Licenses for project payloads](project-payload-license.md) — the authorship boundary and downstream redistribution responsibility.
-- [Agent integrations](../60-agent-integrations/) — the exact file table per coding agent.
-- [Trust & your data](../00-orientation/trust-and-data.md) — the network, telemetry, and execution contract on one screen.
+- [The install surface](../80-development/install-surface.md): the exhaustive engineering inventory by ownership bucket.
+- [Licenses for project payloads](project-payload-license.md): the authorship boundary and downstream redistribution responsibility.
+- [Agent integrations](../60-agent-integrations/): the exact file table per coding agent.
+- [Trust and your data](../00-orientation/trust-and-data.md): the network, telemetry, and execution contract on one screen.

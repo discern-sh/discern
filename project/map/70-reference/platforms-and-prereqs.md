@@ -39,7 +39,7 @@ There is no native Windows release. Run the Linux binary inside Windows Subsyste
 | -------------------------- | ------------------------------------------------------------------------------------------------------ |
 | Download installer         | POSIX `sh`, `uname`, `mktemp`, standard file utilities, `sha256sum` or `shasum`, and `curl` or `wget`. |
 | Install destination        | A writable directory. On macOS, the installer tries writable `/usr/local/bin` before `~/.local/bin`.   |
-| discern runtime            | `sh` and `git` on `PATH`. Configured gate and resource commands run through `sh -c`.                   |
+| discern runtime            | `sh` and `git` on `PATH`. Configured Gate and resource commands run through `sh -c`.                   |
 | Isolated-worktree workflow | A git repository whose project root is the repository root, with at least 1 commit to branch from.     |
 | Project checks             | Every executable named by jobs, standards, setup steps, and resource commands available on `PATH`.     |
 
@@ -51,7 +51,7 @@ Run the live prerequisite and install checks from any directory inside the proje
 discern doctor
 ```
 
-`doctor` checks root discovery, config, schema, tools, repository shape, jobs, resources, guidance, skills, integrations, and the managed `.gitattributes` block. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
+`doctor` checks root discovery, configuration, schema, tools, repository shape, jobs, resources, Guidance, Skills, integrations, and the managed `.gitattributes` block. For each `[generated.<name>]`, it probes `run`'s leading word and warns when `paths` match no tracked file, only untracked or ignored files, or another group's files. It never runs generators. Warnings keep exit 0. Failures name a fix.
 
 ## Installer behavior
 
@@ -65,16 +65,16 @@ After installation, discern itself makes no network calls. Project commands rema
 
 Run `discern identity` inside a linked worktree. With no selector it prints the id.
 
-| Selector            | Value                                                                   |
-| ------------------- | ----------------------------------------------------------------------- |
-| `--id`              | Stable worktree id.                                                     |
-| `--branch`          | Branch prefix plus the id.                                              |
-| `--port`            | Deterministic development port, `17290 + cksum(id) % 2000`.             |
-| `--site`            | DNS-safe project slug plus id, fitted to 63 characters.                 |
-| `--db`              | Database-safe project slug plus id, using underscores.                  |
-| `--worktree`        | Generic project-slug-plus-id handle.                                    |
-| `--resource <name>` | Stable project-slug-plus-id-plus-name handle for one declared resource. |
-| `--resources`       | Every declared resource printed as `name=handle`.                       |
+| Selector            | Value                                                                              |
+| ------------------- | ---------------------------------------------------------------------------------- |
+| `--id`              | Stable worktree id.                                                                |
+| `--branch`          | Branch prefix plus the id.                                                         |
+| `--port`            | Deterministic development port, `17290 + cksum(id) % 2000`.                        |
+| `--site`            | Domain Name System (DNS) compatible project slug plus id, fitted to 63 characters. |
+| `--db`              | Database-compatible project slug plus id, using underscores.                       |
+| `--worktree`        | Generic project-slug-plus-id handle.                                               |
+| `--resource <name>` | Stable project-slug-plus-id-plus-name handle for one declared resource.            |
+| `--resources`       | Every declared resource printed as `name=handle`.                                  |
 
 For example:
 
@@ -94,12 +94,12 @@ discern replaces these literal tokens before running a resource command or a `[w
 
 | Token            | Replacement                                                                               |
 | ---------------- | ----------------------------------------------------------------------------------------- |
-| `@db@`           | Database-safe worktree identity.                                                          |
-| `@site@`         | DNS-safe worktree host label.                                                             |
+| `@db@`           | Database-compatible worktree identity.                                                    |
+| `@site@`         | DNS-compatible worktree host label.                                                       |
 | `@port@`         | Deterministic worktree port.                                                              |
 | `@worktree@`     | Generic worktree handle.                                                                  |
 | `@resource@`     | Current resource's handle; empty in setup commands that are not attached to one resource. |
 | `@project_slug@` | Configured project slug.                                                                  |
 | `@dir@`          | Absolute worktree root.                                                                   |
 
-Token replacement is literal and happens only for tokens present in the command. Use `@site@` when the destination requires a 63-character DNS label; `@resource@` has no DNS length limit.
+Token replacement is literal and happens only for tokens present in the command. Use `@site@` when the destination requires a 63-character DNS label. `@resource@` has no DNS length limit.
