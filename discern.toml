@@ -443,7 +443,13 @@
   # re-entry or update it is recorded but never undoes a merge or blocks startup.
   [worktree.setup]
     steps = [] # one-shot scaffolding (none needed here)
-    ensure = [] # no linked-worktree-only convergence needed here
+    # Link the private documentation overlay (project/map/_private/, present only
+    # in the main checkout) into each linked worktree at the same canonical path;
+    # a checkout without the overlay sees a silent no-op, and a session-start
+    # re-run heals a broken link.
+    ensure = [
+      "deno run --allow-read --allow-write --allow-run=git project/scripts/ensure_private_docs.ts",
+    ]
 
   # ─────────────────────────────────────────────────────────────────────────────
   # [standards] — quality standards: numbers that can never get worse. Every
