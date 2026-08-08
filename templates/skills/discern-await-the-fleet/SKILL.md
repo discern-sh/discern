@@ -56,7 +56,7 @@ A refusal (`ok: false`) means the watch as posed cannot be answered, and it carr
 ## 6. When not to await
 
 - **Your own branch.** Run your gate or do the work; awaiting yourself never returns.
-- **A sub-agent or background task inside your own session.** Your harness tracks those itself; `discern_await` watches other worktrees and the trunk.
+- **A sub-agent or background task inside your own session.** Your own session already tracks those; `discern_await` watches other worktrees and the trunk.
 - **Something only the user can supply.** A review, a decision, a credential — report what you need and stop; don't hold a call against a human.
 - **A watch made unnecessary mid-wait** — the plan changed, the dependency got cut. Say so and move on; that is a valid end to the watch.
 
