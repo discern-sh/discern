@@ -69,7 +69,7 @@ interface GateJson {
       replayed_from?: string;
     }>;
     standards_limits?: { status: string; trunk: string; reason?: string };
-    receipt?: { markdown: string };
+    proof?: { markdown: string };
   };
 }
 
@@ -467,7 +467,7 @@ Deno.test("the receipt renders the standards section and the limits-verified lin
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
     const obj = parseGateJson(r.stdout);
-    const markdown = obj.data?.receipt?.markdown ?? "";
+    const markdown = obj.data?.proof?.markdown ?? "";
     assertStringIncludes(markdown, "Standards (limits verified against");
     assertStringIncludes(markdown, "cov 90 (floor 80, improved)");
   });

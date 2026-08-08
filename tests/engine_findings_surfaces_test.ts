@@ -222,7 +222,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
     assertEquals(done.ok, true);
     assertEquals(done.data?.failed_stage, null);
     assert(
-      done.data?.receipt !== undefined,
+      done.data?.proof !== undefined,
       "the green clean branch needs a receipt",
     );
     const receiptHint = assertHasHint(
@@ -301,7 +301,7 @@ Deno.test("findings route end to end to done, status, improvement, and nowhere e
       | undefined;
     assertEquals(
       gateValidation?.mode,
-      "receipt",
+      "proof",
       "the advisory must leave the receipt honor path intact",
     );
   });

@@ -51,7 +51,7 @@ function entry(
     ahead: 0,
     behind: 0,
     last_activity: "2026-08-03T11:00:00.000Z",
-    gate_receipt: { status: "missing" },
+    gate_proof: { status: "missing" },
     ...patch,
   };
 }
@@ -239,8 +239,8 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
   ready: {
     patch: {
       ahead: 2,
-      gate_receipt: { status: "honored" },
-      receipt_honored: true,
+      gate_proof: { status: "honored" },
+      proof_honored: true,
     },
   },
   running: {
@@ -259,7 +259,7 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
         at: "2026-08-03T11:30:00.000Z",
         failed_stage: "test",
       },
-      gate_receipt: { status: "dirty" },
+      gate_proof: { status: "dirty" },
     },
   },
   stale: {
@@ -267,7 +267,7 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
       clean: false,
       changed_files: 2,
       last_activity: "2026-07-20T12:00:00.000Z",
-      gate_receipt: { status: "dirty" },
+      gate_proof: { status: "dirty" },
     },
   },
   "in-progress": {
@@ -275,18 +275,18 @@ const STATUS_CASES: Record<FleetRowStatusKind, StatusCase> = {
       clean: false,
       changed_files: 2,
       last_activity: "2026-08-03T11:55:00.000Z",
-      gate_receipt: { status: "dirty" },
+      gate_proof: { status: "dirty" },
     },
   },
   "receipt-unreadable": {
-    patch: { gate_receipt: { status: "read_failed", reason: "bad marker" } },
+    patch: { gate_proof: { status: "read_failed", reason: "bad marker" } },
   },
   "receipt-unavailable": {
-    patch: { gate_receipt: { status: "unavailable", reason: "no admin dir" } },
+    patch: { gate_proof: { status: "unavailable", reason: "no admin dir" } },
   },
   "receipt-stale": {
     patch: {
-      gate_receipt: {
+      gate_proof: {
         status: "stale",
         recorded: "aaaaaaaaaaaa9999",
         head: "bbbbbbbbbbbb9999",
@@ -453,8 +453,8 @@ Deno.test("status dashboard: every receipt-check state auto-enrols in the human 
       clean: status === "dirty" ? false : true,
       changed_files: status === "dirty" ? 1 : 0,
       ahead: status === "honored" ? 1 : 0,
-      gate_receipt: receipt,
-      ...(status === "honored" ? { receipt_honored: true } : {}),
+      gate_proof: receipt,
+      ...(status === "honored" ? { proof_honored: true } : {}),
     });
     const output = render(data([mainEntry(), row]), 72);
     assertStringIncludes(output, `Receipt: ${PROOF_LABELS[status]}`);
@@ -481,7 +481,7 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     changed_files: 2,
     ahead: 8,
     behind: 3,
-    gate_receipt: { status: "dirty" },
+    gate_proof: { status: "dirty" },
     running: {
       verb: "done",
       started: "2026-08-03T11:58:00.000Z",
@@ -495,7 +495,7 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     id: "observed-333ccc",
     clean: false,
     changed_files: 3,
-    gate_receipt: { status: "dirty" },
+    gate_proof: { status: "dirty" },
     last_action: {
       verb: "status",
       outcome: "ok",
@@ -507,8 +507,8 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     branch: "agent/granted-444ddd",
     id: "granted-444ddd",
     ahead: 1,
-    gate_receipt: { status: "honored" },
-    receipt_honored: true,
+    gate_proof: { status: "honored" },
+    proof_honored: true,
     landing_authority: {
       kind: "authorized",
       source: "standing-grant",
@@ -521,8 +521,8 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     branch: "agent/approval-555eee",
     id: "approval-555eee",
     ahead: 1,
-    gate_receipt: { status: "honored" },
-    receipt_honored: true,
+    gate_proof: { status: "honored" },
+    proof_honored: true,
     landing_authority: { kind: "conversation-required" },
   });
   const scoped = entry({
@@ -530,8 +530,8 @@ Deno.test("status dashboard: activity, failure, divergence, and authority retain
     branch: "agent/scoped-666fff",
     id: "scoped-666fff",
     ahead: 1,
-    gate_receipt: { status: "honored" },
-    receipt_honored: true,
+    gate_proof: { status: "honored" },
+    proof_honored: true,
     landing_authority: {
       kind: "conversation-required",
       standing_scopes: ["map"],
@@ -608,7 +608,7 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
     path: "/repo.worktrees/receipt-def456",
     branch: "agent/receipt-def456",
     id: "receipt-def456",
-    gate_receipt: { status: "unavailable", reason: "admin dir missing" },
+    gate_proof: { status: "unavailable", reason: "admin dir missing" },
   });
   const hints = hintTexts([
     fire(HINTS["status-branch-behind"], {
@@ -618,9 +618,9 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
     }),
   ]);
   const fixture = data([mainEntry(), behind, receiptUnavailable], {
-    gate_receipt: {
+    gate_proof: {
       status: "honored",
-      receipt:
+      proof:
         "### Receipt\n\nRun `discern standards` to inspect the measurements.",
     },
   });
@@ -650,8 +650,8 @@ Deno.test("status dashboard: every backticked discern command is cyan without ch
 Deno.test("status dashboard: collision precedence retains receipt readiness and landing authority", () => {
   const ready = entry({
     ahead: 2,
-    gate_receipt: { status: "honored" },
-    receipt_honored: true,
+    gate_proof: { status: "honored" },
+    proof_honored: true,
     landing_authority: {
       kind: "authorized",
       source: "standing-grant",
@@ -738,8 +738,8 @@ Deno.test("status dashboard: main and worktree fleet contexts show main once and
 Deno.test("status dashboard: human hint projection and landing evidence stay concrete", () => {
   const ready = entry({
     ahead: 1,
-    gate_receipt: { status: "honored" },
-    receipt_honored: true,
+    gate_proof: { status: "honored" },
+    proof_honored: true,
   });
   const hints = hintTexts([
     fire(HINTS["status-fleet-member-ready"], {
@@ -752,11 +752,11 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
   assertStringIncludes(hints[0] ?? "", "data.fleet");
   const output = render(
     data([mainEntry(), ready], {
-      landed_receipt: {
+      landed_proof: {
         commit: "abcdef1234567890",
         commit_at: "2026-08-03T11:00:00.000Z",
         ref: "refs/notes/discern",
-        receipt: {
+        proof: {
           branch: "agent/landed-123abc",
           trunk: "main",
           head: "abcdef123456",
@@ -784,9 +784,9 @@ Deno.test("status dashboard: human hint projection and landing evidence stay con
 
   const verbose = render(
     data([mainEntry(), ready], {
-      gate_receipt: {
+      gate_proof: {
         status: "honored",
-        receipt: "### Receipt\n\n| ran | result |\n| --- | --- |",
+        proof: "### Receipt\n\n| ran | result |\n| --- | --- |",
       },
     }),
     48,

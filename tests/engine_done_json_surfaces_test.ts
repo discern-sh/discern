@@ -535,8 +535,8 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
     assertEquals(obj.ok, true);
 
     // The structured receipt: git facts + the two renderings, one derivation.
-    const receipt = obj.data.receipt;
-    assert(receipt !== undefined, `expected data.receipt: ${r.stdout}`);
+    const receipt = obj.data.proof;
+    assert(receipt !== undefined, `expected data.proof: ${r.stdout}`);
     assertEquals(receipt.branch, "agent/alpha");
     assertEquals(receipt.trunk, "main");
     assertEquals(receipt.files_total, 1);
@@ -568,8 +568,8 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
 
     // The marker stores the line and the page beside the sha it vouches for, so
     // status and accept can surface the receipt without re-running the gate.
-    assertEquals(obj.data.gate_receipt.status, "recorded");
-    const marker = await Deno.readTextFile(obj.data.gate_receipt.path);
+    assertEquals(obj.data.gate_proof.status, "recorded");
+    const marker = await Deno.readTextFile(obj.data.gate_proof.path);
     const head = (await gitOut(wt, "rev-parse", "HEAD")).trim();
     assert(
       marker.startsWith(`${head}\nline: Receipt: `),
@@ -584,7 +584,7 @@ Deno.test("done --json: a green worktree gate emits the receipt in data and stor
       (await runAgent(wt, ["done", "--confirmed", "--json"])).stdout,
     );
     assertEquals(
-      stripDurations(again.data.receipt.markdown),
+      stripDurations(again.data.proof.markdown),
       stripDurations(receipt.markdown),
     );
   });
@@ -601,7 +601,7 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
       (await runAgent(dir, ["done", "--json"])).stdout,
     );
     assertEquals(onMain.ok, true);
-    assertEquals(onMain.data.receipt, undefined);
+    assertEquals(onMain.data.proof, undefined);
 
     // A dirty worktree: the diff vs the trunk would describe a different tree than
     // the one the gate validated — no receipt, and no relay hint.
@@ -612,13 +612,13 @@ Deno.test("done --json: no receipt on the trunk itself, or over a dirty tree", a
     await Deno.writeTextFile(join(wt, "wip.txt"), "wip\n");
     const dirty = parseJson((await runAgent(wt, ["done", "--json"])).stdout);
     assertEquals(dirty.ok, true);
-    assertEquals(dirty.data.receipt, undefined);
-    assertEquals(dirty.data.gate_receipt.status, "skipped_dirty");
+    assertEquals(dirty.data.proof, undefined);
+    assertEquals(dirty.data.gate_proof.status, "skipped_dirty");
     // The refusal NAMES what blocks the receipt — in the reason and the hint —
     // so the agent commits the right file instead of diagnosing a bare "dirty".
-    assertStringIncludes(dirty.data.gate_receipt.reason, "wip.txt");
+    assertStringIncludes(dirty.data.gate_proof.reason, "wip.txt");
     assertHasHint(dirty, HINTS["gate-receipt-skipped-dirty"], {
-      reason: dirty.data.gate_receipt.reason,
+      reason: dirty.data.gate_proof.reason,
     });
     assertLacksHint(dirty, HINTS["gate-relay-receipt"]);
     assertLacksHint(dirty, HINTS["gate-prove-it-works"]);

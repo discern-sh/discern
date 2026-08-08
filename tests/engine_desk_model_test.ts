@@ -52,80 +52,80 @@ function entry(over: Partial<StatusFleetEntry> = {}): StatusFleetEntry {
 const BUCKET_CASES: ReadonlyArray<{
   name: string;
   entry: StatusFleetEntry;
-  receipt: boolean;
+  proof: boolean;
   expect: DeskBucket;
 }> = [
   {
     name: "broken checkout → attention, whatever else is true",
     entry: entry({ broken: true, ahead: 3 }),
-    receipt: true,
+    proof: true,
     expect: "attention",
   },
   {
     name: "unreadable git state → attention (never assumed clean)",
     entry: entry({ git_unavailable: true, clean: undefined }),
-    receipt: false,
+    proof: false,
     expect: "attention",
   },
   {
     name: "clean, ahead, receipt honored → ready to land",
     entry: entry({ ahead: 3 }),
-    receipt: true,
+    proof: true,
     expect: "ready",
   },
   {
     name: "clean, ahead, receipt honored, but behind trunk → in flight",
     entry: entry({ ahead: 3, behind: 2, last_activity: daysAgo(20) }),
-    receipt: true,
+    proof: true,
     expect: "in_flight",
   },
   {
     name: "unknown behind state keeps the degraded-state leniency",
     entry: entry({ ahead: 3, behind: undefined }),
-    receipt: true,
+    proof: true,
     expect: "ready",
   },
   {
     name: "clean and ahead but no receipt → still in flight",
     entry: entry({ ahead: 3 }),
-    receipt: false,
+    proof: false,
     expect: "in_flight",
   },
   {
     name: "dirty and recently active → in flight",
     entry: entry({ clean: false, changed_files: 4 }),
-    receipt: false,
+    proof: false,
     expect: "in_flight",
   },
   {
     name: "dirty and idle past the staleness threshold → attention",
     entry: entry({ clean: false, changed_files: 2, last_activity: daysAgo(8) }),
-    receipt: false,
+    proof: false,
     expect: "attention",
   },
   {
     name: "unlanded commits idle past the threshold, no receipt → attention",
     entry: entry({ ahead: 2, last_activity: daysAgo(9) }),
-    receipt: false,
+    proof: false,
     expect: "attention",
   },
   {
     name: "idle but empty-handed (clean, nothing ahead) → in flight, not stale",
     entry: entry({ last_activity: daysAgo(30) }),
-    receipt: false,
+    proof: false,
     expect: "in_flight",
   },
   {
     name: "ready outranks stale: clean+ahead+receipt even when idle",
     entry: entry({ ahead: 1, last_activity: daysAgo(20) }),
-    receipt: true,
+    proof: true,
     expect: "ready",
   },
 ];
 
 Deno.test("classifyBucket: the decision-order table", () => {
   for (const c of BUCKET_CASES) {
-    assertEquals(classifyBucket(c.entry, c.receipt, NOW), c.expect, c.name);
+    assertEquals(classifyBucket(c.entry, c.proof, NOW), c.expect, c.name);
   }
 });
 

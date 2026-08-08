@@ -2010,8 +2010,8 @@ export type DiscernDoneResult = {
       }>;
       warnings?: Array<string>;
     };
-    receipt?: DiscernProof;
-    gate_receipt?: {
+    proof?: DiscernProof;
+    gate_proof?: {
       status:
         | "recorded"
         | "skipped_dirty"
@@ -2560,7 +2560,7 @@ export type DiscernRefreshResult = {
     hooks_wired: Array<string>;
     worktree_app_wired: Array<string>;
     project_rules_wired: Array<string>;
-    receipt_notes_fetch_changed?: Array<string>;
+    proof_notes_fetch_changed?: Array<string>;
     adr_index_written: Array<string>;
     skills: {
       copied: number;
@@ -2979,7 +2979,7 @@ export type DiscernAwaitResult = {
       | "unknown-client";
     requested_timeout_seconds?: number;
     observed: {
-      receipt_status?:
+      proof_status?:
         | "honored"
         | "missing"
         | "stale"
@@ -3538,7 +3538,7 @@ export type DiscernStatusResult = {
       scope_gates: Array<string>;
     };
     standards: Array<string>;
-    gate_receipt?: {
+    gate_proof?: {
       status:
         | "honored"
         | "missing"
@@ -3550,15 +3550,15 @@ export type DiscernStatusResult = {
       recorded?: string;
       head?: string;
       reason?: string;
-      receipt?: string;
-      receipt_line?: string;
-      receipt_data?: DiscernProof;
+      proof?: string;
+      proof_line?: string;
+      proof_data?: DiscernProof;
     };
-    landed_receipt?: {
+    landed_proof?: {
       commit: string;
       commit_at?: string;
       ref: string;
-      receipt: DiscernProof;
+      proof: DiscernProof;
       issuer?: {
         name?: string;
         email?: string;
@@ -3566,7 +3566,7 @@ export type DiscernStatusResult = {
       };
       brief?: string;
     };
-    landed_receipt_unsupported?: {
+    landed_proof_unsupported?: {
       commit: string;
       ref: string;
       format: string;
@@ -3628,10 +3628,10 @@ export type DiscernStatusResult = {
       id?: string;
       port?: number;
       broken?: boolean;
-      receipt_honored?: boolean;
-      receipt?: string;
-      receipt_line?: string;
-      gate_receipt?: {
+      proof_honored?: boolean;
+      proof?: string;
+      proof_line?: string;
+      gate_proof?: {
         status:
           | "honored"
           | "missing"
@@ -3643,9 +3643,9 @@ export type DiscernStatusResult = {
         recorded?: string;
         head?: string;
         reason?: string;
-        receipt?: string;
-        receipt_line?: string;
-        receipt_data?: DiscernProof;
+        proof?: string;
+        proof_line?: string;
+        proof_data?: DiscernProof;
       };
       landing_authority?: {
         kind: "authorized" | "conversation-required";
@@ -3883,8 +3883,8 @@ export type DiscernAcceptResult = {
     };
     authority_warnings?: Array<string>;
     gate_validation?: {
-      mode: "receipt" | "rerun";
-      receipt: {
+      mode: "proof" | "rerun";
+      proof: {
         status:
           | "honored"
           | "missing"
@@ -3896,14 +3896,14 @@ export type DiscernAcceptResult = {
         recorded?: string;
         head?: string;
         reason?: string;
-        receipt?: string;
-        receipt_line?: string;
-        receipt_data?: DiscernProof;
+        proof?: string;
+        proof_line?: string;
+        proof_data?: DiscernProof;
       };
     };
-    receipt?: string;
-    receipt_line?: string;
-    receipt_note?: {
+    proof?: string;
+    proof_line?: string;
+    proof_note?: {
       fetch: {
         mode: "local" | "fetch";
         status: "local" | "wired" | "unchanged" | "no_remote" | "failed";
@@ -3917,7 +3917,7 @@ export type DiscernAcceptResult = {
           | "recorded"
           | "already_present"
           | "record_failed"
-          | "missing_receipt";
+          | "missing_proof";
         ref: string;
         commit: string;
         merged_refs: Array<string>;

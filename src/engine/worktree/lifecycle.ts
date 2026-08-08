@@ -204,7 +204,7 @@ import { finishResult } from "../gate/finish.ts";
 import { inspectGateProof, pinValidatedTree } from "../gate/proof.ts";
 import { renderLandingProofLine } from "../gate/proof_render.ts";
 import {
-  receiptNotesFetchSucceeded,
+  proofNotesFetchSucceeded,
   reconcileProofNotesFetch,
   writeProofNote,
 } from "../gate/proof_notes.ts";
@@ -1764,13 +1764,13 @@ function partialAcceptanceResult(
         : { gate_validation: progress.gateValidation }),
       ...(progress.receiptMarkdown === undefined
         ? {}
-        : { receipt: progress.receiptMarkdown }),
+        : { proof: progress.receiptMarkdown }),
       ...(progress.receiptLine === undefined
         ? {}
-        : { receipt_line: progress.receiptLine }),
+        : { proof_line: progress.receiptLine }),
       ...(progress.receiptNote === undefined
         ? {}
-        : { receipt_note: progress.receiptNote }),
+        : { proof_note: progress.receiptNote }),
     },
     ...(progress.convergenceHints.length === 0
       ? {}
@@ -1994,8 +1994,8 @@ async function executeAcceptPlan(
   const receipt = await inspectGateProof(ctx.cwd);
   const gateValidation: NonNullable<AcceptData["gate_validation"]> =
     receipt.status === "honored"
-      ? { mode: "receipt", receipt }
-      : { mode: "rerun", receipt };
+      ? { mode: "proof", proof: receipt }
+      : { mode: "rerun", proof: receipt };
   progress.gateValidation = gateValidation;
   // The two receipt renderings for the tree that lands: the honored marker
   // stored both on the fast path; the fresh gate run rendered both on the slow
@@ -2007,13 +2007,13 @@ async function executeAcceptPlan(
   let receiptLine: string | undefined;
   let receiptData: Proof | undefined;
   let validatedSha: string | undefined;
-  if (gateValidation.mode === "receipt") {
+  if (gateValidation.mode === "proof") {
     ctx.log.ok(
       "Branch already passed the gate at this commit — skipping the re-run.",
     );
-    receiptMarkdown = receipt.receipt;
-    receiptLine = receipt.receipt_line;
-    receiptData = receipt.receipt_data;
+    receiptMarkdown = receipt.proof;
+    receiptLine = receipt.proof_line;
+    receiptData = receipt.proof_data;
     validatedSha = receipt.head;
   } else {
     ctx.log.info("Validating the branch against the full gate before landing…");
@@ -2036,9 +2036,9 @@ async function executeAcceptPlan(
       );
     }
     ctx.log.ok("Gate passed against the tree to be landed.");
-    receiptMarkdown = gate.data?.receipt?.markdown;
-    receiptLine = gate.data?.receipt?.line;
-    receiptData = gate.data?.receipt;
+    receiptMarkdown = gate.data?.proof?.markdown;
+    receiptLine = gate.data?.proof?.line;
+    receiptData = gate.data?.proof;
     validatedSha = pin.head;
   }
   if (validatedSha === undefined) {
@@ -2260,7 +2260,7 @@ async function executeAcceptPlan(
     mainRepo,
     plan.receiptNotes,
   );
-  const receiptFetchOk = receiptNotesFetchSucceeded(receiptFetch);
+  const receiptFetchOk = proofNotesFetchSucceeded(receiptFetch);
   results.push({
     step: {
       kind: "git",
@@ -2748,12 +2748,12 @@ async function executeAcceptResult(
         : {}),
       gate_validation: executed.gateValidation,
       ...(executed.receiptMarkdown !== undefined
-        ? { receipt: executed.receiptMarkdown }
+        ? { proof: executed.receiptMarkdown }
         : {}),
       ...(executed.receiptLine !== undefined
-        ? { receipt_line: executed.receiptLine }
+        ? { proof_line: executed.receiptLine }
         : {}),
-      receipt_note: executed.receiptNote,
+      proof_note: executed.receiptNote,
       ...(hasIgnoredFileChanges(plan.ignoredFileChanges)
         ? { ignored_file_changes: plan.ignoredFileChanges }
         : {}),

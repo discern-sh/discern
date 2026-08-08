@@ -1,4 +1,4 @@
-/** The receipt treatment that follows `discern done`'s shared gate-job table. */
+/** The proof treatment that follows `discern done`'s shared gate-job table. */
 
 import { padDisplayEnd, wrapText } from "../../lib/text.ts";
 import type { StepResult } from "../../shared/result.ts";
@@ -14,7 +14,7 @@ const INDENT = "  ";
 const SUCCESS_BACKGROUND = "\x1b[48;2;12;29;27m";
 const PROOF_TEXT = "\x1b[38;2;238;239;244m";
 
-/** Show the commit-bound gate receipt and its validity window after success. */
+/** Show the commit-bound gate proof and its validity window after success. */
 function renderProofPanel(
   line: string,
   options: GateTtyOptions,
@@ -32,21 +32,21 @@ function renderProofPanel(
   ).join("\n");
 }
 
-/** Render the highlighted receipt panel that follows a completed live table. */
+/** Render the highlighted proof panel that follows a completed live table. */
 export function renderDoneTtyProofPanel(
-  receipt: Proof,
+  proof: Proof,
   options: GateTtyOptions,
 ): string {
-  return renderProofPanel(receipt.line, options);
+  return renderProofPanel(proof.line, options);
 }
 
-/** Render the complete green TTY tail: shared job table, then receipt panel. */
+/** Render the complete green TTY tail: shared job table, then proof panel. */
 export function renderDoneTtySummary(
   steps: readonly StepResult[],
-  receipt: Proof,
+  proof: Proof,
   options: GateTtyOptions,
 ): string {
   return `${renderGateTtyTable(steps, options)}\n\n${
-    renderDoneTtyProofPanel(receipt, options)
+    renderDoneTtyProofPanel(proof, options)
   }`;
 }

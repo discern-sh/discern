@@ -300,7 +300,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     });
     assert(missing.ok);
     assertEquals(missing.data?.met, false);
-    assertEquals(missing.data?.observed.receipt_status, "missing");
+    assertEquals(missing.data?.observed.proof_status, "missing");
     // The observed path is canonicalized (macOS /var → /private/var).
     assertEquals(missing.data?.observed.worktree, await Deno.realPath(dep));
 
@@ -313,7 +313,7 @@ Deno.test("await --green reads the sibling's receipt, and a landing satisfies it
     });
     assert(green.ok);
     assertEquals(green.data?.met, true);
-    assertEquals(green.data?.observed.receipt_status, "honored");
+    assertEquals(green.data?.observed.proof_status, "honored");
     assert(
       green.hints?.some((h) => h.includes(`discern start --from ${depTip}`)) ===
         true,

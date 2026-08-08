@@ -116,7 +116,7 @@ Deno.test("logbook routing: the optional trajectory series reaches the wire unch
 Deno.test("logbook routing: advisory attachment can change only hints on an envelope", () => {
   const result: DiscernResult<{
     failed_stage: "check/test" | null;
-    gate_receipt: { status: "recorded" };
+    gate_proof: { status: "recorded" };
   }> = {
     ok: false,
     verb: "done",
@@ -135,7 +135,7 @@ Deno.test("logbook routing: advisory attachment can change only hints on an enve
     }],
     data: {
       failed_stage: "check/test",
-      gate_receipt: { status: "recorded" },
+      gate_proof: { status: "recorded" },
     },
     hints: ["existing"],
   };

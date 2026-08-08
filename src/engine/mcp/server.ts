@@ -396,10 +396,10 @@ export const TOOLS: McpTool[] = orderTools([
       "`{{main_branch}}` also changed (the hot zone to re-read on updating, since a " +
       "clean merge can still break them); data.gate " +
       "lists what the gate WOULD fire (declared jobs and triggered scope " +
-      "gates); data.gate_receipt reports whether the receipt is honored, missing, " +
-      "stale, dirty, unavailable, or read_failed (when honored, data.gate_receipt.receipt_line " +
+      "gates); data.gate_proof reports whether the receipt is honored, missing, " +
+      "stale, dirty, unavailable, or read_failed (when honored, data.gate_proof.proof_line " +
       "carries the one-line receipt you copy verbatim to end your report at the review moment — " +
-      "data.gate_receipt.receipt is the full page, for your owner to read, never to paste " +
+      "data.gate_proof.proof is the full page, for your owner to read, never to paste " +
       "into a message); data.landing_authority is present when a recorded standing " +
       "or effort grant exists, resolving the exact tree as authorized or naming " +
       "the uncovered paths that still need conversation consent; " +
@@ -417,7 +417,7 @@ export const TOOLS: McpTool[] = orderTools([
       "logbook verb, running naming fresh work in flight with elapsed and typical " +
       "duration, and last_activity taking the later of Git or logbook activity; " +
       "is_current marks the row this call is rooted in, and broken flags a checkout whose creation never " +
-      "completed; each readable worktree row carries its complete gate_receipt check " +
+      "completed; each readable worktree row carries its complete gate_proof check " +
       "and its landing_authority when a grant exists — " +
       "every other row is a separate line of work, not a " +
       "workspace to claim, and a clean tree never means one is free); " +
@@ -473,12 +473,12 @@ export const TOOLS: McpTool[] = orderTools([
       "(tool, file/line when available, message, and the exact command to reproduce " +
       "each failure). A green run over a clean committed tree ahead of the trunk — " +
       "the shared landing branch (`{{main_branch}}`) — " +
-      "also carries data.receipt and resolves any recorded grant into " +
+      "also carries data.proof and resolves any recorded grant into " +
       "data.landing_authority. Follow the resolution-gated hints: an uncovered " +
       "landing is reported to the owner in your own words and ends with " +
-      "data.receipt.line verbatim before you wait; a covered landing names the " +
+      "data.proof.line verbatim before you wait; a covered landing names the " +
       "verified source and routes straight to discern_accept. Never paste " +
-      "the full page (data.receipt.markdown) into a message — your owner pulls it from " +
+      "the full page (data.proof.markdown) into a message — your owner pulls it from " +
       "discern directly. Set dry_run to preview the plan without " +
       "running anything.",
     inputSchema: {
@@ -911,8 +911,8 @@ export const TOOLS: McpTool[] = orderTools([
       "branch. This is the single deterministic implementation — " +
       "run it rather than reproducing the steps with git; commit the work with a real " +
       "message first so it lands as a proper review commit. After a green landing, " +
-      "report it in your own words and end with data.receipt_line verbatim; " +
-      "data.receipt is the full landing record, pasteable into a PR body. " +
+      "report it in your own words and end with data.proof_line verbatim; " +
+      "data.proof is the full landing record, pasteable into a PR body. " +
       "Requires this branch already contains the latest `{{main_branch}}`, this worktree " +
       "is clean, and the main checkout is clean and sitting on `{{main_branch}}` " +
       '— refuses (error:"precondition_failed") otherwise, naming the exact next ' +

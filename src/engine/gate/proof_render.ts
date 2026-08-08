@@ -14,7 +14,7 @@
  *
  * Single source of truth: both renderings derive from the {@link DiscernResult}
  * envelope — "what ran" is read from `steps[]`, never recomputed — plus git facts
- * gathered ONCE here and carried in the envelope's `data.receipt` beside the
+ * gathered ONCE here and carried in the envelope's `data.proof` beside the
  * rendered `line` and `markdown` ({@link ProofSchema}). Deterministic: same
  * tree, same result → same receipt (durations excepted).
  *

@@ -64,7 +64,7 @@ import {
 type AdminStatePaths = Readonly<
   Record<ValidationAdminStateKey, string | undefined>
 >;
-type GateProofRecordData = NonNullable<GateData["gate_receipt"]>;
+type GateProofRecordData = NonNullable<GateData["gate_proof"]>;
 
 /** Brand for a successful, real write probe. Proof writers require this token,
  * making "probe before persist" a compile-time rule at every call site. */
@@ -618,9 +618,9 @@ export async function inspectGateProof(
     path,
     recorded,
     head,
-    ...(markdown === "" ? {} : { receipt: markdown }),
-    ...(line === "" ? {} : { receipt_line: line }),
-    ...(receiptData === undefined ? {} : { receipt_data: receiptData }),
+    ...(markdown === "" ? {} : { proof: markdown }),
+    ...(line === "" ? {} : { proof_line: line }),
+    ...(receiptData === undefined ? {} : { proof_data: receiptData }),
   };
 }
 

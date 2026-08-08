@@ -3187,10 +3187,10 @@ Deno.test("the MCP instruction detector rejects future over-budget and misordere
 Deno.test("discern mcp: accept requires the verbatim landing receipt line", () => {
   const accept = TOOLS.find((tool) => tool.name === "discern_accept");
   assert(accept !== undefined, "discern_accept should be registered");
-  assertStringIncludes(accept.description, "data.receipt_line verbatim");
+  assertStringIncludes(accept.description, "data.proof_line verbatim");
   assertStringIncludes(
     accept.description,
-    "data.receipt is the full landing record",
+    "data.proof is the full landing record",
   );
 });
 
@@ -3223,7 +3223,7 @@ Deno.test("discern mcp: discern_status documents its actionable data fields (inc
     for (
       const field of [
         "project",
-        "gate_receipt",
+        "gate_proof",
         "stale_generated",
         "stale_materialized",
         "stale_integrations",
@@ -3261,8 +3261,8 @@ Deno.test("discern mcp: status carries project identity and complete fleet recei
       row.branch === "agent/alpha"
     );
     assertExists(alpha);
-    assertEquals(alpha.gate_receipt?.status, "missing");
-    assertEquals(alpha.receipt_honored, undefined);
+    assertEquals(alpha.gate_proof?.status, "missing");
+    assertEquals(alpha.proof_honored, undefined);
   });
 });
 

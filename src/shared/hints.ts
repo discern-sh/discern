@@ -799,7 +799,7 @@ export const HINTS = {
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
       `Report this branch to your owner in your own words and end with the ` +
-      `receipt in \`data.gate_receipt.receipt_line\` verbatim, then wait. This ` +
+      `receipt in \`data.gate_proof.proof_line\` verbatim, then wait. This ` +
       `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
       `full receipt: your owner pulls it with ${OWNER_STATUS_VERBOSE}, ` +
       `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
@@ -846,7 +846,7 @@ export const HINTS = {
       branch: "agent/hints",
     },
     template: ({ uncovered, warnings, trunk, branch }): string =>
-      `Report this branch to your owner and end with \`data.gate_receipt.receipt_line\` verbatim, then stop. The recorded grant does not cover ${
+      `Report this branch to your owner and end with \`data.gate_proof.proof_line\` verbatim, then stop. The recorded grant does not cover ${
         uncovered.length > 0 ? uncovered.join(", ") : "this landing"
       }.${
         warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
@@ -2304,7 +2304,7 @@ export const HINTS = {
     when: "A successful gate records a receipt ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with " +
+      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with " +
       `${OWNER_STATUS_VERBOSE}. Run ${CMD.accept} only after they accept.`,
   }),
 
@@ -2322,10 +2322,10 @@ export const HINTS = {
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and the receipt covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.receipt_line\` afterward.`
+        ? `The owner pre-authorized this landing at the desk, and the receipt covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
         : `The receipt's clean HEAD is covered by the standing grant for ${
           scopes.join(", ")
-        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.receipt_line\` afterward.`,
+        }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.proof_line\` afterward.`,
   }),
 
   /** A green receipt whose recorded authority left changed paths uncovered. */
@@ -2344,7 +2344,7 @@ export const HINTS = {
       warnings: [],
     },
     template: ({ uncovered, warnings }): string =>
-      `Report this task to your owner in your own words, end with \`data.receipt.line\` verbatim, and stop. The recorded grant does not cover ${
+      `Report this task to your owner in your own words, end with \`data.proof.line\` verbatim, and stop. The recorded grant does not cover ${
         uncovered.length > 0 ? uncovered.join(", ") : "this landing"
       }.${
         warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
@@ -2654,7 +2654,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `Run ${CMD.status} to get the honored receipt for the owner's review ` +
-      "(data.gate_receipt.receipt) and the exact `git diff` command for the raw " +
+      "(data.gate_proof.proof) and the exact `git diff` command for the raw " +
       "change.",
   }),
 
@@ -2698,7 +2698,7 @@ export const HINTS = {
     when: "`accept` lands successfully and returns a one-line landing receipt.",
     example: undefined,
     template: (): string =>
-      "Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.",
+      "Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.",
   }),
 
   /** Fetch transport is enabled, but publication stays an explicit owner-side

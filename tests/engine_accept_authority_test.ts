@@ -255,7 +255,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     });
     assertEquals(envelope.data.scopes_changed, ["map"]);
     assertStringIncludes(
-      envelope.data.receipt_line,
+      envelope.data.proof_line,
       "landed under standing grant: map",
     );
     assertEquals(await exists(worktree), false);
@@ -1052,7 +1052,7 @@ Deno.test("accept records confirmed conversation consent in its receipt and logb
     assertEquals(envelope.data.consent, { source: "conversation" });
     assertEquals(envelope.data.scopes_changed, ["map"]);
     assertStringIncludes(
-      envelope.data.receipt_line,
+      envelope.data.proof_line,
       "landed with conversation consent",
     );
 
@@ -1094,7 +1094,7 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const envelope = JSON.parse(landed.stdout);
     assertEquals(envelope.data.consent, { source: "effort-grant" });
     assertStringIncludes(
-      envelope.data.receipt_line,
+      envelope.data.proof_line,
       "landed under effort grant",
     );
     assertEquals(await exists(marker), false);
@@ -1552,7 +1552,7 @@ Deno.test("conversation consent lands the branch that outgrew the trunk's commit
       confirmed.stdout,
     );
     assertStringIncludes(
-      envelope.data.receipt_line,
+      envelope.data.proof_line,
       "landed with conversation consent",
     );
     assertEquals(await exists(worktree), false);

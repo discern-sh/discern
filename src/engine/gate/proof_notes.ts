@@ -1,8 +1,8 @@
 /**
- * Repository-resident landing receipts.
+ * Repository-resident landing proofs.
  *
- * The gate receipt marker is a worktree-local validation cache. Acceptance
- * publishes the same structured receipt after the trunk fast-forward as a Git
+ * The gate proof marker is a worktree-local validation cache. Acceptance
+ * publishes the same structured proof after the trunk fast-forward as a Git
  * note, so the evidence survives worktree cleanup without changing trunk
  * history. All writes are local; this module never fetches or pushes.
  */
@@ -133,10 +133,10 @@ function legacyMappingError(
   key: string,
   mapping: string,
 ): string {
-  return `${key} contains an older receipt-note mapping without discern's ` +
+  return `${key} contains an older proof-note mapping without discern's ` +
     `ownership marker. This mapping makes \`git fetch ${
       shellArgument(remote)
-    }\` fail whenever the remote has no receipt note. Remove it with ` +
+    }\` fail whenever the remote has no proof note. Remove it with ` +
     `\`git config --local --fixed-value --unset-all ${shellArgument(key)} ${
       shellArgument(mapping)
     }\`, then run \`discern refresh\` again.`;
@@ -179,7 +179,7 @@ async function removeManagedRemote(
   );
   if (markerError !== undefined) {
     errors.push(
-      `could not clear discern's receipt-note marker for ${remote}: ${markerError}`,
+      `could not clear discern's proof-note marker for ${remote}: ${markerError}`,
     );
   }
 }
@@ -215,7 +215,7 @@ export async function reconcileProofNotesFetch(
       added: [],
       removed: [],
       errors: [
-        `could not read discern's receipt-note markers: ${managedRead.error}`,
+        `could not read discern's proof-note markers: ${managedRead.error}`,
       ],
     };
   }
@@ -290,7 +290,7 @@ export async function reconcileProofNotesFetch(
         );
         if (migrationError !== undefined) {
           errors.push(
-            `could not migrate ${key} to an optional receipt-note mapping: ${migrationError}`,
+            `could not migrate ${key} to an optional proof-note mapping: ${migrationError}`,
           );
           continue;
         }
@@ -307,7 +307,7 @@ export async function reconcileProofNotesFetch(
         );
         if (removalError !== undefined) {
           errors.push(
-            `could not remove the older receipt-note mapping from ${key}: ${removalError}`,
+            `could not remove the older proof-note mapping from ${key}: ${removalError}`,
           );
           continue;
         }
@@ -323,7 +323,7 @@ export async function reconcileProofNotesFetch(
         );
         if (normalizeError !== undefined) {
           errors.push(
-            `could not normalize discern's receipt-note mapping in ${key}: ${normalizeError}`,
+            `could not normalize discern's proof-note mapping in ${key}: ${normalizeError}`,
           );
           continue;
         }
@@ -393,29 +393,29 @@ export async function reconcileProofNotesFetch(
 }
 
 /** Whether fetch transport reconciliation completed without an error. */
-export function receiptNotesFetchSucceeded(
+export function proofNotesFetchSucceeded(
   result: Pick<ProofNotesFetchData, "errors">,
 ): boolean {
   return result.errors.length === 0;
 }
 
 /** Project only stable structured facts into the durable proof claim. */
-function canonicalProofClaim(receipt: Proof): DurableProofClaim {
+function canonicalProofClaim(proof: Proof): DurableProofClaim {
   return {
-    branch: receipt.branch,
-    trunk: receipt.trunk,
-    head: receipt.head,
-    files_total: receipt.files_total,
-    insertions: receipt.insertions,
-    deletions: receipt.deletions,
+    branch: proof.branch,
+    trunk: proof.trunk,
+    head: proof.head,
+    files_total: proof.files_total,
+    insertions: proof.insertions,
+    deletions: proof.deletions,
   };
 }
 
 /** Keep human renderings separate from the structured proof claim. */
-function canonicalProofPresentation(receipt: Proof): ProofPresentation {
+function canonicalProofPresentation(proof: Proof): ProofPresentation {
   return {
-    line: receipt.line,
-    markdown: receipt.markdown,
+    line: proof.line,
+    markdown: proof.markdown,
   };
 }
 
@@ -423,22 +423,22 @@ function canonicalProofPresentation(receipt: Proof): ProofPresentation {
  * order makes today's unsigned writer deterministic; DSSE verification later
  * consumes the decoded bytes without reserializing this object. */
 export function canonicalProofNotePayload(
-  receipt: Proof,
+  proof: Proof,
   commit: string,
 ): string {
   const payload: ProofNotePayload = {
     subject: { commit },
-    proof: canonicalProofClaim(receipt),
-    presentation: canonicalProofPresentation(receipt),
+    proof: canonicalProofClaim(proof),
+    presentation: canonicalProofPresentation(proof),
   };
   return JSON.stringify(payload);
 }
 
 /** One deterministic DSSE-compatible boundary for a structured proof note.
  * Current notes use discern's empty-array unsigned extension. */
-export function canonicalProofNote(receipt: Proof, commit: string): string {
+export function canonicalProofNote(proof: Proof, commit: string): string {
   const payload = UTF8_ENCODER.encode(
-    canonicalProofNotePayload(receipt, commit),
+    canonicalProofNotePayload(proof, commit),
   );
   return JSON.stringify({
     payloadType: PROOF_NOTE_PAYLOAD_TYPE,
@@ -448,13 +448,13 @@ export function canonicalProofNote(receipt: Proof, commit: string): string {
 }
 
 /** A durable note's parsed content, before its commit binding is checked:
- * a readable receipt (`subject` present for the current format, absent for a
+ * a readable proof (`subject` present for the current format, absent for a
  * legacy bare note), or an explicit refusal naming a format identity this
  * binary does not know. Malformed content parses to `undefined`, as before. */
 type ParsedProofNote =
   | {
-    kind: "receipt";
-    receipt: Proof;
+    kind: "proof";
+    proof: Proof;
     subject?: string;
     issuer?: ProofIssuer;
     brief?: string;
@@ -475,9 +475,9 @@ function knownIssuerFields(
   };
 }
 
-/** Rebuild the runtime receipt from current split payloads or pre-split local
+/** Rebuild the runtime proof from current split payloads or pre-split local
  * envelopes, dropping every unknown durable field from the live result. */
-function receiptFromProofPayload(
+function proofFromProofPayload(
   payload: ReturnType<typeof TolerantProofNotePayloadSchema.parse>,
 ): Proof | undefined {
   const line = payload.presentation?.line ?? payload.proof.line;
@@ -543,7 +543,7 @@ function parseProofNotePayload(
 /**
  * Parse one note body. `payloadType` is the in-band format identity: the current
  * type reads the envelope and decoded payload tolerantly, any other type is
- * reported as unsupported, and a bare 8-field receipt remains legacy unsigned.
+ * reported as unsupported, and a bare 8-field proof remains legacy unsigned.
  */
 function parseProofNote(content: string): ParsedProofNote | undefined {
   let parsed: unknown;
@@ -558,7 +558,7 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   if (!("payloadType" in parsed)) {
     const legacy = TolerantProofSchema.safeParse(parsed);
     return legacy.success
-      ? { kind: "receipt", receipt: canonicalProof(legacy.data) }
+      ? { kind: "proof", proof: canonicalProof(legacy.data) }
       : undefined;
   }
   const payloadType: unknown = (parsed as { payloadType: unknown }).payloadType;
@@ -578,13 +578,13 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
   if (payload === undefined) {
     return undefined;
   }
-  const receipt = receiptFromProofPayload(payload);
-  if (receipt === undefined) {
+  const proof = proofFromProofPayload(payload);
+  if (proof === undefined) {
     return undefined;
   }
   return {
-    kind: "receipt",
-    receipt,
+    kind: "proof",
+    proof,
     subject: payload.subject.commit,
     ...(payload.issuer !== undefined
       ? { issuer: knownIssuerFields(payload.issuer) }
@@ -594,7 +594,7 @@ function parseProofNote(content: string): ParsedProofNote | undefined {
 }
 
 /** List fetched proof-note tracking refs in stable order. */
-async function receiptTrackingRefs(root: string): Promise<string[]> {
+async function proofTrackingRefs(root: string): Promise<string[]> {
   const result = await runGit(
     [
       "for-each-ref",
@@ -628,41 +628,41 @@ function notesIdentity(
 }
 
 /**
- * Merge already-fetched receipt histories, then attach one receipt to the
+ * Merge already-fetched proof histories, then attach one proof to the
  * landed commit. Every failure is returned as data; the caller has already
  * moved the trunk and must never roll it back for this record.
  */
 export async function writeProofNote(
   root: string,
   commit: string,
-  receipt: Proof | undefined,
+  proof: Proof | undefined,
   env: EnvReader = Deno.env,
 ): Promise<ProofNoteWriteData> {
-  if (receipt === undefined) {
+  if (proof === undefined) {
     return {
-      status: "missing_receipt",
+      status: "missing_proof",
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: [],
-      reason: "the validated gate marker carried no structured receipt",
+      reason: "the validated gate marker carried no structured proof",
     };
   }
   // The write-side half of the subject cross-check: never publish a durable
   // record whose display commit contradicts the commit it is attached to.
-  if (!receiptHeadMatchesCommit(receipt.head, commit)) {
+  if (!proofHeadMatchesCommit(proof.head, commit)) {
     return {
       status: "record_failed",
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: [],
       reason:
-        `the receipt names ${receipt.head}, which does not match the landed commit ${commit}`,
+        `the proof names ${proof.head}, which does not match the landed commit ${commit}`,
     };
   }
 
   const identity = notesIdentity(env);
   const mergedRefs: string[] = [];
-  for (const ref of await receiptTrackingRefs(root)) {
+  for (const ref of await proofTrackingRefs(root)) {
     const merge = await runGit(
       ["notes", `--ref=${PROOF_NOTES_SHORT_REF}`, "merge", ref],
       {
@@ -686,7 +686,7 @@ export async function writeProofNote(
     mergedRefs.push(ref);
   }
 
-  const body = canonicalProofNote(receipt, commit);
+  const body = canonicalProofNote(proof, commit);
   const existing = await runGit(
     ["notes", `--ref=${PROOF_NOTES_SHORT_REF}`, "show", commit],
     { cwd: root },
@@ -700,15 +700,15 @@ export async function writeProofNote(
         commit,
         merged_refs: mergedRefs,
         reason:
-          `the landed commit already carries a receipt note in a format this discern does not know (${parsed.format})`,
+          `the landed commit already carries a proof note in a format this discern does not know (${parsed.format})`,
       };
     }
-    // The same receipt already recorded — under either format generation — is
+    // The same proof already recorded — under either format generation — is
     // the idempotent success, not a conflict; notes are records, never rewritten.
     if (
       parsed !== undefined &&
-      JSON.stringify(canonicalProof(parsed.receipt)) ===
-        JSON.stringify(canonicalProof(receipt)) &&
+      JSON.stringify(canonicalProof(parsed.proof)) ===
+        JSON.stringify(canonicalProof(proof)) &&
       (parsed.subject === undefined || parsed.subject === commit)
     ) {
       return {
@@ -723,7 +723,7 @@ export async function writeProofNote(
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: mergedRefs,
-      reason: "the landed commit already has a different receipt note",
+      reason: "the landed commit already has a different proof note",
     };
   }
   if (existing.code !== 1) {
@@ -732,9 +732,7 @@ export async function writeProofNote(
       ref: PROOF_NOTES_REF,
       commit,
       merged_refs: mergedRefs,
-      reason: `could not inspect the landed receipt note: ${
-        gitReason(existing)
-      }`,
+      reason: `could not inspect the landed proof note: ${gitReason(existing)}`,
     };
   }
 
@@ -773,7 +771,7 @@ export async function writeProofNote(
 export interface LandedProofNote {
   readonly commit: string;
   readonly ref: string;
-  readonly receipt: Proof;
+  readonly proof: Proof;
   /** The payload's issuer assertion, when present. This read path does not
    * verify a signature or bind the assertion to a trusted identity. */
   readonly issuer?: ProofIssuer;
@@ -782,7 +780,7 @@ export interface LandedProofNote {
 }
 
 /**
- * What one commit's durable receipt lookup found: a bound, readable receipt
+ * What one commit's durable proof lookup found: a bound, readable proof
  * (`valid` is structural and subject validity, not signature verification);
  * an explicit refusal for a record in a newer format this binary cannot read
  * (never a silent miss — the evidence exists, the reader is too old); or
@@ -835,8 +833,8 @@ async function notePathsFromRef(
   return paths;
 }
 
-/** Whether an abbreviated receipt head identifies the full commit. */
-function receiptHeadMatchesCommit(head: string, commit: string): boolean {
+/** Whether an abbreviated proof head identifies the full commit. */
+function proofHeadMatchesCommit(head: string, commit: string): boolean {
   return /^[0-9a-f]{7,64}$/u.test(head) && commit.startsWith(head);
 }
 
@@ -844,19 +842,19 @@ function receiptHeadMatchesCommit(head: string, commit: string): boolean {
  * format's authority is the full-oid subject, with the display head kept
  * coherent; a legacy note's strongest binding is its abbreviated head. */
 function boundToCommit(
-  parsed: ParsedProofNote & { kind: "receipt" },
+  parsed: ParsedProofNote & { kind: "proof" },
   commit: string,
 ): boolean {
   if (parsed.subject !== undefined) {
     return parsed.subject === commit &&
-      receiptHeadMatchesCommit(parsed.receipt.head, commit);
+      proofHeadMatchesCommit(parsed.proof.head, commit);
   }
-  return receiptHeadMatchesCommit(parsed.receipt.head, commit);
+  return proofHeadMatchesCommit(parsed.proof.head, commit);
 }
 
 /**
- * Read one commit's durable receipt, preferring local truth. A readable bound
- * receipt on any ref wins; otherwise a record in an unknown newer format is
+ * Read one commit's durable proof, preferring local truth. A readable bound
+ * proof on any ref wins; otherwise a record in an unknown newer format is
  * reported as `unsupported` rather than dropped (ADR 0242).
  */
 export async function readProofNoteAt(
@@ -867,7 +865,7 @@ export async function readProofNoteAt(
     return { status: "missing" };
   }
   let unsupported: LandedProofReading | undefined;
-  const refs = [PROOF_NOTES_REF, ...await receiptTrackingRefs(root)];
+  const refs = [PROOF_NOTES_REF, ...await proofTrackingRefs(root)];
   for (const ref of refs) {
     const content = ref === PROOF_NOTES_REF
       ? await runGit(
@@ -896,7 +894,7 @@ export async function readProofNoteAt(
         status: "valid",
         commit,
         ref,
-        receipt: parsed.receipt,
+        proof: parsed.proof,
         ...(parsed.issuer !== undefined ? { issuer: parsed.issuer } : {}),
         ...(parsed.brief !== undefined ? { brief: parsed.brief } : {}),
       };
@@ -908,7 +906,7 @@ export async function readProofNoteAt(
 /**
  * Find a validated landing for `branch` on the trunk ancestry added after
  * `sinceCommit`. This is the durable bridge across an `await` continuation gap:
- * acceptance writes the receipt note before deleting the worktree and branch.
+ * acceptance writes the proof note before deleting the worktree and branch.
  */
 export async function findLandedProofNoteForBranch(
   root: string,
@@ -935,8 +933,8 @@ export async function findLandedProofNoteForBranch(
     const landed = await readProofNoteAt(root, commit);
     if (
       landed.status === "valid" &&
-      landed.receipt.branch === branch &&
-      landed.receipt.trunk === trunk
+      landed.proof.branch === branch &&
+      landed.proof.trunk === trunk
     ) {
       const { status: _status, ...note } = landed;
       return note;
@@ -956,7 +954,7 @@ export async function findLatestLandedProofNoteForBranch(
   trunk: string,
 ): Promise<LandedProofNote | undefined> {
   const targets = new Set<string>();
-  for (const ref of [PROOF_NOTES_REF, ...await receiptTrackingRefs(root)]) {
+  for (const ref of [PROOF_NOTES_REF, ...await proofTrackingRefs(root)]) {
     for (const target of (await notePathsFromRef(root, ref)).keys()) {
       targets.add(target);
     }
@@ -982,8 +980,8 @@ export async function findLatestLandedProofNoteForBranch(
     const landed = await readProofNoteAt(root, commit);
     if (
       landed.status === "valid" &&
-      landed.receipt.branch === branch &&
-      landed.receipt.trunk === trunk
+      landed.proof.branch === branch &&
+      landed.proof.trunk === trunk
     ) {
       const { status: _status, ...note } = landed;
       return note;
@@ -992,7 +990,7 @@ export async function findLatestLandedProofNoteForBranch(
   return undefined;
 }
 
-/** Read the configured trunk tip's durable receipt, preferring local truth. */
+/** Read the configured trunk tip's durable proof, preferring local truth. */
 export async function readLandedProofNote(
   root: string,
   trunk: string,

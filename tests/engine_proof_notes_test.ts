@@ -62,7 +62,7 @@ function receiptConfig(mode: "local" | "fetch"): string {
 
 interface Landing {
   readonly target: string;
-  readonly receipt: Proof;
+  readonly proof: Proof;
   readonly result: DiscernResult<AcceptData>;
 }
 
@@ -93,9 +93,9 @@ async function land(
   const done = await runAgent(worktree, ["done", "--json"], { env });
   assertEquals(done.code, 0, done.output);
   const doneResult = JSON.parse(done.stdout) as DiscernResult<GateData>;
-  const receipt = ProofSchema.parse(doneResult.data?.receipt);
+  const receipt = ProofSchema.parse(doneResult.data?.proof);
   const marker = await inspectGateProof(worktree);
-  assertEquals(marker.receipt_data, receipt);
+  assertEquals(marker.proof_data, receipt);
   const accepted = await runAgent(
     worktree,
     ["accept", "--confirmed", "--json"],
@@ -104,7 +104,7 @@ async function land(
   assertEquals(accepted.code, 0, accepted.output);
   const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;
   assertEquals(result.ok, true, accepted.output);
-  return { target, receipt, result };
+  return { target, proof: receipt, result };
 }
 
 /** Read one durable note and prove it is the strict current envelope, bound to
@@ -184,11 +184,11 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     await gitInit(dir);
 
     const first = await land(dir, "first");
-    assertEquals(first.result.data?.receipt_note?.fetch.status, "no_remote");
-    assertEquals(first.result.data?.receipt_note?.fetch.remotes, []);
-    assertEquals(first.result.data?.receipt_note?.fetch.added, []);
-    assertEquals(first.result.data?.receipt_note?.write.status, "recorded");
-    assertEquals(await noteAt(dir, first.target), first.receipt);
+    assertEquals(first.result.data?.proof_note?.fetch.status, "no_remote");
+    assertEquals(first.result.data?.proof_note?.fetch.remotes, []);
+    assertEquals(first.result.data?.proof_note?.fetch.added, []);
+    assertEquals(first.result.data?.proof_note?.write.status, "recorded");
+    assertEquals(await noteAt(dir, first.target), first.proof);
     assertEquals(await notesIdentity(dir), [
       DISCERN_MACHINE.name,
       DISCERN_MACHINE.email,
@@ -201,8 +201,8 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     const second = await land(dir, "second", {
       [DISCERN_NO_ATTRIBUTION]: "1",
     });
-    assertEquals(await noteAt(dir, first.target), first.receipt);
-    assertEquals(await noteAt(dir, second.target), second.receipt);
+    assertEquals(await noteAt(dir, first.target), first.proof);
+    assertEquals(await noteAt(dir, second.target), second.proof);
     assertEquals(await notesIdentity(dir, firstNotesTip), [
       DISCERN_MACHINE.name,
       DISCERN_MACHINE.email,
@@ -219,13 +219,13 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
     const statusResult = JSON.parse(status.stdout);
-    assertEquals(statusResult.data.landed_receipt, {
+    assertEquals(statusResult.data.landed_proof, {
       commit: second.target,
       commit_at: await gitOut(dir, "show", "-s", "--format=%cI", second.target),
       ref: PROOF_NOTES_REF,
-      receipt: second.receipt,
+      proof: second.proof,
     });
-    assertEquals(statusResult.data.landed_receipt_unsupported, undefined);
+    assertEquals(statusResult.data.landed_proof_unsupported, undefined);
 
     // A trunk tip whose note is a newer format major reports explicitly —
     // the evidence exists, this binary is too old to read it.
@@ -258,8 +258,8 @@ Deno.test("accept records matching receipt notes without a remote, status reads 
     const unreadStatus = await runAgent(dir, ["status", "--json"]);
     assertEquals(unreadStatus.code, 0, unreadStatus.output);
     const unreadResult = JSON.parse(unreadStatus.stdout);
-    assertEquals(unreadResult.data.landed_receipt, undefined);
-    assertEquals(unreadResult.data.landed_receipt_unsupported, {
+    assertEquals(unreadResult.data.landed_proof, undefined);
+    assertEquals(unreadResult.data.landed_proof_unsupported, {
       commit: newerCommit,
       ref: PROOF_NOTES_REF,
       format: newerFormat,
@@ -374,7 +374,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
 
     const fetchedLanding = await land(dir, "fetched");
     assertEquals(
-      fetchedLanding.result.data?.receipt_note?.fetch.status,
+      fetchedLanding.result.data?.proof_note?.fetch.status,
       "unchanged",
     );
     assertHasHint(
@@ -382,12 +382,12 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
       HINTS["accept-publish-receipt-note"],
     );
     assertEquals(
-      fetchedLanding.result.data?.receipt_note?.write.status,
+      fetchedLanding.result.data?.proof_note?.write.status,
       "recorded",
     );
     assertEquals(
       await noteAt(dir, fetchedLanding.target),
-      fetchedLanding.receipt,
+      fetchedLanding.proof,
     );
 
     await git(dir, "push");
@@ -409,7 +409,7 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     await git(dir, "push", "origin", PROOF_NOTES_REF);
     assertEquals(
       await noteAt(remote, fetchedLanding.target),
-      fetchedLanding.receipt,
+      fetchedLanding.proof,
     );
     const remoteNotesTip = await gitOut(
       remote,
@@ -443,19 +443,19 @@ Deno.test("receipt-note transport is opt-in, fetch-only, managed, and leaves pla
     assertEquals(fetchedStatus.code, 0, fetchedStatus.output);
     const fetchedStatusResult = JSON.parse(fetchedStatus.stdout);
     assertEquals(
-      fetchedStatusResult.data.landed_receipt.ref,
+      fetchedStatusResult.data.landed_proof.ref,
       trackingRef,
     );
     assertEquals(
-      fetchedStatusResult.data.landed_receipt.receipt,
-      fetchedLanding.receipt,
+      fetchedStatusResult.data.landed_proof.proof,
+      fetchedLanding.proof,
     );
 
     await git(dir, "update-ref", "-d", trackingRef);
     const siblingOnlyStatus = await runAgent(dir, ["status", "--json"]);
     assertEquals(siblingOnlyStatus.code, 0, siblingOnlyStatus.output);
     assertEquals(
-      JSON.parse(siblingOnlyStatus.stdout).data.landed_receipt,
+      JSON.parse(siblingOnlyStatus.stdout).data.landed_proof,
       undefined,
       "receipt refs that only share discern's reserved prefix must not be read as landing receipts",
     );
@@ -561,7 +561,7 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
     ) as DiscernResult<RefreshData>;
     assertEquals(migratedResult.ok, true);
     assert(
-      migratedResult.data?.receipt_notes_fetch_changed?.includes(key),
+      migratedResult.data?.proof_notes_fetch_changed?.includes(key),
       migrated.output,
     );
     const migratedFetches = await localConfigValues(dir, key);
@@ -626,15 +626,15 @@ Deno.test("receipt-note fetch reconciliation migrates managed exact mappings and
     const landing = await land(dir, "unowned-exact");
     assertEquals(landing.result.ok, true);
     assertEquals(
-      landing.result.data?.receipt_note?.fetch.status,
+      landing.result.data?.proof_note?.fetch.status,
       "failed",
     );
     assertEquals(
-      landing.result.data?.receipt_note?.fetch.errors,
+      landing.result.data?.proof_note?.fetch.errors,
       collisionResult.data?.errors,
     );
     assertEquals(
-      landing.result.data?.receipt_note?.write.status,
+      landing.result.data?.proof_note?.write.status,
       "recorded",
     );
     assertLacksHint(
@@ -745,7 +745,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       status: "valid",
       commit: wantedCommit,
       ref: PROOF_NOTES_REF,
-      receipt: wantedProof,
+      proof: wantedProof,
     });
     ProofNoteSchema.parse(
       JSON.parse(canonicalProofNote(wantedProof, wantedCommit)),
@@ -760,7 +760,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       {
         commit: wantedCommit,
         ref: PROOF_NOTES_REF,
-        receipt: wantedProof,
+        proof: wantedProof,
       },
     );
     assertEquals(
@@ -792,7 +792,7 @@ Deno.test("receipt-note lookup binds the branch to newly landed trunk ancestry",
       {
         commit: wantedCommit,
         ref: PROOF_NOTES_REF,
-        receipt: wantedProof,
+        proof: wantedProof,
       },
       "the newest matching receipt wins even when another branch landed later",
     );
@@ -913,7 +913,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       status: "valid",
       commit: legacyCommit,
       ref: PROOF_NOTES_REF,
-      receipt: legacyProof,
+      proof: legacyProof,
     });
 
     // A pre-split same-major envelope still reads. Unknown additive fields in
@@ -967,7 +967,7 @@ Deno.test("the durable reader accepts legacy and newer same-major notes, and ref
       status: "valid",
       commit: futureCommit,
       ref: PROOF_NOTES_REF,
-      receipt: futureProof,
+      proof: futureProof,
       issuer: { name: "Future Owner" },
       brief: "brief-0042",
     });
@@ -1218,10 +1218,10 @@ Deno.test("a post-landing note identity failure is carried without failing accep
     const result = JSON.parse(accepted.stdout) as DiscernResult<AcceptData>;
     assertEquals(result.ok, true);
     assertEquals(
-      result.data?.receipt_note?.write.status,
+      result.data?.proof_note?.write.status,
       "record_failed",
     );
-    assert((result.data?.receipt_note?.write.reason?.length ?? 0) > 0);
+    assert((result.data?.proof_note?.write.reason?.length ?? 0) > 0);
     assertEquals(await gitOut(dir, "rev-parse", "main"), target);
   });
 });

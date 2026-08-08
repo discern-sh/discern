@@ -47,11 +47,11 @@ Deno.test("done --json: a fresh gate runs only its embedded format job", async (
     assertEquals(obj.ok, true);
     assertEquals(obj.verb, "done");
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_receipt.status, "recorded");
+    assertEquals(obj.data.gate_proof.status, "recorded");
     assert(
-      typeof obj.data.gate_receipt.path === "string" &&
-        obj.data.gate_receipt.path.length > 0,
-      `expected a receipt path, got ${JSON.stringify(obj.data.gate_receipt)}`,
+      typeof obj.data.gate_proof.path === "string" &&
+        obj.data.gate_proof.path.length > 0,
+      `expected a receipt path, got ${JSON.stringify(obj.data.gate_proof)}`,
     );
     // A fresh install wires only discern's own formatter. Project-specific
     // capabilities remain unset until setup discovers the stack.
@@ -100,7 +100,7 @@ Deno.test("done --json: trunk advancing during a green gate warns and still reco
     const obj = parseJson(r.stdout);
     assertEquals(obj.ok, true);
     assertEquals(obj.data.failed_stage, null);
-    assertEquals(obj.data.gate_receipt.status, "recorded");
+    assertEquals(obj.data.gate_proof.status, "recorded");
     assertEquals(await gateProofHonored(wt), true);
     assert(
       (await gitOut(dir, "rev-parse", "main")) !== mainBefore,

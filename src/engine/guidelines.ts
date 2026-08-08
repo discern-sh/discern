@@ -164,7 +164,7 @@ function refreshData(result: GuidelinesResult): RefreshData {
     hooks_wired: result.hooksWired,
     worktree_app_wired: result.worktreeAppWired,
     project_rules_wired: result.projectRulesWired,
-    receipt_notes_fetch_changed: result.receiptNotesFetchChanged,
+    proof_notes_fetch_changed: result.receiptNotesFetchChanged,
     adr_index_written: result.adrIndexWritten,
     skills: {
       copied: result.skillsCopied,

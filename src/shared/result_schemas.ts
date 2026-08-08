@@ -243,7 +243,7 @@ const changedFileSchema = z.strictObject({
 });
 
 /**
- * The **receipt** — the deterministic review claim a green gate emits over a
+ * The **proof** — the deterministic review claim a green gate emits over a
  * clean committed tree, in two renderings from one set of facts (ADR 0188): the
  * branch, the validated commit (`head`, abbreviated), and the whole-diff stats
  * vs the trunk; `line` — the one sentence an agent closes its report with; and
@@ -275,33 +275,33 @@ const PROOF_FIELDS = {
 export const ProofSchema = z.strictObject(PROOF_FIELDS).meta({
   id: "DiscernProof",
   description:
-    "The structured receipt a green gate emits over a clean committed tree: " +
+    "The structured proof a green gate emits over a clean committed tree: " +
     "the branch, trunk, validated commit (abbreviated for display), " +
     "whole-diff stats, and the two renderings derived from those facts.",
 });
 export type Proof = z.infer<typeof ProofSchema>;
 
-/** Compatibility readers' view of an earlier or structurally wider receipt.
- * Unknown fields remain readable but never enter the strict runtime receipt. */
+/** Compatibility readers' view of an earlier or structurally wider proof.
+ * Unknown fields remain readable but never enter the strict runtime proof. */
 export const TolerantProofSchema = z.looseObject(PROOF_FIELDS);
 
-/** Project a tolerant or structurally wider receipt onto the strict runtime
+/** Project a tolerant or structurally wider proof onto the strict runtime
  * fields in one fixed order. Every compatibility reader shares this boundary. */
-export function canonicalProof(receipt: Proof): Proof {
+export function canonicalProof(proof: Proof): Proof {
   return {
-    branch: receipt.branch,
-    trunk: receipt.trunk,
-    head: receipt.head,
-    files_total: receipt.files_total,
-    insertions: receipt.insertions,
-    deletions: receipt.deletions,
-    line: receipt.line,
-    markdown: receipt.markdown,
+    branch: proof.branch,
+    trunk: proof.trunk,
+    head: proof.head,
+    files_total: proof.files_total,
+    insertions: proof.insertions,
+    deletions: proof.deletions,
+    line: proof.line,
+    markdown: proof.markdown,
   };
 }
 
 // ── the durable proof note (ADR 0242) ───────────────────────────────────────
-// The landed receipt travels as a DSSE-compatible envelope under the proof
+// The landed proof travels as a DSSE-compatible envelope under the proof
 // name (ADR 0245). `payloadType` and the decoded `payload` bytes are the
 // future signature input; the payload owns the full-object-id subject, the
 // proof claim, the issuer assertion, and the brief reference.
@@ -355,7 +355,7 @@ export const ProofNoteSignatureSchema = z.strictObject({
 });
 
 /** The closed structured claim a durable proof makes about one green gate run.
- * Runtime receipt telemetry cannot enter this schema by composition. */
+ * Runtime proof telemetry cannot enter this schema by composition. */
 export const DurableProofClaimSchema = z.strictObject(
   DURABLE_PROOF_FACT_FIELDS,
 ).meta({
@@ -538,8 +538,8 @@ export type LandingAuthorityData = z.infer<typeof LandingAuthorityDataSchema>;
 /** `done` — the gate's own concerns ({@link import("../engine/gate/plan.ts").GateData}).
  * `failed_stage` is the closed {@link FAILED_STAGES} vocabulary (derived here, not
  * hand-listed), so the wire enum and the engine's `FailedStage` type can never drift.
- * `receipt` is present on a green run over a clean committed tree ahead of the
- * trunk — the review-moment summary; `gate_receipt` reports how recording it in the
+ * `proof` is present on a green run over a clean committed tree ahead of the
+ * trunk — the review-moment summary; `gate_proof` reports how recording it in the
  * marker file went. `standards`/`standards_limits` are present when `[standards]`
  * is configured: the per-standard measurement outcomes and the never-loosen
  * verification against the trunk. */
@@ -549,8 +549,8 @@ export const GateDataSchema = z.strictObject({
   standards: z.array(GateStandardSchema).optional(),
   standards_limits: StandardsLimitsSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
-  receipt: ProofSchema.optional(),
-  gate_receipt: z.strictObject({
+  proof: ProofSchema.optional(),
+  gate_proof: z.strictObject({
     status: z.enum([
       "recorded",
       "skipped_dirty",
@@ -566,8 +566,8 @@ export const GateDataSchema = z.strictObject({
 });
 export type GateData = z.infer<typeof GateDataSchema>;
 
-/** How a recorded receipt stands against the current worktree and HEAD.
- * `receipt` and `receipt_line` are present only when the marker is honored; the
+/** How a recorded proof stands against the current worktree and HEAD.
+ * `proof` and `proof_line` are present only when the marker is honored; the
  * remaining statuses preserve why it is not. Inspection never reruns the gate. */
 export const GATE_PROOF_CHECK_STATUSES = [
   "honored",
@@ -585,17 +585,17 @@ export const GateProofCheckSchema = z.strictObject({
   recorded: z.string().optional(),
   head: z.string().optional(),
   reason: z.string().optional(),
-  receipt: z.string().optional(),
-  receipt_line: z.string().optional(),
-  /** The structured receipt cached by current writers. Older markers carry only
+  proof: z.string().optional(),
+  proof_line: z.string().optional(),
+  /** The structured proof cached by current writers. Older markers carry only
    * the rendered forms and therefore omit this field. */
-  receipt_data: ProofSchema.optional(),
+  proof_data: ProofSchema.optional(),
 });
 export type GateProofCheckData = z.infer<typeof GateProofCheckSchema>;
 
 const GateValidationSchema = z.strictObject({
-  mode: z.enum(["receipt", "rerun"]),
-  receipt: GateProofCheckSchema,
+  mode: z.enum(["proof", "rerun"]),
+  proof: GateProofCheckSchema,
 });
 export type GateValidationData = z.infer<typeof GateValidationSchema>;
 
@@ -609,7 +609,7 @@ export const RefreshDataSchema = z.strictObject({
   hooks_wired: z.array(z.string()),
   worktree_app_wired: z.array(z.string()),
   project_rules_wired: z.array(z.string()),
-  receipt_notes_fetch_changed: z.array(z.string()).optional(),
+  proof_notes_fetch_changed: z.array(z.string()).optional(),
   adr_index_written: z.array(z.string()),
   skills: z.strictObject({
     copied: z.number(),
@@ -725,8 +725,8 @@ export const AWAIT_RETRY_BASES = [
 export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
 
 /** What one `await` evaluation observed — always authoritative state (a git
- * ancestry read, a receipt inspection), never logbook history. Per-condition:
- * `green` carries the sibling receipt's status ({@link GateProofCheckSchema}
+ * ancestry read, a proof inspection), never logbook history. Per-condition:
+ * `green` carries the sibling proof's status ({@link GateProofCheckSchema}
  * statuses, plus `no-worktree` when no checkout holds the branch) and the
  * sibling `worktree` path; `landed`/`green` carry the latest observed `tip` sha and
  * whether it `landed`; `trunk-moved` carries the trunk sha at call start and
@@ -734,7 +734,7 @@ export const AWAIT_TIMEOUT_BASES = AWAIT_RETRY_BASES;
  * `behind`/`incoming_overlap`/`overlap_total` preview it (the same hot-zone
  * read `status` reports). */
 const awaitObservedSchema = z.strictObject({
-  receipt_status: z.enum([
+  proof_status: z.enum([
     "honored",
     "missing",
     "stale",
@@ -818,7 +818,7 @@ export const ProofNoteWriteSchema = z.strictObject({
     "recorded",
     "already_present",
     "record_failed",
-    "missing_receipt",
+    "missing_proof",
   ]),
   ref: z.string(),
   commit: z.string(),
@@ -853,16 +853,16 @@ export const AcceptDataSchema = z.strictObject({
   /** Non-blocking authority evidence the caller should surface. */
   authority_warnings: z.array(z.string()).optional(),
   gate_validation: GateValidationSchema.optional(),
-  /** The receipt markdown for the tree that landed — the landing record, pasteable
+  /** The proof markdown for the tree that landed — the landing record, pasteable
    * into a PR body (from the honored marker on the fast path, or the fresh gate run
    * on the slow path; absent when neither carried one). */
-  receipt: z.string().optional(),
-  /** The system-rendered one-line receipt for the tree that landed. Agents relay
+  proof: z.string().optional(),
+  /** The system-rendered one-line proof for the tree that landed. Agents relay
    * this field verbatim at the end of their landing report. */
-  receipt_line: z.string().optional(),
-  /** Repository-resident receipt recording and its optional fetch transport.
+  proof_line: z.string().optional(),
+  /** Repository-resident proof recording and its optional fetch transport.
    * Both run after the trunk moves and therefore fail open. */
-  receipt_note: AcceptProofNoteSchema.optional(),
+  proof_note: AcceptProofNoteSchema.optional(),
   ignored_file_changes: z.strictObject({
     status: z.enum([
       "disabled",
@@ -881,11 +881,11 @@ export type AcceptData = z.infer<typeof AcceptDataSchema>;
 // update ─────────────────────────────────────────────────────────────────────
 
 /** One commit an integration brought in — {@link branchCommitSchema}, the shape
- * shared with the receipt's commit list. */
+ * shared with the proof's commit list. */
 const updateCommitSchema = branchCommitSchema;
 
 /** One file an integration changed beneath the branch — {@link changedFileSchema},
- * the shape shared with the receipt's diffstat. */
+ * the shape shared with the proof's diffstat. */
 const updateFileSchema = changedFileSchema;
 
 /** The SHA anchors bounding an integration — an agent diffs/logs against these to
@@ -1029,18 +1029,18 @@ const statusFleetEntrySchema = z.strictObject({
    * self-heals next session isn't either). Not a healthy fleet member; the
    * hints carry the removal path (`discern worktree drop`). */
   broken: z.boolean().optional(),
-  /** Present (true) when the row's clean HEAD has an honored receipt from
-   * `discern done` — reviewable without visiting the worktree. `receipt` /
-   * `receipt_line` carry the stored page and one-line form when the marker
+  /** Present (true) when the row's clean HEAD has an honored proof from
+   * `discern done` — reviewable without visiting the worktree. `proof` /
+   * `proof_line` carry the stored page and one-line form when the marker
    * recorded them (ADR 0188), so a supervisor at the main checkout reads the
    * review summary from here (`--verbose` prints it interactively). */
-  receipt_honored: z.boolean().optional(),
-  receipt: z.string().optional(),
-  receipt_line: z.string().optional(),
-  /** The complete receipt inspection for this worktree. Existing honored-only
+  proof_honored: z.boolean().optional(),
+  proof: z.string().optional(),
+  proof_line: z.string().optional(),
+  /** The complete proof inspection for this worktree. Existing honored-only
    * fields stay for compatibility; this additive field preserves missing,
    * stale, dirty, unavailable, and read-failed states too. */
-  gate_receipt: GateProofCheckSchema.optional(),
+  gate_proof: GateProofCheckSchema.optional(),
   landing_authority: LandingAuthorityDataSchema.optional(),
 });
 export type StatusFleetEntry = z.infer<typeof statusFleetEntrySchema>;
@@ -1079,23 +1079,23 @@ export const StatusDataSchema = z.strictObject({
   scopes: z.array(z.string()).optional(),
   gate: statusGateSchema.optional(),
   standards: z.array(z.string()),
-  gate_receipt: GateProofCheckSchema.optional(),
-  landed_receipt: z.strictObject({
+  gate_proof: GateProofCheckSchema.optional(),
+  landed_proof: z.strictObject({
     commit: z.string(),
     /** Committer timestamp for the landed commit, when Git can read it. */
     commit_at: z.string().optional(),
     ref: z.string(),
-    receipt: ProofSchema,
+    proof: ProofSchema,
     /** The payload's issuer assertion, when present. This field does not mean
      * the signature or the asserted identity has been verified. */
     issuer: ProofIssuerSchema.optional(),
     /** The durable record's signed-intent reference, when it carries one. */
     brief: z.string().optional(),
   }).optional(),
-  /** The trunk tip carries a receipt note in a format this binary cannot read
+  /** The trunk tip carries a proof note in a format this binary cannot read
    * (a newer major). Explicit, so a mixed-version clone sees that evidence
-   * exists instead of "no receipt" (ADR 0242). */
-  landed_receipt_unsupported: z.strictObject({
+   * exists instead of "no proof" (ADR 0242). */
+  landed_proof_unsupported: z.strictObject({
     commit: z.string(),
     ref: z.string(),
     format: z.string(),

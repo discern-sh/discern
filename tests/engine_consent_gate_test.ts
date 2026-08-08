@@ -182,7 +182,7 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
     assertEquals(env.verb, "accept");
     assertEquals(env.data.consent, { source: "conversation" });
     assertStringIncludes(
-      env.data.receipt_line,
+      env.data.proof_line,
       "landed with conversation consent",
     );
     // The landing happened: worktree gone, branch work on the trunk, receipt carried.
@@ -191,7 +191,7 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
       await exists(join(dir, "feature.txt")),
       "branch work should be on the trunk",
     );
-    assertStringIncludes(env.data.receipt, "### Receipt");
+    assertStringIncludes(env.data.proof, "### Receipt");
   });
 });
 

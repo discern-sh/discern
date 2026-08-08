@@ -70,7 +70,7 @@ Acceptance landed on main, but checkout-local Agent artifacts could not be mater
 Rendered example:
 
 ```text
-Report the landing in your own words, then end your response with `data.receipt_line` verbatim. `data.receipt` is the full landing record; paste that Markdown into a PR body when one exists.
+Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.
 ```
 
 ## `accept-review-via-status`
@@ -83,7 +83,7 @@ Report the landing in your own words, then end your response with `data.receipt_
 Rendered example:
 
 ```text
-Run `discern status` to get the honored receipt for the owner's review (data.gate_receipt.receipt) and the exact `git diff` command for the raw change.
+Run `discern status` to get the honored receipt for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
 ```
 
 ## `adr-index-stale`
@@ -726,7 +726,7 @@ Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 erro
 Rendered example:
 
 ```text
-The receipt's clean HEAD is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.receipt_line` afterward.
+The receipt's clean HEAD is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
 ```
 
 ## `gate-previewable-change`
@@ -830,7 +830,7 @@ Gate passed, but discern could not prepare the gate receipt (write authority was
 Rendered example:
 
 ```text
-If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.receipt.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
+If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full receipt: your owner pulls it with `discern status --verbose`. Run `discern accept` only after they accept.
 ```
 
 ## `gate-relay-uncovered-authority`
@@ -843,7 +843,7 @@ If this completes the task, report it to your owner in your own words — the ch
 Rendered example:
 
 ```text
-Report this task to your owner in your own words, end with `data.receipt.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Don't paste the full receipt: your owner pulls it with `discern status --verbose`.
+Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Don't paste the full receipt: your owner pulls it with `discern status --verbose`.
 ```
 
 ## `gate-standards-limits-unverified`
@@ -1861,7 +1861,7 @@ Run `discern start` to begin work. There are no active worktrees.
 Rendered example:
 
 ```text
-Report this branch to your owner in your own words and end with the receipt in `data.gate_receipt.receipt_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
+Report this branch to your owner in your own words and end with the receipt in `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Don't paste the full receipt: your owner pulls it with `discern status --verbose`, and the raw diff with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 ```
 
 ## `status-ready-uncovered-authority`
@@ -1874,7 +1874,7 @@ Report this branch to your owner in your own words and end with the receipt in `
 Rendered example:
 
 ```text
-Report this branch to your owner and end with `data.gate_receipt.receipt_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
+Report this branch to your owner and end with `data.gate_proof.proof_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
 ```
 
 ## `status-start-off-trunk`

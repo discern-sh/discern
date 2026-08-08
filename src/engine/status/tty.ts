@@ -209,14 +209,14 @@ function fileCount(count: number): string {
 
 /** Resolve the new full inspection field with compatibility fallbacks. */
 function receiptFromEntry(entry: StatusFleetEntry): GateProofCheckData {
-  if (entry.gate_receipt !== undefined) return entry.gate_receipt;
-  if (entry.receipt_honored === true) {
+  if (entry.gate_proof !== undefined) return entry.gate_proof;
+  if (entry.proof_honored === true) {
     return {
       status: "honored",
-      ...(entry.receipt === undefined ? {} : { receipt: entry.receipt }),
-      ...(entry.receipt_line === undefined
+      ...(entry.proof === undefined ? {} : { receipt: entry.proof }),
+      ...(entry.proof_line === undefined
         ? {}
-        : { receipt_line: entry.receipt_line }),
+        : { proof_line: entry.proof_line }),
     };
   }
   if (entry.clean === false) return { status: "dirty" };
@@ -1047,18 +1047,16 @@ function localEntry(data: StatusData): StatusFleetEntry | undefined {
     }),
     ...(data.worktree?.id === undefined ? {} : { id: data.worktree.id }),
     ...(data.worktree?.port === undefined ? {} : { port: data.worktree.port }),
-    ...(data.gate_receipt === undefined
-      ? {}
-      : { gate_receipt: data.gate_receipt }),
-    ...(data.gate_receipt?.status === "honored"
+    ...(data.gate_proof === undefined ? {} : { gate_proof: data.gate_proof }),
+    ...(data.gate_proof?.status === "honored"
       ? {
-        receipt_honored: true,
-        ...(data.gate_receipt.receipt === undefined
+        proof_honored: true,
+        ...(data.gate_proof.proof === undefined
           ? {}
-          : { receipt: data.gate_receipt.receipt }),
-        ...(data.gate_receipt.receipt_line === undefined
+          : { receipt: data.gate_proof.proof }),
+        ...(data.gate_proof.proof_line === undefined
           ? {}
-          : { receipt_line: data.gate_receipt.receipt_line }),
+          : { proof_line: data.gate_proof.proof_line }),
       }
       : {}),
     ...(data.landing_authority === undefined
@@ -1204,9 +1202,9 @@ function renderLastLanding(
   c: Palette,
   nowMs: number,
 ): string[] {
-  if (data.landed_receipt !== undefined) {
-    const receipt = data.landed_receipt.receipt;
-    const age = relativeAge(data.landed_receipt.commit_at, nowMs);
+  if (data.landed_proof !== undefined) {
+    const receipt = data.landed_proof.proof;
+    const age = relativeAge(data.landed_proof.commit_at, nowMs);
     return wrappedField(
       "Last landing",
       `${tone("passed", "green", c)} · ${
@@ -1219,12 +1217,12 @@ function renderLastLanding(
       width,
     );
   }
-  if (data.landed_receipt_unsupported !== undefined) {
+  if (data.landed_proof_unsupported !== undefined) {
     return wrappedField(
       "Last landing",
       `${
-        data.landed_receipt_unsupported.commit.slice(0, 12)
-      } · receipt unavailable in this discern version (${data.landed_receipt_unsupported.format})`,
+        data.landed_proof_unsupported.commit.slice(0, 12)
+      } · receipt unavailable in this discern version (${data.landed_proof_unsupported.format})`,
       width,
     );
   }
@@ -1294,10 +1292,10 @@ function renderVerboseProofs(
       },
     );
   };
-  add("Last landed receipt", data.landed_receipt?.receipt.markdown);
-  add("Current worktree receipt", data.gate_receipt?.receipt);
+  add("Last landed receipt", data.landed_proof?.proof.markdown);
+  add("Current worktree receipt", data.gate_proof?.proof);
   for (const row of rows) {
-    add(`Receipt · ${row.identity.primary}`, row.entry.receipt);
+    add(`Receipt · ${row.identity.primary}`, row.entry.proof);
   }
   return blocks;
 }

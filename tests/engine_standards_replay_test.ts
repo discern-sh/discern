@@ -48,7 +48,7 @@ interface GateJson {
       verdict?: string;
       replayed_from?: string;
     }>;
-    receipt?: { markdown: string };
+    proof?: { markdown: string };
   };
 }
 
@@ -312,7 +312,7 @@ Deno.test("replay: the receipt names the replay's source commit", async () => {
 
     const r = await runAgent(dir, ["done", "--json"]);
     assertEquals(r.code, 0, r.output);
-    const markdown = parseGate(r.stdout).data?.receipt?.markdown ?? "";
+    const markdown = parseGate(r.stdout).data?.proof?.markdown ?? "";
     assertStringIncludes(markdown, "replayed from");
     assertStringIncludes(markdown, baseline.slice(0, 7));
     assertStringIncludes(markdown, "inputs unchanged");

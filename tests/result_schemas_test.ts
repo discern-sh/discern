@@ -1378,7 +1378,7 @@ Deno.test("accept result is faithful (dry-run plan and applied gate-validation d
 
     const applied = await acceptResult(ctx, { confirmed: true });
     assertEquals(applied.ok, true);
-    assertEquals(applied.data?.gate_validation?.mode, "receipt");
+    assertEquals(applied.data?.gate_validation?.mode, "proof");
     assertEquals(
       (applied.data as unknown as { landing?: unknown } | undefined)?.landing,
       {

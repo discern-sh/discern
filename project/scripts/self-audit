@@ -91,7 +91,7 @@ try {
   console.log(`Location: ${data.location || "unknown"}`);
   console.log(`Branch: ${git.branch || "unknown"} -> ${git.trunk || "main"}`);
   console.log(`Git: ${git.clean ? "clean" : `${changedFiles} changed`} (${ahead} ahead, ${behind} behind)`);
-  console.log(`Gate receipt: ${gateReceipt(data.gate_receipt)}`);
+  console.log(`Gate receipt: ${gateReceipt(data.gate_proof)}`);
   console.log(`Changed scopes: ${list(scopes)}`);
   console.log(`Gate wiring: ${list(gate.capabilities)}; checks: ${list(gate.checks)}`);
   console.log(`Scope gates: ${list(gate.scope_gates)}`);

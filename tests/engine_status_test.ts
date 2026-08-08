@@ -236,7 +236,7 @@ Deno.test("status: from the main checkout, the default leads with the fleet (and
     const alpha = obj.data.fleet.find(
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
-    assertEquals(alpha.gate_receipt.status, "missing");
+    assertEquals(alpha.gate_proof.status, "missing");
     // Every row carries a recent last_activity (an ISO timestamp).
     for (const e of obj.data.fleet) {
       assert(
@@ -915,7 +915,7 @@ Deno.test("status: a dirty worktree hints to prepare while iterating and finish 
     assertHasHint(obj, HINTS["status-dirty-worktree-scoped"], {
       scopes: ["web"],
     });
-    assertEquals(obj.data.gate_receipt.status, "missing");
+    assertEquals(obj.data.gate_proof.status, "missing");
   });
 });
 
@@ -947,7 +947,7 @@ Deno.test("status: an untracked project file makes local and fleet status dirty"
     assertEquals(human.code, 0, human.output);
     assertStringIncludes(human.output, "agent/scratch");
     assertStringIncludes(human.output, "1 file changed");
-    assertEquals(row.gate_receipt.status, "missing");
+    assertEquals(row.gate_proof.status, "missing");
   });
 });
 
@@ -998,7 +998,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
-    assertEquals(obj.data.gate_receipt.status, "missing");
+    assertEquals(obj.data.gate_proof.status, "missing");
     assertHasHint(obj, HINTS["status-missing-done-receipt"], {
       trunk: "main",
     });
@@ -1018,7 +1018,7 @@ Deno.test("status: a clean worktree ahead of main without a receipt asks for fin
     const fleetRow = fleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
-    assertEquals(fleetRow.gate_receipt.status, "missing");
+    assertEquals(fleetRow.gate_proof.status, "missing");
   });
 });
 
@@ -1040,12 +1040,12 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     assertEquals(obj.data.git.clean, true);
     assertEquals(obj.data.git.ahead_trunk, 1);
     assertEquals(obj.data.git.behind_trunk, 0);
-    assertEquals(obj.data.gate_receipt.status, "honored");
+    assertEquals(obj.data.gate_proof.status, "honored");
     // The honored record carries the stored receipt page, and the one-line form
     // the review-ready hint tells the agent to end its report with.
-    assertStringIncludes(obj.data.gate_receipt.receipt, "### Receipt");
+    assertStringIncludes(obj.data.gate_proof.proof, "### Receipt");
     assertStringIncludes(
-      obj.data.gate_receipt.receipt_line,
+      obj.data.gate_proof.proof_line,
       "Receipt: gate passed on agent/alpha @ ",
     );
     assertHasHint(obj, HINTS["status-ready-for-review"], {
@@ -1080,11 +1080,11 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     const row = fleetObj.data.fleet.find(
       (e: { branch: string }) => e.branch === "agent/alpha",
     );
-    assertEquals(row.gate_receipt.status, "honored");
-    assertEquals(row.receipt_honored, true);
-    assertStringIncludes(row.receipt, "### Receipt — `agent/alpha`");
+    assertEquals(row.gate_proof.status, "honored");
+    assertEquals(row.proof_honored, true);
+    assertStringIncludes(row.proof, "### Receipt — `agent/alpha`");
     assertStringIncludes(
-      row.receipt_line,
+      row.proof_line,
       "Receipt: gate passed on agent/alpha @ ",
     );
 
@@ -1103,8 +1103,8 @@ Deno.test("status: a clean worktree ahead of main with a finish receipt is ready
     const dirtyRow = dirtyFleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
-    assertEquals(dirtyRow.gate_receipt.status, "dirty");
-    assertEquals(dirtyRow.receipt_honored, undefined);
+    assertEquals(dirtyRow.gate_proof.status, "dirty");
+    assertEquals(dirtyRow.proof_honored, undefined);
   });
 });
 
@@ -1134,7 +1134,7 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
     const local = parseStatus(
       (await runAgent(wt, ["status", "--json"])).stdout,
     );
-    assertEquals(local.data.gate_receipt.status, "honored");
+    assertEquals(local.data.gate_proof.status, "honored");
     assert(local.data.git.behind_trunk > 0, JSON.stringify(local.data));
     assertLacksHint(local, HINTS["status-ready-for-review"], {
       trunk: "main",
@@ -1152,7 +1152,7 @@ Deno.test("status: a behind worktree with an honored receipt is not ready for ow
     const fleetRow = fleet.data.fleet.find(
       (entry: { branch: string }) => entry.branch === "agent/alpha",
     );
-    assertEquals(fleetRow.gate_receipt.status, "honored");
+    assertEquals(fleetRow.gate_proof.status, "honored");
   });
 });
 
@@ -1173,10 +1173,10 @@ Deno.test("status: a landed receipt carries its commit time for the human age", 
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
     const result = parseStatus(status.stdout);
-    const commitAt = result.data.landed_receipt?.commit_at;
+    const commitAt = result.data.landed_proof?.commit_at;
     assert(
       typeof commitAt === "string" && !Number.isNaN(Date.parse(commitAt)),
-      JSON.stringify(result.data.landed_receipt),
+      JSON.stringify(result.data.landed_proof),
     );
     const human = await runAgent(dir, ["status"]);
     assertStringIncludes(human.output, "Last landing: passed");

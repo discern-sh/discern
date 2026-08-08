@@ -491,7 +491,7 @@ function notYetSummary(
   observed: AwaitData["observed"],
 ): string {
   if (condition === "green") {
-    const status = observed.receipt_status;
+    const status = observed.proof_status;
     const detail = status === "no-worktree"
       ? "no checkout holds it"
       : `receipt ${status ?? "unreadable"}`;
@@ -980,14 +980,14 @@ async function evaluateCondition(
   // too, but only after the branch armed the transition above or a durable
   // landed receipt note identifies the accepted work.
   const worktree = await worktreePathForBranch(root, branch);
-  let receiptStatus: NonNullable<AwaitData["observed"]["receipt_status"]> =
+  let receiptStatus: NonNullable<AwaitData["observed"]["proof_status"]> =
     "no-worktree";
   if (worktree !== undefined) {
     const receipt = await inspectGateProof(worktree);
     if (receipt.status === "honored") {
       return {
         met: true,
-        observed: { receipt_status: "honored", worktree, tip: state.tip },
+        observed: { proof_status: "honored", worktree, tip: state.tip },
         via: "receipt",
       };
     }
@@ -1029,7 +1029,7 @@ async function evaluateCondition(
   return {
     met: false,
     observed: {
-      receipt_status: receiptStatus,
+      proof_status: receiptStatus,
       tip: state.tip,
       ...(worktree !== undefined ? { worktree } : {}),
     },

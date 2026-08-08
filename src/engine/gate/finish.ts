@@ -1099,7 +1099,7 @@ async function runGate(
   // re-running the gate; a FAILED run clears any stale vouch. Write authority was a
   // fail-fast precondition; the writer remains best-effort only against a later
   // point-in-time failure, whose outcome rides in `data` for suppressed loggers.
-  const gateProof: NonNullable<GateData["gate_receipt"]> =
+  const gateProof: NonNullable<GateData["gate_proof"]> =
     writeAuthority === undefined
       ? {
         status: "unavailable",
@@ -1133,9 +1133,9 @@ async function runGate(
     ? await inspectLandingAuthority(root, mainBranch)
     : undefined;
   if (result.data !== undefined) {
-    result.data.gate_receipt = gateProof;
+    result.data.gate_proof = gateProof;
     if (emittedProof !== undefined) {
-      result.data.receipt = emittedProof;
+      result.data.proof = emittedProof;
     }
     const authorityProjection = landingAuthority === undefined
       ? undefined
@@ -1217,39 +1217,39 @@ async function runGate(
   };
 }
 
-/** Fire the post-gate hint that identifies the receipt bound to clean HEAD. */
+/** Fire the post-gate hint that identifies the proof bound to clean HEAD. */
 function gateProofHint(
-  receipt: NonNullable<GateData["gate_receipt"]>,
+  proof: NonNullable<GateData["gate_proof"]>,
   failedStage: FailedStage | null,
 ): FiredHint | undefined {
   if (failedStage === null) {
-    switch (receipt.status) {
+    switch (proof.status) {
       case "recorded":
         return undefined;
       case "skipped_dirty":
         return fire(HINTS["gate-receipt-skipped-dirty"], {
-          reason: receipt.reason,
+          reason: proof.reason,
         });
       case "skipped_head_moved":
         return fire(HINTS["gate-receipt-head-moved"], {
-          reason: receipt.reason,
+          reason: proof.reason,
         });
       case "record_failed":
         return fire(HINTS["gate-receipt-record-failed"], {
-          reason: receipt.reason,
+          reason: proof.reason,
         });
       case "unavailable":
         return fire(HINTS["gate-receipt-unavailable"], {
-          reason: receipt.reason,
+          reason: proof.reason,
         });
       case "cleared":
       case "clear_failed":
         return undefined;
     }
   }
-  if (receipt.status === "clear_failed") {
+  if (proof.status === "clear_failed") {
     return fire(HINTS["gate-receipt-clear-failed"], {
-      reason: receipt.reason,
+      reason: proof.reason,
     });
   }
   return undefined;
@@ -1352,7 +1352,7 @@ function printSuccessTail(
     }
   }
 
-  const receipt = result.data?.receipt;
+  const receipt = result.data?.proof;
   if (ttyWidth !== undefined && receipt !== undefined) {
     if (unfilled === STAGES.length) {
       out.ok(

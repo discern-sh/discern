@@ -6402,10 +6402,10 @@
                     "kind"
                   ]
                 },
-                "receipt": {
+                "proof": {
                   "$ref": "#/$defs/DiscernProof"
                 },
-                "gate_receipt": {
+                "gate_proof": {
                   "type": "object",
                   "properties": {
                     "status": {
@@ -8164,7 +8164,7 @@
                     "type": "string"
                   }
                 },
-                "receipt_notes_fetch_changed": {
+                "proof_notes_fetch_changed": {
                   "type": "array",
                   "items": {
                     "type": "string"
@@ -9483,7 +9483,7 @@
                 "observed": {
                   "type": "object",
                   "properties": {
-                    "receipt_status": {
+                    "proof_status": {
                       "type": "string",
                       "enum": [
                         "honored",
@@ -11520,7 +11520,7 @@
                     "type": "string"
                   }
                 },
-                "gate_receipt": {
+                "gate_proof": {
                   "type": "object",
                   "properties": {
                     "status": {
@@ -11546,13 +11546,13 @@
                     "reason": {
                       "type": "string"
                     },
-                    "receipt": {
+                    "proof": {
                       "type": "string"
                     },
-                    "receipt_line": {
+                    "proof_line": {
                       "type": "string"
                     },
-                    "receipt_data": {
+                    "proof_data": {
                       "$ref": "#/$defs/DiscernProof"
                     }
                   },
@@ -11560,7 +11560,7 @@
                     "status"
                   ]
                 },
-                "landed_receipt": {
+                "landed_proof": {
                   "type": "object",
                   "properties": {
                     "commit": {
@@ -11572,7 +11572,7 @@
                     "ref": {
                       "type": "string"
                     },
-                    "receipt": {
+                    "proof": {
                       "$ref": "#/$defs/DiscernProof"
                     },
                     "issuer": {
@@ -11600,10 +11600,10 @@
                   "required": [
                     "commit",
                     "ref",
-                    "receipt"
+                    "proof"
                   ]
                 },
-                "landed_receipt_unsupported": {
+                "landed_proof_unsupported": {
                   "type": "object",
                   "properties": {
                     "commit": {
@@ -11882,16 +11882,16 @@
                       "broken": {
                         "type": "boolean"
                       },
-                      "receipt_honored": {
+                      "proof_honored": {
                         "type": "boolean"
                       },
-                      "receipt": {
+                      "proof": {
                         "type": "string"
                       },
-                      "receipt_line": {
+                      "proof_line": {
                         "type": "string"
                       },
-                      "gate_receipt": {
+                      "gate_proof": {
                         "type": "object",
                         "properties": {
                           "status": {
@@ -11917,13 +11917,13 @@
                           "reason": {
                             "type": "string"
                           },
-                          "receipt": {
+                          "proof": {
                             "type": "string"
                           },
-                          "receipt_line": {
+                          "proof_line": {
                             "type": "string"
                           },
-                          "receipt_data": {
+                          "proof_data": {
                             "$ref": "#/$defs/DiscernProof"
                           }
                         },
@@ -12767,11 +12767,11 @@
                     "mode": {
                       "type": "string",
                       "enum": [
-                        "receipt",
+                        "proof",
                         "rerun"
                       ]
                     },
-                    "receipt": {
+                    "proof": {
                       "type": "object",
                       "properties": {
                         "status": {
@@ -12797,13 +12797,13 @@
                         "reason": {
                           "type": "string"
                         },
-                        "receipt": {
+                        "proof": {
                           "type": "string"
                         },
-                        "receipt_line": {
+                        "proof_line": {
                           "type": "string"
                         },
-                        "receipt_data": {
+                        "proof_data": {
                           "$ref": "#/$defs/DiscernProof"
                         }
                       },
@@ -12814,16 +12814,16 @@
                   },
                   "required": [
                     "mode",
-                    "receipt"
+                    "proof"
                   ]
                 },
-                "receipt": {
+                "proof": {
                   "type": "string"
                 },
-                "receipt_line": {
+                "proof_line": {
                   "type": "string"
                 },
-                "receipt_note": {
+                "proof_note": {
                   "type": "object",
                   "properties": {
                     "fetch": {
@@ -12889,7 +12889,7 @@
                             "recorded",
                             "already_present",
                             "record_failed",
-                            "missing_receipt"
+                            "missing_proof"
                           ]
                         },
                         "ref": {
@@ -16299,7 +16299,7 @@
         "line",
         "markdown"
       ],
-      "description": "The structured receipt a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
+      "description": "The structured proof a green gate emits over a clean committed tree: the branch, trunk, validated commit (abbreviated for display), whole-diff stats, and the two renderings derived from those facts."
     },
     "DiscernDoctorMcpToolResult": {
       "title": "DiscernDoctorMcpToolResult",

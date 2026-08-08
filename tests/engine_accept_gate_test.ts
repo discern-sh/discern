@@ -99,19 +99,19 @@ function parseJson(stdout: string): any {
 // deno-lint-ignore no-explicit-any
 function assertLandingProofRelay(obj: any, branch: string): void {
   assertStringIncludes(
-    obj.data.receipt,
+    obj.data.proof,
     `### Receipt — \`agent/${branch}\``,
   );
-  assertEquals(typeof obj.data.receipt_line, "string");
+  assertEquals(typeof obj.data.proof_line, "string");
   assertStringIncludes(
-    obj.data.receipt_line,
+    obj.data.proof_line,
     `Receipt: gate passed on agent/${branch} @ `,
   );
   const relayHint = assertHasHint(
     obj,
     HINTS["accept-relay-landing-receipt"],
   );
-  assertStringIncludes(relayHint, "data.receipt_line");
+  assertStringIncludes(relayHint, "data.proof_line");
   assertStringIncludes(relayHint, "verbatim");
 }
 
@@ -196,7 +196,7 @@ Deno.test("receipt: a pre-correction marker drops runtime telemetry", async () =
       preCorrection,
     );
     assertEquals(recorded.status, "recorded");
-    assertEquals((await inspectGateProof(dir)).receipt_data, receipt);
+    assertEquals((await inspectGateProof(dir)).proof_data, receipt);
   });
 });
 
@@ -477,8 +477,8 @@ Deno.test("accept: a fresh `done` lets accept skip the gate re-run (receipt fast
     const grad = await runAgent(wt, ["accept", "--confirmed", "--json"]);
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
-    assertEquals(obj.data.gate_validation.mode, "receipt");
-    assertEquals(obj.data.gate_validation.receipt.status, "honored");
+    assertEquals(obj.data.gate_validation.mode, "proof");
+    assertEquals(obj.data.gate_validation.proof.status, "honored");
     assertEquals(
       grad.output.includes("Validating the branch against the full gate"),
       false,
@@ -544,7 +544,7 @@ Deno.test("accept: with no prior `done`, accept runs the gate itself before land
     assertEquals(grad.code, 0, grad.output);
     const obj = parseJson(grad.stdout);
     assertEquals(obj.data.gate_validation.mode, "rerun");
-    assertEquals(obj.data.gate_validation.receipt.status, "missing");
+    assertEquals(obj.data.gate_validation.proof.status, "missing");
     assertEquals(grad.output.includes("JOB"), false);
     // The slow path's fresh gate run rendered both receipt forms — accept still
     // carries the same landing contract as the fast path.

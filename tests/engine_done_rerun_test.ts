@@ -126,7 +126,7 @@ Deno.test("done: an unchanged tree the gate judged GREEN refuses a bare rerun to
     // The confirmed rerun is green exactly as before, receipt included.
     const again = await runAgent(wt, ["done", "--confirmed", "--json"]);
     assertEquals(again.code, 0, again.output);
-    assertEquals(parseJson(again.stdout).data.gate_receipt.status, "recorded");
+    assertEquals(parseJson(again.stdout).data.gate_proof.status, "recorded");
   });
 });
 

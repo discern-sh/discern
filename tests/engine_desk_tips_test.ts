@@ -206,7 +206,7 @@ Deno.test("tip predicates evaluate over the survey the desk already holds", () =
     tipPredicateHolds(
       { kind: "ready-to-review" },
       contextOf({
-        fleet: [fleetEntry("agent/a", { receipt_honored: true })],
+        fleet: [fleetEntry("agent/a", { proof_honored: true })],
       }),
     ),
     true,

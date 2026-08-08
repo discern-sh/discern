@@ -300,19 +300,19 @@ export async function statusResult(
   if (landedProof.status === "valid") {
     const { status: _status, ...note } = landedProof;
     const commitAt = await landedCommitAt(root, note.commit);
-    data.landed_receipt = {
+    data.landed_proof = {
       ...note,
       ...(commitAt === undefined ? {} : { commit_at: commitAt }),
     };
   } else if (landedProof.status === "unsupported") {
     const { status: _status, ...unread } = landedProof;
-    data.landed_receipt_unsupported = unread;
+    data.landed_proof_unsupported = unread;
   }
   const gateProof = location === "worktree"
     ? await inspectGateProof(root)
     : undefined;
   if (gateProof !== undefined) {
-    data.gate_receipt = gateProof;
+    data.gate_proof = gateProof;
   }
   const landingAuthority = location === "worktree"
     ? await inspectLandingAuthority(root, mainBranch)
@@ -703,14 +703,14 @@ async function fleetEntryFor(
   // An honored row also carries the compatibility page and line fields.
   if (!row.isMain && entry.broken !== true && entry.git_unavailable !== true) {
     const receipt = await inspectGateProof(row.path);
-    entry.gate_receipt = receipt;
+    entry.gate_proof = receipt;
     if (receipt.status === "honored") {
-      entry.receipt_honored = true;
-      if (receipt.receipt !== undefined) {
-        entry.receipt = receipt.receipt;
+      entry.proof_honored = true;
+      if (receipt.proof !== undefined) {
+        entry.proof = receipt.proof;
       }
-      if (receipt.receipt_line !== undefined) {
-        entry.receipt_line = receipt.receipt_line;
+      if (receipt.proof_line !== undefined) {
+        entry.proof_line = receipt.proof_line;
       }
     }
     const authority = landingAuthorityProjection(
@@ -1151,10 +1151,10 @@ async function buildStatusHints(ctx: HintContext): Promise<FiredHint[]> {
           }),
         );
       }
-      // Review readiness was read once, into each row (`receipt_honored`), so the
+      // Review readiness was read once, into each row (`proof_honored`), so the
       // hint and the wire field cannot disagree.
       const ready = others.filter((e) =>
-        isReadyToLand(e, e.receipt_honored === true)
+        isReadyToLand(e, e.proof_honored === true)
       );
       const authorizedReady = ready.filter((e) =>
         e.landing_authority?.kind === "authorized"
