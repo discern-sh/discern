@@ -1198,7 +1198,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             id: "skill-await-the-fleet",
             title: "Await the fleet",
             what:
-              "Wait for another workstream with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.",
+              "Wait for another effort with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — choosing the condition from the need, awaiting the exact returned branch, then following the met hint to compose what arrived.",
             plain: {
               title: "Wait for the fleet",
               what:

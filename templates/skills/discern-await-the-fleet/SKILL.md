@@ -1,6 +1,6 @@
 ---
 name: discern-await-the-fleet
-description: Wait for another workstream with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — then compose what arrived. Use when a task depends on another agent's in-flight work; when the user says "wait for", "watch", or "check back on" a branch, worktree, sibling agent, or the trunk; when a brief names a dependency to await; or when tempted to poll status, sleep, or ask the user to relay readiness. Not for subagents inside your own session. Bundled with discern.
+description: Wait for another workstream with one blocking `discern_await` call — a sibling branch green, its work landed, or the trunk moved — then compose what arrived. Use when a task depends on another agent's in-flight work; when the user says "wait for", "watch", or "check back on" a branch, worktree, sibling agent, or the trunk; when a brief names a dependency to await; or when tempted to poll status, sleep, or ask the user to relay readiness. Not for sub-agents inside your own session. Bundled with discern.
 metadata:
   author: "discern | https://discern.sh"
   version: "1.0"
@@ -56,7 +56,7 @@ A refusal (`ok: false`) means the watch as posed cannot be answered, and it carr
 ## 6. When not to await
 
 - **Your own branch.** Run your gate or do the work; awaiting yourself never returns.
-- **A subagent or background task inside your own session.** Your harness tracks those itself; `discern_await` watches other worktrees and the trunk.
+- **A sub-agent or background task inside your own session.** Your harness tracks those itself; `discern_await` watches other worktrees and the trunk.
 - **Something only the user can supply.** A review, a decision, a credential — report what you need and stop; don't hold a call against a human.
 - **A watch made unnecessary mid-wait** — the plan changed, the dependency got cut. Say so and move on; that is a valid end to the watch.
 
