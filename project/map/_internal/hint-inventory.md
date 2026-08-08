@@ -1877,6 +1877,19 @@ Rendered example:
 Report this branch to your owner and end with `data.gate_proof.proof_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
 ```
 
+## `status-reappeared-worktree-paths`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: —
+- Emitting context: Status finds a path discern removed with a worktree that exists again.
+
+Rendered example:
+
+```text
+2 removed worktree paths are present again. Review them with `discern worktree prune --dry-run`. Close any program still writing into those paths before confirming removal.
+```
+
 ## `status-start-off-trunk`
 
 - Category: `guardrail`

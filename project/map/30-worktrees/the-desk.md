@@ -37,7 +37,7 @@ The Desk builds its rows from `discern status` and the recorded Gate Proofs. It 
 
 Every task group, including the first, has a ruled label; **Desk** and **Session** have their own. Within groups, recent worktrees appear first.
 
-The root heading is `◮ discern | <project>`. The main status and tip sit together below it, with no blank row between them. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches and reclaimed stages follow as separate groups when present. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
+The root heading is `◮ discern | <project>`. The main status and tip sit together below it, with no blank row between them. The `Tip` label is yellow; its text stays secondary and wraps at the terminal width. Unlanded branches, reclaimed stages, and removed worktree paths that exist again follow as separate groups when present. The reappearance notice points to `discern worktree prune --dry-run`; cleanup stays in the confirmed prune flow. [Desk tips](desk-tips.md) covers selection, seen-state, and the Logbook record.
 
 Each row starts with the task name supplied to `discern start`. The state puts the next action or problem first, followed by the relevant Git counts and last activity. A short identifier appears only when 2 task names collide. Fleets of 8 tasks or fewer open without a filter field. Type to filter a larger fleet by task name.
 

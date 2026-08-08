@@ -425,7 +425,10 @@ export const TOOLS: McpTool[] = orderTools([
       "worktree; data.fleet_collisions lists pairs of fleet branches whose " +
       "changes touch the same files — both may merge cleanly and still " +
       "conflict semantically, so whoever lands second updates with extra " +
-      "care. Set all=true " +
+      "care. data.reappeared_worktree_paths lists paths discern previously " +
+      "removed that are present again, with bounded contents and any " +
+      "cleanup_blocked_reason; review them through the read-only " +
+      "`discern worktree prune --dry-run` plan before confirmed cleanup. Set all=true " +
       "to include the fleet from a worktree, or local=true to suppress it. hints[] are " +
       "advisory next-steps (e.g. run discern_done, ready for owner review, or — when on " +
       "the trunk — run discern_start to begin in your own isolated worktree) — never " +

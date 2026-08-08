@@ -925,6 +925,7 @@ function renderAttention(
   data: StatusData,
   width: number,
   c: Palette,
+  nowMs: number,
 ): StatusSectionLine[] {
   const lines: StatusSectionLine[] = [];
   for (const row of rows) {
@@ -957,6 +958,40 @@ function renderAttention(
         ),
       );
     }
+  }
+  for (const path of data.reappeared_worktree_paths ?? []) {
+    const contents = path.contents.length === 0
+      ? path.kind === "directory"
+        ? path.entries === 0
+          ? "empty directory"
+          : `${path.entries} filesystem entr${path.entries === 1 ? "y" : "ies"}`
+        : `path is a ${path.kind}`
+      : `${path.contents.join(", ")}${
+        path.contents_truncated ? " · more entries present" : ""
+      }`;
+    lines.push(
+      ...(lines.length === 0 ? [] : [""]),
+      ...wrappedBullet(
+        "!",
+        styledIdentifier(path.path, c),
+        width,
+        c,
+        "yellow",
+      ),
+      ...wrappedField(
+        "State",
+        `discern removed the worktree ${
+          relativeAge(path.removed_at, nowMs)
+        }; the path is present again`,
+        width,
+      ),
+      ...wrappedField("Contents", contents, width),
+      ...(path.cleanup_blocked_reason === undefined ? [] : wrappedField(
+        "Cleanup",
+        `Kept: ${path.cleanup_blocked_reason}`,
+        width,
+      )),
+    );
   }
   for (const collision of data.fleet_collisions ?? []) {
     lines.push(
@@ -1360,7 +1395,7 @@ export function renderStatusDashboard(
       section("Fleet", renderFleetSummary(fleetRows, contentWidth), c),
     );
   }
-  const attention = renderAttention(shownRows, data, contentWidth, c);
+  const attention = renderAttention(shownRows, data, contentWidth, c, nowMs);
   if (attention.length > 0) {
     blocks.push(section("Attention", attention, c));
   }

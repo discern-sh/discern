@@ -38,6 +38,12 @@ import {
   sweepOrphanWorktrees,
 } from "../src/engine/worktree/git.ts";
 import { Logger } from "../src/lib/log.ts";
+import {
+  pruneReappearedWorktreePaths,
+  readRetiredWorktreePathRecords,
+  recordRetiredWorktreePath,
+  scanReappearedWorktreePaths,
+} from "../src/engine/worktree/retired_paths.ts";
 
 /** A scaffolded, committed main repo with one linked worktree ready to drive. */
 async function mainWithWorktree(dir: string, name: string): Promise<string> {
@@ -141,6 +147,190 @@ Deno.test("remove-worktree-safely is idempotent on an already-removed path", asy
     // Re-running against the now-absent path must be a clean success no-op.
     const second = await runAgent(dir, ["remove-worktree-safely", wt]);
     assertEquals(second.code, 0, second.output);
+  });
+});
+
+Deno.test("removed worktree paths stay observable and reclaimable when unrelated tools recreate them", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "reappearing");
+    const canonicalWt = await Deno.realPath(wt);
+    const bystander = join(dirname(wt), "bystander");
+    await Deno.mkdir(bystander, { recursive: true });
+    await Deno.writeTextFile(join(bystander, "keep.txt"), "keep\n");
+
+    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    assertEquals(removed.code, 0, removed.output);
+    assertEquals(await exists(wt), false, removed.output);
+
+    const writers = [
+      "observer-state/checkpoint.bin",
+      "extension-cache/session.lock",
+    ];
+    for (const relativePath of writers) {
+      await Deno.mkdir(dirname(join(wt, relativePath)), { recursive: true });
+      await Deno.writeTextFile(join(wt, relativePath), "external state\n");
+
+      const status = await runAgent(dir, ["status", "--json"]);
+      assertEquals(status.code, 0, status.output);
+      const statusResult = JSON.parse(status.stdout) as {
+        data?: {
+          reappeared_worktree_paths?: Array<{
+            path: string;
+            contents: string[];
+          }>;
+        };
+      };
+      const residue = statusResult.data?.reappeared_worktree_paths?.find(
+        (entry) => entry.path === canonicalWt,
+      );
+      assert(residue !== undefined, status.output);
+      assertEquals(residue.contents, [relativePath]);
+
+      const dry = await runAgent(dir, [
+        "worktree",
+        "prune",
+        "--dry-run",
+        "--json",
+      ]);
+      assertEquals(dry.code, 0, dry.output);
+      const plan = JSON.parse(dry.stdout) as {
+        plan: {
+          steps: Array<{ label: string; group?: string; note?: string }>;
+        };
+      };
+      const candidate = plan.plan.steps.find((step) =>
+        step.label === canonicalWt &&
+        step.group === "Reappeared worktree paths"
+      );
+      assert(candidate !== undefined, dry.output);
+      assertStringIncludes(candidate.note ?? "", relativePath);
+      assert(
+        !plan.plan.steps.some((step) => step.label === bystander),
+        `an unrecorded neighboring directory must stay outside prune's deletion boundary\n${dry.output}`,
+      );
+
+      const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
+      assertEquals(prune.code, 0, prune.output);
+      assertEquals(await exists(wt), false, prune.output);
+      assert(
+        await exists(join(bystander, "keep.txt")),
+        `an unrecorded neighboring directory must survive\n${prune.output}`,
+      );
+    }
+  });
+});
+
+Deno.test("retired worktree path evidence remains bounded and expires from observation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    const now = Date.parse("2026-08-08T12:00:00.000Z");
+    const paths = ["apollo", "gemini", "voyager"].map((name) =>
+      join(dirname(dir), `${name}-retired`)
+    );
+    for (const [index, path] of paths.entries()) {
+      assertEquals(
+        await recordRetiredWorktreePath(dir, path, {
+          now: now + index,
+          ttlMs: 10_000,
+          maxEntries: 2,
+        }),
+        true,
+      );
+    }
+    assertEquals(
+      (await readRetiredWorktreePathRecords(dir, {
+        now: now + paths.length,
+        ttlMs: 10_000,
+        maxEntries: 10,
+      })).map((record) => record.path),
+      [paths[2], paths[1]],
+    );
+    assertEquals(
+      await readRetiredWorktreePathRecords(dir, {
+        now: now + 20_000,
+        ttlMs: 10_000,
+      }),
+      [],
+    );
+  });
+});
+
+const REAPPEARED_PATH_APPLY_RACES: Record<
+  string,
+  (dir: string, path: string) => Promise<void>
+> = {
+  "new files written after the scan survive": async (_dir, path) => {
+    await Deno.writeTextFile(join(path, "late-checkpoint.bin"), "late\n");
+  },
+  "a worktree registered again after the scan survives": async (dir, path) => {
+    await Deno.remove(path, { recursive: true });
+    await git(dir, "worktree", "add", path, "agent/reappeared-race");
+  },
+};
+
+for (const [caseName, mutate] of Object.entries(REAPPEARED_PATH_APPLY_RACES)) {
+  Deno.test(`reappeared-path prune revalidates its plan: ${caseName}`, async () => {
+    await withTempDir(async (dir) => {
+      const wt = await mainWithWorktree(dir, "reappeared-race");
+      const canonicalWt = await Deno.realPath(wt);
+      const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+      assertEquals(removed.code, 0, removed.output);
+      await Deno.mkdir(wt, { recursive: true });
+      await Deno.writeTextFile(join(wt, "initial.cache"), "initial\n");
+
+      const scan = await scanReappearedWorktreePaths(dir);
+      assertEquals(scan.removable.map((entry) => entry.path), [canonicalWt]);
+      await mutate(dir, wt);
+
+      const result = await pruneReappearedWorktreePaths(scan, quietLog());
+      assertEquals(result.removed, []);
+      assertEquals(result.failed, false);
+      assertEquals(result.skipped.length, 1);
+      assert(await exists(wt), "state created after the plan must survive");
+    });
+  });
+}
+
+Deno.test("reappeared-path prune treats a path removed after the plan as a completed no-op", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "reappeared-gone");
+    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    assertEquals(removed.code, 0, removed.output);
+    await Deno.mkdir(wt, { recursive: true });
+    await Deno.writeTextFile(join(wt, "initial.cache"), "initial\n");
+    const scan = await scanReappearedWorktreePaths(dir);
+    assertEquals(scan.removable.length, 1);
+
+    await Deno.remove(wt, { recursive: true });
+    const result = await pruneReappearedWorktreePaths(scan, quietLog());
+    assertEquals(result, { removed: [], skipped: [], failed: false });
+  });
+});
+
+Deno.test("worktree prune keeps a removed path repurposed as a Git checkout", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await mainWithWorktree(dir, "repurposed");
+    const canonicalWt = await Deno.realPath(wt);
+    const removed = await runAgent(dir, ["remove-worktree-safely", wt]);
+    assertEquals(removed.code, 0, removed.output);
+    await Deno.mkdir(join(wt, ".git"), { recursive: true });
+    await Deno.writeTextFile(join(wt, ".git", "config"), "valuable\n");
+
+    const scan = await scanReappearedWorktreePaths(dir);
+    assertEquals(scan.removable, []);
+    assertEquals(scan.kept.map((entry) => entry.path), [canonicalWt]);
+    assertEquals(
+      scan.kept[0]?.cleanup_blocked_reason,
+      "the path contains Git metadata",
+    );
+
+    const prune = await runAgent(dir, ["worktree", "prune", "--yes"]);
+    assertEquals(prune.code, 0, prune.output);
+    assert(
+      await exists(join(wt, ".git", "config")),
+      `a path repurposed as a Git checkout must survive\n${prune.output}`,
+    );
   });
 });
 

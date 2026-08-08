@@ -63,6 +63,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  retiredWorktreePaths: {
+    path: "discern/retired-worktree-paths",
+    scope: "common",
+    kind: "directory",
+    validation: false,
+  },
   gateProof: {
     path: "discern/gate-proof",
     scope: "worktree",

@@ -17,6 +17,7 @@ import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
+import type { ReappearedWorktreePathScan } from "./retired_paths.ts";
 
 /** The shared label for the complete refresh reconciliation. Keep the full
  * operation distinct from acceptance's checkout-local materialization tail. */
@@ -471,6 +472,8 @@ export interface PrunePlan {
   gitScan: GitWorktreePruneScan;
   /** Orphan-directory scan to apply exactly. */
   orphanScan: OrphanWorktreeSweepScan;
+  /** Removed paths that exist again without a live worktree registration. */
+  reappearedPathScan: ReappearedWorktreePathScan;
   /** Orphaned worktree resource ledger entries GC would reclaim. */
   resourceReclaims: LedgerItem[];
   /** Orphaned resource ledger entries kept as live, guarded, or opted out. */
@@ -541,6 +544,31 @@ export function prunePlanToEngine(plan: PrunePlan): EnginePlan {
       group: "Kept orphan directories",
     });
   }
+  for (const path of plan.reappearedPathScan.removable) {
+    const sample = path.kind !== "directory"
+      ? `path is a ${path.kind}`
+      : path.contents.length === 0
+      ? `${path.entries} filesystem entr${path.entries === 1 ? "y" : "ies"}`
+      : `${path.contents.join(", ")}${
+        path.contents_truncated ? ", and more" : ""
+      }`;
+    steps.push({
+      kind: "git",
+      label: path.path,
+      disposition: "run",
+      note: `remove files written after worktree removal (${sample})`,
+      group: "Reappeared worktree paths",
+    });
+  }
+  for (const path of plan.reappearedPathScan.kept) {
+    steps.push({
+      kind: "git",
+      label: path.path,
+      disposition: "skip",
+      note: path.cleanup_blocked_reason ?? "cleanup is blocked",
+      group: "Kept reappeared worktree paths",
+    });
+  }
   for (const r of plan.resourceReclaims) {
     steps.push({
       kind: "resource-destroy",
@@ -594,6 +622,7 @@ export function prunePlanIsEmpty(plan: PrunePlan): boolean {
     pruneBranchesToDelete(plan.gitScan).length === 0 &&
     plan.gitScan.staleMetadata.length === 0 &&
     plan.orphanScan.removable.length === 0 &&
+    plan.reappearedPathScan.removable.length === 0 &&
     plan.resourceReclaims.length === 0 &&
     !(plan.reclaimContained && plan.contained.length > 0);
 }

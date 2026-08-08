@@ -600,6 +600,19 @@ function renderHeader(
       : `${containedRefs.length} reclaimed stage refs ride inside live branches until they land`;
     containedLines.push(`  ${out.c.dim}${line}.${out.c.reset}`);
   }
+  const reappearedLines: string[] = [];
+  const reappeared = data.reappeared_worktree_paths ?? [];
+  if (reappeared.length > 0) {
+    reappearedLines.push(
+      `  ${out.c.yellow}${reappeared.length} removed worktree path${
+        reappeared.length === 1 ? " is" : "s are"
+      } present again.${out.c.reset}`,
+    );
+    reappearedLines.push(
+      "  " + out.c.dim +
+        "Review with `discern worktree prune --dry-run`." + out.c.reset,
+    );
+  }
   // The session's tip (ADR 0234): one teaching line directly below the status,
   // wrapped with a hanging indent at the resolved width — never truncated,
   // because the narrow embedded terminals discern's users live in would clip
@@ -620,6 +633,7 @@ function renderHeader(
     { id: "desk-summary", items: [...summaryLines, ...tipLines] },
     { id: "unlanded-branches", items: unlandedLines },
     { id: "contained-branches", items: containedLines },
+    { id: "reappeared-worktree-paths", items: reappearedLines },
   ], { leadingBoundary: true });
   if (rendered !== "") out.raw(`${rendered}\n`);
 }

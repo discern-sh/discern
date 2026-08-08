@@ -66,7 +66,9 @@ Acceptance journals its transition and recovers without replaying one-shot autho
 
 From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision.
 
-After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, and resource records. It rechecks eligibility before removal.
+After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, reappeared worktree paths, and resource records. It rechecks eligibility before removal.
+
+[Cleaning up a reappeared worktree path](reappeared-worktree-paths.md) explains the removal evidence, status notice, and confirmed prune boundary.
 
 Prune also reports **contained** worktrees: spent `start --from` stages whose commits already travel inside a live sibling branch. The default apply never touches them. [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) covers the predicate, the `--contained` opt-in, and the kept branch refs.
 
@@ -89,6 +91,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 - Every effectful lifecycle command supports `--dry-run`; inspect destructive plans before applying them ([ADR 0027](../_adr/0027-plan-apply-engine-execution.md)).
 - `accept` removes the worktree, so any tracked, untracked, or staged change there blocks landing. The main checkout blocks only on tracked changes.
 - Acceptance reports top-level ignored paths that changed since setup. Those paths stay outside git cleanliness.
+- A program that writes into a removed worktree path later creates a [reappearance](reappeared-worktree-paths.md). Status reports it; confirmed prune is the cleanup path.
 - Proof-note recording and fetch-configuration reconciliation follow the trunk fast-forward. Their failures report a cause once and cannot fail or undo acceptance; later local-artifact materialization does not retry transport.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.

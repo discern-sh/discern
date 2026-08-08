@@ -92,6 +92,7 @@ import {
 } from "../src/engine/worktree/lifecycle.ts";
 import { resolveWorktreeRoot } from "../src/lib/paths.ts";
 import { Logger } from "../src/lib/log.ts";
+import { removeWorktreeSafely } from "../src/engine/worktree/git.ts";
 
 /** Validate a real verb result's serialized form against its declared schema, with a
  * readable failure (the Zod issues + the offending payload) when it drifts. */
@@ -1141,6 +1142,22 @@ Deno.test("status result is faithful across modes (main, fleet, worktree, unset-
     // From inside a worktree → location "worktree", a worktree block.
     const wt = await addWorktree(dir, "stat");
     expectFaithful("status", await statusResult(wt), "status worktree");
+
+    // A program writes into a path after the worktree removal. This exercises
+    // the reappearance evidence on the same schema the MCP output advertises.
+    const retiredPath = await Deno.realPath(wt);
+    await removeWorktreeSafely(wt, dir);
+    await Deno.mkdir(join(wt, "observer-state"), { recursive: true });
+    await Deno.writeTextFile(
+      join(wt, "observer-state", "checkpoint.bin"),
+      "state\n",
+    );
+    const reappeared = await statusResult(dir);
+    assertEquals(
+      reappeared.data?.reappeared_worktree_paths?.map((entry) => entry.path),
+      [retiredPath],
+    );
+    expectFaithful("status", reappeared, "status reappeared worktree path");
   });
 
   // A not-yet-bootstrapped project → data.setup_unfinished present.
