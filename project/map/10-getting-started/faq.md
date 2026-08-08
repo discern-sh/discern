@@ -1,6 +1,6 @@
 ---
 title: FAQ and troubleshooting
-description: Diagnose common setup, command, MCP, platform, monorepo, worktree, agent-behavior, and removal problems.
+description: Diagnose common setup, command, MCP, platform, monorepo, worktree, agent-workflow, and removal problems.
 order: 50
 aliases:
   - faq
@@ -31,21 +31,21 @@ discern doctor --json
 
 Open a new shell, then run `which discern`. If it prints nothing, add the install directory reported by the installer to your shell's `PATH`. When a coding agent launches a non-interactive shell, make sure that shell reads the same `PATH`, or give the agent the absolute binary path.
 
-## The `discern_*` MCP tools are unreachable
+## The Model Context Protocol tools are unreachable
 
-Restart the coding-agent session first. MCP servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files.
+Restart the coding-agent session first. Model Context Protocol (MCP) servers and hooks load when a session starts, so the session that ran setup cannot see newly written integration files.
 
 If the tools remain unavailable, run `discern doctor`. Codex, Gemini, Cursor, and GitHub Copilot may keep committed integration settings inactive until you trust the folder. The diagnostic names the provider-specific action.
 
 Use the CLI with `--json` while the MCP connection is unavailable. Every discern MCP tool has a CLI verb behind it.
 
-## My agent isn't following the workflow
+## The session has left the workflow
 
-Reliability tracks the model: discern's refusals and reports always name the next step, and a current frontier model follows them best. If a capable agent still drifts, run `discern patterns` — each recorded finding names the loop and its fix.
+Run `discern status` to recover the current state and next valid action. If the same command loop recurs, run `discern patterns`. It reports a recorded loop only after the evidence reaches that detector's threshold, and each finding recommends an investigation.
 
-## `discern done` failed
+## `discern done` returned a failed Gate
 
-Read the diagnostic returned for the failed job. It names the tool, the command that reproduces the failure, and the captured output. Give that result to your agent. [When the gate fails](../20-quality-gate/when-the-gate-fails.md) covers stage failures and recovery; `discern doctor` rules out missing tools or an invalid install.
+Read the diagnostic returned for the failed job. It names the tool, the command that reproduces the failure, and the captured output. Give that result to your agent. [When the Gate fails](../20-quality-gate/when-the-gate-fails.md) covers stage failures and recovery. `discern doctor` rules out missing tools or an invalid install.
 
 ## The project schema is newer than this binary
 
@@ -57,7 +57,7 @@ Run discern under WSL2. Native Windows shells are not supported. macOS and Linux
 
 ## A monorepo needs different commands per component
 
-Use one discern install at the git root. Root jobs cover shared checks. Add a scope for a component that needs its own gate:
+Use one discern install at the Git root. Root jobs cover shared checks. Add a scope for a component that needs its own Gate:
 
 ```toml
 [scopes.web]

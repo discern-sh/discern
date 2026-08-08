@@ -13,9 +13,9 @@ aliases:
 
 _Start with the outcome you want, then follow the link to the page that owns it._
 
-This index follows the lifecycle of a change: get discern running, do the work in isolation, check the result, and hand the finished branch back. Each task links to the manual page that carries the full procedure, including commands, preconditions, and recovery paths.
+This index follows the lifecycle of a change: get discern running, do the work in isolation, check the result, and hand the finished branch back. Each task links to the manual page with its commands, preconditions, and recovery paths.
 
-If this is your first visit, the [quickstart](quickstart.md) remains the shortest complete route from installation to a landed change. Use this page when you already know the outcome and want its instructions without learning the manual's subsystem names first.
+If this is your first visit, the [quickstart](quickstart.md) is the shortest route from installation to a landed change. Use this page when you already know the outcome and want its instructions before learning the manual's subsystem names.
 
 ## Starting work
 
@@ -37,22 +37,22 @@ Keep the change current and put durable project knowledge in the surface that fu
 | Update my branch from trunk   | [Bring the trunk into the branch](../30-worktrees/lifecycle.md#bring-the-trunk-into-the-branch), review the incoming overlap, and rerun the gate.    |
 | Add project guidance          | [Write project guidance](../40-agent-guidance/write-project-guidance.md) in the configured source, then run `discern refresh`.                       |
 | Record a significant decision | Ask your agent to use [`discern-write-adr`](../45-skills/bundled-skills.md#the-bundled-catalog), which applies the project's decision-record format. |
-| Author a reusable Skill       | [Author a project Skill](../45-skills/author-a-skill.md), give it a trigger-rich description, and materialize it with `discern refresh`.             |
+| Create a reusable Skill       | [Create a project Skill](../45-skills/author-a-skill.md), give it a trigger-rich description, and materialize it with `discern refresh`.             |
 
 ## Checking work
 
-Use the fast loop while editing. Run the full gate on the intended final commit.
+Use the fast loop while editing. Run the project's final quality check (the Gate) on the intended final commit.
 
 | I want to…                       | Go here                                                                                                                                            |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Run the gate                     | [Use `discern done`](../20-quality-gate/) on a clean final commit and read the returned result.                                                    |
+| Run the Gate                     | [Use `discern done`](../20-quality-gate/) on a clean final commit and read the returned result.                                                    |
 | Fix a failed check               | [Start with the first diagnostic](../20-quality-gate/when-the-gate-fails.md), run its `reproduce_cmd`, and return to `discern done` after the fix. |
-| Understand or tighten a standard | [Read Standards](../20-quality-gate/standards.md), choose a metric that survives growth, and capture a gain with `discern standards --pin`.        |
+| Understand or tighten a Standard | [Read Standards](../20-quality-gate/standards.md), choose a metric that survives growth, and capture a gain with `discern standards --pin`.        |
 
 ## Handing off work
 
-A green gate begins review. The owner still decides whether the branch lands.
+A green Gate begins review. The owner still decides whether the branch lands.
 
 | I want to…                | Go here                                                                                                                                           |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hand work back for review | [Report the branch and its receipt](../30-worktrees/hand-work-back.md), wait for the owner's decision, then accept only with their authorization. |
+| Hand work back for review | [Report the branch and its Receipt](../30-worktrees/hand-work-back.md), wait for the owner's decision, then accept only with their authorization. |
