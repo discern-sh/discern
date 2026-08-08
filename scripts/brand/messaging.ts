@@ -40,15 +40,15 @@ Use sparingly. It works best as a signature, eyebrow, manifesto line, social bio
 
 > **A bolder way to build.**
 
-Best when the page should feel ambitious, audacious, and founder-led. “Bolder” describes the builder's reach rather than the codebase's size.
+Best when the page should feel ambitious, audacious, and founder-led. “Bolder” describes the builder's reach. It does not describe the codebase's size.
 
 > **Build further.**
 
-Best when restraint, elegance, and flexibility matter. It can mean further into an idea, beyond one person's capacity, or towards software people can depend on.
+Best when restraint, elegance, and flexibility matter. It can mean further into an idea, beyond one person's capacity, or toward software people can depend on.
 
 > **A bigger way to build.**
 
-Retained as a contextual candidate because of its cadence and impact. Use only where nearby copy makes clear that “bigger” means capability and ambition, not more code or architectural bulk.
+Retained as a contextual candidate because of its cadence and impact. Use it where nearby copy makes clear that “bigger” means capability and ambition.
 
 Avoid defaulting to **A better way to build**. It is broadly true but insufficiently distinctive unless a specific comparison gives “better” content.`,
   },
@@ -84,12 +84,12 @@ Alternative contextual forms:
 - A serious engineering practice, installed in your project.
 - A working practice for coding agents and the people responsible for what ships.
 
-The category line should orient. It should not be forced to carry the emotional headline.`,
+The category line should orient. Let the emotional headline do a different job.`,
   },
   {
     id: "primary-conversion",
     title: "Primary conversion territory",
-    body: `> **Spend your attention where your judgement matters most.**
+    body: `> **Spend your attention where your judgment matters most.**
 
 This works across audiences:
 
@@ -99,9 +99,9 @@ This works across audiences:
 Supporting expressions:
 
 - Let substantial work move without staying inside every detail.
-- Return to a decision, rather than another cleanup job.
+- Come back to work that is ready for a decision.
 - Give the agent the work; keep your attention for direction and consequence.
-- Hand over more than the typing. — strong for engineer-focused conversion pages; use carefully for new builders.`,
+- Hand over the complete unit of work. This is strongest on engineer-focused conversion pages and needs careful translation for new builders.`,
   },
   {
     id: "technical-distinction",
@@ -133,8 +133,8 @@ export const PILLARS = [
       "A bolder way to build.",
       "Build further.",
       "Take the project further than one pair of hands.",
-      "Turn a backlog into organised progress.",
-      "Let your judgement influence more of the work.",
+      "Turn a backlog into organized progress.",
+      "Let your judgment influence more of the work.",
     ],
     avoid: [
       "raw line-count claims;",
@@ -159,7 +159,7 @@ export const PILLARS = [
       "The prototype can become a product.",
     ],
     avoid: [
-      "“enterprise-grade” without a specific meaning;",
+      "`enterprise-grade` without a specific meaning;",
       "fear about bugs, firing, or reputational ruin;",
       "universal reliability or security guarantees.",
     ],
@@ -200,7 +200,7 @@ export const PILLARS = [
     promise:
       "more of the complete unit of work can move without continuous human administration.",
     goodExpressions: [
-      "Spend your attention where your judgement matters most.",
+      "Spend your attention where your judgment matters most.",
       "Give the work a complete handoff.",
       "Several pieces can move at once without making you their courier.",
       "Come back to work that is ready for a real decision.",
@@ -221,7 +221,7 @@ export const PILLARS = [
     id: "exact-reasons-to-believe",
     title: "Exact reasons to believe",
     humanTruth:
-      "Confidence should be connected to observable conditions rather than the agent's tone.",
+      "Confidence needs observable conditions that stand apart from the agent's tone.",
     promise:
       "discern can show what was evaluated and which change the evidence belongs to.",
     goodExpressions: [
@@ -235,7 +235,7 @@ export const PILLARS = [
     avoid: [
       "suggesting formal proof of universal correctness;",
       "suggesting a passing Gate is sufficient for security or business suitability;",
-      "turning the page into a catalogue of checks.",
+      "turning the page into a catalog of checks.",
     ],
     claims: [
       "proof-exact-tree",
@@ -252,10 +252,10 @@ export const PILLARS = [
     promise:
       "the project retains its practice while the active intelligence changes.",
     goodExpressions: [
-      "Change agents. Keep the project consistent.",
+      "Keep the project consistent when you change agents.",
       "Switch providers without re-teaching the work.",
       "One project understanding across the agents you use.",
-      "When one quota stops, the project does not.",
+      "Keep moving when one provider reaches its quota.",
     ],
     note:
       "The quota message is timely and practical. It should not become the enduring master promise because provider pricing and limits will change.",
@@ -307,7 +307,7 @@ export const DESCRIPTIONS = [
     group: "length",
     heading: "Approximately 30 words",
     body:
-      `> discern gives coding agents a project-owned way to plan, work, verify, and deliver changes—so ambitious software can move faster without making your attention scale with every implementation detail.`,
+      `> discern gives coding agents a project-owned way to plan, work, verify, and deliver changes. Ambitious software can move faster without making your attention scale with every implementation detail.`,
   },
   {
     id: "sixty-words",
@@ -328,14 +328,14 @@ export const DESCRIPTIONS = [
     group: "audience",
     heading: "Experienced engineer",
     body:
-      `> discern turns your engineering judgement into a project-owned practice every coding agent works through. Run substantial work in parallel, reduce routine review and coordination, and keep your taste and standards intact across sessions and providers.`,
+      `> discern turns your engineering judgment into a project-owned practice every coding agent works through. Run substantial work in parallel, reduce routine review and coordination, and keep your taste and standards intact across sessions and providers.`,
   },
   {
     id: "new-consequential-builder",
     group: "audience",
     heading: "New consequential builder",
     body:
-      `> Tell your coding agent to commission discern. It studies your project, establishes serious best practices to follow, explains the important choices, and proves the setup before it finishes—so your software can grow reliably into something people depend on.`,
+      `> Tell your coding agent to commission discern. It studies your project, establishes the checks and guidance future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.`,
   },
   {
     id: "agent",
@@ -353,7 +353,7 @@ export const DESCRIPTIONS = [
   },
 ] as const satisfies readonly Description[];
 
-/** The candidate hero systems — testable, not mandatory homepage copy. */
+/** The candidate hero systems, each a testable homepage arrangement. */
 export const HERO_SYSTEMS = [
   {
     id: "hero-a",
@@ -403,7 +403,7 @@ export const HEADLINES = [
   {
     line: "A bigger way to build.",
     bestUse: "Parallel-work demo, launch campaign",
-    caution: "Clarify capability, not code volume or architectural bulk.",
+    caution: "Clarify the capability and ambition the line describes.",
   },
   {
     line: "Software that holds up.",
@@ -421,19 +421,19 @@ export const HEADLINES = [
     caution: "Avoid overusing “name” alongside ownership language.",
   },
   {
-    line: "Spend your attention where your judgement matters most.",
+    line: "Spend your attention where your judgment matters most.",
     bestUse: "Delegation section, engineer page",
     caution: "Long for a hero; strongest as a section proposition.",
   },
   {
     line: "When the prototype becomes the product.",
     bestUse: "Acquisition campaign, new-builder page",
-    caution: "Situational; not the master brand.",
+    caution: "Situational; exclude from master-brand use.",
   },
   {
     line: "When people start depending on it.",
     bestUse: "Consequence-threshold campaign",
-    caution: "Must be followed by a positive promise, not a threat.",
+    caution: "Follow with a positive promise that celebrates the threshold.",
   },
   {
     line: "Agent ergonomics.",
@@ -495,7 +495,7 @@ export const PROOF_ORDER: readonly { step: string; detail: string }[] = [
     detail: "greater ambition, earned confidence, meaningful attention.",
   },
   {
-    step: "Show a recognisable moment",
+    step: "Show a recognizable moment",
     detail:
       "backlog planning, commissioning, parallel work, ready-for-decision return.",
   },
@@ -509,7 +509,7 @@ export const PROOF_ORDER: readonly { step: string; detail: string }[] = [
       "guidance, isolated work, deterministic checks, Standards, Proof, acceptance.",
   },
   {
-    step: "Show an artefact",
+    step: "Show an artifact",
     detail:
       "brief, wave plan, Standard trajectory, Proof, Map, Pattern finding.",
   },
@@ -525,15 +525,15 @@ export const PROOF_ORDER: readonly { step: string; detail: string }[] = [
 
 /** The public-copy guardrails, in rendering order. */
 export const PUBLIC_COPY_GUARDRAILS: readonly string[] = [
-  "A feature is supporting evidence, not automatically a message.",
-  "A canonical product noun is not automatically a compelling headline.",
+  "A feature supplies supporting evidence; promote it only when it serves the reader's moment.",
+  "A canonical product noun becomes compelling only when it carries human meaning.",
   "“Serious” should feel aspirational and pleasurable.",
-  "“Bold” should feel considered, not reckless.",
-  "Speed should be framed as expanded possibility, never code volume.",
+  "Give “bold” enough discipline to feel considered.",
+  "Frame speed as expanded possibility. Avoid celebrating code volume.",
   "New builders should be welcomed without erasing engineering expertise.",
   "Engineers should be respected without making the brand an insiders' club.",
   "Agents should be presented as capable collaborators.",
-  "Use contrast structures rarely; repetitive “X, not Y” phrasing reads as contemporary generated copy.",
+  "Avoid `X, not Y` phrasing; the template reads as contemporary generated copy.",
   "Do not repeat the same slogan across several adjacent sections.",
   "Let natural sentences do more work than fragments and aphorisms.",
 ];
@@ -635,7 +635,7 @@ export function renderMessagingDoc(): string {
     "",
     "## Candidate hero systems",
     "",
-    "These are testable systems, not final mandatory homepage copy.",
+    "These are testable candidates for the homepage.",
     "",
     HERO_SYSTEMS.map(renderHero).join("\n\n"),
     "",
@@ -655,14 +655,14 @@ export function renderMessagingDoc(): string {
     CTA_BANKS.map((bank) => `### ${bank.title}\n\n${bullets(bank.ctas)}`)
       .join("\n\n"),
     "",
-    "Avoid generic labels where the destination is unclear: “Explore,” “Discover,” “Continue,” and repeated “Learn more.”",
+    "Avoid generic labels where the destination is unclear: `Explore`, `Discover`, `Continue`, and repeated `Learn more`.",
     "",
     "## Proof order",
     "",
     "Do not open with the complete mechanism list. Reveal proof in the order required by belief:",
     "",
     ...PROOF_ORDER.map(
-      (entry, index) => `${index + 1}. **${entry.step}** — ${entry.detail}`,
+      (entry, index) => `${index + 1}. **${entry.step}:** ${entry.detail}`,
     ),
     "",
     "## Public-copy guardrails",

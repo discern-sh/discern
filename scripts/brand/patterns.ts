@@ -51,9 +51,9 @@ export const COPY_PATTERNS = [
       },
     ],
     requirements: [
-      "“Bold” must be supported by discipline before it can read as recklessness.",
+      "Support “bold” with evidence of discipline so it reads as considered ambition.",
       "The subhead must clarify the human benefit.",
-      "The next section should show a recognisable moment, not list features.",
+      "The next section should show a recognizable moment. Use feature details only as supporting evidence.",
     ],
   },
   {
@@ -84,7 +84,7 @@ export const COPY_PATTERNS = [
     ],
     requirements: [
       "Do not leave “further” unexplained for more than one sentence.",
-      "Follow with a concrete story or artefact.",
+      "Follow with a concrete story or artifact.",
     ],
   },
   {
@@ -113,7 +113,7 @@ export const COPY_PATTERNS = [
       },
     ],
     requirements: [
-      "Keep the tone proud rather than fearful.",
+      "Keep the tone proud; leave fear out of the argument.",
       "Avoid implying a universal guarantee.",
     ],
   },
@@ -140,13 +140,13 @@ export const COPY_PATTERNS = [
       },
     ],
     requirements: [
-      "The first sentence should congratulate or recognise, never scold.",
-      "Name a specific threshold rather than “after it works.”",
+      "Open by congratulating or recognizing the builder's achievement.",
+      "Name a specific threshold. Avoid the vague `after it works`.",
     ],
   },
   {
     id: "recognisable-moment-section",
-    title: "Recognisable-moment section",
+    title: "Recognizable-moment section",
     useWhen:
       "A product capability is abstract until placed in an everyday moment.",
     structure: `## <What becomes easier or possible>
@@ -155,7 +155,7 @@ When <triggering situation>, <changed action or experience>.
 
 <One or two sentences explaining the product mechanism.>
 
-<Visual or artefact showing the moment.>`,
+<Visual or artifact showing the moment.>`,
     sections: [
       {
         heading: "Examples",
@@ -181,7 +181,7 @@ When <triggering situation>, <changed action or experience>.
 
 <Named product object, if useful.>
 
-<Evidence artefact or deep link.>`,
+<Evidence artifact or deep link.>`,
     sections: [
       {
         heading: "Working example",
@@ -197,20 +197,20 @@ When <triggering situation>, <changed action or experience>.
   },
   {
     id: "artefact-specimen",
-    title: "Artefact specimen",
+    title: "Artifact specimen",
     useWhen: "The website needs to make an invisible CLI/MCP product tangible.",
-    structure: `<Artefact label>
+    structure: `<Artifact label>
 
-# <What this artefact lets the reader know or decide>
+# <What this artifact lets the reader know or decide>
 
-<Rendered authentic artefact>
+<Rendered authentic artifact>
 
 <Three compact annotations pointing at meaningful evidence.>
 
 <Optional link to technical definition>`,
     sections: [
       {
-        heading: "Suitable artefacts",
+        heading: "Suitable artifacts",
         body: `- a delegation brief;
 - a wave plan;
 - a worktree fleet view;
@@ -225,7 +225,7 @@ When <triggering situation>, <changed action or experience>.
         body: `- Explain what the reader can infer.
 - Do not caption every field.
 - Keep the authentic product object visually primary.
-- State limits near the artefact when the object could overclaim.`,
+- State limits near the artifact when the object could overclaim.`,
       },
     ],
   },
@@ -235,7 +235,7 @@ When <triggering situation>, <changed action or experience>.
     useWhen: "A strong promise needs nearby credibility.",
     structure: `### <The claim in human language>
 
-<One sentence stating the exact product behaviour.>
+<One sentence stating the exact product behavior.>
 
 **What it covers**
 <Scope.>
@@ -243,7 +243,7 @@ When <triggering situation>, <changed action or experience>.
 **What it does not claim**
 <Relevant boundary.>
 
-<Artefact, source, or technical link>`,
+<Artifact, source, or technical link>`,
     sections: [
       {
         heading: "Working example",
@@ -278,7 +278,7 @@ When <triggering situation>, <changed action or experience>.
         body: `- Prefer **commission** when describing the complete experience.
 - Use **setup** when naming the actual command or documentation.
 - Explain that zero manual configuration still involves substantial agent work.
-- Highlight “transparency, not interrogation” as an experience principle only after phrasing it naturally for the page.`,
+- Describe the setup conversation as transparent and purposeful.`,
       },
     ],
   },
@@ -286,21 +286,21 @@ When <triggering situation>, <changed action or experience>.
     id: "experienced-engineer-section",
     title: "Experienced-engineer section",
     useWhen:
-      "The reader understands the components and needs to see why the whole is valuable.",
+      "The reader understands the components and needs to see the value created by the connected practice.",
     structure: `## <A high-impact engineering outcome>
 
-<Compressed acknowledgement of the current home-built workflow.>
+<Compressed acknowledgment of the current home-built workflow.>
 
-<How discern connects the lifecycle rather than adding another isolated check.>
+<How discern connects the lifecycle into a maintained practice.>
 
 <Precise mechanisms and trade-offs.>
 
-<Inspect source, docs, or live artefact CTA>`,
+<Inspect source, docs, or live artifact CTA>`,
     sections: [
       {
         heading: "Working direction",
         body:
-          `> You could assemble worktrees, scripts, CI jobs, instruction files, and review prompts yourself. The hard part is making them one reliable practice that every agent inherits and every change moves through.
+          `> You could assemble worktrees, scripts, CI jobs, instruction files, and review prompts yourself. The value comes from connecting them into a maintained practice that every agent inherits and every change moves through.
 
 Do not disparage home-built engineering. Demonstrate the value of coherence, transferability, and maintained contracts.`,
       },
@@ -313,13 +313,13 @@ Do not disparage home-built engineering. Demonstrate the value of coherence, tra
       "The reader has outcome-level standards but limited engineering vocabulary.",
     structure: `## <Aspirational outcome>
 
-<Recognise what they have already achieved.>
+<Recognize what they have already achieved.>
 
 <Explain what the agent will do on their behalf.>
 
 <Show the decisions that remain theirs.>
 
-<State the honest boundary.>`,
+<State the relevant boundary.>`,
     sections: [
       {
         heading: "Working direction",
@@ -334,19 +334,19 @@ Do not call the reader a novice. Do not imply discern makes engineering expertis
     id: "audience-bridge",
     title: "Audience bridge",
     useWhen:
-      "One page must show both experienced engineers and new builders without splitting the product.",
+      "A page can show experienced engineers and new builders without splitting the product.",
     structure: `<Shared human circumstance>
 
-For experienced engineers: <how existing judgement scales>.
+For experienced engineers: <how existing judgment scales>.
 
 For new builders: <how the project acquires discipline they value but cannot fully specify>.
 
-<One shared product practice beneath both.>`,
+<The shared product practice beneath them.>`,
     sections: [
       {
         heading: "Working direction",
         body:
-          `> Experienced engineers bring the standards. New builders bring the consequences they care about. discern helps the project turn both into a working practice future agents can follow.
+          `> People arrive with different forms of judgment: accumulated engineering standards or clarity about the consequences they care about. discern helps the project turn that judgment into a working practice future agents can follow.
 
 Use this pattern sparingly; avoid making every section branch into two audiences.`,
       },
@@ -374,7 +374,7 @@ Use this pattern sparingly; avoid making every section branch into two audiences
 >
 > It is not a sandbox and does not contain an untrusted agent. Use the security environment appropriate to your project; discern is designed to work inside it.
 
-The necessary contrast is allowed here because the boundary is the purpose of the section. Avoid repeating the same rhetorical form elsewhere.`,
+Direct boundary language belongs here because the distinction is the purpose of the section. Avoid turning that language into a repeated rhetorical form.`,
       },
     ],
   },
@@ -385,7 +385,7 @@ The necessary contrast is allowed here because the boundary is the purpose of th
     structure: `<Concrete scene or progression>
 
 <What the founder expected>
-<What actually happened>
+<What happened>
 <The new bottleneck>
 <The conceptual shift>
 <The product principle extracted>`,
@@ -395,7 +395,7 @@ The necessary contrast is allowed here because the boundary is the purpose of th
         body: `- fixing one bug while another part broke;
 - increasing test coverage until confidence grew;
 - adding a second agent and becoming the bottleneck;
-- realising line-by-line review was no longer the most valuable contribution;
+- realizing line-by-line review was no longer the most valuable contribution;
 - extracting the practice from the knowledge-graph project;
 - developing discern under discern itself.
 
@@ -490,7 +490,7 @@ export const ANTI_ABUSE_RULES: readonly string[] = [
   "Do not force every capability into a recognisable-moment formula.",
   "Do not split every paragraph into engineer and new-builder variants.",
   "Do not make every heading a two-part aphorism.",
-  "Do not use artefacts as decoration; each should support a claim.",
+  "Do not use artifacts as decoration; each should support a claim.",
   "Do not substitute a template for factual research or product verification.",
 ];
 

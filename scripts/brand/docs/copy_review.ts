@@ -31,7 +31,7 @@ export const AUTOMATIC_FAILURES: readonly string[] = [
   "presents discern as a sandbox, firewall, AI reviewer, CI replacement, or complete fleet manager;",
   "blames or morally judges coding agents;",
   "excludes new builders from a general-audience surface;",
-  "patronises new builders or suggests engineering expertise is irrelevant;",
+  "patronizes new builders or suggests engineering expertise is irrelevant;",
   "uses a product term inconsistently with the canonical glossary;",
   "uses brand prose where an exact operational condition is required;",
   "hides destructive consequences or consent scope;",
@@ -53,7 +53,7 @@ export const SCORECARDS = [
       {
         dimension: "Audience recognition",
         test:
-          "Can the intended reader recognise their circumstance without a job-title persona?",
+          "Can the intended reader recognize their circumstance without a job-title persona?",
       },
       {
         dimension: "Category clarity",
@@ -75,7 +75,7 @@ export const SCORECARDS = [
       },
       {
         dimension: "Specificity",
-        test: "Are there concrete moments, objects, actions, or artefacts?",
+        test: "Are there concrete moments, objects, actions, or artifacts?",
       },
       {
         dimension: "Credibility",
@@ -88,7 +88,7 @@ export const SCORECARDS = [
       {
         dimension: "Register fit",
         test:
-          "Does the page sound like a brand, rather than an enlarged manual?",
+          "Does the page carry the brand's persuasive energy without reading like an enlarged manual?",
       },
       {
         dimension: "Voice",
@@ -96,8 +96,7 @@ export const SCORECARDS = [
       },
       {
         dimension: "Seriousness",
-        test:
-          "Does “serious” feel aspirational and earned rather than joyless or punitive?",
+        test: "Does “serious” feel aspirational, earned, and alive?",
       },
       {
         dimension: "Audience breadth",
@@ -202,7 +201,7 @@ export const SCORECARDS = [
         test: "Does the agent know what to report and when to stop?",
       },
       {
-        dimension: "Summarisation resilience",
+        dimension: "Summarization resilience",
         test: "Would critical instructions survive context compression?",
       },
     ],
@@ -235,7 +234,7 @@ export const PROPOSED_MECHANICAL_CHECKS = {
     },
     {
       id: "repeated-contrast",
-      text: "warn on repeated “X, not Y” syntax within one page;",
+      text: "warn on repeated `X, not Y` syntax within one page;",
     },
     {
       id: "generic-verbs",
@@ -338,7 +337,7 @@ const SCORE_RUBRIC: readonly string[] = [
 const INTERPRETATION_BANDS: readonly string[] = [
   "**24–28:** strong candidate; proceed to final claim and craft review.",
   "**18–23:** promising but one or more strategic elements need revision.",
-  "**Below 18:** rewrite from the argument, not the wording.",
+  "**Below 18:** rebuild the argument before revising the wording.",
 ];
 
 /** Render Markdown bullets. */
@@ -484,7 +483,7 @@ Date:
     "### New consequential builder",
     "",
     bullets([
-      "Does the copy recognise what they have already achieved?",
+      "Does the copy recognize what they have already achieved?",
       "Does it explain commissioning without expecting manual configuration knowledge?",
       "Does it preserve their authority without turning them into a technical approver?",
       "Does it avoid promising security or guaranteed quality?",
@@ -505,7 +504,7 @@ Date:
     "",
     bullets([
       "Does the copy make serious software sound desirable?",
-      "Is the reader invited into a standard rather than judged against one?",
+      "Does the copy invite the reader into a standard they want to reach?",
       "Is the benefit framed through confidence, pride, growth, or capability?",
       "Has the copy used fear of bugs, job loss, customers, or incidents as its main engine?",
       "Does the tone leave room for pleasure, creativity, and ambition?",
@@ -535,13 +534,13 @@ Date:
     "",
     "## Contemporary model-copy smell check",
     "",
-    "Flag repeated use of:",
+    "Apply the applicable voice Skill's banned-move check first. Then flag these patterns and inspect the page for repetition:",
     "",
     bullets([
-      "“X, not Y” constructions;",
-      "“This isn't just…”;",
+      "`X, not Y` constructions;",
+      "`This isn't just…`;",
       "`In a world where…`;",
-      "“The future of…”;",
+      "`The future of…`;",
       "three-part abstract noun sequences;",
       "fragments in every heading and paragraph;",
       "over-neat mirrored sentences;",
@@ -554,7 +553,7 @@ Date:
       "anthropomorphic claims about the project “thinking,” “knowing,” or “learning” without a literal mechanism.",
     ]),
     "",
-    "One use may be legitimate. A pattern is the problem.",
+    "A banned move fails on first use. Elsewhere, judge patterns across the draft; one well-chosen device can still earn its place.",
     "",
     "## Line-editing pass",
     "",
@@ -585,7 +584,7 @@ Forbidden inference:
 Nearby boundary needed? yes/no
 \`\`\``,
     "",
-    "If the ledger records no such claim, add one before publishing rather than improvising a boundary in the page.",
+    "If the ledger records no such claim, add one before publishing. Do not improvise a boundary in the page.",
     "",
     "## Surface-specific review",
     "",
@@ -616,7 +615,7 @@ Nearby boundary needed? yes/no
       "Preserves uncertainty and mental-model change.",
       "Product enters after the human problem is felt.",
       "Internal evidence is attributed.",
-      "Ends with invitation rather than inevitability.",
+      "Ends with an invitation and leaves room for the reader's choice.",
     ]),
     "",
     "### Product page",
@@ -625,7 +624,7 @@ Nearby boundary needed? yes/no
       "Human consequence leads each section.",
       "Canonical nouns appear after first-use definitions.",
       "Mechanism and trade-off are clear.",
-      "Technical depth is linked rather than copied in full.",
+      "Links to technical depth and keeps full detail in its owning reference.",
     ]),
     "",
     "### Trust page",
@@ -643,7 +642,7 @@ Nearby boundary needed? yes/no
     bullets([
       "Works as an accurate agent orientation.",
       "Works as an enjoyable human read.",
-      "Humour targets interface design, not agent intelligence.",
+      "Humor targets poorly designed interfaces and respects agent intelligence.",
       "Exact machine routes are present.",
     ]),
     "",
@@ -675,7 +674,7 @@ Nearby boundary needed? yes/no
 - Automatic failures: none | <list>
 - Ontology-capture test: pass | fail
 - Seriousness test: pass | fail
-- LLM-smell review: pass | fail
+- Model-copy review: pass | fail
 - CTA verified: yes | no
 - Approved by:${" "}
 - Date:${" "}

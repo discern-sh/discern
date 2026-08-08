@@ -153,7 +153,7 @@ export const BRAND_DOCUMENTS = [
     file: "for-agents-brief.md",
     status: "Operational",
     job:
-      "Defines the dedicated For Agents page, `llms.txt`, and the creative “marketing to the machines” programme.",
+      "Defines the dedicated For Agents page, `llms.txt`, and the creative “marketing to the machines” program.",
     mode: { kind: "authored", privateOverlay: true },
   },
   {

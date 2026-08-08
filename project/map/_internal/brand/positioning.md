@@ -10,7 +10,7 @@
 
 > **discern helps people build ambitious software with coding agents, while giving the project the engineering practice required to earn confidence as it grows.**
 
-This sentence is strategic language, not required public copy.
+This sentence guides strategy. Public copy can express the idea in words suited to its surface.
 
 ## The cultural change
 
@@ -22,7 +22,7 @@ This is an expansion of human capability worth celebrating.
 
 It also changes the bottleneck. Execution can scale faster than personal attention, project memory, coordination, review, and the practical discipline that keeps software coherent over time.
 
-The next generation of software needs more than faster production. It needs a way for the project to retain what matters while more of the implementation is delegated.
+Faster production leaves a harder problem: the project must retain what matters while more of the implementation is delegated.
 
 ## The audience identity
 
@@ -30,11 +30,11 @@ The next generation of software needs more than faster production. It needs a wa
 
 This is the shared identity across discern's primary human audiences.
 
-For an experienced engineer, it recognises an existing standard: years of judgement, conventions, architectural instincts, and care for what ships.
+For an experienced engineer, it recognizes an existing standard: years of judgment, conventions, architectural instincts, and care for what ships.
 
 For a new builder, it expresses an aspiration: the desire for users, customers, collaborators, peers, and the builder themselves to regard the software as real, dependable, and worthy of confidence.
 
-The line is intentionally about attitude rather than credentials. It welcomes people into a practice without pretending that experience has no value.
+The line recognizes a shared attitude across levels of experience. It welcomes people into a practice while respecting the value of experience.
 
 ## What “serious” means
 
@@ -50,7 +50,7 @@ It may have:
 - a role in someone's workday;
 - a future larger than the first demo.
 
-“Serious” does not mean sombre, joyless, corporate, large, or over-engineered.
+“Serious” does not mean somber, joyless, corporate, large, or over-engineered.
 
 It means the builder has earned the privilege of caring about what happens next. The software deserves a way of working appropriate to the trust being placed in it.
 
@@ -75,7 +75,7 @@ The person gained execution capacity and became the operating layer around it.
 
 With discern, more implementation can move without requiring attention, coordination, and review to grow at the same rate.
 
-The person can spend more of their judgement on:
+The person can spend more of their judgment on:
 
 - what should be built;
 - why it matters;
@@ -88,11 +88,11 @@ The emotional movement is:
 
 > **Ambition → momentum → confidence → pride**
 
-The user should feel more capable, not more monitored; more liberated, not more burdened by process.
+The user should feel capable and liberated, with the practice carrying more of the coordination burden.
 
 ## The master worldview: Consequential Code
 
-The internal name for the brand platform is **Consequential Code**. It pairs with the design system's **Editorial Engineering** (see [`visual-identity.md`](visual-identity.md)): two internal labels for one system — one names what discern stands for, the other how discern looks.
+The internal name for the brand platform is **Consequential Code**. It pairs with the design system's **Editorial Engineering** (see [`visual-identity.md`](visual-identity.md)). The labels serve one system: Consequential Code names what discern stands for, and Editorial Engineering names how discern looks.
 
 It contains a belief:
 
@@ -104,7 +104,7 @@ It contains an audience promise:
 
 It contains an experienced-engineer promise:
 
-> Accumulated judgement can influence far more work than one person can personally inspect.
+> Accumulated judgment can influence far more work than one person can personally inspect.
 
 It contains a social desire:
 
@@ -134,7 +134,7 @@ A discern practice includes:
 - explicit authority over what becomes shared;
 - local evidence showing how the practice behaves over time.
 
-“Installs a practice” is a category explanation. It is not the primary emotional promise. People buy the capability and confidence that living with the practice creates.
+“Installs a practice” explains the category. Lead public pages with the capability and confidence that living with the practice creates.
 
 ## Positioning statement
 
@@ -152,7 +152,7 @@ This supplies ambition and momentum through territories such as:
 
 - **A bolder way to build.**
 - **Build further.**
-- **A bigger way to build.** — useful where the surrounding copy clearly means capability rather than code volume.
+- **A bigger way to build.** Use it where the surrounding copy clearly establishes capability and ambition.
 
 This territory should make discern enjoyable to promote and exciting to discover.
 
@@ -161,19 +161,19 @@ This territory should make discern enjoyable to promote and exciting to discover
 This explains a concrete change in the user's working life:
 
 - substantial implementation can move without continuous supervision;
-- attention can move towards direction, outcome, and consequential decisions;
-- technical review can remain sceptical while becoming delegable;
+- attention can move toward direction, outcome, and consequential decisions;
+- technical review can remain skeptical while becoming delegable;
 - the human need not become the courier between parallel efforts.
 
-Delegation supports the brand. It does not define the whole brand, because many new builders have never worked through manual line-by-line review and because autonomous “fleet” language can evoke a low-quality code factory.
+Delegation supports the brand. It cannot serve as the master promise because many new builders have never worked through manual line-by-line review and autonomous “fleet” language can evoke a low-quality code factory.
 
 ### Technical distinction: Agent ergonomics
 
 This explains why discern feels different to coding agents and advanced technical users.
 
-It is deterministic software designed around an intelligent machine as the principal operator: context is budgeted, state is explicit, refusals route forwards, operations are safe to call, and the project retains one way of working across providers.
+It is deterministic software designed around an intelligent machine as the principal operator: context is budgeted, state is explicit, refusals route forward, operations are safe to call, and the project retains one way of working across providers.
 
-Agent ergonomics should lead the For Agents page and technical thought leadership. It should support, rather than replace, the main human promise.
+Agent ergonomics should lead the For Agents page and technical thought leadership while supporting the main human promise.
 
 ## The promise hierarchy
 
@@ -199,32 +199,32 @@ Agent ergonomics should lead the For Agents page and technical thought leadershi
 
 ## Reasons to believe
 
-The brand promise is supported by a connected system rather than one isolated feature:
+A connected system supports the brand promise:
 
-1. **Commissioning** — the setup agent studies the repository, learns intent, wires the project's real checks, authors project guidance and principles, and proves the practice in an isolated worktree.
-2. **Project continuity** — one authored source reaches every configured coding-agent provider; project knowledge and procedures persist across sessions.
-3. **Shaped delegation** — substantial work can become complete briefs, parallel waves, or staged dependencies with explicit authority and independent review.
-4. **Isolated work** — each task receives its own checkout, branch, identity, environment values, and declared resources.
-5. **Deterministic completion** — the project runs its declared checks rather than asking an AI model to judge another model's confidence.
-6. **Standards that retain gains** — a measurable improvement can be captured and may not be surrendered by a later branch.
-7. **Exact-change evidence** — the completion artefact identifies the committed tree and declared conditions it covers.
-8. **Human acceptance** — passing conditions do not independently grant authority to land.
-9. **Practice evidence** — local history can reveal recurring friction, provider cohorts, cycle time, gate fit, and quality trajectories.
-10. **Provider continuity** — the intelligence may change while the project's working practice remains.
+1. **Commissioning:** the setup agent studies the repository, learns intent, wires the project's real checks, authors project guidance and principles, and proves the practice in an isolated worktree.
+2. **Project continuity:** one authored source reaches every configured coding-agent provider; project knowledge and procedures persist across sessions.
+3. **Shaped delegation:** substantial work can become complete briefs, parallel waves, or staged dependencies with explicit authority and independent review.
+4. **Isolated work:** each task receives its own checkout, branch, identity, environment values, and declared resources.
+5. **Deterministic completion:** the project runs its declared checks; no AI model judges another model's confidence.
+6. **Standards that retain gains:** a measurable improvement can be captured and may not be surrendered by a later branch.
+7. **Exact-change evidence:** the completion artifact identifies the committed tree and declared conditions it covers.
+8. **Human acceptance:** passing conditions do not independently grant authority to land.
+9. **Practice evidence:** local history can reveal recurring friction, provider cohorts, cycle time, gate fit, and quality trajectories.
+10. **Provider continuity:** the intelligence may change while the project's working practice remains.
 
 ## Differentiation
 
 ### Against manual review
 
-Manual review does not scale at the same rate as agent production. discern moves more judgement into the project before, during, and after implementation.
+Manual review does not scale at the same rate as agent production. discern moves more judgment into the project before, during, and after implementation.
 
 ### Against AI code review
 
-AI review offers interpretation. discern supplies deterministic project conditions, exact change evidence, and a controlled lifecycle. The two can coexist.
+AI review offers interpretation. discern supplies deterministic project conditions, exact change evidence, and a controlled lifecycle. AI review can coexist with discern.
 
 ### Against CI
 
-CI remains useful for shared and remote verification. discern owns an earlier, local, agent-native practice around how work begins, proceeds, proves itself, and becomes eligible for acceptance — though discern can run the Gate in CI, too.
+CI remains useful for shared and remote verification. discern owns an earlier, local, agent-native practice around how work begins, proceeds, proves itself, and becomes eligible for acceptance. discern can also run the Gate in CI.
 
 ### Against vendor-native agent fleets
 
@@ -236,11 +236,11 @@ discern's value comes from the connected method. Its prescriptiveness is part of
 
 ## Market boundary
 
-The meaningful boundary is not engineer versus non-engineer, solo versus team, or small versus large.
+The meaningful boundary follows the software's intended life and consequences, regardless of the builder's credentials, team size, or project scale.
 
-It is:
+The initial focus is:
 
-> **Disposable software versus software someone intends to rely upon.**
+> **Software someone intends to rely upon.**
 
 The initial product is principally designed for one responsible person on one machine, including shared repositories. Future team and multi-machine editions may extend the commercial model without changing the core brand belief.
 
@@ -252,7 +252,7 @@ Do not position discern as:
 - a way to produce the greatest possible volume of code;
 - a guarantee that software is secure or universally correct;
 - a sandbox, firewall, virtual machine, or model-control layer;
-- an AI reviewer replacing human judgement;
+- an AI reviewer replacing human judgment;
 - a CI replacement;
 - a fleet dashboard;
 - a certification of the builder's status;
@@ -263,22 +263,22 @@ Do not position discern as:
 
 The chosen position should be natural for the founder to promote.
 
-The founder's authentic story is one of enthusiasm after scepticism: coding agents became genuinely useful, parallelism increased capability, traditional review became the bottleneck, and judgement moved into a durable practice around the work.
+The founder's authentic story is one of enthusiasm after skepticism: coding agents became genuinely useful, parallelism increased capability, traditional review became the bottleneck, and judgment moved into a durable practice around the work.
 
 The brand should therefore sound optimistic about agents, excited by new builders, and confident that discipline can increase freedom.
 
 ## Strategic tests
 
-A proposed message belongs in the core brand only when it passes all of these:
+A proposed message belongs in the core brand only when it passes these tests:
 
-1. It is meaningful to both the experienced engineer and the new consequential builder, or it is explicitly assigned to one audience path.
+1. It is meaningful to experienced engineers and new consequential builders, or it is explicitly assigned to one audience path.
 2. It creates a human desire before requiring product vocabulary.
 3. It remains valuable as coding agents improve.
 4. It celebrates capability while preserving seriousness.
 5. It can be supported by a product mechanism or credible evidence.
 6. It does not imply security, total correctness, or autonomous shipping authority.
 7. It is something the founder can say aloud with conviction.
-8. It sounds like discern rather than a generic AI developer tool.
+8. It sounds recognizably like discern and avoids generic AI developer-tool language.
 
 ## Canonical summary
 

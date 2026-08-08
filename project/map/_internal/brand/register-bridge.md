@@ -11,9 +11,9 @@ Every public claim should be traceable backwards:
 
 > Brand expression → human situation → practical consequence → product mechanism → source of truth
 
-Every product feature does not need to move forwards into marketing.
+Only features that help the reader understand or believe the human proposition belong in marketing.
 
-The product canon is evidence. It is not a copy prompt.
+Use the product canon as evidence after defining the human proposition.
 
 ## Drafting procedure
 
@@ -30,28 +30,28 @@ Before writing public copy about a feature:
 
 ## Core concept map
 
-| Concept                   | Exact product role                                                                                                                                      | Human situation                                                                               | Brand interpretation                                                     | Plain-language first use                                                                 | Use prominently?                       | Do not imply                                                                                                 |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Practice**              | The connected project-specific system of guidance, Skills, worktrees, checks, Standards, evidence, acceptance, maintained knowledge, and local history. | The person cannot personally repeat or supervise every expectation across growing agent work. | A serious way of working that persists around the project.               | “An engineering practice installed into the project.”                                    | Yes, as category.                      | A vague methodology, consultancy, or ritual detached from software.                                          |
-| **Change**                | One bounded effort and resulting committed tree through evaluation and acceptance.                                                                      | The person needs to reason about one unit of delegated work from brief to decision.           | Work that returns in a complete, reviewable form.                        | “One task and the exact completed change it produced.”                                   | Yes, after orientation.                | A universal guarantee about the entire application.                                                          |
-| **Gate**                  | The project's declared full check, run deterministically over the current tree.                                                                         | An agent says the work is finished, but “done” needs a stable project meaning.                | The project has a real definition of ready.                              | “The project's final quality check (the Gate).”                                          | Supporting proof.                      | That passing alone proves security, usefulness, or universal correctness.                                    |
-| **Standard**              | A measurable floor or ceiling held against the trunk and allowed to tighten only.                                                                       | A project improves, then later work gives the gain back.                                      | Once the project earns a measurable improvement, it can keep it.         | “A quality measure that can only improve (a Standard).”                                  | Yes, in proof sections.                | That every important quality is reducible to one number.                                                     |
-| **Proof**                 | Evidence that one exact clean committed tree passed the declared Gate and held applicable Standards.                                                    | The person needs to know which result the evidence actually covers.                           | Evidence attached to the exact completed change.                         | “Proof that this exact change passed the project's declared checks.”                     | Yes, with scope.                       | Formal verification, security proof, absence of all defects, or automatic shipping authority.                |
-| **Worktree**              | A separate Git checkout and branch for one effort, with identity, environment, and declared resources.                                                  | Several agents need to work without sharing one mutable checkout or environment.              | Every task receives its own prepared place to work.                      | “An isolated workspace for one task (a Git worktree).”                                   | On how-it-works and engineer pages.    | That logical source overlap or semantic integration conflict can never occur.                                |
-| **Guidance**              | One authored source compiled into each configured provider's instruction surface.                                                                       | The project is re-explained in every session and provider.                                    | Every agent starts with the same project understanding.                  | “Shared project instructions, written once and supplied to every agent.”                 | Yes, as a benefit.                     | Autonomous learning or a model inside discern.                                                               |
-| **Skill**                 | A reusable `SKILL.md` playbook materialised for each agent.                                                                                             | A hard-won procedure disappears with the session that learned it.                             | A method future agents can inherit and apply.                            | “A reusable agent playbook (a Skill).”                                                   | Supporting.                            | A plugin marketplace or an autonomous capability requiring no judgement.                                     |
-| **Map**                   | Agent-maintained project documentation, mechanically checked and selectively publishable.                                                               | Delegation increases while the project becomes less legible to its human.                     | A readable account of what the agents understand about the project.      | “The project's maintained guide (the Map).”                                              | Yes, in continuity and trust sections. | Subjective prose freshness that discern can perfectly judge.                                                 |
-| **Desk**                  | The human's interactive surface over work in flight.                                                                                                    | The person needs one calm view over delegated tasks and valid next actions.                   | One place to see and direct the work.                                    | “The human view over work in progress (the Desk).”                                       | Product-page supporting object.        | A cloud management dashboard or team control plane.                                                          |
-| **Logbook**               | Local, metadata-only history of discern use.                                                                                                            | The team or owner remembers friction anecdotally but cannot see recurring practice.           | A private record of how the work has been moving.                        | “A local activity record (the Logbook), containing metadata rather than code or output.” | Deeper proof.                          | Surveillance, remote telemetry, code capture, or employee monitoring.                                        |
-| **Patterns**              | Read-only analysis of local evidence across behaviour, gate fit, funnel flow, Standards, cohorts, and epochs.                                           | The practice needs to improve from evidence rather than intuition.                            | See how the way of working changes over time.                            | “A practice report that finds recurring friction and trends (Patterns).”                 | Important secondary pillar.            | Agent grading, causal certainty, or fair performance ranking across different task mixes.                    |
-| **Accept**                | The verified operation that fast-forwards an authorised exact change onto the trunk and cleans up the effort.                                           | A completed change must become shared without ambiguity about tree or authority.              | A recorded decision that turns verified work into shared work.           | “Accept the exact reviewed change onto the shared branch.”                               | Supporting authority story.            | That a passing Gate independently grants permission.                                                         |
-| **Landing authority**     | Machine-checked evidence that a specific worktree or scope may land.                                                                                    | The human wants independence without approving every routine action.                          | Define permission once at a meaningful boundary.                         | “Recorded permission for this task or scope to land.”                                    | Consent and trust pages.               | Blanket autonomous action or inferred consent from old conversation.                                         |
-| **Fleet**                 | The set of active worktrees reported by status and the Desk.                                                                                            | Several delegated tasks are moving at once.                                                   | Work in flight across several agents.                                    | “All current tasks in flight (the fleet).”                                               | Engineer and agent pages.              | Enterprise scale, command-and-control surveillance, or uniqueness versus vendor fleets.                      |
-| **Commission**            | Brand interpretation of staged agent-driven setup.                                                                                                      | A project needs a working practice tailored to its repository and intent.                     | The agent studies, establishes, and proves the project's way of working. | “Commission discern for this project.”                                                   | Yes, especially setup.                 | A passive installer, instant magic, or zero work by the agent.                                               |
-| **Agent ergonomics**      | Design discipline for machine operators: bounded context, typed contracts, stable state, callable idempotence, useful refusals, relay-safe prose.       | Agents waste context and tool calls operating human-oriented software.                        | Software designed around the machine doing the work.                     | “Agent ergonomics: interaction design for coding agents.”                                | Technical and For Agents.              | An AI model inside discern or a proprietary agent.                                                           |
-| **Provider independence** | One project guidance and practice across supported providers.                                                                                           | Quotas, preferences, capabilities, and availability lead the user to switch agents.           | Change agents without re-teaching the project.                           | “One project practice across the coding agents you use.”                                 | Yes, current practical benefit.        | Identical provider capability, guaranteed portability of every vendor feature, or permanent quota economics. |
-| **Owner**                 | The responsible human who sets intent and authority and carries consequences.                                                                           | Someone must decide what becomes shared and stand behind the result.                          | Usually express the action or consequence rather than the abstract role. | “The person responsible for the project.”                                                | Mostly backstage.                      | Corporate “product owner,” legal ownership, management hierarchy, or constant supervision.                   |
-| **Serious software**      | Brand territory, not a product term.                                                                                                                    | The software has users, data, revenue, reputation, maintenance, or operational importance.    | Software that deserves and earns confidence.                             | No technical definition required; show the consequences.                                 | Yes, central worldview.                | Sombre personality, over-engineering, exclusion, or moral superiority.                                       |
+| Concept                   | Exact product role                                                                                                                                      | Human situation                                                                               | Brand interpretation                                                     | Plain-language first use                                                                  | Use prominently?                       | Do not imply                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Practice**              | The connected project-specific system of guidance, Skills, worktrees, checks, Standards, evidence, acceptance, maintained knowledge, and local history. | The person cannot personally repeat or supervise every expectation across growing agent work. | A serious way of working that persists around the project.               | “An engineering practice installed into the project.”                                     | Yes, as category.                      | A vague methodology, consultancy, or ritual detached from software.                                          |
+| **Change**                | One bounded effort and resulting committed tree through evaluation and acceptance.                                                                      | The person needs to reason about one unit of delegated work from brief to decision.           | Work that returns in a complete, reviewable form.                        | “One task and the exact completed change it produced.”                                    | Yes, after orientation.                | A universal guarantee about the entire application.                                                          |
+| **Gate**                  | The project's declared full check, run deterministically over the current tree.                                                                         | An agent says the work is finished, but “done” needs a stable project meaning.                | The project has a real definition of ready.                              | “The project's final quality check (the Gate).”                                           | Supporting proof.                      | That passing alone proves security, usefulness, or universal correctness.                                    |
+| **Standard**              | A measurable floor or ceiling held against the trunk and allowed to tighten only.                                                                       | A project improves, then later work gives the gain back.                                      | Once the project earns a measurable improvement, it can keep it.         | “A quality measure that can only improve (a Standard).”                                   | Yes, in proof sections.                | That every important quality is reducible to one number.                                                     |
+| **Proof**                 | Evidence that one exact clean committed tree passed the declared Gate and held applicable Standards.                                                    | The person needs to know which result the evidence covers.                                    | Evidence attached to the exact completed change.                         | “Proof that this exact change passed the project's declared checks.”                      | Yes, with scope.                       | Formal verification, security proof, absence of all defects, or automatic shipping authority.                |
+| **Worktree**              | A separate Git checkout and branch for one effort, with identity, environment, and declared resources.                                                  | Several agents need to work without sharing one mutable checkout or environment.              | Every task receives its own prepared place to work.                      | “An isolated workspace for one task (a Git worktree).”                                    | On how-it-works and engineer pages.    | That logical source overlap or semantic integration conflict can never occur.                                |
+| **Guidance**              | One authored source compiled into each configured provider's instruction surface.                                                                       | The project is re-explained in every session and provider.                                    | Every agent starts with the same project understanding.                  | “Shared project instructions, written once and supplied to every agent.”                  | Yes, as a benefit.                     | Autonomous learning or a model inside discern.                                                               |
+| **Skill**                 | A reusable `SKILL.md` playbook materialized for each agent.                                                                                             | A hard-won procedure disappears with the session that learned it.                             | A method future agents can inherit and apply.                            | “A reusable agent playbook (a Skill).”                                                    | Supporting.                            | A plugin marketplace or an autonomous capability requiring no judgment.                                      |
+| **Map**                   | Agent-maintained project documentation, mechanically checked and selectively publishable.                                                               | Delegation increases while the project becomes less legible to its human.                     | A readable account of what the agents understand about the project.      | “The project's maintained guide (the Map).”                                               | Yes, in continuity and trust sections. | Subjective prose freshness that discern can perfectly judge.                                                 |
+| **Desk**                  | The human's interactive surface over work in flight.                                                                                                    | The person needs one calm view over delegated tasks and valid next actions.                   | One place to see and direct the work.                                    | “The human view over work in progress (the Desk).”                                        | Product-page supporting object.        | A cloud management dashboard or team control plane.                                                          |
+| **Logbook**               | Local, metadata-only history of discern use.                                                                                                            | The team or owner remembers friction anecdotally but cannot see recurring practice.           | A private record of how the work has been moving.                        | “A local activity record (the Logbook) containing metadata; it excludes code and output.” | Deeper proof.                          | Surveillance, remote telemetry, code capture, or employee monitoring.                                        |
+| **Patterns**              | Read-only analysis of local evidence across behavior, gate fit, funnel flow, Standards, cohorts, and epochs.                                            | The practice needs evidence about how its way of working changes over time.                   | See how the way of working changes over time.                            | “A practice report that finds recurring friction and trends (Patterns).”                  | Important secondary pillar.            | Agent grading, causal certainty, or fair performance ranking across different task mixes.                    |
+| **Accept**                | The verified operation that fast-forwards an authorized exact change onto the trunk and cleans up the effort.                                           | A completed change must become shared without ambiguity about tree or authority.              | A recorded decision that turns verified work into shared work.           | “Accept the exact reviewed change onto the shared branch.”                                | Supporting authority story.            | That a passing Gate independently grants permission.                                                         |
+| **Landing authority**     | Machine-checked evidence that a specific worktree or scope may land.                                                                                    | The human wants independence without approving every routine action.                          | Define permission once at a meaningful boundary.                         | “Recorded permission for this task or scope to land.”                                     | Consent and trust pages.               | Blanket autonomous action or inferred consent from old conversation.                                         |
+| **Fleet**                 | The set of active worktrees reported by status and the Desk.                                                                                            | Several delegated tasks are moving at once.                                                   | Work in flight across several agents.                                    | “All current tasks in flight (the fleet).”                                                | Engineer and agent pages.              | Enterprise scale, command-and-control surveillance, or uniqueness versus vendor fleets.                      |
+| **Commission**            | Brand interpretation of staged agent-driven setup.                                                                                                      | A project needs a working practice tailored to its repository and intent.                     | The agent studies, establishes, and proves the project's way of working. | “Commission discern for this project.”                                                    | Yes, especially setup.                 | A passive installer, instant magic, or zero work by the agent.                                               |
+| **Agent ergonomics**      | Design discipline for machine operators: bounded context, typed contracts, stable state, callable idempotence, useful refusals, relay-safe prose.       | Agents waste context and tool calls operating human-oriented software.                        | Software designed around the machine doing the work.                     | “Agent ergonomics: interaction design for coding agents.”                                 | Technical and For Agents.              | An AI model inside discern or a proprietary agent.                                                           |
+| **Provider independence** | One project guidance and practice across supported providers.                                                                                           | Quotas, preferences, capabilities, and availability lead the user to switch agents.           | Change agents without re-teaching the project.                           | “One project practice across the coding agents you use.”                                  | Yes, current practical benefit.        | Identical provider capability, guaranteed portability of every vendor feature, or permanent quota economics. |
+| **Owner**                 | The responsible human who sets intent and authority and carries consequences.                                                                           | Someone must decide what becomes shared and stand behind the result.                          | Express the action or consequence and keep the abstract role backstage.  | “The person responsible for the project.”                                                 | Mostly backstage.                      | Corporate “product owner,” legal ownership, management hierarchy, or constant supervision.                   |
+| **Serious software**      | A brand territory with no product definition.                                                                                                           | The software has users, data, revenue, reputation, maintenance, or operational importance.    | Software that deserves and earns confidence.                             | No technical definition required; show the consequences.                                  | Yes, central worldview.                | Somber personality, over-engineering, exclusion, or moral superiority.                                       |
 
 ## Product-to-brand translations
 
@@ -59,7 +59,7 @@ Before writing public copy about a feature:
 
 **Product truth:** `discern done` runs the project's declared finishing and verification work.
 
-**Weak literal translation:** A comprehensive deterministic quality gate.
+**Weak literal translation:** `A comprehensive deterministic quality gate.`
 
 **Better human translations:**
 
@@ -69,37 +69,37 @@ Before writing public copy about a feature:
 
 **Where the product noun enters:**
 
-> The project's final quality check—the Gate—runs the commands and Standards the project declares.
+> The project's final quality check (the Gate) runs the commands and Standards the project declares.
 
 ### Standards
 
 **Product truth:** a floor may rise and a ceiling may fall; a branch cannot loosen either.
 
-**Weak literal translation:** Ratcheting numerical quality constraints.
+**Weak literal translation:** `Ratcheting numerical quality constraints.`
 
 **Better human translations:**
 
 - Once the project improves, a later change cannot give the gain back.
-- Let quality accumulate rather than being renegotiated on every branch.
+- Let quality gains accumulate across branches.
 - Keep a hard-won improvement as the new starting point.
 
 ### Proof
 
 **Product truth:** evidence covers one exact committed tree and its declared Gate result.
 
-**Weak literal translation:** A DSSE-compatible completion attestation.
+**Weak literal translation:** `A DSSE-compatible completion attestation.`
 
 **Better human translations:**
 
 - Know which exact change the evidence belongs to.
 - Receive a completed change with a clear account of what passed.
-- Review a claim tied to the work, rather than a confident summary floating free of it.
+- Review a claim tied directly to the work and its result.
 
 ### Worktrees
 
 **Product truth:** one separate checkout, branch, identity, and declared resource set per effort.
 
-**Weak literal translation:** Automated Git worktree orchestration.
+**Weak literal translation:** `Automated Git worktree orchestration.`
 
 **Better human translations:**
 
@@ -111,7 +111,7 @@ Before writing public copy about a feature:
 
 **Product truth:** one authored source compiles into supported provider instruction files.
 
-**Weak literal translation:** Cross-provider generated instruction parity.
+**Weak literal translation:** `Cross-provider generated instruction parity.`
 
 **Better human translations:**
 
@@ -123,50 +123,50 @@ Before writing public copy about a feature:
 
 **Product truth:** a Skill shapes one handoff, internal fan-out, parallel streams, or staged dependencies, with complete briefs, work boundaries, authority, and adversarial review.
 
-**Weak literal translation:** Multi-agent planning and orchestration.
+**Weak literal translation:** `Multi-agent planning and orchestration.`
 
 **Better human translations:**
 
-- Turn a backlog into organised work.
+- Turn a backlog into organized work.
 - Give several agents complete, non-overlapping responsibilities.
 - Let dependencies resolve without becoming the courier between sessions.
 - Return to results that have already faced an independent technical pass.
 
 ### Patterns
 
-**Product truth:** local evidence is analysed through named detectors across behaviour, gate fit, funnel, trajectories, providers, and configurations.
+**Product truth:** local evidence is analyzed through named detectors across behavior, gate fit, funnel, trajectories, providers, and configurations.
 
-**Weak literal translation:** Local agent workflow analytics.
+**Weak literal translation:** `Local agent workflow analytics.`
 
 **Better human translations:**
 
 - See where the practice is improving and where work keeps losing time.
 - Replace recurring anecdotes with counted evidence.
-- Compare working patterns without turning agents into a leaderboard.
+- Compare working patterns at the cohort level and leave agent rankings out.
 
 ## Direct-lift watchlist
 
-The following product phrases may be accurate and useful in documentation. They should not automatically become brand headlines:
+The following product phrases may be accurate and useful in documentation. Treat them as quoted source material when considering brand headlines:
 
-- The repo decides what done means.
-- An agent's confidence has no vote.
-- Signal without new failure modes.
-- Facts before judgements.
-- Necessary, not sufficient.
-- Placement is consent.
-- Calling the verb replaces pre-checking it.
-- The gate is the bar for done.
-- Quality numbers that can never get worse.
-- The agent is the user.
-- Context is a budget.
+- `The repo decides what done means.`
+- `An agent's confidence has no vote.`
+- `Signal without new failure modes.`
+- `Facts before judgments.`
+- `Necessary, not sufficient.`
+- `Placement is consent.`
+- `Calling the verb replaces pre-checking it.`
+- `The gate is the bar for done.`
+- `Quality numbers that can never get worse.`
+- `The agent is the user.`
+- `Context is a budget.`
 
-Some may appear in technical thought leadership or a product section. Their existence in the canon is not evidence that they create human desire at the top of a marketing page.
+Use these phrases in technical thought leadership or a product section when they serve the reader. Their place in the canon says nothing about whether they create human desire at the top of a marketing page.
 
 ## Product-copy smells in brand drafts
 
 Flag a brand draft when it:
 
-- begins with a command, subsystem, registry, or internal artefact;
+- begins with a command, subsystem, registry, or internal artifact;
 - uses several canonical nouns before a human situation appears;
 - follows the feature canon's pillar order;
 - explains the mechanism before the reader wants the outcome;

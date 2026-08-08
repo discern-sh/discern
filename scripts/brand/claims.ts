@@ -26,7 +26,7 @@ export const EVIDENCE_CLASSES: Readonly<
   },
   demonstrated: {
     meaning:
-      "Product behaviour verified by the current implementation and dogfooding.",
+      "Product behavior verified by the current implementation and dogfooding.",
     publicUse: "Safe with conditions; avoid universal customer outcomes.",
   },
   observational: {
@@ -38,7 +38,7 @@ export const EVIDENCE_CLASSES: Readonly<
   anecdotal: {
     meaning: "A named user's external experience or reaction.",
     publicUse:
-      "Permission required; describe as an anecdote, not a general result.",
+      "Permission required. Attribute the experience and limit the wording to that named user's result.",
   },
   hypothesis: {
     meaning:
@@ -58,7 +58,7 @@ export const CLAIMS = {
     mechanism:
       "setup studies the repository, learns human intent, wires project jobs, authors guidance and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing guidance, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.",
     conditions:
-      "“Practice” must be understood as the connected product system, not a claim of cultural transformation by installation alone.",
+      "“Practice” names the connected product system. Installation alone does not establish cultural transformation.",
     forbiddenInference:
       "setup makes every project professionally engineered without good repository evidence, a capable setup agent, or human decisions.",
     primarySource: "setup brief; feature registry/canon.",
@@ -101,11 +101,11 @@ export const CLAIMS = {
     forbiddenInference:
       "every provider can resume identical hidden conversational state or proprietary provider features.",
     tacticalUse: "quota and subscription-capacity juggling.",
-    primarySource: "provider guidance registry; setup and refresh behaviour.",
+    primarySource: "provider guidance registry; setup and refresh behavior.",
   },
   "shaped-delegation": {
     title:
-      "substantial delegated work can be shaped into parallel or staged programmes",
+      "substantial delegated work can be shaped into parallel or staged programs",
     evidence: ["structural", "demonstrated"],
     strongestPublicForm:
       "discern can turn discussed work into complete handoffs, parallel streams, or staged dependencies for fresh coding agents.",
@@ -114,20 +114,20 @@ export const CLAIMS = {
     conditions:
       "the work must contain real seams; dispatch remains under user control; parallel streams should avoid shared files in flight.",
     forbiddenInference:
-      "every backlog is safely parallelisable, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.",
+      "every backlog can safely run in parallel, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.",
     primarySource: "`discern-delegate-work` Skill.",
   },
   "reduced-review-burden": {
     title: "discern supports reduced human line-by-line review",
     evidence: ["demonstrated", "observational"],
     strongestPublicForm:
-      "discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move towards outcomes, exceptions, and the decision to ship.",
+      "discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move toward outcomes, exceptions, and the decision to ship.",
     mechanism:
       "project guidance, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.",
     conditions:
       "appropriate review depth depends on project risk, change type, test quality, and the person's confidence in the configured practice.",
     forbiddenInference:
-      "no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artefact.",
+      "no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artifact.",
     evidenceNote:
       "founder dogfooding supports the intended outcome; external validation remains limited.",
     primarySource:
@@ -153,8 +153,8 @@ export const CLAIMS = {
     conditions:
       "two efforts may still change the same source files independently; status surfaces the overlap and the later landing must update and re-read shared paths.",
     forbiddenInference:
-      "“parallel agents cannot collide” without qualification.",
-    primarySource: "worktree lifecycle and fleet collision behaviour.",
+      "`parallel agents cannot collide` without qualification.",
+    primarySource: "worktree lifecycle and fleet collision behavior.",
   },
   "standards-cannot-loosen": {
     title: "a Standard cannot be loosened on a branch",
@@ -178,7 +178,7 @@ export const CLAIMS = {
     conditions: "margin and metric design affect the appropriate limit.",
     forbiddenInference:
       "every short-term fluctuation should be pinned or improvement is always monotonic in practice.",
-    primarySource: "Standards documentation and command behaviour.",
+    primarySource: "Standards documentation and command behavior.",
   },
   "proof-exact-tree": {
     title: "Proof covers the exact committed tree that passed",
@@ -192,7 +192,7 @@ export const CLAIMS = {
     forbiddenInference:
       "formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.",
     primarySource:
-      "Proof implementation, glossary, Gate behaviour, and DSSE-compatible note boundary.",
+      "Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.",
   },
   "gate-grants-no-authority": {
     title: "a passing Gate does not grant authority to land",
@@ -202,7 +202,7 @@ export const CLAIMS = {
     mechanism:
       "acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary.",
     conditions:
-      "pre-authorisation can permit independent landing once the exact changed paths satisfy the grant.",
+      "pre-authorization can permit independent landing once the exact changed paths satisfy the grant.",
     forbiddenInference:
       "the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.",
     primarySource: "landing authority, acceptance config, Delegate Work Skill.",
@@ -224,11 +224,11 @@ export const CLAIMS = {
     title: "evidence and the Logbook stay local",
     evidence: ["structural"],
     strongestPublicForm:
-      "discern's Logbook and advisory analysis stay on the machine and contain metadata rather than code or command output.",
+      "discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code and command output.",
     mechanism:
       "local `.git` storage; no network path in the Logbook implementation; opt-out available.",
     conditions:
-      "publication or Git transport of other artefacts may be explicitly configured by the user.",
+      "publication or Git transport of other artifacts may be explicitly configured by the user.",
     forbiddenInference:
       "all project data and tooling stay local or discern is a security boundary.",
     primarySource: "Logbook glossary and feature canon.",
@@ -240,11 +240,11 @@ export const CLAIMS = {
       "Patterns can segment and compare working evidence across agent cohorts and configuration epochs, while reporting denominators and avoiding agent rankings.",
     mechanism: "named detectors and stats over local Logbook evidence.",
     conditions:
-      "different task mixes confound comparisons; findings are places to investigate, not causal verdicts.",
+      "different task mixes confound comparisons. Treat findings as places to investigate; they do not establish causal verdicts.",
     forbiddenInference:
       "fair performance leaderboard, model benchmark, employee surveillance, or causal proof.",
     wordingCorrection:
-      "replace claims that “nothing is compared” with “cohorts may be compared; agents are not graded or ranked.”",
+      "replace claims that `nothing is compared` with `cohorts may be compared; agents are not graded or ranked.`",
     primarySource:
       "current `discern patterns --json` output and Patterns implementation.",
   },
@@ -277,10 +277,10 @@ export const CLAIMS = {
     strongestPublicForm:
       "discern checks the Map's links, anchors, live command examples, audience boundaries, metadata, and Skill references as part of the Gate.",
     conditions:
-      "file-linked freshness is evidence; subjective prose freshness is not currently judged.",
+      "file-linked freshness supplies evidence; the current checks do not judge subjective prose freshness.",
     forbiddenInference:
       "discern can determine whether every sentence remains conceptually current.",
-    primarySource: "Map integrity behaviour and feature canon.",
+    primarySource: "Map integrity behavior and feature canon.",
   },
   "agent-as-operator": {
     title: "discern is designed around the coding agent as operator",
@@ -299,7 +299,7 @@ export const CLAIMS = {
     strongestPublicForm:
       "discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.",
     conditions:
-      "dogfooding is meaningful product evidence, not independent external validation.",
+      "dogfooding provides product evidence from internal use. Independent external validation remains separate.",
     forbiddenInference: "self-use proves absence of defects or market fit.",
     primarySource: "feature canon and repository practice.",
   },
@@ -377,7 +377,7 @@ export function renderClaimsDoc(): string {
     "# Claims and evidence",
     "",
     "**Status:** Canonical claims ledger\\",
-    "**Purpose:** Allow bold public communication without losing the product's actual scope.",
+    "**Purpose:** Support bold public communication while preserving the product's actual scope.",
     "",
     "## Evidence classes",
     "",
@@ -394,14 +394,14 @@ export function renderClaimsDoc(): string {
     "",
     "When a claim needs verification, consult:",
     "",
-    "1. live behaviour and source code;",
+    "1. live behavior and source code;",
     "2. canonical registries and generated product canon;",
     "3. the canonical glossary and documentation;",
     "4. the setup brief and bundled Skills;",
     "5. current `discern patterns --json` evidence;",
     "6. founder account and approved user anecdotes.",
     "",
-    "The product glossary defines each product term once and prohibits synonyms in product prose. The Brand Operating System may vary human language, but must preserve those meanings.",
+    "The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.",
     "",
     "## Claim ledger",
     "",
@@ -410,6 +410,6 @@ export function renderClaimsDoc(): string {
     "",
     "## Absolute do-not-claim list",
     "",
-    DO_NOT_CLAIM.map((entry) => `- “${entry}”`).join("\n"),
+    DO_NOT_CLAIM.map((entry) => `- \`${entry}\``).join("\n"),
   ].join("\n");
 }

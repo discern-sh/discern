@@ -49,7 +49,7 @@ A draft fails immediately when it:
 - presents discern as a sandbox, firewall, AI reviewer, CI replacement, or complete fleet manager;
 - blames or morally judges coding agents;
 - excludes new builders from a general-audience surface;
-- patronises new builders or suggests engineering expertise is irrelevant;
+- patronizes new builders or suggests engineering expertise is irrelevant;
 - uses a product term inconsistently with the canonical glossary;
 - uses brand prose where an exact operational condition is required;
 - hides destructive consequences or consent scope;
@@ -67,17 +67,17 @@ Score each dimension 0–2:
 | Dimension                | Test                                                                                                 |
 | ------------------------ | ---------------------------------------------------------------------------------------------------- |
 | **Human desire**         | Does the opening describe a future, status, relief, or capability the reader wants?                  |
-| **Audience recognition** | Can the intended reader recognise their circumstance without a job-title persona?                    |
+| **Audience recognition** | Can the intended reader recognize their circumstance without a job-title persona?                    |
 | **Category clarity**     | Can a new visitor tell what kind of product discern is?                                              |
 | **Transformation**       | Is the changed experience more prominent than the feature mechanism?                                 |
 | **Cultural relevance**   | Does the copy feel connected to the current expansion of agent-built software without trend-chasing? |
 | **Distinctiveness**      | Could a generic AI developer tool use the same copy unchanged?                                       |
-| **Specificity**          | Are there concrete moments, objects, actions, or artefacts?                                          |
+| **Specificity**          | Are there concrete moments, objects, actions, or artifacts?                                          |
 | **Credibility**          | Are important claims supported by mechanisms or evidence?                                            |
 | **Scope discipline**     | Are claim limits clear where misunderstanding would matter?                                          |
-| **Register fit**         | Does the page sound like a brand, rather than an enlarged manual?                                    |
+| **Register fit**         | Does the page carry the brand's persuasive energy without reading like an enlarged manual?           |
 | **Voice**                | Is it literate, confident, inviting, premium, and alive?                                             |
-| **Seriousness**          | Does “serious” feel aspirational and earned rather than joyless or punitive?                         |
+| **Seriousness**          | Does “serious” feel aspirational, earned, and alive?                                                 |
 | **Audience breadth**     | Does the copy respect experienced engineers and leave a credible route for new builders?             |
 | **Action**               | Does the CTA describe a real destination or commitment?                                              |
 
@@ -85,7 +85,7 @@ Score each dimension 0–2:
 
 - **24–28:** strong candidate; proceed to final claim and craft review.
 - **18–23:** promising but one or more strategic elements need revision.
-- **Below 18:** rewrite from the argument, not the wording.
+- **Below 18:** rebuild the argument before revising the wording.
 
 A score of 0 in human desire, category clarity, credibility, or register fit is an automatic rewrite regardless of total.
 
@@ -119,7 +119,7 @@ Any 0 in state, action, canonical language, evidence scope, or authority blocks 
 | **Completion**               | Is the stop condition falsifiable?                                        |
 | **Human outcome**            | Does the brief include the user's semantic success condition?             |
 | **Relay**                    | Does the agent know what to report and when to stop?                      |
-| **Summarisation resilience** | Would critical instructions survive context compression?                  |
+| **Summarization resilience** | Would critical instructions survive context compression?                  |
 
 Any 0 in authority, working root, completion, or relay blocks release.
 
@@ -158,7 +158,7 @@ The answer does not need to be technically complete. It must be directionally co
 
 ### New consequential builder
 
-- Does the copy recognise what they have already achieved?
+- Does the copy recognize what they have already achieved?
 - Does it explain commissioning without expecting manual configuration knowledge?
 - Does it preserve their authority without turning them into a technical approver?
 - Does it avoid promising security or guaranteed quality?
@@ -175,7 +175,7 @@ The answer does not need to be technically complete. It must be directionally co
 Ask:
 
 - Does the copy make serious software sound desirable?
-- Is the reader invited into a standard rather than judged against one?
+- Does the copy invite the reader into a standard they want to reach?
 - Is the benefit framed through confidence, pride, growth, or capability?
 - Has the copy used fear of bugs, job loss, customers, or incidents as its main engine?
 - Does the tone leave room for pleasure, creativity, and ambition?
@@ -202,12 +202,12 @@ Add only the differentiator relevant to the section.
 
 ## Contemporary model-copy smell check
 
-Flag repeated use of:
+Apply the applicable voice Skill's banned-move check first. Then flag these patterns and inspect the page for repetition:
 
-- “X, not Y” constructions;
-- “This isn't just…”;
+- `X, not Y` constructions;
+- `This isn't just…`;
 - `In a world where…`;
-- “The future of…”;
+- `The future of…`;
 - three-part abstract noun sequences;
 - fragments in every heading and paragraph;
 - over-neat mirrored sentences;
@@ -219,7 +219,7 @@ Flag repeated use of:
 - generic superlatives;
 - anthropomorphic claims about the project “thinking,” “knowing,” or “learning” without a literal mechanism.
 
-One use may be legitimate. A pattern is the problem.
+A banned move fails on first use. Elsewhere, judge patterns across the draft; one well-chosen device can still earn its place.
 
 ## Line-editing pass
 
@@ -250,7 +250,7 @@ Forbidden inference:
 Nearby boundary needed? yes/no
 ```
 
-If the ledger records no such claim, add one before publishing rather than improvising a boundary in the page.
+If the ledger records no such claim, add one before publishing. Do not improvise a boundary in the page.
 
 ## Surface-specific review
 
@@ -276,14 +276,14 @@ If the ledger records no such claim, add one before publishing rather than impro
 - Preserves uncertainty and mental-model change.
 - Product enters after the human problem is felt.
 - Internal evidence is attributed.
-- Ends with invitation rather than inevitability.
+- Ends with an invitation and leaves room for the reader's choice.
 
 ### Product page
 
 - Human consequence leads each section.
 - Canonical nouns appear after first-use definitions.
 - Mechanism and trade-off are clear.
-- Technical depth is linked rather than copied in full.
+- Links to technical depth and keeps full detail in its owning reference.
 
 ### Trust page
 
@@ -297,7 +297,7 @@ If the ledger records no such claim, add one before publishing rather than impro
 
 - Works as an accurate agent orientation.
 - Works as an enjoyable human read.
-- Humour targets interface design, not agent intelligence.
+- Humor targets poorly designed interfaces and respects agent intelligence.
 - Exact machine routes are present.
 
 ## Proposed mechanical checks
@@ -307,7 +307,7 @@ These are candidates for Vale, tests, or registries after the rules are accepted
 ### Brand register
 
 - warn when a hero contains more than two canonical product nouns;
-- warn on repeated “X, not Y” syntax within one page;
+- warn on repeated `X, not Y` syntax within one page;
 - warn on generic verbs: `unlock`, `empower`, `transform`, `reimagine`;
 - warn on unsupported adjectives: `seamless`, `robust`, `powerful`, `enterprise-grade`;
 - warn when a CTA is only “Learn more,” “Explore,” or “Discover”;
@@ -352,7 +352,7 @@ Use this block in review PRs or internal notes:
 - Automatic failures: none | <list>
 - Ontology-capture test: pass | fail
 - Seriousness test: pass | fail
-- LLM-smell review: pass | fail
+- Model-copy review: pass | fail
 - CTA verified: yes | no
 - Approved by: 
 - Date: 

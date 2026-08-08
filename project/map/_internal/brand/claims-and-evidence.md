@@ -3,30 +3,30 @@
 # Claims and evidence
 
 **Status:** Canonical claims ledger\
-**Purpose:** Allow bold public communication without losing the product's actual scope.
+**Purpose:** Support bold public communication while preserving the product's actual scope.
 
 ## Evidence classes
 
-| Class             | Meaning                                                                                            | Public use                                                             |
-| ----------------- | -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| **Structural**    | Product truth enforced by architecture, source code, tests, or canonical registry.                 | Safe to state when wording matches the exact scope.                    |
-| **Demonstrated**  | Product behaviour verified by the current implementation and dogfooding.                           | Safe with conditions; avoid universal customer outcomes.               |
-| **Observational** | Internal evidence: a Patterns export, internal metrics, founder use, or controlled demonstrations. | Attribute and date it. Never present as independent market validation. |
-| **Anecdotal**     | A named user's external experience or reaction.                                                    | Permission required; describe as an anecdote, not a general result.    |
-| **Hypothesis**    | A plausible audience or market interpretation not yet externally tested.                           | Use internally or label as a hypothesis. Do not present as fact.       |
+| Class             | Meaning                                                                                            | Public use                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Structural**    | Product truth enforced by architecture, source code, tests, or canonical registry.                 | Safe to state when wording matches the exact scope.                                              |
+| **Demonstrated**  | Product behavior verified by the current implementation and dogfooding.                            | Safe with conditions; avoid universal customer outcomes.                                         |
+| **Observational** | Internal evidence: a Patterns export, internal metrics, founder use, or controlled demonstrations. | Attribute and date it. Never present as independent market validation.                           |
+| **Anecdotal**     | A named user's external experience or reaction.                                                    | Permission required. Attribute the experience and limit the wording to that named user's result. |
+| **Hypothesis**    | A plausible audience or market interpretation not yet externally tested.                           | Use internally or label as a hypothesis. Do not present as fact.                                 |
 
 ## Source hierarchy
 
 When a claim needs verification, consult:
 
-1. live behaviour and source code;
+1. live behavior and source code;
 2. canonical registries and generated product canon;
 3. the canonical glossary and documentation;
 4. the setup brief and bundled Skills;
 5. current `discern patterns --json` evidence;
 6. founder account and approved user anecdotes.
 
-The product glossary defines each product term once and prohibits synonyms in product prose. The Brand Operating System may vary human language, but must preserve those meanings.
+The product glossary defines each product term once and prohibits synonyms in product prose. The brand operating system may vary human language while preserving those meanings.
 
 ## Claim ledger
 
@@ -35,7 +35,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “discern installs an engineering practice into an agent-built project.”
 - **Mechanism:** setup studies the repository, learns human intent, wires project jobs, authors guidance and project knowledge, establishes worktree viability, and refuses completion until refresh, doctor, the full Gate, and a throwaway worktree probe pass. Ongoing guidance, Skills, worktrees, Standards, evidence, acceptance, and Patterns sustain the practice.
-- **Conditions:** “Practice” must be understood as the connected product system, not a claim of cultural transformation by installation alone.
+- **Conditions:** “Practice” names the connected product system. Installation alone does not establish cultural transformation.
 - **Forbidden inference:** setup makes every project professionally engineered without good repository evidence, a capable setup agent, or human decisions.
 - **Primary source:** setup brief; feature registry/canon.
 
@@ -65,24 +65,24 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Conditions:** the target provider must be supported and configured; active sessions may require restart or MCP reload.
 - **Forbidden inference:** every provider can resume identical hidden conversational state or proprietary provider features.
 - **Current tactical use case:** quota and subscription-capacity juggling.
-- **Primary source:** provider guidance registry; setup and refresh behaviour.
+- **Primary source:** provider guidance registry; setup and refresh behavior.
 
-### `shaped-delegation` — substantial delegated work can be shaped into parallel or staged programmes
+### `shaped-delegation` — substantial delegated work can be shaped into parallel or staged programs
 
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “discern can turn discussed work into complete handoffs, parallel streams, or staged dependencies for fresh coding agents.”
 - **Mechanism:** the bundled Delegate Work Skill defines the shapes, briefs, workstream keys, dependencies, authority, definitions of done, and adversarial review.
 - **Conditions:** the work must contain real seams; dispatch remains under user control; parallel streams should avoid shared files in flight.
-- **Forbidden inference:** every backlog is safely parallelisable, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.
+- **Forbidden inference:** every backlog can safely run in parallel, discern autonomously dispatches without consent, or vendor fleet management is absent elsewhere.
 - **Primary source:** `discern-delegate-work` Skill.
 
 ### `reduced-review-burden` — discern supports reduced human line-by-line review
 
 - **Evidence:** demonstrated / observational
-- **Strongest supported public form:** “discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move towards outcomes, exceptions, and the decision to ship.”
+- **Strongest supported public form:** “discern is designed to reduce the amount of implementation a person must inspect line by line, allowing attention to move toward outcomes, exceptions, and the decision to ship.”
 - **Mechanism:** project guidance, independent agent review, deterministic checks, exact-tree evidence, Standards, and authority boundaries.
 - **Conditions:** appropriate review depth depends on project risk, change type, test quality, and the person's confidence in the configured practice.
-- **Forbidden inference:** no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artefact.
+- **Forbidden inference:** no human ever needs to inspect code, the product guarantees correctness, or passing evidence replaces exercising the real artifact.
 - **Evidence note:** founder dogfooding supports the intended outcome; external validation remains limited.
 - **Primary source:** founder account; Gate guidance; Delegate Work Skill; current practice evidence.
 
@@ -100,8 +100,8 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Evidence:** structural
 - **Strongest supported public form:** “Parallel agents work in separate checkouts and cannot overwrite one another's working tree.”
 - **Conditions:** two efforts may still change the same source files independently; status surfaces the overlap and the later landing must update and re-read shared paths.
-- **Forbidden inference:** “parallel agents cannot collide” without qualification.
-- **Primary source:** worktree lifecycle and fleet collision behaviour.
+- **Forbidden inference:** `parallel agents cannot collide` without qualification.
+- **Primary source:** worktree lifecycle and fleet collision behavior.
 
 ### `standards-cannot-loosen` — a Standard cannot be loosened on a branch
 
@@ -119,7 +119,7 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Mechanism:** `discern standards --pin` tightens limits from measured evidence and records the change separately.
 - **Conditions:** margin and metric design affect the appropriate limit.
 - **Forbidden inference:** every short-term fluctuation should be pinned or improvement is always monotonic in practice.
-- **Primary source:** Standards documentation and command behaviour.
+- **Primary source:** Standards documentation and command behavior.
 
 ### `proof-exact-tree` — Proof covers the exact committed tree that passed
 
@@ -128,14 +128,14 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Mechanism:** the tree is pinned before evaluation and rechecked at stamping; a later commit invalidates the evidence.
 - **Conditions:** Use “Proof” consistently across product surfaces, and keep the claim scoped to the declared Gate over the exact tree.
 - **Forbidden inference:** formal proof of universal correctness, security, absence of defects, production suitability, or permission to land.
-- **Primary source:** Proof implementation, glossary, Gate behaviour, and DSSE-compatible note boundary.
+- **Primary source:** Proof implementation, glossary, Gate behavior, and DSSE-compatible note boundary.
 
 ### `gate-grants-no-authority` — a passing Gate does not grant authority to land
 
 - **Evidence:** structural
 - **Strongest supported public form:** “Passing makes a change eligible for a decision; it does not decide what ships.”
 - **Mechanism:** acceptance requires fresh conversational confirmation, a standing scope grant, or a per-worktree grant checked at the landing boundary.
-- **Conditions:** pre-authorisation can permit independent landing once the exact changed paths satisfy the grant.
+- **Conditions:** pre-authorization can permit independent landing once the exact changed paths satisfy the grant.
 - **Forbidden inference:** the human must manually approve every low-level action, or a recorded grant is unlimited autonomy.
 - **Primary source:** landing authority, acceptance config, Delegate Work Skill.
 
@@ -151,9 +151,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 ### `local-logbook` — evidence and the Logbook stay local
 
 - **Evidence:** structural
-- **Strongest supported public form:** “discern's Logbook and advisory analysis stay on the machine and contain metadata rather than code or command output.”
+- **Strongest supported public form:** “discern's Logbook and advisory analysis stay on the machine. They contain metadata and exclude code and command output.”
 - **Mechanism:** local `.git` storage; no network path in the Logbook implementation; opt-out available.
-- **Conditions:** publication or Git transport of other artefacts may be explicitly configured by the user.
+- **Conditions:** publication or Git transport of other artifacts may be explicitly configured by the user.
 - **Forbidden inference:** all project data and tooling stay local or discern is a security boundary.
 - **Primary source:** Logbook glossary and feature canon.
 
@@ -162,9 +162,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 - **Evidence:** structural / demonstrated
 - **Strongest supported public form:** “Patterns can segment and compare working evidence across agent cohorts and configuration epochs, while reporting denominators and avoiding agent rankings.”
 - **Mechanism:** named detectors and stats over local Logbook evidence.
-- **Conditions:** different task mixes confound comparisons; findings are places to investigate, not causal verdicts.
+- **Conditions:** different task mixes confound comparisons. Treat findings as places to investigate; they do not establish causal verdicts.
 - **Forbidden inference:** fair performance leaderboard, model benchmark, employee surveillance, or causal proof.
-- **Canonical wording correction:** replace claims that “nothing is compared” with “cohorts may be compared; agents are not graded or ranked.”
+- **Canonical wording correction:** replace claims that `nothing is compared` with `cohorts may be compared; agents are not graded or ranked.`
 - **Primary source:** current `discern patterns --json` output and Patterns implementation.
 
 ### `one-config-file` — one configuration file governs the installation
@@ -188,9 +188,9 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** structural
 - **Strongest supported public form:** “discern checks the Map's links, anchors, live command examples, audience boundaries, metadata, and Skill references as part of the Gate.”
-- **Conditions:** file-linked freshness is evidence; subjective prose freshness is not currently judged.
+- **Conditions:** file-linked freshness supplies evidence; the current checks do not judge subjective prose freshness.
 - **Forbidden inference:** discern can determine whether every sentence remains conceptually current.
-- **Primary source:** Map integrity behaviour and feature canon.
+- **Primary source:** Map integrity behavior and feature canon.
 
 ### `agent-as-operator` — discern is designed around the coding agent as operator
 
@@ -204,23 +204,23 @@ The product glossary defines each product term once and prohibits synonyms in pr
 
 - **Evidence:** demonstrated / observational
 - **Strongest supported public form:** “discern is developed under its own Gate, worktrees, Standards, Map, and Logbook.”
-- **Conditions:** dogfooding is meaningful product evidence, not independent external validation.
+- **Conditions:** dogfooding provides product evidence from internal use. Independent external validation remains separate.
 - **Forbidden inference:** self-use proves absence of defects or market fit.
 - **Primary source:** feature canon and repository practice.
 
 ## Absolute do-not-claim list
 
-- “discern guarantees correct software.”
-- “discern guarantees secure software.”
-- “No review is required.”
-- “Agents cannot conflict.”
-- “discern is a sandbox.”
-- “discern prevents rogue agents.”
-- “Proof means the software is bug-free.”
-- “A green Gate means the change should ship.”
-- “All development data stays offline.”
-- “Every project is zero-effort to set up.”
-- “discern replaces CI.”
-- “discern replaces engineering expertise.”
-- “discern makes any builder an engineer.”
-- “discern ranks which coding agent is best.”
+- `discern guarantees correct software.`
+- `discern guarantees secure software.`
+- `No review is required.`
+- `Agents cannot conflict.`
+- `discern is a sandbox.`
+- `discern prevents rogue agents.`
+- `Proof means the software is bug-free.`
+- `A green Gate means the change should ship.`
+- `All development data stays offline.`
+- `Every project is zero-effort to set up.`
+- `discern replaces CI.`
+- `discern replaces engineering expertise.`
+- `discern makes any builder an engineer.`
+- `discern ranks which coding agent is best.`

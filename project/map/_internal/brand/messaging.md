@@ -40,15 +40,15 @@ Approved candidates:
 
 > **A bolder way to build.**
 
-Best when the page should feel ambitious, audacious, and founder-led. “Bolder” describes the builder's reach rather than the codebase's size.
+Best when the page should feel ambitious, audacious, and founder-led. “Bolder” describes the builder's reach. It does not describe the codebase's size.
 
 > **Build further.**
 
-Best when restraint, elegance, and flexibility matter. It can mean further into an idea, beyond one person's capacity, or towards software people can depend on.
+Best when restraint, elegance, and flexibility matter. It can mean further into an idea, beyond one person's capacity, or toward software people can depend on.
 
 > **A bigger way to build.**
 
-Retained as a contextual candidate because of its cadence and impact. Use only where nearby copy makes clear that “bigger” means capability and ambition, not more code or architectural bulk.
+Retained as a contextual candidate because of its cadence and impact. Use it where nearby copy makes clear that “bigger” means capability and ambition.
 
 Avoid defaulting to **A better way to build**. It is broadly true but insufficiently distinctive unless a specific comparison gives “better” content.
 
@@ -82,11 +82,11 @@ Alternative contextual forms:
 - A serious engineering practice, installed in your project.
 - A working practice for coding agents and the people responsible for what ships.
 
-The category line should orient. It should not be forced to carry the emotional headline.
+The category line should orient. Let the emotional headline do a different job.
 
 ### Primary conversion territory
 
-> **Spend your attention where your judgement matters most.**
+> **Spend your attention where your judgment matters most.**
 
 This works across audiences:
 
@@ -96,9 +96,9 @@ This works across audiences:
 Supporting expressions:
 
 - Let substantial work move without staying inside every detail.
-- Return to a decision, rather than another cleanup job.
+- Come back to work that is ready for a decision.
 - Give the agent the work; keep your attention for direction and consequence.
-- Hand over more than the typing. — strong for engineer-focused conversion pages; use carefully for new builders.
+- Hand over the complete unit of work. This is strongest on engineer-focused conversion pages and needs careful translation for new builders.
 
 ### Technical distinction
 
@@ -126,8 +126,8 @@ This territory leads the For Agents page and technical thought leadership.
 - A bolder way to build.
 - Build further.
 - Take the project further than one pair of hands.
-- Turn a backlog into organised progress.
-- Let your judgement influence more of the work.
+- Turn a backlog into organized progress.
+- Let your judgment influence more of the work.
 
 **Avoid:**
 
@@ -152,7 +152,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 **Avoid:**
 
-- “enterprise-grade” without a specific meaning;
+- `enterprise-grade` without a specific meaning;
 - fear about bugs, firing, or reputational ruin;
 - universal reliability or security guarantees.
 
@@ -183,7 +183,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 **Good expressions:**
 
-- Spend your attention where your judgement matters most.
+- Spend your attention where your judgment matters most.
 - Give the work a complete handoff.
 - Several pieces can move at once without making you their courier.
 - Come back to work that is ready for a real decision.
@@ -196,7 +196,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 ### Exact reasons to believe
 
-**Human truth:** Confidence should be connected to observable conditions rather than the agent's tone.
+**Human truth:** Confidence needs observable conditions that stand apart from the agent's tone.
 
 **Promise:** discern can show what was evaluated and which change the evidence belongs to.
 
@@ -213,7 +213,7 @@ Use the product names **Gate**, **Standard**, and **Proof** after they have been
 
 - suggesting formal proof of universal correctness;
 - suggesting a passing Gate is sufficient for security or business suitability;
-- turning the page into a catalogue of checks.
+- turning the page into a catalog of checks.
 
 ### Provider continuity
 
@@ -223,10 +223,10 @@ Use the product names **Gate**, **Standard**, and **Proof** after they have been
 
 **Good expressions:**
 
-- Change agents. Keep the project consistent.
+- Keep the project consistent when you change agents.
 - Switch providers without re-teaching the work.
 - One project understanding across the agents you use.
-- When one quota stops, the project does not.
+- Keep moving when one provider reaches its quota.
 
 The quota message is timely and practical. It should not become the enduring master promise because provider pricing and limits will change.
 
@@ -263,7 +263,7 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### Approximately 30 words
 
-> discern gives coding agents a project-owned way to plan, work, verify, and deliver changes—so ambitious software can move faster without making your attention scale with every implementation detail.
+> discern gives coding agents a project-owned way to plan, work, verify, and deliver changes. Ambitious software can move faster without making your attention scale with every implementation detail.
 
 ### Approximately 60 words
 
@@ -277,11 +277,11 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ### Experienced engineer
 
-> discern turns your engineering judgement into a project-owned practice every coding agent works through. Run substantial work in parallel, reduce routine review and coordination, and keep your taste and standards intact across sessions and providers.
+> discern turns your engineering judgment into a project-owned practice every coding agent works through. Run substantial work in parallel, reduce routine review and coordination, and keep your taste and standards intact across sessions and providers.
 
 ### New consequential builder
 
-> Tell your coding agent to commission discern. It studies your project, establishes serious best practices to follow, explains the important choices, and proves the setup before it finishes—so your software can grow reliably into something people depend on.
+> Tell your coding agent to commission discern. It studies your project, establishes the checks and guidance future agents will follow, explains the important choices, and proves the setup in a fresh worktree before it finishes. Your software gains a working practice that can grow with it.
 
 ### Agent
 
@@ -293,7 +293,7 @@ The quota message is timely and practical. It should not become the enduring mas
 
 ## Candidate hero systems
 
-These are testable systems, not final mandatory homepage copy.
+These are testable candidates for the homepage.
 
 ### Hero A — Ambition-led
 
@@ -330,18 +330,18 @@ These are testable systems, not final mandatory homepage copy.
 
 ## Contextual headline inventory
 
-| Line                                                    | Best use                                      | Caution                                                               |
-| ------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
-| A bolder way to build.                                  | Homepage, launch, founder-led campaign        | Support with seriousness quickly so “bold” does not read as reckless. |
-| Build further.                                          | Homepage variant, brand film, closing line    | Needs a literal subhead because it is intentionally open.             |
-| A bigger way to build.                                  | Parallel-work demo, launch campaign           | Clarify capability, not code volume or architectural bulk.            |
-| Software that holds up.                                 | Outcome section, customer story, product page | Add energy nearby; can feel defensive alone.                          |
-| Ship serious software.                                  | CTA, guide, campaign, video                   | Do not use as an accusation that current work is unserious.           |
-| Software worth putting your name to.                    | Founder, pride, responsibility, close         | Avoid overusing “name” alongside ownership language.                  |
-| Spend your attention where your judgement matters most. | Delegation section, engineer page             | Long for a hero; strongest as a section proposition.                  |
-| When the prototype becomes the product.                 | Acquisition campaign, new-builder page        | Situational; not the master brand.                                    |
-| When people start depending on it.                      | Consequence-threshold campaign                | Must be followed by a positive promise, not a threat.                 |
-| Agent ergonomics.                                       | For Agents, technical essay                   | Human benefit must follow on mixed-audience surfaces.                 |
+| Line                                                   | Best use                                      | Caution                                                               |
+| ------------------------------------------------------ | --------------------------------------------- | --------------------------------------------------------------------- |
+| A bolder way to build.                                 | Homepage, launch, founder-led campaign        | Support with seriousness quickly so “bold” does not read as reckless. |
+| Build further.                                         | Homepage variant, brand film, closing line    | Needs a literal subhead because it is intentionally open.             |
+| A bigger way to build.                                 | Parallel-work demo, launch campaign           | Clarify the capability and ambition the line describes.               |
+| Software that holds up.                                | Outcome section, customer story, product page | Add energy nearby; can feel defensive alone.                          |
+| Ship serious software.                                 | CTA, guide, campaign, video                   | Do not use as an accusation that current work is unserious.           |
+| Software worth putting your name to.                   | Founder, pride, responsibility, close         | Avoid overusing “name” alongside ownership language.                  |
+| Spend your attention where your judgment matters most. | Delegation section, engineer page             | Long for a hero; strongest as a section proposition.                  |
+| When the prototype becomes the product.                | Acquisition campaign, new-builder page        | Situational; exclude from master-brand use.                           |
+| When people start depending on it.                     | Consequence-threshold campaign                | Follow with a positive promise that celebrates the threshold.         |
+| Agent ergonomics.                                      | For Agents, technical essay                   | Human benefit must follow on mixed-audience surfaces.                 |
 
 ## CTA system
 
@@ -377,30 +377,30 @@ CTAs should describe a destination or action.
 - Inspect the MCP tools
 - Learn the project contract
 
-Avoid generic labels where the destination is unclear: “Explore,” “Discover,” “Continue,” and repeated “Learn more.”
+Avoid generic labels where the destination is unclear: `Explore`, `Discover`, `Continue`, and repeated `Learn more`.
 
 ## Proof order
 
 Do not open with the complete mechanism list. Reveal proof in the order required by belief:
 
-1. **Show the desired future** — greater ambition, earned confidence, meaningful attention.
-2. **Show a recognisable moment** — backlog planning, commissioning, parallel work, ready-for-decision return.
-3. **Explain the category** — an engineering practice installed into the project.
-4. **Name the connected mechanisms** — guidance, isolated work, deterministic checks, Standards, Proof, acceptance.
-5. **Show an artefact** — brief, wave plan, Standard trajectory, Proof, Map, Pattern finding.
-6. **State the boundary** — what the evidence covers and what it does not.
-7. **Offer technical depth** — documentation, source-level explanation, schemas, trust page.
+1. **Show the desired future:** greater ambition, earned confidence, meaningful attention.
+2. **Show a recognizable moment:** backlog planning, commissioning, parallel work, ready-for-decision return.
+3. **Explain the category:** an engineering practice installed into the project.
+4. **Name the connected mechanisms:** guidance, isolated work, deterministic checks, Standards, Proof, acceptance.
+5. **Show an artifact:** brief, wave plan, Standard trajectory, Proof, Map, Pattern finding.
+6. **State the boundary:** what the evidence covers and what it does not.
+7. **Offer technical depth:** documentation, source-level explanation, schemas, trust page.
 
 ## Public-copy guardrails
 
-- A feature is supporting evidence, not automatically a message.
-- A canonical product noun is not automatically a compelling headline.
+- A feature supplies supporting evidence; promote it only when it serves the reader's moment.
+- A canonical product noun becomes compelling only when it carries human meaning.
 - “Serious” should feel aspirational and pleasurable.
-- “Bold” should feel considered, not reckless.
-- Speed should be framed as expanded possibility, never code volume.
+- Give “bold” enough discipline to feel considered.
+- Frame speed as expanded possibility. Avoid celebrating code volume.
 - New builders should be welcomed without erasing engineering expertise.
 - Engineers should be respected without making the brand an insiders' club.
 - Agents should be presented as capable collaborators.
-- Use contrast structures rarely; repetitive “X, not Y” phrasing reads as contemporary generated copy.
+- Avoid `X, not Y` phrasing; the template reads as contemporary generated copy.
 - Do not repeat the same slogan across several adjacent sections.
 - Let natural sentences do more work than fragments and aphorisms.

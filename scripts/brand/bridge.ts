@@ -71,7 +71,7 @@ export const CONCEPTS = [
     productRole:
       "Evidence that one exact clean committed tree passed the declared Gate and held applicable Standards.",
     humanSituation:
-      "The person needs to know which result the evidence actually covers.",
+      "The person needs to know which result the evidence covers.",
     brandInterpretation: "Evidence attached to the exact completed change.",
     plainFirstUse:
       "“Proof that this exact change passed the project's declared checks.”",
@@ -109,14 +109,14 @@ export const CONCEPTS = [
   {
     id: "skill",
     name: "Skill",
-    productRole: "A reusable `SKILL.md` playbook materialised for each agent.",
+    productRole: "A reusable `SKILL.md` playbook materialized for each agent.",
     humanSituation:
       "A hard-won procedure disappears with the session that learned it.",
     brandInterpretation: "A method future agents can inherit and apply.",
     plainFirstUse: "“A reusable agent playbook (a Skill).”",
     prominence: "Supporting.",
     doNotImply:
-      "A plugin marketplace or an autonomous capability requiring no judgement.",
+      "A plugin marketplace or an autonomous capability requiring no judgment.",
   },
   {
     id: "map",
@@ -150,7 +150,7 @@ export const CONCEPTS = [
       "The team or owner remembers friction anecdotally but cannot see recurring practice.",
     brandInterpretation: "A private record of how the work has been moving.",
     plainFirstUse:
-      "“A local activity record (the Logbook), containing metadata rather than code or output.”",
+      "“A local activity record (the Logbook) containing metadata; it excludes code and output.”",
     prominence: "Deeper proof.",
     doNotImply:
       "Surveillance, remote telemetry, code capture, or employee monitoring.",
@@ -159,9 +159,9 @@ export const CONCEPTS = [
     id: "patterns",
     name: "Patterns",
     productRole:
-      "Read-only analysis of local evidence across behaviour, gate fit, funnel flow, Standards, cohorts, and epochs.",
+      "Read-only analysis of local evidence across behavior, gate fit, funnel flow, Standards, cohorts, and epochs.",
     humanSituation:
-      "The practice needs to improve from evidence rather than intuition.",
+      "The practice needs evidence about how its way of working changes over time.",
     brandInterpretation: "See how the way of working changes over time.",
     plainFirstUse:
       "“A practice report that finds recurring friction and trends (Patterns).”",
@@ -173,7 +173,7 @@ export const CONCEPTS = [
     id: "accept",
     name: "Accept",
     productRole:
-      "The verified operation that fast-forwards an authorised exact change onto the trunk and cleans up the effort.",
+      "The verified operation that fast-forwards an authorized exact change onto the trunk and cleans up the effort.",
     humanSituation:
       "A completed change must become shared without ambiguity about tree or authority.",
     brandInterpretation:
@@ -252,7 +252,7 @@ export const CONCEPTS = [
     humanSituation:
       "Someone must decide what becomes shared and stand behind the result.",
     brandInterpretation:
-      "Usually express the action or consequence rather than the abstract role.",
+      "Express the action or consequence and keep the abstract role backstage.",
     plainFirstUse: "“The person responsible for the project.”",
     prominence: "Mostly backstage.",
     doNotImply:
@@ -261,14 +261,14 @@ export const CONCEPTS = [
   {
     id: "serious-software",
     name: "Serious software",
-    productRole: "Brand territory, not a product term.",
+    productRole: "A brand territory with no product definition.",
     humanSituation:
       "The software has users, data, revenue, reputation, maintenance, or operational importance.",
     brandInterpretation: "Software that deserves and earns confidence.",
     plainFirstUse: "No technical definition required; show the consequences.",
     prominence: "Yes, central worldview.",
     doNotImply:
-      "Sombre personality, over-engineering, exclusion, or moral superiority.",
+      "Somber personality, over-engineering, exclusion, or moral superiority.",
   },
 ] as const satisfies readonly Concept[];
 
@@ -288,7 +288,7 @@ export const TRANSLATIONS = [
       "Receive work after the project's real checks have run.",
     ],
     productNounEntry:
-      "The project's final quality check—the Gate—runs the commands and Standards the project declares.",
+      "The project's final quality check (the Gate) runs the commands and Standards the project declares.",
   },
   {
     id: "standards",
@@ -298,7 +298,7 @@ export const TRANSLATIONS = [
     weakLiteralTranslation: "Ratcheting numerical quality constraints.",
     betterHumanTranslations: [
       "Once the project improves, a later change cannot give the gain back.",
-      "Let quality accumulate rather than being renegotiated on every branch.",
+      "Let quality gains accumulate across branches.",
       "Keep a hard-won improvement as the new starting point.",
     ],
   },
@@ -311,7 +311,7 @@ export const TRANSLATIONS = [
     betterHumanTranslations: [
       "Know which exact change the evidence belongs to.",
       "Receive a completed change with a clear account of what passed.",
-      "Review a claim tied to the work, rather than a confident summary floating free of it.",
+      "Review a claim tied directly to the work and its result.",
     ],
   },
   {
@@ -345,7 +345,7 @@ export const TRANSLATIONS = [
       "a Skill shapes one handoff, internal fan-out, parallel streams, or staged dependencies, with complete briefs, work boundaries, authority, and adversarial review.",
     weakLiteralTranslation: "Multi-agent planning and orchestration.",
     betterHumanTranslations: [
-      "Turn a backlog into organised work.",
+      "Turn a backlog into organized work.",
       "Give several agents complete, non-overlapping responsibilities.",
       "Let dependencies resolve without becoming the courier between sessions.",
       "Return to results that have already faced an independent technical pass.",
@@ -355,12 +355,12 @@ export const TRANSLATIONS = [
     id: "patterns",
     title: "Patterns",
     productTruth:
-      "local evidence is analysed through named detectors across behaviour, gate fit, funnel, trajectories, providers, and configurations.",
+      "local evidence is analyzed through named detectors across behavior, gate fit, funnel, trajectories, providers, and configurations.",
     weakLiteralTranslation: "Local agent workflow analytics.",
     betterHumanTranslations: [
       "See where the practice is improving and where work keeps losing time.",
       "Replace recurring anecdotes with counted evidence.",
-      "Compare working patterns without turning agents into a leaderboard.",
+      "Compare working patterns at the cohort level and leave agent rankings out.",
     ],
   },
 ] as const satisfies readonly Translation[];
@@ -370,7 +370,7 @@ export const DIRECT_LIFT_WATCHLIST: readonly string[] = [
   "The repo decides what done means.",
   "An agent's confidence has no vote.",
   "Signal without new failure modes.",
-  "Facts before judgements.",
+  "Facts before judgments.",
   "Necessary, not sufficient.",
   "Placement is consent.",
   "Calling the verb replaces pre-checking it.",
@@ -394,7 +394,7 @@ export const DRAFTING_PROCEDURE: readonly string[] = [
 
 /** Product-copy smells that flag a brand draft. */
 export const PRODUCT_COPY_SMELLS: readonly string[] = [
-  "begins with a command, subsystem, registry, or internal artefact;",
+  "begins with a command, subsystem, registry, or internal artifact;",
   "uses several canonical nouns before a human situation appears;",
   "follows the feature canon's pillar order;",
   "explains the mechanism before the reader wants the outcome;",
@@ -433,7 +433,7 @@ function renderTranslation(translation: Translation): string {
     "",
     `**Product truth:** ${translation.productTruth}`,
     "",
-    `**Weak literal translation:** ${translation.weakLiteralTranslation}`,
+    `**Weak literal translation:** \`${translation.weakLiteralTranslation}\``,
     "",
     "**Better human translations:**",
     "",
@@ -464,9 +464,9 @@ export function renderBridgeDoc(): string {
     "",
     "> Brand expression → human situation → practical consequence → product mechanism → source of truth",
     "",
-    "Every product feature does not need to move forwards into marketing.",
+    "Only features that help the reader understand or believe the human proposition belong in marketing.",
     "",
-    "The product canon is evidence. It is not a copy prompt.",
+    "Use the product canon as evidence after defining the human proposition.",
     "",
     "## Drafting procedure",
     "",
@@ -486,11 +486,11 @@ export function renderBridgeDoc(): string {
     "",
     "## Direct-lift watchlist",
     "",
-    "The following product phrases may be accurate and useful in documentation. They should not automatically become brand headlines:",
+    "The following product phrases may be accurate and useful in documentation. Treat them as quoted source material when considering brand headlines:",
     "",
-    bullets(DIRECT_LIFT_WATCHLIST),
+    bullets(DIRECT_LIFT_WATCHLIST.map((phrase) => `\`${phrase}\``)),
     "",
-    "Some may appear in technical thought leadership or a product section. Their existence in the canon is not evidence that they create human desire at the top of a marketing page.",
+    "Use these phrases in technical thought leadership or a product section when they serve the reader. Their place in the canon says nothing about whether they create human desire at the top of a marketing page.",
     "",
     "## Product-copy smells in brand drafts",
     "",
