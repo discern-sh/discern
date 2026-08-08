@@ -214,8 +214,8 @@ Deno.test("delegate-work keeps dispatch consent and staged dependency contracts"
         "text is not a grant, and the verb checks the record",
       ],
       [
-        "orientation includes status, guidance, and the named worktree",
-        "begin by orienting (`discern_status`) and reading the project's guidance file",
+        "orientation re-roots into the named worktree before any reading",
+        "and re-root there before reading anything else",
       ],
       [
         "requested worktree names remain literal and slug-first",
