@@ -45,8 +45,8 @@
   #   - each worktree's last action and work in flight
   #   - fleet activity times that include verb runs
   #   - wait bounds in `discern await` from active work and observed P90 durations
-  #   - config-change attribution and each standard's limit history
-  #   - advisory findings on `status`, the `done` receipt, and `improvement`
+  #   - configuration-change attribution and each Standard's limit history
+  #   - advisory findings on `status`, the `done` Receipt, and `improvement`
   #   - wait estimates when concurrent test runs queue
   #   - the in-flight check on the contained-worktree offer
   # Set false to stop all writes; existing history stays until you delete it.

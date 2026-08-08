@@ -23,9 +23,9 @@ discern's GitHub Copilot integration is project-local and registry-driven. It wr
 
 GitHub Copilot is not in `DEFAULT_AGENTS`; add `"copilot"` to `[project].agents` to wire its provider-specific config.
 
-## Using the editor
+## Using the IDE
 
-GitHub Copilot currently declares no IDE installation evidence, so `discern setup` sees it only when the `copilot` terminal CLI is on `PATH`. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
+An editor-only installation runs inside an integrated development environment (IDE). GitHub Copilot currently declares no IDE installation evidence, so `discern setup` sees it only when the `copilot` terminal CLI is on `PATH`. Add `copilot` explicitly under `[project].agents`, then run `discern refresh`:
 
 ```toml
 [project]

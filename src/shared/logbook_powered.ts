@@ -53,15 +53,16 @@ export const LOGBOOK_POWERED: readonly LogbookPoweredCapability[] = [
   },
   {
     key: "epoch-pin-trajectory",
-    phrase: "config-change attribution and each standard's limit history",
+    phrase:
+      "configuration-change attribution and each Standard's limit history",
     surface: "`discern patterns` trajectory findings",
     readers: ["src/engine/logbook/patterns.ts"],
   },
   {
     key: "inline-findings",
     phrase:
-      "advisory findings on `status`, the `done` receipt, and `improvement`",
-    surface: "`status` hints, the receipt tail, and `improvement`'s history",
+      "advisory findings on `status`, the `done` Receipt, and `improvement`",
+    surface: "`status` hints, the Receipt tail, and `improvement`'s history",
     readers: [
       "src/engine/status/status.ts",
       "src/engine/gate/finish.ts",

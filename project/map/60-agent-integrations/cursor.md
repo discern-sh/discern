@@ -26,9 +26,9 @@ When `[project].agents` includes Cursor, discern uses these project-local files:
 
 Cursor is not in `DEFAULT_AGENTS`. Setup adds it only when installation evidence is present.
 
-## Using Cursor's editor
+## Using the IDE
 
-`discern setup` detects the separate [`cursor-agent` terminal agent](https://cursor.com/docs/cli/installation), the editor's `cursor` shell command, or a conventional host-specific application location. Portable AppImages can live anywhere, so nonstandard installs may need explicit configuration.
+Cursor's integrated development environment (IDE) is separate from its terminal agent. `discern setup` detects the [`cursor-agent` terminal agent](https://cursor.com/docs/cli/installation), the editor's `cursor` shell command, or a conventional host-specific application location. Portable AppImages can live anywhere, so nonstandard installs may need explicit configuration.
 
 Add `cursor` under `[project].agents`, then run `discern refresh`:
 

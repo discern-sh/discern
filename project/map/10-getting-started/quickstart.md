@@ -36,7 +36,7 @@ Answer in plain language: "Yes. Set up Claude Code and Codex." Setup cannot proc
 
 Setup writes ordinary files on a separate `discern-setup` branch, keeping those changes off `main` until you land them. The format job already contains `discern tidy` for discern-owned Markdown and the root config. The agent puts your stack's formatter before it, then wires lint, test, and the other commands your project runs. It fills in guidance and the first Map pages under that live Gate. From that point, each configured agent reads the same compiled instructions and runs the same commands.
 
-During setup, configure tools to emit Static Analysis Results Interchange Format (SARIF) or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
+The Static Analysis Results Interchange Format (SARIF) is a machine-readable findings format. During setup, configure tools to emit SARIF or JUnit XML to captured `stdout` or `stderr`. Failed jobs become per-finding diagnostics. discern does not inspect report files. Other captured output remains raw.
 
 ## 3. Verify setup in an isolated checkout
 
@@ -65,7 +65,7 @@ In the fresh session, ask for a small, real change. The agent takes it through t
 3. **Run the full Gate.** It runs `discern done`. The Gate runs the format, build, lint, and test commands declared in `discern.toml`. A failure gives the agent the failing command and its output.
 4. **Report the result.** On green, the agent ends its report with the one-line Receipt and waits. Read the full Receipt with `discern status --verbose`.
 
-**The change has landed when:** You have reviewed the branch and its Receipt, authorized the landing, and `discern accept` has fast-forwarded the trunk.
+**You are done when:** The reviewed branch and its Receipt have been authorized, and `discern accept` has fast-forwarded the trunk.
 
 <!-- /discern-workflow -->
 
