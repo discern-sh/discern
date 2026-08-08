@@ -253,6 +253,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0260 — The integration coverage compiles from the provider registry](0260-integration-coverage-compiles-from-the-provider-registry.md)
 - [0261 — The prepare inner loop runs the [generated] regenerations](0261-prepare-runs-the-generated-regenerations.md)
 - [0262 — Receipt-eligible runs stop at the pre-group strand checkpoint](0262-receipt-eligible-runs-stop-at-the-pre-group-strand-checkpoint.md)
+- [0263 — A ninth bundled skill routes wait-shaped asks to `await`](0263-a-ninth-bundled-skill-await-the-fleet.md)
 
 <!-- END GENERATED: current ADR records -->
 
