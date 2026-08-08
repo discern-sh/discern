@@ -1,6 +1,6 @@
 ---
 title: Concepts
-description: The mental model of discern in one pass — the gate, isolated worktrees, compiled guidance, and who owns which files.
+description: "The mental model of discern in one pass: the Gate, isolated worktrees, compiled guidance, and file ownership."
 order: 10
 aliases:
   - concepts
@@ -11,42 +11,42 @@ aliases:
 
 # Concepts: how discern fits together
 
-_The mental model in one read: what discern is, the pieces it installs, and the loop you'll live in._
+_The mental model in one read: what discern is, what it installs, and the working loop._
 
 ## The idea
 
-Your repo declares what "done" means once, in one file: `discern.toml`. It names the commands your project runs (format, lint, typecheck, test, build, smoke), and discern turns them into the rails every coding agent works within: a quality gate, an isolated [worktree](glossary.md#worktree) per change, and one set of instructions each agent reads.
+Your repository declares what "done" means in `discern.toml`. The file names the commands your project runs, such as format, lint, typecheck, test, build, and smoke. discern turns those declarations into a final quality check (the [Gate](glossary.md#gate)), an isolated workspace for each change (a Git [worktree](glossary.md#worktree)), and shared project instructions supplied to each coding agent.
 
 The engine inside discern never learns your stack. It runs the [gate jobs](glossary.md#gate-job) and [scope](glossary.md#scope) gates named by your config. [`discern tidy`](glossary.md#tidy) handles discern-owned Markdown and the root config through the same jobs table. Fill in the project commands once and the same binary gates a Rust crate, a Rails app, or a monorepo holding both.
 
 ## One binary, a small footprint
 
-discern is a single self-contained binary on your `PATH`, and the only other thing it needs is `git`. Your project needs no Deno, no Node, and no runtime of discern's: what lands in the repo is configuration and text. The committed footprint is `discern.toml` plus one visible folder, the [`discern/` namespace](glossary.md#namespace), for content you author — and a test fails the moment any verb writes outside the enumerated surface ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [Files & ownership](../70-reference/artifact-ownership.md) is the full inventory.
+discern is a self-contained binary on your `PATH`; its engine requires `git`. An installed project does not need Deno or Node to run discern because the repository stores configuration and text instead of a second runtime. By default, authored content lives in the visible [`discern/` namespace](glossary.md#namespace), while `discern.toml` stays at the root. An architectural test rejects writes outside the declared surface ([ADR 0099](../_adr/0099-consolidate-authored-surface-under-discern-namespace.md)). [Files & ownership](../70-reference/artifact-ownership.md) lists the full footprint.
 
 ## The pieces
 
-**The gate is your definition of done.** `discern done` runs the declared [jobs](glossary.md#gate-job), the scope gates for regions that changed, and the [standards](glossary.md#standard) — quality numbers that may only move in the right direction. Known job names derive their [stage](glossary.md#stage); custom names declare one. Every unit of work has a label, so a failure hands back the exact command and its output. `discern prepare` is the fast loop while iterating. Covered in [the quality gate](../20-quality-gate/).
+**The Gate is the project's definition of done.** `discern done` runs the declared [jobs](glossary.md#gate-job), the scope gates for regions that changed, and each quality measure that can only improve (a [Standard](glossary.md#standard)). Known job names derive their [stage](glossary.md#stage); custom names declare one. Every unit of work has a label, so a failure result includes the exact command and its output. Use `discern prepare` for the faster iteration loop. [The quality gate](../20-quality-gate/) covers the full mechanism.
 
-**Worktrees keep every effort isolated.** `discern start` gives each effort one checkout and branch, which it keeps through review feedback and resumed sessions. The main checkout stays clean while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares (a database, an emulator), created when it starts and destroyed when it lands. `discern update` merges the latest [trunk](glossary.md#trunk) in beneath the work; `discern accept` lands the reviewed branch and removes the worktree. Covered in [worktrees](../30-worktrees/).
+**Worktrees isolate each effort.** `discern start` gives an effort one checkout and branch, retained through review feedback and resumed sessions. The workflow keeps the main checkout available while several efforts run at once. A worktree gets a deterministic dev-server port and any [resources](glossary.md#worktree-resource) your project declares, such as a database or emulator. discern creates those resources when the worktree starts and destroys them when the change lands. `discern update` brings the latest [trunk](glossary.md#trunk) into the branch; `discern accept` lands the reviewed branch and removes the worktree. [Worktrees](../30-worktrees/) covers the lifecycle.
 
-**Guidance is authored once and compiled everywhere.** Your instructions live in one [source](glossary.md#guidance-source) (default `discern/guidance.md`). `discern refresh` compiles discern's built-ins plus yours into each agent's own file (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot all read the same page. [Skills](glossary.md#skill), focused task playbooks, materialize into each agent's skills directory the same way. Covered in [agent guidance](../40-agent-guidance/) and [Skills](../45-skills/).
+**Shared project instructions are written once and supplied to every agent.** This [guidance source](glossary.md#guidance-source) defaults to `discern/guidance.md`. `discern refresh` compiles discern's built-ins and your sources into each agent file (`AGENTS.md`, `CLAUDE.md`, and `GEMINI.md`), so Claude Code, Codex, Gemini, Cursor, and Copilot read the same instructions. Focused task playbooks ([Skills](glossary.md#skill)) materialize into each agent's skills directory through the same command. [Agent guidance](../40-agent-guidance/) and [Skills](../45-skills/) cover both surfaces.
 
-**The map is documentation your agents keep current.** Agents maintain [the map](glossary.md#map), a documentation tree of your codebase, under the same gate as the code — so a stale page is a defect, and you read the tree to audit what your agents understand. The manual you're reading is discern's own map.
+**The project's maintained guide is the Map.** Agents maintain [the Map](glossary.md#map), a documentation tree for the codebase, under the same Gate as the code. A stale page is a defect, and the tree gives you a reviewable account of what the agents understand. This manual is discern's own Map.
 
-**Ownership decides who may touch what.** [File ownership](glossary.md#file-ownership) places every file discern writes in a [project-owned](glossary.md#project-owned-file), [shared](glossary.md#shared-file), or [generated](glossary.md#generated-file) bucket. The rule underneath is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. That split is what makes every command safe to re-run — `discern upgrade` migrates the config, re-materializes skills, and recompiles guidance without rewriting a value you set.
+**Ownership decides which files discern may write.** [File ownership](glossary.md#file-ownership) places each file discern writes in a [project-owned](glossary.md#project-owned-file), [shared](glossary.md#shared-file), or [generated](glossary.md#generated-file) category. The underlying rule is [placement is consent](glossary.md#placement-is-consent): a path you configured is a path you licensed. Repeated commands follow those ownership contracts. For example, `discern upgrade` migrates the config, re-materializes Skills, and recompiles guidance without replacing a value you set.
 
 ## The loop
 
-Day to day, an agent orients with `discern status` (read-only: what's true, what to do next), starts a worktree, makes the change, iterates with `discern prepare`, and claims done with `discern done`. On green it reports the change and ends with a one-line receipt, then waits. You review the branch, and it lands only when you say so.
+An agent begins with `discern status`, which reports the current state and next action without changing the tree. The agent starts a worktree, makes the change, and iterates with `discern prepare`. `discern done` runs the final Gate. A clean, committed tree that passes produces a review claim for that exact commit (a Receipt). The agent reports the change and Receipt, then waits for your review. The branch lands only with recorded authority.
 
-From the main checkout, bare `discern` opens the [desk](glossary.md#desk), the human entry point to the same loop. `Start a task` creates and readies a worktree, then its action menu can open a configured coding-agent CLI there immediately. The desk also surveys, inspects, updates, lands, enters, or discards the existing fleet without making you copy branch names between commands.
+From the main checkout, bare `discern` opens the human view over work in progress (the [Desk](glossary.md#desk)). `Start a task` creates and readies a worktree, then its action menu can open a configured coding-agent CLI there. The Desk also surveys, inspects, updates, lands, enters, or discards the current fleet without requiring you to copy branch names between commands.
 
 ## Where next
 
 | Want to understand…                            | Read                                            |
 | ---------------------------------------------- | ----------------------------------------------- |
 | Install, setup, and upgrades                   | [Getting started](../10-getting-started/)       |
-| `discern done` — jobs, scopes, standards       | [the quality gate](../20-quality-gate/)         |
+| `discern done`: jobs, scopes, and Standards    | [the quality gate](../20-quality-gate/)         |
 | The worktree lifecycle and its resources       | [worktrees](../30-worktrees/)                   |
 | Guidance compilation                           | [agent guidance](../40-agent-guidance/)         |
 | Bundled and project-authored Skills            | [Skills](../45-skills/)                         |

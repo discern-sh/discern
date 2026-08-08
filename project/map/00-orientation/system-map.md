@@ -1,6 +1,6 @@
 ---
 title: System map
-description: The architecture as one picture — how the binary, an install, and the run-time verbs relate.
+description: "The architecture as one picture: how the binary, an install, and the run-time verbs relate."
 order: 50
 aliases:
   - architecture
@@ -10,9 +10,9 @@ aliases:
 
 # System map
 
-_The architecture as one picture: the binary, what an install looks like on disk, and what happens when a verb runs._
+_The architecture in one picture: the binary, an install on disk, and what happens when a verb runs._
 
-One self-contained binary, `discern`, on `PATH`. Its installer verbs write a project's seed files; its engine verbs, compiled into the same binary, run the gate and the worktree workflow. Nothing it writes needs a runtime.
+One self-contained binary, `discern`, runs from `PATH`. Its installer verbs write a project's seed files. Its engine verbs, compiled into the same binary, run the project's final quality check (the Gate) and the worktree workflow. The files it writes require no discern runtime.
 
 ## How an install comes to exist
 
@@ -26,9 +26,9 @@ One self-contained binary, `discern`, on `PATH`. Its installer verbs write a pro
        │  write seeds · merge · reconcile .gitignore · materialize skills · compile guidance
        ▼
 ┌────────────────────────────────────────────────────────────┐
-│                    An install — on disk                    │
-│  discern.toml — one root file (no engine, no manifest)     │
-│  + discern/ — the visible namespace, 100% yours:           │
+│                    An install: on disk                     │
+│  discern.toml: one root file (no engine, no manifest)      │
+│  + discern/: the visible, project-owned namespace:         │
 │      guidance.md · TODO.md ·                               │
 │      skills/ · scripts/ · brief.md (each config-pointable) │
 │  + map/ — the documentation map                            │
@@ -53,7 +53,7 @@ person / coding agent
            │ discern scripts <name>                  │  reads commands from
            ▼                                         ▼
 ┌──────────────────────────────┐        ┌──────────────────────────────┐
-│  project script (exec'd)     │        │         discern.toml         │
+│  project script (executed)   │        │         discern.toml         │
 │  discern/scripts/<name>      │        │  jobs · scopes (+ gates) ·   │
 │  with DISCERN_* exported     │ ─────► │  standards · worktree        │
 │  (built-in names are legal)  │  reads │  settings                    │
@@ -79,7 +79,7 @@ main checkout ──discern start──►  worktree  ⟲  discern update
 
 ## What the picture implies
 
-- **No daemon, no server.** A verb spawns a process that runs and is gone when the command returns; work happens synchronously when you run `discern <verb>`.
+- **No daemon, no server.** A verb starts a process that exits when the command returns. Work happens when you run `discern <verb>`.
 - **Persistent state lives in the repo.** `discern.toml` plus the git repository itself: branches, and linked worktrees in a sibling `<repo>.worktrees/` folder by default (configurable via `[worktree].root`). No manifest, no database, no external state.
-- **The only hard external dependency is `git`.** Your stack's own formatter, linter, and test runner are invoked as jobs; discern bundles none of those project tools. It does embed `discern tidy` for the map, guidance, TODO, and root config whose conventions discern owns.
-- **Concurrency is in-process.** Inside `done`, the parallel stages run their jobs as concurrent child processes, collected before the stage returns; the first failure cancels its running siblings (see [the quality gate](../20-quality-gate/)).
+- **The engine's required external tool is `git`.** Your stack supplies the formatter, linter, and test runner invoked as jobs. discern embeds `discern tidy` for the Map, guidance, TODO, and root config whose conventions discern owns.
+- **Concurrency is in-process.** During `done`, parallel stages run jobs as child processes and collect them before the stage returns. The first failure cancels its running siblings (see [the quality gate](../20-quality-gate/)).
