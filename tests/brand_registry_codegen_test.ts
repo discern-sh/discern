@@ -20,7 +20,10 @@ import { join } from "@std/path";
 import { CONCEPTS, TRANSLATIONS } from "../scripts/brand/bridge.ts";
 import { CLAIMS, DO_NOT_CLAIM } from "../scripts/brand/claims.ts";
 import { COPY_PATTERNS } from "../scripts/brand/patterns.ts";
-import { SCORECARDS } from "../scripts/brand/docs/copy_review.ts";
+import {
+  PROPOSED_MECHANICAL_CHECKS,
+  SCORECARDS,
+} from "../scripts/brand/docs/copy_review.ts";
 import {
   OUTSTANDING_WORK,
   PRIVATE_OVERLAY_MARKER,
@@ -222,6 +225,12 @@ Deno.test("registry ids, files, and slugs are unique and citable", () => {
     unique(
       `${scorecard.id} scorecard dimensions`,
       scorecard.rows.map((row) => row.dimension),
+    );
+  }
+  for (const register of REGISTERS) {
+    unique(
+      `${register} proposed-check ids`,
+      PROPOSED_MECHANICAL_CHECKS[register].map((check) => check.id),
     );
   }
   // The resolver's token pattern only matches kebab ids, so anything else
