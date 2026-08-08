@@ -1,5 +1,7 @@
 # ADR 0188: The receipt relays as one line; the page is pulled
 
+> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** The receipt-family terms in this decision now use **proof**; the decision and reasoning are unchanged.
+
 > **Landing-line amendment (2026-07-28; [ADR 0194](0194-standing-pre-authorization-is-a-recorded-checked-grant.md)):** A successful `accept` now derives `data.receipt_line` from the validated gate-receipt line and appends the recorded consent source, including scope names for a standing grant. The pre-landing line remains the review claim this record defines; the derived landing line is its authority-bearing acceptance record.
 
 **Status**: accepted; amends the relay contract of [ADR 0114](0114-the-gate-emits-the-receipt.md) (the derivation, storage, and no-review-verb decisions stand).

@@ -1,5 +1,7 @@
 # ADR 0114: a green gate emits the receipt
 
+> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** The receipt-family terms in this decision now use **proof**; the decision and reasoning are unchanged.
+
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, and the gate-pass artifact → the receipt; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
 **Status**: accepted. Builds on [ADR 0028](0028-result-envelope-and-diagnostics.md) (the one-object result rule) and [ADR 0067](0067-accept-validates-the-landed-tree.md) (the gate receipt vouch); the review moment it serves is the landing model's ([ADR 0110](0110-the-landing-model.md)) handoff point.

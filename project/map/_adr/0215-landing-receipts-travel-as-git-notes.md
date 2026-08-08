@@ -1,5 +1,7 @@
 # ADR 0215: Landing receipts travel as bot-authored Git notes with fetch-only opt-in transport
 
+> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** The receipt-family terms in this decision now use **proof**; the decision and reasoning are unchanged.
+
 > **Identity amendment (2026-07-30; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The notes author identity is now `discern <done@discern.sh>`. Transport, fail-open, and `DISCERN_NO_ATTRIBUTION` semantics are unchanged.
 
 > **Format amendment (2026-07-31; [ADR 0242](0242-durable-receipts-use-a-versioned-dsse-envelope.md)):** The note body is no longer the bare canonical JSON of `data.receipt`. It uses the DSSE field and payload boundary, whose typed Base64 payload carries the full-object-id subject and receipt. discern's unsigned extension carries an empty signature array; bare 8-field notes remain readable as unsigned legacy. Transport, fail-open, authorship, and merge semantics are unchanged.

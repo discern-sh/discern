@@ -1,5 +1,7 @@
 # ADR 0106: `standards --pin` captures a measured gain and carries the gate receipt across it
 
+> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** The receipt-family terms in this decision now use **proof**; the decision and reasoning are unchanged.
+
 > **Commit-attribution amendment (2026-07-28; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The standards-pin commit now passes through the shared, pathspec-limited discern commit boundary. It keeps the invoking user's author and committer identity and adds the `discern-bot` co-author trailer by default. Pinning and receipt carry-forward semantics are unchanged.
 
 > **Identity amendment (2026-07-30; [ADR 0203](0203-discern-co-authors-only-commits-it-composes.md)):** The co-author identity is now `discern <done@discern.sh>`. Pinning and carry-forward semantics are unchanged.
