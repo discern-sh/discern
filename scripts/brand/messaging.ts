@@ -208,7 +208,7 @@ export const PILLARS = [
     avoid: [
       "fully autonomous factory claims;",
       "implying that human review never matters;",
-      "treating delegation itself as unique when vendor harnesses increasingly offer fleets.",
+      "treating delegation itself as unique when vendor coding-agent CLIs increasingly offer fleets.",
     ],
     claims: [
       "shaped-delegation",

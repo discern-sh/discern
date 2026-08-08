@@ -192,7 +192,7 @@ This territory leads the For Agents page and technical thought leadership.
 
 - fully autonomous factory claims;
 - implying that human review never matters;
-- treating delegation itself as unique when vendor harnesses increasingly offer fleets.
+- treating delegation itself as unique when vendor coding-agent CLIs increasingly offer fleets.
 
 ### Exact reasons to believe
 
