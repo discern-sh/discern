@@ -9,15 +9,15 @@ aliases:
 
 # Worktrees
 
-_Every change gets its own checkout, branch, identity, and local dependencies._
+_Each discern task uses an isolated workspace (a Git worktree) with its own checkout, branch, identity, and local dependencies._
 
 `discern start` creates a separate checkout and `agent/…` branch for one task. The main checkout remains the fleet's shared view.
 
 Each worktree gets a stable identity, development port, and declared resources. Setup prepares the checkout and converges it after the trunk changes.
 
-Follow one path: start from the main checkout, commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
+The lifecycle starts from the main checkout. Commit the change in its worktree, run `discern update` when the trunk advances, and finish with `discern done`. Once conversation consent or a recorded grant authorizes landing, `discern accept` moves the validated commit to the trunk and tears down the worktree. `--confirmed` attests only to consent in the current conversation.
 
-Treat every worktree as occupied, even when git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the desk to inspect, update, land, or drop tasks across the fleet.
+Treat every worktree as occupied, even when Git reports it clean. [`discern status`](status.md) surveys the fleet and adds recent session findings. Bare `discern` opens the human view over work in progress (the Desk) to inspect, update, land, or drop tasks across the fleet.
 
 | Order | Read next                                                           | What's in it                                                                    |
 | ----: | ------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -33,5 +33,5 @@ Treat every worktree as occupied, even when git reports it clean. [`discern stat
 |    95 | [Desk tips](desk-tips.md)                                           | One deterministic teaching line per session and where its record lands.         |
 |   100 | [Landing authority](landing-authority.md)                           | See how conversation consent and recorded grants control landing.               |
 |   110 | [Interrupted landing recovery](acceptance-recovery.md)              | Reconcile a journal without replaying authority or overwriting local data.      |
-|   120 | [Hand work back](hand-work-back.md)                                 | Finish, report the receipt, wait for review, and accept after approval.         |
+|   120 | [Hand work back](hand-work-back.md)                                 | Finish, report the Receipt, wait for review, and accept after approval.         |
 |   130 | [Reclaiming contained worktrees](reclaiming-contained-worktrees.md) | Reclaim spent train stages on explicit confirmation; branch refs always stay.   |

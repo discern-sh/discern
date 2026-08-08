@@ -10,9 +10,9 @@ aliases:
 
 # Parallel and team work
 
-_Give every effort one worktree, and use the main checkout to supervise the fleet._
+_Give each effort its own worktree, and use the main checkout to supervise the fleet._
 
-One worktree represents one occupied line of work. It belongs to the agent or person handling that task until it lands or its owner discards it. Never adopt another worktree because it looks idle or clean. Git state says nothing about ownership.
+A worktree represents an occupied line of work. It belongs to the agent or person handling that task until it lands or its owner discards it. Never adopt another worktree because it looks idle or clean. Git state says nothing about ownership.
 
 ## Survey concurrent work
 
@@ -29,7 +29,7 @@ The survey preserves unknown states instead of guessing:
 | `agent/*` branch has no worktree               | `unlanded_branches`, with `start --from` and `update --from` recovery. |
 | Local trunk is missing                         | Ahead remains `null` because discern cannot compare it.                |
 
-If the tools point at a pristine worktree while the main checkout accumulates changes, `status` and `done` warn about silent divergence. Move file operations into the worktree and pass its absolute path to Model Context Protocol (MCP) tools. That warning catches the common failure where editing and validation happen in different trees.
+If the tools point at a pristine worktree while the main checkout accumulates changes, `status` and `done` warn that editing and validation are happening in different trees. Move file operations into the worktree and pass its absolute path to Model Context Protocol (MCP) tools.
 
 An unreadable index is enough to make the state unknown, even when Git can still identify the checkout and branch. Unknown state never qualifies as clean or ready to land.
 
@@ -39,9 +39,9 @@ The trunk is the single landing target. Build dependent phases by pulling branch
 
 - `discern start --from <ref>` creates a new worktree from any branch, tag, or commit.
 - `discern update --from <ref>` merges any ref into an existing worktree.
-- `discern accept` lands only the finished whole on the trunk once conversation consent or a recorded grant authorizes it ([ADR 0110](../_adr/0110-the-landing-model.md)).
+- `discern accept` lands the composed result on the trunk once conversation consent or a recorded grant authorizes it ([ADR 0110](../_adr/0110-the-landing-model.md)).
 
-This pull-side composition keeps half-finished phases away from the shared landing branch. Concurrent accepts are safe: if another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.
+This pull-side composition keeps unfinished phases away from the shared landing branch. If another worktree moves the trunk first, the later acceptance leaves its worktree and resources intact and asks for `update → done → accept`.
 
 ## Work across repositories
 
@@ -51,9 +51,9 @@ Each repository keeps its own config, worktree root, resource ledger, and trunk.
 
 ## Bring a teammate into the workflow
 
-A clone works without the discern binary. `discern.toml`, the `discern/` namespace, provider settings, and agent files travel in git. The application still builds and tests through its ordinary commands, and coding agents read the committed guidance.
+A clone works without the discern binary. `discern.toml`, the `discern/` namespace, provider settings, and agent files travel in Git. The application still builds and tests through its ordinary commands, and coding agents read the committed guidance.
 
-Without the binary, the clone lacks materialized skills and the `discern_*` MCP tools. To add them:
+Without the binary, the clone lacks materialized Skills and the `discern_*` MCP tools. To add them:
 
 1. Install discern.
 2. Run `discern refresh` in the clone.
@@ -76,4 +76,4 @@ Claude Code can create and remove worktrees through `WorktreeCreate` and `Worktr
 
 - The main checkout is the supervisory view. Make task changes only inside a worktree.
 - `discern status` only inspects state. It creates, refreshes, and destroys no resources.
-- The fleet's git-clean signal excludes ignored provider-local and generated files.
+- The fleet's Git-clean signal excludes ignored provider-local and generated files.

@@ -12,19 +12,19 @@ aliases:
 
 # Multi-repo workspaces
 
-_One install per repository, linked by trunks, registries, or submodules._
+_Each repository has its own install, linked to others through trunks, registries, or submodules._
 
-discern's unit is the repository. Each repo holds its own `discern.toml`, gate, [trunk](../00-orientation/glossary.md#trunk), worktree fleet, and resource ledger. A workspace of several repositories runs one install per repo, and one agent session moves between them by passing `path` to the Model Context Protocol (MCP) tools ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)). [Parallel and team work](team-workflow.md) covers the mechanics. There is no workspace-level config. [Receipts](../00-orientation/glossary.md#receipt), standards, and accepts never span repositories: a change that touches two repos is two worktrees, two gate runs, and two landings.
+discern's unit is the repository. Each repository holds its own `discern.toml`, Gate, [trunk](../00-orientation/glossary.md#trunk), worktree fleet, and resource ledger. A workspace of several repositories runs an install in each one, and an agent session moves between them by passing `path` to the Model Context Protocol (MCP) tools ([ADR 0111](../_adr/0111-cross-project-path-and-strict-tool-schemas.md)). [Parallel and team work](team-workflow.md) covers the mechanics. There is no workspace-level config. [Receipts](../00-orientation/glossary.md#receipt), Standards, and accepts never span repositories. A change that touches 2 repositories requires 2 worktrees, 2 Gate runs, and 2 landings.
 
 ## Link sibling repositories through their trunks
 
 The common layout keeps repos side by side under one parent, with consumers wiring a library in through the package manager's local-path mechanism: `file:` dependencies in npm, `use` directives in a Go workspace, Cargo path dependencies, local Swift packages, Composer path repositories.
 
-Point those links at the library's main checkout, with an absolute path. The main checkout sits on the trunk, work happens in worktrees, and the trunk moves when `discern accept` lands a validated commit ([ADR 0110](../_adr/0110-the-landing-model.md)). A consumer linking the main checkout builds against landed, validated states of the library and never sees an unlanded branch.
+Point those links at the library's main checkout with an absolute path. The main checkout sits on the trunk, work happens in worktrees, and the trunk moves when `discern accept` lands a validated commit ([ADR 0110](../_adr/0110-the-landing-model.md)). A consumer linking the main checkout builds against landed states of the library and does not read an unlanded worktree branch.
 
 Absolute paths hold on one machine only. A team keeps the committed manifest shared with one level of indirection: agree on a stable path such as `/opt/acme/shared-lib`, point the manifest there, and each developer symlinks that path to their own checkout. The symlink lives outside the repository, so every worktree resolves it with nothing to recreate. Otherwise, publish to a registry, or use relative links plus the placement below.
 
-A relative link such as `file:../shared-lib` assumes the consumer's checkout sits beside the library. By default a worktree does not: `discern start` places it at `<parent>/<repo>.worktrees/<id>`, so `../shared-lib` resolves to nothing, the main checkout's gate passes, and every worktree's gate fails on dependency resolution. Place worktrees in the workspace parent instead:
+A relative link such as `file:../shared-lib` assumes the consumer's checkout sits beside the library. By default a worktree does not: `discern start` places it at `<parent>/<repo>.worktrees/<id>`, so `../shared-lib` may resolve to nothing even when the main checkout's Gate passes. Place worktrees in the workspace parent instead:
 
 ```toml
 [worktree]
@@ -35,9 +35,9 @@ Worktrees then sit beside the repositories, and `../shared-lib` resolves from a 
 
 ## Depend through a registry
 
-Repositories that consume each other's published releases (npm, JSR, PyPI, Maven, an internal registry) need no discern configuration. Each repo is self-contained, and its gate builds against the declared versions.
+Repositories that consume each other's published releases (npm, JSR, PyPI, Maven, an internal registry) need no discern configuration. Each repository is self-contained, and its Gate builds against the declared versions.
 
-A change that spans library and consumer lands in order. Land the library first, publish the release, then bump the consumer's dependency and land that. Each landing passes its own repo's gate.
+A change that spans library and consumer lands in order. Land the library first, publish the release, then bump the consumer's dependency and land that. Each landing passes its own repository's Gate.
 
 ## Umbrella repositories
 
@@ -45,7 +45,7 @@ Some workspaces add a front-door repo holding compose files, scripts, and worksp
 
 ## Submodules
 
-A superproject pins child repositories by commit with `git submodule`. `discern start` creates the checkout with `git worktree add`, and git leaves submodule directories empty in a new worktree. Populate them with repository convergence:
+A superproject pins child repositories by commit with `git submodule`. `discern start` creates the checkout with `git worktree add`, and Git leaves submodule directories empty in a new worktree. Populate them with repository convergence:
 
 ```toml
 [repository]
@@ -66,5 +66,5 @@ ensure = ["git submodule update --init --recursive"]
 ## Current state and gotchas
 
 - Root discovery walks up from the working directory to the nearest `discern.toml` and does not stop at a repository boundary ([`src/shared/env.ts`](../../../src/shared/env.ts)). A repo without its own config, nested under a directory that has one, resolves to the outer project; `discern doctor`, run from the nested repo, discloses the crossing.
-- A consumer's gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed and validated, and the consumer's receipt still describes its own repository only.
+- A consumer's Gate reads a linked library at whatever state the linked checkout holds at that moment. Linking the main checkout keeps that state landed, and the consumer's Receipt still describes only its own repository.
 - `discern start` runs no submodule population of its own: the `[repository].ensure` command above is the supported path, and `start` hints at it when the fresh worktree carries a `.gitmodules` no configured command mentions.

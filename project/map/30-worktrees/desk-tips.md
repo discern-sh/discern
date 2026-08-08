@@ -1,6 +1,6 @@
 ---
 title: Desk tips
-description: One deterministic teaching line per desk session — what it shows, how it is chosen, and where its record lands.
+description: A deterministic teaching line per Desk session, including what it shows, how it is chosen, and where its record lands.
 order: 100
 aliases:
   - desk tips
@@ -9,13 +9,13 @@ aliases:
 
 # Desk tips
 
-_Each desk session puts one teaching line directly below the root status._
+_Each Desk session puts a teaching line directly below the root status._
 
-Most of discern's surfaces address coding agents. The desk is the person's surface, so it carries the product's one ambient teaching slot: a line below the root status, chosen when the session opens and held until it ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). Its `Tip` label is yellow, while the teaching text stays secondary. The line wraps at the terminal width with a hanging indent. Narrow sidebar terminals do not clip it.
+Most of discern's surfaces address coding agents. The Desk is the person's surface, so it carries an ambient teaching line below the root status. The Desk selects the line when the session opens and holds it until the session ends ([ADR 0234](../_adr/0234-tips-are-the-desks-human-advisory-channel.md)). Its `Tip` label is yellow, while the teaching text stays secondary. The line wraps at the terminal width with a hanging indent. Narrow sidebar terminals do not clip it.
 
 ## How the tip is chosen
 
-Selection is deterministic: identical state shows the identical tip, and nothing is random. The desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
+Selection is deterministic: identical state shows the identical tip, and nothing is random. The Desk evaluates the registry against the fleet survey it already ran and picks the first match in this order:
 
 1. Tips new since the seen-state's baseline version, in authored order. These render with a "New in \<version\>" prefix, so an upgrade surfaces what it brought. A fresh install baselines at the current version and shows no "New in" prefix on day one.
 2. Unseen tips whose context currently applies. A relevance predicate reads the survey — "no standards configured", "a branch is behind the trunk" — and makes a tip timely.
@@ -26,11 +26,11 @@ A tip whose predicate does not hold is not applicable, rotation included.
 
 ## Where the state and the record live
 
-Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the logbook: every linked worktree shares one rotation, nothing lands in a commit, and a missing or damaged file resets to fresh instead of costing the session. Each shown tip's id is also recorded on the desk session's logbook event, so a later reader can measure whether the teaching was acted on.
+Seen-state lives at `<git-common-dir>/discern/desk/tips.json`, beside the Logbook. Every linked worktree shares the rotation, nothing lands in a commit, and a missing or damaged file resets to fresh instead of blocking the session. Each shown tip's id is also recorded on the Desk session's Logbook event, so a later reader can measure whether the teaching was acted on.
 
 ## What a tip may say
 
-Tips educate about capability; alarms about state belong to the header's own lines and `discern status`. A tip is never the only route to an action — someone who skips every tip loses only the shortcut. The register addresses a beginner: command names stay in code spans, and each concept takes a plain translation.
+Tips educate about capability; alarms about state belong to the header's own lines and `discern status`. Every action remains available without its tip. The register addresses a beginner: command names stay in code spans, and each concept receives a plain-language introduction.
 
 ## Where it lives in code
 

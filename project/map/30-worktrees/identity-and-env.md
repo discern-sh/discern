@@ -11,13 +11,13 @@ aliases:
 
 # Worktree identity and environment
 
-_One stable worktree id drives every branch name, local handle, and development port._
+_A stable worktree id determines the branch name, local handles, and development port._
 
-Identity lets concurrent worktrees address separate local services without a shared registry. It derives from structured git and env state, so moving a checkout does not change its names ([ADR 0025](../_adr/0025-worktree-resources.md)).
+Identity lets concurrent worktrees address separate local services without a shared registry. It derives from structured Git and environment state, so moving a checkout does not change its names ([ADR 0025](../_adr/0025-worktree-resources.md)).
 
 ## Read the derived identity
 
-Run `discern identity` inside a linked worktree with one selector:
+Run `discern identity` inside a linked worktree and select the value you need:
 
 | Selector            | Value                                                                         |
 | ------------------- | ----------------------------------------------------------------------------- |
@@ -30,7 +30,7 @@ Run `discern identity` inside a linked worktree with one selector:
 | `--resource <name>` | `<project-slug>-<id>-<name>` for one declared resource.                       |
 | `--resources`       | Every declared resource as `name=handle`.                                     |
 
-The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured env files, then from git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity.
+The id resolves from `DISCERN_WORKTREE_ID` in the current process, then from the configured environment files, then from Git's linked-worktree metadata. An explicit override accepts letters, numbers, dots, dashes, and underscores. Record one when a manually named integration worktree needs a different derived identity.
 
 `discern start` checks the port for collisions with live siblings and mints another id when needed. Port selection remains best-effort: a crowded band does not block creation, and simultaneous start processes have no cross-process lock. Record a different `DISCERN_WORKTREE_ID` if 2 live worktrees ever receive the same port.
 

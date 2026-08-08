@@ -11,11 +11,11 @@ aliases:
 
 # Landing authority
 
-_discern verifies landing authority before it moves the trunk._
+_discern verifies landing authority before moving the trunk._
 
-A green [receipt](../00-orientation/glossary.md#receipt) proves the gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
+A green [Receipt](../00-orientation/glossary.md#receipt) records that an exact clean commit passed the declared Gate. Landing permission comes from conversation consent or a recorded grant for the worktree ([ADR 0194](../_adr/0194-standing-pre-authorization-is-a-recorded-checked-grant.md)).
 
-## The three sources
+## Authority sources
 
 | Source         | Evidence                                                                                               | Lifetime               |
 | -------------- | ------------------------------------------------------------------------------------------------------ | ---------------------- |
@@ -25,7 +25,7 @@ A green [receipt](../00-orientation/glossary.md#receipt) proves the gate. Landin
 
 `--confirmed` means conversation consent only. Standing authority comes from the trunk's committed `[acceptance]`. The worktree branch cannot supply it.
 
-Fresh setup's standing-grant example names `docs`, whose seed contains the map and deferred-work ledger. The separate `guidance` seed contains the project brief, guidance sources, authored skills, and materialized skills directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
+Fresh setup's standing-grant example names `docs`, whose seed contains the Map and deferred-work ledger. The separate `guidance` seed contains the project brief, guidance sources, authored Skills, and materialized Skill directories; it stays outside that example and reaches the owner for review. Upgrade leaves existing named scopes unchanged, so owners of earlier installs split their scope manually to adopt this boundary ([ADR 0209](../_adr/0209-fresh-seed-grants-cover-pure-documentation.md)).
 
 ## How discern resolves coverage
 
@@ -42,7 +42,7 @@ When a grant exists, `data.landing_authority` carries the result:
 | `uncovered`       | Paths that still need conversation review.              |
 | `warnings`        | Untrusted evidence, such as an invalid recorded grant.  |
 
-Without grant evidence, [handoff](hand-work-back.md) remains ordinary. `accept` records the source and any scopes in its result and receipt ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
+Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Receipt ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 

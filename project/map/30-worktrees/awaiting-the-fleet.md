@@ -1,6 +1,6 @@
 ---
 title: Awaiting the fleet
-description: Block until a sibling branch is green, its work lands, or the trunk moves — one call instead of guessed polling.
+description: Block until a sibling branch is green, its work lands, or the trunk moves, using a held call instead of guessed polling.
 order: 60
 aliases:
   - discern await
@@ -11,29 +11,29 @@ aliases:
 
 # Awaiting the fleet
 
-_Hold one call for the work you need. If the transport must return first, continue the same watch without losing what happened between calls._
+_Hold a call for the work you need. If the transport must return first, continue the same watch without losing what happened between calls._
 
 `discern await` replaces guessed `discern status` polling and human relays. It blocks until a fleet condition holds, then reports the observation and next step.
 
-## The three conditions
+## Conditions
 
 Pass one condition per call:
 
 | Condition           | Holds when                                                                                                | Grounded in               |
 | ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `--green <branch>`  | The worktree holds an honored gate receipt, or a landed receipt note proves acceptance.                   | Gate and landing receipts |
+| `--green <branch>`  | The worktree holds an honored Gate Receipt, or a landed Receipt note records acceptance.                  | Gate and landing Receipts |
 | `--landed <branch>` | The branch has work and its latest observed tip is reachable from the trunk.                              | Git ancestry              |
 | `--trunk-moved`     | The trunk ref differs from its position when the watch began. Any trunk move satisfies this broad signal. | The trunk ref itself      |
 
-Verdicts come from authoritative state. The logbook wakes the wait but never decides truth ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
+Verdicts come from the state named in the table. The Logbook wakes the wait but never decides the condition ([ADR 0160](../_adr/0160-local-logbook-advisory-readers.md)). A separate decision records the original condition contract ([ADR 0213](../_adr/0213-await-blocks-on-authoritative-fleet-conditions.md)).
 
-Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk receipt note. Without one, it refuses.
+Start a branch watch while it exists. `--landed` retains its observed tip, so an active watch survives branch deletion. After cleanup, a new call can recover accepted work from its trunk Receipt note. Without one, it refuses.
 
-Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as proof. If that branch commits and lands between evaluations, its durable receipt note identifies the validated work after cleanup.
+Use `--green` for work in flight and `--landed` when only arrival matters. `--green` does not treat a freshly forked branch's reachable tip as Gate evidence. If that branch commits and lands between evaluations, its durable Receipt note identifies the validated work after cleanup.
 
-`--green` refuses when no checkout holds the branch at call start. Its per-worktree gate receipt dies with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
+`--green` refuses when no checkout holds the branch at call start. Its per-worktree Gate Receipt disappears with the checkout, so a [reclaimed](reclaiming-contained-worktrees.md) stage cannot present one. The refusal points at the nearest containing branch and `--landed`.
 
-## Spend one call
+## Use the longest reliable call
 
 Omit `timeout` and let discern use the longest reliable call for the configured surface:
 
@@ -43,7 +43,7 @@ Omit `timeout` and let discern use the longest reliable call for the configured 
 
 The condition returns immediately when it holds. Once called, do not surface progress updates until it returns. A direct user message still gets a response. Client cancellation still ends the call promptly.
 
-An explicit smaller MCP timeout remains exact. Discern caps a larger request at the transport-safe limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
+An explicit smaller MCP timeout remains exact. discern caps a larger request at the verified transport limit and records it in `data.requested_timeout_seconds`. The CLI has no MCP deadline, so it keeps an explicit timeout intact. `--timeout 0` checks once.
 
 The effective bound and source are `data.timeout_seconds` and `data.timeout_basis`. A separate decision records the vendor evidence ([ADR 0232](../_adr/0232-await-continuations-spend-the-transport-budget.md)).
 
@@ -69,7 +69,7 @@ discern await --landed agent/upload-retry
 
 The landing model's pull axis makes `await` the coordination half of multi-wave work ([ADR 0110](../_adr/0110-the-landing-model.md)). Resolve the sibling's exact branch from `discern start` or `discern status`. Human-friendly names gain a collision-resistant suffix.
 
-If the dependent already has a worktree, wait there:
+If the dependent already has a worktree, wait from that checkout:
 
 ```sh
 discern await --green agent/upload-retry-a1b2c3
@@ -81,9 +81,9 @@ If the dependent has no worktree yet, wait from the main checkout:
 discern await --green agent/upload-retry-a1b2c3
 ```
 
-Follow the returned met hint. A live green receipt uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk instead. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews the incoming hot zone.
+Follow the returned met hint. A live green Receipt uses its immutable commit with `update --from` in an existing worktree or `start --from` on main, so later branch deletion cannot race the composition. Green satisfied by a landing uses the trunk. Landing and trunk-move hints choose plain `update` in a worktree or `start` on main. A met landing also previews files changed by both branches.
 
-The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents — condition choice, exact-branch resolution, quiet holding, and the composition step. A staged brief names the Skill instead of restating the contract.
+The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill packages this procedure for coding agents: condition choice, exact-branch resolution, an uninterrupted wait, and the composition step. A staged brief names the Skill instead of restating the contract.
 
 ## Where it lives in code
 
@@ -99,6 +99,6 @@ The bundled [`discern-await-the-fleet`](../45-skills/bundled-skills.md) Skill pa
 
 - `await` blocks only its caller and gates nothing. It holds no lock while waiting; short store operations use a repository-local file lock.
 - A condition that is not met saves its continuation before the blocking wait. A Git directory without write access produces a refusal before the wait begins.
-- The logbook can be off; polling still evaluates every condition.
+- The Logbook can be off; polling still evaluates every condition.
 - Provider timeout changes take effect after `discern refresh` rewrites the MCP entry and the client restarts it.
-- A failed landing-receipt-note write can make a green landing hidden entirely inside a retry gap unprovable. `await` stays not met instead of inferring from an unrelated trunk move.
+- A failed Receipt-note write can leave a green landing inside a retry gap without durable evidence. `await` stays not met instead of inferring from an unrelated trunk move.
