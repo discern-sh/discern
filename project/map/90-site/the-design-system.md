@@ -8,7 +8,7 @@ aliases:
 
 # The published design-system dependency
 
-Discern consumes `@discern-sh/design-system` from JSR as an exact, immutable dependency. The package is authored and released from [discern-sh/design-system](https://github.com/discern-sh/design-system); this repository owns only the discern.sh integration and product compositions.
+discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) at an exact version. The [discern-sh/design-system](https://github.com/discern-sh/design-system) repository authors and releases the package. This repository owns the discern.sh integration and product compositions.
 
 ## Dependency boundary
 
@@ -18,22 +18,22 @@ The root `deno.json` exposes one stable alias:
 "discern-design-system": "jsr:@discern-sh/design-system@0.10.0"
 ```
 
-Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. Source trees, registry URLs, cache internals, distribution files, workspace links, and sibling checkouts are not consumer APIs.
+Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. The package root and those exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
 
-If Discern finds a package defect, the fix is released from the package repository and consumed here as a new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cut-over happened during Deno's registry holding period; every other dependency remains subject to the normal age policy.
+When a package defect affects discern, release the fix from the package repository and update this repository to the new exact version. Package source remains in its own repository. The temporary minimum-age exception in `deno.json` names this exact package because the cutover happened during Deno's registry holding period. Every other dependency remains subject to the normal age policy.
 
 ## Site-owned integration
 
-[`site/design_system.ts`](../../../site/design_system.ts) is the complete thin integration. Its `DESIGN_SYSTEM_BUNDLES` table declares, once:
+[`site/design_system.ts`](../../../site/design_system.ts) contains the complete integration. Its `DESIGN_SYSTEM_BUNDLES` table declares:
 
-| Bundle         | Routes                      | Selection                                                | Optional assets |
-| -------------- | --------------------------- | -------------------------------------------------------- | --------------- |
-| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the six rendered Workflow roots | fonts           |
-| `compositions` | `/`                         | Marketing, Editorial, and shared display parts           | fonts and grain |
+| Bundle         | Routes                      | Selection                                              | Optional assets |
+| -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
+| `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
+| `compositions` | `/`                         | Marketing, Editorial, and shared display parts         | fonts and grain |
 
-The table also owns the Discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and only the requested assets. Discern does not copy the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
+The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The homepage loads the full selected bundle from `/assets/design-system/compositions/`; that selection currently emits no package browser script. Fonts are an explicit choice for both. Grain is selected only for the compositions; docs neither emit nor load it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The homepage loads the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts. Only the compositions bundle selects grain, and the docs bundle neither emits nor loads it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `divider`, `heading`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
 
