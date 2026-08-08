@@ -1,6 +1,6 @@
 # ADR 0114: a green gate emits the receipt
 
-> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** The receipt-family terms in this decision now use **proof**; the decision and reasoning are unchanged.
+> **Proof-naming amendment ([ADR 0245](0245-receipt-renamed-to-proof.md)):** ADR 0245 renames this decision's receipt-family terms to **proof** and leaves its reasoning intact.
 
 > **Vocabulary amendment ([ADR 0120](0120-launch-verb-canon.md)):** Current pointers use `ratchets` → `standards`, `finish` → `done`, `graduate` → `accept`, and the gate-pass artifact → the receipt; the decision and reasoning are unchanged. **Job-model vocabulary amendment ([ADR 0168](0168-the-gate-declares-jobs.md)):** Current pointers use gate `capability` / custom `check` → known/custom `job`; the decision and reasoning are unchanged.
 
