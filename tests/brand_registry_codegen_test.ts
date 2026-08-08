@@ -278,15 +278,19 @@ Deno.test("citation tokens resolve against the live registry, and unknown ids th
 Deno.test("the rendered README document map equals the registry", () => {
   const rendered = renderBrandDoc("readme");
   for (const doc of BRAND_DOCUMENTS) {
+    // A skill row displays its repo-relative path over the traversal href.
+    const display = doc.mode.kind === "skill"
+      ? voiceSkillRel(doc.mode.register)
+      : doc.file;
     if (doc.id === "readme") {
       assert(
-        !rendered.includes(`[\`${doc.file}\`](${doc.file})`),
+        !rendered.includes(`[\`${display}\`](${doc.file})`),
         "the README must not list itself in the document map",
       );
       continue;
     }
     const row = rendered.split("\n").find((line) =>
-      line.includes(`[\`${doc.file}\`](${doc.file})`)
+      line.includes(`[\`${display}\`](${doc.file})`)
     );
     assert(row !== undefined, `${doc.id} is missing from the document map`);
     const overlay = doc.mode.kind === "authored" && doc.mode.privateOverlay;

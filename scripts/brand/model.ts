@@ -303,7 +303,9 @@ export type BrandDocumentStatus =
 /**
  * How a brand document is produced today. Conversion flips a row from
  * `authored` to `generated` without restructuring the registry; overlay
- * documents stay authored path-and-job rows without content.
+ * documents stay authored path-and-job rows without content. A `skill` row
+ * is generated too, but by the voice-skill codegen loop into the configured
+ * skills directory — the row is the document map's account of it.
  */
 export type BrandDocumentMode =
   | {
@@ -315,12 +317,18 @@ export type BrandDocumentMode =
     readonly kind: "authored";
     /** True for documents that stay private overlay files at launch. */
     readonly privateOverlay: boolean;
+  }
+  | {
+    readonly kind: "skill";
+    /** The register whose generated skill this row accounts for. */
+    readonly register: Register;
   };
 
 /** One row of the brand document map. */
 export interface BrandDocument {
   readonly id: string;
-  /** Path within the brand directory (e.g. `voice/brand/SKILL.md`). */
+  /** Path relative to the brand directory (e.g. `positioning.md`; a skill
+   * row traverses out to the configured skills directory). */
   readonly file: string;
   readonly status: BrandDocumentStatus;
   /** The document's job, as the document map states it. */

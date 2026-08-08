@@ -74,7 +74,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 252     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 21      | —                | node `forgiving-cli`        |
-| [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `project/skills/discern-voice-and-tone/SKILL.md` (authored)                       | —       | —                | —                           |
+| [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
 | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)             | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
@@ -2094,10 +2094,36 @@ Retired commands, retired config keys, dead config positions, and synonym redire
 
 ## `voice-banned-moves` — Voice banned moves
 
-The voice skill's banned-moves table; the Vale style must match it pattern for pattern.
+The voice registry's banned-words and banned-moves canon behind the generated voice skills; the Vale style must see every banned phrase the canon declares.
 
-- Source: `project/skills/discern-voice-and-tone/SKILL.md` (authored table)
-- Members: — (the authored source does not expose member names to codegen)
+- Source: `scripts/brand/voice.ts` — `BANNED_WORDS`
+- Members: 26
+  - `padding`
+  - `hype-adjectives`
+  - `hype-verbs`
+  - `vendor-speak`
+  - `emotion-announcements`
+  - `throat-clearing`
+  - `posture`
+  - `the-shape-of`
+  - `load-bearing`
+  - `unnecessary-enumeration`
+  - `drama-adverbs`
+  - `sincerity-vouching`
+  - `rides-along`
+  - `hedging`
+  - `passive-fault-dodging`
+  - `exclamation-points`
+  - `emoji-in-prose`
+  - `contrast-frames`
+  - `aphoristic-antithesis`
+  - `self-narration`
+  - `attitude-fragments`
+  - `echo-intensifiers`
+  - `trailing-modifier-fragments`
+  - `em-dash-splices`
+  - `typographic-applause`
+  - `counting-the-set`
 - Guards: `tests/voice_vale_parity_test.ts`
 - Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
 - Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature

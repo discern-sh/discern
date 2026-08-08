@@ -1,6 +1,6 @@
 # Page-type templates
 
-These page shapes cover the map's published tiers: overview, quickstart, guide, reference, and troubleshooting. The [documenter brief](documenter-agent-brief.md) assigns each page's job and owns these structures; the [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns how the prose sounds inside them. Pick the shape by the page's primary job. A page serving two jobs becomes two pages.
+These page shapes cover the map's published tiers: overview, quickstart, guide, reference, and troubleshooting. The [documenter brief](documenter-agent-brief.md) assigns each page's job and owns these structures; the [product voice skill](../../skills/discern-product-voice/SKILL.md) owns how the prose sounds inside them. Pick the shape by the page's primary job. A page serving two jobs becomes two pages.
 
 Every skeleton below shows the full frontmatter a page of that shape typically carries; drop keys the page doesn't need (the brief's frontmatter table has the rules). Word budgets count body prose; frontmatter and code fences are free.
 

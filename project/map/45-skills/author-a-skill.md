@@ -61,10 +61,10 @@ discern skills list
 
 ## Where it lives in code
 
-| Concern                           | Source                                                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------- |
-| `[skills].dir` default and schema | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)           |
-| Authored resolution and links     | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`) |
-| Frontmatter validation            | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                   |
-| This repo's authored example      | [`discern-voice-and-tone`](../../skills/discern-voice-and-tone/SKILL.md)               |
-| Materialization coverage          | [`guidelines_test.ts`](../../../tests/guidelines_test.ts)                              |
+| Concern                               | Source                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `[skills].dir` default and schema     | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
+| Authored resolution and links         | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
+| Frontmatter validation                | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
+| This repo's example in `[skills].dir` | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) — generated from [`voice.ts`](../../../scripts/brand/voice.ts) |
+| Materialization coverage              | [`guidelines_test.ts`](../../../tests/guidelines_test.ts)                                                                             |

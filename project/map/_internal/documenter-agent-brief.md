@@ -24,7 +24,7 @@ Treat documentation as part of the change. Every page describes what exists in c
 
 ## Who owns what
 
-This brief owns **structure**: which pages exist, each page's job, its section shapes, its facts, and its length budgets. The [voice skill](../../skills/discern-voice-and-tone/SKILL.md) owns **register**: how the prose sounds inside those structures, including the docs register mix, banned tics, and delight ceiling. Write to both; this brief answers questions about shape or size, and the skill answers questions about word choice, stance, or temperature.
+This brief owns **structure**: which pages exist, each page's job, its section shapes, its facts, and its length budgets. The [product voice skill](../../skills/discern-product-voice/SKILL.md) owns **register**: how the prose sounds inside those structures, including its voice behaviors and banned moves. Write to both; this brief answers questions about shape or size, and the skill answers questions about word choice, stance, or temperature.
 
 The map is public documentation: the published tiers render on the docs site, in `discern docs`, and over MCP. The reference corpus for a finished page comprises the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against this corpus.
 
@@ -35,7 +35,7 @@ The map is public documentation: the published tiers render on the docs site, in
 1. **`map/README.md`** — the documentation tree's table of contents. Confirms your subtree's position and its neighbours.
 2. **`map/00-orientation/concepts.md`** — the canonical naming source. Use its capitalised nouns verbatim. Do not introduce synonyms.
 3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves. The page is generated from the term registry (`scripts/glossary_registry.ts`): a new or changed entry is an edit there plus `deno task codegen`, never an edit to the page. The gate enforces the discipline: a bold-faced `**term** — …` restatement in a leaf fails the `vocabulary` standard (bold emphasis is fine when it links the entry), a term added to the registry must be used by a page in the same change, and a synonym the registry retires is banned from live pages.
-4. **The [voice skill](../../skills/discern-voice-and-tone/SKILL.md)** — the register your pages hold, and the banned moves the gate's prose lint watches for.
+4. **The [product voice skill](../../skills/discern-product-voice/SKILL.md)** — the register your pages hold, and the banned moves the gate's prose lint watches for.
 5. **Your scope manifest** at `map/_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
 6. **The source files** listed in your manifest. Read whole files where they are small. For large directories, get a listing first and read the most central files in full; sample the rest.
 
@@ -140,7 +140,7 @@ Cite decision records as freely as the reasoning requires; rendering handles the
    - 400–800 words per leaf, with 800 as a **hard ceiling**. Other page shapes carry their own budgets; see [`page-templates.md`](page-templates.md).
    - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Report any overrun.
 9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
-10. **Register belongs to the voice skill.** Hold its docs register mix — plain, precise, convinced — and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern scripts prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures. Delight is a ceiling of one per page and zero in reference and troubleshooting material.
+10. **Register belongs to the product voice skill.** Hold its voice behaviors and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern scripts prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures.
 
 ---
 
