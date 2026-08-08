@@ -5,6 +5,7 @@ affordances?
 agentic
 ajv
 allowlist(s|ed|ing)?
+another's
 Anthropic
 APIs?
 apply
@@ -24,6 +25,7 @@ bootcamps?
 brandable
 browsable
 cacheable
+canonicalis(e|es|ed|ing|ation)
 canonicalization
 chokepoint
 CI
@@ -41,6 +43,7 @@ concat
 configs?
 conformant
 CORS
+CTAs?
 cutover
 CVEs?
 cwd
@@ -112,6 +115,7 @@ JUnit
 knowably
 Laravel
 lcov
+leaderboards?
 liveness
 llms
 lockfile
@@ -124,6 +128,7 @@ metacharacters
 migrator
 misalign(s|ed|ing)?
 misconfigur(ed|ation)s?
+[Mm]onospaced?
 mockups?
 monorepo
 mtime
@@ -138,8 +143,10 @@ OAuth
 onboarding
 orgs?
 outro
+overclaim(s|ed|ing)?
 overridable
 papercut
+parallelisable
 params
 passthrough
 pasteable
@@ -152,6 +159,7 @@ prefixer
 prepend(?:s|ed|ing)?
 preprints?
 pushback
+rasterised
 rasteriz(e|ed|es|ing)
 ratchetable
 reachability
@@ -171,7 +179,9 @@ renderers?
 repoints?
 repos?
 republishable
+reputational
 rollout
+[Rr]eimagines?
 runtimes?
 sandboxed
 scaffolded
@@ -187,8 +197,8 @@ SHA
 shellcheck
 snake_case
 snapshotting
-spawners?
 sparklines?
+spawners?
 stderr
 stdin
 stdout
@@ -241,10 +251,13 @@ validators?
 vendored
 Vercel('s)?
 vhost
+viewports?
 walkthrough(s)?
 WASMs?
+watchlists?
 wget
 Wilcoxon
+workstreams?
 worktrees?
 Xcode('s)?
 zod
