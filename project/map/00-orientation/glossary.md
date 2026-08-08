@@ -33,8 +33,8 @@ aliases:
   - preset
   - project script
   - project-owned file
-  - receipt
-  - receipt note
+  - proof
+  - proof note
   - schema version
   - scope
   - shared file
@@ -54,6 +54,8 @@ aliases:
   - file dispositions
   - the binary's files
   - discern script
+  - receipt
+  - receipt note
   - scopes.docs
   - co-managed seed
   - integration branch
@@ -135,7 +137,7 @@ The verbs that install and maintain discern in a project: `setup`, `upgrade`, [d
 
 ### Landing authority
 
-Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [receipt](#receipt) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).
+Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [proof](#proof) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).
 
 ### Logbook
 
@@ -173,13 +175,13 @@ A project's own language-agnostic executable under `[scripts].dir` (default `dis
 
 A file discern may seed once, then leaves for the project to edit in place. `discern upgrade` does not overwrite it. It includes the [namespace](#namespace) content, the [map](#map), the ledger, and authored skills.
 
-### Receipt
+### Proof
 
-The review claim `discern done` emits after a clean, committed worktree passes the full gate. It includes a one-line summary the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-proof.md).
+The review claim `discern done` emits after a clean, committed worktree passes the full [gate](#gate). It includes the proof line the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The proof](../20-quality-gate/the-proof.md).
 
-### Receipt note
+### Proof note
 
-The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/proof-notes.md).
+The repository-resident JSON record of a landed [proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).
 
 ### Schema version
 

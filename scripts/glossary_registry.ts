@@ -370,11 +370,11 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
   {
     term: "Landing authority",
     plain: {
-      phrase: "proof of permission to add work to the main shared version",
+      phrase: "recorded permission to add work to the main shared version",
       match: String.raw`\blanding\s+authorit(?:y|ies)\b`,
     },
     definition:
-      "Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [receipt](#receipt) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).",
+      "Verified evidence that an owner authorized one worktree to land: consent from the current conversation, a standing scope grant recorded on the [trunk](#trunk), or a one-worktree effort grant from the [desk](#desk). A green [proof](#proof) alone grants nothing. Covered in [worktrees](../30-worktrees/landing-authority.md).",
   },
   {
     term: "Logbook",
@@ -456,23 +456,35 @@ export const GLOSSARY: readonly GlossaryEntry[] = [
     ],
   },
   {
-    term: "Receipt",
+    term: "Proof",
+    matches: ["proof line"],
     plain: {
-      phrase: "the proof-of-completion summary",
-      match: String.raw`\breceipts?\b`,
+      phrase: "proof that the finished change passed the project's checks",
+      match: false,
     },
     definition:
-      "The review claim `discern done` emits after a clean, committed worktree passes the full gate. It includes a one-line summary the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The receipt](../20-quality-gate/the-proof.md).",
+      "The review claim `discern done` emits after a clean, committed worktree passes the full [gate](#gate). It includes the proof line the agent ends its report with and a full page with check results, held [standards](#standard), and the diffstat for the branch's exact `HEAD`. The owner reads the page with `discern status --verbose`; `discern accept` can reuse it while the commit and worktree remain unchanged. Covered in [The proof](../20-quality-gate/the-proof.md).",
+    retired: [
+      {
+        phrase: "receipt",
+        pattern: String.raw`\breceipts?\b`,
+      },
+    ],
   },
   {
-    term: "Receipt note",
+    term: "Proof note",
     plain: {
       phrase:
         "a saved copy of the proof, attached to the project's shared history",
-      match: String.raw`\breceipt\s+notes?\b`,
     },
     definition:
-      "The repository-resident JSON record of a landed [receipt](#receipt), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Receipt notes](../20-quality-gate/proof-notes.md).",
+      "The repository-resident JSON record of a landed [proof](#proof), attached to the immutable [trunk](#trunk) commit under `refs/notes/discern`. Its Dead Simple Signing Envelope (DSSE) boundary binds the full commit and preserves the payload bytes for future signatures. Current notes use discern's empty-array unsigned extension. Local recording is default-on, fetch transport is opt-in, and publication stays an explicit Git push. Covered in [Proof notes](../20-quality-gate/proof-notes.md).",
+    retired: [
+      {
+        phrase: "receipt note",
+        pattern: String.raw`\breceipt\s+notes?\b`,
+      },
+    ],
   },
   {
     term: "Schema version",

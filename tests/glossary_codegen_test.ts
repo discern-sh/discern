@@ -61,10 +61,10 @@ Deno.test("every entry has a one-sentence hover summary without duplicating shor
   }
 });
 
-Deno.test("the glossary defines the receipt concept directly", () => {
+Deno.test("the glossary defines the Proof concept directly", () => {
   assert(
-    GLOSSARY.some((entry) => entry.term === "Receipt"),
-    "the glossary must define Receipt",
+    GLOSSARY.some((entry) => entry.term === "Proof"),
+    "the glossary must define Proof",
   );
 });
 

@@ -1369,8 +1369,8 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Placement is consent`
   - `Preset`
   - `Project script`
-  - `Receipt`
-  - `Receipt note`
+  - `Proof`
+  - `Proof note`
   - `Schema version`
   - `Scope`
   - `Skill`
