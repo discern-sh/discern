@@ -26,10 +26,9 @@ import {
   checkTestGroups,
   composeGatePlan,
   gatePlanToEngine,
-  type JobGroup,
   planScopeGates,
+  preCheckpointGroups,
   scopeGatesGroup,
-  stageGroup,
 } from "./plan.ts";
 import { gateRunContext, runGroup } from "./execute.ts";
 import {
@@ -673,15 +672,15 @@ async function runGate(
   //    ANY stage may mutate the tree — the fix stage by design, a build/test/scope
   //    gate by accident of wiring (a regenerated tracked artifact, a rewritten
   //    golden file) — so snapshot the working-tree dirty set before any group runs
-  //    and again after each green group. The strand check (step 5) flags files a
+  //    and again after each green group. The strand check (the checkpoint at
+  //    2-bis, the final pass at step 5) flags files a
   //    stage dirtied that were committed-clean at gate start — the uncommitted gate
   //    output a green result would otherwise hide (ADR 0047, extended by ADR 0148)
   //    — and the per-group snapshots attribute each strand to the stage that
   //    produced it. Snapshots are skipped once a stage has failed (the strand
   //    check only runs on an otherwise-green gate); an unreadable snapshot voids
   //    the check (fail-open: a missing snapshot must never fabricate a failure).
-  const preGroups = [stageGroup(cfg, "fix"), stageGroup(cfg, "build")]
-    .filter((g): g is JobGroup => g !== undefined);
+  const preGroups = preCheckpointGroups(cfg);
   const dirtyAtStart = failedStage === null
     ? await worktreeDirtyPaths(root)
     : null;
@@ -699,6 +698,26 @@ async function runGate(
       return;
     }
     stageSnapshots.push({ stage, dirty });
+  };
+  // The one strand verdict (ADR 0047/0148), shared by the checkpoint at 2-bis
+  // and the final pass at step 5 so the two sites cannot diverge: on an
+  // otherwise-green run whose snapshots are trustworthy, fail as `tree_drift`
+  // when a stage left a committed-clean tracked file dirty in the LATEST
+  // snapshot. Only files clean at gate start count — a stage reworking the
+  // agent's own uncommitted edits (the inner loop) never trips — and each
+  // strand names the stage that produced it. The `failedStage` guard makes a
+  // second detection, and so a duplicate diagnostic, structurally impossible.
+  let treeDriftDiag: Diagnostic | undefined;
+  const failOnStrandedTree = async (): Promise<void> => {
+    if (failedStage !== null || dirtyAtStart === null || !snapshotsValid) {
+      return;
+    }
+    const strands = strandedByStage(dirtyAtStart, stageSnapshots);
+    if (strands.length === 0) {
+      return;
+    }
+    failedStage = "tree_drift";
+    treeDriftDiag = await treeDriftDiagnostic(root, strands);
   };
   for (const group of preGroups) {
     if (failedStage !== null) {
@@ -746,6 +765,26 @@ async function runGate(
       }
     }
     await snapshotAfter(group.stage);
+  }
+
+  // 2-bis. The strand checkpoint (ADR 0262): a run that began on a clean,
+  //     committed tree is seeking a receipt, and a tracked strand left by the
+  //     pre-groups above already forfeits it — the standards, check∥test, and
+  //     scope-gate work ahead cannot change that verdict, so stop here and
+  //     surface the strands while nothing has been wasted on them. Judged only
+  //     after ALL pre-groups (a later build may consume or restore a fixer's
+  //     edit, and convergence edits belong in one report), and gated on the
+  //     PIN's full cleanliness, never the tracked-dirty snapshot: the pin
+  //     counts untracked files, so an untracked-dirty start — whose tracked
+  //     snapshot is empty — must not read as receipt-eligible. A dirty start
+  //     skips the checkpoint entirely: it can earn no receipt anyway, and the
+  //     agent running `done` dirty is asking for the full run's feedback,
+  //     which the final pass (step 5) still delivers. A failed pre-group or
+  //     generated-drift verdict above wins outright — the closure yields to
+  //     any recorded failure.
+  const receiptEligibleAtStart = treePin.head !== undefined && treePin.clean;
+  if (receiptEligibleAtStart) {
+    await failOnStrandedTree();
   }
 
   // 2a. Resolve the standards' gate actions AFTER the fix stage — a fixer's
@@ -823,22 +862,13 @@ async function runGate(
     }
   }
 
-  // 5. Strand detection (ADR 0034's sibling; ADR 0047, extended by ADR 0148): a
-  //     stage may MUTATE the tree (the fix stage by design, any other by accident of
-  //     wiring), but a clean gate must not hide uncommitted gate output. Flag only
-  //     files that were CLEAN at finish-start and a stage left dirty — so a stage
-  //     reworking the agent's own uncommitted edits (the inner loop) never trips,
-  //     only one touching an already-COMMITTED file does — and name the stage that
-  //     produced each strand. That stranded set is exactly what a final clean check
-  //     must surface early — commit the gate's output before you finish.
-  let treeDriftDiag: Diagnostic | undefined;
-  if (failedStage === null && dirtyAtStart !== null && snapshotsValid) {
-    const strands = strandedByStage(dirtyAtStart, stageSnapshots);
-    if (strands.length > 0) {
-      failedStage = "tree_drift";
-      treeDriftDiag = await treeDriftDiagnostic(root, strands);
-    }
-  }
+  // 5. The final strand pass (ADR 0034's sibling; ADR 0047, extended by ADR
+  //     0148): a stage may MUTATE the tree (the fix stage by design, any other by
+  //     accident of wiring), but a clean gate must not hide uncommitted gate
+  //     output. The checkpoint (2-bis) already settled the pre-group half for a
+  //     receipt-eligible start; this closing pass catches strands the check∥test
+  //     and scope-gate stages introduced — and, on a dirty start, every stage's.
+  await failOnStrandedTree();
 
   // 6. Assemble the executed plan + result, attaching the agent-facing hints —
   //    the same next-step advice the human tail prints, promoted into the envelope.

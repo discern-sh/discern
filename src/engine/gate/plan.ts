@@ -265,6 +265,27 @@ export function checkTestGroups(
 }
 
 /**
+ * The stages whose job groups run BEFORE `done`'s strand checkpoint — the
+ * tree-mutating pre-groups (fix by design, build by wiring). The checkpoint
+ * sits after ALL of them, never between: a later pre-group may consume or
+ * restore an earlier one's edits, so convergence is judged once, on their
+ * combined result.
+ */
+export const PRE_CHECKPOINT_STAGES: readonly Stage[] = ["fix", "build"];
+
+/**
+ * The pre-checkpoint job groups — fix (serial), then build — the single
+ * derivation `done`'s executor and {@link buildStageGroups} both consume, so
+ * the dry-run plan and the executed gate can never disagree on what runs
+ * before the strand checkpoint.
+ */
+export function preCheckpointGroups(cfg: DiscernConfig): JobGroup[] {
+  return PRE_CHECKPOINT_STAGES
+    .map((stage) => stageGroup(cfg, stage))
+    .filter((g): g is JobGroup => g !== undefined);
+}
+
+/**
  * The declared-job groups — fix (serial) → build → check∥test — derived
  * from the typed config alone. These are independent of the changed scopes, so the
  * executor can run them BEFORE classifying scopes (preserving the gate's original
@@ -278,17 +299,7 @@ export function buildStageGroups(
   cfg: DiscernConfig,
   standardJobs: PlannedJob[] = [],
 ): JobGroup[] {
-  const groups: JobGroup[] = [];
-  const fix = stageGroup(cfg, "fix");
-  if (fix !== undefined) {
-    groups.push(fix);
-  }
-  const build = stageGroup(cfg, "build");
-  if (build !== undefined) {
-    groups.push(build);
-  }
-  groups.push(...checkTestGroups(cfg, standardJobs));
-  return groups;
+  return [...preCheckpointGroups(cfg), ...checkTestGroups(cfg, standardJobs)];
 }
 
 /** The display label of the `[generated]` regeneration group `prepare` runs —
