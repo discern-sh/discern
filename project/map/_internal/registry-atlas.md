@@ -81,7 +81,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
-| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 5       | —                | —                           |
+| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 72      | —                | node `canonical-sets`       |
 
@@ -2241,7 +2241,8 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 The top-level trees holding authored TypeScript — the universe every repo-wide structural sweep derives its scan set from. Members are the stable roots; the file-level list (`AUTHORED_TS_FILES`, the export sweeps consume) is git-derived at import time and moves with every commit, so the roots are the meaningful atlas count.
 
 - Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
-- Members: 5
+- Members: 6
+  - `project`
   - `scripts`
   - `site`
   - `src`

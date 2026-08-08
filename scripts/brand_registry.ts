@@ -20,9 +20,9 @@
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
 import {
-  type BrandDocument,
   brandDocDir,
   brandDocHrefFromGenerated,
+  type BrandDocument,
   type CitationContext,
   generatedBrandBanner,
   resolveCitationTokens,

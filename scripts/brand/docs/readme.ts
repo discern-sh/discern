@@ -7,7 +7,7 @@
  * authored Markdown. `README.md` compiles from this module.
  */
 
-import { type BrandDocument, brandDocHrefFromGenerated } from "../model.ts";
+import { brandDocHrefFromGenerated, type BrandDocument } from "../model.ts";
 import { voiceSkillRel } from "../voice.ts";
 
 /** One task-scoped reading path. */
@@ -248,9 +248,7 @@ function documentRow(doc: BrandDocument): string {
     : doc.file;
   return `| [\`${display}\`](${
     brandDocHrefFromGenerated(doc)
-  }) | ${doc.status} | ${doc.job} | ${
-    overlay ? PRIVATE_OVERLAY_MARKER : ""
-  } |`;
+  }) | ${doc.status} | ${doc.job} | ${overlay ? PRIVATE_OVERLAY_MARKER : ""} |`;
 }
 
 /** Render one reading path's section. */

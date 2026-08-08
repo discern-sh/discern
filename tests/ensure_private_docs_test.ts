@@ -55,7 +55,10 @@ async function scaffold(
 ): Promise<{ main: string; worktree: string }> {
   const main = join(dir, "main");
   await ensureDir(join(main, "project", "map"));
-  await Deno.writeTextFile(join(main, "project", "map", "README.md"), "# Map\n");
+  await Deno.writeTextFile(
+    join(main, "project", "map", "README.md"),
+    "# Map\n",
+  );
   await gitInit(main);
   const worktree = join(dir, "wt");
   await git(main, "worktree", "add", worktree, "-b", "ensure-test");
