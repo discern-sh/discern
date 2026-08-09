@@ -14,6 +14,7 @@ project/map/_internal/feature-canon-plain.md merge=discern-generated linguist-ge
 project/map/_internal/hint-inventory.md merge=discern-generated linguist-generated
 project/map/_internal/registry-atlas.md merge=discern-generated linguist-generated
 project/map/_internal/tip-inventory.md merge=discern-generated linguist-generated
+project/map/_internal/voice-enforcement-coverage.md merge=discern-generated linguist-generated
 project/map/_internal/brand/README.md merge=discern-generated linguist-generated
 project/map/_internal/brand/claims-and-evidence.md merge=discern-generated linguist-generated
 project/map/_internal/brand/copy-patterns.md merge=discern-generated linguist-generated
