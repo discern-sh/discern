@@ -20,9 +20,7 @@ The guard omits a reading-grade ceiling because command names and placeholders d
 
 Rendered line:
 
-```text
-Bare `discern` opens the human view over work in progress (the Desk). Start tasks, supervise them, and read one short tip there.
-```
+> Bare `discern` opens the human view over work in progress (the Desk). Start tasks, supervise them, and read one short tip there.
 
 ## `status-orients-anywhere`
 
@@ -34,9 +32,7 @@ Bare `discern` opens the human view over work in progress (the Desk). Start task
 
 Rendered line:
 
-```text
-`discern status` is a quick, read-only check of where you are, what changed, which checks would run, and every task in flight from the main copy.
-```
+> `discern status` is a quick, read-only check of where you are, what changed, which checks would run, and every task in flight from the main copy.
 
 ## `start-isolates-a-task`
 
@@ -48,9 +44,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
-```
+> `discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
 
 ## `prepare-fast-feedback`
 
@@ -62,9 +56,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-Use `discern prepare` while editing a change. It runs fixers and read-only checks; builds and tests stay for later.
-```
+> Use `discern prepare` while editing a change. It runs fixers and read-only checks; builds and tests stay for later.
 
 ## `test-runs-alone`
 
@@ -76,9 +68,7 @@ Use `discern prepare` while editing a change. It runs fixers and read-only check
 
 Rendered line:
 
-```text
-`discern test` runs the project's configured tests and quick readiness check, separate from the final quality check.
-```
+> `discern test` runs the project's configured tests and quick readiness check, separate from the final quality check.
 
 ## `tidy-discern-files`
 
@@ -90,9 +80,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern tidy` formats discern's Markdown sources and `discern.toml`; add `--dry-run` to list changes without writing.
-```
+> `discern tidy` formats discern's Markdown sources and `discern.toml`; add `--dry-run` to list changes without writing.
 
 ## `inspect-before-accepting`
 
@@ -104,9 +92,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-Before accepting, choose "Inspect commits and changes" in the Desk. It shows saved and unsaved work, size, and Proof that the exact version passed its checks.
-```
+> Before accepting, choose "Inspect commits and changes" in the Desk. It shows saved and unsaved work, size, and Proof that the exact version passed its checks.
 
 ## `grant-once-green`
 
@@ -118,9 +104,7 @@ Before accepting, choose "Inspect commits and changes" in the Desk. It shows sav
 
 Rendered line:
 
-```text
-"Pre-authorize landing once green" records permission for one task to land after every check passes. It applies only to that task.
-```
+> "Pre-authorize landing once green" records permission for one task to land after every check passes. It applies only to that task.
 
 ## `drop-protects-work`
 
@@ -132,9 +116,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The Desk asks you to type the branch name before that loss.
-```
+> `discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The Desk asks you to type the branch name before that loss.
 
 ## `reclaim-keeps-recovery`
 
@@ -146,9 +128,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern worktree prune --contained` removes a working copy whose saved work already lives inside another task. Its branch stays for recovery.
-```
+> `discern worktree prune --contained` removes a working copy whose saved work already lives inside another task. Its branch stays for recovery.
 
 ## `update-before-review`
 
@@ -160,9 +140,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern update` brings the main shared version into a task and names files both sides changed, so you know what to recheck before review.
-```
+> `discern update` brings the main shared version into a task and names files both sides changed, so you know what to recheck before review.
 
 ## `dry-run-previews-writes`
 
@@ -174,9 +152,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-Commands such as `discern done --dry-run` show their plan without changing the project. Look for `--dry-run` before an unfamiliar write.
-```
+> Commands such as `discern done --dry-run` show their plan without changing the project. Look for `--dry-run` before an unfamiliar write.
 
 ## `patterns-practice-report`
 
@@ -188,9 +164,7 @@ Commands such as `discern done --dry-run` show their plan without changing the p
 
 Rendered line:
 
-```text
-`discern patterns` reads the project's local activity record for repeated habits, slow checks, and tasks that stall. It suggests one next step.
-```
+> `discern patterns` reads the project's local activity record for repeated habits, slow checks, and tasks that stall. It suggests one next step.
 
 ## `patterns-practice-stats`
 
@@ -202,9 +176,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern patterns --stats` counts finished changes, passing streaks, time from start to landing, and quality gains from the same local record.
-```
+> `discern patterns --stats` counts finished changes, passing streaks, time from start to landing, and quality gains from the same local record.
 
 ## `improvement-next-action`
 
@@ -216,9 +188,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern improvement` ranks one next improvement across checks, setup, guides, task copies, quality rules, and reusable playbooks.
-```
+> `discern improvement` ranks one next improvement across checks, setup, guides, task copies, quality rules, and reusable playbooks.
 
 ## `doctor-first-diagnostic`
 
@@ -230,9 +200,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern doctor` checks whether the install is wired correctly and names the fix for each problem. Start there when a discern command behaves oddly.
-```
+> `discern doctor` checks whether the install is wired correctly and names the fix for each problem. Start there when a discern command behaves oddly.
 
 ## `done-records-proof`
 
@@ -244,9 +212,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
-```
+> `discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
 
 ## `standards-first-rule`
 
@@ -258,9 +224,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-A Standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
-```
+> A Standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
 
 ## `standards-on-demand`
 
@@ -272,9 +236,7 @@ A Standard is a quality measure that can only improve. `discern-set-the-standard
 
 Rendered line:
 
-```text
-Rules marked `measure = "on-demand"` skip routine measurement; `discern standards` measures them when you ask.
-```
+> Rules marked `measure = "on-demand"` skip routine measurement; `discern standards` measures them when you ask.
 
 ## `standards-pin-gain`
 
@@ -286,9 +248,7 @@ Rules marked `measure = "on-demand"` skip routine measurement; `discern standard
 
 Rendered line:
 
-```text
-`discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
-```
+> `discern standards --pin` saves a measured gain by tightening the limit. A `margin` leaves room for small future changes.
 
 ## `config-validates-edits`
 
@@ -300,9 +260,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern config set <key> <value>` edits `discern.toml` without losing comments and validates the full file before writing.
-```
+> `discern config set <key> <value>` edits `discern.toml` without losing comments and validates the full file before writing.
 
 ## `refresh-publishes-guidance`
 
@@ -314,9 +272,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern refresh` compiles shared guidance into every configured coding agent's instruction file and republishes reusable guides from their sources.
-```
+> `discern refresh` compiles shared guidance into every configured coding agent's instruction file and republishes reusable guides from their sources.
 
 ## `preset-keeps-project-values`
 
@@ -328,9 +284,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern preset <name>` adds a reusable set of starter files and settings. Values already present in the project stay unchanged.
-```
+> `discern preset <name>` adds a reusable set of starter files and settings. Values already present in the project stay unchanged.
 
 ## `upgrade-check-only`
 
@@ -342,9 +296,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
-```
+> `discern upgrade --check` reports whether this project has pending settings updates. It changes nothing.
 
 ## `one-file-settings`
 
@@ -356,9 +308,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern.toml` holds all project-specific discern settings. Everything else is bundled, placed through those settings, or generated from text you can review.
-```
+> `discern.toml` holds all project-specific discern settings. Everything else is bundled, placed through those settings, or generated from text you can review.
 
 ## `no-model-any-language`
 
@@ -370,9 +320,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-discern contains no language model and requires no model-service credentials. It runs the commands your project declares, in any language.
-```
+> discern contains no language model and requires no model-service credentials. It runs the commands your project declares, in any language.
 
 ## `coupling-missing-partners`
 
@@ -384,9 +332,7 @@ discern contains no language model and requires no model-service credentials. It
 
 Rendered line:
 
-```text
-`discern coupling <file>` spots files that usually change with the named file but are missing from the current work. It reads only this project's history.
-```
+> `discern coupling <file>` spots files that usually change with the named file but are missing from the current work. It reads only this project's history.
 
 ## `impact-extra-checks`
 
@@ -398,9 +344,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern impact` shows which named project areas and extra checks the current change activates.
-```
+> `discern impact` shows which named project areas and extra checks the current change activates.
 
 ## `await-other-work`
 
@@ -412,9 +356,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern await --green <branch>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
-```
+> `discern await --green <branch>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
 
 ## `map-and-docs-search`
 
@@ -426,9 +368,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-Use `discern map --search <query>` to search this project's guide. Use `discern docs --search <query>` for discern's own manual.
-```
+> Use `discern map --search <query>` to search this project's guide. Use `discern docs --search <query>` for discern's own manual.
 
 ## `skills-effective-set`
 
@@ -440,9 +380,7 @@ Use `discern map --search <query>` to search this project's guide. Use `discern 
 
 Rendered line:
 
-```text
-`discern skills list` shows the reusable guides available to coding agents, including project replacements and hidden guides.
-```
+> `discern skills list` shows the reusable guides available to coding agents, including project replacements and hidden guides.
 
 ## `cure-the-bug-class`
 
@@ -454,9 +392,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-cure-a-bug` guides a coding agent to prove the cause, fix every occurrence, and add a check that catches the defect if it returns.
-```
+> `discern-cure-a-bug` guides a coding agent to prove the cause, fix every occurrence, and add a check that catches the defect if it returns.
 
 ## `clear-agent-leftovers`
 
@@ -468,9 +404,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-clear-the-decks` guides a coding agent to remove unused code, repeated helpers, and leftovers from abandoned approaches in small safe commits.
-```
+> `discern-clear-the-decks` guides a coding agent to remove unused code, repeated helpers, and leftovers from abandoned approaches in small safe commits.
 
 ## `write-a-fact-once`
 
@@ -482,9 +416,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-write-it-once` helps a coding agent store each fact once, include future additions automatically, and preview changes before running them.
-```
+> `discern-write-it-once` helps a coding agent store each fact once, include future additions automatically, and preview changes before running them.
 
 ## `document-from-the-code`
 
@@ -496,9 +428,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-document-subsystem` has a coding agent rebuild one part of the project guide from the code and verify every claim.
-```
+> `discern-document-subsystem` has a coding agent rebuild one part of the project guide from the code and verify every claim.
 
 ## `teach-the-next-agent`
 
@@ -510,9 +440,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-teach-the-project` records a durable lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
-```
+> `discern-teach-the-project` records a durable lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
 
 ## `record-a-decision`
 
@@ -524,9 +452,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-write-adr` records a significant choice, its reasons, and its trade-offs where future coding agents can find it.
-```
+> `discern-write-adr` records a significant choice, its reasons, and its trade-offs where future coding agents can find it.
 
 ## `delegate-with-a-complete-brief`
 
@@ -538,9 +464,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews the resulting change.
-```
+> `discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews the resulting change.
 
 ## `await-with-one-call`
 
@@ -552,9 +476,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
-```
+> `discern-await-the-fleet` guides a coding agent to wait for another task with one bounded call, then build on what arrives.
 
 ## `identity-stable-values`
 
@@ -566,9 +488,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-`discern identity --port` prints the stable network number used by that task's preview server. Other choices show its branch and service names.
-```
+> `discern identity --port` prints the stable network number used by that task's preview server. Other choices show its branch and service names.
 
 ## `resources-follow-the-copy`
 
@@ -580,9 +500,7 @@ Rendered line:
 
 Rendered line:
 
-```text
-A project can give every worktree its own information store, emulator, or container. discern provisions and removes them with the worktree.
-```
+> A project can give every worktree its own information store, emulator, or container. discern provisions and removes them with the worktree.
 
 ## `scripts-from-desk`
 
@@ -594,9 +512,7 @@ A project can give every worktree its own information store, emulator, or contai
 
 Rendered line:
 
-```text
-When a task has a project-owned tool, the Desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
-```
+> When a task has a project-owned tool, the Desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
 
 ## Coverage absences
 

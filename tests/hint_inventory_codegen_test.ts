@@ -7,6 +7,7 @@ import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { type HintDef, HINTS } from "../src/shared/hints.ts";
+import { markdownBlockquote } from "../src/shared/markdown_code.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
@@ -58,15 +59,28 @@ Deno.test("the hint inventory is total over HINTS and renders every example", ()
     );
     assertStringIncludes(section, `- Emitting context: ${when}`);
     const canonical = renderCommandRefsCli(def.template(def.example));
-    assertStringIncludes(section, canonical);
+    assertStringIncludes(section, markdownBlockquote(canonical));
+    assert(
+      !section.includes("```text"),
+      `${def.id}: rendered copy must remain visible to the Map prose scan`,
+    );
     const interactive = def.interactiveTemplate === undefined
       ? undefined
       : renderCommandRefsCli(def.interactiveTemplate(def.example));
     if (interactive !== undefined && interactive !== canonical) {
       assertStringIncludes(section, "Interactive example:");
-      assertStringIncludes(section, interactive);
+      assertStringIncludes(section, markdownBlockquote(interactive));
     }
   }
+});
+
+Deno.test("the blockquote projection preserves every source line", () => {
+  const source = "First line.\n\n> A literal marker stays part of the copy.";
+  const projected = markdownBlockquote(source);
+  const restored = projected.split("\n").map((line) =>
+    line === ">" ? "" : line.replace(/^> /, "")
+  ).join("\n");
+  assertEquals(restored, source);
 });
 
 Deno.test("the committed hint inventory declares its generated provenance", async () => {

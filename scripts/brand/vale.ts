@@ -18,12 +18,14 @@
  * extent practical" stays an audited boundary.
  */
 
-import type {
-  BannedMove,
-  BannedWord,
-  Register,
-  VoicePrinciple,
-  VoiceRule,
+import { markdownCodeSpan } from "../../src/shared/markdown_code.ts";
+import {
+  type BannedMove,
+  type BannedWord,
+  type Register,
+  REGISTERS,
+  type VoicePrinciple,
+  type VoiceRule,
 } from "./model.ts";
 import { BANNED_MOVES, BANNED_WORDS, VOICES } from "./voice.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "./docs/copy_review.ts";
@@ -37,7 +39,7 @@ type BannedMoveId = (typeof BANNED_MOVES)[number]["id"];
 
 /** A register-and-id pair naming one proposed mechanical check, typed so an
  * entry can only cite a check its register actually proposes. */
-type ProposedCheckRef = {
+export type ProposedCheckRef = {
   [R in Register]: {
     readonly kind: "proposed-check";
     readonly register: R;
@@ -81,6 +83,14 @@ export type ValeCheck =
     readonly scope: string;
   };
 
+/** A real-Vale proving pair plus the semantic boundary that remains after
+ * the detector runs. A future rule cannot enter the registry without both. */
+export interface ValeBehaviorContract {
+  readonly bad: string;
+  readonly safe: string;
+  readonly residual: string;
+}
+
 /** One generated Vale rule: a `<StyleName>/<id>.yml` artifact. */
 export interface ValeStyleRule {
   /** The rule's file and check name (PascalCase, e.g. `GenericVerbs`). */
@@ -91,6 +101,7 @@ export interface ValeStyleRule {
   readonly message: string;
   readonly level: ValeSeverity;
   readonly sources: readonly [ValeRuleSource, ...ValeRuleSource[]];
+  readonly contract: ValeBehaviorContract;
   readonly check: ValeCheck;
 }
 
@@ -119,6 +130,11 @@ export const VALE_STYLE_RULES = [
         item: "write-the-product-name-as-discern",
       },
     ],
+    contract: {
+      bad: "Discern checks the tree.",
+      safe: "The literal `Discern` names a generated style prefix.",
+      residual: "None: brand canon permits no capitalized product name.",
+    },
     check: { extends: "existence", tokens: ["Discern"] },
   },
   {
@@ -137,6 +153,12 @@ export const VALE_STYLE_RULES = [
         item: "unlock-empower-reimagine-and-seamless",
       },
     ],
+    contract: {
+      bad: "The workflow will transform the project.",
+      safe: "The literal `transform` appears as a counter-example.",
+      residual:
+        "The listed forms are enforced; whether transform names a real operation remains editorial.",
+    },
     check: {
       extends: "existence",
       tokens: ["transform(?:s|ed|ing)?", "reimagin(?:e[sd]?|ing)"],
@@ -163,6 +185,12 @@ export const VALE_STYLE_RULES = [
         principle: "make-confidence-feel-earned",
       },
     ],
+    contract: {
+      bad: "The project has enterprise-grade checks.",
+      safe: "The literal `enterprise-grade` appears as a counter-example.",
+      residual:
+        "The listed forms are enforced; whether a claim has enough support remains editorial.",
+    },
     check: {
       extends: "existence",
       tokens: ["enterprise[-\\s]grade", "transformative(?:ly)?"],
@@ -190,6 +218,12 @@ export const VALE_STYLE_RULES = [
         item: "the-future-of-claims",
       },
     ],
+    contract: {
+      bad: "This isn't just a check.",
+      safe: "The literal `This isn't just` appears as a counter-example.",
+      residual:
+        "The named templates are enforced; novel model-copy openings remain editorial.",
+    },
     check: {
       extends: "existence",
       tokens: [
@@ -210,6 +244,12 @@ export const VALE_STYLE_RULES = [
     sources: [
       { kind: "proposed-check", register: "brand", check: "cta-generic-label" },
     ],
+    contract: {
+      bad: "[Learn more](https://example.com)",
+      safe: "Learn more before editing the registry.",
+      residual:
+        "The complete-link labels are enforced; whether a short secondary label is useful remains editorial.",
+    },
     check: {
       extends: "existence",
       raw: ["\\[(?:Learn\\s+more|Explore|Discover)\\]\\("],
@@ -234,6 +274,12 @@ export const VALE_STYLE_RULES = [
         item: "constant-x-not-y-constructions",
       },
     ],
+    contract: {
+      bad: "Use evidence, not slogans. Keep facts, not theater.",
+      safe: "Use evidence, not slogans.",
+      residual:
+        "The page budget is enforced; whether one retained contrast earns its place remains editorial.",
+    },
     check: {
       extends: "occurrence",
       token:
@@ -257,6 +303,12 @@ export const VALE_STYLE_RULES = [
         principle: "write-for-the-page-not-for-a-slogan-collection",
       },
     ],
+    contract: {
+      bad: "Proof stays. Work moves. State holds.",
+      safe: "Proof stays while the branch remains ready for review.",
+      residual:
+        "The named three-sentence cadence is enforced; other slogan-like rhythm remains editorial.",
+    },
     check: {
       extends: "existence",
       tokens: [
@@ -288,6 +340,12 @@ export const VALE_STYLE_RULES = [
         item: "write-the-product-name-as-discern",
       },
     ],
+    contract: {
+      bad: "Discern checks the tree.",
+      safe: "The literal `Discern` names a generated style prefix.",
+      residual:
+        "Coverage is product-name casing only; context-sensitive glossary term choice remains editorial.",
+    },
     check: { extends: "existence", tokens: ["Discern"] },
   },
   {
@@ -312,6 +370,12 @@ export const VALE_STYLE_RULES = [
         item: "blames-or-praises-an-agents-character",
       },
     ],
+    contract: {
+      bad: "The agent forgot the update.",
+      safe: "The branch is behind main.",
+      residual:
+        "The named character verdicts are enforced; analysis of recorded behavior remains editorial.",
+    },
     check: {
       extends: "existence",
       tokens: [
@@ -339,6 +403,12 @@ export const VALE_STYLE_RULES = [
         item: "do-not-say-use-your-best-judgment",
       },
     ],
+    contract: {
+      bad: "Use your best judgment.",
+      safe: "Stop when landing authority is absent.",
+      residual:
+        "The stock phrase is enforced; whether a real boundary can be stated remains editorial.",
+    },
     check: {
       extends: "existence",
       tokens: ["use\\s+your\\s+(?:best\\s+|own\\s+)?judg(?:e)?ment"],
@@ -361,6 +431,12 @@ export const VALE_STYLE_RULES = [
         item: "prefer-stable-targets-over-positional-references",
       },
     ],
+    contract: {
+      bad: "See above for the command.",
+      safe: "See `project/map/README.md` for the command.",
+      residual:
+        "The named positional forms are enforced; a directly preceding reference may still be clear.",
+    },
     check: {
       extends: "existence",
       tokens: [
@@ -373,13 +449,55 @@ export const VALE_STYLE_RULES = [
   },
 ] as const satisfies readonly ValeStyleRule[];
 
-/** One recorded disposition for a proposed check no generated rule
- * implements: `deferred` names why Vale cannot hold it; `covered` names the
- * existing enforcement that already does. */
-export interface ValeDisposition {
+/** One exact code or artifact reference in the enforcement record. */
+export interface EnforcementReference {
+  readonly path: string;
+  readonly symbol?: string;
+  readonly detail?: string;
+}
+
+type EnforcementReferences = readonly [
+  EnforcementReference,
+  ...EnforcementReference[],
+];
+
+/** A proposal held by a non-Vale structural or generated-projection guard. */
+export interface CoveredValeDisposition {
   readonly check: ProposedCheckRef;
-  readonly disposition: "deferred" | "covered";
+  readonly disposition: "covered";
+  readonly mechanism: "structural-guard" | "map-projection";
+  readonly authority: EnforcementReferences;
+  readonly guards: EnforcementReferences;
+  readonly targets: readonly EnforcementReference[];
+  readonly tests: EnforcementReferences;
+  readonly residual: string;
+}
+
+/** A proposal whose missing fact makes mechanical enforcement unsound. */
+export interface DeferredValeDisposition {
+  readonly check: ProposedCheckRef;
+  readonly disposition: "deferred";
+  readonly mechanism: "semantic-residual";
+  readonly missingFact: string;
   readonly reason: string;
+}
+
+/** One recorded classification for a proposal no generated Vale rule cites. */
+export type ValeDisposition =
+  | CoveredValeDisposition
+  | DeferredValeDisposition;
+
+/** Build a reference without making optional fields present as `undefined`. */
+function enforcementReference(
+  path: string,
+  symbol?: string,
+  detail?: string,
+): EnforcementReference {
+  return {
+    path,
+    ...(symbol === undefined ? {} : { symbol }),
+    ...(detail === undefined ? {} : { detail }),
+  };
 }
 
 /**
@@ -396,8 +514,11 @@ export const VALE_DISPOSITIONS = [
       check: "hero-noun-density",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority assigns hero regions or identifies the canonical product-noun subset.",
     reason:
-      "needs page-region awareness: no scanned page declares a hero, and the site surfaces that will are outside the prose corpus.",
+      "Counting glossary words without both facts would flag ordinary body copy and miss undeclared site heroes.",
   },
   {
     check: {
@@ -406,8 +527,11 @@ export const VALE_DISPOSITIONS = [
       check: "claim-annotation",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority marks which source blocks must carry a claim annotation.",
     reason:
-      "needs claim-ledger awareness (which blocks bear claims, which slugs resolve) — a registry guard's job, not a token pattern's.",
+      "Claim-slug resolution is already structural, but inferring claim-bearing blocks from prose would be unsound.",
   },
   {
     check: {
@@ -416,8 +540,11 @@ export const VALE_DISPOSITIONS = [
       check: "serious-near-threat",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority defines threat vocabulary, proximity, and approved contexts as one relation.",
     reason:
-      "needs proximity plus an approved-context exemption; a token list cannot separate the warned-against pairing from a page discussing it.",
+      "A token window cannot separate a threat claim from a page discussing or rejecting that wording.",
   },
   {
     check: {
@@ -426,7 +553,11 @@ export const VALE_DISPOSITIONS = [
       check: "headline-duplication",
     },
     disposition: "deferred",
-    reason: "needs cross-page state; Vale lints one file at a time.",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority assigns the headline candidates to actual page and slot identities.",
+    reason:
+      "The candidate registry intentionally reuses lines; checking it alone would mistake inventory reuse for cross-page duplication.",
   },
   {
     check: {
@@ -435,8 +566,11 @@ export const VALE_DISPOSITIONS = [
       check: "audience-signature-frequency",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority assigns audience signatures to a defined published corpus.",
     reason:
-      "needs corpus-wide frequency counts; Vale lints one file at a time.",
+      "A frequency count has no valid denominator or membership boundary until that assignment exists.",
   },
   {
     check: {
@@ -444,9 +578,23 @@ export const VALE_DISPOSITIONS = [
       register: "product",
       check: "retired-synonyms",
     },
-    disposition: "deferred",
-    reason:
-      "owned by the glossary-and-proof migration stream: the retired-synonym scan lands with the rename's execution phase.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/glossary_registry.ts",
+        "GLOSSARY",
+        "GLOSSARY[].retired",
+      ),
+    ],
+    guards: [
+      enforcementReference("scripts/glossary_registry.ts", "retiredSynonyms"),
+      enforcementReference("scripts/glossary_registry.ts", "retiredPattern"),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/vocab_drift_test.ts")],
+    residual:
+      "Registered phrases are enforced; dated records, private findings, and declared path exceptions remain outside the live-vocabulary corpus.",
   },
   {
     check: {
@@ -455,8 +603,22 @@ export const VALE_DISPOSITIONS = [
       check: "command-flag-references",
     },
     disposition: "covered",
-    reason:
-      "fenced command examples are already validated against the live verb and flag registry by the map's docs checks; inline prose detection is lexically unsound — the lower-case product name beside an ordinary verb reads identically to a command reference.",
+    mechanism: "structural-guard",
+    authority: [enforcementReference("src/main.ts", "buildCli")],
+    guards: [
+      enforcementReference(
+        "src/lib/docs_integrity.ts",
+        "validateFencedCommand",
+      ),
+      enforcementReference("src/lib/map_integrity.ts", "checkDocsIntegrity"),
+    ],
+    targets: [],
+    tests: [
+      enforcementReference("tests/docs_integrity_test.ts"),
+      enforcementReference("tests/map_integrity_test.ts"),
+    ],
+    residual:
+      "Fenced commands and flags are enforced; inline prose remains editorial because ordinary verbs beside the product name are lexically indistinguishable from commands.",
   },
   {
     check: {
@@ -465,8 +627,11 @@ export const VALE_DISPOSITIONS = [
       check: "path-identifier-formatting",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No authority declares the path and identifier literals expected on each prose surface.",
     reason:
-      "Vale exempts code spans, so this rule needs the complement — recognizing an unformatted path or identifier in plain text — which requires knowing each page's identifier universe.",
+      "A blanket string scan cannot distinguish an unformatted identifier from ordinary prose, and Vale correctly exempts code spans.",
   },
   {
     check: {
@@ -474,9 +639,27 @@ export const VALE_DISPOSITIONS = [
       register: "product",
       check: "refusal-next-action",
     },
-    disposition: "deferred",
-    reason:
-      "a structural contract on result families, not prose; belongs beside the hint registry's tests.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference("src/shared/result.ts", "ERROR_SLUGS"),
+      enforcementReference("src/shared/hints.ts", "ERROR_FAILURE_RECOVERY"),
+      enforcementReference(
+        "src/shared/hints.ts",
+        "ERRORLESS_FAILURE_RECOVERY",
+      ),
+    ],
+    guards: [
+      enforcementReference("src/shared/hints.ts", "withFailureRecoveryHint"),
+      enforcementReference(
+        "src/shared/result_serialization.ts",
+        "serializeResult",
+      ),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/result_schemas_test.ts")],
+    residual:
+      "Every registered public failure family carries evidence-classified recovery; the quality of family-specific wording remains editorial.",
   },
   {
     check: {
@@ -484,9 +667,23 @@ export const VALE_DISPOSITIONS = [
       register: "product",
       check: "consent-language",
     },
-    disposition: "deferred",
-    reason:
-      "template conformance for consent moments is structural and context-dependent, not lexical.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference("src/shared/consent.ts", "CONSENT_GATED_VERBS"),
+      enforcementReference("src/shared/consent.ts", "LANDING_CONSENT_SOURCES"),
+    ],
+    guards: [
+      enforcementReference(
+        "src/engine/worktree/lifecycle.ts",
+        "landingConsentForApply",
+      ),
+      enforcementReference("src/shared/setup_messages.ts", "consentMessage"),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/engine_consent_gate_test.ts")],
+    residual:
+      "The act, consequence, scope, continuation, and no-effects refusal are enforced on declared surfaces; prose outside a consent-gated operation remains editorial.",
   },
   {
     check: {
@@ -494,9 +691,24 @@ export const VALE_DISPOSITIONS = [
       register: "agent",
       check: "skill-stop-condition",
     },
-    disposition: "deferred",
-    reason:
-      "Skills and setup briefs sit outside the Vale-scanned map, and a required-section contract is structural — a skills test's job.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/agent_surface_contracts.ts",
+        "AGENT_SURFACE_CONTRACTS",
+      ),
+    ],
+    guards: [
+      enforcementReference(
+        "scripts/agent_contract.ts",
+        "agentContractStructureIssues",
+      ),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/agent_surface_contracts_test.ts")],
+    residual:
+      "Every operational surface declares and evidences its stop conditions; whether the declared conditions are sufficient remains semantic review.",
   },
   {
     check: {
@@ -504,9 +716,24 @@ export const VALE_DISPOSITIONS = [
       register: "agent",
       check: "authority-field",
     },
-    disposition: "deferred",
-    reason:
-      "authority declarations are structural fields of procedures, not phrases; a token list cannot tell presence from absence.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/agent_surface_contracts.ts",
+        "AGENT_SURFACE_CONTRACTS",
+      ),
+    ],
+    guards: [
+      enforcementReference(
+        "scripts/agent_contract.ts",
+        "agentContractStructureIssues",
+      ),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/agent_surface_contracts_test.ts")],
+    residual:
+      "Authority-sensitive surfaces must bind boundary and recheck evidence; whether their classification is true remains semantic review.",
   },
   {
     check: {
@@ -514,9 +741,24 @@ export const VALE_DISPOSITIONS = [
       register: "agent",
       check: "relative-cross-worktree-paths",
     },
-    disposition: "deferred",
-    reason:
-      "whether a relative path crosses a worktree boundary is path semantics no token pattern holds.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/agent_surface_contracts.ts",
+        "AGENT_SURFACE_CONTRACTS",
+      ),
+    ],
+    guards: [
+      enforcementReference(
+        "scripts/agent_contract.ts",
+        "agentContractStructureIssues",
+      ),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/agent_surface_contracts_test.ts")],
+    residual:
+      "A cross-worktree surface must bind an exact root or path; the correctness of its cross-worktree classification remains semantic review.",
   },
   {
     check: {
@@ -525,8 +767,11 @@ export const VALE_DISPOSITIONS = [
       check: "vague-pronouns",
     },
     disposition: "deferred",
+    mechanism: "semantic-residual",
+    missingFact:
+      "No structural fact identifies the intended referent of each pronoun.",
     reason:
-      "referent ambiguity is semantic — a token list cannot separate a vague 'it' from a bound one; the adjacent stable-target rule is mechanical and ships as DiscernAgent.PositionalReference.",
+      "A token list cannot distinguish a vague pronoun from one bound clearly by the surrounding sentence.",
   },
   {
     check: {
@@ -535,8 +780,25 @@ export const VALE_DISPOSITIONS = [
       check: "context-length-budgets",
     },
     disposition: "covered",
-    reason:
-      "the skills_words and guidance standards already hold the agent-surface budgets as ratcheted numbers.",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference("discern.toml", "[standards.guidance]"),
+      enforcementReference("discern.toml", "[standards.skills_count]"),
+      enforcementReference("discern.toml", "[standards.skills_words]"),
+    ],
+    guards: [
+      enforcementReference(
+        "src/engine/gate/standards.ts",
+        "standardsResult",
+      ),
+    ],
+    targets: [],
+    tests: [
+      enforcementReference("tests/engine_gate_standards_test.ts"),
+      enforcementReference("tests/engine_standards_test.ts"),
+    ],
+    residual:
+      "The configured corpus totals are ratcheted; allocation within one Skill or guidance section remains editorial.",
   },
   {
     check: {
@@ -545,8 +807,36 @@ export const VALE_DISPOSITIONS = [
       check: "stable-target-validation",
     },
     disposition: "covered",
-    reason:
-      "intra-map links and heading anchors are already validated against the shared renderer by the map's docs checks; DiscernAgent.PositionalReference adds the prose-side tell.",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/agent_surface_contracts.ts",
+        "AGENT_SURFACE_CONTRACTS",
+      ),
+    ],
+    guards: [
+      enforcementReference("src/lib/map_integrity.ts", "checkDocsIntegrity"),
+      enforcementReference(
+        "scripts/agent_contract.ts",
+        "agentContractStructureIssues",
+      ),
+      enforcementReference(
+        "scripts/prose_lib.ts",
+        "selectProseGateAlerts",
+      ),
+    ],
+    targets: [
+      enforcementReference(
+        ".vale/DiscernAgent/PositionalReference.yml",
+      ),
+    ],
+    tests: [
+      enforcementReference("tests/map_integrity_test.ts"),
+      enforcementReference("tests/agent_surface_contracts_test.ts"),
+      enforcementReference("tests/brand_vale_codegen_test.ts"),
+    ],
+    residual:
+      "Target existence and positional-reference tells are enforced; whether the selected target is the right one remains semantic review.",
   },
   {
     check: {
@@ -554,11 +844,394 @@ export const VALE_DISPOSITIONS = [
       register: "agent",
       check: "relay-message-completeness",
     },
-    disposition: "deferred",
-    reason:
-      "completeness of a relay message is semantic; no token list holds it.",
+    disposition: "covered",
+    mechanism: "structural-guard",
+    authority: [
+      enforcementReference(
+        "scripts/agent_surface_contracts.ts",
+        "AGENT_SURFACE_CONTRACTS",
+      ),
+    ],
+    guards: [
+      enforcementReference(
+        "scripts/agent_contract.ts",
+        "agentContractStructureIssues",
+      ),
+    ],
+    targets: [],
+    tests: [enforcementReference("tests/agent_surface_contracts_test.ts")],
+    residual:
+      "Every declared relay fact must appear as a placeholder in the evidenced message; whether the declared fact set is complete remains semantic review.",
   },
 ] as const satisfies readonly ValeDisposition[];
+
+/** A proposal table accepted by the pure partition predicate. */
+export type ProposedCheckTable = Readonly<
+  Record<Register, readonly { readonly id: string }[]>
+>;
+
+/** The rule shape the pure partition predicate needs. */
+export interface ProposedCheckPartitionRule {
+  readonly register: Register;
+  readonly id: string;
+  readonly sources: readonly {
+    readonly kind: string;
+    readonly register?: Register;
+    readonly check?: string;
+  }[];
+}
+
+/** The disposition shape the pure partition predicate needs. */
+export interface ProposedCheckPartitionDisposition {
+  readonly check: {
+    readonly register: Register;
+    readonly check: string;
+  };
+  readonly disposition: string;
+}
+
+/** The stable key used only inside the proposal coverage model. */
+function proposalKey(register: Register, check: string): string {
+  return `${register}/${check}`;
+}
+
+/** Report proposals that have zero or multiple classifications, plus stale
+ * rule citations and disposition rows that name no live proposal. */
+export function coveragePartitionIssues(
+  proposals: ProposedCheckTable,
+  rules: readonly ProposedCheckPartitionRule[],
+  dispositions: readonly ProposedCheckPartitionDisposition[],
+): string[] {
+  const live = new Set<string>();
+  for (const register of REGISTERS) {
+    for (const proposal of proposals[register]) {
+      live.add(proposalKey(register, proposal.id));
+    }
+  }
+
+  const classifications = new Map<string, string[]>();
+  const record = (key: string, source: string): void => {
+    const existing = classifications.get(key);
+    if (existing === undefined) classifications.set(key, [source]);
+    else existing.push(source);
+  };
+
+  const issues: string[] = [];
+  for (const rule of rules) {
+    for (const source of rule.sources) {
+      if (
+        source.kind !== "proposed-check" || source.register === undefined ||
+        source.check === undefined
+      ) continue;
+      const key = proposalKey(source.register, source.check);
+      if (!live.has(key)) {
+        issues.push(
+          `${rule.register}/${rule.id} cites unknown proposal ${key}`,
+        );
+      }
+      record(key, `generated Vale ${rule.register}/${rule.id}`);
+    }
+  }
+  for (const disposition of dispositions) {
+    const key = proposalKey(
+      disposition.check.register,
+      disposition.check.check,
+    );
+    if (!live.has(key)) {
+      issues.push(
+        `${disposition.disposition} row names unknown proposal ${key}`,
+      );
+    }
+    record(key, `${disposition.disposition} disposition`);
+  }
+
+  for (const key of live) {
+    const sources = classifications.get(key) ?? [];
+    if (sources.length === 0) {
+      issues.push(
+        `${key} has no coverage classification — add one generated rule citation or one VALE_DISPOSITIONS row`,
+      );
+    } else if (sources.length > 1) {
+      issues.push(
+        `${key} has ${sources.length} classifications: ${sources.join(", ")}`,
+      );
+    }
+  }
+  return issues;
+}
+
+/** One rendered proposal row, derived from its generated rule or disposition. */
+export interface VoiceEnforcementCoverageEntry {
+  readonly register: Register;
+  readonly proposal: string;
+  readonly proposalText: string;
+  readonly mechanism:
+    | "generated-vale"
+    | "structural-guard"
+    | "map-projection"
+    | "semantic-residual";
+  readonly authority: readonly EnforcementReference[];
+  readonly guards: readonly EnforcementReference[];
+  readonly targets: readonly EnforcementReference[];
+  readonly tests: readonly EnforcementReference[];
+  readonly residual: string;
+}
+
+/** The generated page's configured Map-relative path. */
+export const VOICE_ENFORCEMENT_COVERAGE_PAGE_REL =
+  "_internal/voice-enforcement-coverage.md";
+
+const GENERATED_VALE_GUARDS: EnforcementReferences = [
+  enforcementReference(".vale.ini"),
+  enforcementReference("scripts/prose_lib.ts", "selectProseGateAlerts"),
+];
+
+const GENERATED_VALE_TESTS: EnforcementReferences = [
+  enforcementReference("tests/brand_vale_codegen_test.ts"),
+  enforcementReference("tests/prose_input_test.ts"),
+];
+
+/** Resolve a Vale source to the typed registry location that owns its meaning. */
+function valeSourceAuthority(
+  source: Exclude<ValeRuleSource, ProposedCheckRef>,
+): EnforcementReference {
+  switch (source.kind) {
+    case "banned-word":
+      return enforcementReference(
+        "scripts/brand/voice.ts",
+        "BANNED_WORDS",
+        resolveValeSource(source),
+      );
+    case "banned-move":
+      return enforcementReference(
+        "scripts/brand/voice.ts",
+        "BANNED_MOVES",
+        resolveValeSource(source),
+      );
+    case "voice-rule":
+    case "voice-principle":
+      return enforcementReference(
+        "scripts/brand/voice.ts",
+        "VOICES",
+        resolveValeSource(source),
+      );
+  }
+}
+
+/** The authority references for a generated rule: its executable definition
+ * plus every non-proposal registry source it cites. */
+function generatedValeAuthorities(
+  rule: ValeStyleRule,
+): readonly EnforcementReference[] {
+  const references: EnforcementReference[] = [
+    enforcementReference(
+      "scripts/brand/vale.ts",
+      "VALE_STYLE_RULES",
+      `${valeStyleName(rule.register)}.${rule.id}`,
+    ),
+  ];
+  for (const source of rule.sources) {
+    if (source.kind !== "proposed-check") {
+      references.push(valeSourceAuthority(source));
+    }
+  }
+  return references;
+}
+
+/** Build the live, registry-ordered proposal coverage model. */
+export function voiceEnforcementCoverage(): readonly VoiceEnforcementCoverageEntry[] {
+  const partitionIssues = coveragePartitionIssues(
+    PROPOSED_MECHANICAL_CHECKS,
+    VALE_STYLE_RULES,
+    VALE_DISPOSITIONS,
+  );
+  if (partitionIssues.length > 0) {
+    throw new Error(
+      `voice enforcement coverage is not a partition:\n  ${
+        partitionIssues.join("\n  ")
+      }`,
+    );
+  }
+
+  const entries: VoiceEnforcementCoverageEntry[] = [];
+  for (const register of REGISTERS) {
+    for (const proposal of PROPOSED_MECHANICAL_CHECKS[register]) {
+      const rule = VALE_STYLE_RULES.find((candidate) =>
+        candidate.sources.some((source) =>
+          source.kind === "proposed-check" && source.register === register &&
+          source.check === proposal.id
+        )
+      );
+      if (rule !== undefined) {
+        entries.push({
+          register,
+          proposal: proposal.id,
+          proposalText: proposal.text,
+          mechanism: "generated-vale",
+          authority: generatedValeAuthorities(rule),
+          guards: GENERATED_VALE_GUARDS,
+          targets: [enforcementReference(valeRuleRel(rule))],
+          tests: GENERATED_VALE_TESTS,
+          residual: rule.contract.residual,
+        });
+        continue;
+      }
+
+      const disposition = VALE_DISPOSITIONS.find((candidate) =>
+        candidate.check.register === register &&
+        candidate.check.check === proposal.id
+      );
+      if (disposition === undefined) {
+        throw new Error(`coverage partition lost ${register}/${proposal.id}`);
+      }
+      if (disposition.disposition === "covered") {
+        entries.push({
+          register,
+          proposal: proposal.id,
+          proposalText: proposal.text,
+          mechanism: disposition.mechanism,
+          authority: disposition.authority,
+          guards: disposition.guards,
+          targets: disposition.targets,
+          tests: disposition.tests,
+          residual: disposition.residual,
+        });
+      } else {
+        entries.push({
+          register,
+          proposal: proposal.id,
+          proposalText: proposal.text,
+          mechanism: disposition.mechanism,
+          authority: [],
+          guards: [],
+          targets: [],
+          tests: [],
+          residual:
+            `Missing fact: ${disposition.missingFact} ${disposition.reason}`,
+        });
+      }
+    }
+  }
+  return entries;
+}
+
+/** Every typed file/symbol citation and generated target in proposal coverage. */
+export function voiceEnforcementReferences(): readonly EnforcementReference[] {
+  return voiceEnforcementCoverage().flatMap((entry) => [
+    ...entry.authority,
+    ...entry.guards,
+    ...entry.targets,
+    ...entry.tests,
+  ]);
+}
+
+/** Render one code reference for a compact generated table cell. */
+function enforcementReferenceText(reference: EnforcementReference): string {
+  const target = reference.symbol === undefined
+    ? reference.path
+    : `${reference.path}#${reference.symbol}`;
+  return markdownCodeSpan(
+    reference.detail === undefined ? target : `${target} — ${reference.detail}`,
+  );
+}
+
+/** Render a reference list without inventing an authority for a residual. */
+function enforcementReferencesText(
+  references: readonly EnforcementReference[],
+): string {
+  return references.length === 0
+    ? "—"
+    : references.map(enforcementReferenceText).join("; ");
+}
+
+/** Escape authored text for one Markdown table cell. */
+function coverageCell(value: string): string {
+  return value.replaceAll("|", "\\|").replaceAll(/\s+/g, " ").trim();
+}
+
+/** Human labels for the closed mechanism vocabulary. */
+function mechanismLabel(
+  mechanism: VoiceEnforcementCoverageEntry["mechanism"],
+): string {
+  switch (mechanism) {
+    case "generated-vale":
+      return "Generated Vale";
+    case "structural-guard":
+      return "Structural guard";
+    case "map-projection":
+      return "Map projection";
+    case "semantic-residual":
+      return "Semantic residual";
+  }
+}
+
+/** Generate the durable internal coverage record from rules and dispositions. */
+export function renderVoiceEnforcementCoverageDoc(): string {
+  const coverage = voiceEnforcementCoverage();
+  const counts = new Map<VoiceEnforcementCoverageEntry["mechanism"], number>();
+  for (const entry of coverage) {
+    counts.set(entry.mechanism, (counts.get(entry.mechanism) ?? 0) + 1);
+  }
+  const supplemental = VALE_STYLE_RULES.filter((rule) =>
+    !rule.sources.some((source) => source.kind === "proposed-check")
+  );
+  const lines = [
+    "<!-- GENERATED by `deno task codegen` from VALE_STYLE_RULES and VALE_DISPOSITIONS (scripts/brand/vale.ts) — do NOT edit by hand. Change the typed coverage model and regenerate. -->",
+    "",
+    "# Voice enforcement coverage",
+    "",
+    "_Every proposed voice check has one enforcement disposition, generated from the live typed model._",
+    "",
+    `${coverage.length} proposals: ${
+      counts.get("generated-vale") ?? 0
+    } generated Vale, ${counts.get("map-projection") ?? 0} Map projection, ${
+      counts.get("structural-guard") ?? 0
+    } structural guard, and ${
+      counts.get("semantic-residual") ?? 0
+    } semantic residual.`,
+    "",
+    "A semantic residual records the fact a machine would need before enforcement could be sound. Covered rows name the exact authority, guard, generated target where one exists, and test.",
+    "",
+    "| Proposal | Register | Mechanism | Authority | Guard | Target | Test | Residual status |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- |",
+  ];
+  for (const entry of coverage) {
+    lines.push(
+      `| ${markdownCodeSpan(entry.proposal)} | ${entry.register} | ${
+        mechanismLabel(entry.mechanism)
+      } | ${coverageCell(enforcementReferencesText(entry.authority))} | ${
+        coverageCell(enforcementReferencesText(entry.guards))
+      } | ${coverageCell(enforcementReferencesText(entry.targets))} | ${
+        coverageCell(enforcementReferencesText(entry.tests))
+      } | ${coverageCell(entry.residual)} |`,
+    );
+  }
+  lines.push(
+    "",
+    "## Supplemental generated rules",
+    "",
+    "These rules enforce signed-off voice canon outside the proposal registry. The register Vale-style canonical set owns their membership and generated files.",
+    "",
+    "| Rule | Register | Authority | Guard | Target | Test | Residual status |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+  );
+  for (const rule of supplemental) {
+    lines.push(
+      `| ${
+        markdownCodeSpan(`${valeStyleName(rule.register)}.${rule.id}`)
+      } | ${rule.register} | ${
+        coverageCell(enforcementReferencesText(generatedValeAuthorities(rule)))
+      } | ${coverageCell(enforcementReferencesText(GENERATED_VALE_GUARDS))} | ${
+        coverageCell(
+          enforcementReferencesText([enforcementReference(valeRuleRel(rule))]),
+        )
+      } | ${coverageCell(enforcementReferencesText(GENERATED_VALE_TESTS))} | ${
+        coverageCell(rule.contract.residual)
+      } |`,
+    );
+  }
+  return `${lines.join("\n")}\n`;
+}
 
 /** A register's generated style name — the Vale check-name prefix and the
  * directory under `.vale/`. */

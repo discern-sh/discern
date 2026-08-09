@@ -5,6 +5,7 @@
 
 import { type HintDef, HINTS } from "./hints.ts";
 import { renderCommandRefsCli } from "./command_reference.ts";
+import { markdownBlockquote } from "./markdown_code.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =
@@ -25,10 +26,6 @@ function renderEntry(def: HintDef<unknown>): string {
   const interactiveExample = def.interactiveTemplate === undefined
     ? undefined
     : renderCommandRefsCli(def.interactiveTemplate(def.example));
-  let fence = "```";
-  while (
-    example.includes(fence) || interactiveExample?.includes(fence) === true
-  ) fence += "`";
   return [
     `## \`${def.id}\``,
     "",
@@ -39,18 +36,14 @@ function renderEntry(def: HintDef<unknown>): string {
     "",
     "Rendered example:",
     "",
-    `${fence}text`,
-    example,
-    fence,
+    markdownBlockquote(example),
     ...(interactiveExample === undefined || interactiveExample === example
       ? []
       : [
         "",
         "Interactive example:",
         "",
-        `${fence}text`,
-        interactiveExample,
-        fence,
+        markdownBlockquote(interactiveExample),
       ]),
   ].join("\n");
 }

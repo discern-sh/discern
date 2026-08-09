@@ -30,6 +30,7 @@ import { dirname, fromFileUrl, join } from "@std/path";
 
 import { renderMarkdownHtml } from "../src/lib/markdown.ts";
 import { markdownCodeSpan } from "../src/shared/markdown_code.ts";
+import { VOICE_ENFORCEMENT_COVERAGE_PAGE_REL } from "./brand/vale.ts";
 
 /** Where a canonical set's single source lives. */
 export type SetSource =
@@ -2091,6 +2092,38 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
         (rule) => `${rule.register}/${rule.id}`,
       );
     },
+  },
+  {
+    id: "voice-enforcement-coverage",
+    title: "Voice enforcement proposals",
+    what:
+      "Every proposed mechanical voice check has one generated Vale rule, Map projection, structural guard, or semantic residual, rendered into a durable coverage page.",
+    source: {
+      kind: "module",
+      module: "scripts/brand/vale.ts",
+      exportName: "voiceEnforcementCoverage",
+    },
+    guards: ["tests/brand_vale_codegen_test.ts"],
+    artifacts: [
+      {
+        path: join("project/map", VOICE_ENFORCEMENT_COVERAGE_PAGE_REL),
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the internal enforcement record owns this repository-maintenance vocabulary",
+      },
+      featureCanon: {
+        absent:
+          "the coverage model records editorial enforcement rather than product capability",
+      },
+    },
+    members: async () =>
+      (await import("./brand/vale.ts")).voiceEnforcementCoverage()
+        .map((entry) => `${entry.register}/${entry.proposal}`),
   },
   {
     id: "seeded-gotchas-traps",

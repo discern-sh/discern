@@ -15,6 +15,7 @@ import {
   TIP_RENDERED_LENGTH_LIMIT,
   TIPS,
 } from "./tips.ts";
+import { markdownBlockquote } from "./markdown_code.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =
@@ -32,8 +33,6 @@ function renderEntry(tip: RegisteredTip): string {
   // The inventory shows the line exactly as the Desk delivers it: command
   // references in their CLI spelling, at full width.
   const line = renderTipCli(tip);
-  let fence = "```";
-  while (line.includes(fence)) fence += "`";
   const features = tip.features.map((id) => `\`${id}\``).join(", ");
   const followThrough = tip.followThrough === undefined
     ? "—"
@@ -53,9 +52,7 @@ function renderEntry(tip: RegisteredTip): string {
     "",
     "Rendered line:",
     "",
-    `${fence}text`,
-    line,
-    fence,
+    markdownBlockquote(line),
   ].join("\n");
 }
 

@@ -18,12 +18,14 @@ backfill(s|ed|ing)?
 backgrounded
 backoff
 basename
+binary_size
 blockquotes?
 bool
 booleans?
 bootcamps?
 brandable
 browsable
+bundle_size
 cacheable
 canonicalis(e|es|ed|ing|ation)
 canonicalization
@@ -59,6 +61,7 @@ denylist
 deps
 dev
 dev_server
+diagnostic's
 diffable
 diffstat
 digitalapplied
@@ -158,6 +161,7 @@ plaintext
 prefixer
 prepend(?:s|ed|ing)?
 preprints?
+previewable
 pushback
 rasterised
 rasteriz(e|ed|es|ing)

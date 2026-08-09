@@ -84,7 +84,11 @@ import {
 } from "./brand_registry.ts";
 import { REGISTERS } from "./brand/model.ts";
 import { renderVoiceSkill, voiceSkillRel } from "./brand/voice.ts";
-import { valeStyleFiles } from "./brand/vale.ts";
+import {
+  renderVoiceEnforcementCoverageDoc,
+  valeStyleFiles,
+  VOICE_ENFORCEMENT_COVERAGE_PAGE_REL,
+} from "./brand/vale.ts";
 
 const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
 const config = await loadConfig(repoRoot);
@@ -112,6 +116,10 @@ const hintInventory = relative(
 const tipInventory = relative(
   repoRoot,
   join(mapDir, "_internal", "tip-inventory.md"),
+);
+const voiceEnforcementCoverage = relative(
+  repoRoot,
+  join(mapDir, VOICE_ENFORCEMENT_COVERAGE_PAGE_REL),
 );
 const glossary = relative(
   repoRoot,
@@ -210,6 +218,13 @@ console.log("Regenerating the hint inventory from HINTS:");
 await write(hintInventory, renderHintInventoryDoc());
 console.log("Regenerating the tip inventory from TIPS:");
 await write(tipInventory, renderTipInventoryDoc());
+console.log(
+  "Regenerating voice-enforcement coverage from the typed coverage model:",
+);
+await write(
+  voiceEnforcementCoverage,
+  renderVoiceEnforcementCoverageDoc(),
+);
 console.log("Regenerating the glossary from scripts/glossary_registry.ts:");
 await write(glossary, renderGlossaryDoc());
 console.log(

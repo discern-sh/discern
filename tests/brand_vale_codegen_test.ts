@@ -14,11 +14,18 @@
  * cannot land without enforcement or a reason on record.
  */
 
-import { assert, assertEquals, assertThrows } from "@std/assert";
-import { join } from "@std/path";
+import {
+  assert,
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "@std/assert";
+import { dirname, join } from "@std/path";
 import { REGISTERS } from "../scripts/brand/model.ts";
 import { PROPOSED_MECHANICAL_CHECKS } from "../scripts/brand/docs/copy_review.ts";
 import {
+  coveragePartitionIssues,
+  renderVoiceEnforcementCoverageDoc,
   resolveValeSource,
   VALE_DISPOSITIONS,
   VALE_STYLE_RULES,
@@ -27,9 +34,15 @@ import {
   type ValeRuleSource,
   valeStyleFiles,
   valeStyleName,
+  VOICE_ENFORCEMENT_COVERAGE_PAGE_REL,
+  voiceEnforcementCoverage,
+  voiceEnforcementReferences,
 } from "../scripts/brand/vale.ts";
 import { CANONICAL_SETS } from "../scripts/canonical_sets.ts";
-import { REPO_ROOT } from "./repo_authored_paths.ts";
+import { runVale } from "../scripts/vale_lib.ts";
+import { withTempDir } from "./helpers.ts";
+import { REPO_AUTHORED_PATHS, REPO_ROOT } from "./repo_authored_paths.ts";
+import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
 Deno.test("every committed style file matches its renderer (run `deno task codegen`)", async () => {
   const files = valeStyleFiles();
@@ -113,52 +126,150 @@ Deno.test("every rule's source citations resolve, and an unknown id throws", () 
   );
 });
 
-Deno.test("every proposed check is implemented or recorded — exactly one of the two", () => {
-  const cited = new Set<string>();
-  for (const rule of VALE_STYLE_RULES) {
-    for (const source of rule.sources) {
-      if (source.kind === "proposed-check") {
-        cited.add(`${source.register}/${source.check}`);
-      }
-    }
-  }
-  const recorded = new Map<string, number>();
-  for (const disposition of VALE_DISPOSITIONS) {
-    const key = `${disposition.check.register}/${disposition.check.check}`;
-    recorded.set(key, (recorded.get(key) ?? 0) + 1);
-    assert(
-      disposition.reason.trim().length > 0,
-      `${key}: a disposition carries its reason`,
-    );
-  }
-  const offenders: string[] = [];
-  for (const register of REGISTERS) {
-    for (const check of PROPOSED_MECHANICAL_CHECKS[register]) {
-      const key = `${register}/${check.id}`;
-      const isCited = cited.has(key);
-      const dispositions = recorded.get(key) ?? 0;
-      if (!isCited && dispositions === 0) {
-        offenders.push(
-          `${key} is neither implemented by a generated rule nor recorded ` +
-            "in VALE_DISPOSITIONS — implement it or record the deferral",
-        );
-      }
-      if (isCited && dispositions > 0) {
-        offenders.push(
-          `${key} is implemented but still carries a disposition — delete ` +
-            "the stale record",
-        );
-      }
-      if (dispositions > 1) {
-        offenders.push(`${key} carries ${dispositions} dispositions`);
-      }
-    }
-  }
+Deno.test("every proposed check has exactly one coverage classification", () => {
   assertEquals(
-    offenders,
+    coveragePartitionIssues(
+      PROPOSED_MECHANICAL_CHECKS,
+      VALE_STYLE_RULES,
+      VALE_DISPOSITIONS,
+    ),
     [],
-    `the proposed-check partition drifted:\n  ${offenders.join("\n  ")}`,
+    "the proposed-check partition drifted",
   );
+  assertEquals(
+    voiceEnforcementCoverage().length,
+    REGISTERS.reduce(
+      (total, register) => total + PROPOSED_MECHANICAL_CHECKS[register].length,
+      0,
+    ),
+  );
+});
+
+Deno.test("a future proposal fails until it receives one classification", () => {
+  const future = {
+    ...PROPOSED_MECHANICAL_CHECKS,
+    brand: [
+      ...PROPOSED_MECHANICAL_CHECKS.brand,
+      { id: "future-model-smell", text: "future model smell;" },
+    ],
+  };
+  const missing = coveragePartitionIssues(
+    future,
+    VALE_STYLE_RULES,
+    VALE_DISPOSITIONS,
+  );
+  assertEquals(missing.length, 1);
+  assertStringIncludes(missing[0] ?? "", "brand/future-model-smell");
+
+  const classified = coveragePartitionIssues(
+    future,
+    VALE_STYLE_RULES,
+    [
+      ...VALE_DISPOSITIONS,
+      {
+        check: { register: "brand", check: "future-model-smell" },
+        disposition: "deferred",
+      },
+    ],
+  );
+  assertEquals(classified, []);
+});
+
+Deno.test("every coverage citation and generated target exists", async () => {
+  const seen = new Set<string>();
+  for (const reference of voiceEnforcementReferences()) {
+    const key = `${reference.path}#${reference.symbol ?? ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const text = await Deno.readTextFile(join(REPO_ROOT, reference.path));
+    if (reference.symbol !== undefined) {
+      assertStringIncludes(
+        text,
+        reference.symbol,
+        `${key}: cited symbol no longer exists`,
+      );
+    }
+  }
+});
+
+Deno.test("the voice enforcement coverage page matches its typed renderer", async () => {
+  const rel = VOICE_ENFORCEMENT_COVERAGE_PAGE_REL;
+  const path = join(REPO_AUTHORED_PATHS.map, rel);
+  assertEquals(
+    await Deno.readTextFile(path),
+    await canonicalGeneratedMarkdown(
+      path,
+      renderVoiceEnforcementCoverageDoc(),
+    ),
+    `${REPO_AUTHORED_PATHS.mapRel}/${rel} is stale — run \`deno task codegen\``,
+  );
+});
+
+interface GeneratedValeAlert {
+  Check?: unknown;
+  Severity?: unknown;
+}
+
+/** Alerts for one generated-rule fixture, tolerant of temp-path symlinks. */
+function generatedFixtureAlerts(
+  output: Record<string, unknown>,
+  suffix: string,
+): GeneratedValeAlert[] {
+  const entry = Object.entries(output).find(([path]) => path.endsWith(suffix));
+  return Array.isArray(entry?.[1]) ? entry[1] as GeneratedValeAlert[] : [];
+}
+
+/** Write one Markdown fixture in the path tier that scopes its register. */
+async function writeGeneratedFixture(
+  root: string,
+  rel: string,
+  body: string,
+): Promise<void> {
+  const path = join(root, rel);
+  await Deno.mkdir(dirname(path), { recursive: true });
+  await Deno.writeTextFile(path, `# Generated Vale fixture\n\n${body}\n`);
+}
+
+Deno.test("every generated Vale rule fires on its bad case and ignores its safe case", async () => {
+  await withTempDir(async (dir) => {
+    for (const rule of VALE_STYLE_RULES) {
+      const base = rule.register === "brand"
+        ? `_internal/brand/${rule.id}`
+        : `00-orientation/${rule.register}-${rule.id}`;
+      await writeGeneratedFixture(dir, `${base}-bad.md`, rule.contract.bad);
+      await writeGeneratedFixture(dir, `${base}-safe.md`, rule.contract.safe);
+      assert(
+        rule.contract.residual.trim().length > 0,
+        `${rule.register}/${rule.id}: coverage needs its semantic boundary`,
+      );
+    }
+
+    const run = await runVale(REPO_ROOT, [
+      "--output=JSON",
+      "--minAlertLevel=suggestion",
+      dir,
+    ]);
+    const output = JSON.parse(
+      new TextDecoder().decode(run.stdout),
+    ) as Record<string, unknown>;
+    for (const rule of VALE_STYLE_RULES) {
+      const base = rule.register === "brand"
+        ? `_internal/brand/${rule.id}`
+        : `00-orientation/${rule.register}-${rule.id}`;
+      const check = `${valeStyleName(rule.register)}.${rule.id}`;
+      const bad = generatedFixtureAlerts(output, `${base}-bad.md`);
+      const safe = generatedFixtureAlerts(output, `${base}-safe.md`);
+      assertEquals(
+        bad.find((alert) => alert.Check === check)?.Severity,
+        rule.level,
+        `${rule.register}/${rule.id}: the real Vale rule must fire at its declared severity`,
+      );
+      assert(
+        !safe.some((alert) => alert.Check === check),
+        `${rule.register}/${rule.id}: the safe fixture must not fire ${check}`,
+      );
+    }
+  });
 });
 
 Deno.test("every generated pattern survives a source-line wrap", () => {

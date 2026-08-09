@@ -237,6 +237,7 @@
       "${map.dir}70-reference/cli-reference.md",
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}_internal/voice-enforcement-coverage.md",
       "${map.dir}_internal/feature-canon-plain.md",
     ]
     neutral = true
@@ -294,6 +295,7 @@
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/registry-atlas.md",
       "${map.dir}_internal/tip-inventory.md",
+      "${map.dir}_internal/voice-enforcement-coverage.md",
       "${map.dir}_internal/brand/README.md",
       "${map.dir}_internal/brand/claims-and-evidence.md",
       "${map.dir}_internal/brand/copy-patterns.md",

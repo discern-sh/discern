@@ -17,9 +17,7 @@ Audience `all` renders on every surface. Audience `agent` marks an instruction o
 
 Rendered example:
 
-```text
-Re-run `discern accept --confirmed` once the owner has accepted this landing in the current conversation. The flag attests only to that conversation; recorded standing and effort grants are checked directly.
-```
+> Re-run `discern accept --confirmed` once the owner has accepted this landing in the current conversation. The flag attests only to that conversation; recorded standing and effort grants are checked directly.
 
 ## `accept-convergence-changed-tracked`
 
@@ -30,9 +28,7 @@ Re-run `discern accept --confirmed` once the owner has accepted this landing in 
 
 Rendered example:
 
-```text
-Review `git status` in /workspace/project. Acceptance landed on main, but post-landing convergence changed tracked files there.
-```
+> Review `git status` in /workspace/project. Acceptance landed on main, but post-landing convergence changed tracked files there.
 
 ## `accept-publish-proof-note`
 
@@ -43,9 +39,7 @@ Review `git status` in /workspace/project. Acceptance landed on main, but post-l
 
 Rendered example:
 
-```text
-Share this landing's Proof with other clones: `git push origin refs/notes/discern`. discern records Proof locally; network publication occurs only through the Git command you run.
-```
+> Share this landing's Proof with other clones: `git push origin refs/notes/discern`. discern records Proof locally; network publication occurs only through the Git command you run.
 
 ## `accept-reconcile-partial-effects`
 
@@ -56,15 +50,11 @@ Share this landing's Proof with other clones: `git push origin refs/notes/discer
 
 Rendered example:
 
-```text
-Read `data.landing` before acting. If `trunk_landed` is true, do not land the commit again; finish only the cleanup whose state is false. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
-```
+> Read `data.landing` before acting. If `trunk_landed` is true, do not land the commit again; finish only the cleanup whose state is false. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
 
 Interactive example:
 
-```text
-Read the reported landing state before acting. If the trunk already landed, do not land the commit again; finish only the incomplete cleanup. Otherwise resolve the failure, then run `discern status` before attempting `discern accept` again.
-```
+> Read the reported landing state before acting. If the trunk already landed, do not land the commit again; finish only the incomplete cleanup. Otherwise resolve the failure, then run `discern status` before attempting `discern accept` again.
 
 ## `accept-refresh-failed`
 
@@ -75,9 +65,7 @@ Read the reported landing state before acting. If the trunk already landed, do n
 
 Rendered example:
 
-```text
-Acceptance landed on main, but checkout-local coding-agent artifacts could not be materialized in /workspace/project. Run `discern refresh` there to retry and review any reported tracked effect before committing it.
-```
+> Acceptance landed on main, but checkout-local coding-agent artifacts could not be materialized in /workspace/project. Run `discern refresh` there to retry and review any reported tracked effect before committing it.
 
 ## `accept-relay-landing-proof`
 
@@ -88,9 +76,7 @@ Acceptance landed on main, but checkout-local coding-agent artifacts could not b
 
 Rendered example:
 
-```text
-Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.
-```
+> Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.
 
 ## `accept-review-via-status`
 
@@ -101,9 +87,7 @@ Report the landing in your own words, then end your response with `data.proof_li
 
 Rendered example:
 
-```text
-Run `discern status` to get the valid Proof for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
-```
+> Run `discern status` to get the valid Proof for the owner's review (data.gate_proof.proof) and the exact `git diff` command for the raw change.
 
 ## `adr-index-stale`
 
@@ -114,9 +98,7 @@ Run `discern status` to get the valid Proof for the owner's review (data.gate_pr
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (docs/_adr/README.md). Edit the ADR records that own these entries. Refresh rewrites the generated lists between the markers.
-```
+> Run `discern refresh` to restore discern-managed artifacts. The ADR index is out of date (docs/_adr/README.md). Edit the ADR records that own these entries. Refresh rewrites the generated lists between the markers.
 
 ## `await-branch-missing`
 
@@ -127,9 +109,7 @@ Run `discern refresh` to restore discern-managed artifacts. The ADR index is out
 
 Rendered example:
 
-```text
-Branch `agent/upload-retry` was not found, and no landing Proof identifies it on `main`. It may not have started yet. Check `discern status` and use the exact branch returned when it starts; never guess a generated suffix.
-```
+> Branch `agent/upload-retry` was not found, and no landing Proof identifies it on `main`. It may not have started yet. Check `discern status` and use the exact branch returned when it starts; never guess a generated suffix.
 
 ## `await-green-met`
 
@@ -140,9 +120,7 @@ Branch `agent/upload-retry` was not found, and no landing Proof identifies it on
 
 Rendered example:
 
-```text
-`agent/upload-retry` is green — its worktree holds valid Proof. Build on it with `discern update --from abc1234def567890`. The immutable commit remains valid if acceptance deletes the branch.
-```
+> `agent/upload-retry` is green — its worktree holds valid Proof. Build on it with `discern update --from abc1234def567890`. The immutable commit remains valid if acceptance deletes the branch.
 
 ## `await-green-no-worktree`
 
@@ -153,9 +131,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-`agent/upload-retry`'s committed work is contained in `agent/upload-retry-stage-2` — await that stage instead: `discern await --green agent/upload-retry-stage-2`. For the literal arrival question, `discern await --landed agent/upload-retry` answers against `main`.
-```
+> `agent/upload-retry`'s committed work is contained in `agent/upload-retry-stage-2` — await that stage instead: `discern await --green agent/upload-retry-stage-2`. For the literal arrival question, `discern await --landed agent/upload-retry` answers against `main`.
 
 ## `await-landed-met`
 
@@ -166,9 +142,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-The work from `agent/upload-retry` landed on `main` — run `discern update` to bring it beneath this branch. 2 incoming files overlap your own changes — re-read them after updating.
-```
+> The work from `agent/upload-retry` landed on `main` — run `discern update` to bring it beneath this branch. 2 incoming files overlap your own changes — re-read them after updating.
 
 ## `await-not-yet`
 
@@ -179,9 +153,7 @@ The work from `agent/upload-retry` landed on `main` — run `discern update` to 
 
 Rendered example:
 
-```text
-Not yet: `agent/upload-retry` has no valid Proof yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
-```
+> Not yet: `agent/upload-retry` has no valid Proof yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
 
 ## `await-trunk-missing`
 
@@ -192,9 +164,7 @@ Not yet: `agent/upload-retry` has no valid Proof yet. Continue this same watch o
 
 Rendered example:
 
-```text
-Fetch or create the configured trunk branch `main`, or correct `[repository].trunk`, then restart the watch with its condition.
-```
+> Fetch or create the configured trunk branch `main`, or correct `[repository].trunk`, then restart the watch with its condition.
 
 ## `await-trunk-moved-met`
 
@@ -205,9 +175,7 @@ Fetch or create the configured trunk branch `main`, or correct `[repository].tru
 
 Rendered example:
 
-```text
-`main` moved while you waited — run `discern update` to bring the latest beneath this branch.
-```
+> `main` moved while you waited — run `discern update` to bring the latest beneath this branch.
 
 ## `config-job-deferred`
 
@@ -218,9 +186,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-Add an inline # comment explaining why "integration" is deferred, or set a real command to enforce it. An empty command is present but a no-op, so the gate skips it.
-```
+> Add an inline # comment explaining why "integration" is deferred, or set a real command to enforce it. An empty command is present but a no-op, so the gate skips it.
 
 ## `coupling-diff-header`
 
@@ -231,9 +197,7 @@ Add an inline # comment explaining why "integration" is deferred, or set a real 
 
 Rendered example:
 
-```text
-Review the strongest habitual partner missing from this branch's changes. Coupling is advisory, based on recent git history, and not exhaustive.
-```
+> Review the strongest habitual partner missing from this branch's changes. Coupling is advisory, based on recent git history, and not exhaustive.
 
 ## `coupling-diff-partner`
 
@@ -244,9 +208,7 @@ Review the strongest habitual partner missing from this branch's changes. Coupli
 
 Rendered example:
 
-```text
-Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that touched `src/main.ts` (80%), and this branch changed `src/main.ts` without it.
-```
+> Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that touched `src/main.ts` (80%), and this branch changed `src/main.ts` without it.
 
 ## `coupling-evidence-more`
 
@@ -257,9 +219,7 @@ Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that to
 
 Rendered example:
 
-```text
-Review the most recent shared commits in data.commits. 3 older commits are outside its cap.
-```
+> Review the most recent shared commits in data.commits. 3 older commits are outside its cap.
 
 ## `coupling-evidence-none`
 
@@ -270,9 +230,7 @@ Review the most recent shared commits in data.commits. 3 older commits are outsi
 
 Rendered example:
 
-```text
-`src/main.ts` and `tests/main_test.ts` have not changed together in recent history. The history examined includes 6 commits touching `src/main.ts` and 4 commits touching `tests/main_test.ts`.
-```
+> `src/main.ts` and `tests/main_test.ts` have not changed together in recent history. The history examined includes 6 commits touching `src/main.ts` and 4 commits touching `tests/main_test.ts`.
 
 ## `coupling-evidence-summary`
 
@@ -283,9 +241,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-Review the shared commits in data.commits. `src/main.ts` and `tests/main_test.ts` changed together in 3 recent commits: 3 of the 6 (50%) that touched `src/main.ts`, and 3 of the 4 (75%) that touched `tests/main_test.ts`.
-```
+> Review the shared commits in data.commits. `src/main.ts` and `tests/main_test.ts` changed together in 3 recent commits: 3 of the 6 (50%) that touched `src/main.ts`, and 3 of the 4 (75%) that touched `tests/main_test.ts`.
 
 ## `coupling-generated-exclusion`
 
@@ -296,9 +252,7 @@ Review the shared commits in data.commits. `src/main.ts` and `tests/main_test.ts
 
 Rendered example:
 
-```text
-Coupling excluded `build/reference.dat` because `[generated.reference]` owns it as a declared output. A declared output is a projection, so it is not an independent change partner.
-```
+> Coupling excluded `build/reference.dat` because `[generated.reference]` owns it as a declared output. A declared output is a projection, so it is not an independent change partner.
 
 ## `coupling-more-partners`
 
@@ -309,9 +263,7 @@ Coupling excluded `build/reference.dat` because `[generated.reference]` owns it 
 
 Rendered example:
 
-```text
-Run `discern coupling src/main.ts` to review 3 more ranked partners.
-```
+> Run `discern coupling src/main.ts` to review 3 more ranked partners.
 
 ## `coupling-query-header`
 
@@ -322,9 +274,7 @@ Run `discern coupling src/main.ts` to review 3 more ranked partners.
 
 Rendered example:
 
-```text
-Review the strongest file that usually changes with `src/main.ts`. Coupling is advisory, based on recent git history, and not exhaustive.
-```
+> Review the strongest file that usually changes with `src/main.ts`. Coupling is advisory, based on recent git history, and not exhaustive.
 
 ## `coupling-query-partner`
 
@@ -335,9 +285,7 @@ Review the strongest file that usually changes with `src/main.ts`. Coupling is a
 
 Rendered example:
 
-```text
-Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that touched `src/main.ts` (80%).
-```
+> Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that touched `src/main.ts` (80%).
 
 ## `coupling-strong-pair`
 
@@ -348,9 +296,7 @@ Start with `tests/main_test.ts`: it changed in 4 of the 5 recent commits that to
 
 Rendered example:
 
-```text
-Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
-```
+> Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
 
 ## `docs-choose-candidate`
 
@@ -361,15 +307,11 @@ Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essent
 
 Rendered example:
 
-```text
-Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.
-```
+> Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.
 
 Interactive example:
 
-```text
-Choose one exact path from the listed candidates, then re-run the same command with that path as its target.
-```
+> Choose one exact path from the listed candidates, then re-run the same command with that path as its target.
 
 ## `docs-find-target`
 
@@ -380,15 +322,11 @@ Choose one exact path from the listed candidates, then re-run the same command w
 
 Rendered example:
 
-```text
-Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.
-```
+> Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 
 Interactive example:
 
-```text
-Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.
-```
+> Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 
 ## `doctor-failed-checks`
 
@@ -399,9 +337,7 @@ Use an exact suggested path when one is listed; otherwise run the same command w
 
 Rendered example:
 
-```text
-Apply the fix listed under each failed check, then run `discern doctor` again.
-```
+> Apply the fix listed under each failed check, then run `discern doctor` again.
 
 ## `done-unchanged-tree-green`
 
@@ -412,9 +348,7 @@ Apply the fix listed under each failed check, then run `discern doctor` again.
 
 Rendered example:
 
-```text
-Run `discern status` — this exact tree already passed `discern done`, and status shows whether Proof remains valid without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
-```
+> Run `discern status` — this exact tree already passed `discern done`, and status shows whether Proof remains valid without re-running anything. To re-run the full gate on it anyway, run `discern done --confirmed`.
 
 ## `done-unchanged-tree-red`
 
@@ -425,9 +359,7 @@ Run `discern status` — this exact tree already passed `discern done`, and stat
 
 Rendered example:
 
-```text
-Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the confirmed rerun only to probe for a flaky verdict: `discern done --confirmed` does that, and records the rerun as a probe.
-```
+> Fix the failure the last run reported, iterating with `discern prepare` or `discern test`, then re-run `discern done` — nothing changed since it judged this exact tree red, so an identical rerun expects the identical verdict. Use the confirmed rerun only to probe for a flaky verdict: `discern done --confirmed` does that, and records the rerun as a probe.
 
 ## `ensure-main-worktree-first`
 
@@ -438,9 +370,7 @@ Fix the failure the last run reported, iterating with `discern prepare` or `disc
 
 Rendered example:
 
-```text
-Session opened in the main checkout, where every effort lands. One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. For a new effort, run `discern start` before editing and work in the worktree it returns. Questions and investigation can read from anywhere.
-```
+> Session opened in the main checkout, where every effort lands. One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. For a new effort, run `discern start` before editing and work in the worktree it returns. Questions and investigation can read from anywhere.
 
 ## `failure-recovery`
 
@@ -451,9 +381,7 @@ Session opened in the main checkout, where every effort lands. One worktree last
 
 Rendered example:
 
-```text
-Use this result's message or first diagnostic to correct the reported problem before retrying.
-```
+> Use this result's message or first diagnostic to correct the reported problem before retrying.
 
 ## `fleet-ownership`
 
@@ -464,9 +392,7 @@ Use this result's message or first diagnostic to correct the reported problem be
 
 Rendered example:
 
-```text
-Continue a fleet worktree only if this effort created it. Review feedback and resumed sessions keep that assignment. Never claim a worktree from another effort because it is idle or clean.
-```
+> Continue a fleet worktree only if this effort created it. Review feedback and resumed sessions keep that assignment. Never claim a worktree from another effort because it is idle or clean.
 
 ## `gate-deferred-standards`
 
@@ -477,9 +403,7 @@ Continue a fleet worktree only if this effort created it. Review feedback and re
 
 Rendered example:
 
-```text
-Measure 2 deferred standards with `discern standards` as needed: coverage, binary_size. Their measurements are on demand, but the never-loosen limit check still ran.
-```
+> Measure 2 deferred standards with `discern standards` as needed: coverage, binary_size. Their measurements are on demand, but the never-loosen limit check still ran.
 
 ## `gate-failure-adr-index`
 
@@ -490,9 +414,7 @@ Measure 2 deferred standards with `discern standards` as needed: coverage, binar
 
 Rendered example:
 
-```text
-Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, first fix the named record heading or incomplete marker pair. Then refresh again.
-```
+> Run `discern refresh` to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, first fix the named record heading or incomplete marker pair. Then refresh again.
 
 ## `gate-failure-adr-numbers`
 
@@ -503,9 +425,7 @@ Run `discern refresh` to regenerate the ADR index, commit the rewritten README, 
 
 Rendered example:
 
-```text
-Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.
-```
+> Renumber the newer of the duplicated ADR records named by the diagnostics to the next free number (update its filename, title, and any references to it), then re-run the current discern command. An ADR number identifies one decision forever — records that landed first, and superseded records, keep theirs.
 
 ## `gate-failure-build`
 
@@ -516,9 +436,7 @@ Renumber the newer of the duplicated ADR records named by the diagnostics to the
 
 Rendered example:
 
-```text
-Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`.
-```
+> Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`.
 
 ## `gate-failure-check`
 
@@ -529,9 +447,7 @@ Fix the problems in the diagnostics and confirm with each diagnostic's reproduce
 
 Rendered example:
 
-```text
-Fix the problems in the diagnostics; each carries its reproduce command. Iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
-```
+> Fix the problems in the diagnostics; each carries its reproduce command. Iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
 
 ## `gate-failure-check-test`
 
@@ -542,9 +458,7 @@ Fix the problems in the diagnostics; each carries its reproduce command. Iterate
 
 Rendered example:
 
-```text
-Fix the problems in the diagnostics, iterating narrow: `discern prepare` re-runs the checks and `discern test` the tests. Re-run `discern done` only once both are green: every red `discern done` pays for the full gate.
-```
+> Fix the problems in the diagnostics, iterating narrow: `discern prepare` re-runs the checks and `discern test` the tests. Re-run `discern done` only once both are green: every red `discern done` pays for the full gate.
 
 ## `gate-failure-fix`
 
@@ -555,9 +469,7 @@ Fix the problems in the diagnostics, iterating narrow: `discern prepare` re-runs
 
 Rendered example:
 
-```text
-Fix the problems in the diagnostics; each carries its reproduce command. Iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
-```
+> Fix the problems in the diagnostics; each carries its reproduce command. Iterate with `discern prepare`, the fast fix-then-check loop. Re-run `discern done` only once `discern prepare` is green: every red `discern done` pays for the full gate, tests included.
 
 ## `gate-failure-generated-drift`
 
@@ -568,9 +480,7 @@ Fix the problems in the diagnostics; each carries its reproduce command. Iterate
 
 Rendered example:
 
-```text
-Generated group `[generated.reference]` drifted. Run `tool write-reference --source source/ --output reference/`, commit the regeneration, then re-run `discern done`. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.
-```
+> Generated group `[generated.reference]` drifted. Run `tool write-reference --source source/ --output reference/`, commit the regeneration, then re-run `discern done`. If the tree goes dirty again immediately after you commit that regeneration, the generator is nondeterministic: the same tree did not produce the same bytes. Fix the generator before re-running.
 
 ## `gate-failure-generated-undercoverage`
 
@@ -581,9 +491,7 @@ Generated group `[generated.reference]` drifted. Run `tool write-reference --sou
 
 Rendered example:
 
-```text
-Generated output escaped every declared glob. Widen the responsible group's paths to include the files named by the diagnostic, commit the regeneration, then re-run `discern done`. Candidate groups: `[generated.reference]`, `[generated.schemas]`.
-```
+> Generated output escaped every declared glob. Widen the responsible group's paths to include the files named by the diagnostic, commit the regeneration, then re-run `discern done`. Candidate groups: `[generated.reference]`, `[generated.schemas]`.
 
 ## `gate-failure-gotcha-matched`
 
@@ -594,15 +502,13 @@ Generated output escaped every declared glob. Widen the responsible group's path
 
 Rendered example:
 
-```text
-This failure matches "A command hangs, then fails with a timeout", a documented trap in this project's gate gotchas:
-
-**Symptom.** The gate sits on a stage with no output, then fails it after the timeout.
-
-**Fix.** Wire the command in its single-run form.
-
-Read the full page with `discern map 80-development/done-gate-gotchas --json`.
-```
+> This failure matches "A command hangs, then fails with a timeout", a documented trap in this project's gate gotchas:
+>
+> **Symptom.** The gate sits on a stage with no output, then fails it after the timeout.
+>
+> **Fix.** Wire the command in its single-run form.
+>
+> Read the full page with `discern map 80-development/done-gate-gotchas --json`.
 
 ## `gate-failure-gotchas`
 
@@ -613,9 +519,7 @@ Read the full page with `discern map 80-development/done-gate-gotchas --json`.
 
 Rendered example:
 
-```text
-If the result message and diagnostics do not explain the failure, run `discern map 80-development/done-gate-gotchas --json` to read this project's known gate failures and their fixes.
-```
+> If the result message and diagnostics do not explain the failure, run `discern map 80-development/done-gate-gotchas --json` to read this project's known gate failures and their fixes.
 
 ## `gate-failure-guidance`
 
@@ -626,9 +530,7 @@ If the result message and diagnostics do not explain the failure, run `discern m
 
 Rendered example:
 
-```text
-Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites agent files.
-```
+> Run `discern refresh`, then re-run the current discern command. If the guidance must change, edit `[guidance].sources`. Refresh overwrites agent files.
 
 ## `gate-failure-map-integrity`
 
@@ -639,9 +541,7 @@ Run `discern refresh`, then re-run the current discern command. If the guidance 
 
 Rendered example:
 
-```text
-Fix each documentation finding named by the diagnostics: repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist. Then re-run the current discern command.
-```
+> Fix each documentation finding named by the diagnostics: repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist. Then re-run the current discern command.
 
 ## `gate-failure-merge`
 
@@ -652,9 +552,7 @@ Fix each documentation finding named by the diagnostics: repoint dead links and 
 
 Rendered example:
 
-```text
-Run `discern update` to bring the trunk into this branch and re-materialize, then re-run `discern done`.
-```
+> Run `discern update` to bring the trunk into this branch and re-materialize, then re-run `discern done`.
 
 ## `gate-failure-refresh-drift`
 
@@ -665,9 +563,7 @@ Run `discern update` to bring the trunk into this branch and re-materialize, the
 
 Rendered example:
 
-```text
-Run `discern refresh`, review and commit the tracked artifacts named by the diagnostics, then re-run the current discern command.
-```
+> Run `discern refresh`, review and commit the tracked artifacts named by the diagnostics, then re-run the current discern command.
 
 ## `gate-failure-scope-gates`
 
@@ -678,9 +574,7 @@ Run `discern refresh`, review and commit the tracked artifacts named by the diag
 
 Rendered example:
 
-```text
-Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`. One or more scope gates failed.
-```
+> Fix the problems in the diagnostics and confirm with each diagnostic's reproduce command, then re-run `discern done`. One or more scope gates failed.
 
 ## `gate-failure-skill-frontmatter`
 
@@ -691,9 +585,7 @@ Fix the problems in the diagnostics and confirm with each diagnostic's reproduce
 
 Rendered example:
 
-```text
-Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Coding-agent runtimes cannot read invalid frontmatter.
-```
+> Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Coding-agent runtimes cannot read invalid frontmatter.
 
 ## `gate-failure-skills`
 
@@ -704,9 +596,7 @@ Fix each SKILL.md source named by the diagnostics, then re-run the current disce
 
 Rendered example:
 
-```text
-Run `discern refresh`, then re-run the current discern command. If a skill must change, edit its source in `[skills].dir`. Refresh overwrites materialized copies.
-```
+> Run `discern refresh`, then re-run the current discern command. If a skill must change, edit its source in `[skills].dir`. Refresh overwrites materialized copies.
 
 ## `gate-failure-standards`
 
@@ -717,9 +607,7 @@ Run `discern refresh`, then re-run the current discern command. If a skill must 
 
 Rendered example:
 
-```text
-Follow the standards diagnostics, then re-run the current discern command. Do not weaken a trunk limit on this branch. Moving a limit is an owner decision made on the trunk.
-```
+> Follow the standards diagnostics, then re-run the current discern command. Do not weaken a trunk limit on this branch. Moving a limit is an owner decision made on the trunk.
 
 ## `gate-failure-test`
 
@@ -730,9 +618,7 @@ Follow the standards diagnostics, then re-run the current discern command. Do no
 
 Rendered example:
 
-```text
-Fix the failing tests in the diagnostics; each carries its reproduce command. Iterate with `discern test`, which runs the tests alone. Re-run `discern done` only once `discern test` is green: every red `discern done` pays for the full gate.
-```
+> Fix the failing tests in the diagnostics; each carries its reproduce command. Iterate with `discern test`, which runs the tests alone. Re-run `discern done` only once `discern test` is green: every red `discern done` pays for the full gate.
 
 ## `gate-failure-tracked-artifacts`
 
@@ -743,9 +629,7 @@ Fix the failing tests in the diagnostics; each carries its reproduce command. It
 
 Rendered example:
 
-```text
-Remove the discern-managed ignored artifacts named by the diagnostics from the Git index, run `discern refresh`, then re-run the current discern command.
-```
+> Remove the discern-managed ignored artifacts named by the diagnostics from the Git index, run `discern refresh`, then re-run the current discern command.
 
 ## `gate-failure-tree-drift`
 
@@ -756,9 +640,7 @@ Remove the discern-managed ignored artifacts named by the diagnostics from the G
 
 Rendered example:
 
-```text
-Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.
-```
+> Review and commit the gate-produced tracked changes named by the diagnostics, then re-run the current discern command.
 
 ## `gate-failure-write-access`
 
@@ -769,9 +651,7 @@ Review and commit the gate-produced tracked changes named by the diagnostics, th
 
 Rendered example:
 
-```text
-Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.
-```
+> Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.
 
 ## `gate-job-loud-success`
 
@@ -782,9 +662,7 @@ Grant the write access named by the diagnostics, then re-run the current discern
 
 Rendered example:
 
-```text
-Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 error-like lines across 80 output lines.
-```
+> Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 error-like lines across 80 output lines.
 
 ## `gate-land-under-verified-authority`
 
@@ -795,9 +673,7 @@ Review lint's output at /tmp/discern-job-lint.log. It passed but printed 12 erro
 
 Rendered example:
 
-```text
-The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
-```
+> The clean HEAD named by Proof is covered by the standing grant for map. Run `discern accept` now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with `data.proof_line` afterward.
 
 ## `gate-previewable-change`
 
@@ -808,9 +684,7 @@ The clean HEAD named by Proof is covered by the standing grant for map. Run `dis
 
 Rendered example:
 
-```text
-This change touches a previewable scope. Preview it from this worktree with the project's documented development-server workflow.
-```
+> This change touches a previewable scope. Preview it from this worktree with the project's documented development-server workflow.
 
 ## `gate-proof-clear-failed`
 
@@ -821,9 +695,7 @@ This change touches a previewable scope. Preview it from this worktree with the 
 
 Rendered example:
 
-```text
-Fix the failure, then re-run `discern done`. discern could not clear the previous Proof (the Proof file could not be removed).
-```
+> Fix the failure, then re-run `discern done`. discern could not clear the previous Proof (the Proof file could not be removed).
 
 ## `gate-proof-head-moved`
 
@@ -834,9 +706,7 @@ Fix the failure, then re-run `discern done`. discern could not clear the previou
 
 Rendered example:
 
-```text
-Re-run `discern done` on the final commit before handoff or acceptance. The gate passed but recorded no Proof because HEAD moved while it ran (HEAD changed from a1b2c3d to d4e5f6a). A Proof can vouch only for the exact tree the gate tested.
-```
+> Re-run `discern done` on the final commit before handoff or acceptance. The gate passed but recorded no Proof because HEAD moved while it ran (HEAD changed from a1b2c3d to d4e5f6a). A Proof can vouch only for the exact tree the gate tested.
 
 ## `gate-proof-record-failed`
 
@@ -847,9 +717,7 @@ Re-run `discern done` on the final commit before handoff or acceptance. The gate
 
 Rendered example:
 
-```text
-Run `discern done` again later to record Proof. The gate passed, but discern could not record one (the Proof file could not be written). Until then, `discern accept` will re-run the gate.
-```
+> Run `discern done` again later to record Proof. The gate passed, but discern could not record one (the Proof file could not be written). Until then, `discern accept` will re-run the gate.
 
 ## `gate-proof-skipped-dirty`
 
@@ -860,9 +728,7 @@ Run `discern done` again later to record Proof. The gate passed, but discern cou
 
 Rendered example:
 
-```text
-Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. The gate passed but recorded no Proof because the worktree is dirty (2 tracked files changed).
-```
+> Use `discern prepare` or `discern test` while iterating. Then commit the intended final tree and re-run `discern done` on the clean HEAD before handoff or acceptance. The gate passed but recorded no Proof because the worktree is dirty (2 tracked files changed).
 
 ## `gate-proof-unavailable`
 
@@ -873,9 +739,7 @@ Use `discern prepare` or `discern test` while iterating. Then commit the intende
 
 Rendered example:
 
-```text
-Gate passed, but discern could not prepare Proof (write authority was not established). `discern accept` may need to re-run the gate.
-```
+> Gate passed, but discern could not prepare Proof (write authority was not established). `discern accept` may need to re-run the gate.
 
 ## `gate-prove-it-works`
 
@@ -886,9 +750,7 @@ Gate passed, but discern could not prepare Proof (write authority was not establ
 
 Rendered example:
 
-```text
-Proof covers the gate's configured checks. Before reporting completion, exercise the real artifact along the paths the change enables, then report what you ran and what you observed.
-```
+> Proof covers the gate's configured checks. Before reporting completion, exercise the real artifact along the paths the change enables, then report what you ran and what you observed.
 
 ## `gate-relay-proof`
 
@@ -899,9 +761,7 @@ Proof covers the gate's configured checks. Before reporting completion, exercise
 
 Rendered example:
 
-```text
-If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
-```
+> If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with `discern status --verbose`. Run `discern accept` only after they accept.
 
 ## `gate-relay-uncovered-authority`
 
@@ -912,9 +772,7 @@ If this completes the task, report the change, trade-offs, and artifact checks t
 
 Rendered example:
 
-```text
-Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Your owner can retrieve the full Proof with `discern status --verbose`.
-```
+> Report this task to your owner in your own words, end with `data.proof.line` verbatim, and stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Your owner can retrieve the full Proof with `discern status --verbose`.
 
 ## `gate-standards-limits-unverified`
 
@@ -925,9 +783,7 @@ Report this task to your owner in your own words, end with `data.proof.line` ver
 
 Rendered example:
 
-```text
-Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limits can be verified. In CI, run `git fetch origin main:main`. The never-loosen check could not read the trunk (the local branch is missing).
-```
+> Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limits can be verified. In CI, run `git fetch origin main:main`. The never-loosen check could not read the trunk (the local branch is missing).
 
 ## `gate-test-run-queued`
 
@@ -938,9 +794,7 @@ Standards limits are UNVERIFIED. Fetch the trunk where the gate runs so the limi
 
 Rendered example:
 
-```text
-Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs); the tests start the moment a slot frees. In flight: done on agent/fix-upload-retry, typically ~3m.
-```
+> Tests queued: 1 of 1 concurrent test runs in use across this repository's checkouts ([gate].concurrent_test_runs); the tests start the moment a slot frees. In flight: done on agent/fix-upload-retry, typically ~3m.
 
 ## `gate-test-slots-unavailable`
 
@@ -951,9 +805,7 @@ Tests queued: 1 of 1 concurrent test runs in use across this repository's checko
 
 Rendered example:
 
-```text
-The concurrent test-run cap is not enforced for this run: could not create the slot directory. The tests run uncapped.
-```
+> The concurrent test-run cap is not enforced for this run: could not create the slot directory. The tests run uncapped.
 
 ## `gate-trunk-advanced`
 
@@ -964,9 +816,7 @@ The concurrent test-run cap is not enforced for this run: could not create the s
 
 Rendered example:
 
-```text
-Run `discern update`, then `discern done` again before `discern accept`. The trunk advanced while the gate ran, so this branch is behind even though the gate passed for this HEAD.
-```
+> Run `discern update`, then `discern done` again before `discern accept`. The trunk advanced while the gate ran, so this branch is behind even though the gate passed for this HEAD.
 
 ## `gate-update-docs`
 
@@ -977,9 +827,7 @@ Run `discern update`, then `discern done` again before `discern accept`. The tru
 
 Rendered example:
 
-```text
-Before reporting completion, compare the changed behavior with the map pages that cover the edited files. Update every page whose facts changed.
-```
+> Before reporting completion, compare the changed behavior with the map pages that cover the edited files. Update every page whose facts changed.
 
 ## `generated-agent-files-missing`
 
@@ -990,9 +838,7 @@ Before reporting completion, compare the changed behavior with the map pages tha
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Agent files are missing (AGENTS.md, CLAUDE.md).
-```
+> Run `discern refresh` to restore discern-managed artifacts. Agent files are missing (AGENTS.md, CLAUDE.md).
 
 ## `generated-agent-files-stale`
 
@@ -1003,9 +849,7 @@ Run `discern refresh` to restore discern-managed artifacts. Agent files are miss
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended guidance changes in [guidance].sources. Refresh overwrites agent files.
-```
+> Run `discern refresh` to restore discern-managed artifacts. Agent files are out of date (AGENTS.md, CLAUDE.md). Make intended guidance changes in [guidance].sources. Refresh overwrites agent files.
 
 ## `gotchas-matcher-invalid`
 
@@ -1016,9 +860,7 @@ Run `discern refresh` to restore discern-managed artifacts. Agent files are out 
 
 Rendered example:
 
-```text
-Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
-```
+> Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
 
 ## `improvement-follow-next-action`
 
@@ -1029,15 +871,11 @@ Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails w
 
 Rendered example:
 
-```text
-Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.
-```
+> Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.
 
 Interactive example:
 
-```text
-Carry out the report's ranked next action, then re-run the same improvement command to measure the result against its threshold.
-```
+> Carry out the report's ranked next action, then re-run the same improvement command to measure the result against its threshold.
 
 ## `improvement-logbook-off`
 
@@ -1048,9 +886,7 @@ Carry out the report's ranked next action, then re-run the same improvement comm
 
 Rendered example:
 
-```text
-Practice-history findings aren't available because `[project].logbook` is off.
-```
+> Practice-history findings aren't available because `[project].logbook` is off.
 
 ## `logbook-proof-finding`
 
@@ -1061,9 +897,7 @@ Practice-history findings aren't available because `[project].logbook` is off.
 
 Rendered example:
 
-```text
-Run `discern patterns` for full evidence and next steps. The logbook has 2 branch findings. This branch has repeated the same failed stage.
-```
+> Run `discern patterns` for full evidence and next steps. The logbook has 2 branch findings. This branch has repeated the same failed stage.
 
 ## `logbook-status-finding`
 
@@ -1074,9 +908,7 @@ Run `discern patterns` for full evidence and next steps. The logbook has 2 branc
 
 Rendered example:
 
-```text
-Inspect its current branch and Proof. Logbook finding: The same worktree has been refused 3 times.
-```
+> Inspect its current branch and Proof. Logbook finding: The same worktree has been refused 3 times.
 
 ## `materialized-skills-missing`
 
@@ -1087,9 +919,7 @@ Inspect its current branch and Proof. Logbook finding: The same worktree has bee
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Materialized skills are missing (.claude/skills).
-```
+> Run `discern refresh` to restore discern-managed artifacts. Materialized skills are missing (.claude/skills).
 
 ## `materialized-skills-stale`
 
@@ -1100,9 +930,7 @@ Run `discern refresh` to restore discern-managed artifacts. Materialized skills 
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Materialized skills are out of date (.claude/skills). Make intended skill changes in [skills].dir. Refresh overwrites the materialized copies.
-```
+> Run `discern refresh` to restore discern-managed artifacts. Materialized skills are out of date (.claude/skills). Make intended skill changes in [skills].dir. Refresh overwrites the materialized copies.
 
 ## `mcp-version-mismatch`
 
@@ -1113,9 +941,7 @@ Run `discern refresh` to restore discern-managed artifacts. Materialized skills 
 
 Rendered example:
 
-```text
-Restart your agent session or reload its MCP servers to replace MCP server v1.4.0 with installed v1.5.0. Until then, its results can conflict with the current CLI and rewrite generated files from different builds. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
-```
+> Restart your agent session or reload its MCP servers to replace MCP server v1.4.0 with installed v1.5.0. Until then, its results can conflict with the current CLI and rewrite generated files from different builds. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
 
 ## `missing-trunk-branch`
 
@@ -1126,9 +952,7 @@ Restart your agent session or reload its MCP servers to replace MCP server v1.4.
 
 Rendered example:
 
-```text
-Create the local trunk branch 'main', or set [repository].trunk to the branch this project uses, then re-run. The trunk branch 'main' is not available locally, so the merge check cannot run.
-```
+> Create the local trunk branch 'main', or set [repository].trunk to the branch this project uses, then re-run. The trunk branch 'main' is not available locally, so the merge check cannot run.
 
 ## `patterns-advisory-findings`
 
@@ -1139,9 +963,7 @@ Create the local trunk branch 'main', or set [repository].trunk to the branch th
 
 Rendered example:
 
-```text
-Use each finding's next step to investigate or improve the practice.
-```
+> Use each finding's next step to investigate or improve the practice.
 
 ## `patterns-findings-capped`
 
@@ -1152,9 +974,7 @@ Use each finding's next step to investigate or improve the practice.
 
 Rendered example:
 
-```text
-The report keeps each detector's strongest findings — 42 of 93 shown, and every detector row still counts everything it found. `discern patterns --all` reports the complete list.
-```
+> The report keeps each detector's strongest findings — 42 of 93 shown, and every detector row still counts everything it found. `discern patterns --all` reports the complete list.
 
 ## `patterns-insufficient-evidence`
 
@@ -1165,9 +985,7 @@ The report keeps each detector's strongest findings — 42 of 93 shown, and ever
 
 Rendered example:
 
-```text
-4 of 10 detectors do not yet have their minimum evidence. Each reports insufficient evidence and makes no finding.
-```
+> 4 of 10 detectors do not yet have their minimum evidence. Each reports insufficient evidence and makes no finding.
 
 ## `patterns-logbook-empty`
 
@@ -1178,9 +996,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-Run `discern patterns` after the logbook records more verb runs. The logbook currently has no events; discern stores one local event per verb run under the repository's git directory.
-```
+> Run `discern patterns` after the logbook records more verb runs. The logbook currently has no events; discern stores one local event per verb run under the repository's git directory.
 
 ## `patterns-recording-off`
 
@@ -1191,9 +1007,7 @@ Run `discern patterns` after the logbook records more verb runs. The logbook cur
 
 Rendered example:
 
-```text
-Recording is off ([project].logbook = false), so new runs aren't recorded. This report reads the history that already exists.
-```
+> Recording is off ([project].logbook = false), so new runs aren't recorded. This report reads the history that already exists.
 
 ## `patterns-reset-empty`
 
@@ -1204,9 +1018,7 @@ Recording is off ([project].logbook = false), so new runs aren't recorded. This 
 
 Rendered example:
 
-```text
-No logbook exists to remove because nothing has been recorded.
-```
+> No logbook exists to remove because nothing has been recorded.
 
 ## `patterns-reset-preview`
 
@@ -1217,9 +1029,7 @@ No logbook exists to remove because nothing has been recorded.
 
 Rendered example:
 
-```text
-Run without `--dry-run` to delete the logbook. This preview removed nothing.
-```
+> Run without `--dry-run` to delete the logbook. This preview removed nothing.
 
 ## `patterns-reset-recording-resumes`
 
@@ -1230,9 +1040,7 @@ Run without `--dry-run` to delete the logbook. This preview removed nothing.
 
 Rendered example:
 
-```text
-Set [project].logbook = false to stop recording. Otherwise, recording resumes on the next verb run after this reset.
-```
+> Set [project].logbook = false to stop recording. Otherwise, recording resumes on the next verb run after this reset.
 
 ## `provider-integrations-missing`
 
@@ -1243,9 +1051,7 @@ Set [project].logbook = false to stop recording. Otherwise, recording resumes on
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Provider integration files are missing (.codex/config.toml).
-```
+> Run `discern refresh` to restore discern-managed artifacts. Provider integration files are missing (.codex/config.toml).
 
 ## `provider-integrations-stale`
 
@@ -1256,9 +1062,7 @@ Run `discern refresh` to restore discern-managed artifacts. Provider integration
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Provider integration files need attention (.codex/config.toml). If refresh reports a malformed settings file, repair it and run `discern refresh` again.
-```
+> Run `discern refresh` to restore discern-managed artifacts. Provider integration files need attention (.codex/config.toml). If refresh reports a malformed settings file, repair it and run `discern refresh` again.
 
 ## `refresh-artifact-failed`
 
@@ -1269,9 +1073,7 @@ Run `discern refresh` to restore discern-managed artifacts. Provider integration
 
 Rendered example:
 
-```text
-Fix the refresh error, then run `discern refresh`: could not update a co-owned agent config
-```
+> Fix the refresh error, then run `discern refresh`: could not update a co-owned agent config
 
 ## `refresh-commit-tracked-artifacts`
 
@@ -1282,9 +1084,7 @@ Fix the refresh error, then run `discern refresh`: could not update a co-owned a
 
 Rendered example:
 
-```text
-Commit the refreshed copies with the source change that produced them.
-```
+> Commit the refreshed copies with the source change that produced them.
 
 ## `refresh-mcp-first-install`
 
@@ -1295,9 +1095,7 @@ Commit the refreshed copies with the source change that produced them.
 
 Rendered example:
 
-```text
-Restart your coding agent now, or reload its MCP servers, before trying to use the discern tools. This refresh registered the server for the first time, and the registration persists after restart. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
-```
+> Restart your coding agent now, or reload its MCP servers, before trying to use the discern tools. This refresh registered the server for the first time, and the registration persists after restart. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
 
 ## `setup-awaiting-confirmation`
 
@@ -1308,15 +1106,11 @@ Restart your coding agent now, or reload its MCP servers, before trying to use t
 
 Rendered example:
 
-```text
-Present `data.guidance` to the owner, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests only to that conversation.
-```
+> Present `data.guidance` to the owner, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests only to that conversation.
 
 Interactive example:
 
-```text
-Review the setup guidance and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
-```
+> Review the setup guidance and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
 
 ## `setup-done-land-dedicated`
 
@@ -1327,9 +1121,7 @@ Review the setup guidance and answer its questions, then run the displayed comma
 
 Rendered example:
 
-```text
-Land setup with `discern setup accept`, or leave it for review. Setup remains on `discern-setup`; `main` does not contain it yet.
-```
+> Land setup with `discern setup accept`, or leave it for review. Setup remains on `discern-setup`; `main` does not contain it yet.
 
 ## `setup-done-land-manually`
 
@@ -1340,9 +1132,7 @@ Land setup with `discern setup accept`, or leave it for review. Setup remains on
 
 Rendered example:
 
-```text
-Merge `feature/project-setup` into `main` your usual way when ready. `discern setup accept` only lands the `discern-setup` branch.
-```
+> Merge `feature/project-setup` into `main` your usual way when ready. `discern setup accept` only lands the `discern-setup` branch.
 
 ## `setup-finish-incomplete`
 
@@ -1353,15 +1143,11 @@ Merge `feature/project-setup` into `main` your usual way when ready. `discern se
 
 Rendered example:
 
-```text
-Complete every file in `data.leftover` and every check in `data.unmet`, then re-run `discern setup done`; use `--force` only to record completion without that proof.
-```
+> Complete every file in `data.leftover` and every check in `data.unmet`, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 
 Interactive example:
 
-```text
-Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
-```
+> Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 
 ## `setup-guidance-own-render-skipped`
 
@@ -1372,9 +1158,7 @@ Complete every listed file and unmet check, then re-run `discern setup done`; us
 
 Rendered example:
 
-```text
-Skipped importing AGENTS.md, CLAUDE.md into discern/guidance.md. It matches discern's own compiled output from an earlier setup. discern/guidance.md remains the canonical authored source.
-```
+> Skipped importing AGENTS.md, CLAUDE.md into discern/guidance.md. It matches discern's own compiled output from an earlier setup. discern/guidance.md remains the canonical authored source.
 
 ## `setup-guidance-preserved`
 
@@ -1385,9 +1169,7 @@ Skipped importing AGENTS.md, CLAUDE.md into discern/guidance.md. It matches disc
 
 Rendered example:
 
-```text
-Fold the guidance migrated from AGENTS.md, CLAUDE.md into your conventions, then delete the import note from discern/guidance.md. Setup preserved the existing guidance there.
-```
+> Fold the guidance migrated from AGENTS.md, CLAUDE.md into your conventions, then delete the import note from discern/guidance.md. Setup preserved the existing guidance there.
 
 ## `setup-reactivate-tools`
 
@@ -1398,9 +1180,7 @@ Fold the guidance migrated from AGENTS.md, CLAUDE.md into your conventions, then
 
 Rendered example:
 
-```text
-Before continuing, follow each provider-specific reactivation step carried with this result. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:
-```
+> Before continuing, follow each provider-specific reactivation step carried with this result. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:
 
 ## `setup-refresh-artifact-failed`
 
@@ -1411,9 +1191,7 @@ Before continuing, follow each provider-specific reactivation step carried with 
 
 Rendered example:
 
-```text
-Fix the setup refresh error, then run `discern refresh`: could not write .codex/config.toml
-```
+> Fix the setup refresh error, then run `discern refresh`: could not write .codex/config.toml
 
 ## `setup-run-coach`
 
@@ -1424,9 +1202,7 @@ Fix the setup refresh error, then run `discern refresh`: could not write .codex/
 
 Rendered example:
 
-```text
-Deepen your setup: run `discern improvement --json`, review the ranked findings with your owner, apply the bounded changes now, and record larger changes in discern/TODO.md.
-```
+> Deepen your setup: run `discern improvement --json`, review the ranked findings with your owner, apply the bounded changes now, and record larger changes in discern/TODO.md.
 
 ## `setup-unfinished-doctor`
 
@@ -1437,9 +1213,7 @@ Deepen your setup: run `discern improvement --json`, review the ranked findings 
 
 Rendered example:
 
-```text
-Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. Running `discern doctor` is a required setup step. A healthy result proves install health only. It does not complete the setup brief or record setup completion.
-```
+> Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. Running `discern doctor` is a required setup step. A healthy result proves install health only. It does not complete the setup brief or record setup completion.
 
 ## `setup-unfinished-gate`
 
@@ -1450,9 +1224,7 @@ Setup is incomplete. Stay in this agent session and finish the setup brief befor
 
 Rendered example:
 
-```text
-Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. Gate commands are useful during setup, but their output is provisional. Only `discern setup done` validates the gate and records setup completion.
-```
+> Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. Gate commands are useful during setup, but their output is provisional. Only `discern setup done` validates the gate and records setup completion.
 
 ## `setup-unfinished-status`
 
@@ -1463,9 +1235,7 @@ Setup is incomplete. Stay in this agent session and finish the setup brief befor
 
 Rendered example:
 
-```text
-Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. 2 files still carry skeleton markers.
-```
+> Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. Run `discern setup begin` to print or reprint it without changing your work, complete every step, then run `discern setup done`. Report setup complete only after `discern setup done` passes. 2 files still carry skeleton markers.
 
 ## `silent-worktree-divergence`
 
@@ -1476,9 +1246,7 @@ Setup is incomplete. Stay in this agent session and finish the setup brief befor
 
 Rendered example:
 
-```text
-Stop before editing: the main checkout at /workspace/project has 2 uncommitted changes, while this assigned worktree is clean. Confirm who owns the main-checkout changes. Continue this effort only in /workspace/project.worktrees/task: prefix every shell command with `cd /workspace/project.worktrees/task && …` and pass `path="/workspace/project.worktrees/task"` to every discern MCP tool. Working in /workspace/project would place new edits on the trunk while discern runs in /workspace/project.worktrees/task.
-```
+> Stop before editing: the main checkout at /workspace/project has 2 uncommitted changes, while this assigned worktree is clean. Confirm who owns the main-checkout changes. Continue this effort only in /workspace/project.worktrees/task: prefix every shell command with `cd /workspace/project.worktrees/task && …` and pass `path="/workspace/project.worktrees/task"` to every discern MCP tool. Working in /workspace/project would place new edits on the trunk while discern runs in /workspace/project.worktrees/task.
 
 ## `skills-eject-edit-override`
 
@@ -1489,9 +1257,7 @@ Stop before editing: the main checkout at /workspace/project has 2 uncommitted c
 
 Rendered example:
 
-```text
-Run `discern skills list` to locate the authored override, then edit that source.
-```
+> Run `discern skills list` to locate the authored override, then edit that source.
 
 ## `skills-eject-finish-materialization`
 
@@ -1502,15 +1268,11 @@ Run `discern skills list` to locate the authored override, then edit that source
 
 Rendered example:
 
-```text
-Fix every entry in `data.materialized.errors`, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
-```
+> Fix every entry in `data.materialized.errors`, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
 
 Interactive example:
 
-```text
-Fix every reported materialization error, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
-```
+> Fix every reported materialization error, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
 
 ## `standards-limits-unverified`
 
@@ -1521,9 +1283,7 @@ Fix every reported materialization error, then run `discern refresh` to material
 
 Rendered example:
 
-```text
-Standards limits are UNVERIFIED. Fetch the trunk where standards run so the limits can be verified. The never-loosen check could not read it (the local trunk is missing).
-```
+> Standards limits are UNVERIFIED. Fetch the trunk where standards run so the limits can be verified. The never-loosen check could not read it (the local trunk is missing).
 
 ## `standards-none-configured`
 
@@ -1534,9 +1294,7 @@ Standards limits are UNVERIFIED. Fetch the trunk where standards run so the limi
 
 Rendered example:
 
-```text
-Add a [standards.<name>] table to measure a standard. No standards configured.
-```
+> Add a [standards.<name>] table to measure a standard. No standards configured.
 
 ## `standards-pin-behind`
 
@@ -1547,9 +1305,7 @@ Add a [standards.<name>] table to measure a standard. No standards configured.
 
 Rendered example:
 
-```text
-Run `discern update` before pinning against the latest trunk. This worktree is 2 commits behind main, so its measured values may not survive the update.
-```
+> Run `discern update` before pinning against the latest trunk. This worktree is 2 commits behind main, so its measured values may not survive the update.
 
 ## `standards-pin-blocked`
 
@@ -1560,9 +1316,7 @@ Run `discern update` before pinning against the latest trunk. This worktree is 2
 
 Rendered example:
 
-```text
-Fix coverage, bundle_size, then re-run `discern standards --pin` once green. They are failing, and diagnostics[] carries each reason. No limits were pinned.
-```
+> Fix coverage, bundle_size, then re-run `discern standards --pin` once green. They are failing, and diagnostics[] carries each reason. No limits were pinned.
 
 ## `standards-pin-carried-proof`
 
@@ -1573,9 +1327,7 @@ Fix coverage, bundle_size, then re-run `discern standards --pin` once green. The
 
 Rendered example:
 
-```text
-Proof now follows this pin commit. `discern accept` will skip the redundant gate re-run.
-```
+> Proof now follows this pin commit. `discern accept` will skip the redundant gate re-run.
 
 ## `standards-pin-dry-run`
 
@@ -1586,9 +1338,7 @@ Proof now follows this pin commit. `discern accept` will skip the redundant gate
 
 Rendered example:
 
-```text
-Run `discern standards` to measure once and find pinnable slack. Then run `discern standards --pin` on the same clean commit to reuse those measurements. A pin dry-run measures nothing.
-```
+> Run `discern standards` to measure once and find pinnable slack. Then run `discern standards --pin` on the same clean commit to reuse those measurements. A pin dry-run measures nothing.
 
 ## `standards-pin-empty`
 
@@ -1599,9 +1349,7 @@ Run `discern standards` to measure once and find pinnable slack. Then run `disce
 
 Rendered example:
 
-```text
-No standards configured, so there is nothing to pin.
-```
+> No standards configured, so there is nothing to pin.
 
 ## `standards-pin-no-proof`
 
@@ -1612,9 +1360,7 @@ No standards configured, so there is nothing to pin.
 
 Rendered example:
 
-```text
-Run `discern done` before accepting, or acceptance will re-run the gate. No current Proof was available to carry forward.
-```
+> Run `discern done` before accepting, or acceptance will re-run the gate. No current Proof was available to carry forward.
 
 ## `standards-pin-no-slack`
 
@@ -1625,9 +1371,7 @@ Run `discern done` before accepting, or acceptance will re-run the gate. No curr
 
 Rendered example:
 
-```text
-Nothing to pin. Every selected standard already sits at its measured value within its margin.
-```
+> Nothing to pin. Every selected standard already sits at its measured value within its margin.
 
 ## `standards-pin-reused-measurements`
 
@@ -1638,9 +1382,7 @@ Nothing to pin. Every selected standard already sits at its measured value withi
 
 Rendered example:
 
-```text
-Reused the green check's measurements for this commit. Nothing was re-measured.
-```
+> Reused the green check's measurements for this commit. Nothing was re-measured.
 
 ## `standards-pinnable-slack`
 
@@ -1651,9 +1393,7 @@ Reused the green check's measurements for this commit. Nothing was re-measured.
 
 Rendered example:
 
-```text
-Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, measured 92.4, pinning to 92.4). On this commit, the pin reuses this check's measurements.
-```
+> Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, measured 92.4, pinning to 92.4). On this commit, the pin reuses this check's measurements.
 
 ## `start-landing-authority`
 
@@ -1664,9 +1404,7 @@ Run `discern standards --pin` to capture pinnable slack: coverage (floor 90, mea
 
 Rendered example:
 
-```text
-Standing landing authority is recorded for map. Changes kept within that scope can land without a further conversation; discern will check the final changed paths.
-```
+> Standing landing authority is recorded for map. Changes kept within that scope can land without a further conversation; discern will check the final changed paths.
 
 ## `start-main-changes-stay`
 
@@ -1677,9 +1415,7 @@ Standing landing authority is recorded for map. Changes kept within that scope c
 
 Rendered example:
 
-```text
-2 uncommitted changes stay in the main checkout. The new worktree branches from 'main'.
-```
+> 2 uncommitted changes stay in the main checkout. The new worktree branches from 'main'.
 
 ## `start-mcp-re-root`
 
@@ -1690,9 +1426,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Re-root or cd into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If you can't change your working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
-```
+> One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Re-root or cd into /workspace/project.worktrees/hint-registry before editing. discern's MCP tools already target this worktree. `discern_done`, `discern_update`, and `discern_accept` follow it automatically. If you can't change your working root, prefix every shell command with `cd /workspace/project.worktrees/hint-registry && …` and pass `path="/workspace/project.worktrees/hint-registry"` to every discern MCP tool. Otherwise, edits land on the trunk while the gate runs in the worktree, and the two states diverge.
 
 ## `start-name-fallback`
 
@@ -1703,9 +1437,7 @@ One worktree lasts for an effort, including review feedback and resumed sessions
 
 Rendered example:
 
-```text
-Used a random codename because '///' has no branch-safe characters.
-```
+> Used a random codename because '///' has no branch-safe characters.
 
 ## `start-name-normalized`
 
@@ -1716,9 +1448,7 @@ Used a random codename because '///' has no branch-safe characters.
 
 Rendered example:
 
-```text
-Normalized the worktree name 'Hint Registry' to 'hint-registry'.
-```
+> Normalized the worktree name 'Hint Registry' to 'hint-registry'.
 
 ## `start-re-root`
 
@@ -1729,9 +1459,7 @@ Normalized the worktree name 'Hint Registry' to 'hint-registry'.
 
 Rendered example:
 
-```text
-One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
-```
+> One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Start a session rooted at /workspace/project.worktrees/hint-registry (or cd there) to continue. Do not keep working in the main checkout.
 
 ## `start-submodules-empty`
 
@@ -1742,9 +1470,7 @@ One worktree lasts for an effort, including review feedback and resumed sessions
 
 Rendered example:
 
-```text
-This repository pins submodules, and git leaves them empty in a fresh worktree. Add `ensure = ["git submodule update --init --recursive"]` under `[repository]` in discern.toml so every checkout populates them.
-```
+> This repository pins submodules, and git leaves them empty in a fresh worktree. Add `ensure = ["git submodule update --init --recursive"]` under `[repository]` in discern.toml so every checkout populates them.
 
 ## `status-adr-number-collisions`
 
@@ -1755,15 +1481,11 @@ This repository pins submodules, and git leaves them empty in a fresh worktree. 
 
 Rendered example:
 
-```text
-Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
-```
+> Expect a renumber: 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three) (records in `data.adr_collisions`). The records are different files that merge cleanly, so nothing collides until both sit in one tree and the gate refuses the duplicate — whoever lands second takes the next free number.
 
 Interactive example:
 
-```text
-2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). The attention block lists the record paths. Whoever lands second takes the next free number.
-```
+> 2 ADR numbers are claimed by more than one in-flight branch: 0007 (agent/one ↔ agent/two), 0008 (agent/one ↔ agent/three). The attention block lists the record paths. Whoever lands second takes the next free number.
 
 ## `status-branch-behind`
 
@@ -1774,9 +1496,7 @@ Interactive example:
 
 Rendered example:
 
-```text
-Run `discern update` directly. This branch is 2 commits behind main, and the command is idempotent and checks its own git preconditions. Re-check 2 changed files after updating. They also changed upstream (src/main.ts, tests/main_test.ts). Run `discern done` before handing off or a user-requested landing.
-```
+> Run `discern update` directly. This branch is 2 commits behind main, and the command is idempotent and checks its own git preconditions. Re-check 2 changed files after updating. They also changed upstream (src/main.ts, tests/main_test.ts). Run `discern done` before handing off or a user-requested landing.
 
 ## `status-contained-refs`
 
@@ -1787,9 +1507,7 @@ Run `discern update` directly. This branch is 2 commits behind main, and the com
 
 Rendered example:
 
-```text
-The reclaimed stage ref `agent/upload-retry` remains reachable through `agent/upload-retry-stage-2` until the contained work lands. Ordinary prune then removes the ref. No action is required.
-```
+> The reclaimed stage ref `agent/upload-retry` remains reachable through `agent/upload-retry-stage-2` until the contained work lands. Ordinary prune then removes the ref. No action is required.
 
 ## `status-dirty-fleet-members`
 
@@ -1800,15 +1518,11 @@ The reclaimed stage ref `agent/upload-retry` remains reachable through `agent/up
 
 Rendered example:
 
-```text
-Review 5 worktrees with uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more).
-```
+> Review 5 worktrees with uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more).
 
 Interactive example:
 
-```text
-5 worktrees have uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more). Recent or running changes are normal work in progress.
-```
+> 5 worktrees have uncommitted changes: hint-registry, docs-refresh, gate-copy, … (+2 more). Recent or running changes are normal work in progress.
 
 ## `status-dirty-worktree`
 
@@ -1819,9 +1533,7 @@ Interactive example:
 
 Rendered example:
 
-```text
-Use `discern prepare` or targeted tests while iterating on uncommitted changes. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
-```
+> Use `discern prepare` or targeted tests while iterating on uncommitted changes. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
 
 ## `status-dirty-worktree-scoped`
 
@@ -1832,9 +1544,7 @@ Use `discern prepare` or targeted tests while iterating on uncommitted changes. 
 
 Rendered example:
 
-```text
-Use `discern prepare` or targeted tests while iterating on changes in code, map. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
-```
+> Use `discern prepare` or targeted tests while iterating on changes in code, map. Then commit the intended final tree and run `discern done` on the clean HEAD before calling work done.
 
 ## `status-fleet-authorized-landings`
 
@@ -1845,9 +1555,7 @@ Use `discern prepare` or targeted tests while iterating on changes in code, map.
 
 Rendered example:
 
-```text
-2 ready worktrees have machine-verified landing authority: docs-refresh, release-notes. Open each worktree and run `discern accept` now; acceptance rechecks its grant before landing.
-```
+> 2 ready worktrees have machine-verified landing authority: docs-refresh, release-notes. Open each worktree and run `discern accept` now; acceptance rechecks its grant before landing.
 
 ## `status-fleet-collisions`
 
@@ -1858,15 +1566,11 @@ Rendered example:
 
 Rendered example:
 
-```text
-Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
-```
+> Note 2 worktree pairs changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help (paths in `data.fleet_collisions`). Both sides may merge cleanly and still conflict semantically — whoever lands second should run `discern update` and re-read the shared paths.
 
 Interactive example:
 
-```text
-2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Whoever lands second should run `discern update` and re-read the shared paths listed in the attention block.
-```
+> 2 worktree pairs are changing the same files: hint-registry ↔ docs-refresh, gate-copy ↔ cli-help. Whoever lands second should run `discern update` and re-read the shared paths listed in the attention block.
 
 ## `status-fleet-logbook-disabled`
 
@@ -1877,9 +1581,7 @@ Interactive example:
 
 Rendered example:
 
-```text
-Per-worktree actions aren't available because `[project].logbook` is off.
-```
+> Per-worktree actions aren't available because `[project].logbook` is off.
 
 ## `status-fleet-member-broken`
 
@@ -1890,9 +1592,7 @@ Per-worktree actions aren't available because `[project].logbook` is off.
 
 Rendered example:
 
-```text
-Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built, … (+2 more). Their checkouts may be incomplete. Run `discern worktree drop <name>` for each.
-```
+> Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built, … (+2 more). Their checkouts may be incomplete. Run `discern worktree drop <name>` for each.
 
 ## `status-fleet-member-ready`
 
@@ -1903,15 +1603,11 @@ Discard 5 worktrees whose setup never completed: incomplete, crashed, half-built
 
 Rendered example:
 
-```text
-Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Use each branch from `data.fleet` with `git diff main...<branch>`.
-```
+> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Use each branch from `data.fleet` with `git diff main...<branch>`.
 
 Interactive example:
 
-```text
-Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a branch with `git diff main...<branch>`. The dashboard shows the complete branch beside each worktree.
-```
+> Review 5 worktrees with committed work ready for owner review: hint-registry, docs-refresh, gate-copy, … (+2 more). Inspect a branch with `git diff main...<branch>`. The dashboard shows the complete branch beside each worktree.
 
 ## `status-fleet-member-stale`
 
@@ -1922,15 +1618,11 @@ Review 5 worktrees with committed work ready for owner review: hint-registry, do
 
 Rendered example:
 
-```text
-Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. `data.fleet` carries last activity and unlanded work.
-```
+> Review 5 worktrees that look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. `data.fleet` carries last activity and unlanded work.
 
 Interactive example:
 
-```text
-5 worktrees look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. The dashboard shows last activity and Git state.
-```
+> 5 worktrees look stale: stale-task, old-fix, paused-docs, … (+2 more). Resume their sessions or discard each with `discern worktree drop <name>`. The dashboard shows last activity and Git state.
 
 ## `status-fleet-member-unreadable`
 
@@ -1941,9 +1633,7 @@ Interactive example:
 
 Rendered example:
 
-```text
-Investigate 5 worktrees whose git state cannot be read: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. To discard one, run `discern worktree drop <name>`. It refuses without `--force` while the git state cannot be read.
-```
+> Investigate 5 worktrees whose git state cannot be read: damaged, missing, unreadable, … (+2 more). Their checkouts may be missing or damaged, so unsaved work is unverifiable. To discard one, run `discern worktree drop <name>`. It refuses without `--force` while the git state cannot be read.
 
 ## `status-land-under-verified-authority`
 
@@ -1954,9 +1644,7 @@ Investigate 5 worktrees whose git state cannot be read: damaged, missing, unread
 
 Rendered example:
 
-```text
-The clean HEAD is covered by the standing grant for map and has valid Proof. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
-```
+> The clean HEAD is covered by the standing grant for map and has valid Proof. Run `discern accept` now to land it; the command rechecks every changed path at the fast-forward boundary.
 
 ## `status-main-checkout-dirty`
 
@@ -1967,9 +1655,7 @@ The clean HEAD is covered by the standing grant for map and has valid Proof. Run
 
 Rendered example:
 
-```text
-Commit or stash the main checkout's tracked changes before a user-requested landing. This branch is committed and up to date with main.
-```
+> Commit or stash the main checkout's tracked changes before a user-requested landing. This branch is committed and up to date with main.
 
 ## `status-missing-done-proof`
 
@@ -1980,9 +1666,7 @@ Commit or stash the main checkout's tracked changes before a user-requested land
 
 Rendered example:
 
-```text
-Run `discern done` before reporting the branch ready for review or a user-requested landing. This clean HEAD is committed and up to date with main, but it has no honored Proof.
-```
+> Run `discern done` before reporting the branch ready for review or a user-requested landing. This clean HEAD is committed and up to date with main, but it has no honored Proof.
 
 ## `status-missing-trunk`
 
@@ -1993,9 +1677,7 @@ Run `discern done` before reporting the branch ready for review or a user-reques
 
 Rendered example:
 
-```text
-Set [repository].trunk to the branch this project uses, or create the configured trunk with `git branch main`. The 'main' branch does not exist, and the main checkout is on 'develop'. Worktrees cannot fork and `discern accept` cannot land until the configuration and repository agree.
-```
+> Set [repository].trunk to the branch this project uses, or create the configured trunk with `git branch main`. The 'main' branch does not exist, and the main checkout is on 'develop'. Worktrees cannot fork and `discern accept` cannot land until the configuration and repository agree.
 
 ## `status-no-active-worktrees`
 
@@ -2006,9 +1688,7 @@ Set [repository].trunk to the branch this project uses, or create the configured
 
 Rendered example:
 
-```text
-Run `discern start` to begin work. There are no active worktrees.
-```
+> Run `discern start` to begin work. There are no active worktrees.
 
 ## `status-ready-for-review`
 
@@ -2019,9 +1699,7 @@ Run `discern start` to begin work. There are no active worktrees.
 
 Rendered example:
 
-```text
-Report this branch to your owner in your own words. End with `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
-```
+> Report this branch to your owner in your own words. End with `data.gate_proof.proof_line` verbatim, then wait. This clean HEAD is committed and up to date with main. Your owner can retrieve the full Proof with `discern status --verbose` and inspect the raw change with `git diff main...agent/hints`. Run `discern accept` only after the user explicitly asks you to land it.
 
 ## `status-ready-uncovered-authority`
 
@@ -2032,9 +1710,7 @@ Report this branch to your owner in your own words. End with `data.gate_proof.pr
 
 Rendered example:
 
-```text
-Report this branch to your owner and end with `data.gate_proof.proof_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
-```
+> Report this branch to your owner and end with `data.gate_proof.proof_line` verbatim, then stop. The recorded grant does not cover `src/main.ts` (scopes: engine). Inspect the raw change with `git diff main...agent/hints`.
 
 ## `status-reappeared-worktree-paths`
 
@@ -2045,9 +1721,7 @@ Report this branch to your owner and end with `data.gate_proof.proof_line` verba
 
 Rendered example:
 
-```text
-2 removed worktree paths are present again. Review them with `discern worktree prune --dry-run`. Close any program still writing into those paths before confirming removal.
-```
+> 2 removed worktree paths are present again. Review them with `discern worktree prune --dry-run`. Close any program still writing into those paths before confirming removal.
 
 ## `status-start-off-trunk`
 
@@ -2058,9 +1732,7 @@ Rendered example:
 
 Rendered example:
 
-```text
-One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Run `git switch main` in the main checkout before `discern accept`. The checkout is parked on 'agent/hints', while 'main' is the trunk. A new effort can still run `discern start`; its worktree forks from the trunk.
-```
+> One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. Run `git switch main` in the main checkout before `discern accept`. The checkout is parked on 'agent/hints', while 'main' is the trunk. A new effort can still run `discern start`; its worktree forks from the trunk.
 
 ## `status-start-on-trunk`
 
@@ -2071,9 +1743,7 @@ One worktree lasts for an effort, including review feedback and resumed sessions
 
 Rendered example:
 
-```text
-One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. For a new effort, run `discern start --name "<task>"` from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable.
-```
+> One worktree lasts for an effort, including review feedback and resumed sessions. If this effort already has a worktree, continue there using its recorded path and pass `path` to every discern tool. If that path is unavailable, ask for it instead of creating another. Do not call `discern start` again. For a new effort, run `discern start --name "<task>"` from this main checkout on the trunk, then move into the new worktree before editing. The name keeps the worktree identifiable.
 
 ## `status-unlanded-branches`
 
@@ -2084,9 +1754,7 @@ One worktree lasts for an effort, including review feedback and resumed sessions
 
 Rendered example:
 
-```text
-Resume one with `discern start --from <branch>`, or use `discern update --from <branch>` from an existing worktree. Delete an abandoned branch with `git branch -D <branch>`. 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task.
-```
+> Resume one with `discern start --from <branch>`, or use `discern update --from <branch>` from an existing worktree. Delete an abandoned branch with `git branch -D <branch>`. 2 branches hold unlanded work with no worktree: agent/old-task, agent/paused-task.
 
 ## `test-job-not-configured`
 
@@ -2097,9 +1765,7 @@ Resume one with `discern start --from <branch>`, or use `discern update --from <
 
 Rendered example:
 
-```text
-Set [jobs].test = "<command>" in discern.toml to run tests. No test job is configured.
-```
+> Set [jobs].test = "<command>" in discern.toml to run tests. No test job is configured.
 
 ## `tracked-ignored-artifacts`
 
@@ -2110,9 +1776,7 @@ Set [jobs].test = "<command>" in discern.toml to run tests. No test job is confi
 
 Rendered example:
 
-```text
-Run `git rm -r --cached .claude/skills` to remove the discern-managed ignored artifacts from the Git index, then run `discern refresh`. Affected paths: .claude/skills.
-```
+> Run `git rm -r --cached .claude/skills` to remove the discern-managed ignored artifacts from the Git index, then run `discern refresh`. Affected paths: .claude/skills.
 
 ## `tracked-refresh-pending`
 
@@ -2123,9 +1787,7 @@ Run `git rm -r --cached .claude/skills` to remove the discern-managed ignored ar
 
 Rendered example:
 
-```text
-Run `discern refresh` to restore discern-managed artifacts. Tracked refresh artifacts are out of date (.gitattributes, .mcp.json).
-```
+> Run `discern refresh` to restore discern-managed artifacts. Tracked refresh artifacts are out of date (.gitattributes, .mcp.json).
 
 ## `tracked-refresh-plan-failed`
 
@@ -2136,9 +1798,7 @@ Run `discern refresh` to restore discern-managed artifacts. Tracked refresh arti
 
 Rendered example:
 
-```text
-Tracked refresh convergence could not be checked: could not read .mcp.json. Repair the named input, run `discern refresh`, then run `discern status` again.
-```
+> Tracked refresh convergence could not be checked: could not read .mcp.json. Repair the named input, run `discern refresh`, then run `discern status` again.
 
 ## `unknown-command-help`
 
@@ -2149,9 +1809,7 @@ Tracked refresh convergence could not be checked: could not read .mcp.json. Repa
 
 Rendered example:
 
-```text
-Run `discern docs` for the documentation, or `discern --help` to list the commands.
-```
+> Run `discern docs` for the documentation, or `discern --help` to list the commands.
 
 ## `unknown-command-suggestion`
 
@@ -2162,9 +1820,7 @@ Run `discern docs` for the documentation, or `discern --help` to list the comman
 
 Rendered example:
 
-```text
-Did you mean `discern status`?
-```
+> Did you mean `discern status`?
 
 ## `untracked-agent-files`
 
@@ -2175,9 +1831,7 @@ Did you mean `discern status`?
 
 Rendered example:
 
-```text
-Commit the untracked agent files (AGENTS.md, CLAUDE.md) so cloud and out-of-tool agents read the same guidance from a fresh clone.
-```
+> Commit the untracked agent files (AGENTS.md, CLAUDE.md) so cloud and out-of-tool agents read the same guidance from a fresh clone.
 
 ## `update-no-overlap`
 
@@ -2188,9 +1842,7 @@ Commit the untracked agent files (AGENTS.md, CLAUDE.md) so cloud and out-of-tool
 
 Rendered example:
 
-```text
-Run `discern done` to verify the merged tree. No files changed by this branch overlap main's incoming changes. Use `git diff --stat HEAD~2..HEAD` for the full file list and `git diff HEAD~2..HEAD -- <path>` for one file. Use `git log --oneline HEAD~2..main` for the full commit list.
-```
+> Run `discern done` to verify the merged tree. No files changed by this branch overlap main's incoming changes. Use `git diff --stat HEAD~2..HEAD` for the full file list and `git diff HEAD~2..HEAD -- <path>` for one file. Use `git log --oneline HEAD~2..main` for the full commit list.
 
 ## `update-overlap`
 
@@ -2201,9 +1853,7 @@ Run `discern done` to verify the merged tree. No files changed by this branch ov
 
 Rendered example:
 
-```text
-Re-read the 2 overlapping files: `src/main.ts`, `tests/main_test.ts`. This branch and main both changed them, and a clean merge cannot catch semantic conflicts. Run `discern done` after reviewing them. Use `git diff --stat HEAD~2..HEAD` for the full file list and `git diff HEAD~2..HEAD -- <path>` for one file. Use `git log --oneline HEAD~2..main` for the full commit list.
-```
+> Re-read the 2 overlapping files: `src/main.ts`, `tests/main_test.ts`. This branch and main both changed them, and a clean merge cannot catch semantic conflicts. Run `discern done` after reviewing them. Use `git diff --stat HEAD~2..HEAD` for the full file list and `git diff HEAD~2..HEAD -- <path>` for one file. Use `git log --oneline HEAD~2..main` for the full commit list.
 
 ## `update-summary-fallback`
 
@@ -2214,9 +1864,7 @@ Re-read the 2 overlapping files: `src/main.ts`, `tests/main_test.ts`. This branc
 
 Rendered example:
 
-```text
-Run `discern done` to verify the merged tree. The detailed main integration summary was unavailable.
-```
+> Run `discern done` to verify the merged tree. The detailed main integration summary was unavailable.
 
 ## `upgrade-check-pending`
 
@@ -2227,9 +1875,7 @@ Run `discern done` to verify the merged tree. The detailed main integration summ
 
 Rendered example:
 
-```text
-Run `discern upgrade` to apply pending migrations and reconcile this install.
-```
+> Run `discern upgrade` to apply pending migrations and reconcile this install.
 
 ## `upgrade-newer-discern`
 
@@ -2240,9 +1886,7 @@ Run `discern upgrade` to apply pending migrations and reconcile this install.
 
 Rendered example:
 
-```text
-To get a newer discern, run the installer again. discern never checks the network for updates.
-```
+> To get a newer discern, run the installer again. discern never checks the network for updates.
 
 ## `upgrade-restart-session`
 
@@ -2253,6 +1897,4 @@ To get a newer discern, run the installer again. discern never checks the networ
 
 Rendered example:
 
-```text
-For every open agent session, restart it so its discern MCP server reloads this build, or reload its MCP servers directly, before continuing. A server process started before the upgrade still runs the old build. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
-```
+> For every open agent session, restart it so its discern MCP server reloads this build, or reload its MCP servers directly, before continuing. A server process started before the upgrade still runs the old build. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
