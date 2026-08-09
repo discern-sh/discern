@@ -41,6 +41,12 @@ Use a Skill when the work has a repeatable sequence and still needs judgment. Sp
 
 A deterministic command does not need a Skill. Put it in a Project Script. Durable project facts belong in [Guidance](../40-agent-guidance/) or the Map. This boundary keeps Skills procedural and always-loaded instructions short.
 
+## Make an operational procedure self-contained
+
+An operational Skill must let a fresh agent act without inventing a boundary. Name the root, path, or stable target; put action before verification; state when to stop; and give recovery steps. For cross-worktree, authority-sensitive, or relay-bearing work, provide the corresponding root, authority check, or ready-to-send message.
+
+discern's own bundled Skills and repository-authored voice Skills record those facts in an `Operational contract` TOML block. The repository guard derives the effective Skill set from the same resolver that materializes it, so a new or overriding Skill joins without another filename list. Supporting Markdown inherits its Skill's contract and joins the lexical review; payloads under `skeleton/` remain excluded because an agent copies them rather than follows them in place ([ADR 0266](../_adr/0266-operational-agent-copy-declares-typed-contracts.md)).
+
 ## Current state & gotchas
 
 - discern controls resolution and materialization. Each coding agent controls when a matching Skill loads.
@@ -54,5 +60,7 @@ A deterministic command does not need a Skill. Put it in a Project Script. Durab
 | ----------------------- | ---------------------------------------------------------------------------- |
 | Built-in discovery rule | [`skills.md`](../../../templates/guidance/skills.md)                         |
 | Effective-set listing   | [`skills.ts`](../../../src/lib/skills.ts) (`listSkills`, `skillsListResult`) |
+| Operational contracts   | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)  |
+| Contract parser         | [`agent_contract.ts`](../../../scripts/agent_contract.ts)                    |
 | Listing result schema   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                 |
 | CLI behavior            | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |

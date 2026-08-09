@@ -41,6 +41,8 @@ Describe the evidence to gather, the ordered checks, the judgment points, and th
 
 The body is a playbook for an agent with no memory of the session that authored it. Name real project commands and paths. Separate the fixed steps from decisions that need judgment. End with observable completion conditions.
 
+An effectful procedure also needs stable targets, action then verification, stop and recovery conditions, plus applicable authority or relay facts. A read-only Skill needs no invented fields. The portable validator still checks only `name` and `description`; this repository enforces the richer block on copy it ships or authors.
+
 ## Materialize and inspect it
 
 Run:
@@ -66,5 +68,6 @@ discern skills list
 | `[skills].dir` default and schema     | [`config_schema.ts`](../../../src/shared/config_schema.ts) (`skillsSection`)                                                          |
 | Authored resolution and links         | [`skills.ts`](../../../src/lib/skills.ts) (`resolveSkillsByName`, `materializeSkills`)                                                |
 | Frontmatter validation                | [`skills.ts`](../../../src/lib/skills.ts) (`skillFrontmatterIssues`)                                                                  |
+| This repository's operational guard   | [`agent_surface_contracts_test.ts`](../../../tests/agent_surface_contracts_test.ts)                                                   |
 | This repo's example in `[skills].dir` | [`discern-product-voice`](../../skills/discern-product-voice/SKILL.md) (generated from [`voice.ts`](../../../scripts/brand/voice.ts)) |
 | Materialization coverage              | [`guidelines_test.ts`](../../../tests/guidelines_test.ts)                                                                             |

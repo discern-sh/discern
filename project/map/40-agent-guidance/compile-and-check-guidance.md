@@ -47,6 +47,12 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 `discern done` runs the same currency check before the slower Gate stages. A mismatch stops the Gate early and names the generated files that need refreshing ([ADR 0034](../_adr/0034-agents-md-untracked-currency-check.md)).
 
+## Check each agent-copy source at its authority
+
+The repository checks operational agent copy in two ways. Core rules shared by bundled Guidance and Model Context Protocol instructions derive from the operating-policy registry and its parity guard. Task procedures derive from the effective Skill resolver and setup-template directory; each declares a typed contract at its authored source. This guard never scans materialized `.agents/skills` or `.claude/skills` copies.
+
+The derived corpus also passes through the generated `DiscernAgent` Vale style. Prefix selection enrolls later rules without copied patterns or identifiers. Structural checks retain stop, recovery, authority, and relay guarantees that phrase matching cannot determine ([ADR 0266](../_adr/0266-operational-agent-copy-declares-typed-contracts.md)).
+
 ## Current state & gotchas
 
 - An explicit empty `[project].agents` list emits no instruction files.
@@ -56,12 +62,14 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 ## Where it lives in code
 
-| Concern                         | Source                                                                |
-| ------------------------------- | --------------------------------------------------------------------- |
-| Compilation and file writes     | [`guidelines.ts`](../../../src/engine/guidelines.ts)                  |
-| Canonical and pointer rendering | [`guidance_render.ts`](../../../src/engine/guidance_render.ts)        |
-| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                 |
-| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                       |
-| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                       |
-| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)     |
-| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts) |
+| Concern                         | Source                                                                              |
+| ------------------------------- | ----------------------------------------------------------------------------------- |
+| Compilation and file writes     | [`guidelines.ts`](../../../src/engine/guidelines.ts)                                |
+| Canonical and pointer rendering | [`guidance_render.ts`](../../../src/engine/guidance_render.ts)                      |
+| Region discovery                | [`docs.ts`](../../../src/lib/docs.ts)                                               |
+| Agent file mappings             | [`providers.ts`](../../../src/lib/providers.ts)                                     |
+| Operational-copy universe       | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)         |
+| Operational-copy guard          | [`agent_surface_contracts_test.ts`](../../../tests/agent_surface_contracts_test.ts) |
+| Maintained ADR index            | [`adr_index.ts`](../../../src/lib/adr_index.ts)                                     |
+| Refresh behavior                | [`engine_refresh_test.ts`](../../../tests/engine_refresh_test.ts)                   |
+| ADR index behavior              | [`engine_adr_index_test.ts`](../../../tests/engine_adr_index_test.ts)               |
