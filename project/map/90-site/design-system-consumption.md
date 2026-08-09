@@ -38,7 +38,7 @@ The generic component catalog, examples, component implementation, assets, and p
 
 [`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) composes the homepage's delegation, commissioning, Standard, and Proof artefacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artefact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document.
 
-[`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its uncached composition CSS on the worktree's loopback port:
+[`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
 
 ```sh
 deno task site:specimens
