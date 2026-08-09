@@ -1,5 +1,5 @@
 /**
- * The private agent-integration coverage page stays in lockstep with its
+ * The operational-internal agent-integration coverage page stays in lockstep with its
  * registries (ADR 0260): the committed page matches the renderer over the
  * live provider registry (`scripts/agent_integration_registry.ts` reading
  * `PROVIDERS`), every integration seam renders exactly one coverage-matrix
@@ -29,7 +29,7 @@ import { PROVIDERS } from "../src/lib/providers.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
-const PAGE_REL = "_private/research/agent-integration-coverage.md";
+const PAGE_REL = "_internal/agent-integration-coverage.md";
 const rendered = renderAgentIntegrationCoverageDoc();
 
 /** Read the checked-in coverage page for generator parity. */

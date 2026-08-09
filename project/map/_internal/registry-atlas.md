@@ -203,59 +203,59 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 
 Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.
 
-| Artifact                                                           | Kind             | Compiled from                                                                                             |
-| ------------------------------------------------------------------ | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| `.github/cla-assistant/metadata`                                   | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
-| `.vale/DiscernAgent/BestJudgment.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernAgent/PositionalReference.yml`                       | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/CtaGenericLabel.yml`                           | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/GenericAdjectives.yml`                         | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/GenericVerbs.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/ProductName.yml`                               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/RepeatedContrast.yml`                          | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/StackedSlogans.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/TemplateOpener.yml`                            | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernProduct/AgentBlame.yml`                              | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernProduct/ProductName.yml`                             | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `THIRD_PARTY_NOTICES`                                              | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `project/map/00-orientation/glossary.md`                           | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
-| `project/map/70-reference/artifact-ownership.md`                   | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/70-reference/cli-reference.md`                        | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
-| `project/map/70-reference/config-reference.md`                     | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `project/map/70-reference/environment-variables.md`                | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                          |
-| `project/map/70-reference/mcp-and-results.md`                      | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `project/map/80-development/install-surface.md`                    | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/_internal/brand/README.md`                            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/claims-and-evidence.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/copy-patterns.md`                     | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/copy-review.md`                       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/messaging.md`                         | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/positioning.md`                       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/register-bridge.md`                   | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/visual-identity.md`                   | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/feature-canon-plain.md`                     | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/feature-canon.md`                           | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/hint-inventory.md`                          | generated file   | [`hints`](#hints--hints)                                                                                  |
-| `project/map/_internal/registry-atlas.md`                          | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
-| `project/map/_internal/tip-inventory.md`                           | generated file   | [`tips`](#tips--tips)                                                                                     |
-| `project/map/_private/research/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
-| `project/map/_private/research/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
-| `project/skills/discern-agent-voice/SKILL.md`                      | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/skills/discern-brand-voice/SKILL.md`                      | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/skills/discern-product-voice/SKILL.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `schema/discern-config.schema.json`                                | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/discern-proof-note.schema.json`                            | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `schema/discern-results.schema.json`                               | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `schema/discern-results.schema.json`                               | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
-| `schema/discern-results.schema.json`                               | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `schema/discern-results.schema.json`                               | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
-| `schema/discern-setup-config.schema.json`                          | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `scripts/jsr_license_cache.json`                                   | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `src/lib/first_party_license_bundle.ts`                            | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
-| `src/lib/third_party_bundle.ts`                                    | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `types/discern-json.d.ts`                                          | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `types/discern-json.d.ts`                                          | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `types/discern-json.d.ts`                                          | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| Artifact                                                   | Kind             | Compiled from                                                                                             |
+| ---------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `.github/cla-assistant/metadata`                           | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
+| `.vale/DiscernAgent/BestJudgment.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernAgent/PositionalReference.yml`               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/CtaGenericLabel.yml`                   | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/GenericAdjectives.yml`                 | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/GenericVerbs.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/ProductName.yml`                       | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/RepeatedContrast.yml`                  | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/StackedSlogans.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernBrand/TemplateOpener.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernProduct/AgentBlame.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
+| `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
+| `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
+| `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `project/map/70-reference/environment-variables.md`        | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                          |
+| `project/map/70-reference/mcp-and-results.md`              | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
+| `project/map/80-development/install-surface.md`            | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
+| `project/map/_internal/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
+| `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/claims-and-evidence.md`       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/copy-review.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/positioning.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/brand/visual-identity.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/map/_internal/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
+| `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
+| `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
+| `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                  |
+| `project/map/_internal/registry-atlas.md`                  | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
+| `project/map/_internal/tip-inventory.md`                   | generated file   | [`tips`](#tips--tips)                                                                                     |
+| `project/skills/discern-agent-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/skills/discern-brand-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `project/skills/discern-product-voice/SKILL.md`            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
+| `schema/discern-config.schema.json`                        | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `schema/discern-proof-note.schema.json`                    | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
+| `schema/discern-results.schema.json`                       | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `schema/discern-results.schema.json`                       | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
+| `schema/discern-results.schema.json`                       | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `schema/discern-results.schema.json`                       | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| `schema/discern-setup-config.schema.json`                  | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
+| `scripts/jsr_license_cache.json`                           | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `src/lib/first_party_license_bundle.ts`                    | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
+| `src/lib/third_party_bundle.ts`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
+| `types/discern-json.d.ts`                                  | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
+| `types/discern-json.d.ts`                                  | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
+| `types/discern-json.d.ts`                                  | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
 
 ## `verbs` — Top-level verbs
 
@@ -756,7 +756,7 @@ The agent providers discern writes files for, each with a compact mark and horiz
 
 ## `cross-agent-behaviours` — Cross-agent behaviour dimensions
 
-The classified behavioural dimensions of the researched coding agents; the private cross-agent reference compiles from the registry, whose typed cells force every dimension to answer for every researched agent.
+The classified behavioral dimensions of the researched coding agents; the operational-internal cross-agent reference compiles from the registry, whose typed cells require every dimension to cover every researched agent.
 
 - Source: `scripts/cross_agent_registry.ts` — `BEHAVIOUR_DIMENSIONS`
 - Members: 11
@@ -772,13 +772,13 @@ The classified behavioural dimensions of the researched coding agents; the priva
   - `mcp-schema-discovery`
   - `mcp-call-duration`
 - Guards: `tests/cross_agent_reference_codegen_test.ts`
-- Artifacts: `project/map/_private/research/cross-agent-behaviour-reference.md`
+- Artifacts: `project/map/_internal/cross-agent-behaviour-reference.md`
 - Glossary: not enrolled — maintainer research vocabulary about other vendors' agents, not discern product vocabulary
-- Feature canon: not enrolled — a private research reference informing integrations; it ships no product surface
+- Feature canon: not enrolled — an operational-internal research reference informing integrations; it ships no product surface
 
 ## `agent-integration-seams` — Agent integration seams
 
-The integration seams discern wires per agent; the private coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the gate until a new provider's verdict prose exists.
+The integration seams discern wires per agent; the operational-internal coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the Gate until verdict prose exists for a new provider.
 
 - Source: `scripts/agent_integration_registry.ts` — `INTEGRATION_SEAMS`
 - Members: 11
@@ -794,9 +794,9 @@ The integration seams discern wires per agent; the private coverage page compile
   - `default-set`
   - `os-sandbox`
 - Guards: `tests/agent_integration_coverage_codegen_test.ts`
-- Artifacts: `project/map/_private/research/agent-integration-coverage.md`
+- Artifacts: `project/map/_internal/agent-integration-coverage.md`
 - Glossary: not enrolled — maintainer research vocabulary about discern's own wiring; the glossary carries the agent-file and skill concepts instead
-- Feature canon: not enrolled — a private research reference reading the provider registry; it ships no product surface of its own
+- Feature canon: not enrolled — an operational-internal reference reading the provider registry; it ships no product surface of its own
 
 ## `brand-documents` — Brand documents
 

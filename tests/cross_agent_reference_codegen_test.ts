@@ -1,5 +1,5 @@
 /**
- * The private cross-agent behaviour reference stays in lockstep with its
+ * The operational-internal cross-agent behavior reference stays in lockstep with its
  * canonical registry (`BEHAVIOUR_DIMENSIONS` in
  * `scripts/cross_agent_registry.ts`): the committed page matches the
  * renderer, every dimension renders exactly one numbered section, the
@@ -26,7 +26,7 @@ import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
-const PAGE_REL = "_private/research/cross-agent-behaviour-reference.md";
+const PAGE_REL = "_internal/cross-agent-behaviour-reference.md";
 const rendered = renderCrossAgentReferenceDoc();
 
 /** Read the checked-in reference page for generator parity. */

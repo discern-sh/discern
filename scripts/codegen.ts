@@ -139,11 +139,11 @@ const registryAtlas = relative(
 );
 const crossAgentReference = relative(
   repoRoot,
-  join(mapDir, "_private", "research", "cross-agent-behaviour-reference.md"),
+  join(mapDir, "_internal", "cross-agent-behaviour-reference.md"),
 );
 const agentIntegrationCoverage = relative(
   repoRoot,
-  join(mapDir, "_private", "research", "agent-integration-coverage.md"),
+  join(mapDir, "_internal", "agent-integration-coverage.md"),
 );
 type EquivalentText = (before: string, after: string) => boolean;
 

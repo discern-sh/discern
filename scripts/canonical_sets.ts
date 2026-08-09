@@ -779,7 +779,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "cross-agent-behaviours",
     title: "Cross-agent behaviour dimensions",
     what:
-      "The classified behavioural dimensions of the researched coding agents; the private cross-agent reference compiles from the registry, whose typed cells force every dimension to answer for every researched agent.",
+      "The classified behavioral dimensions of the researched coding agents; the operational-internal cross-agent reference compiles from the registry, whose typed cells require every dimension to cover every researched agent.",
     source: {
       kind: "module",
       module: "scripts/cross_agent_registry.ts",
@@ -788,8 +788,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/cross_agent_reference_codegen_test.ts"],
     artifacts: [
       {
-        path:
-          "project/map/_private/research/cross-agent-behaviour-reference.md",
+        path: "project/map/_internal/cross-agent-behaviour-reference.md",
         kind: "generated-file",
         banner: true,
       },
@@ -801,7 +800,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: {
         absent:
-          "a private research reference informing integrations; it ships no product surface",
+          "an operational-internal research reference informing integrations; it ships no product surface",
       },
     },
     members: async () =>
@@ -813,7 +812,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "agent-integration-seams",
     title: "Agent integration seams",
     what:
-      "The integration seams discern wires per agent; the private coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the gate until a new provider's verdict prose exists.",
+      "The integration seams discern wires per agent; the operational-internal coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the Gate until verdict prose exists for a new provider.",
     source: {
       kind: "module",
       module: "scripts/agent_integration_registry.ts",
@@ -822,7 +821,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     guards: ["tests/agent_integration_coverage_codegen_test.ts"],
     artifacts: [
       {
-        path: "project/map/_private/research/agent-integration-coverage.md",
+        path: "project/map/_internal/agent-integration-coverage.md",
         kind: "generated-file",
         banner: true,
       },
@@ -834,7 +833,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
       featureCanon: {
         absent:
-          "a private research reference reading the provider registry; it ships no product surface of its own",
+          "an operational-internal reference reading the provider registry; it ships no product surface of its own",
       },
     },
     members: async () =>
