@@ -8,6 +8,22 @@ metadata:
 
 # Await the fleet
 
+## Operational contract
+
+```toml
+effectful = false
+cross_worktree = true
+authority_sensitive = false
+relay_bearing = true
+recoverable = true
+targets = ["root: the absolute path of this effort's worktree, or the main checkout before one exists", "stable: the literal branch or trunk condition returned by discern"]
+sequence = ["act: call discern_await with one grounded condition and continue only with data.resume", "act: follow the met or refusal hint", "verify: confirm the expected files or behavior arrived in the target tree"]
+stop_conditions = ["The condition is met, the watch becomes unnecessary, or an ok:false refusal needs action.", "New user input changes or cancels the dependency."]
+recovery = ["discern_await returns ok:false. => Follow its recovery hint and never resume that result.", "The condition becomes unnecessary. => Stop the watch and report the changed plan."]
+relay_message = "I waited for <condition>. The observed state is <observed_state>. I <next_action>."
+relay_facts = ["condition", "observed_state", "next_action"]
+```
+
 When your work depends on another workstream — a sibling worktree still running, or a landing that hasn't reached the trunk yet — `discern_await` holds one blocking call until the dependency is real, then names your next step. It replaces guessed status polling, sleep loops, and a human relaying "it's done" between sessions. The verb is read-only: it blocks only your call, holds no lock, and gates nothing.
 
 _If the user adds their own instructions or context when invoking this skill, those take precedence. Everything below yields to what they tell you in the moment._

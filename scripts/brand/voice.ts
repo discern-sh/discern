@@ -18,12 +18,34 @@ import {
   type VoiceRule,
   type VoiceSection,
 } from "./model.ts";
+import { renderAgentSurfaceContract } from "../agent_contract.ts";
 
 /** The three registers, keyed so a missing register cannot compile. */
 export const VOICES = {
   brand: {
     description:
       "Write or review discern's public-facing brand copy: website pages, campaigns, launch material, social posts, founder essays, product marketing, and public explanations. Use this skill when the reader is deciding whether discern belongs in their future. Do not use it for CLI messages, exact documentation, MCP guidance, or operational agent instructions.",
+    contract: {
+      effectful: true,
+      cross_worktree: false,
+      authority_sensitive: false,
+      relay_bearing: false,
+      recoverable: true,
+      targets: [
+        "stable: the named public surface and its signed-off brief",
+        "stable: the applicable claim slugs and source documents",
+      ],
+      sequence: [
+        "act: read the scoped brand sources and draft or review the named surface",
+        "verify: apply the brand acceptance criteria and verify every public claim",
+      ],
+      stop_conditions: [
+        "The brief, audience, destination, or evidence for a required claim is unavailable.",
+      ],
+      recovery: [
+        "A required source or claim is unavailable. => Request that exact source or remove the unsupported claim before drafting continues.",
+      ],
+    },
     title: "discern brand voice",
     sections: [{
       kind: "prose",
@@ -572,6 +594,27 @@ Avoid repeated generic labels such as “Explore,” “Discover,” and “Lear
   product: {
     description:
       "Write or review discern's human-facing product copy, CLI messages, documentation, tips, consent language, status text, errors, and reference material. Use when correctness, stable terminology, explicit state, and the next valid action matter more than persuasion. Do not use as the surface voice for marketing pages.",
+    contract: {
+      effectful: true,
+      cross_worktree: false,
+      authority_sensitive: false,
+      relay_bearing: false,
+      recoverable: true,
+      targets: [
+        "stable: the named product surface and its live command or result contract",
+        "stable: the canonical glossary and source registry",
+      ],
+      sequence: [
+        "act: establish current state and edit or review the named product surface",
+        "verify: apply the review checklist against the live contract and canonical terms",
+      ],
+      stop_conditions: [
+        "The live behavior, authority boundary, or canonical term cannot be verified.",
+      ],
+      recovery: [
+        "A governing contract or term is unavailable. => Name the missing source and stop the affected copy decision.",
+      ],
+    },
     title: "discern product voice",
     sections: [{
       kind: "prose",
@@ -1068,6 +1111,27 @@ Better:
   agent: {
     description:
       "Write or review communication whose primary reader is a coding agent. Use for MCP descriptions, JSON guidance, setup briefs, Skills, hints, `llms.txt`, machine-oriented documentation, and the public For Agents page. Declare operational or public mode before drafting.",
+    contract: {
+      effectful: true,
+      cross_worktree: false,
+      authority_sensitive: false,
+      relay_bearing: false,
+      recoverable: true,
+      targets: [
+        "stable: the named agent-facing surface and its live workflow contract",
+        "stable: the canonical glossary and applicable authority rules",
+      ],
+      sequence: [
+        "act: declare operational or public mode and draft or review the named surface",
+        "verify: apply the matching acceptance criteria against the live workflow contract",
+      ],
+      stop_conditions: [
+        "The runtime assumptions, working root, authority, or stop condition cannot be established.",
+      ],
+      recovery: [
+        "A correctness-critical contract fact is unavailable. => Name the missing fact and stop the affected instruction.",
+      ],
+    },
     title: "discern agent voice",
     sections: [{
       kind: "prose",
@@ -1138,11 +1202,14 @@ Public mode:
 Mode: operational | public
 Agent/runtime assumptions:
 Available tools:
-Working root or path rules:
-Authority available:
+Targets (root, path, or stable identifier):
+Effectful / cross-worktree / authority-sensitive / relay-bearing / recoverable:
 Desired action or understanding:
-Stop condition:
-Relay obligation:
+Ordered action and verification sequence:
+Stop conditions:
+Failure recovery:
+Authority and re-verification command:
+Ready-to-relay message and required facts:
 Context budget:
 \`\`\`
 
@@ -1442,7 +1509,7 @@ Avoid marketing headlines without explanatory context.`,
         {
           id: "prefer-stable-targets-over-positional-references",
           text:
-            `Prefer stable targets over positional references such as “the file above.”`,
+            `Use a stable path, heading, anchor, or identifier for every external reference.`,
         },
         {
           id: "state-whether-a-command-is-read-only",
@@ -1475,7 +1542,7 @@ Avoid marketing headlines without explanatory context.`,
         {
           id: "do-not-say-use-your-best-judgment",
           text:
-            `Do not say “use your best judgment” where a real boundary can be stated.`,
+            `State the real boundary whenever one can be stated; do not defer that decision to the agent.`,
         },
       ],
     }, {
@@ -1957,6 +2024,8 @@ export function renderVoiceSkill(register: Register): string {
     BANNER,
     "",
     `# ${voice.title}`,
+    "",
+    renderAgentSurfaceContract(voice.contract),
     "",
     voice.sections
       .map((section) => renderVoiceSection(section, register))

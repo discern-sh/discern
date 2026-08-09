@@ -8,6 +8,24 @@ metadata:
 
 # Delegate work to fresh agents
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = true
+authority_sensitive = true
+relay_bearing = true
+recoverable = true
+targets = ["root: each absolute worktree path returned after an authorized dispatch", "stable: each literal branch returned by discern_start", "stable: the keyed brief and its declared file territory"]
+sequence = ["act: pin the goal, topology, boundaries, authority, and complete briefs", "act: present every brief and dispatch only after the user confirms that topology", "verify: review each returned branch against its brief, diff, and gate evidence"]
+stop_conditions = ["The user has not confirmed dispatch.", "A task boundary or dependency remains ambiguous enough to change the work.", "Parallel streams would edit the same territory."]
+recovery = ["Dispatch is not authorized. => Preserve and present the briefs, then stop before creating a session or worktree.", "A dependency branch is unavailable. => Use its exact recorded identity and the discern-await-the-fleet recovery path; never guess a replacement."]
+authority = "The user authorizes the reviewed dispatch topology; each landing also requires a current conversation grant or a recorded grant for that worktree's final paths."
+authority_check = "command: `discern accept` re-verifies landing authority; dispatch remains stopped until the current conversation confirms the presented topology."
+relay_message = "I prepared <briefs> for <topology>. Dispatch authority is <dispatch_authority>. The returned branches are <branches> and the landing rule is <landing_rule>."
+relay_facts = ["briefs", "topology", "dispatch_authority", "branches", "landing_rule"]
+```
+
 Handing work to a clean session gives you an isolated worktree, an uncluttered context window, and, when you review what comes back, a second independent pass over the same problem. A delegated agent is only as good as its prompt. It cannot see this conversation; it wakes with the prompt you write plus whatever it finds in a fresh worktree branched from the trunk. A vague brief becomes vague work, in a worktree you then have to go and find.
 
 This skill turns the work you've been discussing into briefs that stand on their own, shapes the handoff so one task goes to one agent and a large effort splits along its real seams, hands the briefs off, and closes the loop with an adversarial review of what lands.

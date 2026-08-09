@@ -8,6 +8,24 @@ metadata:
 
 # Set the standard
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = true
+relay_bearing = true
+recoverable = true
+targets = ["path: discern.toml", "stable: the named metric and its current main measurement", "stable: the detector or command that measures it"]
+sequence = ["act: classify the metric, confirm the owner accepts the blocker, and wire the current measured limit", "act: prove both the green measurement and a controlled failure", "verify: run discern standards and the full gate without loosening any limit"]
+stop_conditions = ["The metric is nondeterministic, unaffordable, gameable, or unwanted as a blocker.", "Required work intrinsically breaches an existing limit.", "A proposed change would loosen or remove a Standard."]
+recovery = ["The Standard fires on an avoidable regression. => Move the metric in the defended direction and rerun it.", "Required work intrinsically grows the metric. => Relay the measurement and reason; leave the limit unchanged for the owner."]
+authority = "The owner chooses whether a new metric becomes blocking and decides any exceptional limit correction on the trunk; branches may only hold or tighten limits."
+authority_check = "command: `discern done` re-verifies that no Standard was loosened or removed against the trunk."
+relay_message = "<standard> measured <value> with a <delta> change. <reason>. The next valid action is <next_action>."
+relay_facts = ["standard", "value", "delta", "reason", "next_action"]
+```
+
 Standards are **numbers that can never get worse**: each is a **floor that may only rise** or a **ceiling that may only fall**, compared against `main` so no branch can ever loosen it. A standard is not a target and not a nag — it is a _no-backsliding guarantee_: whatever quality the number represents, the project can only keep or improve it from here. This skill is the judgement around the feature: which numbers deserve one, how to wire it, where to set the limit, and what to do — and never do — when one fires.
 
 Driving a legacy pattern out of the codebase entirely? That migration mode — the same standard machinery pointed at a pattern's count, ending in a permanent ban — is [outlaw-a-pattern.md](outlaw-a-pattern.md) in this skill.

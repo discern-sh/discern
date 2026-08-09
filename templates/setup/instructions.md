@@ -1,5 +1,23 @@
 # Set up discern
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = true
+authority_sensitive = true
+relay_bearing = true
+recoverable = true
+targets = ["root: the dedicated discern-setup branch and each absolute probe-worktree path returned by discern start", "stable: the configured map, guidance, Skill, script, TODO, job, Standard, and worktree fields", "stable: the numbered setup page returned by discern setup step"]
+sequence = ["act: complete Steps 0 through 9 in numeric order and commit each coherent stage", "act: run discern refresh and correct every setup, doctor, Gate, or probe diagnostic", "verify: accept completion only when discern setup done reports success"]
+stop_conditions = ["The human has not answered the model checkpoint.", "A dependency install, paid service, external resource, or other consequential choice lacks current user confirmation.", "discern setup done or its probe remains red."]
+recovery = ["Setup is interrupted. => Run discern setup begin to restore the brief, discern status for progress, or discern setup step <n> for the required page.", "Doctor, Gate, or setup done reports a failure. => Fix the named diagnostic and rerun the same verifying command.", "The probe worktree lacks runtime state. => Wire the bounded worktree requirement or record the owner-only gap in the configured TODO."]
+authority = "The human confirms the setup plan through the verify/begin handshake; dependency installs and consequential resources need separate current confirmation."
+authority_check = "command: `discern setup begin --confirmed` re-verifies the setup consent attestation before scaffolding starts."
+relay_message = "I configured <principles>, <subtrees>, and <jobs>. I recorded <todos>. The completion evidence is <proof>."
+relay_facts = ["principles", "subtrees", "jobs", "todos", "proof"]
+```
+
 > **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for _you, the coding agent in this session_ — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. **These are your setup instructions** — you are reading them right now — discern intentionally hands you this brief over stdout.
 
 `discern setup begin` has just laid down discern's machinery — a `discern.toml` with `discern tidy` prewired for discern's own surfaces but every project-specific job unset, the agent files, the merged settings, the MCP wiring — plus an empty skeleton for the map when the configured map was absent. The map is an agent-maintained account of how this codebase fits together, written as Markdown and kept current with the code. **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate into this project's real definition-of-done, then author the map and guidance from the project's own context, beginning with its design principles. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
@@ -187,8 +205,8 @@ Notes that keep the proposal honest:
 - **Monorepo / polyglot:** several stacks can coexist. Chain tools in one known job with `&&`, or add a `[scopes.<name>]` for a sub-app with its own `gate`.
 - **Wire the obvious scopes and worktree resources too** while you're here: point `[scopes]` globs at where this project's code actually lives, and if the project needs a per-worktree external resource (a database, an emulator, a container), note a `[worktree.resources.<name>]` table with `create`/`destroy` for the user to fill — an external resource carries cost and data implications, so it is a genuine decision to leave with them, not something to wire silently.
 - **Point the gate at its gotchas page.** `setup begin` laid `{{map_dir}}80-development/done-gate-gotchas.md`; set `[project].gotchas_doc = "{{map_dir}}80-development/done-gate-gotchas.md"` so a non-obvious gate failure points agents at it.
-- **Wire the project's formatter first, and commit its sweep on its own.** Keep `discern tidy` last in the format list: the project's formatter handles its stack, then `discern tidy` handles the map, guidance, TODO, and `discern.toml`. This step comes before the authoring so the first reflow lands on the unauthored scaffold, keeping each later map or guidance commit a clean content diff. No project formatter yet but you intend to add one? A missing formatter is exactly the kind of well-established tool worth proposing (the install still needs the user's go-ahead — see above). Run `discern prepare` right after wiring it and commit that normalization on its own.
-- **Leave a known job unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend adding that; see above). `discern tidy` protects discern's surfaces, but it does not test, lint, type-check, build, or smoke-test the project; wire the checks this project needs before calling setup complete.
+- **Wire the project's formatter first, and commit its sweep on its own.** Keep `discern tidy` last in the format list: the project's formatter handles its stack, then `discern tidy` handles the map, guidance, TODO, and `discern.toml`. This step comes before the authoring so the first reflow lands on the unauthored scaffold, keeping each later map or guidance commit a clean content diff. No project formatter yet but you intend to add one? A missing formatter is exactly the kind of well-established tool worth proposing (Step 2's dependency-install boundary still needs the user's go-ahead). Run `discern prepare` right after wiring it and commit that normalization on its own.
+- **Leave a known job unset** only when the ecosystem genuinely has no standard tool for that slot — not merely because the project hadn't adopted the obvious one yet (recommend it under Step 2's missing-tool procedure). `discern tidy` protects discern's surfaces, but it does not test, lint, type-check, build, or smoke-test the project; wire the checks this project needs before calling setup complete.
 
 ---
 

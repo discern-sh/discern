@@ -8,6 +8,22 @@ metadata:
 
 # Cure the bug — don't treat the symptom
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = false
+relay_bearing = true
+recoverable = true
+targets = ["stable: the generative defect predicate", "stable: the declared search universe and enrollment source"]
+sequence = ["act: prove the cause and run a detector over the declared universe before fixing", "act: fix every detected member and retain the detector in the gate", "verify: reject an unrelated future sibling and report the residual scope"]
+stop_conditions = ["The cause remains unproven and diagnosis is the requested outcome.", "No enrollment source necessarily contains future members of the proposed class."]
+recovery = ["A hypothesis fails either direction of the cause proof. => Return to diagnosis and do not prescribe that fix.", "A widened detector exposes more members. => Fix the full population or report the bounded remainder without narrowing the detector."]
+relay_message = "I guarded <predicate> across <universe>. The detector found <population> and rejects <future_sibling>. The remaining boundary is <residual>."
+relay_facts = ["predicate", "universe", "population", "future_sibling", "residual"]
+```
+
 A bug is rarely alone. Define its _class_ by the **generative mechanism that permits the defect**, not by the name, container, feature, or location where it was first observed. Patching only what you were shown is symptomatic relief: the siblings resurface later, and "fixed at the root cause" becomes a claim nobody can check. A **cure** is different, and this skill makes it an executable one: characterize the class, ship a detector that fails on every current member and a plausible future sibling, fix to green, and leave the detector in the gate so the defect can never silently return.
 
 This skill carries the whole discipline in three procedures — enter at the one that matches:

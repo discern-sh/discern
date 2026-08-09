@@ -10,6 +10,20 @@ metadata:
 
 # discern product voice
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = false
+relay_bearing = false
+recoverable = true
+targets = ["stable: the named product surface and its live command or result contract", "stable: the canonical glossary and source registry"]
+sequence = ["act: establish current state and edit or review the named product surface", "verify: apply the review checklist against the live contract and canonical terms"]
+stop_conditions = ["The live behavior, authority boundary, or canonical term cannot be verified."]
+recovery = ["A governing contract or term is unavailable. => Name the missing source and stop the affected copy decision."]
+```
+
 ## Mission
 
 Help a person understand what is true, what it means, and what they can do next.

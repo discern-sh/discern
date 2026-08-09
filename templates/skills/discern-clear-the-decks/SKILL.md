@@ -8,6 +8,24 @@ metadata:
 
 # Clear the decks — before the clutter teaches the next session to make more
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = true
+relay_bearing = true
+recoverable = true
+targets = ["stable: the current worktree's declared cleanup scope", "stable: the evidence-backed candidate worklist"]
+sequence = ["act: enumerate candidates and prove each cut against dynamic reachability", "act: commit each behavior-preserving cut and cap the improved metric", "verify: run the full gate on the final committed tree"]
+stop_conditions = ["A candidate cannot be proven dead or equivalent.", "A living wrong pattern requires a migration outside the cleanup scope.", "The cleanup would loosen or move a Standard."]
+recovery = ["A cut changes behavior or fails its focused checks. => Revert that atomic cut and keep the candidate with its evidence.", "The metric change is intrinsic to required work. => Relay the measured breach and leave the limit unchanged."]
+authority = "The cleanup request covers behavior-preserving cuts in scope; a broader migration, a consequential deletion, or landing needs the owner's explicit or recorded authority."
+authority_check = "command: `discern accept` re-verifies landing authority against the final changed paths."
+relay_message = "I removed <cuts> with <evidence>. <standard> holds the improved metric. I left <residual>. <proof>"
+relay_facts = ["cuts", "evidence", "standard", "residual", "proof"]
+```
+
 Codebases built through agent sessions accumulate clutter in a recognizable way. Each session adds a little: a helper written because the existing one wasn't found, scaffolding left by an abandoned approach, a wrapper that seemed prudent and gained exactly one caller, a debug print that outlived the debugging. No single session made a mess; the mess is the _sum_. And it compounds, because agents write code by pattern-matching the code around it — every duplicated helper teaches the next session that duplication is house style. The clutter is not a cosmetic problem: it is the substrate every future session builds on, quietly degrading.
 
 This skill is the systematic sweep: know the signatures, enumerate them with structure rather than eyes, prove every cut safe before making it, land the clearing in small behaviour-preserving commits, and — the actual point — cap the entropy with a standard so the number can never quietly climb back.

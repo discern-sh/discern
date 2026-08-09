@@ -743,6 +743,42 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       await (await import("../src/lib/skills.ts")).bundledSkillNames(),
   },
   {
+    id: "operational-agent-surfaces",
+    title: "Operational agent surfaces",
+    what:
+      "The effective Skills and setup briefs that must declare an operational contract and pass the generated agent-copy lexical rules.",
+    source: {
+      kind: "module",
+      module: "scripts/agent_surface_contracts.ts",
+      exportName: "operationalAgentSurfaces",
+    },
+    guards: ["tests/agent_surface_contracts_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the Skill and setup references define these existing agent-copy surfaces",
+      },
+      featureCanon: {
+        absent:
+          "the Skill and setup nodes describe the product behavior this maintainer-only corpus guard holds",
+      },
+    },
+    members: async () => {
+      const repoRoot = dirname(dirname(fromFileUrl(import.meta.url)));
+      const { loadConfig } = await import(
+        "../src/shared/config_schema.ts"
+      );
+      const { operationalAgentSurfaces } = await import(
+        "./agent_surface_contracts.ts"
+      );
+      return (await operationalAgentSurfaces(
+        repoRoot,
+        await loadConfig(repoRoot),
+      )).map((surface) => surface.id);
+    },
+  },
+  {
     id: "agent-providers",
     title: "Agent providers",
     what:

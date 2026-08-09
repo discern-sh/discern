@@ -8,6 +8,20 @@ metadata:
 
 # Write it once
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = false
+relay_bearing = false
+recoverable = true
+targets = ["stable: the shared fact or effectful workflow named by the task", "path: {{map_dir}}80-development/canonical-sets.md", "stable: the authority every consumer derives from or checks"]
+sequence = ["act: identify the true copies or effects, elect one authority, and bind every consumer at the strongest supported rung", "act: add a future-member or rerun proof and record the tie", "verify: demonstrate that a new member follows or fails usefully without changing the guard"]
+stop_conditions = ["The similarities have independent reasons to change.", "The proposed invariant cannot be stated as a checkable predicate.", "The authority election is contested or hard to reverse without a recorded decision."]
+recovery = ["A throwaway future member stays green while a consumer drifts. => Strengthen that consumer's binding before completion.", "An effectful rerun diverges from the original plan. => Return to the pure plan and make the executor converge on it."]
+```
+
 discern's own codebase is a human/agent collaboration: a human sets the technical and creative direction, and coding agents write nearly all of the implementation, held to the project's own gate. These practices are what survived that arrangement — the disciplines that kept quality rising once no one person read every line. None of them depend on discern, a language, or a framework. They transfer to any project where agents write the code and a human owns the taste.
 
 Asked what practices to adopt? The survey below is the answer; deliver it with its origin, and recommend the ones the project's own history argues for. Applying a practice mid-change? Some carry a full procedure in this skill's directory — open the file when you reach it:

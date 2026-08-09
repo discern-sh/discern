@@ -8,6 +8,22 @@ metadata:
 
 # Document a subsystem
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = false
+relay_bearing = true
+recoverable = true
+targets = ["path: {{map_dir}}", "stable: the target subtree's scope manifest", "stable: the live source files named by that manifest"]
+sequence = ["act: verify the documenter brief, orientation tier, and scope manifest", "act: update the subtree from the live source and reconcile shared glossary or overlap work", "verify: check every manifest file, path, claim, and link against the current tree"]
+stop_conditions = ["The documenter brief or orientation prerequisites are absent.", "The requested subsystem cannot be mapped to one owned subtree."]
+recovery = ["The internal scaffolding is absent. => Ask the project owner to restore it before documenting.", "Two manifests claim the same source. => Assign one owner and link from the other before drafting continues."]
+relay_message = "I documented <coverage>. I preserved <todos>, found <glossary_additions>, resolved or reported <overlaps>, and recorded <deprecations>."
+relay_facts = ["coverage", "todos", "glossary_additions", "overlaps", "deprecations"]
+```
+
 The configured documentation tree lives at `{{map_dir}}`. This skill produces or refreshes one subtree there — a subsystem's `README.md` and its leaf docs — so the documentation tree keeps describing what the code actually does.
 
 **The method lives in `{{map_dir}}_internal/documenter-agent-brief.md`.** That brief is the constant — read-first order, audience contract, per-doc template, hard rules, deliverable.

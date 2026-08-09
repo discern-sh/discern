@@ -10,6 +10,20 @@ metadata:
 
 # discern agent voice
 
+## Operational contract
+
+```toml
+effectful = true
+cross_worktree = false
+authority_sensitive = false
+relay_bearing = false
+recoverable = true
+targets = ["stable: the named agent-facing surface and its live workflow contract", "stable: the canonical glossary and applicable authority rules"]
+sequence = ["act: declare operational or public mode and draft or review the named surface", "verify: apply the matching acceptance criteria against the live workflow contract"]
+stop_conditions = ["The runtime assumptions, working root, authority, or stop condition cannot be established."]
+recovery = ["A correctness-critical contract fact is unavailable. => Name the missing fact and stop the affected instruction."]
+```
+
 ## Mission
 
 Give an intelligent machine the information, structure, and boundaries required to act correctly with minimal wasted context.
@@ -77,11 +91,14 @@ Before drafting, write:
 Mode: operational | public
 Agent/runtime assumptions:
 Available tools:
-Working root or path rules:
-Authority available:
+Targets (root, path, or stable identifier):
+Effectful / cross-worktree / authority-sensitive / relay-bearing / recoverable:
 Desired action or understanding:
-Stop condition:
-Relay obligation:
+Ordered action and verification sequence:
+Stop conditions:
+Failure recovery:
+Authority and re-verification command:
+Ready-to-relay message and required facts:
 Context budget:
 ```
 
@@ -347,14 +364,14 @@ Avoid marketing headlines without explanatory context.
 - Write the product name as **discern**, lower-case in every position, including at the start of a sentence.
 - Use exact commands and argument names.
 - Use code formatting for paths, refs, fields, commands, and identifiers.
-- Prefer stable targets over positional references such as “the file above.”
+- Use a stable path, heading, anchor, or identifier for every external reference.
 - State whether a command is read-only, mutating, idempotent, or destructive.
 - Name the working root on every cross-worktree operation.
 - Name the exact tree or commit when evidence is involved.
 - State whether evidence is current, stale, missing, or unavailable.
 - Use “human” or “owner” only where the product contract requires it; public agent copy may prefer “the person responsible for the project.”
 - Do not ask the agent to self-certify model capability, authority, or completion where external evidence is required.
-- Do not say “use your best judgment” where a real boundary can be stated.
+- State the real boundary whenever one can be stated; do not defer that decision to the agent.
 
 ## Mechanics
 

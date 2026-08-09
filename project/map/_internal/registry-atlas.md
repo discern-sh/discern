@@ -36,6 +36,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`config-tables`](#config-tables--config-tables)                                                                      | `src/shared/config_schema.ts#configSchema`                                        | 15      | —                | surface `config`            |
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
+| [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                               | `scripts/agent_surface_contracts.ts#operationalAgentSurfaces`                     | 13      | —                | —                           |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
 | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
@@ -71,7 +72,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 256     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 257     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -83,9 +84,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 72      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 73      | —                | node `canonical-sets`       |
 
-72 sets · 105 guard tests · 51 committed artifacts.
+73 sets · 106 guard tests · 51 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -100,6 +101,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/agent_integration_coverage_codegen_test.ts` | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `tests/agent_surface_contracts_test.ts`            | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                           |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -738,6 +740,29 @@ The Skills the binary ships and materializes into a project.
 - Guards: `tests/skill_name_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/guidance_corpus_guard_test.ts`
 - Glossary: the "Skill" entry carries the concept
 - Feature canon: claimed as the `skill` surface set
+
+## `operational-agent-surfaces` — Operational agent surfaces
+
+The effective Skills and setup briefs that must declare an operational contract and pass the generated agent-copy lexical rules.
+
+- Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
+- Members: 13
+  - `setup:instructions`
+  - `skill:discern-agent-voice`
+  - `skill:discern-await-the-fleet`
+  - `skill:discern-brand-voice`
+  - `skill:discern-clear-the-decks`
+  - `skill:discern-cure-a-bug`
+  - `skill:discern-delegate-work`
+  - `skill:discern-document-subsystem`
+  - `skill:discern-product-voice`
+  - `skill:discern-set-the-standard`
+  - `skill:discern-teach-the-project`
+  - `skill:discern-write-adr`
+  - `skill:discern-write-it-once`
+- Guards: `tests/agent_surface_contracts_test.ts`
+- Glossary: not enrolled — the Skill and setup references define these existing agent-copy surfaces
+- Feature canon: not enrolled — the Skill and setup nodes describe the product behavior this maintainer-only corpus guard holds
 
 ## `agent-providers` — Agent providers
 
@@ -1788,7 +1813,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 256
+- Members: 257
   - `0003`
   - `0005`
   - `0006`
@@ -2027,6 +2052,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0263`
   - `0264`
   - `0265`
+  - `0266`
   - `0001`
   - `0002`
   - `0004`
@@ -2287,7 +2313,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 72
+- Members: 73
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2312,6 +2338,7 @@ This meta-registry: the closed set of closed sets.
   - `config-tables`
   - `source-paths`
   - `bundled-skills`
+  - `operational-agent-surfaces`
   - `agent-providers`
   - `cross-agent-behaviours`
   - `agent-integration-seams`
