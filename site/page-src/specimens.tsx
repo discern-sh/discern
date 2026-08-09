@@ -271,6 +271,174 @@ function DelegationWavePlan() {
   );
 }
 
+/** Staged commissioning narrative from repository study to a fresh worktree probe. */
+function CommissioningTimeline() {
+  return (
+    <DataFigure
+      className="commissioning-figure"
+      eyebrow="Commissioning timeline · staged setup"
+      title="From repository study to inherited practice"
+      legend={[
+        { label: "study and intent", tone: "ink" },
+        { label: "authored change", tone: "accent" },
+        { label: "structural proof", tone: "success" },
+      ]}
+      visual={
+        <div className="commissioning-plan">
+          <div className="commissioning-branch">
+            <div>
+              <span>Working boundary</span>
+              <strong>Isolated setup branch</strong>
+            </div>
+            <Badge tone="neutral">reviewable</Badge>
+            <Badge tone="neutral">reversible</Badge>
+          </div>
+
+          <ol className="commissioning-stages">
+            <li>
+              <span className="commissioning-stages__marker">01</span>
+              <div className="commissioning-stages__body">
+                <header>
+                  <div>
+                    <span>Study</span>
+                    <h4>Read the repository before prescribing a practice</h4>
+                  </div>
+                  <Badge tone="neutral">read-only</Badge>
+                </header>
+                <p>
+                  Stack, existing checks, conventions, risks, and the shape of
+                  work already present.
+                </p>
+                <small>Output · repository study</small>
+              </div>
+            </li>
+            <li>
+              <span className="commissioning-stages__marker">02</span>
+              <div className="commissioning-stages__body">
+                <header>
+                  <div>
+                    <span>Ask</span>
+                    <h4>Resolve the intent the code cannot reveal</h4>
+                  </div>
+                  <Badge tone="neutral">one batch</Badge>
+                </header>
+                <p>
+                  A concise set of human decisions closes the gaps left by
+                  repository evidence.
+                </p>
+                <small>Output · commissioning decisions</small>
+              </div>
+            </li>
+            <li>
+              <span className="commissioning-stages__marker">03</span>
+              <div className="commissioning-stages__body commissioning-stages__body--authored">
+                <header>
+                  <div>
+                    <span>Wire</span>
+                    <h4>Connect the project’s real checks</h4>
+                  </div>
+                  <Badge tone="accent">commit</Badge>
+                </header>
+                <p>
+                  Existing tools are wired. Missing conventional tools are
+                  proposed before installation.
+                </p>
+                <small>
+                  Example subject · <code>Wire the project’s real checks</code>
+                </small>
+              </div>
+            </li>
+            <li>
+              <span className="commissioning-stages__marker">04</span>
+              <div className="commissioning-stages__body commissioning-stages__body--authored">
+                <header>
+                  <div>
+                    <span>Author</span>
+                    <h4>Record principles, guidance, and the Map</h4>
+                  </div>
+                  <Badge tone="accent">commit</Badge>
+                </header>
+                <p>
+                  The project gains durable instructions and knowledge that
+                  future agents can inherit.
+                </p>
+                <small>
+                  Example subject · <code>Author the project practice</code>
+                </small>
+              </div>
+            </li>
+            <li>
+              <span className="commissioning-stages__marker">05</span>
+              <div className="commissioning-stages__body commissioning-stages__body--proof">
+                <header>
+                  <div>
+                    <span>Verify</span>
+                    <h4>Run structural checks and the full Gate</h4>
+                  </div>
+                  <Badge tone="success" dot>checked</Badge>
+                </header>
+                <p>
+                  <code>discern refresh</code>,{" "}
+                  <code>discern doctor</code>, and the configured Gate test the
+                  reviewable setup tree.
+                </p>
+                <small>Output · clean committed setup tree</small>
+              </div>
+            </li>
+            <li>
+              <span className="commissioning-stages__marker commissioning-stages__marker--final">
+                06
+              </span>
+              <div className="commissioning-stages__body commissioning-stages__body--probe">
+                <header>
+                  <div>
+                    <span>Probe</span>
+                    <h4>Prove inheritance in a fresh worktree</h4>
+                  </div>
+                  <Badge tone="success" dot>practice live</Badge>
+                </header>
+                <p>
+                  A throwaway worktree verifies that guidance, checks,
+                  resources, and working conditions arrive outside the setup
+                  branch.
+                </p>
+                <small>Output · fresh-worktree probe passed</small>
+              </div>
+            </li>
+          </ol>
+
+          <div className="commissioning-boundaries">
+            <div>
+              <span>01</span>
+              <p>
+                <strong>Consent stays visible.</strong>{" "}
+                Missing dependencies are proposed before they are installed.
+              </p>
+            </div>
+            <div>
+              <span>02</span>
+              <p>
+                <strong>The change stays inspectable.</strong>{" "}
+                Setup remains a branch the owner can review or decline.
+              </p>
+            </div>
+            <div>
+              <span>03</span>
+              <p>
+                <strong>The probe closes the loop.</strong>{" "}
+                Success means the practice survives a fresh checkout.
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+      caption="Commissioning is agent-led work with explicit human decisions: study first, author in an isolated branch, verify the tree, then prove the result where future work begins."
+      source="Amended website brief, commissioning section, 9 August 2026. Example commit subjects are illustrative and carry no fabricated hashes."
+      surface="sunken"
+    />
+  );
+}
+
 /** Static development page that lets the owner judge every artefact in both themes. */
 function SpecimenPreview() {
   return (
@@ -302,6 +470,7 @@ function SpecimenPreview() {
           </p>
           <nav aria-label="Specimens on this page">
             <a href="#delegation">01 · Delegation</a>
+            <a href="#commissioning">02 · Commissioning</a>
           </nav>
         </header>
 
@@ -317,6 +486,19 @@ function SpecimenPreview() {
             </>
           }
           render={() => <DelegationWavePlan />}
+        />
+
+        <SpecimenSection
+          id="commissioning"
+          index="02 / 04"
+          title="A commissioning timeline"
+          introduction={
+            <>
+              Setup as an inspectable sequence of study, human intent, authored
+              change, structural checks, and the final fresh-worktree probe.
+            </>
+          }
+          render={() => <CommissioningTimeline />}
         />
       </main>
       <footer className="specimen-footer">
