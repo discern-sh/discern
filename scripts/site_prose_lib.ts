@@ -32,6 +32,7 @@ const BLOCK_SELECTOR = [
   "td",
   "a",
   "button",
+  ".discern-site-footer__description",
 ].join(",");
 const CONTAINER_BLOCK_SELECTOR = [
   "h1",

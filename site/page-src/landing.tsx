@@ -14,12 +14,7 @@ import { providerBrandSilhouette, PROVIDERS } from "../../src/lib/providers.ts";
 import { AGENT_NAMES } from "../../src/shared/agent_catalogue.ts";
 import { DISCERN_MARK, LANDING_DESCRIPTION, LANDING_TITLE } from "../brand.ts";
 import { pageDocument } from "./document.ts";
-import {
-  CommissioningTimeline,
-  DelegationWavePlan,
-  ProofSpecimen,
-  StandardTrajectory,
-} from "./specimens.tsx";
+import { CompactStandardTrajectory } from "./specimens.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
 const LICENSE = `${GITHUB}/blob/main/LICENSE`;
@@ -147,9 +142,6 @@ function LandingHero() {
             the understanding, working conditions, and evidence you need to take
             it further.
           </p>
-          <p className="landing-hero__category">
-            An engineering practice for agent-built software.
-          </p>
         </div>
         <aside className="landing-hero__action" aria-label="Begin with discern">
           <div className="landing-hero__invitation">
@@ -168,6 +160,11 @@ function LandingHero() {
           </p>
         </aside>
       </div>
+      <LogoCloud
+        className="landing-integrations"
+        aria-label={`${PROVIDER_LOGOS.length} supported coding agent providers`}
+        items={PROVIDER_LOGOS}
+      />
     </header>
   );
 }
@@ -203,7 +200,7 @@ function LandingPage() {
           heading="Agent capability changed the size of the possible."
           className="landing-section--moment"
         >
-          <div className="landing-prose landing-prose--lead">
+          <div className="landing-prose landing-prose--wide">
             <p>
               Coding agents have opened software to more people and expanded
               what experienced engineers can direct. Work that once needed a
@@ -216,7 +213,7 @@ function LandingPage() {
               and review it. A larger ambition needs more of the way of working
               to stay with the project.
             </p>
-            <div className="landing-section__action landing-section__action--center">
+            <div className="landing-section__action">
               <Button href="#delegation" variant="secondary">
                 See a backlog become a plan
               </Button>
@@ -282,17 +279,9 @@ function LandingPage() {
             </div>
           </dl>
           <div className="landing-section__action">
-            <Button href="#delegation-plan" variant="secondary">
+            <Button href="/docs/worktrees/team-workflow" variant="secondary">
               See how several agents work together
             </Button>
-          </div>
-          <div
-            id="delegation-plan"
-            className="landing-artefact landing-artefact--delegation"
-            data-site-prose-exclude
-            tabIndex={-1}
-          >
-            <DelegationWavePlan />
           </div>
         </LandingSection>
 
@@ -322,6 +311,8 @@ function LandingPage() {
                 effort; it does not become a manual configuration project for
                 you.
               </p>
+            </div>
+            <div className="landing-commissioning-summary">
               <p className="landing-prose__declaration">
                 A serious engineering practice, installed in your project.
               </p>
@@ -332,17 +323,12 @@ function LandingPage() {
                 <li>Prove the practice in a fresh worktree</li>
                 <li>Give future agents the same starting point</li>
               </ol>
-              <Button href="#commissioning-timeline" variant="secondary">
+              <Button
+                href="/docs/getting-started/walkthrough"
+                variant="secondary"
+              >
                 Watch a project get commissioned
               </Button>
-            </div>
-            <div
-              id="commissioning-timeline"
-              className="landing-artefact landing-artefact--commissioning"
-              data-site-prose-exclude
-              tabIndex={-1}
-            >
-              <CommissioningTimeline />
             </div>
           </div>
         </LandingSection>
@@ -389,7 +375,7 @@ function LandingPage() {
               className="landing-artefact landing-artefact--standard"
               data-site-prose-exclude
             >
-              <StandardTrajectory />
+              <CompactStandardTrajectory />
             </div>
           </div>
         </LandingSection>
@@ -435,12 +421,6 @@ function LandingPage() {
             <Button href="/docs" variant="secondary">
               Explore the engineering practice
             </Button>
-          </div>
-          <div
-            className="landing-artefact landing-artefact--proof"
-            data-site-prose-exclude
-          >
-            <ProofSpecimen />
           </div>
         </LandingSection>
 
@@ -505,11 +485,6 @@ function LandingPage() {
               continuity comes from the practice the project retains.
             </p>
           </div>
-          <LogoCloud
-            className="landing-integrations"
-            aria-label={`${PROVIDER_LOGOS.length} supported coding agent providers`}
-            items={PROVIDER_LOGOS}
-          />
           <div className="landing-machine">
             <div>
               <h3>Built around the machine doing the work.</h3>

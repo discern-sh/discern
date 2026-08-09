@@ -29,11 +29,11 @@ When a package defect affects discern, release the fix from the package reposito
 | Bundle         | Routes                      | Selection                                              | Optional assets |
 | -------------- | --------------------------- | ------------------------------------------------------ | --------------- |
 | `docs`         | `/docs` and its descendants | Docs, shared chrome, and the 6 rendered Workflow roots | fonts           |
-| `compositions` | `/`                         | Marketing, Editorial, and shared display parts         | fonts and grain |
+| `compositions` | `/`                         | Marketing, Editorial, and shared display parts         | fonts           |
 
 The table also owns the discern theme choice and emitted public directories. [`site/build.ts`](../../../site/build.ts) passes each selection to the public `./runtime` emitter. The package resolves transitive component dependencies and writes deterministic CSS, selection-scoped browser scripts, a manifest, and the requested assets. The discern integration reads those outputs instead of copying the package manifest, tokens, dependency graph, CSS, behavior source, or adapters.
 
-The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The homepage loads the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts. Only the compositions bundle selects grain, and the docs bundle neither emits nor loads it. Generated output stays ignored beneath `site/pages/assets/design-system/`.
+The docs shell loads its smaller bundle from `/assets/design-system/docs/`, including the emitted `discern.js` that promotes Glossary term's Hover card panels above clipping ancestors. The homepage loads the full selected bundle from `/assets/design-system/compositions/`. That selection currently emits no package browser script. Both bundles select fonts; neither selects the optional grain asset. Generated output stays ignored beneath `site/pages/assets/design-system/`.
 
 The docs bundle selects the `Docs` group plus the shared `icon`, `icon-button`, `theme-toggle`, `brand`, `divider`, `heading`, `kicker`, `table`, `breadcrumbs`, and `table-of-contents` components. Its explicit Workflow roots are `procedure`, `command`, `result-summary`, `path-reference`, `ownership-badge`, and `branch-choice`; the package adds their dependencies in manifest order. A selected Workflow root must appear on a real manual journey, and a rendered root must resolve into this bundle.
 

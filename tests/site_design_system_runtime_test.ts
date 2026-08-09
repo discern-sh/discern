@@ -120,6 +120,68 @@ function cssRuleBody(css: string, selector: string): string {
   return css.slice(bodyStart, end);
 }
 
+interface PageCssRule {
+  readonly body: string;
+  readonly selector: string;
+}
+
+/** Parse flat page-owned rules, including rules nested inside media queries. */
+function pageCssRules(css: string): PageCssRule[] {
+  const rules: PageCssRule[] = [];
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectorText = match[1];
+    const body = match[2];
+    if (selectorText === undefined || body === undefined) continue;
+    for (const selector of selectorText.split(",")) {
+      const normalized = selector.trim().replace(/\s+/g, " ");
+      if (normalized === "" || normalized.startsWith("@")) continue;
+      rules.push({ selector: normalized, body });
+    }
+  }
+  return rules;
+}
+
+/** Find responsive grids that reuse a viewport-scaled shorthand gap on both axes. */
+function fluidGridShorthandSelectors(css: string): string[] {
+  return pageCssRules(css).flatMap(({ selector, body }) =>
+    body.includes("grid-template-columns") &&
+      /(?:^|;)\s*gap\s*:[^;]*vw/.test(body)
+      ? [selector]
+      : []
+  );
+}
+
+/** Find counters that indent a lone heading away from the content below it. */
+function offsetDecoratedHeadingSelectors(
+  css: string,
+  root: ParentNode,
+): string[] {
+  const declarations = new Map<string, string>();
+  for (const { selector, body } of pageCssRules(css)) {
+    declarations.set(selector, `${declarations.get(selector) ?? ""}\n${body}`);
+  }
+
+  const decorated = new Set<string>();
+  for (const [selector, body] of declarations) {
+    for (const suffix of ["::before", "::after"] as const) {
+      if (selector.endsWith(suffix) && body.includes("content:")) {
+        decorated.add(selector.slice(0, -suffix.length));
+      }
+    }
+  }
+
+  return [...decorated].filter((selector) => {
+    const body = declarations.get(selector) ?? "";
+    if (
+      !body.includes("display: grid") ||
+      !body.includes("grid-template-columns")
+    ) return false;
+    return [...root.querySelectorAll(selector)].some((element) =>
+      element.children.length === 1 && element.nextElementSibling !== null
+    );
+  });
+}
+
 /** Find homepage navigation actions whose idle state has no visible boundary. */
 function transparentNavigationActions(root: ParentNode): string[] {
   return [...root.querySelectorAll("a.discern-button--ghost")].map((action) =>
@@ -366,7 +428,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const body = dom.window.document.body;
   const text = body.textContent ?? "";
 
-  // The first screen carries the committed ambition, audience, and category.
+  // The first screen carries the committed ambition, audience, and action.
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
@@ -376,9 +438,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     text,
     "discern is for people who take their software seriously.",
   );
-  assertStringIncludes(
-    text,
-    "An engineering practice for agent-built software.",
+  assertEquals(
+    (body.querySelector(".landing-hero")?.textContent ?? "").includes(
+      "An engineering practice for agent-built software.",
+    ),
+    false,
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
 
@@ -417,7 +481,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     assertEquals(text.includes(retired), false, retired);
   }
 
-  // The masthead and all four wave-2 specimens use published components.
+  // The masthead and the deliberately compact homepage evidence use published components.
   const masthead = body.querySelector(".landing-masthead");
   const mastheadInner = masthead?.querySelector(".landing-masthead__inner");
   assert(mastheadInner !== null && mastheadInner !== undefined);
@@ -444,7 +508,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     invitation.querySelector("h2 + p")?.textContent?.trim(),
     "Copy the setup prompt into the conversation.",
   );
-  assertEquals(body.querySelectorAll(".discern-data-figure").length, 4);
+  const integrations = hero.querySelector(".landing-integrations");
+  assert(integrations !== null);
+  assertEquals(body.querySelector("#agents .landing-integrations"), null);
+  assertEquals(body.querySelectorAll(".discern-data-figure").length, 0);
   for (
     const selector of [
       ".delegation-figure",
@@ -453,8 +520,78 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
       ".proof-figure",
     ]
   ) {
-    assert(body.querySelector(selector) !== null, selector);
+    assertEquals(body.querySelector(selector), null, selector);
   }
+  const compactStandard = body.querySelector(".standard-trajectory--compact");
+  assert(compactStandard !== null);
+  assertEquals(
+    compactStandard.querySelectorAll(".standard-trajectory__summary > div")
+      .length,
+    2,
+  );
+  assert(compactStandard.querySelector(".standard-chart") !== null);
+  for (
+    const selector of [
+      ".standard-trajectory__status",
+      ".standard-data",
+      ".standard-annotations",
+      ".standard-caveat",
+    ]
+  ) assertEquals(compactStandard.querySelector(selector), null, selector);
+  for (
+    const retiredHomepageArtefact of [
+      "Open the project to beta users",
+      "Proof for the homepage brief amendment",
+      "Project setup · step by step",
+    ]
+  ) assertEquals(text.includes(retiredHomepageArtefact), false);
+
+  const possibility = body.querySelector("#possibility");
+  assert(possibility !== null);
+  const possibilityProse = possibility.querySelector(
+    ".landing-prose.landing-prose--wide",
+  );
+  assert(possibilityProse !== null);
+  assertEquals(possibility.querySelector(".landing-prose--lead"), null);
+  assertEquals(possibilityProse.querySelectorAll(":scope > p").length, 2);
+  assert(
+    possibilityProse.querySelector(":scope > .landing-section__action") !==
+      null,
+  );
+
+  const commissioning = body.querySelector("#commissioning .landing-split");
+  assert(commissioning !== null);
+  const commissioningProse = commissioning.querySelector(
+    ":scope > .landing-prose",
+  );
+  const commissioningSummary = commissioning.querySelector(
+    ":scope > .landing-commissioning-summary",
+  );
+  assert(commissioningProse !== null);
+  assert(commissioningSummary !== null);
+  assertEquals(
+    commissioningProse.querySelector(".landing-prose__declaration"),
+    null,
+  );
+  assert(
+    commissioningSummary.querySelector(".landing-prose__declaration") !==
+      null,
+  );
+  assertEquals(
+    commissioningSummary.querySelectorAll(".landing-sequence-labels > li")
+      .length,
+    5,
+  );
+  assertEquals(
+    commissioningSummary.querySelector("a")?.getAttribute("href"),
+    "/docs/getting-started/walkthrough",
+  );
+  assertEquals(
+    body.querySelector("#delegation .landing-section__action a")?.getAttribute(
+      "href",
+    ),
+    "/docs/worktrees/team-workflow",
+  );
   assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 3);
   assertEquals(
     [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
@@ -478,9 +615,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
 
   // Provider labels and artwork remain derived from the canonical catalogue.
-  const integrationItems = [
-    ...body.querySelectorAll(".landing-integrations li"),
-  ];
+  const integrationItems = [...integrations.querySelectorAll("li")];
   const integrationImages = integrationItems.map((item) =>
     item.querySelector("img")
   );
@@ -518,7 +653,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const backlogAction = [...body.querySelectorAll("a.discern-button")].find(
     (action) => action.textContent?.trim() === "See a backlog become a plan",
   );
-  assert(backlogAction?.closest(".landing-section__action--center") !== null);
+  assertEquals(
+    backlogAction?.closest(".landing-prose--wide"),
+    possibilityProse,
+  );
 
   // Page-owned behavior is one local script; the browser receives no React.
   assertStringIncludes(
@@ -561,8 +699,22 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     false,
   );
   const integrationsRule = cssRuleBody(landingCss, ".landing-integrations");
-  assertStringIncludes(integrationsRule, "width: 100%;");
-  assertStringIncludes(integrationsRule, "margin-inline: 0;");
+  assertStringIncludes(
+    integrationsRule,
+    "width: min(100% - 2 * var(--discern-space-6), 86rem);",
+  );
+  assertStringIncludes(integrationsRule, "margin-inline: auto;");
+  assertEquals(integrationsRule.includes("border-block"), false);
+  const heroGridRule = cssRuleBody(landingCss, ".landing-hero__inner");
+  assertStringIncludes(
+    heroGridRule,
+    "grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);",
+  );
+  assertStringIncludes(heroGridRule, "column-gap:");
+  assertStringIncludes(heroGridRule, "row-gap:");
+  assertEquals(/(?:^|;)\s*gap\s*:/.test(heroGridRule), false);
+  assertEquals(fluidGridShorthandSelectors(landingCss), []);
+  assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
   const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
   assertStringIncludes(heroGlowRule, "radial-gradient(circle in oklab,");
   assertStringIncludes(heroGlowRule, "var(--discern-color-canvas) 72%);");
@@ -570,11 +722,6 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertEquals(heroGlowRule.includes("filter:"), false);
   assertEquals(heroGlowRule.includes("opacity:"), false);
   assertEquals(landingCss.includes("textures/grain.png"), false);
-  const centeredActionRule = cssRuleBody(
-    landingCss,
-    ".landing-section__action--center",
-  );
-  assertStringIncludes(centeredActionRule, "justify-content: center;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
   assertStringIncludes(
@@ -622,6 +769,40 @@ Deno.test("the homepage CTA detector enrolls an unrelated future action", () => 
   assertEquals(transparentNavigationActions(synthetic.window.document), [
     "Fresh action",
   ]);
+  synthetic.window.close();
+});
+
+Deno.test("homepage layout detectors enroll unrelated future structures", () => {
+  assertEquals(
+    fluidGridShorthandSelectors(`
+      .fresh-split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: clamp(2rem, 7vw, 7rem);
+      }
+    `),
+    [".fresh-split"],
+  );
+
+  const synthetic = new JSDOM(`
+    <section>
+      <header class="fresh-numbered-heading"><h2>Fresh heading</h2></header>
+      <p>Aligned content</p>
+    </section>
+  `);
+  assertEquals(
+    offsetDecoratedHeadingSelectors(
+      `
+      .fresh-numbered-heading {
+        display: grid;
+        grid-template-columns: 4rem minmax(0, 1fr);
+      }
+      .fresh-numbered-heading::before { content: "01"; }
+    `,
+      synthetic.window.document,
+    ),
+    [".fresh-numbered-heading"],
+  );
   synthetic.window.close();
 });
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {
