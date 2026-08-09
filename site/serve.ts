@@ -36,6 +36,7 @@ import {
   STATIC_REDIRECTS,
 } from "./seo.ts";
 import { SECURITY_DISCLOSURE, securityTxt } from "./security.ts";
+import { MARKETING_PAGES } from "./marketing_pages.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
@@ -48,9 +49,12 @@ const PUBLIC_SCHEMA_ROUTES: ReadonlyMap<string, string> = new Map(
 /** Routes with a page. `negotiable` routes serve the plaintext edition to text clients. */
 export const PAGES: Readonly<
   Record<string, { page: string; negotiable: boolean }>
-> = {
-  "/": { page: "pages/index.html", negotiable: true },
-};
+> = Object.fromEntries(
+  MARKETING_PAGES.map(({ route, page, negotiable }) => [
+    route,
+    { page, negotiable },
+  ]),
+);
 
 /** The plaintext edition: served to text clients on negotiable routes and at /llms.txt. */
 export const TEXT_EDITION = "text/discern.txt";

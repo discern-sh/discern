@@ -17,20 +17,23 @@ import {
 import { renderDiscernBrand } from "./page-src/branding.tsx";
 import { formatGeneratedText } from "./page-src/format-generated.ts";
 import { renderLanding } from "./page-src/landing.tsx";
+import { MARKETING_PAGES, type MarketingPageRoute } from "./marketing_pages.ts";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const SOURCE_ROOT = new URL("page-src/", SITE_ROOT);
 
 /** Public files produced by the site build and therefore forbidden from Git. */
 export const GENERATED_SITE_OUTPUTS = [
-  "pages/index.html",
+  ...MARKETING_PAGES.map(({ page }) => page),
   "pages/assets/design-system/",
   "pages/fragments/",
 ] as const;
 
 /** Page-owned assets copied verbatim into the compositions bundle. */
 export const COPIED_PAGE_ASSETS = [
+  "specimens.css",
   "landing.css",
+  "landing.js",
 ] as const;
 
 /** Old generated pages removed on every build so local previews cannot retain them. */
@@ -40,14 +43,24 @@ export const RETIRED_SITE_OUTPUTS = [
   "pages/v2.html",
 ] as const;
 
-const HOME_PAGE_OUTPUT = new URL(GENERATED_SITE_OUTPUTS[0], SITE_ROOT);
-const ASSET_ROOT = new URL(GENERATED_SITE_OUTPUTS[1], SITE_ROOT);
-const FRAGMENT_ROOT = new URL(GENERATED_SITE_OUTPUTS[2], SITE_ROOT);
+const ASSET_ROOT = new URL("pages/assets/design-system/", SITE_ROOT);
+const FRAGMENT_ROOT = new URL("pages/fragments/", SITE_ROOT);
 const BRAND_FRAGMENT_OUTPUT = new URL("brand.html", FRAGMENT_ROOT);
 const COMPOSITION_ASSET_ROOT = new URL(
   DESIGN_SYSTEM_BUNDLES.compositions.output,
   SITE_ROOT,
 );
+
+const MARKETING_PAGE_RENDERERS: Readonly<
+  Record<MarketingPageRoute, () => string>
+> = {
+  "/": renderLanding,
+};
+
+/** Render one registry-owned marketing route from its authored source. */
+export function renderMarketingPage(route: MarketingPageRoute): string {
+  return MARKETING_PAGE_RENDERERS[route]();
+}
 
 /** Remove an output URL recursively while accepting a missing destination. */
 async function removeIfPresent(url: URL): Promise<void> {
@@ -95,10 +108,14 @@ export async function buildSite(): Promise<void> {
   for (const asset of COPIED_PAGE_ASSETS) {
     await writeGeneratedCopy(asset, asset);
   }
-  await Deno.writeTextFile(
-    HOME_PAGE_OUTPUT,
-    await formatGeneratedText(renderLanding(), "html"),
-  );
+  for (const page of MARKETING_PAGES) {
+    const output = new URL(page.page, SITE_ROOT);
+    await Deno.mkdir(new URL(".", output), { recursive: true });
+    await Deno.writeTextFile(
+      output,
+      await formatGeneratedText(renderMarketingPage(page.route), "html"),
+    );
+  }
   await Deno.writeTextFile(BRAND_FRAGMENT_OUTPUT, renderDiscernBrand());
 
   console.log(

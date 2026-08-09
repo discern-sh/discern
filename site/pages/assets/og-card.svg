@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
   <title id="title">discern</title>
-  <desc id="desc">Code got fast. Trust didn’t.</desc>
+  <desc id="desc">A bolder way to build.</desc>
   <rect width="1200" height="630" style="fill: oklch(20% 0.018 225)" />
   <text x="84" y="118" style="fill: oklch(93% 0.012 225)"
-    font-family="'Crimson Pro', Georgia, serif" font-size="46"
+    font-family="'JetBrains Mono', ui-monospace, monospace" font-size="42"
     font-weight="700">discern</text>
   <g transform="translate(1032 66)">
     <rect width="84" height="84" rx="20" style="fill: oklch(14.5% 0.018 225)"
@@ -16,16 +16,19 @@
         stroke-width="7" stroke-linejoin="round" />
     </g>
   </g>
-  <text x="80" y="330" style="fill: oklch(93% 0.012 225)"
+  <text x="80" y="328" style="fill: oklch(93% 0.012 225)"
     font-family="'Crimson Pro', Georgia, serif" font-size="118"
-    font-weight="650" letter-spacing="-2">Code got fast.</text>
-  <text x="80" y="452" style="fill: oklch(74% 0.14 259)"
+    font-weight="650" letter-spacing="-2">A bolder way</text>
+  <text x="80" y="450" style="fill: oklch(74% 0.14 259)"
     font-family="'Crimson Pro', Georgia, serif" font-size="118"
     font-weight="650" font-style="italic"
-    letter-spacing="-2">Trust didn’t.</text>
+    letter-spacing="-2">to build.</text>
   <path d="M84 528h1032" style="stroke: oklch(32% 0.025 225)"
     stroke-width="2" />
   <text x="84" y="576" style="fill: oklch(62% 0.02 225)"
     font-family="'JetBrains Mono', ui-monospace, monospace"
-    font-size="21">discern.sh · a quality harness for coding agents — and the humans who run them</text>
+    font-size="21">discern.sh</text>
+  <text x="222" y="576" style="fill: oklch(62% 0.02 225)"
+    font-family="Inter, system-ui, sans-serif"
+    font-size="21">· a quality harness for coding agents — and the humans who run them</text>
 </svg>

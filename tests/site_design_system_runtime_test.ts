@@ -20,7 +20,11 @@ import {
 } from "../site/design_system.ts";
 import { renderDiscernBrand } from "../site/page-src/branding.tsx";
 import { formatGeneratedText } from "../site/page-src/format-generated.ts";
-import { renderLanding } from "../site/page-src/landing.tsx";
+import {
+  COPY_PROMPT_TEXT,
+  INSTALL_COMMAND,
+  renderLanding,
+} from "../site/page-src/landing.tsx";
 import { handler } from "../site/serve.ts";
 import { providerBrandSilhouette, PROVIDERS } from "../src/lib/providers.ts";
 import { AGENT_NAMES } from "../src/shared/agent_catalogue.ts";
@@ -344,7 +348,7 @@ Deno.test("generated output is ignored and reproducible from its selections", as
   }
 });
 
-Deno.test("the public homepage presents engineering discipline for coding agents", async () => {
+Deno.test("the public homepage presents the complete signed-off launch sequence", async () => {
   assert(DESIGN_SYSTEM_BUNDLES.compositions.routes.includes("/"));
   const response = await handler(
     new Request("https://discern.sh/", { headers: BROWSER }),
@@ -355,98 +359,101 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   const body = dom.window.document.body;
   const text = body.textContent ?? "";
 
-  // The first screen names the product category and the operational change.
+  // The first screen carries the committed ambition, audience, and category.
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "Engineering discipline for coding agents",
+    "A bolder way to build.",
   );
-  assertStringIncludes(text, "same project knowledge");
-  assertStringIncludes(text, "separate worktrees");
-  assertStringIncludes(text, "requires proof");
-  assertEquals(text.includes("definition of done"), false);
+  assertStringIncludes(
+    text,
+    "discern is for people who take their software seriously.",
+  );
+  assertStringIncludes(
+    text,
+    "An engineering practice for agent-built software.",
+  );
+  assertStringIncludes(text, COPY_PROMPT_TEXT);
 
-  // The product introduction keeps the shared accessible page structure.
+  // The ten-part argument is one hero followed by the nine signed-off sections.
   assertEquals(body.querySelectorAll("main#main").length, 1);
-  const articleHeader = body.querySelector(".discern-article-header");
-  assert(articleHeader !== null);
   assert(body.querySelector(".discern-skip-link") !== null);
   assertEquals(body.querySelector(".discern-article-layout"), null);
+  assertEquals(body.querySelectorAll("main > .landing-section").length, 9);
+  assertEquals(
+    [...body.querySelectorAll("main > .landing-section h2")].map((heading) =>
+      heading.textContent?.trim()
+    ),
+    [
+      "Agent capability changed the size of the possible.",
+      "Turn a backlog into organized work.",
+      "Give future agents a better starting point.",
+      "Software worth putting your name to.",
+      "The practice stays with the work.",
+      "The practice starts from the experience you bring.",
+      "Change agents without starting the project over.",
+      "Confidence comes with clear boundaries.",
+      "Build further.",
+    ],
+  );
   for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
     assertEquals(text.includes(placeholder), false, placeholder);
   }
+  for (
+    const retired of [
+      "Engineering discipline",
+      "Runs offline",
+      "proves their work is correct before it ships",
+      "Discern makes AI coding agents",
+    ]
+  ) {
+    assertEquals(text.includes(retired), false, retired);
+  }
 
-  // The masthead, calls to action, logo cloud, and footer use their
-  // design-system contracts rather than page-owned approximations.
+  // The masthead and all four wave-2 specimens use published components.
   assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
   assert(
     body.querySelector(
       ".landing-masthead .discern-theme-toggle--quiet",
     ) !== null,
   );
-  assertEquals(body.querySelectorAll(".landing-brand-name").length, 2);
-  const actionCluster = body.querySelector(
-    ".discern-article-header__actions > .discern-cluster",
-  );
-  assert(actionCluster !== null);
+  assert(body.querySelectorAll(".landing-brand-name").length >= 2);
+  assertEquals(body.querySelectorAll(".discern-data-figure").length, 4);
+  for (
+    const selector of [
+      ".delegation-figure",
+      ".commissioning-figure",
+      ".standard-figure",
+      ".proof-figure",
+    ]
+  ) {
+    assert(body.querySelector(selector) !== null, selector);
+  }
+  assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 3);
   assertEquals(
-    actionCluster.getAttribute("style"),
-    "--discern-cluster-gap:var(--discern-space-4)",
-  );
-  const actions = [
-    ...actionCluster.querySelectorAll("a"),
-  ];
-  assertEquals(
-    actions.map((action) => action.textContent?.trim()),
-    ["Install discern", "Read the manual"],
+    [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
+      prompt.textContent?.trim()
+    ),
+    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
   );
   assertEquals(
-    actions.map((action) => action.getAttribute("href")),
-    ["/docs/getting-started/quickstart", "/docs"],
+    body.querySelector(".landing-install code")?.textContent,
+    INSTALL_COMMAND,
   );
   assertEquals(
+    [...body.querySelectorAll(".landing-masthead__nav > a")].map((link) => [
+      link.textContent?.trim(),
+      link.getAttribute("href"),
+    ]),
     [
-      ...body.querySelectorAll(".discern-article-header__meta li"),
-    ].map((item) => item.textContent?.trim()),
-    [
-      "Free and Fair Source",
-      "Runs offline",
-      "No API key",
-      "Not an AI",
+      ["Docs", "/docs"],
+      ["GitHub ↗", "https://github.com/jackwh/discern"],
     ],
   );
 
-  const control = body.querySelector(".landing-control");
-  assertEquals(control, null);
-  assertEquals(
-    text.includes("Your project decides when work is finished."),
-    false,
-  );
-  const landingSource = await Deno.readTextFile(
-    join(ROOT, "site/page-src/landing.tsx"),
-  );
-  const controlSourceIndex = landingSource.indexOf(
-    'className="landing-control"',
-  );
-  const commentStart = landingSource.lastIndexOf("/*", controlSourceIndex);
-  const commentEnd = landingSource.indexOf("*/", controlSourceIndex);
-  const commentPrefix = landingSource.slice(0, commentStart).trimEnd();
-  const commentSuffix = landingSource.slice(commentEnd + 2).trimStart();
-  assert(
-    commentStart >= 0 &&
-      controlSourceIndex > commentStart &&
-      commentEnd > controlSourceIndex &&
-      commentPrefix.endsWith("{") &&
-      commentSuffix.startsWith("}"),
-    "the hidden control section must remain in a JSX comment for review",
-  );
-  assertStringIncludes(
-    landingSource.slice(commentStart, commentEnd),
-    "Your project decides when work is finished.",
-  );
-
+  // Provider labels and artwork remain derived from the canonical catalogue.
   const integrationItems = [
-    ...body.querySelectorAll(".discern-logo-cloud li"),
+    ...body.querySelectorAll(".landing-integrations li"),
   ];
   const integrationImages = integrationItems.map((item) =>
     item.querySelector("img")
@@ -478,76 +485,37 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     ),
   );
   assertEquals(
-    body.querySelector(".discern-logo-cloud")?.getAttribute("aria-label"),
-    `${AGENT_NAMES.length} native coding agent integrations`,
+    body.querySelector(".landing-integrations")?.getAttribute("aria-label"),
+    `${AGENT_NAMES.length} supported coding agent providers`,
   );
-  const integrationCloud = body.querySelector(".discern-logo-cloud");
-  assert(integrationCloud !== null);
-  assertEquals(
-    [...articleHeader.children].map((child) => child.className),
-    [
-      "discern-article-header__inner",
-      "discern-logo-cloud discern-logo-cloud--center landing-integrations",
-    ],
+
+  // Page-owned behavior is one local script; the browser receives no React.
+  assertStringIncludes(
+    html,
+    'src="/assets/design-system/compositions/landing.js"',
   );
-  assertEquals(
-    integrationCloud.querySelector(".discern-logo-cloud__label"),
-    null,
-  );
-  assertEquals(text.includes("Native coding agent integrations"), false);
-  assertEquals(articleHeader.nextElementSibling, null);
-  const main = body.querySelector("main#main");
-  assert(main !== null);
-  assertEquals(main.children.length, 1);
-  assertEquals(main.firstElementChild, articleHeader);
-  assertEquals(
-    body.querySelector(".landing-benefit, .landing-footprint"),
-    null,
-  );
-  assertEquals(html.includes("landing.js"), false);
   const footer = body.querySelector(".discern-site-footer");
   assert(footer !== null);
-  assertEquals(main.nextElementSibling, footer);
-  assertEquals(
-    body.querySelectorAll(".discern-site-footer__nav > div").length,
-    2,
-  );
   assertEquals(
     footer.querySelector(".discern-site-footer__description")?.textContent
       ?.trim(),
-    "Discern makes AI coding agents work like a disciplined engineering team. It coordinates their changes, separates parallel tasks, and proves their work is correct before it ships.",
-  );
-  assertEquals(
-    [...footer.querySelectorAll(".discern-site-footer__base a")].map(
-      (link) => [
-        link.textContent?.trim(),
-        link.getAttribute("href"),
-      ],
-    ),
-    [
-      ["GitHub ↗", "https://github.com/jackwh/discern"],
-      ["llms.txt", "/llms.txt"],
-    ],
+    "An engineering practice for agent-built software.",
   );
   assertEquals(
     footer.querySelector(".discern-site-footer__base > span:last-child")
       ?.textContent?.trim(),
     "© 2026 Jack Webb-Heller.",
   );
-  assertEquals(text.includes("macOS · Linux · WSL2"), false);
   assertEquals(text.includes("Open source under Apache-2.0."), false);
   assertEquals(text.includes("Free and open source"), false);
+
   const landingCss = await Deno.readTextFile(
     join(ROOT, "site/page-src/landing.css"),
-  );
-  assertStringIncludes(
-    landingCss,
-    "grid-template-columns: repeat(3, minmax(0, 1fr))",
   );
   const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
   assertStringIncludes(
     mastheadRule,
-    "width: min(100% - 2 * var(--discern-space-6), var(--discern-page-max));",
+    "width: min(100% - 2 * var(--discern-space-6), 86rem);",
   );
   assertEquals(mastheadRule.includes("max-inline-size"), false);
   assertStringIncludes(landingCss, "inset-block-start: 3px;");
@@ -576,8 +544,6 @@ Deno.test("the public homepage presents engineering discipline for coding agents
     ),
     "opacity: 0;",
   );
-  assertEquals(landingCss.includes(".landing-benefit"), false);
-  assertEquals(landingCss.includes(".landing-footprint"), false);
   assertEquals(landingCss.includes(".landing-provider-logo--"), false);
 
   // Static output: local runtime assets only, and no React browser runtime.
@@ -592,7 +558,6 @@ Deno.test("the public homepage presents engineering discipline for coding agents
   );
   dom.window.close();
 });
-
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {
   const owned = new Set(
     packageManifest.components.flatMap((component) => component.ownedClasses),

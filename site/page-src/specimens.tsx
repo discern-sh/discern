@@ -189,7 +189,7 @@ function WaveTask({ task }: { readonly task: DelegationTask }) {
 }
 
 /** Compact illustrative plan for opening a project to beta users. */
-function DelegationWavePlan() {
+export function DelegationWavePlan() {
   return (
     <DataFigure
       className="delegation-figure"
@@ -266,7 +266,7 @@ function DelegationWavePlan() {
 }
 
 /** Staged commissioning narrative from repository study to a fresh worktree probe. */
-function CommissioningTimeline() {
+export function CommissioningTimeline() {
   return (
     <DataFigure
       className="commissioning-figure"
@@ -417,7 +417,7 @@ function CommissioningTimeline() {
 }
 
 /** Dated internal trajectory of the real lint-suppression falling ceiling. */
-function StandardTrajectory() {
+export function StandardTrajectory() {
   return (
     <DataFigure
       className="standard-figure"
@@ -571,7 +571,7 @@ function StandardTrajectory() {
 }
 
 /** Exact-tree completion evidence from the landed homepage-brief amendment. */
-function ProofSpecimen() {
+export function ProofSpecimen() {
   return (
     <DataFigure
       className="proof-figure"

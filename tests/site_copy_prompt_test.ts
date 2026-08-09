@@ -1,0 +1,89 @@
+/** Runtime contract for the homepage's framework-free Copy prompt control. */
+
+import { assert, assertEquals } from "@std/assert";
+// @ts-types="@types/jsdom"
+import { JSDOM } from "jsdom";
+import { COPY_PROMPT_TEXT, renderLanding } from "../site/page-src/landing.tsx";
+
+interface PromptWindow extends Window {
+  eval(source: string): unknown;
+  fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>;
+}
+
+/** Collapse rendered text without weakening punctuation or URL equality. */
+function readableText(value: string | null): string {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+Deno.test("Copy prompt stays readable without JavaScript and copies the exact approved instruction", async () => {
+  const html = renderLanding();
+  const client = await Deno.readTextFile(
+    new URL("../site/page-src/landing.js", import.meta.url),
+  );
+  const dom = new JSDOM(html, {
+    runScripts: "outside-only",
+    url: "https://discern.sh/",
+  });
+  const window = dom.window as unknown as PromptWindow;
+  const document = window.document;
+  const prompts = [
+    ...document.querySelectorAll<HTMLElement>(".landing-copy-prompt__text"),
+  ];
+  const controls = [
+    ...document.querySelectorAll<HTMLButtonElement>("[data-copy-prompt]"),
+  ];
+
+  assertEquals(prompts.length, 3);
+  assertEquals(
+    prompts.map((prompt) => readableText(prompt.textContent)),
+    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
+  );
+  assert(
+    prompts.every((prompt) => prompt.closest("[hidden]") === null),
+    "the approved prompt must remain visible and selectable without JavaScript",
+  );
+  assertEquals(controls.map((control) => control.hidden), [true, true, true]);
+
+  const copied: string[] = [];
+  let externalRequests = 0;
+  Object.defineProperty(window.navigator, "clipboard", {
+    value: {
+      writeText: (value: string): Promise<void> => {
+        copied.push(value);
+        return Promise.resolve();
+      },
+    },
+  });
+  window.fetch = (): Promise<Response> => {
+    externalRequests++;
+    return Promise.reject(new Error("unexpected request"));
+  };
+
+  window.eval(client);
+  assertEquals(controls.map((control) => control.hidden), [
+    false,
+    false,
+    false,
+  ]);
+  controls[0]?.click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  assertEquals(copied, [COPY_PROMPT_TEXT]);
+  assertEquals(externalRequests, 0);
+  assertEquals(
+    controls[0]?.querySelector(".discern-button__label")?.textContent,
+    "Prompt copied",
+  );
+  assertEquals(controls[0]?.hasAttribute("data-prompt-copied"), true);
+  assertEquals(
+    document.getElementById("hero-copy-prompt-status")?.textContent,
+    "Prompt copied",
+  );
+
+  for (
+    const forbidden of ["fetch(", "XMLHttpRequest", "sendBeacon", "new Image"]
+  ) {
+    assertEquals(client.includes(forbidden), false, forbidden);
+  }
+  dom.window.close();
+});
