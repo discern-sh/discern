@@ -78,7 +78,7 @@ function LandingThemeToggle() {
   );
 }
 
-/** Page-owned baseline correction for the Unicode mark and mono wordmark. */
+/** Keep the product name in its page-wide monospace treatment. */
 function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
@@ -152,14 +152,16 @@ function LandingHero() {
           </p>
         </div>
         <aside className="landing-hero__action" aria-label="Begin with discern">
-          <p>
-            Already working with a coding agent? Copy the setup prompt into the
-            conversation.
-          </p>
-          <CopyPrompt id="hero-copy-prompt" />
-          <Button href="#delegation" variant="secondary">
-            See discern in practice
-          </Button>
+          <div className="landing-hero__invitation">
+            <div>
+              <h2>Already working with a coding agent?</h2>
+              <p>Copy the setup prompt into the conversation.</p>
+            </div>
+            <CopyPrompt id="hero-copy-prompt" />
+            <Button href="#delegation" variant="secondary">
+              See discern in practice
+            </Button>
+          </div>
           <p className="landing-license-note">
             Free to use for permitted purposes under the{" "}
             <a href={LICENSE}>Free and Fair Source license (FSL-1.1-ALv2)</a>.
@@ -176,19 +178,21 @@ function LandingPage() {
     <>
       <SkipLink href="#main">Skip to content</SkipLink>
       <header className="landing-masthead">
-        <a href="/" className="landing-masthead__brand">
-          <Brand
-            mark={DISCERN_MARK}
-            name={<DiscernName />}
-            size="lg"
-            typeface="mono"
-          />
-        </a>
-        <nav className="landing-masthead__nav" aria-label="Site">
-          <a href="/docs">Docs</a>
-          <a href={GITHUB}>GitHub ↗</a>
-          <LandingThemeToggle />
-        </nav>
+        <div className="landing-masthead__inner">
+          <a href="/" className="landing-masthead__brand">
+            <Brand
+              mark={DISCERN_MARK}
+              name={<DiscernName />}
+              size="lg"
+              typeface="mono"
+            />
+          </a>
+          <nav className="landing-masthead__nav" aria-label="Site">
+            <a href="/docs">Docs</a>
+            <a href={GITHUB}>GitHub ↗</a>
+            <LandingThemeToggle />
+          </nav>
+        </div>
       </header>
 
       <main id="main">
@@ -212,9 +216,11 @@ function LandingPage() {
               and review it. A larger ambition needs more of the way of working
               to stay with the project.
             </p>
-            <Button href="#delegation" variant="ghost">
-              See a backlog become a plan
-            </Button>
+            <div className="landing-section__action landing-section__action--center">
+              <Button href="#delegation" variant="secondary">
+                See a backlog become a plan
+              </Button>
+            </div>
           </div>
         </LandingSection>
 
@@ -453,7 +459,11 @@ function LandingPage() {
                 and the working result. The right review depth still depends on
                 the project's risk, the change, and the checks you trust.
               </p>
-              <Button href="/docs" variant="ghost">
+              <Button
+                className="landing-audience-action"
+                href="/docs"
+                variant="secondary"
+              >
                 Explore the engineering practice
               </Button>
             </article>
@@ -515,7 +525,7 @@ function LandingPage() {
               <Button href="/docs/agent-integrations" variant="secondary">
                 Compare the agent experience
               </Button>
-              <Button href="/llms.txt" variant="ghost">
+              <Button href="/llms.txt" variant="secondary">
                 Read the machine guide
               </Button>
             </div>
@@ -668,7 +678,6 @@ export function renderLanding(): string {
     styles: [
       "fonts.css",
       "discern.css",
-      "grain.css",
       "specimens.css",
       "landing.css",
     ],

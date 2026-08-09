@@ -120,6 +120,13 @@ function cssRuleBody(css: string, selector: string): string {
   return css.slice(bodyStart, end);
 }
 
+/** Find homepage navigation actions whose idle state has no visible boundary. */
+function transparentNavigationActions(root: ParentNode): string[] {
+  return [...root.querySelectorAll("a.discern-button--ghost")].map((action) =>
+    action.textContent?.trim() ?? ""
+  );
+}
+
 /** Decode the runtime manifest emitted beside a selected design-system bundle. */
 async function bundleManifest(
   name: DesignSystemBundleName,
@@ -411,13 +418,32 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   }
 
   // The masthead and all four wave-2 specimens use published components.
-  assert(body.querySelector(".landing-masthead .discern-brand--lg") !== null);
+  const masthead = body.querySelector(".landing-masthead");
+  const mastheadInner = masthead?.querySelector(".landing-masthead__inner");
+  assert(mastheadInner !== null && mastheadInner !== undefined);
+  assert(mastheadInner.querySelector(".discern-brand--lg") !== null);
   assert(
-    body.querySelector(
-      ".landing-masthead .discern-theme-toggle--quiet",
-    ) !== null,
+    mastheadInner.querySelector(".discern-theme-toggle--quiet") !== null,
   );
   assert(body.querySelectorAll(".landing-brand-name").length >= 2);
+  const hero = body.querySelector(".landing-hero");
+  assert(hero !== null);
+  assertEquals(hero.classList.contains("discern-grain-wash"), false);
+  assertEquals(
+    DESIGN_SYSTEM_BUNDLES.compositions.assets.map(String).includes("grain"),
+    false,
+  );
+  assertEquals(html.includes("grain.css"), false);
+  const invitation = hero.querySelector(".landing-hero__invitation");
+  assert(invitation !== null);
+  assertEquals(
+    invitation.querySelector("h2")?.textContent?.trim(),
+    "Already working with a coding agent?",
+  );
+  assertEquals(
+    invitation.querySelector("h2 + p")?.textContent?.trim(),
+    "Copy the setup prompt into the conversation.",
+  );
   assertEquals(body.querySelectorAll(".discern-data-figure").length, 4);
   for (
     const selector of [
@@ -488,6 +514,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     body.querySelector(".landing-integrations")?.getAttribute("aria-label"),
     `${AGENT_NAMES.length} supported coding agent providers`,
   );
+  assertEquals(transparentNavigationActions(body), []);
+  const backlogAction = [...body.querySelectorAll("a.discern-button")].find(
+    (action) => action.textContent?.trim() === "See a backlog become a plan",
+  );
+  assert(backlogAction?.closest(".landing-section__action--center") !== null);
 
   // Page-owned behavior is one local script; the browser receives no React.
   assertStringIncludes(
@@ -513,12 +544,37 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     join(ROOT, "site/page-src/landing.css"),
   );
   const mastheadRule = cssRuleBody(landingCss, ".landing-masthead");
+  assertStringIncludes(mastheadRule, "width: 100%;");
+  assertEquals(mastheadRule.includes("max-inline-size"), false);
+  const mastheadInnerRule = cssRuleBody(
+    landingCss,
+    ".landing-masthead__inner",
+  );
   assertStringIncludes(
-    mastheadRule,
+    mastheadInnerRule,
     "width: min(100% - 2 * var(--discern-space-6), 86rem);",
   );
-  assertEquals(mastheadRule.includes("max-inline-size"), false);
-  assertStringIncludes(landingCss, "inset-block-start: 3px;");
+  assertEquals(
+    cssRuleBody(landingCss, ".landing-brand-name").includes(
+      "inset-block-start",
+    ),
+    false,
+  );
+  const integrationsRule = cssRuleBody(landingCss, ".landing-integrations");
+  assertStringIncludes(integrationsRule, "width: 100%;");
+  assertStringIncludes(integrationsRule, "margin-inline: 0;");
+  const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
+  assertStringIncludes(heroGlowRule, "radial-gradient(circle in oklab,");
+  assertStringIncludes(heroGlowRule, "var(--discern-color-canvas) 72%);");
+  assertEquals(heroGlowRule.includes("transparent"), false);
+  assertEquals(heroGlowRule.includes("filter:"), false);
+  assertEquals(heroGlowRule.includes("opacity:"), false);
+  assertEquals(landingCss.includes("textures/grain.png"), false);
+  const centeredActionRule = cssRuleBody(
+    landingCss,
+    ".landing-section__action--center",
+  );
+  assertStringIncludes(centeredActionRule, "justify-content: center;");
   assertStringIncludes(landingCss, "inset-block-start: -3px;");
   assertStringIncludes(landingCss, ".landing-provider-logo");
   assertStringIncludes(
@@ -557,6 +613,16 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     [],
   );
   dom.window.close();
+});
+
+Deno.test("the homepage CTA detector enrolls an unrelated future action", () => {
+  const synthetic = new JSDOM(
+    '<main><a class="discern-button discern-button--ghost" href="#fresh">Fresh action</a></main>',
+  );
+  assertEquals(transparentNavigationActions(synthetic.window.document), [
+    "Fresh action",
+  ]);
+  synthetic.window.close();
 });
 Deno.test("consumer CSS never targets a package-manifest-owned class", async () => {
   const owned = new Set(

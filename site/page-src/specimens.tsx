@@ -842,7 +842,6 @@ export function renderSpecimens(): string {
     styles: [
       "fonts.css",
       "discern.css",
-      "grain.css",
       "specimens.css",
     ],
     scripts: [],

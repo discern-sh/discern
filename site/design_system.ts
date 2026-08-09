@@ -57,7 +57,7 @@ export const DESIGN_SYSTEM_BUNDLES = {
       "tag",
       "skip-link",
     ],
-    assets: ["fonts", "grain"],
+    assets: ["fonts"],
     theme: "discern",
   },
 } as const satisfies Record<string, SiteDesignSystemBundle>;
