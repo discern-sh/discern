@@ -26,7 +26,7 @@ Treat documentation as part of the change. Every page describes the current code
 
 For **structure**, follow this brief: page inventory, page purpose, section shape, required facts, and length budgets. For **register**, follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md): voice behavior, terminology, and banned moves. Apply both authorities to every page.
 
-The Map is public documentation. Published tiers render on the docs site, in `discern docs`, and through the Model Context Protocol (MCP). Compare every finished page with the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
+The maintained Map includes published public tiers, contributor tiers, and operational `_internal` pages. `_private` is the only prose-free geography. Published tiers render on the docs site, in `discern docs`, and through the Model Context Protocol (MCP). The public projection decides publication and the public leaf-density Standard; it does not narrow the voice Gate. Compare every finished page with the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
 
 ---
 
@@ -140,7 +140,7 @@ Cite decision records as freely as the reasoning requires; rendering handles the
    - 400–800 words per leaf, with 800 as a **hard ceiling**. Other page shapes carry their own budgets; see [`page-templates.md`](page-templates.md).
    - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Report any overrun.
 9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
-10. **Apply the product voice Skill.** Hold its voice behaviors and banned moves. The Gate's prose lint blocks zero-legitimate-use patterns and reports judgment-tier findings outside the Gate. Before handoff, run `discern scripts prose-page <page…>` on every page you wrote or rewrote. The required result is zero `Discern*` alerts, matching the reference corpus.
+10. **Apply the product voice Skill.** Hold its voice behaviors and banned moves. The Gate blocks every `Discern*` alert, including warning and suggestion findings, across every maintained non-private Map page. Third-party warnings and suggestions remain advisory through the prose-density Standard; ADRs retain their reduced style set. Before handoff, run `discern scripts prose-page <page…>` on every page you wrote or rewrote. The required result is zero `Discern*` alerts, matching the reference corpus.
 
 ---
 

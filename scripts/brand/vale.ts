@@ -271,7 +271,7 @@ export const VALE_STYLE_RULES = [
     id: "ProductName",
     register: "product",
     comment:
-      "The product name is lower-case on human-facing product surfaces. Public documentation holds this warning at zero; internal pages may quote historical or provider-facing names while the wider editorial pass remains pending. Compound code identifiers keep their own word boundaries, and code spans are never linted.",
+      "The product name is lower-case on human-facing product surfaces. The prose gate holds this warning at zero on every maintained page where the product register applies. Brand pages enforce their sibling rule; ADRs retain reduced styling. Compound code identifiers keep their own word boundaries, and code spans are never linted.",
     message:
       "The product name is lower-case 'discern': recast the sentence rather than capitalizing the name.",
     level: "warning",

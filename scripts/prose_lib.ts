@@ -78,13 +78,6 @@ export function restoreStagePaths(
     .replaceAll(stage, docsDir);
 }
 
-export interface PublicProseContract {
-  /** Root of the staged mirror Vale scanned. */
-  stageDir: string;
-  /** Exact `DocEntry.relToDocs` values admitted by the public projection. */
-  publicRelPaths: ReadonlySet<string>;
-}
-
 /** Whether one Vale check belongs to discern's authored voice styles. */
 function isDiscernVoiceCheck(check: unknown): boolean {
   return typeof check === "string" && check.startsWith("Discern");
@@ -92,12 +85,11 @@ function isDiscernVoiceCheck(check: unknown): boolean {
 
 /**
  * Select the alerts that block the prose job: every error across the linted
- * map, plus every discern-authored voice alert on the exact public projection.
- * Microsoft, Vale, and proselint advisories remain density signals.
+ * map, plus every discern-authored voice alert throughout the staged corpus.
+ * Microsoft, Vale, and proselint advisories below error remain density signals.
  */
 export function selectProseGateAlerts(
   vale: unknown,
-  contract: PublicProseContract,
 ): Record<string, unknown[]> {
   const selected: Record<string, unknown[]> = {};
   if (vale === null || typeof vale !== "object" || Array.isArray(vale)) {
@@ -105,14 +97,11 @@ export function selectProseGateAlerts(
   }
   for (const [path, value] of Object.entries(vale)) {
     if (!Array.isArray(value)) continue;
-    const rel = relative(contract.stageDir, path).replaceAll("\\", "/");
-    const isPublic = !rel.startsWith("../") &&
-      contract.publicRelPaths.has(rel);
     const alerts = value.filter((alert) => {
       if (alert === null || typeof alert !== "object") return false;
       const fields = alert as Record<string, unknown>;
       return fields.Severity === "error" ||
-        (isPublic && isDiscernVoiceCheck(fields.Check));
+        isDiscernVoiceCheck(fields.Check);
     });
     if (alerts.length > 0) selected[path] = alerts;
   }

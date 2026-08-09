@@ -5,7 +5,7 @@
  * the alert-density denominator.
  */
 
-import { join } from "@std/path";
+import { dirname, join } from "@std/path";
 import { parse as parseToml } from "@std/toml";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import {
@@ -22,10 +22,17 @@ import {
 } from "../src/engine/gate/diagnostics.ts";
 import { withTempDir } from "./helpers.ts";
 import { REPO_ROOT } from "./repo_authored_paths.ts";
-import { BUNDLED_PUBLIC_DOC_DIRS } from "../src/lib/paths.ts";
+import {
+  BUNDLED_PUBLIC_DOC_DIRS,
+  MANUAL_SECTION_REGISTRY,
+} from "../src/lib/paths.ts";
 
 /** A registered public section, so the density script admits the fixture. */
 const PUBLIC_SECTION = BUNDLED_PUBLIC_DOC_DIRS[0] ?? "00-orientation";
+/** A registered contributor section outside the public projection. */
+const CONTRIBUTOR_SECTION =
+  MANUAL_SECTION_REGISTRY.find((section) => section.audience === "contributor")
+    ?.dir ?? "50-engine-internals";
 
 const FRONTMATTERED = "---\n" +
   "title: Meta words that must not count\n" +
@@ -152,87 +159,113 @@ Deno.test("valeJsonToSarif feeds the gate's own SARIF normalization", () => {
   assertEquals(diagnostics[1]?.severity, "warning");
 });
 
-Deno.test("public prose holds discern voice alerts at exact zero", () => {
+Deno.test("whole-map prose holds discern voice alerts at exact zero", () => {
   const stageDir = "/tmp/discern-prose-contract";
-  const publicRel = `${PUBLIC_SECTION}/published.md`;
-  const selected = selectProseGateAlerts(
+  const customAlerts = [
     {
-      [`${stageDir}/${publicRel}`]: [
-        {
-          Check: "Discern.Padding",
-          Severity: "suggestion",
-          Message: "Custom advisory on a published page.",
-        },
-        {
-          Check: "DiscernProduct.AgentBlame",
-          Severity: "warning",
-          Message: "Register advisory on a published page.",
-        },
-        {
-          Check: "Microsoft.Passive",
-          Severity: "warning",
-          Message: "Third-party advisory stays in the density metric.",
-        },
-      ],
-      [`${stageDir}/_internal/notes.md`]: [
-        {
-          Check: "Discern.Padding",
-          Severity: "suggestion",
-          Message: "Internal custom advisory remains editorial debt.",
-        },
+      path: `${stageDir}/${PUBLIC_SECTION}/published.md`,
+      check: "Discern.Padding",
+      severity: "suggestion",
+    },
+    {
+      path: `${stageDir}/${CONTRIBUTOR_SECTION}/maintainer.md`,
+      check: "DiscernProduct.AgentBlame",
+      severity: "warning",
+    },
+    {
+      path: `${stageDir}/_internal/operations.md`,
+      check: "DiscernAgent.BestJudgment",
+      severity: "warning",
+    },
+    {
+      path: `${stageDir}/_internal/brand/canon.md`,
+      check: "DiscernBrand.StackedSlogans",
+      severity: "suggestion",
+    },
+    {
+      path: `${stageDir}/_adr/decision.md`,
+      check: "Discern.Padding",
+      severity: "suggestion",
+    },
+  ] as const;
+  const selected = selectProseGateAlerts(
+    Object.fromEntries([
+      ...customAlerts.map((fixture) =>
+        [fixture.path, [
+          {
+            Check: fixture.check,
+            Severity: fixture.severity,
+            Message: "Custom advisory blocks wherever its style emits it.",
+          },
+          {
+            Check: "Microsoft.Passive",
+            Severity: "warning",
+            Message: "Third-party advisories stay in the density metric.",
+          },
+        ]] as const
+      ),
+      [`${stageDir}/external-error.md`, [
         {
           Check: "Microsoft.Spelling",
           Severity: "error",
           Message: "Errors still block everywhere.",
         },
-      ],
-      [`${stageDir}/${PUBLIC_SECTION}/withheld.md`]: [{
-        Check: "Discern.Hype",
-        Severity: "warning",
-        Message: "A withheld page is outside the published contract.",
-      }],
-    },
-    {
-      stageDir,
-      publicRelPaths: new Set([publicRel]),
-    },
+      ]],
+    ]),
   );
 
+  for (const fixture of customAlerts) {
+    assertEquals(
+      (selected[fixture.path] ?? []).map((alert) =>
+        (alert as { Check?: unknown }).Check
+      ),
+      [fixture.check],
+      `${fixture.path} must block its custom alert without a path allowlist`,
+    );
+  }
   assertEquals(
-    (selected[`${stageDir}/${publicRel}`] ?? []).map((alert) =>
-      (alert as { Check?: unknown }).Check
-    ),
-    ["Discern.Padding", "DiscernProduct.AgentBlame"],
-  );
-  assertEquals(
-    (selected[`${stageDir}/_internal/notes.md`] ?? []).map((alert) =>
+    (selected[`${stageDir}/external-error.md`] ?? []).map((alert) =>
       (alert as { Check?: unknown }).Check
     ),
     ["Microsoft.Spelling"],
   );
-  assertEquals(
-    selected[`${stageDir}/${PUBLIC_SECTION}/withheld.md`],
-    undefined,
-  );
 });
 
-Deno.test("the prose command blocks public voice advisories and ignores withheld ones", async () => {
+Deno.test("the prose command enforces custom zero across maintained Map tiers", async () => {
   await withTempDir(async (dir) => {
     const map = join(dir, "map");
-    const section = join(map, PUBLIC_SECTION);
-    await Deno.mkdir(section, { recursive: true });
-    const published = join(section, "published.md");
-    const withheld = join(section, "withheld.md");
-    await Deno.writeTextFile(
-      published,
-      "# Published\n\nDiscern actually records the state.\n",
-    );
-    await Deno.writeTextFile(
-      withheld,
-      "---\npublish: false\n---\n\n# Withheld\n\nDiscern actually records the state.\n",
-    );
+    const pages = {
+      public: join(map, PUBLIC_SECTION, "published.md"),
+      contributor: join(map, CONTRIBUTOR_SECTION, "maintainer.md"),
+      operational: join(map, "_internal", "operations.md"),
+      brand: join(map, "_internal", "brand", "canon.md"),
+      adr: join(map, "_adr", "decision.md"),
+      private: join(map, "_private", "notes.md"),
+      protected: join(map, PUBLIC_SECTION, "protected.md"),
+      thirdParty: join(map, CONTRIBUTOR_SECTION, "third-party.md"),
+    } as const;
+    for (const path of Object.values(pages)) {
+      await Deno.mkdir(dirname(path), { recursive: true });
+    }
+    const fixtures: Readonly<Record<keyof typeof pages, string>> = {
+      public: "# Public\n\nDiscern actually records the state.\n",
+      contributor:
+        "# Contributor\n\nActually, use your best judgment for this step.\n",
+      operational:
+        "# Operations\n\nThe agent forgot the branch. It actually remains behind.\n",
+      brand: "# Brand\n\nWe actually transform records.\n",
+      adr:
+        "# Decision\n\nDiscern actually records the state. The file was written by the command.\n",
+      private: "# Private\n\nDiscern actually transforms records.\n",
+      protected:
+        "# Protected\n\nThe literals `Discern`, `actually`, and `transform` appear in source.\n",
+      thirdParty: "# Advisory\n\nThe file was written by the command.\n",
+    };
+    for (const [name, path] of Object.entries(pages)) {
+      await Deno.writeTextFile(path, fixtures[name as keyof typeof pages]);
+    }
 
-    const run = async (): Promise<Deno.CommandOutput> =>
+    const run = async (args: string[]): Promise<Deno.CommandOutput> =>
       await new Deno.Command(Deno.execPath(), {
         args: [
           "run",
@@ -241,40 +274,146 @@ Deno.test("the prose command blocks public voice advisories and ignores withheld
           "--allow-env",
           "--allow-run",
           join(REPO_ROOT, "scripts/prose_check.ts"),
-          "--sarif",
-          "--public-custom-zero",
           map,
+          ...args,
         ],
         stdout: "piped",
         stderr: "piped",
       }).output();
 
-    const blocked = await run();
+    const raw = await run(["--min-level=suggestion", "--sarif"]);
+    const rawSarif = JSON.parse(
+      new TextDecoder().decode(raw.stdout),
+    ) as SarifLog;
+    const rawResults = rawSarif.runs[0].results;
+    const expectedRules = new Map<string, string[]>([
+      [pages.public, ["Discern.Padding", "DiscernProduct.ProductName"]],
+      [
+        pages.contributor,
+        ["Discern.Padding", "DiscernAgent.BestJudgment"],
+      ],
+      [
+        pages.operational,
+        ["Discern.Padding", "DiscernProduct.AgentBlame"],
+      ],
+      [pages.brand, ["Discern.Padding", "DiscernBrand.GenericVerbs"]],
+    ]);
+    for (const [path, rules] of expectedRules) {
+      assertEquals(
+        rawResults.filter((result) =>
+          result.locations[0].physicalLocation.artifactLocation.uri === path &&
+          result.ruleId.startsWith("Discern")
+        ).map((result) => result.ruleId).sort(),
+        [...rules].sort(),
+        `${path} must load its configured custom styles`,
+      );
+    }
+    assert(
+      rawResults.some((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri ===
+          pages.thirdParty && result.ruleId === "Microsoft.Passive"
+      ),
+      "the density corpus must retain a real third-party advisory",
+    );
+    assert(
+      rawResults.some((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri ===
+          pages.adr && result.ruleId === "Microsoft.Passive"
+      ),
+      "ADRs must retain their reduced third-party style set",
+    );
+    assert(
+      !rawResults.some((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri ===
+          pages.adr && result.ruleId.startsWith("Discern")
+      ),
+      "ADRs must not load custom styles",
+    );
+    assert(
+      !rawResults.some((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri ===
+          pages.private
+      ),
+      "_private must remain outside the staged corpus",
+    );
+    assert(
+      !rawResults.some((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri ===
+          pages.protected && result.ruleId.startsWith("Discern")
+      ),
+      "code-spanned custom counter-examples must remain exempt",
+    );
+
+    const blocked = await run(["--sarif", "--custom-zero"]);
     assertEquals(blocked.code, 1);
     const blockedSarif = JSON.parse(
       new TextDecoder().decode(blocked.stdout),
     ) as SarifLog;
+    const blockedResults = blockedSarif.runs[0].results;
     assertEquals(
-      blockedSarif.runs[0].results.map((result) => result.ruleId).sort(),
-      ["Discern.Padding", "DiscernProduct.ProductName"],
+      [
+        ...new Set(
+          blockedResults.map((result) =>
+            result.locations[0].physicalLocation.artifactLocation.uri
+          ),
+        ),
+      ].sort(),
+      [...expectedRules.keys()].sort(),
     );
+    for (const [path, rules] of expectedRules) {
+      const results = blockedResults.filter((result) =>
+        result.locations[0].physicalLocation.artifactLocation.uri === path
+      );
+      assertEquals(
+        results.map((result) => result.ruleId).sort(),
+        [...rules].sort(),
+      );
+      assertEquals(
+        [...new Set(results.map((result) => result.level))].sort(),
+        ["note", "warning"],
+        `${path} must block both custom suggestion and warning severities`,
+      );
+    }
     assert(
-      blockedSarif.runs[0].results.every((result) =>
-        result.locations[0].physicalLocation.artifactLocation.uri === published
+      blockedResults.every((result) =>
+        result.ruleId.startsWith("Discern") &&
+        (result.level === "warning" || result.level === "note")
       ),
-      "only the published page belongs to the exact-zero projection",
+      "custom warnings and suggestions are the only selected fixture alerts",
     );
 
-    await Deno.writeTextFile(
-      published,
-      "# Published\n\ndiscern records the state.\n",
-    );
-    const clean = await run();
+    for (const path of expectedRules.keys()) {
+      await Deno.writeTextFile(path, "# Clean\n\ndiscern records the state.\n");
+    }
+    const clean = await run(["--sarif", "--custom-zero"]);
     assertEquals(clean.code, 0, new TextDecoder().decode(clean.stderr));
     const cleanSarif = JSON.parse(
       new TextDecoder().decode(clean.stdout),
     ) as SarifLog;
     assertEquals(cleanSarif.runs[0].results, []);
+
+    const density = await new Deno.Command(Deno.execPath(), {
+      args: [
+        "run",
+        "--allow-read",
+        "--allow-write",
+        "--allow-env",
+        "--allow-run",
+        join(REPO_ROOT, "scripts/prose.ts"),
+        map,
+      ],
+      stdout: "piped",
+      stderr: "piped",
+    }).output();
+    assertEquals(density.code, 0, new TextDecoder().decode(density.stderr));
+    const densityMatch = new TextDecoder().decode(density.stdout).match(
+      /DISCERN_METRIC prose (\d+)/,
+    );
+    assert(densityMatch !== null);
+    assert(
+      Number(densityMatch[1]) > 0,
+      "third-party advisories remain in the prose-density numerator",
+    );
   });
 });
 
@@ -298,7 +437,7 @@ Deno.test("the prose standard divides by its staged-corpus word metric", async (
   assertEquals(config.standards?.prose?.scale, 1000);
   assertStringIncludes(
     String(config.jobs?.prose?.run),
-    "--public-custom-zero",
+    "--custom-zero",
   );
 });
 

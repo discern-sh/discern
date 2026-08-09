@@ -38,8 +38,8 @@ function docTopLevel(entry: DocEntry): string {
 }
 
 /**
- * Resolve the exact public documentation projection shared by publishing,
- * density measurement, and public prose enforcement.
+ * Resolve the exact public documentation projection used by publishing and
+ * the public leaf-density Standard.
  */
 export async function publicDocEntries(
   repoRoot: string,
