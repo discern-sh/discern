@@ -36,7 +36,7 @@ Everything agent-specific lives in one typed record per agent in `src/lib/provid
 | `brand`             | First-party logo SVGs for the site's integrations surfaces                                            | (required)                               |
 | `binaries`          | Terminal-agent executable name(s) for PATH auto-detect — **match-any** (ADR 0069)                     | (required)                               |
 | `setupPresence`     | Setup-only installation evidence (editor binaries, app locations) beyond the terminal agent           | (required)                               |
-| `cli`               | Interactive open/continue entry points `discern desk` launches, argv included                         | (required)                               |
+| `cli`               | Interactive open/continue entry points `discern desk` launches, `argv` included                       | (required)                               |
 | `guidanceFile`      | `{ path, canonical, pointer?, reuseCanonical? }` — the compiled instruction file, or reuse-canonical  | (required)                               |
 | `mcp`               | `McpStatus`: `wired` \| `pending` (committable target) \| `none` (ADR 0072)                           | (required)                               |
 | `hooks?`            | `{ settingsFile, worktreeEventKeys, sessionHookNeedle, mergeSeed? }`                                  | no worktree-hook surface — skipped       |
@@ -69,7 +69,7 @@ The machinery that makes "add the next vendor" a registry declaration:
 
 1. **The total `Record`** — a new name in `AGENT_NAMES` without a complete `PROVIDERS` entry is a compile error (ADR 0031), and the required `mcp` / `trust` / `binaries` / `brand` / `cli` fields make their declaration compile-mandatory too.
 2. **The parity test** (`tests/agent_parity_test.ts`) — for every `AGENT_NAMES` entry it asserts tracked and ignored file state, neutral scopes, each hooks provider's seed template (event keys + session-hook needle), non-empty `binaries`, the canonical and reuse-canonical invariants, an accounted MCP status, and trust metadata. A new agent fails the Gate at each incomplete seam (ADR 0043/0051).
-3. **`discern doctor`** reports per-configured-agent coverage explicitly (`src/commands/doctor.ts` §8b): for each agent it prints what is wired (guidance, skills, mcp, hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
+3. **`discern doctor`** reports per-configured-agent coverage explicitly (`src/commands/doctor.ts` §8b): for each agent it prints what is wired (Guidance, Skills, MCP, and hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
 4. **This page itself** — code generation derives the cells from `PROVIDERS`, and the Gate diffs the committed copy. The typed commentary layer fails compilation until verdict prose covers a new agent.
 
 ---
@@ -102,21 +102,21 @@ MCP needs no trust step. `registerClaudeCodeMcp` writes the stdio server into th
 
 ### Codex — canonical guidance + the widest committed-config surface
 
-| Registry fact      | Live declaration                                                                                                                                                                                            |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Guidance           | `AGENTS.md` — canonical body                                                                                                                                                                                |
-| Skills             | `.agents/skills/` — shared with `gemini`, `cursor`, `copilot`                                                                                                                                               |
-| MCP                | `discern mcp --long-tool-calls` in `.codex/config.toml`                                                                                                                                                     |
-| MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                                                                                               |
-| Hooks              | SessionStart only in `.codex/hooks.json` (seed strategy: JSON deep-merge)                                                                                                                                   |
-| Worktree app       | co-manages `.codex/environments/environment.toml`                                                                                                                                                           |
-| Project rules      | owns `.codex/rules/discern.rules`                                                                                                                                                                           |
-| Trust              | required — one-time directory trust for .codex/ project config and rules (set trust_level = "trusted"), plus per-hook hash approval before a committed hook runs (bypass: --dangerously-bypass-hook-trust). |
-| Detection          | PATH binaries `codex`                                                                                                                                                                                       |
-| Desk entry         | open: `codex` · continue: `codex resume`                                                                                                                                                                    |
-| Human setup advice | —                                                                                                                                                                                                           |
-| Local state        | —                                                                                                                                                                                                           |
-| Default set        | in `DEFAULT_AGENTS`                                                                                                                                                                                         |
+| Registry fact      | Live declaration                                                                                                                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guidance           | `AGENTS.md` — canonical body                                                                                                                                                                                      |
+| Skills             | `.agents/skills/` — shared with `gemini`, `cursor`, `copilot`                                                                                                                                                     |
+| MCP                | `discern mcp --long-tool-calls` in `.codex/config.toml`                                                                                                                                                           |
+| MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                                                                                                     |
+| Hooks              | SessionStart only in `.codex/hooks.json` (seed strategy: JSON deep-merge)                                                                                                                                         |
+| Worktree app       | co-manages `.codex/environments/environment.toml`                                                                                                                                                                 |
+| Project rules      | owns `.codex/rules/discern.rules`                                                                                                                                                                                 |
+| Trust              | required — one-time directory trust for `.codex/` project config and rules (set `trust_level = "trusted"`), plus per-hook hash approval before a committed hook runs (bypass: `--dangerously-bypass-hook-trust`). |
+| Detection          | PATH binaries `codex`                                                                                                                                                                                             |
+| Desk entry         | open: `codex` · continue: `codex resume`                                                                                                                                                                          |
+| Human setup advice | —                                                                                                                                                                                                                 |
+| Local state        | —                                                                                                                                                                                                                 |
+| Default set        | in `DEFAULT_AGENTS`                                                                                                                                                                                               |
 
 Codex holds the **canonical full-body `AGENTS.md`** because it has no instruction-file import directive. The file carries the compiled body imported or reused by the other providers (ADR 0032/0043; Gaps §4).
 
@@ -175,25 +175,25 @@ Cursor reads the canonical root `AGENTS.md` and the cross-tool `.agents/skills/`
 
 Cursor's MCP **call-duration policy** is surface-dependent. Its project `.cursor/mcp.json` feeds the integrated development environment (IDE) and the CLI or Agent Client Protocol (ACP) path. The CLI stops tool calls at 60 seconds and has no supported override. discern's server therefore declares `--strict-tool-calls`, and `discern_await` returns lossless 45-second continuation slices (the behavior reference §11 carries the vendor evidence).
 
-Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commonly claim the generic `agent` alias. The IDE's `cursor` shell command and application locations count as setup-only installation evidence. Cursor declares `humanSetupAdvice` because External File Protection is a user-wide setting that discern cannot change; `setup done` relays that handoff. Committed `.cursor/` configuration remains inert until the workspace is trusted, and tool use requires approval by default (`--approve-mcps` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI Skill-loading bugs. Re-verify the `cursor-agent` binary before relying on Skills there.
+Detection uses `cursor-agent` as its `PATH` signal because unrelated tools commonly claim the generic `agent` alias. The `cursor` shell command in the IDE and the application locations count as setup-only installation evidence. Cursor declares `humanSetupAdvice` because External File Protection is a user-wide setting that discern cannot change; `setup done` relays that handoff. Committed `.cursor/` configuration remains inert until the workspace is trusted, and tool use requires approval by default (`--approve-mcps` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI Skill-loading bugs. Re-verify the `cursor-agent` binary before relying on Skills there.
 
 ### GitHub Copilot — wired, reuse-canonical
 
-| Registry fact      | Live declaration                                                                                                                  |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| Guidance           | reads `AGENTS.md` (no own file)                                                                                                   |
-| Skills             | `.agents/skills/` — shared with `codex`, `gemini`, `cursor`                                                                       |
-| MCP                | `discern mcp --long-tool-calls` in `.mcp.json` (co-owned with `claude_code`)                                                      |
-| MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                     |
-| Hooks              | SessionStart only in `.github/hooks/discern.json` (seed strategy: group-dedup merge)                                              |
-| Worktree app       | —                                                                                                                                 |
-| Project rules      | —                                                                                                                                 |
-| Trust              | required — add the folder to trustedFolders in ~/.copilot/config.json (bypass for headless: --allow-all-tools --allow-all-paths). |
-| Detection          | PATH binaries `copilot`                                                                                                           |
-| Desk entry         | open: `copilot` · continue: `copilot --resume`                                                                                    |
-| Human setup advice | —                                                                                                                                 |
-| Local state        | —                                                                                                                                 |
-| Default set        | opt-in — add `"copilot"` to `[project].agents`                                                                                    |
+| Registry fact      | Live declaration                                                                                                                          |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| Guidance           | reads `AGENTS.md` (no own file)                                                                                                           |
+| Skills             | `.agents/skills/` — shared with `codex`, `gemini`, `cursor`                                                                               |
+| MCP                | `discern mcp --long-tool-calls` in `.mcp.json` (co-owned with `claude_code`)                                                              |
+| MCP call duration  | 60-minute tool calls; `await` holds one call up to 55 minutes                                                                             |
+| Hooks              | SessionStart only in `.github/hooks/discern.json` (seed strategy: group-dedup merge)                                                      |
+| Worktree app       | —                                                                                                                                         |
+| Project rules      | —                                                                                                                                         |
+| Trust              | required — add the folder to `trustedFolders` in `~/.copilot/config.json` (bypass for headless: `--allow-all-tools` `--allow-all-paths`). |
+| Detection          | PATH binaries `copilot`                                                                                                                   |
+| Desk entry         | open: `copilot` · continue: `copilot --resume`                                                                                            |
+| Human setup advice | —                                                                                                                                         |
+| Local state        | —                                                                                                                                         |
+| Default set        | opt-in — add `"copilot"` to `[project].agents`                                                                                            |
 
 Copilot CLI reads `AGENTS.md` natively as its primary instructions and reads `.agents/skills/`, so Guidance and Skills reuse discern's existing artifacts. It has no `@import` requirement. Copilot shares `.mcp.json` with Claude Code (ADR 0074). `registerCopilotMcp` writes the byte-identical stdio entry through the shared writer, making provider order irrelevant. Copilot gates on folder trust and does not use Claude Code's `enabledMcpjsonServers` pre-approval. The CLI ignores `.github/mcp.json` without a diagnostic (copilot-cli #1886), so discern writes the shared root file.
 
@@ -262,7 +262,7 @@ Each gap provides decision input by stating the work required to close it and th
 **Uncertainties.**
 
 - **Folder Trust gates committed configuration.** Per the behavior reference, Gemini ignores project `.gemini/settings.json`, including discern's MCP entry and hook, until the folder receives a user trust grant. `--skip-trust` and `GEMINI_CLI_TRUST_WORKSPACE=true` bypass that gate. Gemini reads compiled `GEMINI.md` before trust, so Guidance remains available. Codex has a corresponding one-time trust boundary (Gaps §2).
-- **Schema/version volatility.** Gemini's MCP and worktree surfaces are moving fast (native `--worktree` and per-OS sandboxing landed ~v0.36.0 and are partly experimental). Any wired config should be version-aware.
+- **Schema/version volatility.** Gemini's MCP and worktree surfaces are moving fast (native `--worktree` and per-OS sandbox support landed ~v0.36.0 and are partly experimental). Any wired config should be version-aware.
 
 ### 2. Codex: MCP, hooks, environment.toml, and exec rules all wired
 

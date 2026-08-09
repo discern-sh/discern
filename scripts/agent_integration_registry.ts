@@ -126,6 +126,25 @@ function mcpTimeoutPhrase(name: NativeAgentName): string {
   return `surface-dependent client bounds (strictest ${policy.strictest_surface_seconds}s), so \`await\` answers in ${policy.await_call_seconds}s continuation slices`;
 }
 
+/** Render product-owned trust guidance as Markdown without changing the
+ * provider hint that CLI and JSON surfaces relay. */
+function trustHintForReference(hint: string): string {
+  const literals = [
+    ".codex/",
+    'trust_level = "trusted"',
+    "--dangerously-bypass-hook-trust",
+    "trustedFolders",
+    "~/.copilot/config.json",
+    "--allow-all-tools",
+    "--allow-all-paths",
+  ] as const;
+  let rendered = hint;
+  for (const literal of literals) {
+    rendered = rendered.replaceAll(literal, code(literal));
+  }
+  return rendered;
+}
+
 /** One provider's worktree-hook surface, as a compact phrase. */
 function hooksPhrase(provider: Provider, withFile: boolean): string {
   const hooks = provider.hooks;
@@ -331,7 +350,9 @@ const AGENT_FACT_ROWS: readonly AgentFactRow[] = [
   {
     label: "Trust",
     value: (p) =>
-      p.trust.required ? `required — ${p.trust.hint}` : p.trust.hint,
+      p.trust.required
+        ? `required — ${trustHintForReference(p.trust.hint)}`
+        : trustHintForReference(p.trust.hint),
   },
   {
     label: "Detection",
@@ -422,7 +443,7 @@ export const PROVIDER_FIELD_NOTES: Readonly<
   },
   cli: {
     meaning:
-      "Interactive open/continue entry points `discern desk` launches, argv included",
+      "Interactive open/continue entry points `discern desk` launches, `argv` included",
     absent: null,
   },
   guidanceFile: {
@@ -519,7 +540,7 @@ Live code supersedes 2 older ADR descriptions. ADR 0032 describes \`GEMINI.md\` 
 
 Cursor's MCP **call-duration policy** is surface-dependent. Its project \`.cursor/mcp.json\` feeds the integrated development environment (IDE) and the CLI or Agent Client Protocol (ACP) path. The CLI stops tool calls at 60 seconds and has no supported override. discern's server therefore declares \`--strict-tool-calls\`, and \`discern_await\` returns lossless 45-second continuation slices (the behavior reference {{x:mcp-call-duration}} carries the vendor evidence).
 
-Detection uses \`cursor-agent\` as its \`PATH\` signal because unrelated tools commonly claim the generic \`agent\` alias. The IDE's \`cursor\` shell command and application locations count as setup-only installation evidence. Cursor declares \`humanSetupAdvice\` because External File Protection is a user-wide setting that discern cannot change; \`setup done\` relays that handoff. Committed \`.cursor/\` configuration remains inert until the workspace is trusted, and tool use requires approval by default (\`--approve-mcps\` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI Skill-loading bugs. Re-verify the \`cursor-agent\` binary before relying on Skills there.`,
+Detection uses \`cursor-agent\` as its \`PATH\` signal because unrelated tools commonly claim the generic \`agent\` alias. The \`cursor\` shell command in the IDE and the application locations count as setup-only installation evidence. Cursor declares \`humanSetupAdvice\` because External File Protection is a user-wide setting that discern cannot change; \`setup done\` relays that handoff. Committed \`.cursor/\` configuration remains inert until the workspace is trusted, and tool use requires approval by default (\`--approve-mcps\` bypasses approval in headless mode). Cursor 2.4 fixed earlier 2026 CLI Skill-loading bugs. Re-verify the \`cursor-agent\` binary before relying on Skills there.`,
   },
   copilot: {
     epithet: "wired, reuse-canonical",
@@ -589,7 +610,7 @@ export const GAPS = [
 **Uncertainties.**
 
 - **Folder Trust gates committed configuration.** Per the behavior reference, Gemini ignores project \`.gemini/settings.json\`, including discern's MCP entry and hook, until the folder receives a user trust grant. \`--skip-trust\` and \`GEMINI_CLI_TRUST_WORKSPACE=true\` bypass that gate. Gemini reads compiled \`GEMINI.md\` before trust, so Guidance remains available. Codex has a corresponding one-time trust boundary ({{g:codex-surface}}).
-- **Schema/version volatility.** Gemini's MCP and worktree surfaces are moving fast (native \`--worktree\` and per-OS sandboxing landed ~v0.36.0 and are partly experimental). Any wired config should be version-aware.`,
+- **Schema/version volatility.** Gemini's MCP and worktree surfaces are moving fast (native \`--worktree\` and per-OS sandbox support landed ~v0.36.0 and are partly experimental). Any wired config should be version-aware.`,
   },
   {
     id: "codex-surface",
@@ -684,7 +705,7 @@ const REGISTRY_MECHANICS =
 
 1. **The total \`Record\`** — a new name in \`AGENT_NAMES\` without a complete \`PROVIDERS\` entry is a compile error (ADR 0031), and the required \`mcp\` / \`trust\` / \`binaries\` / \`brand\` / \`cli\` fields make their declaration compile-mandatory too.
 2. **The parity test** (\`tests/agent_parity_test.ts\`) — for every \`AGENT_NAMES\` entry it asserts tracked and ignored file state, neutral scopes, each hooks provider's seed template (event keys + session-hook needle), non-empty \`binaries\`, the canonical and reuse-canonical invariants, an accounted MCP status, and trust metadata. A new agent fails the Gate at each incomplete seam (ADR 0043/0051).
-3. **\`discern doctor\`** reports per-configured-agent coverage explicitly (\`src/commands/doctor.ts\` §8b): for each agent it prints what is wired (guidance, skills, mcp, hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
+3. **\`discern doctor\`** reports per-configured-agent coverage explicitly (\`src/commands/doctor.ts\` §8b): for each agent it prints what is wired (Guidance, Skills, MCP, and hooks) and the one-time trust step (or that none is needed) — so the expected divergences are visible rather than read as a bug.
 4. **This page itself** — code generation derives the cells from \`PROVIDERS\`, and the Gate diffs the committed copy. The typed commentary layer fails compilation until verdict prose covers a new agent.`;
 
 /** The authored reading of the derived coverage matrix. */
