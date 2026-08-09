@@ -135,6 +135,6 @@ Deno.test("section citations resolve, and an unknown citation throws", () => {
   assertThrows(
     () => resolveSectionTokens("{{s:no-such-dimension}}"),
     Error,
-    "cites no behaviour dimension",
+    "cites no behavior dimension",
   );
 });
