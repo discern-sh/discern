@@ -156,6 +156,14 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
     0,
   );
+  assertEquals(
+    readableText(
+      document.querySelector("#standard .standard-trajectory__status")
+        ?.textContent ?? null,
+    ),
+    "Lower is better. Every authored Deno source file is enrolled.",
+  );
+  assert(!text.includes("Internal dogfooding"));
 
   assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(

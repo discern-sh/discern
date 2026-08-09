@@ -471,13 +471,9 @@ function StandardTrajectory() {
       ]}
       visual={
         <div className="standard-trajectory">
-          <div className="standard-trajectory__status">
-            <div>
-              <Badge tone="warning">Observational</Badge>
-              <Badge tone="neutral">Internal dogfooding</Badge>
-            </div>
-            <p>Lower is better. Every authored Deno source file is enrolled.</p>
-          </div>
+          <p className="standard-trajectory__status">
+            Lower is better. Every authored Deno source file is enrolled.
+          </p>
 
           <div className="standard-trajectory__summary">
             <div>
