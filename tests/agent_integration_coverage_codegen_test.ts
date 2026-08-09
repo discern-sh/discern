@@ -146,6 +146,6 @@ Deno.test("citation tokens resolve, and an unknown citation throws", () => {
   assertThrows(
     () => resolveCitationTokens("{{x:no-such-dimension}}"),
     Error,
-    "cites no behaviour-reference dimension",
+    "cites no behavior-reference dimension",
   );
 });
