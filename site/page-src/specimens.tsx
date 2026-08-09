@@ -80,6 +80,25 @@ const SERIAL_WAVES: readonly SerialWave[] = [
   },
 ];
 
+const PROOF_JOBS = [
+  { label: "format", command: "deno fmt" },
+  { label: "format#2", command: "discern tidy" },
+  { label: "build", command: "deno task site:build" },
+  { label: "generated:codegen", command: "deno task codegen" },
+  { label: "lint", command: "deno lint" },
+  { label: "typecheck", command: "deno check" },
+  {
+    label: "prose",
+    command:
+      'deno run --allow-read --allow-write --allow-env --allow-run scripts/prose_check.ts --sarif --custom-zero "project/map/"',
+  },
+  {
+    label: "test",
+    command: "deno task test --reporter=${DISCERN_GATE_TEST_REPORTER:-junit}",
+  },
+  { label: "smoke", command: "deno task dev --version" },
+] as const;
+
 /** The product name uses the visual system's one permitted brand-name mono treatment. */
 function DiscernName() {
   return <span className="specimen-brand-name">discern</span>;
@@ -597,6 +616,167 @@ function StandardTrajectory() {
   );
 }
 
+/** Exact-tree completion evidence from the landed homepage-brief amendment. */
+function ProofSpecimen() {
+  return (
+    <DataFigure
+      className="proof-figure"
+      eyebrow="Exact-change evidence · recorded 9 Aug 2026"
+      title="Proof for the homepage brief amendment"
+      legend={[
+        { label: "passed check", tone: "success" },
+        { label: "held Standard", tone: "ink" },
+        { label: "deferred measure", tone: "warning" },
+      ]}
+      visual={
+        <div className="proof-layout">
+          <article className="proof-receipt">
+            <span className="proof-pin proof-pin--tree" aria-hidden="true">
+              01
+            </span>
+            <span className="proof-pin proof-pin--gate" aria-hidden="true">
+              02
+            </span>
+            <header className="proof-receipt__header">
+              <div>
+                <span>Completion evidence</span>
+                <strong>
+                  <code>discern done</code>
+                </strong>
+              </div>
+              <Badge tone="success" dot>Gate passed</Badge>
+            </header>
+
+            <pre className="proof-line"><code>Proof: gate passed on agent/homepage-1a-b9ab45 @ 9457535abebe · 7 files +182 −149 vs main · standards held, 5 improved, 2 deferred</code></pre>
+
+            <dl className="proof-tree">
+              <div>
+                <dt>Committed tree</dt>
+                <dd>
+                  <code>9457535abebe</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Branch</dt>
+                <dd>
+                  <code>agent/homepage-1a-b9ab45</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Tree state</dt>
+                <dd>clean HEAD</dd>
+              </div>
+              <div>
+                <dt>Change</dt>
+                <dd>7 files · +182 −149</dd>
+              </div>
+            </dl>
+
+            <section className="proof-jobs" aria-label="What ran">
+              <header>
+                <h4>What ran</h4>
+                <span>9 configured jobs</span>
+              </header>
+              <ol>
+                {PROOF_JOBS.map((job) => (
+                  <li key={job.label}>
+                    <span className="proof-job__check" aria-label="passed">
+                      ✓
+                    </span>
+                    <span>{job.label}</span>
+                    <code>{job.command}</code>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section
+              className="proof-standard-summary"
+              aria-label="Standards"
+            >
+              <header>
+                <h4>Standards</h4>
+                <span>
+                  limits verified against <code>main</code>
+                </span>
+              </header>
+              <div>
+                <p>
+                  <Badge tone="success">5 improved</Badge>
+                  <span>
+                    prose · reading grade · lint suppressions · guidance ·
+                    public docs
+                  </span>
+                </p>
+                <p>
+                  <Badge tone="neutral">3 held</Badge>
+                  <span>vocabulary · skill count · skill words</span>
+                </p>
+                <p>
+                  <Badge tone="warning">2 deferred</Badge>
+                  <span>coverage · binary size</span>
+                </p>
+              </div>
+            </section>
+          </article>
+
+          <aside className="proof-boundary" aria-label="Proof annotations">
+            <ol>
+              <li>
+                <span>01</span>
+                <div>
+                  <h4>The exact tree</h4>
+                  <p>
+                    The evidence belongs to clean commit{" "}
+                    <code>9457535abebe</code>. A later commit invalidates it.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span>02</span>
+                <div>
+                  <h4>The declared Gate</h4>
+                  <p>
+                    The Proof records the configured jobs and verifies that no
+                    Standard limit was weakened.
+                  </p>
+                </div>
+              </li>
+              <li>
+                <span>03</span>
+                <div>
+                  <h4>The claim boundary</h4>
+                  <p>
+                    Certainty stops at this tree and this Gate. The owner still
+                    decides whether the change may land.
+                  </p>
+                </div>
+              </li>
+            </ol>
+            <section>
+              <h4>It does not claim</h4>
+              <ul>
+                <li>universal correctness</li>
+                <li>security or absence of defects</li>
+                <li>production suitability</li>
+                <li>permission to land</li>
+              </ul>
+            </section>
+          </aside>
+        </div>
+      }
+      caption="Certainty is narrow and useful: this exact committed tree passed the project’s declared Gate and held its Standards. The Proof says nothing about a later tree."
+      source={
+        <span className="proof-source">
+          Landed Proof for the homepage brief amendment ·{" "}
+          <code>discern status --verbose</code> · 9 August 2026
+        </span>
+      }
+      surface="sunken"
+    />
+  );
+}
+
 /** Static development page that lets the owner judge every artefact in both themes. */
 function SpecimenPreview() {
   return (
@@ -630,6 +810,7 @@ function SpecimenPreview() {
             <a href="#delegation">01 · Delegation</a>
             <a href="#commissioning">02 · Commissioning</a>
             <a href="#standard">03 · Standard</a>
+            <a href="#proof">04 · Proof</a>
           </nav>
         </header>
 
@@ -672,6 +853,19 @@ function SpecimenPreview() {
             </>
           }
           render={() => <StandardTrajectory />}
+        />
+
+        <SpecimenSection
+          id="proof"
+          index="04 / 04"
+          title="A Proof specimen"
+          introduction={
+            <>
+              Completion evidence for one exact committed change, with the
+              checks it covers and the claims it deliberately leaves outside.
+            </>
+          }
+          render={() => <ProofSpecimen />}
         />
       </main>
       <footer className="specimen-footer">
