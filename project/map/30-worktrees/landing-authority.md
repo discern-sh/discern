@@ -44,7 +44,7 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
-The authority-free path is a structural refusal. Human, JSON, and MCP render the same act (landing), consequence (nothing landed), scope (the worktree, its branch, and the trunk remain untouched), and continuation (owner review followed by `discern accept --confirmed`). The consent-gated-verb registry enrolls every supported surface in that parity check. A successful landing reports one member of the landing-consent source authority in `data.consent`, its Proof line, and the Logbook; adding a future source fails the source-driven evidence tests until all of those consumers handle it.
+When `accept` has no landing authority, it changes nothing. Every supported result says what would have landed, confirms that the worktree, branch, and trunk remain untouched, and routes the change to review. After the owner approves the change in the current conversation, run `discern accept --confirmed`. On success, `data.consent`, the proof line, and the Logbook name the permission source: current conversation, standing grant, or effort grant.
 
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
