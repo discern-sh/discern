@@ -14,25 +14,25 @@ The public pages for discern live in this repository, so the project's final qua
 
 The site source lives under [`site/`](../../../site/):
 
-| Piece                                                     | Role                                                                             |
-| --------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| [`site/serve.ts`](../../../site/serve.ts)                 | Fetch handler for routes, reader negotiation, static fallback, and 404s.         |
-| [`site/main.ts`](../../../site/main.ts)                   | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.          |
-| [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.                    |
-| [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static homepage shell.                    |
-| [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.                     |
-| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Canonical marketing routes, outputs, authored sources, and prose registers.   |
-| [`site/brand.ts`](../../../site/brand.ts)                 | Canonical homepage metadata, favicon route, and drawn-mark geometry.             |
-| [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.                  |
-| [`site/theme.ts`](../../../site/theme.ts)                 | Shared pre-paint theme bootstrap and asset paths for site and docs pages.        |
-| [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section. See [the-docs-section.md](the-docs-section.md).             |
-| [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.             |
-| [`site/security.ts`](../../../site/security.ts)           | Security-reporting coordinates and the Request for Comments (RFC) 9116 response. |
-| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.                    |
-| [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) | Shared visible-prose projection for the site scope and Standards.         |
-| [`site/pages/`](../../../site/pages/)                     | Static assets and ignored build output served by the handler.                    |
-| [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles.        |
-| [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext `llms.txt` edition, following llmstxt.org.                         |
+| Piece                                                             | Role                                                                             |
+| ----------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| [`site/serve.ts`](../../../site/serve.ts)                         | Fetch handler for routes, reader negotiation, static fallback, and 404s.         |
+| [`site/main.ts`](../../../site/main.ts)                           | Production entrypoint: a `Deno.serve` over the handler for Deno Deploy.          |
+| [`site/dev.ts`](../../../site/dev.ts)                             | Loopback-only local runner and source-driven rebuild watcher.                    |
+| [`site/build.ts`](../../../site/build.ts)                         | Emits selected package bundles and the static homepage shell.                    |
+| [`site/build_inputs.ts`](../../../site/build_inputs.ts)           | The site-owned input boundary that triggers a watched build.                     |
+| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts)     | Canonical marketing routes, outputs, authored sources, and prose registers.      |
+| [`site/brand.ts`](../../../site/brand.ts)                         | Canonical homepage metadata, favicon route, and drawn-mark geometry.             |
+| [`site/design_system.ts`](../../../site/design_system.ts)         | Canonical route bundles, package selections, assets, and theme.                  |
+| [`site/theme.ts`](../../../site/theme.ts)                         | Shared pre-paint theme bootstrap and asset paths for site and docs pages.        |
+| [`site/docs.ts`](../../../site/docs.ts)                           | The `/docs` section. See [the-docs-section.md](the-docs-section.md).             |
+| [`site/seo.ts`](../../../site/seo.ts)                             | Canonical metadata, redirects, discovery files, and security policy.             |
+| [`site/security.ts`](../../../site/security.ts)                   | Security-reporting coordinates and the Request for Comments (RFC) 9116 response. |
+| [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts)         | Process-level crawl for local and deployed release artifacts.                    |
+| [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) | Shared visible-prose projection for the site scope and Standards.                |
+| [`site/pages/`](../../../site/pages/)                             | Static assets and ignored build output served by the handler.                    |
+| [`site/page-src/`](../../../site/page-src/)                       | Authored sources for generated static pages and their composition styles.        |
+| [`site/text/discern.txt`](../../../site/text/discern.txt)         | The plaintext `llms.txt` edition, following llmstxt.org.                         |
 
 The marketing routes originate in `MARKETING_PAGES`; the handler derives its exported `PAGES` table from that registry:
 
