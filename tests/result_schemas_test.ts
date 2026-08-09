@@ -45,6 +45,7 @@ import {
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import {
   ERROR_FAILURE_RECOVERY,
+  ERRORLESS_FAILURE_RECOVERY,
   FAILURE_RECOVERY_EVIDENCE,
   failureRecoveryHintTexts,
   fire,
@@ -425,15 +426,33 @@ Deno.test("every canonical error family is enrolled in evidence-backed or tailor
     }
   }
 
-  const errorless = {
+  const errorlessWithEvidence = {
     ok: false,
     verb: "demo",
     message: "No canonical error family identifies this failure.",
   } satisfies DiscernResult;
+  assertEquals(ERRORLESS_FAILURE_RECOVERY, "evidence");
+  const preparedErrorless = withFailureRecoveryHint(errorlessWithEvidence);
+  assert(
+    hasRegisteredActionableHint(preparedErrorless.hints),
+    "an error-less applied failure with corrective evidence receives the generic floor",
+  );
+  serializeResult(preparedErrorless);
+
+  const errorlessDataOnly = {
+    ok: false,
+    verb: "demo",
+    data: { state: "failed" },
+  } satisfies DiscernResult;
   assertEquals(
-    withFailureRecoveryHint(errorless),
-    errorless,
-    "an error-less failure must carry a tailored registered next step",
+    withFailureRecoveryHint(errorlessDataOnly),
+    errorlessDataOnly,
+    "an error-less data-only failure must not receive a fabricated fallback",
+  );
+  assertThrows(
+    () => serializeResult(errorlessDataOnly),
+    Error,
+    "has no registered next-step hint",
   );
 });
 

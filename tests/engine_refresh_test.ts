@@ -311,7 +311,11 @@ Deno.test("engine refresh refuses malformed co-owned MCP JSON without clobbering
     assertEquals(res.error, "partial_refresh");
     assertStringIncludes(res.data.errors.join("\n"), ".mcp.json");
     assertStringIncludes(res.data.errors.join("\n"), "malformed JSON");
-    assertHasHint(res, HINTS["refresh-artifact-failed"]);
+    const firstError = res.data.errors[0];
+    assert(typeof firstError === "string", r.stdout);
+    assertHasHint(res, HINTS["refresh-artifact-failed"], {
+      message: firstError,
+    });
     assertEquals(await Deno.readTextFile(join(dir, ".mcp.json")), malformed);
   });
 });

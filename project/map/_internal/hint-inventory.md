@@ -60,6 +60,12 @@ Rendered example:
 Read `data.landing` before acting. If `trunk_landed` is true, do not land the commit again; finish only the cleanup whose state is false. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
 ```
 
+Interactive example:
+
+```text
+Read the reported landing state before acting. If the trunk already landed, do not land the commit again; finish only the incomplete cleanup. Otherwise resolve the failure, then run `discern status` before attempting `discern accept` again.
+```
+
 ## `accept-refresh-failed`
 
 - Category: `next-step`
@@ -359,6 +365,12 @@ Rendered example:
 Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.
 ```
 
+Interactive example:
+
+```text
+Choose one exact path from the listed candidates, then re-run the same command with that path as its target.
+```
+
 ## `docs-find-target`
 
 - Category: `next-step`
@@ -370,6 +382,12 @@ Rendered example:
 
 ```text
 Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.
+```
+
+Interactive example:
+
+```text
+Use an exact suggested path when one is listed; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 ```
 
 ## `doctor-failed-checks`
@@ -1015,6 +1033,12 @@ Rendered example:
 Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.
 ```
 
+Interactive example:
+
+```text
+Carry out the report's ranked next action, then re-run the same improvement command to measure the result against its threshold.
+```
+
 ## `improvement-logbook-off`
 
 - Category: `notice`
@@ -1285,7 +1309,13 @@ Restart your coding agent now, or reload its MCP servers, before trying to use t
 Rendered example:
 
 ```text
-Relay `data.guidance` to your human, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests to that conversation.
+Present `data.guidance` to the owner, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests only to that conversation.
+```
+
+Interactive example:
+
+```text
+Review the setup guidance and answer its questions, then run the displayed command; its `--confirmed` flag attests only to this conversation.
 ```
 
 ## `setup-done-land-dedicated`
@@ -1325,6 +1355,12 @@ Rendered example:
 
 ```text
 Complete every file in `data.leftover` and every check in `data.unmet`, then re-run `discern setup done`; use `--force` only to record completion without that proof.
+```
+
+Interactive example:
+
+```text
+Complete every listed file and unmet check, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 ```
 
 ## `setup-guidance-own-render-skipped`
@@ -1468,6 +1504,12 @@ Rendered example:
 
 ```text
 Fix every entry in `data.materialized.errors`, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
+```
+
+Interactive example:
+
+```text
+Fix every reported materialization error, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
 ```
 
 ## `standards-limits-unverified`

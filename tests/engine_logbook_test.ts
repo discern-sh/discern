@@ -263,8 +263,8 @@ Deno.test("logbook: a refusal records with its slug and the looked-up target", a
     );
     assertEquals(
       event.hint_ids,
-      [HINTS["failure-recovery"].id],
-      "the recorded refusal preserves the wire contract's actionable recovery floor",
+      [HINTS["docs-find-target"].id],
+      "the recorded refusal preserves the wire contract's tailored recovery",
     );
   });
 });

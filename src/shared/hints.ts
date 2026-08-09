@@ -1743,6 +1743,9 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.",
+    interactiveTemplate: (): string =>
+      "Carry out the report's ranked next action, then re-run the same " +
+      "improvement command to measure the result against its threshold.",
   }),
 
   /**
@@ -2691,6 +2694,9 @@ export const HINTS = {
     template: (): string =>
       `Fix every entry in \`data.materialized.errors\`, then run ${CMD.refresh} ` +
       "to materialize the ejected Skill in every configured agent directory.",
+    interactiveTemplate: (): string =>
+      `Fix every reported materialization error, then run ${CMD.refresh} ` +
+      "to materialize the ejected Skill in every configured agent directory.",
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -2736,6 +2742,11 @@ export const HINTS = {
       "Read `data.landing` before acting. If `trunk_landed` is true, do not " +
       "land the commit again; finish only the cleanup whose state is false. " +
       `Otherwise resolve the reported failure, then run ${CMD.status} before ` +
+      `attempting ${CMD.accept} again.`,
+    interactiveTemplate: (): string =>
+      "Read the reported landing state before acting. If the trunk already " +
+      "landed, do not land the commit again; finish only the incomplete " +
+      `cleanup. Otherwise resolve the failure, then run ${CMD.status} before ` +
       `attempting ${CMD.accept} again.`,
   }),
 
@@ -3042,7 +3053,13 @@ export const HINTS = {
     family: "setup-consent",
     example: undefined,
     template: (): string =>
-      "Relay `data.guidance` to your human, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests to that conversation.",
+      "Present `data.guidance` to the owner, wait for their answers, then run " +
+      "the exact command in `data.command`; its `--confirmed` flag attests " +
+      "only to that conversation.",
+    interactiveTemplate: (): string =>
+      "Review the setup guidance and answer its questions, then run the " +
+      "displayed command; its `--confirmed` flag attests only to this " +
+      "conversation.",
   }),
 
   /** Setup completion carries the unfinished files and checks as structured
@@ -3058,6 +3075,9 @@ export const HINTS = {
       `Complete every file in \`data.leftover\` and every check in ` +
       `\`data.unmet\`, then re-run ${CMD.setupDone}; use \`--force\` only ` +
       "to record completion without that proof.",
+    interactiveTemplate: (): string =>
+      `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
+      "use `--force` only to record completion without that proof.",
   }),
 
   /** Existing authored agent guidance was preserved in the canonical source. */
@@ -3290,6 +3310,9 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.",
+    interactiveTemplate: (): string =>
+      "Choose one exact path from the listed candidates, then re-run the same " +
+      "command with that path as its target.",
   }),
 
   /** A missing docs/map target recovers through structured suggestions or the
@@ -3303,6 +3326,10 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.",
+    interactiveTemplate: (): string =>
+      "Use an exact suggested path when one is listed; otherwise run the same " +
+      "command without a target to inspect its index, then retry with one " +
+      "returned path.",
   }),
 
   /** The optional canonical suggestion in an unknown-command refusal. */
@@ -3403,6 +3430,11 @@ export type FailureRecoveryEvidence =
  * until its recovery contract is classified. */
 export type FailureRecoveryMode = "evidence" | "tailored";
 
+/** Error-less applied failures form one explicit compatibility family. Their
+ * first diagnostic or message is the only recovery evidence available; a
+ * data-only result still fails closed at the boundary. */
+export const ERRORLESS_FAILURE_RECOVERY: FailureRecoveryMode = "evidence";
+
 export const ERROR_FAILURE_RECOVERY = {
   active_worktrees: "evidence",
   ambiguous: "tailored",
@@ -3487,13 +3519,12 @@ export function hasFailureRecoveryEvidence(result: DiscernResult): boolean {
   );
 }
 
-/** Resolve the recovery contract for a failed result. Error-less failures have
- * no canonical family to audit and therefore fail closed to tailored recovery. */
+/** Resolve the recovery contract for a failed result. */
 export function failureRecoveryMode(
   result: DiscernResult,
 ): FailureRecoveryMode {
   return result.error === undefined
-    ? "tailored"
+    ? ERRORLESS_FAILURE_RECOVERY
     : ERROR_FAILURE_RECOVERY[result.error];
 }
 

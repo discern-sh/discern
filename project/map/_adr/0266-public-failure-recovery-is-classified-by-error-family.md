@@ -17,7 +17,7 @@ Every canonical error slug has one total recovery classification in `ERROR_FAILU
 - `evidence` permits the generic registered floor only when the result carries a non-empty message or first diagnostic whose family audit says supplies the correction;
 - `tailored` requires a narrower registered next-step hint that points at the real authority, structured evidence, choice, or continuation.
 
-The mapping is a typed satellite of `ERROR_SLUGS`; adding a slug cannot compile until it is classified. Error-less failures fail closed to tailored recovery because no canonical family supports an evidence judgment. `withFailureRecoveryHint` and `serializeResult` consume the same mapping, so CLI JSON and MCP cannot diverge. The public result fields and error slugs do not change.
+The mapping is a typed satellite of `ERROR_SLUGS`; adding a slug cannot compile until it is classified. `ERRORLESS_FAILURE_RECOVERY` records the compatibility family for applied failures without a slug: their message or first diagnostic may support the generic floor, but a data-only failure still fails closed. `withFailureRecoveryHint` and `serializeResult` consume the same authorities, so CLI JSON and MCP cannot diverge. The public result fields and error slugs do not change.
 
 No lexical scan decides whether prose sounds actionable. The class test iterates the authorities and proves the boundary behavior; behavioral tests exercise the tailored producers.
 
