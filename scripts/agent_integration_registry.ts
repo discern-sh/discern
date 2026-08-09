@@ -564,7 +564,7 @@ export function seamNarratives(): readonly SeamNarrative[] {
     {
       title: "Guidance compile (one body, many mirrors)",
       body:
-        `\`discern refresh\` composes built-in \`base.md\`, the enabled feature sections, and the project's \`[guidance].sources\` into one body. It writes the configured provider files through \`src/engine/guidance_render.ts\` and \`src/engine/guidelines.ts\`. \`AGENTS.md\` is the canonical full-body file because Codex has no import directive. Other providers declare an \`@AGENTS.md\` pointer or \`reuseCanonical\` when they read \`AGENTS.md\` directly. Claude Code and Gemini support the same byte-identical \`@path\` import, so \`atImportPointer\` serves both (ADR 0032/0043). \`renderAgentFiles\` feeds the writer and the \`status\` and \`done\` currency checks from committed configuration (ADR 0034). ADR 0128 keeps the compiled agent files tracked, and the Gate fails when a committed copy differs from its sources.`,
+        `\`discern refresh\` composes built-in \`base.md\`, the enabled feature sections, and the project's \`[guidance].sources\` into one body. It writes the configured provider files through \`src/engine/guidance_render.ts\` and \`src/engine/guidelines.ts\`. \`AGENTS.md\` is the canonical full-body file because Codex has no import directive. Other providers declare an \`@AGENTS.md\` pointer or \`reuseCanonical\` when they read \`AGENTS.md\` directly. Claude Code and Gemini support the same byte-identical \`@path\` import, so \`atImportPointer\` serves both (ADR 0032/0043). \`renderAgentFiles\` feeds the writer and the \`status\` and \`done\` currency checks from committed configuration (ADR 0034). ADR 0128 keeps the Agent files tracked, and the Gate fails when a committed copy differs from its sources.`,
     },
     {
       title: "Skills materialization",
@@ -751,7 +751,7 @@ The derived layer needs no verification pass: it is read from the code below at 
 - 0073 — discern co-manages Codex's auto-generated \`environment.toml\`.
 - 0074 — Claude Code and GitHub Copilot co-own the shared \`.mcp.json\` through one stdio writer.
 - 0075 — the post-setup reactivation handoff derives from the registry.
-- 0128 — compiled agent files are committed; 0259 — generated artifacts carry review metadata via the managed \`.gitattributes\`.
+- 0128 — Agent files are committed; 0259 — generated artifacts carry review metadata via the managed \`.gitattributes\`.
 - 0260 — this page compiles from the provider registry (the decision behind the generated banner above).
 
 **Vendor behavior** comes from the [cross-agent behavior reference](cross-agent-behaviour-reference.md) and its cited vendor documentation and issue trackers.`;
