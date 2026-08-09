@@ -49,9 +49,7 @@ Do not edit a compiled file to fix its prose. The next refresh replaces that edi
 
 ## Check each agent-copy source at its authority
 
-The repository checks operational agent copy in two ways. Core rules shared by bundled Guidance and Model Context Protocol instructions derive from the operating-policy registry and its parity guard. Task procedures derive from the effective Skill resolver and setup-template directory. Each derived surface joins a repository-only classification registry whose structural fields point to exact excerpts in the authored prose.
-
-The contract registry never renders into a Skill or setup brief. A separate guard checks the authored corpus and a temporary bundled-Skill materialization for escaped internal metadata. The derived corpus also passes through the generated `DiscernAgent` Vale style. Prefix selection enrolls later rules without copied patterns or identifiers. Structural checks retain stop, recovery, authority, and relay guarantees that phrase matching cannot determine ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
+Operational procedures derive from the Skill resolver and setup templates. A repository-only registry binds exact prose but never renders. Tests reject escaped metadata and apply generated `DiscernAgent` rules ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
 
 ## Current state & gotchas
 

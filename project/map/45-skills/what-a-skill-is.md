@@ -43,9 +43,9 @@ A deterministic command does not need a Skill. Put it in a Project Script. Durab
 
 ## Make an operational procedure self-contained
 
-An operational Skill must let a fresh agent act without inventing a boundary. Name the root, path, or stable target; put action before verification; state when to stop; and give recovery steps. For cross-worktree, authority-sensitive, or relay-bearing work, provide the corresponding root, authority check, or ready-to-send message.
+An operational Skill names its target, verification, stop, and recovery paths. Add the applicable root, authority check, or relay message.
 
-discern's repository keeps classification metadata outside the Skills it ships. The guard derives the effective Skill set from the same resolver that materializes it, then joins each surface to an internal registry whose required fields cite exact excerpts in the agent-facing prose. A new or overriding Skill joins without another test-owned filename list. Supporting Markdown joins evidence and lexical review; payloads under `skeleton/` remain excluded because an agent copies them rather than follows them in place. A materialization test prevents internal contract metadata from entering end-user Skill files ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
+An internal registry keeps classifications outside shipped Skills and binds exact prose. The resolver, Markdown walk, lexical check, and materialization guard enroll future copy ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
 
 ## Current state & gotchas
 
