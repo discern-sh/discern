@@ -15,7 +15,7 @@ import {
   TIP_RENDERED_LENGTH_LIMIT,
   TIPS,
 } from "./tips.ts";
-import { markdownBlockquote } from "./markdown_code.ts";
+import { markdownBlockquote } from "./markdown_blockquote.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =

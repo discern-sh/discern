@@ -5,7 +5,7 @@
 
 import { type HintDef, HINTS } from "./hints.ts";
 import { renderCommandRefsCli } from "./command_reference.ts";
-import { markdownBlockquote } from "./markdown_code.ts";
+import { markdownBlockquote } from "./markdown_blockquote.ts";
 
 /** The banner stamped atop the generated inventory page. */
 const DOCS_BANNER =

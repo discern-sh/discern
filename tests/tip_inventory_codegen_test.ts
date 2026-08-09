@@ -5,7 +5,7 @@
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderTipInventoryDoc } from "../src/shared/tip_inventory_codegen.ts";
-import { markdownBlockquote } from "../src/shared/markdown_code.ts";
+import { markdownBlockquote } from "../src/shared/markdown_blockquote.ts";
 import {
   renderTipCli,
   TIP_COVERAGE_DELIBERATELY_ABSENT,

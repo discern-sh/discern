@@ -7,7 +7,7 @@ import { renderCommandRefsCli } from "../src/shared/command_reference.ts";
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { renderHintInventoryDoc } from "../src/shared/hint_inventory_codegen.ts";
 import { type HintDef, HINTS } from "../src/shared/hints.ts";
-import { markdownBlockquote } from "../src/shared/markdown_code.ts";
+import { markdownBlockquote } from "../src/shared/markdown_blockquote.ts";
 import { REPO_AUTHORED_PATHS } from "./repo_authored_paths.ts";
 import { canonicalGeneratedMarkdown } from "./tidy_helpers.ts";
 
