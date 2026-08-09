@@ -33,16 +33,16 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
     ...document.querySelectorAll<HTMLButtonElement>("[data-copy-prompt]"),
   ];
 
-  assertEquals(prompts.length, 3);
+  assertEquals(prompts.length, 2);
   assertEquals(
     prompts.map((prompt) => readableText(prompt.textContent)),
-    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
+    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
   );
   assert(
     prompts.every((prompt) => prompt.closest("[hidden]") === null),
     "the approved prompt must remain visible and selectable without JavaScript",
   );
-  assertEquals(controls.map((control) => control.hidden), [true, true, true]);
+  assertEquals(controls.map((control) => control.hidden), [true, true]);
 
   const copied: string[] = [];
   let externalRequests = 0;
@@ -61,7 +61,6 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
 
   window.eval(client);
   assertEquals(controls.map((control) => control.hidden), [
-    false,
     false,
     false,
   ]);

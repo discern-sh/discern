@@ -9,9 +9,10 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
  * and the SEO test and smoke crawl verify the served page against the same
  * values, so the public identity line has one source.
  */
-export const LANDING_TITLE = "discern · A bolder way to build";
+export const LANDING_TITLE =
+  "discern · Build further. Stand behind what comes back.";
 export const LANDING_DESCRIPTION =
-  "Let coding agents take on substantial work while the project keeps the understanding, working conditions, and evidence you need to take it further.";
+  "Coding agents can take on substantial work. discern puts shared understanding, isolated work, declared checks, and exact-change evidence in the project.";
 
 /**
  * Landing-family routes that carry their own exact titles. Serving appends

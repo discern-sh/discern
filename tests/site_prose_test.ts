@@ -47,7 +47,10 @@ Deno.test("the homepage projection measures authored prose once and excludes cod
   const pages = projectSiteProse();
   const homepage = pages.find(({ route }) => route === "/");
   assert(homepage !== undefined);
-  assertStringIncludes(homepage.prose, "A bolder way to build.");
+  assertStringIncludes(
+    homepage.prose,
+    "Build further. Stand behind what comes back.",
+  );
   assertStringIncludes(
     homepage.prose,
     "An engineering practice for agent-built software.",

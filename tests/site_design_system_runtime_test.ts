@@ -428,11 +428,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   const body = dom.window.document.body;
   const text = body.textContent ?? "";
 
-  // The first screen carries the committed ambition, audience, and action.
+  // The first screen carries the revised ambition, category, and action.
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "A bolder way to build.",
+    "Build further. Stand behind what comes back.",
   );
   assertStringIncludes(
     text,
@@ -442,29 +442,28 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     (body.querySelector(".landing-hero")?.textContent ?? "").includes(
       "An engineering practice for agent-built software.",
     ),
-    false,
+    true,
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
 
-  // The ten-part argument is one hero followed by the nine signed-off sections.
+  // The transcript-led argument is one hero followed by eight sections.
   assertEquals(body.querySelectorAll("main#main").length, 1);
   assert(body.querySelector(".discern-skip-link") !== null);
   assertEquals(body.querySelector(".discern-article-layout"), null);
-  assertEquals(body.querySelectorAll("main > .landing-section").length, 9);
+  assertEquals(body.querySelectorAll("main > .landing-section").length, 8);
   assertEquals(
     [...body.querySelectorAll("main > .landing-section h2")].map((heading) =>
       heading.textContent?.trim()
     ),
     [
-      "Agent capability changed the size of the possible.",
+      "More capability should widen your ambition.",
       "Turn a backlog into organized work.",
-      "Give future agents a better starting point.",
+      "A complete practice, by design.",
+      "The project keeps the way of working.",
+      "You do not need the same background. You do need to care what happens next.",
+      "Change the agent. Keep the project.",
+      "Exact evidence. Explicit authority.",
       "Software worth putting your name to.",
-      "The practice stays with the work.",
-      "The practice starts from the experience you bring.",
-      "Change agents without starting the project over.",
-      "Confidence comes with clear boundaries.",
-      "Build further.",
     ],
   );
   for (const placeholder of ["Placeholder", "Lorem ipsum", "The ask"]) {
@@ -553,10 +552,13 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assert(possibilityProse !== null);
   assertEquals(possibility.querySelector(".landing-prose--lead"), null);
-  assertEquals(possibilityProse.querySelectorAll(":scope > p").length, 2);
+  assertEquals(possibilityProse.querySelectorAll(":scope > p").length, 5);
+  assertEquals(
+    possibilityProse.querySelector(":scope > .landing-section__action"),
+    null,
+  );
   assert(
-    possibilityProse.querySelector(":scope > .landing-section__action") !==
-      null,
+    possibilityProse.querySelector(":scope > .landing-pullquote") !== null,
   );
 
   const commissioning = body.querySelector("#commissioning .landing-split");
@@ -592,12 +594,12 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     "/docs/worktrees/team-workflow",
   );
-  assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 3);
+  assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 2);
   assertEquals(
     [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
       prompt.textContent?.trim()
     ),
-    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
+    [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
   );
   assertEquals(
     body.querySelector(".landing-install code")?.textContent,
@@ -650,12 +652,12 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     `${AGENT_NAMES.length} supported coding agent providers`,
   );
   assertEquals(transparentNavigationActions(body), []);
-  const backlogAction = [...body.querySelectorAll("a.discern-button")].find(
-    (action) => action.textContent?.trim() === "See a backlog become a plan",
+  const workstreamAction = [...body.querySelectorAll("a.discern-button")].find(
+    (action) => action.textContent?.trim() === "See the real workstream plan",
   );
   assertEquals(
-    backlogAction?.closest(".landing-prose--wide"),
-    possibilityProse,
+    workstreamAction?.closest(".landing-section")?.id,
+    "delegation",
   );
 
   // Page-owned behavior is one local script; the browser receives no React.
