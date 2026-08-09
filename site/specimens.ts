@@ -5,7 +5,6 @@
  * enters the production page registry or production entrypoint.
  */
 
-import { buildSite } from "./build.ts";
 import {
   resolveSiteDevPort,
   SITE_DEV_BIND_HOST,
@@ -13,8 +12,10 @@ import {
 } from "./dev.ts";
 import { renderSpecimens } from "./page-src/specimens.tsx";
 import { handler } from "./serve.ts";
+import { fromFileUrl } from "@std/path";
 
 const SITE_ROOT = new URL("./", import.meta.url);
+const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SPECIMEN_CSS_SOURCE = new URL("page-src/specimens.css", SITE_ROOT);
 const SPECIMEN_CSS_OUTPUT = new URL(
   "pages/assets/design-system/compositions/specimens.css",
@@ -23,7 +24,14 @@ const SPECIMEN_CSS_OUTPUT = new URL(
 
 /** Prepare the ignored runtime assets consumed only by the preview server. */
 export async function buildSpecimenPreview(): Promise<void> {
-  await buildSite();
+  const build = await new Deno.Command(Deno.execPath(), {
+    args: ["task", "site:build"],
+    cwd: REPO_ROOT,
+    stdin: "null",
+    stdout: "inherit",
+    stderr: "inherit",
+  }).output();
+  if (!build.success) throw new Error("Site build failed");
   const css = await Deno.readTextFile(SPECIMEN_CSS_SOURCE);
   await Deno.writeTextFile(
     SPECIMEN_CSS_OUTPUT,
