@@ -2,13 +2,13 @@
 
 # Registry atlas
 
-_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrolments here._
+_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrollments._
 
-To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.
+To add a set, declare it in `scripts/canonical_sets.ts`. The enrollment guard (`tests/canonical_sets_enrolment_test.ts`) requires a declared owner for every conventionally named guard test and codegen target. The claim sweep (`tests/ssot_claim_guard_test.ts`) requires every module that claims single-source-of-truth status to have a declared source or recorded absence.
 
 ## The sets at a glance
 
-One row per set, in registry order; the sections below follow the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when the source exposes them to codegen; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.
+One row per set, in registry order. The detail sections use the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when codegen can read them; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence whose reason appears in the detail section.
 
 | Set                                                                                                                   | Source                                                                            | Members | Glossary         | Feature canon               |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------- | ---------------- | --------------------------- |
@@ -37,7 +37,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`source-paths`](#source-paths--source-paths)                                                                         | `src/shared/paths_registry.ts#SOURCE_PATHS`                                       | 6       | —                | node `one-file-footprint`   |
 | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                   | `src/lib/skills.ts#bundledSkillNames`                                             | 9       | "Skill"          | surface `skill`             |
 | [`agent-providers`](#agent-providers--agent-providers)                                                                | `src/shared/agent_catalogue.ts#AGENT_NAMES`                                       | 5       | —                | surface `agent`             |
-| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                                 | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
+| [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                  | `scripts/cross_agent_registry.ts#BEHAVIOUR_DIMENSIONS`                            | 11      | —                | —                           |
 | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                        | `scripts/agent_integration_registry.ts#INTEGRATION_SEAMS`                         | 11      | —                | —                           |
 | [`brand-documents`](#brand-documents--brand-documents)                                                                | `scripts/brand_registry.ts#BRAND_DOCUMENTS`                                       | 17      | —                | —                           |
 | [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                  | `scripts/brand/claims.ts#CLAIMS`                                                  | 20      | —                | —                           |
@@ -77,7 +77,7 @@ One row per set, in registry order; the sections below follow the same order and
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                       | `scripts/brand/vale.ts#VALE_STYLE_RULES`                                          | 11      | —                | —                           |
 | [`seeded-gotchas-traps`](#seeded-gotchas-traps--seeded-gate-traps)                                                    | `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored)    | —       | —                | node `gotchas-pointer`      |
-| [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)             | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
+| [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)     | `scripts/contributor_agreement.ts#CLA_ASSISTANT_GIST_FILES`                       | 2       | —                | —                           |
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
@@ -89,7 +89,7 @@ One row per set, in registry order; the sections below follow the same order and
 
 ## Guard tests and the sets they hold
 
-Alphabetical by test file; a test holding several sets fails when any one of them drifts. The [unaffiliated records](#unaffiliated-with-reasons) account for conventionally named tests holding none.
+Alphabetical by test file. A test holding several sets fails when any one of them drifts. The [unaffiliated records](#unaffiliated-with-reasons) account for conventionally named tests with recorded unaffiliated status.
 
 | Guard test                                         | Holds                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -112,8 +112,8 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 | `tests/config_codegen_test.ts`                     | [`jobs`](#jobs--gate-jobs), [`config-tables`](#config-tables--config-tables), [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                 |
 | `tests/config_schema_test.ts`                      | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/config_set_schema_guard_test.ts`            | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                             |
-| `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `tests/contributor_governance_test.ts`             | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files)                                                                                                                                                                                                                                                                                                                                                                     |
+| `tests/cross_agent_reference_codegen_test.ts`      | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/dev_vocab_guard_test.ts`                    | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/diagnostic_formats_enrolment_test.ts`       | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/discern_commit_enrolment_test.ts`           | [`authored-commit-sites`](#authored-commit-sites--discern-authored-commit-sites)                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -201,65 +201,65 @@ Alphabetical by test file; a test holding several sets fails when any one of the
 
 ## Generated artifacts
 
-Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.
+Alphabetical by path. `deno task codegen` rewrites an entire generated file; a maintained block sits between markers inside an authored page.
 
-| Artifact                                                   | Kind             | Compiled from                                                                                             |
-| ---------------------------------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| `.github/cla-assistant/metadata`                           | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-agreement-gist-files) |
-| `.vale/DiscernAgent/BestJudgment.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernAgent/PositionalReference.yml`               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/CtaGenericLabel.yml`                   | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/GenericAdjectives.yml`                 | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/GenericVerbs.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/ProductName.yml`                       | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/RepeatedContrast.yml`                  | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/StackedSlogans.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernBrand/TemplateOpener.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernProduct/AgentBlame.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                           |
-| `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                       |
-| `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                        |
-| `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `project/map/70-reference/environment-variables.md`        | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                          |
-| `project/map/70-reference/mcp-and-results.md`              | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `project/map/80-development/install-surface.md`            | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                              |
-| `project/map/_internal/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                            |
-| `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/claims-and-evidence.md`       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/copy-review.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/positioning.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/brand/visual-identity.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/map/_internal/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behaviour-dimensions)                     |
-| `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                          |
-| `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                  |
-| `project/map/_internal/registry-atlas.md`                  | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                       |
-| `project/map/_internal/tip-inventory.md`                   | generated file   | [`tips`](#tips--tips)                                                                                     |
-| `project/skills/discern-agent-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/skills/discern-brand-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `project/skills/discern-product-voice/SKILL.md`            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                    |
-| `schema/discern-config.schema.json`                        | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `schema/discern-proof-note.schema.json`                    | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                   |
-| `schema/discern-results.schema.json`                       | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `schema/discern-results.schema.json`                       | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields) |
-| `schema/discern-results.schema.json`                       | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `schema/discern-results.schema.json`                       | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
-| `schema/discern-setup-config.schema.json`                  | generated file   | [`config-tables`](#config-tables--config-tables)                                                          |
-| `scripts/jsr_license_cache.json`                           | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `src/lib/first_party_license_bundle.ts`                    | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                |
-| `src/lib/third_party_bundle.ts`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                  |
-| `types/discern-json.d.ts`                                  | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                 |
-| `types/discern-json.d.ts`                                  | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                         |
-| `types/discern-json.d.ts`                                  | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                          |
+| Artifact                                                   | Kind             | Compiled from                                                                                                     |
+| ---------------------------------------------------------- | ---------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `.github/cla-assistant/metadata`                           | generated file   | [`contributor-agreement-gist-files`](#contributor-agreement-gist-files--contributor-license-agreement-gist-files) |
+| `.vale/DiscernAgent/BestJudgment.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernAgent/PositionalReference.yml`               | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/CtaGenericLabel.yml`                   | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/GenericAdjectives.yml`                 | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/GenericVerbs.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/ProductName.yml`                       | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/RepeatedContrast.yml`                  | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/StackedSlogans.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernBrand/TemplateOpener.yml`                    | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernProduct/AgentBlame.yml`                      | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `.vale/DiscernProduct/ProductName.yml`                     | generated file   | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles)                                                   |
+| `THIRD_PARTY_NOTICES`                                      | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          |
+| `project/map/00-orientation/glossary.md`                   | generated file   | [`glossary-terms`](#glossary-terms--glossary-terms)                                                               |
+| `project/map/70-reference/artifact-ownership.md`           | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      |
+| `project/map/70-reference/cli-reference.md`                | generated file   | [`verbs`](#verbs--top-level-verbs)                                                                                |
+| `project/map/70-reference/config-reference.md`             | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  |
+| `project/map/70-reference/environment-variables.md`        | generated file   | [`environment-variables`](#environment-variables--discern-environment-variables)                                  |
+| `project/map/70-reference/mcp-and-results.md`              | maintained block | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           |
+| `project/map/80-development/install-surface.md`            | maintained block | [`project-artifacts`](#project-artifacts--project-artifacts)                                                      |
+| `project/map/_internal/agent-integration-coverage.md`      | generated file   | [`agent-integration-seams`](#agent-integration-seams--agent-integration-seams)                                    |
+| `project/map/_internal/brand/README.md`                    | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/claims-and-evidence.md`       | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/copy-patterns.md`             | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/copy-review.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/messaging.md`                 | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/positioning.md`               | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/brand/visual-identity.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/map/_internal/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                              |
+| `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
+| `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
+| `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                          |
+| `project/map/_internal/registry-atlas.md`                  | generated file   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                               |
+| `project/map/_internal/tip-inventory.md`                   | generated file   | [`tips`](#tips--tips)                                                                                             |
+| `project/skills/discern-agent-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/skills/discern-brand-voice/SKILL.md`              | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `project/skills/discern-product-voice/SKILL.md`            | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
+| `schema/discern-config.schema.json`                        | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  |
+| `schema/discern-proof-note.schema.json`                    | generated file   | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                           |
+| `schema/discern-results.schema.json`                       | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                         |
+| `schema/discern-results.schema.json`                       | generated file   | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)         |
+| `schema/discern-results.schema.json`                       | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                                 |
+| `schema/discern-results.schema.json`                       | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                  |
+| `schema/discern-setup-config.schema.json`                  | generated file   | [`config-tables`](#config-tables--config-tables)                                                                  |
+| `scripts/jsr_license_cache.json`                           | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          |
+| `src/lib/first_party_license_bundle.ts`                    | generated file   | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                        |
+| `src/lib/third_party_bundle.ts`                            | generated file   | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                          |
+| `types/discern-json.d.ts`                                  | generated file   | [`result-contracts`](#result-contracts--result-contracts)                                                         |
+| `types/discern-json.d.ts`                                  | generated file   | [`error-slugs`](#error-slugs--result-error-slugs)                                                                 |
+| `types/discern-json.d.ts`                                  | generated file   | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                  |
 
 ## `verbs` — Top-level verbs
 
-The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.
+The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).
 
 - Source: `src/engine/dispatch.ts` — `KNOWN_VERBS`
 - Members: 33
@@ -303,7 +303,7 @@ The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP
 
 ## `hidden-verbs` — Hidden verbs
 
-Every top-level verb kept out of the operator help listing, each with the recorded reason and revival condition; the CLI build applies the registry, and the help-groups guard holds the live hidden set equal to it in both bootstrap states.
+Every top-level verb kept out of the operator help listing carries a reason and revival condition. The CLI build applies the registry, and the help-groups guard checks the live hidden set in both bootstrap states.
 
 - Source: `src/shared/hidden_verbs.ts` — `HIDDEN_VERBS`
 - Members: 3
@@ -311,12 +311,12 @@ Every top-level verb kept out of the operator help listing, each with the record
   - `setup`
   - `triangle`
 - Guards: `tests/engine_help_groups_test.ts`
-- Glossary: not enrolled — help visibility is a modality of each verb, not a concept of its own; the registry's reasons are the documentation
-- Feature canon: not enrolled — a subset of the verbs set, whose entry already carries the canon enrolment; hiding changes a verb's listing, never its feature surface
+- Glossary: not enrolled — the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb
+- Feature canon: not enrolled — the verbs set already enrolls every member; hiding changes only its help listing
 
 ## `dry-run-verbs` — Dry-run-capable verbs
 
-Every command path that registers --dry-run — the plan/apply verbs whose preview must be faithful: a dry run writes nothing, and an apply performs nothing the plan never listed.
+Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.
 
 - Source: `src/main.ts` — `dryRunCapableVerbs`
 - Members: 21
@@ -342,7 +342,7 @@ Every command path that registers --dry-run — the plan/apply verbs whose previ
   - `worktree setup`
   - `worktree teardown`
 - Guards: `tests/engine_plan_parity_test.ts`
-- Glossary: not enrolled — the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own
+- Glossary: not enrolled — the plan/apply documentation owns the preview flag for each existing verb
 - Feature canon: described by the `plan-apply` node
 
 ## `mcp-tools` — MCP tools
@@ -369,12 +369,12 @@ The MCP tool table; verb parity ties every tool to a CLI verb, and the live tool
   - `discern_doctor`
   - `discern_improvement`
 - Guards: `tests/engine_verb_parity_test.ts`, `tests/engine_mcp_test.ts`, `tests/result_codegen_test.ts`, `tests/guidance_corpus_guard_test.ts`
-- Glossary: not enrolled — tools mirror the verb vocabulary; the glossary defines each verb once
+- Glossary: not enrolled — the glossary defines the mirrored verb vocabulary once
 - Feature canon: described by the `mcp-surface` node
 
 ## `mcp-core-lifecycle` — MCP core lifecycle
 
-The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.
+The lifecycle sequence that leads schema-deferred clients through status, Worktree entry, iteration, the final Gate, synchronization, and authorized landing.
 
 - Source: `src/engine/mcp/server.ts` — `MCP_CORE_LIFECYCLE`
 - Members: 8
@@ -387,10 +387,10 @@ The lifecycle sequence that leads schema-deferred clients through status, worktr
   - `discern_await`
   - `discern_accept`
 - Guards: `tests/engine_mcp_test.ts`
-- Glossary: not enrolled — the members are existing verb terms; the sequence is an MCP delivery contract, not a new reader-facing noun
+- Glossary: not enrolled — the MCP delivery contract sequences existing verb terms
 - Feature canon: described by the `mcp-surface` node
 
-## `environment-variables` — Discern environment variables
+## `environment-variables` — discern environment variables
 
 Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.
 
@@ -434,8 +434,8 @@ Every live or retired DISCERN_* environment contract, with its purpose group, li
   - `DISCERN_LIB`
 - Guards: `tests/environment_variables_enrolment_test.ts`, `tests/environment_variables_codegen_test.ts`
 - Artifacts: `project/map/70-reference/environment-variables.md`
-- Glossary: not enrolled — environment names label existing behaviors and process channels; they are reference spellings rather than product terms
-- Feature canon: not enrolled — the registry spans installer, runtime, worktree, development, and test infrastructure instead of defining one product capability
+- Glossary: not enrolled — the environment-variable reference owns these process-channel spellings
+- Feature canon: not enrolled — the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities
 
 ## `experimental-environment-variables` — Experimental environment variables
 
@@ -445,12 +445,12 @@ The environment-only switches for reversible trials, with one exact activation r
 - Members: 1
   - `DISCERN_EXPERIMENTAL_MCP_PRELOAD`
 - Guards: `tests/experimental_environment_enrolment_test.ts`, `tests/providers_test.ts`, `tests/engine_agent_wiring_test.ts`
-- Glossary: not enrolled — experimental environment-variable spellings are reference controls rather than stable product terms
-- Feature canon: not enrolled — experimental escape hatches are intentionally outside the stable product feature account
+- Glossary: not enrolled — the experimental-controls reference owns these environment-variable spellings
+- Feature canon: not enrolled — the stable feature account covers shipping behavior; this registry records reversible experimental controls
 
 ## `operating-policies` — Operating policies
 
-The core policy statements carried by the bundled guidance and MCP server instructions, with the probes that recognize each authored restatement.
+The core policy statements carried by bundled Guidance and MCP server instructions, with probes that recognize each authored restatement.
 
 - Source: `src/shared/operating_policies.ts` — `OPERATING_POLICIES`
 - Members: 9
@@ -464,12 +464,12 @@ The core policy statements carried by the bundled guidance and MCP server instru
   - `await-longest-safe`
   - `accept-on-handoff`
 - Guards: `tests/agent_policy_parity_test.ts`
-- Glossary: not enrolled — policy ids are internal; existing glossary entries define each reader-facing concept
-- Feature canon: not enrolled — cross-cutting enforcement for guidance, worktrees, standards, and MCP; it adds no product feature
+- Glossary: not enrolled — existing Glossary entries define the reader-facing concepts behind these internal policy identifiers
+- Feature canon: not enrolled — the Guidance, Worktree, Standard, and MCP nodes own the enforced behaviors
 
 ## `command-groups` — Command groups
 
-The named, ordered buckets the top-level verbs render under — the grouping table behind `discern --help` and the generated CLI reference alike, so every visible command has an operator-meaningful home.
+The named, ordered groups used by `discern --help` and the generated CLI reference. Every visible command belongs to one operator-facing group.
 
 - Source: `src/cli_help.ts` — `COMMAND_GROUPS`
 - Members: 6
@@ -480,7 +480,7 @@ The named, ordered buckets the top-level verbs render under — the grouping tab
   - `Setup & maintenance`
   - `Inspect & explore`
 - Guards: `tests/engine_help_groups_test.ts`
-- Glossary: not enrolled — display grouping over the verb vocabulary; the glossary defines the verbs themselves
+- Glossary: not enrolled — the Glossary defines each verb; this registry supplies their help-display groups
 - Feature canon: described by the `cli-help` node
 
 ## `consent-gated-verbs` — Consent-gated verbs
@@ -492,12 +492,12 @@ The verbs with a `--confirmed` conversation-attestation boundary. The class test
   - `setup-begin`
   - `accept`
 - Guards: `tests/engine_consent_gate_test.ts`
-- Glossary: not enrolled — an attestation modality of two verbs, documented on each verb rather than as a term of its own
+- Glossary: not enrolled — the two command references document their conversation-attestation boundary
 - Feature canon: described by the `consent-attestations` node
 
 ## `landing-consent-sources` — Landing consent sources
 
-The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.
+The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a Desk-recorded effort grant.
 
 - Source: `src/shared/consent.ts` — `LANDING_CONSENT_SOURCES`
 - Members: 3
@@ -505,7 +505,7 @@ The consent evidence recorded for every successful landing: a conversation attes
   - `standing-grant`
   - `effort-grant`
 - Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_accept_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
-- Glossary: not enrolled — three evidence forms of the landing-consent concept, documented together on the acceptance page
+- Glossary: not enrolled — the acceptance page documents these three evidence forms under landing consent
 - Feature canon: described by the `consent-attestations` node
 
 ## `landing-authority-kinds` — Landing authority kinds
@@ -517,7 +517,7 @@ The read-only outcomes lifecycle envelopes report after the landing-authority re
   - `authorized`
   - `conversation-required`
 - Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_lifecycle_authority_test.ts`
-- Glossary: not enrolled — two machine outcomes of the documented landing-authority concept
+- Glossary: not enrolled — the landing-authority reference documents these two machine outcomes
 - Feature canon: described by the `consent-attestations` node
 
 ## `acceptance-transaction-boundaries` — Acceptance transaction boundaries
@@ -529,12 +529,12 @@ The durable authority/ref facts acceptance journals before a later process or ch
   - `effort-claim`
   - `trunk-ref`
 - Guards: `tests/engine_accept_authority_test.ts`
-- Glossary: not enrolled — internal recovery boundaries of the documented acceptance workflow, not user-facing product vocabulary
+- Glossary: not enrolled — the acceptance workflow documents these internal interruption-recovery boundaries
 - Feature canon: described by the `worktrees` node
 
 ## `accept-landing-state-fields` — Acceptance landing-state fields
 
-The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and logbook events.
+The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and Logbook events.
 
 - Source: `src/shared/accept_landing_state.ts` — `ACCEPT_LANDING_STATE_FIELDS`
 - Members: 4
@@ -543,24 +543,24 @@ The irreversible acceptance effects carried by partial and successful results, M
   - `worktree_removed`
   - `branch_deleted`
 - Guards: `tests/result_schemas_test.ts`
-- Glossary: not enrolled — machine fields of the documented acceptance result, not separate product terms
+- Glossary: not enrolled — the result-contract reference documents these acceptance fields
 - Feature canon: described by the `published-contracts` node
 
 ## `worktree-lifecycle-repo-root-verbs` — Repository-root worktree lifecycle verbs
 
-The worktree lifecycle verbs that refuse when discern.toml lives below the Git repository root, because each creates or lands a whole-repository checkout.
+The Worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.
 
 - Source: `src/engine/worktree/lifecycle.ts` — `WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`
 - Members: 2
   - `start`
   - `accept`
 - Guards: `tests/engine_nested_root_test.ts`
-- Glossary: not enrolled — a repository-layout precondition over documented lifecycle verbs, not product vocabulary
+- Glossary: not enrolled — the Worktree lifecycle reference documents this repository-layout precondition for existing verbs
 - Feature canon: described by the `worktrees` node
 
 ## `desk-actions` — Desk actions
 
-The operator desk's per-worktree action vocabulary and menu order; the legality table exercises every member, while the runtime test holds each interactive effect boundary.
+The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.
 
 - Source: `src/engine/desk/model.ts` — `DESK_ACTIONS`
 - Members: 10
@@ -575,12 +575,12 @@ The operator desk's per-worktree action vocabulary and menu order; the legality 
   - `inspect`
   - `drop`
 - Guards: `tests/engine_desk_model_test.ts`, `tests/engine_desk_runtime_test.ts`
-- Glossary: not enrolled — menu actions on the human desk, described in place rather than as standalone terms
+- Glossary: not enrolled — the Desk reference documents these menu actions in context
 - Feature canon: described by the `desk` node
 
 ## `git-admin-state` — Git-admin state
 
-Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.
+Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
 - Members: 19
@@ -604,12 +604,12 @@ Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and
   - `worktreeReady`
   - `selfShim`
 - Guards: `tests/git_admin_state_test.ts`, `tests/engine_patterns_test.ts`, `tests/engine_write_preflight_test.ts`, `tests/engine_effort_grant_test.ts`
-- Glossary: not enrolled — internal storage vocabulary spanning proofs, measurements, logbook data, and worktree lifecycle state
-- Feature canon: not enrolled — one internal storage registry supports several independently documented product features
+- Glossary: not enrolled — the Git-admin state reference owns this internal vocabulary for Proof, measurements, Logbook data, and Worktree lifecycle state
+- Feature canon: not enrolled — the registry supports several product features, each documented by its own node
 
 ## `jobs` — Gate jobs
 
-The known gate jobs — the command table's fixed vocabulary.
+The known Gate jobs: the command table's fixed vocabulary.
 
 - Source: `src/shared/capabilities.ts` — `KNOWN_JOBS`
 - Members: 6
@@ -625,7 +625,7 @@ The known gate jobs — the command table's fixed vocabulary.
 
 ## `stages` — Stages
 
-The gate's stage vocabulary and order.
+The Gate's stage vocabulary and order.
 
 - Source: `src/shared/capabilities.ts` — `STAGES`
 - Members: 4
@@ -639,19 +639,19 @@ The gate's stage vocabulary and order.
 
 ## `diagnostic-formats` — Diagnostic formats
 
-The machine formats failed-job normalization auto-detects, in detection order; setup and improvement prose derive from the registry, while an enrolment guard holds the public docs to it.
+The machine formats that failed-job normalization detects, in detection order: Static Analysis Results Interchange Format (SARIF) and JUnit XML. Setup and improvement prose derive from this registry, and an enrollment guard checks the public docs.
 
 - Source: `src/engine/gate/diagnostics.ts` — `DIAGNOSTIC_FORMATS`
 - Members: 2
   - `sarif`
   - `junit-xml`
 - Guards: `tests/gate_diagnostics_test.ts`, `tests/diagnostic_formats_enrolment_test.ts`
-- Glossary: not enrolled — SARIF and JUnit XML are external report standards, explained where users configure job output
+- Glossary: not enrolled — job-output configuration explains the external SARIF and JUnit XML standards
 - Feature canon: described by the `diagnostics` node
 
 ## `step-kinds` — Step kinds
 
-The result-step operation vocabulary — what a step does; the doctor's annotations table (`STEP_KIND_ANNOTATIONS` in `src/engine/doctor/execution_model.ts`) is a satellite pinned to it, one actor and hint per kind.
+The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_ANNOTATIONS` table in `src/engine/doctor/execution_model.ts` is pinned to it with one actor and hint per kind.
 
 - Source: `src/shared/result.ts` — `STEP_KINDS`
 - Members: 19
@@ -675,12 +675,12 @@ The result-step operation vocabulary — what a step does; the doctor's annotati
   - `tidy`
   - `standard`
 - Guards: `tests/execution_model_test.ts`, `tests/result_schemas_test.ts`
-- Glossary: not enrolled — values in each result step; doctor explains every kind in context
+- Glossary: not enrolled — Doctor explains each result-step kind in context
 - Feature canon: described by the `doctor` node
 
 ## `config-tables` — Config tables
 
-The top-level tables of the config schema — the whole configuration surface.
+Every top-level table in the config schema.
 
 - Source: `src/shared/config_schema.ts` — `configSchema`
 - Members: 15
@@ -701,12 +701,12 @@ The top-level tables of the config schema — the whole configuration surface.
   - `scripts`
 - Guards: `tests/config_codegen_test.ts`, `tests/config_banner_parity_test.ts`, `tests/config_set_schema_guard_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/generated_artifacts_test.ts`, `tests/agent_gitattributes_test.ts`
 - Artifacts: `schema/discern-config.schema.json`, `schema/discern-setup-config.schema.json`, `project/map/70-reference/config-reference.md`
-- Glossary: not enrolled — config keys are reference material; the config reference documents every table
+- Glossary: not enrolled — the config reference documents every table and key
 - Feature canon: claimed as the `config` surface set
 
 ## `source-paths` — Source paths
 
-The configurable authored-source locations — guidance, map, skills, scripts, todo, brief — the config-pointed half of the one-file footprint, each carrying its config key, default, ownership, and resolution rule.
+The configurable authored-source locations: Guidance, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule.
 
 - Source: `src/shared/paths_registry.ts` — `SOURCE_PATHS`
 - Members: 6
@@ -717,12 +717,12 @@ The configurable authored-source locations — guidance, map, skills, scripts, t
   - `todo`
   - `brief`
 - Guards: `tests/paths_registry_test.ts`, `tests/paths_literal_ban_test.ts`, `tests/engine_nondefault_paths_test.ts`, `tests/paths_sentinel_render_test.ts`, `tests/paths_write_surface_test.ts`, `tests/agent_gitattributes_test.ts`
-- Glossary: not enrolled — path names are configuration reference material; the config reference documents every key
+- Glossary: not enrolled — the config reference documents every source-path key
 - Feature canon: described by the `one-file-footprint` node
 
 ## `bundled-skills` — Bundled skills
 
-The skills the binary ships and materializes into a project.
+The Skills the binary ships and materializes into a project.
 
 - Source: `src/lib/skills.ts` — `bundledSkillNames`
 - Members: 9
@@ -751,12 +751,12 @@ The agent providers discern writes files for, each with a compact mark and horiz
   - `cursor`
   - `copilot`
 - Guards: `tests/agent_parity_test.ts`, `tests/feature_canon_enrolment_test.ts`
-- Glossary: not enrolled — provider names are product nouns; the glossary carries the agent-file concept instead
+- Glossary: not enrolled — the agent-integration reference names providers, while the Glossary defines the shared Agent file concept
 - Feature canon: claimed as the `agent` surface set
 
-## `cross-agent-behaviours` — Cross-agent behaviour dimensions
+## `cross-agent-behaviours` — Cross-agent behavior dimensions
 
-The classified behavioral dimensions of the researched coding agents; the operational-internal cross-agent reference compiles from the registry, whose typed cells require every dimension to cover every researched agent.
+The classified behavior dimensions of the researched coding agents. The operational-internal cross-agent reference compiles from typed cells that require every dimension to cover every researched agent.
 
 - Source: `scripts/cross_agent_registry.ts` — `BEHAVIOUR_DIMENSIONS`
 - Members: 11
@@ -773,12 +773,12 @@ The classified behavioral dimensions of the researched coding agents; the operat
   - `mcp-call-duration`
 - Guards: `tests/cross_agent_reference_codegen_test.ts`
 - Artifacts: `project/map/_internal/cross-agent-behaviour-reference.md`
-- Glossary: not enrolled — maintainer research vocabulary about other vendors' agents, not discern product vocabulary
-- Feature canon: not enrolled — an operational-internal research reference informing integrations; it ships no product surface
+- Glossary: not enrolled — the cross-agent reference owns this maintainer research vocabulary about coding-agent behavior
+- Feature canon: not enrolled — the provider integration nodes carry the product behavior informed by this operational research
 
 ## `agent-integration-seams` — Agent integration seams
 
-The integration seams discern wires per agent; the operational-internal coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the Gate until verdict prose exists for a new provider.
+The integration seams discern wires for each coding agent. The operational-internal coverage page compiles every cell from the live provider registry, and the typed commentary layer requires verdict prose for every new provider.
 
 - Source: `scripts/agent_integration_registry.ts` — `INTEGRATION_SEAMS`
 - Members: 11
@@ -795,8 +795,8 @@ The integration seams discern wires per agent; the operational-internal coverage
   - `os-sandbox`
 - Guards: `tests/agent_integration_coverage_codegen_test.ts`
 - Artifacts: `project/map/_internal/agent-integration-coverage.md`
-- Glossary: not enrolled — maintainer research vocabulary about discern's own wiring; the glossary carries the agent-file and skill concepts instead
-- Feature canon: not enrolled — an operational-internal reference reading the provider registry; it ships no product surface of its own
+- Glossary: not enrolled — the integration-coverage reference owns this maintainer vocabulary; the Glossary defines Agent file and Skill
+- Feature canon: not enrolled — the provider integration nodes carry the product behavior summarized by this operational reference
 
 ## `brand-documents` — Brand documents
 
@@ -823,8 +823,8 @@ The Brand Operating System's document map: every brand document as one typed row
   - `decisions`
 - Guards: `tests/brand_registry_codegen_test.ts`
 - Artifacts: `project/map/_internal/brand/README.md`, `project/map/_internal/brand/claims-and-evidence.md`, `project/map/_internal/brand/copy-patterns.md`, `project/map/_internal/brand/copy-review.md`, `project/map/_internal/brand/messaging.md`, `project/map/_internal/brand/positioning.md`, `project/map/_internal/brand/register-bridge.md`, `project/map/_internal/brand/visual-identity.md`, `project/skills/discern-brand-voice/SKILL.md`, `project/skills/discern-product-voice/SKILL.md`, `project/skills/discern-agent-voice/SKILL.md`
-- Glossary: not enrolled — internal brand strategy, not product vocabulary the glossary defines
-- Feature canon: not enrolled — internal brand strategy informing public copy; it ships no product surface
+- Glossary: not enrolled — the internal brand canon defines this strategy vocabulary
+- Feature canon: not enrolled — public copy applies this internal strategy to the product nodes it describes
 
 ## `brand-claims` — Brand claims ledger
 
@@ -853,8 +853,8 @@ The public claims ledger behind brand copy: per-claim evidence classes, stronges
   - `agent-as-operator`
   - `runs-on-itself`
 - Guards: `tests/brand_registry_codegen_test.ts`
-- Glossary: not enrolled — brand-strategy vocabulary about public wording, not product terms the glossary defines
-- Feature canon: not enrolled — a brand evidence ledger informing copy; it ships no product surface
+- Glossary: not enrolled — the internal claims canon defines this public-wording vocabulary
+- Feature canon: not enrolled — public copy applies this evidence ledger to the product nodes it describes
 
 ## `setup-subverbs` — Setup sub-verbs
 
@@ -868,10 +868,10 @@ The staged-setup handshake's sub-verb sequence.
   - `done`
   - `accept`
 - Guards: `tests/engine_setup_phase_parity_test.ts`
-- Glossary: not enrolled — sub-verbs of one handshake; the CLI reference documents them under setup
+- Glossary: not enrolled — the CLI reference documents these sub-verbs under setup
 - Feature canon: described by the `setup` node
 
-## `authored-commit-sites` — Discern-authored commit sites
+## `authored-commit-sites` — discern-authored commit sites
 
 The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.
 
@@ -882,8 +882,8 @@ The workflows whose diffs discern composes and commits. Every member must route 
   - `standards-pin`
   - `update-regeneration`
 - Guards: `tests/discern_commit_enrolment_test.ts`, `tests/writer_boundary_enrolment_test.ts`
-- Glossary: not enrolled — an internal provenance boundary over existing commands, not product vocabulary
-- Feature canon: not enrolled — cross-cutting commit metadata for setup and standards, not a separate product feature
+- Glossary: not enrolled — the commit-boundary reference owns this internal provenance vocabulary for existing commands
+- Feature canon: not enrolled — the setup and Standards nodes own the workflows that carry this commit metadata
 
 ## `restricted-writer-modules` — Restricted writer modules
 
@@ -896,12 +896,12 @@ The shipped capability modules whose importers are restricted: attributed commit
   - `effort-grant-cleanup`
   - `acceptance-transaction`
 - Guards: `tests/writer_boundary_enrolment_test.ts`
-- Glossary: not enrolled — an internal authority relationship over existing workflows, not product vocabulary
-- Feature canon: not enrolled — cross-cutting enforcement for existing workflows, not a separate product feature
+- Glossary: not enrolled — the writer-boundary reference owns this internal authority vocabulary for existing workflows
+- Feature canon: not enrolled — the existing workflow nodes own the behavior this boundary enforces
 
 ## `setup-completion-checks` — Setup completion checks
 
-The machine-checkable predicates behind setup's observable progress; each mirrors its setup page's completion-check field, so a resumed session derives what is done from the tree itself.
+The machine-checkable predicates behind setup's observable progress. Each mirrors its setup page's completion-check field, so a resumed session derives completed work from the tree.
 
 - Source: `src/shared/setup_checks.ts` — `SETUP_COMPLETION_CHECKS`
 - Members: 3
@@ -909,12 +909,12 @@ The machine-checkable predicates behind setup's observable progress; each mirror
   - `design_principles`
   - `guidance`
 - Guards: `tests/engine_setup_pages_test.ts`
-- Glossary: not enrolled — internal predicates behind setup's progress reporting; the setup pages describe each step in prose
+- Glossary: not enrolled — the setup pages describe each progress predicate in reader-facing prose
 - Feature canon: described by the `setup-observability` node
 
 ## `worktree-tokens` — Worktree adapter tokens
 
-The `@…@` runtime tokens substituted into a worktree's resource commands from its identity — db, site, port, and kin.
+The `@…@` runtime tokens substituted into a Worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, Worktree, and resource.
 
 - Source: `src/engine/worktree/tokens.ts` — `WORKTREE_TOKENS`
 - Members: 7
@@ -926,7 +926,7 @@ The `@…@` runtime tokens substituted into a worktree's resource commands from 
   - `worktree`
   - `resource`
 - Guards: `tests/worktree_tokens_test.ts`
-- Glossary: not enrolled — substitution vocabulary inside resource commands; the map's worktree-resources pages document each token
+- Glossary: not enrolled — the Map's Worktree-resource pages document each command-substitution token
 - Feature canon: described by the `worktree-resources` node
 
 ## `hints` — Hints
@@ -1100,7 +1100,7 @@ The advisory hint registry: every hint string enters results through it.
 
 ## `tips` — Tips
 
-The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.
+The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.
 
 - Source: `src/shared/tips.ts` — `TIPS`
 - Members: 42
@@ -1171,8 +1171,8 @@ The named terminal-art family: every static renderer carries one semantic animat
   - `separate`
   - `focus`
 - Guards: `tests/brand_art_test.ts`, `tests/brand_animation_test.ts`, `tests/art_gallery_test.ts`
-- Glossary: not enrolled — internal design names for decorative terminal output, not reader-facing product terms
-- Feature canon: not enrolled — the family supplies decorative projections and a maintainer preview rather than a separate product capability
+- Glossary: not enrolled — the terminal-art gallery owns these internal design names
+- Feature canon: not enrolled — the existing terminal surfaces consume these decorative projections and maintainer previews
 
 ## `terminal-triangle-motifs` — Terminal triangle motifs
 
@@ -1190,19 +1190,19 @@ The reusable triangle treatments: every pure static frame carries one semantic a
   - `beacon`
   - `pyramid`
 - Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
-- Glossary: not enrolled — internal design names for decorative terminal output, not reader-facing product terms
-- Feature canon: not enrolled — the motifs supply decorative projections and a maintainer preview rather than a separate product capability
+- Glossary: not enrolled — the terminal-art gallery owns these internal motif names
+- Feature canon: not enrolled — the existing terminal surfaces consume these motifs and maintainer previews
 
 ## `failure-recovery-evidence` — Generic failure-recovery evidence
 
-The result fields the generic recovery instruction may truthfully cite; without one, a failure needs a tailored next step.
+The result fields a generic recovery instruction may cite. A failure with neither field needs a tailored next step.
 
 - Source: `src/shared/hints.ts` — `FAILURE_RECOVERY_EVIDENCE`
 - Members: 2
   - `message`
   - `diagnostic`
 - Guards: `tests/result_schemas_test.ts`
-- Glossary: not enrolled — wire-envelope evidence behind the documented advisory contract, not product vocabulary
+- Glossary: not enrolled — the advisory contract documents these result-envelope evidence fields
 - Feature canon: described by the `hints` node
 
 ## `logbook-outcomes` — Logbook outcomes
@@ -1216,12 +1216,12 @@ How one verb invocation ended: cleanly, red after running, partial after an irre
   - `partial`
   - `refused`
 - Guards: `tests/logbook_test.ts`, `tests/engine_logbook_test.ts`, `tests/patterns_test.ts`
-- Glossary: not enrolled — recording vocabulary behind the documented Logbook concept, not separate product terms
+- Glossary: not enrolled — the Logbook reference documents these recorded outcomes
 - Feature canon: described by the `logbook` node
 
 ## `logbook-events` — Logbook events
 
-The event kinds written to the local logbook and interpreted by its advisory readers.
+The event kinds written to the local Logbook and interpreted by its advisory readers.
 
 - Source: `src/engine/logbook/schema.ts` — `logbookEventSchema`
 - Members: 5
@@ -1236,7 +1236,7 @@ The event kinds written to the local logbook and interpreted by its advisory rea
 
 ## `logbook-powered` — Logbook-powered capabilities
 
-The advisory capabilities that switch off with [project].logbook = false; every opt-out wording surface quotes each member's phrase verbatim.
+The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.
 
 - Source: `src/shared/logbook_powered.ts` — `LOGBOOK_POWERED`
 - Members: 7
@@ -1248,12 +1248,12 @@ The advisory capabilities that switch off with [project].logbook = false; every 
   - `test-wait-estimate`
   - `contained-idle-check`
 - Guards: `tests/logbook_powered_test.ts`
-- Glossary: not enrolled — opt-out wording behind the documented Logbook concept, not separate product vocabulary
+- Glossary: not enrolled — the Logbook reference documents these capability names and their opt-out behavior
 - Feature canon: described by the `logbook` node
 
 ## `detector-families` — Patterns detector families
 
-The categories that group every patterns detector and finding; schemas, registry entries, and the human report derive from this vocabulary.
+The categories that group every Patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.
 
 - Source: `src/shared/patterns_vocabulary.ts` — `DETECTOR_FAMILIES`
 - Members: 4
@@ -1262,12 +1262,12 @@ The categories that group every patterns detector and finding; schemas, registry
   - `behaviour`
   - `funnel`
 - Guards: `tests/patterns_test.ts`, `tests/engine_patterns_test.ts`
-- Glossary: not enrolled — internal report grouping; the Patterns entry carries the reader-facing concept
+- Glossary: not enrolled — the Patterns entry defines the reader-facing concept, and this registry supplies its internal report groups
 - Feature canon: described by the `patterns` node
 
 ## `pattern-finding-tones` — Patterns finding tones
 
-The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.
+The presentation-only vocabulary a Patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.
 
 - Source: `src/shared/patterns_vocabulary.ts` — `PATTERN_FINDING_TONES`
 - Members: 3
@@ -1275,12 +1275,12 @@ The presentation-only vocabulary a patterns finding uses to distinguish favorabl
   - `neutral`
   - `attention`
 - Guards: `tests/patterns_test.ts`, `tests/engine_patterns_test.ts`
-- Glossary: not enrolled — presentation metadata inside the patterns result; it is not a user command or product term
+- Glossary: not enrolled — the Patterns result reference documents this presentation metadata
 - Feature canon: described by the `patterns` node
 
 ## `patterns-detectors` — Patterns detectors
 
-Every detector the patterns verb runs over the logbook, in stable registry order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.
+Every detector the Patterns verb runs over the Logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.
 
 - Source: `src/engine/logbook/detectors.ts` — `DETECTORS`
 - Members: 34
@@ -1324,7 +1324,7 @@ Every detector the patterns verb runs over the logbook, in stable registry order
 
 ## `improve-categories` — Improvement categories
 
-The improvement catalog's categories, in display order; the runner ranks them weakest-first, and the CLI help and MCP tool interpolate the slugs from the catalog so no category list can drift.
+The improvement catalog's categories, in display order. The runner ranks them weakest-first, while CLI help and the MCP tool derive category slugs from the catalog.
 
 - Source: `src/engine/improve/rules.ts` — `CATEGORIES`
 - Members: 7
@@ -1336,7 +1336,7 @@ The improvement catalog's categories, in display order; the runner ranks them we
   - `standards`
   - `skills`
 - Guards: `tests/improve_catalog_test.ts`
-- Glossary: not enrolled — category slugs are reference material; every surfaced list derives from the catalog itself
+- Glossary: not enrolled — the improvement reference documents these category slugs, and every surfaced list derives from this catalog
 - Feature canon: described by the `improvement` node
 
 ## `glossary-terms` — Glossary terms
@@ -1387,7 +1387,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
   - `Project-owned file`
 - Guards: `tests/glossary_codegen_test.ts`, `tests/glossary_enrolment_test.ts`, `tests/vocab_drift_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/00-orientation/glossary.md`
-- Glossary: not enrolled — self-referential: the registry is the glossary, and the page it compiles is the definition surface
+- Glossary: not enrolled — the registry is the Glossary, and its generated page is the definition surface
 - Feature canon: described by the `glossary-canon` node
 
 ## `feature-canon` — Feature canon
@@ -1524,8 +1524,8 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `interruption-safety`
 - Guards: `tests/feature_canon_codegen_test.ts`, `tests/feature_canon_enrolment_test.ts`, `tests/feature_canon_plain_register_test.ts`
 - Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
-- Glossary: not enrolled — a maintainer database, not user vocabulary
-- Feature canon: not enrolled — the canon is the enrolling registry; a node describing itself would claim nothing
+- Glossary: not enrolled — this maintainer registry supplies the Feature canon's data
+- Feature canon: not enrolled — this is the enrolling registry; its nodes describe the product capabilities
 
 ## `result-contracts` — Result contracts
 
@@ -1577,7 +1577,7 @@ The per-verb result contracts behind the published JSON schema and type declarat
   - `skillsEject`
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
-- Glossary: not enrolled — schema surface documented by the generated references, not vocabulary
+- Glossary: not enrolled — the generated result references document this schema surface
 - Feature canon: described by the `published-contracts` node
 
 ## `result-contract-reference-fields` — Result contract reference fields
@@ -1590,19 +1590,19 @@ The semantic CLI and MCP schema-reference fields published for each result contr
   - `mcpToolResultSchema`
 - Guards: `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`
 - Artifacts: `schema/discern-results.schema.json`
-- Glossary: not enrolled — machine schema metadata fields, documented through the result contract reference
+- Glossary: not enrolled — the result-contract reference documents these machine schema fields
 - Feature canon: described by the `published-contracts` node
 
 ## `cli-json-predicates` — CLI JSON predicate contracts
 
-The option- and positional-selected predicates whose bare exit status becomes a successful boolean observation under --json.
+The predicates selected by an option or positional argument whose bare exit status becomes a successful Boolean observation under `--json`.
 
 - Source: `src/shared/result_contracts.ts` — `CLI_JSON_PREDICATE_CONTRACTS`
 - Members: 2
   - `configHas`
   - `impactHas`
 - Guards: `tests/result_codegen_test.ts`, `tests/engine_json_purity_test.ts`
-- Glossary: not enrolled — invocation modes inside documented commands, not reader-facing vocabulary
+- Glossary: not enrolled — the documented commands own these invocation modes
 - Feature canon: described by the `published-contracts` node
 
 ## `cli-predicate-invocation-modes` — CLI predicate invocation modes
@@ -1615,7 +1615,7 @@ The bare and global/local JSON placements every registered CLI predicate must pr
   - `json-global`
   - `json-local`
 - Guards: `tests/engine_json_purity_test.ts`
-- Glossary: not enrolled — machine-output placements inside documented commands, not product terms
+- Glossary: not enrolled — the documented commands own these machine-output placements
 - Feature canon: described by the `published-contracts` node
 
 ## `cli-predicate-states` — CLI predicate states
@@ -1627,7 +1627,7 @@ The true and false states every registered CLI predicate must preserve in bare a
   - `true`
   - `false`
 - Guards: `tests/engine_json_purity_test.ts`
-- Glossary: not enrolled — boolean test states, not reader-facing product vocabulary
+- Glossary: not enrolled — the predicate contract documents these Boolean test states
 - Feature canon: described by the `published-contracts` node
 
 ## `public-schema-publications` — Public schema publications
@@ -1642,7 +1642,7 @@ The versioned public schema URLs and the root generated artifacts served at them
   - `https://discern.sh/schema/v1/discern-proof-note.schema.json`
 - Guards: `tests/config_codegen_test.ts`, `tests/public_schema_compatibility_guard_test.ts`, `tests/result_codegen_test.ts`, `tests/reference_docs_test.ts`, `tests/site_serve_test.ts`, `tests/site_smoke_test.ts`
 - Artifacts: `project/map/70-reference/mcp-and-results.md`, `schema/discern-proof-note.schema.json`
-- Glossary: not enrolled — machine contract locations; the config and result references carry the reader-facing terms
+- Glossary: not enrolled — the config and result references document these machine-contract locations
 - Feature canon: described by the `published-contracts` node
 
 ## `security-disclosure` — Security disclosure
@@ -1661,8 +1661,8 @@ The public reporting channels, policy location, language, and bounded security.t
   - `expiryReviewLeadDays=30`
   - `maximumValidityDays=365`
 - Guards: `tests/security_disclosure_test.ts`
-- Glossary: not enrolled — public project-administration coordinates, not product vocabulary
-- Feature canon: not enrolled — the repository and website disclosure policy, not a product feature
+- Glossary: not enrolled — the security policy owns these public project-administration coordinates
+- Feature canon: not enrolled — the repository and website security policy own this disclosure surface
 
 ## `error-slugs` — Result error slugs
 
@@ -1736,7 +1736,7 @@ The machine-stable failure vocabulary accepted by live result envelopes and adve
   - `write_access`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/logbook_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
-- Glossary: not enrolled — machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms
+- Glossary: not enrolled — the result-contract reference documents this machine failure vocabulary; command diagnostics supply reader-facing explanations
 - Feature canon: described by the `published-contracts` node
 
 ## `step-outcomes` — Step outcomes
@@ -1751,12 +1751,12 @@ The executed-step outcomes shared by runtime validation, result rendering, and p
   - `cancelled`
 - Guards: `tests/result_schemas_test.ts`, `tests/result_codegen_test.ts`, `tests/gate_plan_test.ts`
 - Artifacts: `schema/discern-results.schema.json`, `types/discern-json.d.ts`
-- Glossary: not enrolled — wire-level states whose plain-language meanings are shown directly with each executed step
+- Glossary: not enrolled — each executed step shows the plain-language meaning of these wire states
 - Feature canon: described by the `published-contracts` node
 
 ## `public-doc-surfaces` — Public doc surfaces
 
-The projection matrix deciding which map pages publish to each public surface.
+The projection matrix deciding which Map pages publish to each public surface.
 
 - Source: `src/lib/docs.ts` — `PUBLIC_DOC_SURFACES`
 - Members: 4
@@ -1765,10 +1765,10 @@ The projection matrix deciding which map pages publish to each public surface.
   - `export-public`
   - `docs-staging`
 - Guards: `tests/public_doc_parity_test.ts`
-- Glossary: not enrolled — an engine projection table; the Map entry carries the reader-facing concept
+- Glossary: not enrolled — the Map entry defines the reader-facing concept, and this Engine table supplies its publication projections
 - Feature canon: described by the `publish-predicate` node
 
-## `docs-workflow-directives` — Docs Workflow directives
+## `docs-workflow-directives` — Docs workflow directives
 
 The source Markdown markers the browser manual projects through the design system's Workflow grammar.
 
@@ -1780,12 +1780,12 @@ The source Markdown markers the browser manual projects through the design syste
   - `artifact-ownership`
   - `branch-choice`
 - Guards: `tests/site_workflow_test.ts`
-- Glossary: not enrolled — internal Markdown projection labels, not reader-facing product vocabulary
+- Glossary: not enrolled — the browser-manual design system documents these internal Markdown projection labels
 - Feature canon: described by the `bundled-docs` node
 
 ## `adrs` — Architecture Decision Records
 
-The numbered decision records in the map, including records later superseded.
+The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
 - Members: 256
@@ -2046,12 +2046,12 @@ The numbered decision records in the map, including records later superseded.
   - `0091`
   - `0107`
 - Guards: `tests/adr_index_test.ts`, `tests/engine_adr_index_test.ts`, `tests/adr_citation_form_test.ts`, `tests/adr_citations_test.ts`, `tests/improve_count_adrs_test.ts`
-- Glossary: not enrolled — the decision page explains this project practice; the glossary covers product vocabulary
+- Glossary: not enrolled — the decision-record page explains this project practice
 - Feature canon: described by the `adr-discipline` node
 
 ## `project-artifacts` — Project artifacts
 
-Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.
+Every project-tree path discern writes or maintains, with its operational ownership and payload-license classification.
 
 - Source: `src/lib/artifact_ownership.ts` — `projectArtifactPaths`
 - Members: 27
@@ -2089,7 +2089,7 @@ Every project-tree path discern writes or maintains, with its operational owners
 
 ## `distribution-vocabulary` — Distribution vocabulary
 
-Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.
+Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.
 
 - Source: `src/shared/vocabulary.ts` — `RETIRED_COMMAND_REDIRECTS`
 - Members: 22
@@ -2116,12 +2116,12 @@ Retired commands, retired config keys, dead config positions, and synonym redire
   - `merge`
   - `improve`
 - Guards: `tests/dev_vocab_guard_test.ts`, `tests/config_schema_test.ts`
-- Glossary: not enrolled — redirect data for retired words; live vocabulary lives in the glossary proper
+- Glossary: not enrolled — the Glossary defines live vocabulary, and this registry records redirects and refusals for retired words
 - Feature canon: described by the `forgiving-cli` node
 
 ## `voice-banned-moves` — Voice banned moves
 
-The voice registry's banned-words and banned-moves canon behind the generated voice skills; the Vale style must see every banned phrase the canon declares.
+The voice registry's banned-word and banned-move canon behind the generated voice Skills. The Vale style must see every banned phrase the canon declares.
 
 - Source: `scripts/brand/voice.ts` — `BANNED_WORDS`
 - Members: 26
@@ -2152,12 +2152,12 @@ The voice registry's banned-words and banned-moves canon behind the generated vo
   - `typographic-applause`
   - `counting-the-set`
 - Guards: `tests/voice_vale_parity_test.ts`
-- Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
-- Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
+- Glossary: not enrolled — the internal voice canon owns this editorial vocabulary
+- Feature canon: not enrolled — the internal voice canon owns this repository's editorial practice
 
 ## `brand-vale-styles` — Register Vale styles
 
-The per-register Vale styles compiled from the voice registry's rule data — one generated style directory per register, scoped by map tier in .vale.ini, each rule citing the banned canon, voice rules, or proposed mechanical checks it enforces, with a recorded disposition for every proposal no rule implements.
+The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by Map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.
 
 - Source: `scripts/brand/vale.ts` — `VALE_STYLE_RULES`
 - Members: 11
@@ -2174,20 +2174,20 @@ The per-register Vale styles compiled from the voice registry's rule data — on
   - `agent/PositionalReference`
 - Guards: `tests/brand_vale_codegen_test.ts`
 - Artifacts: `.vale/DiscernBrand/ProductName.yml`, `.vale/DiscernBrand/GenericVerbs.yml`, `.vale/DiscernBrand/GenericAdjectives.yml`, `.vale/DiscernBrand/TemplateOpener.yml`, `.vale/DiscernBrand/CtaGenericLabel.yml`, `.vale/DiscernBrand/RepeatedContrast.yml`, `.vale/DiscernBrand/StackedSlogans.yml`, `.vale/DiscernProduct/ProductName.yml`, `.vale/DiscernProduct/AgentBlame.yml`, `.vale/DiscernAgent/BestJudgment.yml`, `.vale/DiscernAgent/PositionalReference.yml`
-- Glossary: not enrolled — editorial tooling for this repository's prose, not product vocabulary
-- Feature canon: not enrolled — an internal editorial practice for this repository, not a product feature
+- Glossary: not enrolled — the internal voice canon owns this Vale-rule vocabulary
+- Feature canon: not enrolled — the internal voice canon owns this repository's editorial enforcement
 
-## `seeded-gotchas-traps` — Seeded gate traps
+## `seeded-gotchas-traps` — Seeded Gate traps
 
-The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.
+The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.
 
 - Source: `templates/setup/skeleton/docs/80-development/done-gate-gotchas.md` (authored table)
-- Members: — (the authored source does not expose member names to codegen)
+- Members: — (the authored source keeps member names outside codegen)
 - Guards: `tests/gotchas_parity_test.ts`, `tests/gotcha_matchers_drift_test.ts`
-- Glossary: not enrolled — seeded documentation content, not product vocabulary
+- Glossary: not enrolled — the seeded Gate-gotchas page owns this documentation content
 - Feature canon: described by the `gotchas-pointer` node
 
-## `contributor-agreement-gist-files` — Contributor-agreement Gist files
+## `contributor-agreement-gist-files` — Contributor License Agreement Gist files
 
 The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.
 
@@ -2197,8 +2197,8 @@ The exact repository sources mirrored into the hosted CLA Assistant Gist: the in
   - `metadata`
 - Guards: `tests/contributor_governance_test.ts`
 - Artifacts: `.github/cla-assistant/metadata`
-- Glossary: not enrolled — repository contribution policy, not product vocabulary
-- Feature canon: not enrolled — repository governance, not an installed product feature
+- Glossary: not enrolled — the contributor agreement owns this repository-policy vocabulary
+- Feature canon: not enrolled — the repository's contributor-governance policy owns this surface
 
 ## `first-party-legal-documents` — First-party legal documents
 
@@ -2211,7 +2211,7 @@ The ordered legal package embedded in every binary: discern's software license, 
   - `project-payloads`
 - Guards: `tests/first_party_licenses_test.ts`
 - Artifacts: `src/lib/first_party_license_bundle.ts`
-- Glossary: not enrolled — legal-document plumbing; the CLI reference documents the licenses verb
+- Glossary: not enrolled — the CLI reference documents the licenses command and its legal-document package
 - Feature canon: described by the `licenses` node
 
 ## `third-party-artifacts` — Third-party artifacts
@@ -2225,12 +2225,12 @@ The generated third-party notice artifacts and their license cache.
   - `jsrLicenseCache`
 - Guards: `tests/third_party_notices_test.ts`
 - Artifacts: `THIRD_PARTY_NOTICES`, `src/lib/third_party_bundle.ts`, `scripts/jsr_license_cache.json`
-- Glossary: not enrolled — license plumbing; the CLI reference documents the licenses verb
+- Glossary: not enrolled — the CLI reference documents the licenses command and these generated artifacts
 - Feature canon: described by the `licenses` node
 
 ## `spawn-surfaces` — Spawn surfaces
 
-Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.
+Every file permitted to spawn a subprocess, with the interrupt contract each one owes: end-to-end test coverage or a written exemption.
 
 - Source: `tests/spawn_surfaces.ts` — `SPAWN_HOMES`
 - Members: 9
@@ -2244,12 +2244,12 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
   - `src/engine/worktree/shell.ts`
   - `src/engine/mcp/version_check.ts`
 - Guards: `tests/engine_subprocess_ssot_test.ts`, `tests/engine_interrupt_surfaces_test.ts`
-- Glossary: not enrolled — an internal subprocess-ownership contract, not product vocabulary
+- Glossary: not enrolled — the interruption-safety reference owns this subprocess contract
 - Feature canon: described by the `interruption-safety` node
 
 ## `authored-ts-universe` — Authored-TypeScript universe
 
-The top-level trees holding authored TypeScript — the universe every repo-wide structural sweep derives its scan set from. Members are the stable roots; the file-level list (`AUTHORED_TS_FILES`, the export sweeps consume) is git-derived at import time and moves with every commit, so the roots are the meaningful atlas count.
+The top-level trees holding authored TypeScript define the scan universe for repository-wide structural sweeps. Members are stable roots. The `AUTHORED_TS_FILES` export derives its file list from Git at import time, so the atlas counts roots.
 
 - Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
 - Members: 6
@@ -2260,12 +2260,12 @@ The top-level trees holding authored TypeScript — the universe every repo-wide
   - `tests`
   - `types`
 - Guards: `tests/repo_authored_paths_test.ts`
-- Glossary: not enrolled — this repository's internal scan universe, not product vocabulary
-- Feature canon: not enrolled — guard infrastructure for this repository's own sweeps, not a product feature
+- Glossary: not enrolled — the contributor reference owns this repository's internal scan-universe vocabulary
+- Feature canon: not enrolled — the repository's contributor guard infrastructure owns these sweeps
 
 ## `artifact-validators` — Artifact validators
 
-Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.
+Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.
 
 - Source: `tests/validator_registry.ts` — `ARTIFACT_VALIDATORS`
 - Members: 9
@@ -2279,8 +2279,8 @@ Every src/lib validator of a config-resolved authored artifact (the map, guidanc
   - `src/lib/frontmatter.ts#validateFrontmatter`
   - `src/lib/adr_citations.ts#findMalformedAdrReferences`
 - Guards: `tests/validator_enrolment_test.ts`
-- Glossary: not enrolled — an internal enforcement-parity contract, not product vocabulary
-- Feature canon: not enrolled — guard infrastructure for this repository's own wiring, not a product feature
+- Glossary: not enrolled — the contributor reference owns this internal enforcement-parity contract
+- Feature canon: not enrolled — the repository's contributor guard infrastructure owns this wiring check
 
 ## `canonical-sets` — Canonical sets
 
@@ -2362,38 +2362,38 @@ This meta-registry: the closed set of closed sets.
   - `canonical-sets`
 - Guards: `tests/canonical_sets_enrolment_test.ts`, `tests/ssot_claim_guard_test.ts`
 - Artifacts: `project/map/_internal/registry-atlas.md`
-- Glossary: not enrolled — naming deferred while the pre-launch vocabulary overhaul is in flight
+- Glossary: not enrolled — this maintainer-only meta-registry has no assigned Glossary term; the terminology decision remains open
 - Feature canon: described by the `canonical-sets` node
 
 ## Unaffiliated, with reasons
 
-Recorded strays the convention sweeps accept. Each subsection names the record that accepts its kind; a new stray belongs there, with its reason.
+Recorded exceptions accepted by convention sweeps. Each subsection names the owning record and reason; add a new exception to its matching record with evidence.
 
 ### Guard tests holding no member set
 
-Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_GUARDS`.
+`UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.
 
-- `tests/result_capture_drain_parity_test.ts` — holds every `result_capture` one-slot mailbox to being drained at both recording points; its universe derives from the module's `take*` exports, not from a registry symbol
-- `tests/control_byte_guard_test.ts` — sweeps authored text for raw control bytes that read as binary to POSIX tools; a bytes rule, not a member set
-- `tests/adr_vocab_guard_test.ts` — sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set
-- `tests/engine_tree_drift_test.ts` — behavioral guard for the gate's strand detection; a pipeline invariant, not a member set
-- `tests/upgrade_git_guard_test.ts` — behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set
-- `tests/await_readiness_guard_test.ts` — sweeps authored await tests for elapsed-time readiness assumptions; this is a test timing rule with no member vocabulary
+- `tests/result_capture_drain_parity_test.ts` — derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox
+- `tests/control_byte_guard_test.ts` — applies a byte-level rule across authored text for raw control bytes that Portable Operating System Interface (POSIX) tools read as binary
+- `tests/adr_vocab_guard_test.ts` — applies a vocabulary rule across shipped strings for internal decision citations
+- `tests/engine_tree_drift_test.ts` — checks the Gate's strand-detection pipeline invariant behaviorally
+- `tests/upgrade_git_guard_test.ts` — checks upgrade's clean-tree pipeline invariant to keep upgrades reversible
+- `tests/await_readiness_guard_test.ts` — applies an elapsed-time readiness rule across authored await tests
 
 ### Codegen targets compiling from no registry
 
-Write targets recorded in `UNAFFILIATED_CODEGEN_TARGETS`; the write chokepoint in `scripts/codegen.ts` refuses any target outside the declared artifacts and that record.
+`UNAFFILIATED_CODEGEN_TARGETS` records these write targets. The write chokepoint in `scripts/codegen.ts` permits only declared artifacts and recorded unaffiliated targets.
 
-- `site/pages/assets/search.js` — a browser copy of src/lib/docs_search.js — module duplication, not registry data
+- `site/pages/assets/search.js` — copies the single `src/lib/docs_search.js` module into the browser asset
 
 ### Single-source claims anchoring no set
 
-Modules whose doc comments claim single-source-of-truth status without anchoring a declared entry, recorded in `UNAFFILIATED_SETS`.
+`UNAFFILIATED_SETS` records modules whose doc comments claim single-source-of-truth status without anchoring a declared entry.
 
-- `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project
-- `src/engine/gate/proof_render.ts` — the claim announces a derive-once rule — the proof reads the result envelope, never recomputes — not a member set
-- `src/engine/worktree/side_restrictions.ts` — candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention
-- `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — a single staging-directory name shared by the build writer and the bundled-docs reader — one value, not a member set
+- `site/design_system.ts#DESIGN_SYSTEM_BUNDLES` — site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it
+- `src/engine/gate/proof_render.ts` — the claim defines a derive-once invariant: Proof reads and reuses the result envelope
+- `src/engine/worktree/side_restrictions.ts` — candidate for enrollment: a registry of every side-restricted lifecycle operation whose class test (`tests/engine_worktree_test.ts`) sits outside the guard convention
+- `src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR` — one staging-directory value shared by the build writer and bundled-docs reader
 - `src/lib/providers.ts` — the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member
-- `src/lib/version.ts` — the kit version constant: a single value with no members and no satellites of its own to drift
+- `src/lib/version.ts` — the kit version constant is one value with no member axis or satellites
 - `src/shared/result_schemas.ts` — wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts

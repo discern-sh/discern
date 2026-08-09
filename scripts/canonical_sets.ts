@@ -7,9 +7,9 @@
  * source, guard tests, and generated artifacts — is declared here: where the
  * set lives, which tests hold it to its satellites, which committed artifacts
  * compile from it, and how it is enrolled in the two enrolling registries (the
- * glossary and the feature canon), or why it deliberately is not.
+ * glossary and the feature canon), or the reason for its recorded absence.
  *
- * The enrolment guard (`tests/canonical_sets_enrolment_test.ts`) checks both
+ * The enrollment guard (`tests/canonical_sets_enrolment_test.ts`) checks both
  * directions. Forward: every declared source resolves to a non-empty member
  * set, every guard exists and references its source, every artifact is
  * committed with its banner or block markers. Reverse: convention sweeps over
@@ -48,13 +48,13 @@ export type SetSource =
     readonly mustContain: string;
   };
 
-/** How a set is enrolled in the glossary, or why it deliberately is not. */
+/** How a set is enrolled in the glossary, or its recorded absence reason. */
 export type GlossaryEnrolment =
   | { readonly term: string }
   | { readonly perMember: string }
   | { readonly absent: string };
 
-/** How a set is enrolled in the feature canon, or why it deliberately is not. */
+/** How a set is enrolled in the feature canon, or its recorded absence reason. */
 export type CanonEnrolment =
   | { readonly surfaceSet: string }
   | { readonly nodeId: string }
@@ -99,7 +99,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "verbs",
     title: "Top-level verbs",
     what:
-      "The top-level command vocabulary: every verb the dispatcher accepts, CLI and MCP alike.",
+      "The top-level command vocabulary: every verb the dispatcher accepts through the command-line interface (CLI) and Model Context Protocol (MCP).",
     source: {
       kind: "module",
       module: "src/engine/dispatch.ts",
@@ -130,7 +130,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "hidden-verbs",
     title: "Hidden verbs",
     what:
-      "Every top-level verb kept out of the operator help listing, each with the recorded reason and revival condition; the CLI build applies the registry, and the help-groups guard holds the live hidden set equal to it in both bootstrap states.",
+      "Every top-level verb kept out of the operator help listing carries a reason and revival condition. The CLI build applies the registry, and the help-groups guard checks the live hidden set in both bootstrap states.",
     source: {
       kind: "module",
       module: "src/shared/hidden_verbs.ts",
@@ -141,11 +141,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "help visibility is a modality of each verb, not a concept of its own; the registry's reasons are the documentation",
+          "the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb",
       },
       featureCanon: {
         absent:
-          "a subset of the verbs set, whose entry already carries the canon enrolment; hiding changes a verb's listing, never its feature surface",
+          "the verbs set already enrolls every member; hiding changes only its help listing",
       },
     },
     members: async () =>
@@ -157,7 +157,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "dry-run-verbs",
     title: "Dry-run-capable verbs",
     what:
-      "Every command path that registers --dry-run — the plan/apply verbs whose preview must be faithful: a dry run writes nothing, and an apply performs nothing the plan never listed.",
+      "Every command path that registers `--dry-run`. These plan/apply verbs must produce a faithful preview: a dry run writes nothing, and apply performs only listed effects.",
     source: {
       kind: "module",
       module: "src/main.ts",
@@ -168,7 +168,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "the preview flag is a modality of each verb, documented with the plan/apply split rather than as a term of its own",
+          "the plan/apply documentation owns the preview flag for each existing verb",
       },
       featureCanon: { nodeId: "plan-apply" },
     },
@@ -195,8 +195,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "tools mirror the verb vocabulary; the glossary defines each verb once",
+        absent: "the glossary defines the mirrored verb vocabulary once",
       },
       featureCanon: { nodeId: "mcp-surface" },
     },
@@ -209,7 +208,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "mcp-core-lifecycle",
     title: "MCP core lifecycle",
     what:
-      "The lifecycle sequence that leads schema-deferred clients through status, worktree entry, iteration, the final gate, synchronization, and authorized landing.",
+      "The lifecycle sequence that leads schema-deferred clients through status, Worktree entry, iteration, the final Gate, synchronization, and authorized landing.",
     source: {
       kind: "module",
       module: "src/engine/mcp/server.ts",
@@ -219,8 +218,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "the members are existing verb terms; the sequence is an MCP delivery contract, not a new reader-facing noun",
+        absent: "the MCP delivery contract sequences existing verb terms",
       },
       featureCanon: { nodeId: "mcp-surface" },
     },
@@ -230,7 +228,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "environment-variables",
-    title: "Discern environment variables",
+    title: "discern environment variables",
     what:
       "Every live or retired DISCERN_* environment contract, with its purpose group, lifecycle, and public-documentation policy, including the generated resource-handle family.",
     source: {
@@ -252,11 +250,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "environment names label existing behaviors and process channels; they are reference spellings rather than product terms",
+          "the environment-variable reference owns these process-channel spellings",
       },
       featureCanon: {
         absent:
-          "the registry spans installer, runtime, worktree, development, and test infrastructure instead of defining one product capability",
+          "the registry spans installer, runtime, Worktree, development, and test infrastructure across several documented capabilities",
       },
     },
     members: async () => [
@@ -283,11 +281,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "experimental environment-variable spellings are reference controls rather than stable product terms",
+          "the experimental-controls reference owns these environment-variable spellings",
       },
       featureCanon: {
         absent:
-          "experimental escape hatches are intentionally outside the stable product feature account",
+          "the stable feature account covers shipping behavior; this registry records reversible experimental controls",
       },
     },
     members: async () =>
@@ -300,7 +298,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "operating-policies",
     title: "Operating policies",
     what:
-      "The core policy statements carried by the bundled guidance and MCP server instructions, with the probes that recognize each authored restatement.",
+      "The core policy statements carried by bundled Guidance and MCP server instructions, with probes that recognize each authored restatement.",
     source: {
       kind: "module",
       module: "src/shared/operating_policies.ts",
@@ -311,11 +309,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "policy ids are internal; existing glossary entries define each reader-facing concept",
+          "existing Glossary entries define the reader-facing concepts behind these internal policy identifiers",
       },
       featureCanon: {
         absent:
-          "cross-cutting enforcement for guidance, worktrees, standards, and MCP; it adds no product feature",
+          "the Guidance, Worktree, Standard, and MCP nodes own the enforced behaviors",
       },
     },
     members: async () =>
@@ -326,7 +324,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "command-groups",
     title: "Command groups",
     what:
-      "The named, ordered buckets the top-level verbs render under — the grouping table behind `discern --help` and the generated CLI reference alike, so every visible command has an operator-meaningful home.",
+      "The named, ordered groups used by `discern --help` and the generated CLI reference. Every visible command belongs to one operator-facing group.",
     source: {
       kind: "module",
       module: "src/cli_help.ts",
@@ -337,7 +335,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "display grouping over the verb vocabulary; the glossary defines the verbs themselves",
+          "the Glossary defines each verb; this registry supplies their help-display groups",
       },
       featureCanon: { nodeId: "cli-help" },
     },
@@ -361,7 +359,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an attestation modality of two verbs, documented on each verb rather than as a term of its own",
+          "the two command references document their conversation-attestation boundary",
       },
       featureCanon: { nodeId: "consent-attestations" },
     },
@@ -374,7 +372,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "landing-consent-sources",
     title: "Landing consent sources",
     what:
-      "The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a desk-recorded effort grant.",
+      "The consent evidence recorded for every successful landing: a conversation attestation, a trunk-recorded standing grant, or a Desk-recorded effort grant.",
     source: {
       kind: "module",
       module: "src/shared/consent.ts",
@@ -390,7 +388,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "three evidence forms of the landing-consent concept, documented together on the acceptance page",
+          "the acceptance page documents these three evidence forms under landing consent",
       },
       featureCanon: { nodeId: "consent-attestations" },
     },
@@ -416,7 +414,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "two machine outcomes of the documented landing-authority concept",
+          "the landing-authority reference documents these two machine outcomes",
       },
       featureCanon: { nodeId: "consent-attestations" },
     },
@@ -439,7 +437,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "internal recovery boundaries of the documented acceptance workflow, not user-facing product vocabulary",
+          "the acceptance workflow documents these internal interruption-recovery boundaries",
       },
       featureCanon: { nodeId: "worktrees" },
     },
@@ -452,7 +450,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "accept-landing-state-fields",
     title: "Acceptance landing-state fields",
     what:
-      "The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and logbook events.",
+      "The irreversible acceptance effects carried by partial and successful results, MCP re-aiming, and Logbook events.",
     source: {
       kind: "module",
       module: "src/shared/accept_landing_state.ts",
@@ -463,7 +461,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "machine fields of the documented acceptance result, not separate product terms",
+          "the result-contract reference documents these acceptance fields",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -476,7 +474,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "worktree-lifecycle-repo-root-verbs",
     title: "Repository-root worktree lifecycle verbs",
     what:
-      "The worktree lifecycle verbs that refuse when discern.toml lives below the Git repository root, because each creates or lands a whole-repository checkout.",
+      "The Worktree lifecycle verbs that require `discern.toml` at the Git repository root because each creates or lands a full-repository checkout.",
     source: {
       kind: "module",
       module: "src/engine/worktree/lifecycle.ts",
@@ -487,7 +485,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "a repository-layout precondition over documented lifecycle verbs, not product vocabulary",
+          "the Worktree lifecycle reference documents this repository-layout precondition for existing verbs",
       },
       featureCanon: { nodeId: "worktrees" },
     },
@@ -500,7 +498,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "desk-actions",
     title: "Desk actions",
     what:
-      "The operator desk's per-worktree action vocabulary and menu order; the legality table exercises every member, while the runtime test holds each interactive effect boundary.",
+      "The Desk's per-Worktree action vocabulary and menu order. The legality table exercises every member, and the runtime test checks each interactive effect boundary.",
     source: {
       kind: "module",
       module: "src/engine/desk/model.ts",
@@ -513,8 +511,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "menu actions on the human desk, described in place rather than as standalone terms",
+        absent: "the Desk reference documents these menu actions in context",
       },
       featureCanon: { nodeId: "desk" },
     },
@@ -526,7 +523,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "git-admin-state",
     title: "Git-admin state",
     what:
-      "Every Discern-owned Git-admin artifact, including its path, lifetime, shape, and validation-write policy; registry-driven guards automatically enrol each new member in placement and lifecycle checks.",
+      "Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.",
     source: {
       kind: "module",
       module: "src/shared/git_admin_state.ts",
@@ -542,11 +539,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "internal storage vocabulary spanning proofs, measurements, logbook data, and worktree lifecycle state",
+          "the Git-admin state reference owns this internal vocabulary for Proof, measurements, Logbook data, and Worktree lifecycle state",
       },
       featureCanon: {
         absent:
-          "one internal storage registry supports several independently documented product features",
+          "the registry supports several product features, each documented by its own node",
       },
     },
     members: async () =>
@@ -557,7 +554,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "jobs",
     title: "Gate jobs",
-    what: "The known gate jobs — the command table's fixed vocabulary.",
+    what: "The known Gate jobs: the command table's fixed vocabulary.",
     source: {
       kind: "module",
       module: "src/shared/capabilities.ts",
@@ -579,7 +576,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "stages",
     title: "Stages",
-    what: "The gate's stage vocabulary and order.",
+    what: "The Gate's stage vocabulary and order.",
     source: {
       kind: "module",
       module: "src/shared/capabilities.ts",
@@ -602,7 +599,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "diagnostic-formats",
     title: "Diagnostic formats",
     what:
-      "The machine formats failed-job normalization auto-detects, in detection order; setup and improvement prose derive from the registry, while an enrolment guard holds the public docs to it.",
+      "The machine formats that failed-job normalization detects, in detection order: Static Analysis Results Interchange Format (SARIF) and JUnit XML. Setup and improvement prose derive from this registry, and an enrollment guard checks the public docs.",
     source: {
       kind: "module",
       module: "src/engine/gate/diagnostics.ts",
@@ -616,7 +613,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "SARIF and JUnit XML are external report standards, explained where users configure job output",
+          "job-output configuration explains the external SARIF and JUnit XML standards",
       },
       featureCanon: { nodeId: "diagnostics" },
     },
@@ -630,7 +627,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "step-kinds",
     title: "Step kinds",
     what:
-      "The result-step operation vocabulary — what a step does; the doctor's annotations table (`STEP_KIND_ANNOTATIONS` in `src/engine/doctor/execution_model.ts`) is a satellite pinned to it, one actor and hint per kind.",
+      "The result-step operation vocabulary: what a step does. The doctor's `STEP_KIND_ANNOTATIONS` table in `src/engine/doctor/execution_model.ts` is pinned to it with one actor and hint per kind.",
     source: {
       kind: "module",
       module: "src/shared/result.ts",
@@ -640,8 +637,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "values in each result step; doctor explains every kind in context",
+        absent: "Doctor explains each result-step kind in context",
       },
       featureCanon: { nodeId: "doctor" },
     },
@@ -652,8 +648,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "config-tables",
     title: "Config tables",
-    what:
-      "The top-level tables of the config schema — the whole configuration surface.",
+    what: "Every top-level table in the config schema.",
     source: {
       kind: "module",
       module: "src/shared/config_schema.ts",
@@ -686,8 +681,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     enrolledIn: {
       glossary: {
-        absent:
-          "config keys are reference material; the config reference documents every table",
+        absent: "the config reference documents every table and key",
       },
       featureCanon: { surfaceSet: "config" },
     },
@@ -700,7 +694,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "source-paths",
     title: "Source paths",
     what:
-      "The configurable authored-source locations — guidance, map, skills, scripts, todo, brief — the config-pointed half of the one-file footprint, each carrying its config key, default, ownership, and resolution rule.",
+      "The configurable authored-source locations: Guidance, Map, Skills, Project Scripts, TODO, and brief. Each entry carries its config key, default, ownership, and resolution rule.",
     source: {
       kind: "module",
       module: "src/shared/paths_registry.ts",
@@ -717,8 +711,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "path names are configuration reference material; the config reference documents every key",
+        absent: "the config reference documents every source-path key",
       },
       featureCanon: { nodeId: "one-file-footprint" },
     },
@@ -730,7 +723,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   {
     id: "bundled-skills",
     title: "Bundled skills",
-    what: "The skills the binary ships and materializes into a project.",
+    what: "The Skills the binary ships and materializes into a project.",
     source: {
       kind: "module",
       module: "src/lib/skills.ts",
@@ -767,7 +760,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "provider names are product nouns; the glossary carries the agent-file concept instead",
+          "the agent-integration reference names providers, while the Glossary defines the shared Agent file concept",
       },
       featureCanon: { surfaceSet: "agent" },
     },
@@ -777,9 +770,9 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "cross-agent-behaviours",
-    title: "Cross-agent behaviour dimensions",
+    title: "Cross-agent behavior dimensions",
     what:
-      "The classified behavioral dimensions of the researched coding agents; the operational-internal cross-agent reference compiles from the registry, whose typed cells require every dimension to cover every researched agent.",
+      "The classified behavior dimensions of the researched coding agents. The operational-internal cross-agent reference compiles from typed cells that require every dimension to cover every researched agent.",
     source: {
       kind: "module",
       module: "scripts/cross_agent_registry.ts",
@@ -796,11 +789,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "maintainer research vocabulary about other vendors' agents, not discern product vocabulary",
+          "the cross-agent reference owns this maintainer research vocabulary about coding-agent behavior",
       },
       featureCanon: {
         absent:
-          "an operational-internal research reference informing integrations; it ships no product surface",
+          "the provider integration nodes carry the product behavior informed by this operational research",
       },
     },
     members: async () =>
@@ -812,7 +805,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "agent-integration-seams",
     title: "Agent integration seams",
     what:
-      "The integration seams discern wires per agent; the operational-internal coverage page compiles every per-agent cell from the live provider registry, and the typed commentary layer fails the Gate until verdict prose exists for a new provider.",
+      "The integration seams discern wires for each coding agent. The operational-internal coverage page compiles every cell from the live provider registry, and the typed commentary layer requires verdict prose for every new provider.",
     source: {
       kind: "module",
       module: "scripts/agent_integration_registry.ts",
@@ -829,11 +822,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "maintainer research vocabulary about discern's own wiring; the glossary carries the agent-file and skill concepts instead",
+          "the integration-coverage reference owns this maintainer vocabulary; the Glossary defines Agent file and Skill",
       },
       featureCanon: {
         absent:
-          "an operational-internal reference reading the provider registry; it ships no product surface of its own",
+          "the provider integration nodes carry the product behavior summarized by this operational reference",
       },
     },
     members: async () =>
@@ -911,12 +904,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     enrolledIn: {
       glossary: {
-        absent:
-          "internal brand strategy, not product vocabulary the glossary defines",
+        absent: "the internal brand canon defines this strategy vocabulary",
       },
       featureCanon: {
         absent:
-          "internal brand strategy informing public copy; it ships no product surface",
+          "public copy applies this internal strategy to the product nodes it describes",
       },
     },
     members: async () =>
@@ -939,11 +931,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "brand-strategy vocabulary about public wording, not product terms the glossary defines",
+          "the internal claims canon defines this public-wording vocabulary",
       },
       featureCanon: {
         absent:
-          "a brand evidence ledger informing copy; it ships no product surface",
+          "public copy applies this evidence ledger to the product nodes it describes",
       },
     },
     members: async () =>
@@ -962,8 +954,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "sub-verbs of one handshake; the CLI reference documents them under setup",
+        absent: "the CLI reference documents these sub-verbs under setup",
       },
       featureCanon: { nodeId: "setup" },
     },
@@ -973,7 +964,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "authored-commit-sites",
-    title: "Discern-authored commit sites",
+    title: "discern-authored commit sites",
     what:
       "The workflows whose diffs discern composes and commits. Every member must route through the attributed, pathspec-limited commit boundary.",
     source: {
@@ -989,11 +980,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an internal provenance boundary over existing commands, not product vocabulary",
+          "the commit-boundary reference owns this internal provenance vocabulary for existing commands",
       },
       featureCanon: {
         absent:
-          "cross-cutting commit metadata for setup and standards, not a separate product feature",
+          "the setup and Standards nodes own the workflows that carry this commit metadata",
       },
     },
     members: async () =>
@@ -1017,11 +1008,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an internal authority relationship over existing workflows, not product vocabulary",
+          "the writer-boundary reference owns this internal authority vocabulary for existing workflows",
       },
       featureCanon: {
         absent:
-          "cross-cutting enforcement for existing workflows, not a separate product feature",
+          "the existing workflow nodes own the behavior this boundary enforces",
       },
     },
     members: async () =>
@@ -1032,7 +1023,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "setup-completion-checks",
     title: "Setup completion checks",
     what:
-      "The machine-checkable predicates behind setup's observable progress; each mirrors its setup page's completion-check field, so a resumed session derives what is done from the tree itself.",
+      "The machine-checkable predicates behind setup's observable progress. Each mirrors its setup page's completion-check field, so a resumed session derives completed work from the tree.",
     source: {
       kind: "module",
       module: "src/shared/setup_checks.ts",
@@ -1043,7 +1034,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "internal predicates behind setup's progress reporting; the setup pages describe each step in prose",
+          "the setup pages describe each progress predicate in reader-facing prose",
       },
       featureCanon: { nodeId: "setup-observability" },
     },
@@ -1055,7 +1046,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "worktree-tokens",
     title: "Worktree adapter tokens",
     what:
-      "The `@…@` runtime tokens substituted into a worktree's resource commands from its identity — db, site, port, and kin.",
+      "The `@…@` runtime tokens substituted into a Worktree's resource commands from its identity: database (`db`), site, port, project slug, directory, Worktree, and resource.",
     source: {
       kind: "module",
       module: "src/engine/worktree/tokens.ts",
@@ -1066,7 +1057,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "substitution vocabulary inside resource commands; the map's worktree-resources pages document each token",
+          "the Map's Worktree-resource pages document each command-substitution token",
       },
       featureCanon: { nodeId: "worktree-resources" },
     },
@@ -1113,7 +1104,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "tips",
     title: "Tips",
     what:
-      "The desk tip registry: every teaching line the desk can show enters through it, in curriculum order.",
+      "The Desk tip registry: every teaching line the Desk can show enters through it, in curriculum order.",
     source: {
       kind: "module",
       module: "src/shared/tips.ts",
@@ -1159,12 +1150,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "internal design names for decorative terminal output, not reader-facing product terms",
+        absent: "the terminal-art gallery owns these internal design names",
       },
       featureCanon: {
         absent:
-          "the family supplies decorative projections and a maintainer preview rather than a separate product capability",
+          "the existing terminal surfaces consume these decorative projections and maintainer previews",
       },
     },
     members: async () =>
@@ -1189,12 +1179,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "internal design names for decorative terminal output, not reader-facing product terms",
+        absent: "the terminal-art gallery owns these internal motif names",
       },
       featureCanon: {
         absent:
-          "the motifs supply decorative projections and a maintainer preview rather than a separate product capability",
+          "the existing terminal surfaces consume these motifs and maintainer previews",
       },
     },
     members: async () =>
@@ -1207,7 +1196,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "failure-recovery-evidence",
     title: "Generic failure-recovery evidence",
     what:
-      "The result fields the generic recovery instruction may truthfully cite; without one, a failure needs a tailored next step.",
+      "The result fields a generic recovery instruction may cite. A failure with neither field needs a tailored next step.",
     source: {
       kind: "module",
       module: "src/shared/hints.ts",
@@ -1218,7 +1207,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "wire-envelope evidence behind the documented advisory contract, not product vocabulary",
+          "the advisory contract documents these result-envelope evidence fields",
       },
       featureCanon: { nodeId: "hints" },
     },
@@ -1244,8 +1233,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "recording vocabulary behind the documented Logbook concept, not separate product terms",
+        absent: "the Logbook reference documents these recorded outcomes",
       },
       featureCanon: { nodeId: "logbook" },
     },
@@ -1257,7 +1245,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-events",
     title: "Logbook events",
     what:
-      "The event kinds written to the local logbook and interpreted by its advisory readers.",
+      "The event kinds written to the local Logbook and interpreted by its advisory readers.",
     source: {
       kind: "module",
       module: "src/engine/logbook/schema.ts",
@@ -1284,7 +1272,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "logbook-powered",
     title: "Logbook-powered capabilities",
     what:
-      "The advisory capabilities that switch off with [project].logbook = false; every opt-out wording surface quotes each member's phrase verbatim.",
+      "The advisory capabilities that switch off with `[project].logbook = false`. Every opt-out wording surface quotes each member's phrase verbatim.",
     source: {
       kind: "module",
       module: "src/shared/logbook_powered.ts",
@@ -1295,7 +1283,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "opt-out wording behind the documented Logbook concept, not separate product vocabulary",
+          "the Logbook reference documents these capability names and their opt-out behavior",
       },
       featureCanon: { nodeId: "logbook" },
     },
@@ -1307,7 +1295,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "detector-families",
     title: "Patterns detector families",
     what:
-      "The categories that group every patterns detector and finding; schemas, registry entries, and the human report derive from this vocabulary.",
+      "The categories that group every Patterns detector and finding. Schemas, registry entries, and the human report derive from this vocabulary.",
     source: {
       kind: "module",
       module: "src/shared/patterns_vocabulary.ts",
@@ -1321,7 +1309,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "internal report grouping; the Patterns entry carries the reader-facing concept",
+          "the Patterns entry defines the reader-facing concept, and this registry supplies its internal report groups",
       },
       featureCanon: { nodeId: "patterns" },
     },
@@ -1334,7 +1322,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "pattern-finding-tones",
     title: "Patterns finding tones",
     what:
-      "The presentation-only vocabulary a patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.",
+      "The presentation-only vocabulary a Patterns finding uses to distinguish favorable, neutral, and attention-worthy evidence.",
     source: {
       kind: "module",
       module: "src/shared/patterns_vocabulary.ts",
@@ -1348,7 +1336,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "presentation metadata inside the patterns result; it is not a user command or product term",
+          "the Patterns result reference documents this presentation metadata",
       },
       featureCanon: { nodeId: "patterns" },
     },
@@ -1361,7 +1349,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "patterns-detectors",
     title: "Patterns detectors",
     what:
-      "Every detector the patterns verb runs over the logbook, in stable registry order; the companion vocabulary — families, scopes, tiers, statuses (`src/shared/patterns_vocabulary.ts`) — types each entry, and the parameterized class test fails until a new detector brings fixtures.",
+      "Every detector the Patterns verb runs over the Logbook, in stable registry order. Companion families, scopes, tiers, and statuses from `src/shared/patterns_vocabulary.ts` type each entry. The parameterized class test requires fixtures for every new detector.",
     source: {
       kind: "module",
       module: "src/engine/logbook/detectors.ts",
@@ -1386,7 +1374,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "improve-categories",
     title: "Improvement categories",
     what:
-      "The improvement catalog's categories, in display order; the runner ranks them weakest-first, and the CLI help and MCP tool interpolate the slugs from the catalog so no category list can drift.",
+      "The improvement catalog's categories, in display order. The runner ranks them weakest-first, while CLI help and the MCP tool derive category slugs from the catalog.",
     source: {
       kind: "module",
       module: "src/engine/improve/rules.ts",
@@ -1397,7 +1385,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "category slugs are reference material; every surfaced list derives from the catalog itself",
+          "the improvement reference documents these category slugs, and every surfaced list derives from this catalog",
       },
       featureCanon: { nodeId: "improvement" },
     },
@@ -1432,7 +1420,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "self-referential: the registry is the glossary, and the page it compiles is the definition surface",
+          "the registry is the Glossary, and its generated page is the definition surface",
       },
       featureCanon: { nodeId: "glossary-canon" },
     },
@@ -1469,10 +1457,12 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       },
     ],
     enrolledIn: {
-      glossary: { absent: "a maintainer database, not user vocabulary" },
+      glossary: {
+        absent: "this maintainer registry supplies the Feature canon's data",
+      },
       featureCanon: {
         absent:
-          "the canon is the enrolling registry; a node describing itself would claim nothing",
+          "this is the enrolling registry; its nodes describe the product capabilities",
       },
     },
     members: async () =>
@@ -1508,8 +1498,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     enrolledIn: {
       glossary: {
-        absent:
-          "schema surface documented by the generated references, not vocabulary",
+        absent: "the generated result references document this schema surface",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1541,7 +1530,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "machine schema metadata fields, documented through the result contract reference",
+          "the result-contract reference documents these machine schema fields",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1555,7 +1544,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "cli-json-predicates",
     title: "CLI JSON predicate contracts",
     what:
-      "The option- and positional-selected predicates whose bare exit status becomes a successful boolean observation under --json.",
+      "The predicates selected by an option or positional argument whose bare exit status becomes a successful Boolean observation under `--json`.",
     source: {
       kind: "module",
       module: "src/shared/result_contracts.ts",
@@ -1568,8 +1557,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "invocation modes inside documented commands, not reader-facing vocabulary",
+        absent: "the documented commands own these invocation modes",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1591,8 +1579,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "machine-output placements inside documented commands, not product terms",
+        absent: "the documented commands own these machine-output placements",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1614,7 +1601,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent: "boolean test states, not reader-facing product vocabulary",
+        absent: "the predicate contract documents these Boolean test states",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1655,7 +1642,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "machine contract locations; the config and result references carry the reader-facing terms",
+          "the config and result references document these machine-contract locations",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1678,11 +1665,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "public project-administration coordinates, not product vocabulary",
+          "the security policy owns these public project-administration coordinates",
       },
       featureCanon: {
         absent:
-          "the repository and website disclosure policy, not a product feature",
+          "the repository and website security policy own this disclosure surface",
       },
     },
     members: async () => {
@@ -1723,7 +1710,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "machine vocabulary carried by each failure; the surrounding commands and recovery guidance supply reader-facing terms",
+          "the result-contract reference documents this machine failure vocabulary; command diagnostics supply reader-facing explanations",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1760,7 +1747,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "wire-level states whose plain-language meanings are shown directly with each executed step",
+          "each executed step shows the plain-language meaning of these wire states",
       },
       featureCanon: { nodeId: "published-contracts" },
     },
@@ -1771,7 +1758,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "public-doc-surfaces",
     title: "Public doc surfaces",
     what:
-      "The projection matrix deciding which map pages publish to each public surface.",
+      "The projection matrix deciding which Map pages publish to each public surface.",
     source: {
       kind: "module",
       module: "src/lib/docs.ts",
@@ -1782,7 +1769,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an engine projection table; the Map entry carries the reader-facing concept",
+          "the Map entry defines the reader-facing concept, and this Engine table supplies its publication projections",
       },
       featureCanon: { nodeId: "publish-predicate" },
     },
@@ -1793,7 +1780,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "docs-workflow-directives",
-    title: "Docs Workflow directives",
+    title: "Docs workflow directives",
     what:
       "The source Markdown markers the browser manual projects through the design system's Workflow grammar.",
     source: {
@@ -1806,7 +1793,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "internal Markdown projection labels, not reader-facing product vocabulary",
+          "the browser-manual design system documents these internal Markdown projection labels",
       },
       featureCanon: { nodeId: "bundled-docs" },
     },
@@ -1819,7 +1806,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "adrs",
     title: "Architecture Decision Records",
     what:
-      "The numbered decision records in the map, including records later superseded.",
+      "The numbered decision records in the Map, including records later superseded.",
     source: {
       kind: "module",
       module: "src/lib/docs.ts",
@@ -1838,8 +1825,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "the decision page explains this project practice; the glossary covers product vocabulary",
+        absent: "the decision-record page explains this project practice",
       },
       featureCanon: { nodeId: "adr-discipline" },
     },
@@ -1862,7 +1848,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "project-artifacts",
     title: "Project artifacts",
     what:
-      "Every project-tree path discern writes or maintains, with its operational ownership and discern-authored payload-license answers.",
+      "Every project-tree path discern writes or maintains, with its operational ownership and payload-license classification.",
     source: {
       kind: "module",
       module: "src/lib/artifact_ownership.ts",
@@ -1902,7 +1888,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "distribution-vocabulary",
     title: "Distribution vocabulary",
     what:
-      "Retired commands, retired config keys, dead config positions, and synonym redirects — the vocabulary the CLI redirects or refuses rather than accepts.",
+      "Retired commands, retired config keys, dead config positions, and synonym redirects that make the CLI return a redirect or refusal.",
     source: {
       kind: "module",
       module: "src/shared/vocabulary.ts",
@@ -1913,7 +1899,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "redirect data for retired words; live vocabulary lives in the glossary proper",
+          "the Glossary defines live vocabulary, and this registry records redirects and refusals for retired words",
       },
       featureCanon: { nodeId: "forgiving-cli" },
     },
@@ -1936,7 +1922,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "voice-banned-moves",
     title: "Voice banned moves",
     what:
-      "The voice registry's banned-words and banned-moves canon behind the generated voice skills; the Vale style must see every banned phrase the canon declares.",
+      "The voice registry's banned-word and banned-move canon behind the generated voice Skills. The Vale style must see every banned phrase the canon declares.",
     source: {
       kind: "module",
       module: "scripts/brand/voice.ts",
@@ -1946,12 +1932,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent:
-          "editorial tooling for this repository's prose, not product vocabulary",
+        absent: "the internal voice canon owns this editorial vocabulary",
       },
       featureCanon: {
         absent:
-          "an internal editorial practice for this repository, not a product feature",
+          "the internal voice canon owns this repository's editorial practice",
       },
     },
     members: async () => {
@@ -1966,7 +1951,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "brand-vale-styles",
     title: "Register Vale styles",
     what:
-      "The per-register Vale styles compiled from the voice registry's rule data — one generated style directory per register, scoped by map tier in .vale.ini, each rule citing the banned canon, voice rules, or proposed mechanical checks it enforces, with a recorded disposition for every proposal no rule implements.",
+      "The per-register Vale styles compiled from voice-registry rules. Each generated register directory is scoped by Map tier in `.vale.ini`; every rule cites its authority, and every unimplemented proposal carries a recorded disposition.",
     source: {
       kind: "module",
       module: "scripts/brand/vale.ts",
@@ -2032,12 +2017,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     enrolledIn: {
       glossary: {
-        absent:
-          "editorial tooling for this repository's prose, not product vocabulary",
+        absent: "the internal voice canon owns this Vale-rule vocabulary",
       },
       featureCanon: {
         absent:
-          "an internal editorial practice for this repository, not a product feature",
+          "the internal voice canon owns this repository's editorial enforcement",
       },
     },
     members: async () => {
@@ -2049,9 +2033,9 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
   },
   {
     id: "seeded-gotchas-traps",
-    title: "Seeded gate traps",
+    title: "Seeded Gate traps",
     what:
-      "The stack-independent gate traps seeded into every project's gotchas doc; the repository's own gotchas page must carry the same inventory, and the seeded trap matchers must keep matching the engine's real failure evidence.",
+      "The stack-independent Gate traps seeded into every project's gotchas page. The repository's page carries the same inventory, and each seeded matcher must match the Engine's live failure evidence.",
     source: {
       kind: "file",
       path: "templates/setup/skeleton/docs/80-development/done-gate-gotchas.md",
@@ -2064,14 +2048,14 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     artifacts: [],
     enrolledIn: {
       glossary: {
-        absent: "seeded documentation content, not product vocabulary",
+        absent: "the seeded Gate-gotchas page owns this documentation content",
       },
       featureCanon: { nodeId: "gotchas-pointer" },
     },
   },
   {
     id: "contributor-agreement-gist-files",
-    title: "Contributor-agreement Gist files",
+    title: "Contributor License Agreement Gist files",
     what:
       "The exact repository sources mirrored into the hosted CLA Assistant Gist: the individual agreement and its generated required acknowledgement.",
     source: {
@@ -2089,10 +2073,12 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     ],
     enrolledIn: {
       glossary: {
-        absent: "repository contribution policy, not product vocabulary",
+        absent:
+          "the contributor agreement owns this repository-policy vocabulary",
       },
       featureCanon: {
-        absent: "repository governance, not an installed product feature",
+        absent:
+          "the repository's contributor-governance policy owns this surface",
       },
     },
     members: async () =>
@@ -2120,7 +2106,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "legal-document plumbing; the CLI reference documents the licenses verb",
+          "the CLI reference documents the licenses command and its legal-document package",
       },
       featureCanon: { nodeId: "licenses" },
     },
@@ -2158,7 +2144,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "license plumbing; the CLI reference documents the licenses verb",
+          "the CLI reference documents the licenses command and these generated artifacts",
       },
       featureCanon: { nodeId: "licenses" },
     },
@@ -2172,7 +2158,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "spawn-surfaces",
     title: "Spawn surfaces",
     what:
-      "Every file permitted to spawn a subprocess, with the interrupt contract each one owes: E2E-proven surfaces or a written exemption.",
+      "Every file permitted to spawn a subprocess, with the interrupt contract each one owes: end-to-end test coverage or a written exemption.",
     source: {
       kind: "module",
       module: "tests/spawn_surfaces.ts",
@@ -2186,7 +2172,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an internal subprocess-ownership contract, not product vocabulary",
+          "the interruption-safety reference owns this subprocess contract",
       },
       featureCanon: { nodeId: "interruption-safety" },
     },
@@ -2198,7 +2184,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "authored-ts-universe",
     title: "Authored-TypeScript universe",
     what:
-      "The top-level trees holding authored TypeScript — the universe every repo-wide structural sweep derives its scan set from. Members are the stable roots; the file-level list (`AUTHORED_TS_FILES`, the export sweeps consume) is git-derived at import time and moves with every commit, so the roots are the meaningful atlas count.",
+      "The top-level trees holding authored TypeScript define the scan universe for repository-wide structural sweeps. Members are stable roots. The `AUTHORED_TS_FILES` export derives its file list from Git at import time, so the atlas counts roots.",
     source: {
       kind: "module",
       module: "tests/repo_authored_paths.ts",
@@ -2209,11 +2195,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "this repository's internal scan universe, not product vocabulary",
+          "the contributor reference owns this repository's internal scan-universe vocabulary",
       },
       featureCanon: {
         absent:
-          "guard infrastructure for this repository's own sweeps, not a product feature",
+          "the repository's contributor guard infrastructure owns these sweeps",
       },
     },
     members: async () => [
@@ -2224,7 +2210,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "artifact-validators",
     title: "Artifact validators",
     what:
-      "Every src/lib validator of a config-resolved authored artifact (the map, guidance sources, skills, project scripts, ADR records), each proven wired into a shipped surface or recorded repo-local with the reason — so a check written for every project cannot end up applied only by this repository's tests.",
+      "Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance sources, Skills, Project Scripts, and Architecture Decision Records. Each validator has a shipped caller or a recorded repository-only classification.",
     source: {
       kind: "module",
       module: "tests/validator_registry.ts",
@@ -2235,11 +2221,11 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "an internal enforcement-parity contract, not product vocabulary",
+          "the contributor reference owns this internal enforcement-parity contract",
       },
       featureCanon: {
         absent:
-          "guard infrastructure for this repository's own wiring, not a product feature",
+          "the repository's contributor guard infrastructure owns this wiring check",
       },
     },
     members: async () =>
@@ -2269,7 +2255,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     enrolledIn: {
       glossary: {
         absent:
-          "naming deferred while the pre-launch vocabulary overhaul is in flight",
+          "this maintainer-only meta-registry has no assigned Glossary term; the terminology decision remains open",
       },
       featureCanon: { nodeId: "canonical-sets" },
     },
@@ -2284,17 +2270,17 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
  */
 export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
   "tests/result_capture_drain_parity_test.ts":
-    "holds every `result_capture` one-slot mailbox to being drained at both recording points; its universe derives from the module's `take*` exports, not from a registry symbol",
+    "derives its universe from the module's `take*` exports and checks that both recording points drain every `result_capture` one-slot mailbox",
   "tests/control_byte_guard_test.ts":
-    "sweeps authored text for raw control bytes that read as binary to POSIX tools; a bytes rule, not a member set",
+    "applies a byte-level rule across authored text for raw control bytes that Portable Operating System Interface (POSIX) tools read as binary",
   "tests/adr_vocab_guard_test.ts":
-    "sweeps shipped strings for internal decision citations; a vocabulary rule, not a member set",
+    "applies a vocabulary rule across shipped strings for internal decision citations",
   "tests/engine_tree_drift_test.ts":
-    "behavioral guard for the gate's strand detection; a pipeline invariant, not a member set",
+    "checks the Gate's strand-detection pipeline invariant behaviorally",
   "tests/upgrade_git_guard_test.ts":
-    "behavioral guard for upgrade's clean-tree rule; keeps upgrades reversible, not a member set",
+    "checks upgrade's clean-tree pipeline invariant to keep upgrades reversible",
   "tests/await_readiness_guard_test.ts":
-    "sweeps authored await tests for elapsed-time readiness assumptions; this is a test timing rule with no member vocabulary",
+    "applies an elapsed-time readiness rule across authored await tests",
 };
 
 /**
@@ -2304,7 +2290,7 @@ export const UNAFFILIATED_GUARDS: Readonly<Record<string, string>> = {
  */
 export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
   "site/pages/assets/search.js":
-    "a browser copy of src/lib/docs_search.js — module duplication, not registry data",
+    "copies the single `src/lib/docs_search.js` module into the browser asset",
 };
 
 /**
@@ -2318,17 +2304,17 @@ export const UNAFFILIATED_CODEGEN_TARGETS: Readonly<Record<string, string>> = {
  */
 export const UNAFFILIATED_SETS: Readonly<Record<string, string>> = {
   "site/design_system.ts#DESIGN_SYSTEM_BUNDLES":
-    "site build infrastructure: the route-bundle table drives this repository's site build alone and ships to no project",
+    "site build infrastructure: the route-bundle table drives this repository's site build; project installations omit it",
   "src/engine/gate/proof_render.ts":
-    "the claim announces a derive-once rule — the proof reads the result envelope, never recomputes — not a member set",
+    "the claim defines a derive-once invariant: Proof reads and reuses the result envelope",
   "src/engine/worktree/side_restrictions.ts":
-    "candidate for enrolment: a true registry of every side-restricted lifecycle operation, whose class test (tests/engine_worktree_test.ts) is named outside the guard convention",
+    "candidate for enrollment: a registry of every side-restricted lifecycle operation whose class test (`tests/engine_worktree_test.ts`) sits outside the guard convention",
   "src/lib/paths.ts#BUNDLED_DOCS_STAGE_DIR":
-    "a single staging-directory name shared by the build writer and the bundled-docs reader — one value, not a member set",
+    "one staging-directory value shared by the build writer and bundled-docs reader",
   "src/lib/providers.ts":
     "the total-record satellite of the enrolled agent-providers set: AGENT_NAMES is the member axis, and tests/agent_parity_test.ts holds the record total per member",
   "src/lib/version.ts":
-    "the kit version constant: a single value with no members and no satellites of its own to drift",
+    "the kit version constant is one value with no member axis or satellites",
   "src/shared/result_schemas.ts":
     "wire vocabulary already published through the result-contracts schema artifacts; tests/result_codegen_test.ts and tests/result_schemas_test.ts hold the Zod spine to the contracts",
 };
@@ -2376,25 +2362,25 @@ function sourceLine(source: SetSource): string {
 }
 
 /** Describe how a set is named in the glossary, including recorded exclusions. */
-function glossaryLine(enrolment: GlossaryEnrolment): string {
-  if ("term" in enrolment) {
-    return `- Glossary: the "${enrolment.term}" entry carries the concept`;
+function glossaryLine(enrollment: GlossaryEnrolment): string {
+  if ("term" in enrollment) {
+    return `- Glossary: the "${enrollment.term}" entry carries the concept`;
   }
-  if ("perMember" in enrolment) {
-    return `- Glossary: each member is held named-or-recorded-absent by \`${enrolment.perMember}\``;
+  if ("perMember" in enrollment) {
+    return `- Glossary: each member is held named-or-recorded-absent by \`${enrollment.perMember}\``;
   }
-  return `- Glossary: not enrolled — ${enrolment.absent}`;
+  return `- Glossary: not enrolled — ${enrollment.absent}`;
 }
 
 /** Describe the feature-canon node or surface that claims a set. */
-function canonLine(enrolment: CanonEnrolment): string {
-  if ("surfaceSet" in enrolment) {
-    return `- Feature canon: claimed as the \`${enrolment.surfaceSet}\` surface set`;
+function canonLine(enrollment: CanonEnrolment): string {
+  if ("surfaceSet" in enrollment) {
+    return `- Feature canon: claimed as the \`${enrollment.surfaceSet}\` surface set`;
   }
-  if ("nodeId" in enrolment) {
-    return `- Feature canon: described by the \`${enrolment.nodeId}\` node`;
+  if ("nodeId" in enrollment) {
+    return `- Feature canon: described by the \`${enrollment.nodeId}\` node`;
   }
-  return `- Feature canon: not enrolled — ${enrolment.absent}`;
+  return `- Feature canon: not enrolled — ${enrollment.absent}`;
 }
 
 /** Join repository paths as inline-code items for atlas prose. */
@@ -2434,16 +2420,16 @@ function sourceCell(source: SetSource): string {
 }
 
 /** Format direct, per-member, or absent glossary enrollment for the atlas. */
-function glossaryCell(enrolment: GlossaryEnrolment): string {
-  if ("term" in enrolment) return `"${enrolment.term}"`;
-  if ("perMember" in enrolment) return "per member";
+function glossaryCell(enrollment: GlossaryEnrolment): string {
+  if ("term" in enrollment) return `"${enrollment.term}"`;
+  if ("perMember" in enrollment) return "per member";
   return "—";
 }
 
 /** Format surface-set, node, or absent feature-canon enrollment for the atlas. */
-function canonCell(enrolment: CanonEnrolment): string {
-  if ("surfaceSet" in enrolment) return `surface \`${enrolment.surfaceSet}\``;
-  if ("nodeId" in enrolment) return `node \`${enrolment.nodeId}\``;
+function canonCell(enrollment: CanonEnrolment): string {
+  if ("surfaceSet" in enrollment) return `surface \`${enrollment.surfaceSet}\``;
+  if ("nodeId" in enrollment) return `node \`${enrollment.nodeId}\``;
   return "—";
 }
 
@@ -2481,13 +2467,13 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
     "",
     "# Registry atlas",
     "",
-    "_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrolments here._",
+    "_The meta-registry generates every canonical set's members, source, guards, artifacts, and enrollments._",
     "",
-    "To add a set, declare it in `scripts/canonical_sets.ts`; the enrolment guard (`tests/canonical_sets_enrolment_test.ts`) holds every conventionally named guard test and codegen target to a declared owner, and the claim sweep (`tests/ssot_claim_guard_test.ts`) holds every module claiming single-source-of-truth status to the same bar: a declared source, or a recorded absence.",
+    "To add a set, declare it in `scripts/canonical_sets.ts`. The enrollment guard (`tests/canonical_sets_enrolment_test.ts`) requires a declared owner for every conventionally named guard test and codegen target. The claim sweep (`tests/ssot_claim_guard_test.ts`) requires every module that claims single-source-of-truth status to have a declared source or recorded absence.",
     "",
     "## The sets at a glance",
     "",
-    "One row per set, in registry order; the sections below follow the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when the source exposes them to codegen; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence, and the set's section carries the reason.",
+    "One row per set, in registry order. The detail sections use the same order and carry the full account. The table shows member counts. Each detail section lists member names in source order when codegen can read them; an authored source shows a dash and explains the gap. Under Glossary and Feature canon, a dash marks a recorded absence whose reason appears in the detail section.",
     "",
     "| Set | Source | Members | Glossary | Feature canon |",
     "| --- | --- | --- | --- | --- |",
@@ -2510,9 +2496,9 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("## Guard tests and the sets they hold");
   lines.push("");
   lines.push(
-    `Alphabetical by test file; a test holding several sets fails when any one of them drifts. The [unaffiliated records](#${
+    `Alphabetical by test file. A test holding several sets fails when any one of them drifts. The [unaffiliated records](#${
       headingAnchor("Unaffiliated, with reasons")
-    }) account for conventionally named tests holding none.`,
+    }) account for conventionally named tests with recorded unaffiliated status.`,
   );
   lines.push("");
   lines.push("| Guard test | Holds |");
@@ -2524,7 +2510,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("## Generated artifacts");
   lines.push("");
   lines.push(
-    "Alphabetical by path. `deno task codegen` rewrites a generated file whole; a maintained block sits between markers inside an authored page.",
+    "Alphabetical by path. `deno task codegen` rewrites an entire generated file; a maintained block sits between markers inside an authored page.",
   );
   lines.push("");
   lines.push("| Artifact | Kind | Compiled from |");
@@ -2545,7 +2531,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
     lines.push(sourceLine(entry.source));
     if (members === undefined) {
       lines.push(
-        "- Members: — (the authored source does not expose member names to codegen)",
+        "- Members: — (the authored source keeps member names outside codegen)",
       );
     } else {
       lines.push(`- Members: ${members.length}`);
@@ -2566,13 +2552,13 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("## Unaffiliated, with reasons");
   lines.push("");
   lines.push(
-    "Recorded strays the convention sweeps accept. Each subsection names the record that accepts its kind; a new stray belongs there, with its reason.",
+    "Recorded exceptions accepted by convention sweeps. Each subsection names the owning record and reason; add a new exception to its matching record with evidence.",
   );
   lines.push("");
   lines.push("### Guard tests holding no member set");
   lines.push("");
   lines.push(
-    "Conventionally named guard tests with no set to hold, recorded in `UNAFFILIATED_GUARDS`.",
+    "`UNAFFILIATED_GUARDS` records conventionally named guard tests with no member set.",
   );
   lines.push("");
   lines.push(...strayLines(UNAFFILIATED_GUARDS));
@@ -2580,7 +2566,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("### Codegen targets compiling from no registry");
   lines.push("");
   lines.push(
-    "Write targets recorded in `UNAFFILIATED_CODEGEN_TARGETS`; the write chokepoint in `scripts/codegen.ts` refuses any target outside the declared artifacts and that record.",
+    "`UNAFFILIATED_CODEGEN_TARGETS` records these write targets. The write chokepoint in `scripts/codegen.ts` permits only declared artifacts and recorded unaffiliated targets.",
   );
   lines.push("");
   lines.push(...strayLines(UNAFFILIATED_CODEGEN_TARGETS));
@@ -2588,7 +2574,7 @@ export async function renderRegistryAtlasDoc(): Promise<string> {
   lines.push("### Single-source claims anchoring no set");
   lines.push("");
   lines.push(
-    "Modules whose doc comments claim single-source-of-truth status without anchoring a declared entry, recorded in `UNAFFILIATED_SETS`.",
+    "`UNAFFILIATED_SETS` records modules whose doc comments claim single-source-of-truth status without anchoring a declared entry.",
   );
   lines.push("");
   lines.push(...strayLines(UNAFFILIATED_SETS));

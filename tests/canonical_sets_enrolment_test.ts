@@ -521,7 +521,7 @@ Deno.test("the registry atlas lists every resolvable member in source order", as
     if (members === undefined) {
       assert(
         section.includes(
-          "- Members: — (the authored source does not expose member names to codegen)",
+          "- Members: — (the authored source keeps member names outside codegen)",
         ),
         `${entry.id}: the atlas does not explain why member names are unavailable`,
       );
