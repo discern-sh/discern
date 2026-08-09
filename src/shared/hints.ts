@@ -46,7 +46,7 @@ const CMD = {
   setupDone: discernCommand("setup done"),
 } as const;
 
-/** The owner's proof-pull command — CLI-spelled on every surface because
+/** The owner's Proof retrieval command — CLI-spelled on every surface because
  * the executor is the human owner at a terminal, never the reading agent. */
 const OWNER_STATUS_VERBOSE = ownerDiscernCommand("status", flag("verbose"));
 
@@ -333,12 +333,10 @@ function updateOverflowAdvice(
 
 /** Shared non-negotiable action for every unfinished-setup context. */
 const SETUP_UNFINISHED_CORE =
-  "Setup is NOT finished. Do not stop or hand the setup brief back as a report. " +
-  `Complete it in this agent session: run ${
-    discernCommand("setup begin")
-  } to print or ` +
+  "Setup is incomplete. Stay in this agent session and finish the setup brief before reporting or stopping. " +
+  `Run ${discernCommand("setup begin")} to print or ` +
   "reprint it without changing your work, complete every step, then run " +
-  `${CMD.setupDone}. Tell the user setup is complete only after ${CMD.setupDone} ` +
+  `${CMD.setupDone}. Report setup complete only after ${CMD.setupDone} ` +
   "passes.";
 
 /** Append one context-specific reason to the canonical unfinished-setup action. */
@@ -370,15 +368,15 @@ function restartSessionHint(leadIn: string): string {
 
 /** The check-stage remedy: prepare re-runs the fixers and checks in seconds. */
 const GATE_PREPARE_REMEDY_CORE =
-  "Fix the problems in the diagnostics — each carries the command to " +
-  `reproduce it — and iterate with ${CMD.prepare}, the fast fix-then-check ` +
+  "Fix the problems in the diagnostics; each carries its reproduce command. " +
+  `Iterate with ${CMD.prepare}, the fast fix-then-check ` +
   `loop. Re-run ${CMD.done} only once ${CMD.prepare} is green: every red ` +
   `${CMD.done} pays for the full gate, tests included.`;
 
 /** The test-stage remedy: iterate on the tests alone, not the whole gate. */
 const GATE_TEST_REMEDY_CORE =
-  "Fix the failing tests in the diagnostics — each carries the command to " +
-  `reproduce it — and iterate with ${CMD.test}, which runs the tests alone. ` +
+  "Fix the failing tests in the diagnostics; each carries its reproduce command. " +
+  `Iterate with ${CMD.test}, which runs the tests alone. ` +
   `Re-run ${CMD.done} only once ${CMD.test} is green: every red ${CMD.done} ` +
   `pays for the full gate.`;
 
@@ -480,17 +478,15 @@ export const HINTS = {
       changedFiles: 2,
     },
     template: ({ cwd, mainRepo, changedFiles }): string =>
-      `If the ${changedFiles} uncommitted change${
+      `Stop before editing: the main checkout at ${mainRepo} has ${changedFiles} uncommitted change${
         changedFiles === 1 ? "" : "s"
-      } in the main checkout at ${mainRepo} ${
-        changedFiles === 1 ? "is" : "are"
-      } yours, WORK INSIDE this untouched worktree. Prefix every shell command ` +
+      }, while this assigned worktree is clean. Confirm who owns the main-checkout changes. Continue this effort only in ${cwd}: prefix every shell command ` +
       `with \`cd ${cwd} && …\` and pass \`path="${cwd}"\` to every discern MCP ` +
-      `tool. Otherwise, your edits land on the trunk while discern runs here.`,
+      `tool. Working in ${mainRepo} would place new edits on the trunk while discern runs in ${cwd}.`,
   }),
 
   /**
-   * Discern-owned ignored artifacts are tracked despite the managed ignore
+   * discern-owned ignored artifacts are tracked despite the managed ignore
    * contract. The caller supplies the canonical path summary and repair command.
    */
   "tracked-ignored-artifacts": defineHint<{
@@ -518,10 +514,10 @@ export const HINTS = {
     id: "untracked-agent-files",
     category: "next-step",
     audience: "all",
-    when: "Agent files are untracked and not ignored.",
+    when: "Generated agent files are untracked and not ignored.",
     example: { paths: ["AGENTS.md", "CLAUDE.md"] },
     template: ({ paths }): string =>
-      `Commit the untracked Agent files (${
+      `Commit the untracked agent files (${
         paths.join(", ")
       }) so cloud and out-of-tool agents read the same guidance from a fresh clone.`,
   }),
@@ -531,7 +527,7 @@ export const HINTS = {
     id: "generated-agent-files-missing",
     category: "next-step",
     audience: "all",
-    when: "A generated Agent file is missing.",
+    when: "A generated agent file is missing.",
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
@@ -543,13 +539,13 @@ export const HINTS = {
     id: "generated-agent-files-stale",
     category: "next-step",
     audience: "all",
-    when: "A generated Agent file differs from its authored sources.",
+    when: "A generated agent file differs from its authored sources.",
     family: "generated-drift",
     example: { paths: "AGENTS.md, CLAUDE.md" },
     template: ({ paths }): string =>
       generatedDriftHint(
         `Agent files are out of date (${paths}).`,
-        "Make intended guidance changes in [guidance].sources. Refresh overwrites Agent files.",
+        "Make intended guidance changes in [guidance].sources. Refresh overwrites agent files.",
       ),
   }),
 
@@ -621,7 +617,7 @@ export const HINTS = {
     template: ({ path }): string =>
       generatedDriftHint(
         `The ADR index is out of date (${path}).`,
-        "Edit record files, not the generated lists. Refresh rewrites the lists between the markers.",
+        "Edit the ADR records that own these entries. Refresh rewrites the generated lists between the markers.",
       ),
   }),
 
@@ -784,29 +780,29 @@ export const HINTS = {
       `user-requested landing. This branch is committed and up to date with ${trunk}.`,
   }),
 
-  /** Agent-audience: every fact here (clean HEAD, valid proof, up to
+  /** Agent-audience: every fact here (clean HEAD, valid Proof, up to
    * date) already renders in the interactive summary lines, and the
    * instructions — report, close with the line, wait, land only on an explicit
    * ask — are the agent's consent workflow, not a person's. The composition
-   * contract (account first, one-line proof last, page stays with discern)
+   * contract (account first, one-line Proof last, page stays with discern)
    * is ADR 0188's. */
   "status-ready-for-review": defineHint<{ trunk: string; branch: string }>({
     id: "status-ready-for-review",
     category: "next-step",
     audience: "agent",
-    when: "A clean, current branch has an honored gate proof.",
+    when: "A clean, current branch has honored Proof.",
     family: "status-review-readiness",
     example: { trunk: "main", branch: "agent/hints" },
     template: ({ trunk, branch }): string =>
-      `Report this branch to your owner in your own words and end with the ` +
-      `proof in \`data.gate_proof.proof_line\` verbatim, then wait. This ` +
-      `clean HEAD is committed and up to date with ${trunk}. Don't paste the ` +
-      `full proof: your owner pulls it with ${OWNER_STATUS_VERBOSE}, ` +
-      `and the raw diff with \`git diff ${trunk}...${branch}\`. Run ` +
+      `Report this branch to your owner in your own words. End with ` +
+      `\`data.gate_proof.proof_line\` verbatim, then wait. This clean HEAD is ` +
+      `committed and up to date with ${trunk}. Your owner can retrieve the ` +
+      `full Proof with ${OWNER_STATUS_VERBOSE} and inspect the raw change with ` +
+      `\`git diff ${trunk}...${branch}\`. Run ` +
       `${CMD.accept} only after the user explicitly asks you to land it.`,
   }),
 
-  /** A ready proof whose exact tree the authority resolver covered. */
+  /** A ready Proof whose exact tree the authority resolver covered. */
   "status-land-under-verified-authority": defineHint<{
     source: LandingConsentSource;
     scopes: readonly string[];
@@ -815,18 +811,18 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A clean, current branch has a valid proof and machine-verified landing authority.",
+      "A clean, current branch has valid Proof and machine-verified landing authority.",
     family: "landing-authority",
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and the clean HEAD has a valid proof. Run ${CMD.accept} now to land it; the command rechecks the grant at the fast-forward boundary.`
+        ? `The owner pre-authorized this landing at the desk, and the clean HEAD has valid Proof. Run ${CMD.accept} now to land it; the command rechecks the grant at the fast-forward boundary.`
         : `The clean HEAD is covered by the standing grant for ${
           scopes.join(", ")
-        } and has a valid proof. Run ${CMD.accept} now to land it; the command rechecks every changed path at the fast-forward boundary.`,
+        } and has valid Proof. Run ${CMD.accept} now to land it; the command rechecks every changed path at the fast-forward boundary.`,
   }),
 
-  /** A ready proof whose recorded standing grant does not cover every path. */
+  /** A ready Proof whose recorded standing grant does not cover every path. */
   "status-ready-uncovered-authority": defineHint<{
     uncovered: readonly string[];
     warnings: readonly string[];
@@ -837,7 +833,7 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A clean, current branch has a valid proof but recorded authority does not cover it.",
+      "A clean, current branch has valid Proof but recorded authority does not cover it.",
     family: "landing-authority",
     example: {
       uncovered: ["`src/main.ts` (scopes: engine)"],
@@ -857,13 +853,13 @@ export const HINTS = {
     id: "status-missing-done-proof",
     category: "next-step",
     audience: "all",
-    when: "A clean, current branch has no honored gate proof.",
+    when: "A clean, current branch has no honored Proof.",
     family: "status-review-readiness",
     example: { trunk: "main" },
     template: ({ trunk }): string =>
       `Run ${CMD.done} before reporting the branch ready for review or a ` +
       `user-requested landing. This clean HEAD is committed and up to date with ` +
-      `${trunk}, but it has no honored gate proof.`,
+      `${trunk}, but it has no honored Proof.`,
   }),
 
   /**
@@ -1177,10 +1173,8 @@ export const HINTS = {
       `worktree: ${boundedNameSummary(branches.length, branches)}.`,
   }),
 
-  /** The calm counterpart to the unlanded-branch warning: a reclaimed stage's
-   * kept ref is a deliberate state, not abandoned work — its commits ride
-   * inside the named live branch, and the ref self-cleans through the
-   * ordinary prune once that work lands. Nothing to resume, nothing to do. */
+  /** A reclaimed stage ref remains reachable through the named live branch
+   * until the contained work lands; ordinary prune then removes the ref. */
   "status-contained-refs": defineHint<{
     refs: ReadonlyArray<{ branch: string; contained_in: string }>;
   }>({
@@ -1198,11 +1192,11 @@ export const HINTS = {
     template: ({ refs }): string => {
       const first = refs[0];
       const detail = refs.length === 1 && first !== undefined
-        ? `The reclaimed stage ref \`${first.branch}\` rides inside \`${first.contained_in}\``
-        : `${refs.length} reclaimed-stage refs ride inside live branches`;
-      return `${detail} until that work lands, then self-clean${
-        refs.length === 1 ? "s" : ""
-      } through the ordinary prune. Nothing to do.`;
+        ? `The reclaimed stage ref \`${first.branch}\` remains reachable through \`${first.contained_in}\``
+        : `${refs.length} reclaimed-stage refs remain reachable through live branches`;
+      return `${detail} until the contained work lands. Ordinary prune then removes ${
+        refs.length === 1 ? "the ref" : "those refs"
+      }. No action is required.`;
     },
   }),
 
@@ -1414,7 +1408,7 @@ export const HINTS = {
     id: "await-green-met",
     category: "next-step",
     audience: "all",
-    when: "`await --green` finds the awaited branch's proof honored.",
+    when: "`await --green` finds honored Proof for the awaited branch.",
     family: "await-met",
     example: {
       branch: "agent/upload-retry",
@@ -1422,7 +1416,7 @@ export const HINTS = {
       callerHasWorktree: true,
     },
     template: ({ branch, tip, callerHasWorktree }): string =>
-      `\`${branch}\` is green — its worktree holds a valid proof. ` +
+      `\`${branch}\` is green — its worktree holds valid Proof. ` +
       (callerHasWorktree
         ? `Build on it with ${discernCommand("update", flag("from", tip))}. ` +
           "The immutable commit remains valid if acceptance deletes the branch."
@@ -1497,7 +1491,7 @@ export const HINTS = {
     audience: "all",
     when: "`await` times out before its condition holds.",
     example: {
-      summary: "`agent/upload-retry` has no valid proof yet",
+      summary: "`agent/upload-retry` has no valid Proof yet",
       seconds: 45,
       command: discernCommand(
         "await",
@@ -1513,7 +1507,7 @@ export const HINTS = {
   }),
 
   /** The honest refusal when `--green` is asked about a branch no checkout
-   * holds: the proof lives in per-worktree state, destroyed with the
+   * holds: the Proof lives in per-worktree state, destroyed with the
    * checkout (a reclaimed contained worktree is the usual shape), so the
    * condition can never become true — the pointer names the target that can
    * answer instead. */
@@ -1565,7 +1559,7 @@ export const HINTS = {
     when: "`await` is asked to watch a branch that does not exist.",
     example: { branch: "agent/upload-retry", trunk: "main" },
     template: ({ branch, trunk }): string =>
-      `Branch \`${branch}\` was not found, and no accepted proof identifies ` +
+      `Branch \`${branch}\` was not found, and no landing Proof identifies ` +
       `it on \`${trunk}\`. It may not have started yet. Check ${CMD.status} ` +
       "and use the exact branch returned when it starts; never guess " +
       "a generated suffix.",
@@ -1578,8 +1572,10 @@ export const HINTS = {
     when: "`patterns` finds no recorded logbook events.",
     example: undefined,
     template: (): string =>
-      "Check back after more discern use. The logbook is empty, and discern " +
-      "records one local event per verb run under the repository's git directory.",
+      `Run ${
+        discernCommand("patterns")
+      } after the logbook records more verb runs. ` +
+      "The logbook currently has no events; discern stores one local event per verb run under the repository's git directory.",
   }),
 
   "patterns-insufficient-evidence": defineHint<{
@@ -1592,8 +1588,8 @@ export const HINTS = {
     when: "One or more pattern detectors lack their minimum evidence.",
     example: { young: 4, total: 10 },
     template: ({ young, total }): string =>
-      `The logbook is too young for ${young} of ${total} ` +
-      `detectors. Each reports insufficient evidence rather than guessing.`,
+      `${young} of ${total} detectors do not yet have their minimum evidence. ` +
+      `Each reports insufficient evidence and makes no finding.`,
   }),
 
   "patterns-advisory-findings": defineHint({
@@ -1670,7 +1666,7 @@ export const HINTS = {
   }),
 
   /**
-   * The proof-tail finding: one strongest current-branch observation plus the
+   * The Proof-tail finding: one strongest current-branch observation plus the
    * count and the route to the full evidence report.
    */
   "logbook-proof-finding": defineHint<{
@@ -1680,7 +1676,7 @@ export const HINTS = {
     id: "logbook-proof-finding",
     category: "next-step",
     audience: "all",
-    when: "A gate proof carries the strongest current-branch logbook finding.",
+    when: "Proof carries the strongest current-branch logbook finding.",
     family: "logbook-inline-finding",
     example: {
       count: 2,
@@ -1705,7 +1701,7 @@ export const HINTS = {
     family: "logbook-inline-finding",
     example: {
       observed: "The same worktree has been refused 3 times.",
-      next: "Inspect its current branch and proof.",
+      next: "Inspect its current branch and Proof.",
     },
     template: ({ observed, next }): string =>
       `${next} Logbook finding: ${observed}`,
@@ -1861,13 +1857,13 @@ export const HINTS = {
     id: "gate-proof-skipped-dirty",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot record a proof because the worktree is dirty.",
+    when: "A green gate cannot record Proof because the worktree is dirty.",
     family: "gate-proof",
     example: { reason: "2 tracked files changed" },
     template: ({ reason }): string =>
       `Use ${CMD.prepare} or ${CMD.test} while iterating. Then commit ` +
       `the intended final tree and re-run ${CMD.done} on the clean HEAD before ` +
-      `handoff or acceptance. The gate passed but recorded no proof because ` +
+      `handoff or acceptance. The gate passed but recorded no Proof because ` +
       `the worktree is dirty${reasonSuffix(reason)}.`,
   }),
 
@@ -1875,14 +1871,14 @@ export const HINTS = {
     id: "gate-proof-head-moved",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot record a proof because the branch tip moved.",
+    when: "A green gate cannot record Proof because the branch tip moved.",
     family: "gate-proof",
     example: { reason: "HEAD changed from a1b2c3d to d4e5f6a" },
     template: ({ reason }): string =>
       `Re-run ${CMD.done} on the final commit before handoff or acceptance. ` +
-      `The gate passed but recorded no proof because HEAD moved while it ran${
+      `The gate passed but recorded no Proof because HEAD moved while it ran${
         reasonSuffix(reason)
-      }. A proof can vouch only for the exact tree the gate tested.`,
+      }. A Proof can vouch only for the exact tree the gate tested.`,
   }),
 
   "gate-proof-record-failed": defineHint<{
@@ -1891,11 +1887,11 @@ export const HINTS = {
     id: "gate-proof-record-failed",
     category: "next-step",
     audience: "all",
-    when: "A green gate cannot write its proof.",
+    when: "A green gate cannot write Proof.",
     family: "gate-proof",
-    example: { reason: "the proof file could not be written" },
+    example: { reason: "the Proof file could not be written" },
     template: ({ reason }): string =>
-      `Run ${CMD.done} again later to record a gate proof. The gate passed, ` +
+      `Run ${CMD.done} again later to record Proof. The gate passed, ` +
       `but discern could not record one${reasonSuffix(reason)}. Until then, ` +
       `${CMD.accept} will re-run the gate.`,
   }),
@@ -1904,11 +1900,11 @@ export const HINTS = {
     id: "gate-proof-unavailable",
     category: "notice",
     audience: "all",
-    when: "A green gate cannot prepare proof state.",
+    when: "A green gate cannot prepare Proof state.",
     family: "gate-proof",
     example: { reason: "write authority was not established" },
     template: ({ reason }): string =>
-      `Gate passed, but discern could not prepare the gate proof${
+      `Gate passed, but discern could not prepare Proof${
         reasonSuffix(reason)
       }. ${CMD.accept} may need to re-run the gate.`,
   }),
@@ -1919,12 +1915,12 @@ export const HINTS = {
     id: "gate-proof-clear-failed",
     category: "next-step",
     audience: "all",
-    when: "The gate cannot clear an obsolete proof.",
+    when: "The gate cannot clear obsolete Proof.",
     family: "gate-proof",
-    example: { reason: "the proof file could not be removed" },
+    example: { reason: "the Proof file could not be removed" },
     template: ({ reason }): string =>
       `Fix the failure, then re-run ${CMD.done}. discern could not clear the ` +
-      `previous gate proof${reasonSuffix(reason)}.`,
+      `previous Proof${reasonSuffix(reason)}.`,
   }),
 
   "done-unchanged-tree-red": defineHint({
@@ -1940,8 +1936,8 @@ export const HINTS = {
       `Fix the failure the last run reported, iterating with ${CMD.prepare} ` +
       `or ${CMD.test}, then re-run ${CMD.done} — nothing ` +
       "changed since it judged this exact tree red, so an identical rerun " +
-      "expects the identical verdict. Probing for a flaky verdict is the one " +
-      `reason to re-run unchanged: ${
+      "expects the identical verdict. Use the confirmed rerun only to probe " +
+      `for a flaky verdict: ${
         discernCommand("done", flag("confirmed"))
       } does that, and ` +
       "records the rerun as a probe.",
@@ -1957,7 +1953,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `Run ${CMD.status} — this exact tree already passed ${CMD.done}, ` +
-      "and status shows the proof's standing without re-running anything. " +
+      "and status shows whether Proof remains valid without re-running anything. " +
       `To re-run the full gate on it anyway, run ${
         discernCommand("done", flag("confirmed"))
       }.`,
@@ -1981,8 +1977,8 @@ export const HINTS = {
     },
     template: (reference): string =>
       reference.command !== undefined
-        ? `If the failure above isn't self-explanatory, run ${reference.command} to read this project's known gate failures and their fixes.`
-        : `If the failure above isn't self-explanatory, this project's known gate failures and their fixes are documented in \`${reference.path}\`.`,
+        ? `If the result message and diagnostics do not explain the failure, run ${reference.command} to read this project's known gate failures and their fixes.`
+        : `If the result message and diagnostics do not explain the failure, read this project's known gate failures and fixes in \`${reference.path}\`.`,
   }),
 
   /**
@@ -2172,7 +2168,7 @@ export const HINTS = {
       }.`,
   }),
 
-  /** Discern-managed ignored output was committed to the repository. */
+  /** discern-managed ignored output was committed to the repository. */
   "gate-failure-tracked-artifacts": defineHint({
     id: "gate-failure-tracked-artifacts",
     category: "next-step",
@@ -2193,7 +2189,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.refresh}, then re-run the current discern command. If the guidance must change, edit \`[guidance].sources\`. Refresh overwrites Agent files.`,
+      `Run ${CMD.refresh}, then re-run the current discern command. If the guidance must change, edit \`[guidance].sources\`. Refresh overwrites agent files.`,
   }),
 
   /** Materialized skills differ from the effective authored set. */
@@ -2217,7 +2213,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Agent runtimes cannot read invalid frontmatter.",
+      "Fix each SKILL.md source named by the diagnostics, then re-run the current discern command. Coding-agent runtimes cannot read invalid frontmatter.",
   }),
 
   /** Two ADR records claim the same number. */
@@ -2242,7 +2238,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.refresh} to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, fix what it names first — a record's first heading, or a marker pair in the README missing its END marker — and refresh again.`,
+      `Run ${CMD.refresh} to regenerate the ADR index, commit the rewritten README, then re-run the current discern command. If the diagnostic says the index cannot be derived, first fix the named record heading or incomplete marker pair. Then refresh again.`,
   }),
 
   /** The map or a guidance source carries a reference readers cannot follow. */
@@ -2255,7 +2251,7 @@ export const HINTS = {
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
-      "Fix each documentation finding named by the diagnostics — repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist — then re-run the current discern command.",
+      "Fix each documentation finding named by the diagnostics: repoint dead links and anchors, repair the metadata block, update stale `discern` examples, keep published pages out of the internal trees, and make skill citations name skills that exist. Then re-run the current discern command.",
   }),
 
   /** The worktree branch does not contain the current trunk. */
@@ -2282,49 +2278,49 @@ export const HINTS = {
       "Follow the standards diagnostics, then re-run the current discern command. Do not weaken a trunk limit on this branch. Moving a limit is an owner decision made on the trunk.",
   }),
 
-  /** The gate cannot persist its Discern-owned state. */
+  /** The gate cannot persist its discern-owned state. */
   "gate-failure-write-access": defineHint({
     id: "gate-failure-write-access",
     category: "next-step",
     audience: "all",
-    when: "The gate cannot write Discern-owned state.",
+    when: "The gate cannot write discern-owned state.",
     family: "gate-failure-remedy",
     example: undefined,
     template: (): string =>
       "Grant the write access named by the diagnostics, then re-run the current discern command. The gate needs that access to persist its state.",
   }),
 
-  /** Green-gate humility: a passing gate is mechanical proof, not semantic
-   * proof. Fired only on a green run that emitted a proof — the moment
-   * "done" is about to be claimed. Carries the discipline of the retired
+  /** Proof covers the configured checks and leaves artifact verification to
+   * the agent. Fired on a green run that emitted Proof before completion is
+   * claimed. Carries the discipline of the retired
    * prove-it-works bundled skill (ADR 0173) at the moment it applies. */
   "gate-prove-it-works": defineHint({
     id: "gate-prove-it-works",
     category: "guardrail",
     audience: "agent",
-    when: "A green gate emits a proof — before the agent offers it as done.",
+    when: "A green gate emits Proof before the agent reports completion.",
     example: undefined,
     template: (): string =>
-      "A green gate is necessary, not sufficient — it cannot see a feature stubbed out behind the demo path or wired to nothing. Before offering this proof as done, exercise the real artifact along the paths the change enables and report what you ran and what you observed.",
+      "Proof covers the gate's configured checks. Before reporting completion, exercise the real artifact along the paths the change enables, then report what you ran and what you observed.",
   }),
 
   /** The owner-consent step after a green gate. Agent-audience: reporting to an
    * owner and waiting is an agent's move — a person running `done` at a
    * terminal IS the owner, with nobody further to report to. The composition
-   * contract (account first, one-line proof last, page stays with discern)
+   * contract (account first, one-line Proof last, page stays with discern)
    * is ADR 0188's. */
   "gate-relay-proof": defineHint({
     id: "gate-relay-proof",
     category: "next-step",
     audience: "agent",
-    when: "A successful gate records a proof ready for owner review.",
+    when: "A successful gate records Proof ready for owner review.",
     example: undefined,
     template: (): string =>
-      "If this completes the task, report it to your owner in your own words — the change, trade-offs, what you exercised beyond the gate — then end with `data.proof.line` verbatim and stop. Don't paste the full proof: your owner pulls it with " +
+      "If this completes the task, report the change, trade-offs, and artifact checks to your owner. End with `data.proof.line` verbatim and stop. Your owner can retrieve the full Proof with " +
       `${OWNER_STATUS_VERBOSE}. Run ${CMD.accept} only after they accept.`,
   }),
 
-  /** A green proof whose exact tree the authority resolver covered. */
+  /** A green Proof whose exact tree the authority resolver covered. */
   "gate-land-under-verified-authority": defineHint<{
     source: LandingConsentSource;
     scopes: readonly string[];
@@ -2333,18 +2329,18 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A successful gate records a proof for a tree with machine-verified landing authority.",
+      "A successful gate records Proof for a tree with machine-verified landing authority.",
     family: "landing-authority",
     example: { source: "standing-grant", scopes: ["map"] },
     template: ({ source, scopes }): string =>
       source === "effort-grant"
-        ? `The owner pre-authorized this landing at the desk, and the proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
-        : `The proof's clean HEAD is covered by the standing grant for ${
+        ? `The owner pre-authorized this landing at the desk, and Proof covers the clean HEAD. Run ${CMD.accept} now to land it; acceptance rechecks the grant before the fast-forward. Report the landing with \`data.proof_line\` afterward.`
+        : `The clean HEAD named by Proof is covered by the standing grant for ${
           scopes.join(", ")
         }. Run ${CMD.accept} now to land it; acceptance rechecks every changed path before the fast-forward. Report the landing with \`data.proof_line\` afterward.`,
   }),
 
-  /** A green proof whose recorded authority left changed paths uncovered. */
+  /** A green Proof whose recorded authority left changed paths uncovered. */
   "gate-relay-uncovered-authority": defineHint<{
     uncovered: readonly string[];
     warnings: readonly string[];
@@ -2353,7 +2349,7 @@ export const HINTS = {
     category: "next-step",
     audience: "agent",
     when:
-      "A successful gate records a proof but recorded authority does not cover its tree.",
+      "A successful gate records Proof but recorded authority does not cover its tree.",
     family: "landing-authority",
     example: {
       uncovered: ["`src/main.ts` (scopes: engine)"],
@@ -2364,7 +2360,7 @@ export const HINTS = {
         uncovered.length > 0 ? uncovered.join(", ") : "this landing"
       }.${
         warnings.length > 0 ? ` ${warnings.join(" ")}` : ""
-      } Don't paste the full proof: your owner pulls it with ${OWNER_STATUS_VERBOSE}.`,
+      } Your owner can retrieve the full Proof with ${OWNER_STATUS_VERBOSE}.`,
   }),
 
   "gate-update-docs": defineHint({
@@ -2374,7 +2370,7 @@ export const HINTS = {
     when: "A gate run succeeds.",
     example: undefined,
     template: (): string =>
-      "If you changed documented behavior, update the docs to match before you finish.",
+      "Before reporting completion, compare the changed behavior with the map pages that cover the edited files. Update every page whose facts changed.",
   }),
 
   "gate-deferred-standards": defineHint<{ names: readonly string[] }>({
@@ -2399,7 +2395,7 @@ export const HINTS = {
     when: "A successful gate includes a change that has a configured preview.",
     example: undefined,
     template: (): string =>
-      "Start this worktree's dev server to view the previewable change.",
+      "This change touches a previewable scope. Preview it from this worktree with the project's documented development-server workflow.",
   }),
 
   /** The pin pass has no configured metric to measure or tighten. */
@@ -2432,13 +2428,12 @@ export const HINTS = {
       "measurements. A pin dry-run measures nothing.",
   }),
 
-  /** A same-commit check proof supplied every measurement for the pin pass. */
+  /** A same-commit check Proof supplied every measurement for the pin pass. */
   "standards-pin-reused-measurements": defineHint({
     id: "standards-pin-reused-measurements",
     category: "notice",
     audience: "all",
-    when:
-      "`standards --pin` reuses measurements from a same-commit check proof.",
+    when: "`standards --pin` reuses measurements from same-commit check Proof.",
     family: "standards-pin",
     example: undefined,
     template: (): string =>
@@ -2482,28 +2477,28 @@ export const HINTS = {
       "Nothing to pin. Every selected standard already sits at its measured value within its margin.",
   }),
 
-  /** The limits-only pin commit inherited the valid proof for its parent. */
+  /** The limits-only pin commit inherited the valid Proof for its parent. */
   "standards-pin-carried-proof": defineHint({
     id: "standards-pin-carried-proof",
     category: "notice",
     audience: "all",
-    when: "A limits-only pin commit inherits its parent's gate proof.",
+    when: "A limits-only pin commit inherits its parent's Proof.",
     family: "standards-pin-proof",
     example: undefined,
     template: (): string =>
-      `The gate proof now follows this pin commit. ${CMD.accept} will skip the redundant gate re-run.`,
+      `Proof now follows this pin commit. ${CMD.accept} will skip the redundant gate re-run.`,
   }),
 
-  /** The pin commit had no valid proof available to carry forward. */
+  /** The pin commit had no valid Proof available to carry forward. */
   "standards-pin-no-proof": defineHint({
     id: "standards-pin-no-proof",
     category: "next-step",
     audience: "all",
-    when: "A pin commit has no honored gate proof to carry forward.",
+    when: "A pin commit has no honored Proof to carry forward.",
     family: "standards-pin-proof",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. No current gate proof was available to carry forward.`,
+      `Run ${CMD.done} before accepting, or acceptance will re-run the gate. No current Proof was available to carry forward.`,
   }),
 
   /** Standalone standards could not verify the branch limits against the trunk. */
@@ -2639,9 +2634,9 @@ export const HINTS = {
     when: "`skills eject` creates an authored override.",
     example: undefined,
     template: (): string =>
-      `Edit the override there. ${
+      `Run ${
         discernCommand("skills list")
-      } confirms its location.`,
+      } to locate the authored override, then edit that source.`,
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -2660,16 +2655,16 @@ export const HINTS = {
       "conversation; recorded standing and effort grants are checked directly.",
   }),
 
-  /** The status route to the proof and raw diff needed for owner review. */
+  /** The status route to the Proof and raw diff needed for owner review. */
   "accept-review-via-status": defineHint({
     id: "accept-review-via-status",
     category: "next-step",
     audience: "all",
-    when: "`accept` needs the proof and diff surfaced by `status`.",
+    when: "`accept` needs the Proof and diff surfaced by `status`.",
     family: "accept-consent",
     example: undefined,
     template: (): string =>
-      `Run ${CMD.status} to get the valid proof for the owner's review ` +
+      `Run ${CMD.status} to get the valid Proof for the owner's review ` +
       "(data.gate_proof.proof) and the exact `git diff` command for the raw " +
       "change.",
   }),
@@ -2683,7 +2678,7 @@ export const HINTS = {
     family: "post-landing-convergence",
     example: { trunk: "main", mainRepo: "/workspace/project" },
     template: ({ trunk, mainRepo }): string =>
-      `Acceptance landed on ${trunk}, but checkout-local Agent artifacts could ` +
+      `Acceptance landed on ${trunk}, but checkout-local coding-agent artifacts could ` +
       `not be materialized in ${mainRepo}. Run ${CMD.refresh} there to retry and ` +
       `review any reported tracked effect before committing it.`,
   }),
@@ -2711,7 +2706,7 @@ export const HINTS = {
     id: "accept-relay-landing-proof",
     category: "next-step",
     audience: "agent",
-    when: "`accept` lands successfully and returns a one-line landing proof.",
+    when: "`accept` lands successfully and returns a one-line landing Proof.",
     example: undefined,
     template: (): string =>
       "Report the landing in your own words, then end your response with `data.proof_line` verbatim. `data.proof` is the full landing record; paste that Markdown into a PR body when one exists.",
@@ -2723,13 +2718,12 @@ export const HINTS = {
     id: "accept-publish-proof-note",
     category: "next-step",
     audience: "all",
-    when:
-      "A proof note is recorded after landing with fetch transport enabled.",
+    when: "A landing Proof note is recorded with fetch transport enabled.",
     example: { remote: "origin" },
     template: ({ remote }): string =>
-      `Share this landing's proof with other clones: ` +
-      `\`git push ${remote} refs/notes/discern\`. ` +
-      "Discern records proofs locally and never fetches or pushes for you.",
+      `Share this landing's Proof with other clones: ` +
+      `\`git push ${remote} refs/notes/discern\`. discern records Proof ` +
+      "locally; network publication occurs only through the Git command you run.",
   }),
 
   /** Integration-summary fallback when its read-only git census cannot complete. */
@@ -2841,7 +2835,7 @@ export const HINTS = {
     audience: "all",
     when: "A requested worktree name has no branch-safe characters.",
     family: "start-name",
-    example: { name: "✨" },
+    example: { name: "///" },
     template: ({ name }): string =>
       `Used a random codename because '${name}' has no branch-safe characters.`,
   }),
@@ -2998,7 +2992,7 @@ export const HINTS = {
     id: "setup-guidance-own-render-skipped",
     category: "notice",
     audience: "all",
-    when: "Setup recognizes an Agent file as its own prior compiled output.",
+    when: "Setup recognizes an agent file as its own prior compiled output.",
     family: "setup-guidance-migration",
     example: {
       paths: ["AGENTS.md", "CLAUDE.md"],
@@ -3008,7 +3002,7 @@ export const HINTS = {
       `Skipped importing ${
         paths.join(", ")
       } into ${guidanceRel}. It matches discern's own compiled output from an ` +
-      `earlier setup, not your authoring.`,
+      `earlier setup. ${guidanceRel} remains the canonical authored source.`,
   }),
 
   /** A completed setup on the dedicated setup branch is ready to land. */
@@ -3028,8 +3022,8 @@ export const HINTS = {
       acceptCommand: discernCommand("setup accept"),
     },
     template: ({ branch, target, acceptCommand }): string =>
-      `Land setup with ${acceptCommand}, or leave it for review. It is on ` +
-      `\`${branch}\`, not yet on \`${target}\`.`,
+      `Land setup with ${acceptCommand}, or leave it for review. Setup remains ` +
+      `on \`${branch}\`; \`${target}\` does not contain it yet.`,
   }),
 
   /** A setup performed on another feature branch must use the project's normal merge. */
@@ -3064,11 +3058,11 @@ export const HINTS = {
     family: "setup-done-next",
     example: undefined,
     template: (): string =>
-      "Before continuing, reactivate every configured coding agent using the provider-specific steps below. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:",
+      "Before continuing, follow each provider-specific reactivation step carried with this result. discern's MCP tools, session hooks, and project rules are now wired, but coding agents load them at session start, so this session cannot use them yet:",
   }),
 
-  /** Setup's final coaching route for deepening the newly-wired project.
-   * Agent-audience: "review the findings with your human" is an instruction
+  /** Setup's final improvement route for the newly wired project.
+   * Agent audience: reviewing the findings with the owner is an instruction
    * only an agent can follow. */
   "setup-run-coach": defineHint<{ coachVerb: string; todoRel: string }>({
     id: "setup-run-coach",
@@ -3083,12 +3077,12 @@ export const HINTS = {
     template: ({ coachVerb, todoRel }): string =>
       `Deepen your setup: run ${
         discernCommand(coachVerb, flag("json"))
-      } (the project coach), review the findings with your human, do the quick wins now, and record larger ones in ${todoRel}.`,
+      }, review the ranked findings with your owner, apply the bounded changes now, and record larger changes in ${todoRel}.`,
   }),
 
   /**
    * Doctor context for the shared unfinished-setup action. Doctor is a required
-   * setup check, but a healthy result is not proof that setup is complete.
+   * setup check, but a healthy result does not establish setup completion.
    */
   "setup-unfinished-doctor": defineHint({
     id: "setup-unfinished-doctor",

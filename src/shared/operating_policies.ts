@@ -34,7 +34,7 @@ export const AWAIT_WATCH_POLICY =
 
 /** The effort boundary that decides whether `start` creates a worktree. */
 export const WORKTREE_CONTINUITY_CORE =
-  "One worktree lasts for the whole effort, including review feedback and " +
+  "One worktree lasts for an effort, including review feedback and " +
   "resumed sessions. If this effort already has a worktree, continue there " +
   "using its recorded path and pass `path` to every discern tool. If that path " +
   "is unavailable, ask for it instead of creating another.";
@@ -51,7 +51,7 @@ export const OPERATING_POLICIES = [
     statement: worktreeContinuityPolicy("discern_start"),
     surfaces: OPERATING_POLICY_SURFACES,
     probes: [
-      /one worktree[^.\n]{0,80}whole (?:effort|line of work)/i,
+      /one worktree[^.\n]{0,80}(?:an|the whole|the entire) (?:effort|line of work)/i,
       /review feedback/i,
       /resumed? (?:session|turn)s?/i,
       /effort already has a worktree[^.\n]{0,100}(?:continue|resume|return)[^.\n]{0,80}recorded path/i,
