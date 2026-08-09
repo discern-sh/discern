@@ -439,6 +439,164 @@ function CommissioningTimeline() {
   );
 }
 
+/** Dated internal trajectory of the real lint-suppression falling ceiling. */
+function StandardTrajectory() {
+  return (
+    <DataFigure
+      className="standard-figure"
+      eyebrow="Internal evidence · refreshed 9 Aug 2026"
+      title="One measured gain, pinned so it cannot drift back"
+      legend={[
+        { label: "measured suppressions", tone: "accent" },
+        { label: "configured ceiling", tone: "ink" },
+      ]}
+      visual={
+        <div className="standard-trajectory">
+          <div className="standard-trajectory__status">
+            <div>
+              <Badge tone="warning">Observational</Badge>
+              <Badge tone="neutral">Internal dogfooding</Badge>
+            </div>
+            <p>Lower is better. Every authored Deno source file is enrolled.</p>
+          </div>
+
+          <div className="standard-trajectory__summary">
+            <div>
+              <span>Measured count</span>
+              <strong>
+                31 <i aria-hidden="true">→</i> 25
+              </strong>
+              <small>six suppressions removed</small>
+            </div>
+            <div>
+              <span>Falling ceiling</span>
+              <strong>
+                31 <i aria-hidden="true">→</i> 26
+              </strong>
+              <small>gain pinned on 29 July</small>
+            </div>
+          </div>
+
+          <div className="standard-chart">
+            <svg
+              viewBox="0 0 640 300"
+              role="img"
+              aria-label="Lint suppressions fell from 31 on 28 July to 26 on 29 July and 25 on 9 August. The ceiling fell from 31 to 26 and held."
+            >
+              <title>lint_suppressions Standard trajectory</title>
+              <desc>
+                Three dated observations. Lower values are improvements.
+              </desc>
+              <g className="standard-chart__grid" aria-hidden="true">
+                <line x1="72" y1="48" x2="584" y2="48" />
+                <line x1="72" y1="144" x2="584" y2="144" />
+                <line x1="72" y1="240" x2="584" y2="240" />
+                <text x="56" y="53">31</text>
+                <text x="56" y="149">28</text>
+                <text x="56" y="245">25</text>
+              </g>
+              <path
+                className="standard-chart__ceiling"
+                d="M 88 48 L 320 208 L 560 208"
+                fill="none"
+              />
+              <path
+                className="standard-chart__measure"
+                d="M 88 48 L 320 208 L 560 240"
+                fill="none"
+              />
+              <g className="standard-chart__points">
+                <circle cx="88" cy="48" r="6" />
+                <circle cx="320" cy="208" r="6" />
+                <circle cx="560" cy="240" r="6" />
+              </g>
+              <g className="standard-chart__labels">
+                <text x="88" y="276" textAnchor="middle">28 Jul</text>
+                <text x="320" y="276" textAnchor="middle">29 Jul</text>
+                <text x="560" y="276" textAnchor="middle">9 Aug</text>
+              </g>
+              <g className="standard-chart__notes">
+                <text x="106" y="38">baseline · 31</text>
+                <text x="320" y="187" textAnchor="middle">
+                  gain pinned · 26
+                </text>
+                <text x="552" y="224" textAnchor="end">latest · 25</text>
+              </g>
+            </svg>
+          </div>
+
+          <table className="standard-data">
+            <caption>Committed and observed trajectory</caption>
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">Measured</th>
+                <th scope="col">Ceiling</th>
+                <th scope="col">Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>28 Jul</td>
+                <td>31</td>
+                <td>31</td>
+                <td>baseline committed</td>
+              </tr>
+              <tr>
+                <td>29 Jul</td>
+                <td>26</td>
+                <td>26</td>
+                <td>measured gain pinned</td>
+              </tr>
+              <tr>
+                <td>9 Aug</td>
+                <td>25</td>
+                <td>26</td>
+                <td>latest Logbook finding</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <ol
+            className="standard-annotations"
+            aria-label="Trajectory annotations"
+          >
+            <li>
+              <span>01</span>
+              <p>
+                <strong>The universe is explicit.</strong>{" "}
+                New authored Deno source trees enter the count automatically.
+              </p>
+            </li>
+            <li>
+              <span>02</span>
+              <p>
+                <strong>The gain becomes policy.</strong>{" "}
+                A branch may reduce the ceiling, but it cannot raise it.
+              </p>
+            </li>
+            <li>
+              <span>03</span>
+              <p>
+                <strong>The next gain remains evidence.</strong>{" "}
+                A count of 25 can be reviewed before another pin.
+              </p>
+            </li>
+          </ol>
+
+          <p className="standard-caveat">
+            471 readings across 12 days and 40 attributed setup or release
+            configurations. Internal snapshot, not a customer benchmark.
+          </p>
+        </div>
+      }
+      caption="The metric improved from 31 to 25. Pinning tightened its ceiling to 26, turning a cleanup into retained ground while keeping the next measured gain visible."
+      source="discern Logbook and git history · snapshot refreshed 9 August 2026 · observational internal evidence"
+      surface="sunken"
+    />
+  );
+}
+
 /** Static development page that lets the owner judge every artefact in both themes. */
 function SpecimenPreview() {
   return (
@@ -471,6 +629,7 @@ function SpecimenPreview() {
           <nav aria-label="Specimens on this page">
             <a href="#delegation">01 · Delegation</a>
             <a href="#commissioning">02 · Commissioning</a>
+            <a href="#standard">03 · Standard</a>
           </nav>
         </header>
 
@@ -499,6 +658,20 @@ function SpecimenPreview() {
             </>
           }
           render={() => <CommissioningTimeline />}
+        />
+
+        <SpecimenSection
+          id="standard"
+          index="03 / 04"
+          title="A Standard trajectory"
+          introduction={
+            <>
+              A real falling ceiling from{" "}
+              <DiscernName />’s own development, dated and bounded as
+              observational internal evidence.
+            </>
+          }
+          render={() => <StandardTrajectory />}
         />
       </main>
       <footer className="specimen-footer">
