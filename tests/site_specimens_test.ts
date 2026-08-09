@@ -138,9 +138,11 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
       "desk-7a",
       "desk-8a",
       "desk-9a",
-      "repository study",
-      "fresh-worktree probe passed",
-      "Missing dependencies are proposed before they are installed.",
+      "Your agent studies the project",
+      "Your agent presents their findings",
+      "They’ll ask you to confirm a few details about your project before they continue.",
+      "They prove it works in a fresh workspace",
+      "New tools need your approval. Nothing is installed without it.",
       "31 → 25",
       "471 readings across 12 days and 40 attributed setup or release configurations.",
       "Internal snapshot, not a customer benchmark.",
@@ -152,8 +154,16 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   ) assertStringIncludes(text, required);
 
   assert(!text.includes("It does not claim"));
+  assert(!text.includes("Output ·"));
+  assert(!text.includes("Example subject ·"));
   assertEquals(
     document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
+    0,
+  );
+  assertEquals(
+    document.querySelectorAll(
+      '#commissioning [aria-label="Figure legend"]',
+    ).length,
     0,
   );
   assertEquals(
@@ -199,7 +209,6 @@ Deno.test("specimen typography reserves monospace for the name and code", async 
   assertEquals(monoSelectors(css), [
     ".specimen-brand-name",
     ".wave-task code, .wave-spine code, .wave-handoff code",
-    ".commissioning-stages__body code",
     ".proof-card__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
   ]);
 });

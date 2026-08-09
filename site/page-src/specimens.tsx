@@ -295,22 +295,16 @@ function CommissioningTimeline() {
   return (
     <DataFigure
       className="commissioning-figure"
-      eyebrow="Commissioning timeline · staged setup"
-      title="From repository study to inherited practice"
-      legend={[
-        { label: "study and intent", tone: "ink" },
-        { label: "authored change", tone: "accent" },
-        { label: "structural proof", tone: "success" },
-      ]}
+      eyebrow="Project setup · step by step"
+      title="A better starting point for every future agent"
       visual={
         <div className="commissioning-plan">
           <div className="commissioning-branch">
             <div>
-              <span>Working boundary</span>
-              <strong>Isolated setup branch</strong>
+              <span>Your project stays protected</span>
+              <strong>Setup happens in its own branch</strong>
             </div>
-            <Badge tone="neutral">reviewable</Badge>
-            <Badge tone="neutral">reversible</Badge>
+            <Badge tone="neutral">ready to review</Badge>
           </div>
 
           <ol className="commissioning-stages">
@@ -320,15 +314,14 @@ function CommissioningTimeline() {
                 <header>
                   <div>
                     <span>Study</span>
-                    <h4>Read the repository before prescribing a practice</h4>
+                    <h4>Your agent studies the project</h4>
                   </div>
                   <Badge tone="neutral">read-only</Badge>
                 </header>
                 <p>
-                  Stack, existing checks, conventions, risks, and the shape of
-                  work already present.
+                  They learn how it works, how it is tested, and what the
+                  existing code already expects.
                 </p>
-                <small>Output · repository study</small>
               </div>
             </li>
             <li>
@@ -336,16 +329,15 @@ function CommissioningTimeline() {
               <div className="commissioning-stages__body">
                 <header>
                   <div>
-                    <span>Ask</span>
-                    <h4>Resolve the intent the code cannot reveal</h4>
+                    <span>Discuss</span>
+                    <h4>Your agent presents their findings</h4>
                   </div>
-                  <Badge tone="neutral">one batch</Badge>
+                  <Badge tone="neutral">your input</Badge>
                 </header>
                 <p>
-                  A concise set of human decisions closes the gaps left by
-                  repository evidence.
+                  They’ll ask you to confirm a few details about your project
+                  before they continue.
                 </p>
-                <small>Output · commissioning decisions</small>
               </div>
             </li>
             <li>
@@ -353,18 +345,16 @@ function CommissioningTimeline() {
               <div className="commissioning-stages__body commissioning-stages__body--authored">
                 <header>
                   <div>
-                    <span>Wire</span>
-                    <h4>Connect the project’s real checks</h4>
+                    <span>Connect</span>
+                    <h4>They connect the checks you already use</h4>
                   </div>
-                  <Badge tone="accent">commit</Badge>
+                  <Badge tone="accent">existing checks</Badge>
                 </header>
                 <p>
-                  Existing tools are wired. Missing conventional tools are
-                  proposed before installation.
+                  Formatting, tests, and the project’s other tools become part
+                  of every future change. They’ll ask before adding anything
+                  new.
                 </p>
-                <small>
-                  Example subject · <code>Wire the project’s real checks</code>
-                </small>
               </div>
             </li>
             <li>
@@ -372,18 +362,15 @@ function CommissioningTimeline() {
               <div className="commissioning-stages__body commissioning-stages__body--authored">
                 <header>
                   <div>
-                    <span>Author</span>
-                    <h4>Record principles, guidance, and the Map</h4>
+                    <span>Prepare</span>
+                    <h4>They prepare the project for future agents</h4>
                   </div>
-                  <Badge tone="accent">commit</Badge>
+                  <Badge tone="accent">shared context</Badge>
                 </header>
                 <p>
-                  The project gains durable instructions and knowledge that
-                  future agents can inherit.
+                  Your goals, principles, and ways of working become guidance
+                  every future agent can use.
                 </p>
-                <small>
-                  Example subject · <code>Author the project practice</code>
-                </small>
               </div>
             </li>
             <li>
@@ -391,17 +378,15 @@ function CommissioningTimeline() {
               <div className="commissioning-stages__body commissioning-stages__body--proof">
                 <header>
                   <div>
-                    <span>Verify</span>
-                    <h4>Run structural checks and the full Gate</h4>
+                    <span>Check</span>
+                    <h4>They check the setup from end to end</h4>
                   </div>
-                  <Badge tone="success" dot>checked</Badge>
+                  <Badge tone="success" dot>ready to review</Badge>
                 </header>
                 <p>
-                  <code>discern refresh</code>,{" "}
-                  <code>discern doctor</code>, and the configured Gate test the
-                  reviewable setup tree.
+                  The complete setup runs against the project while every change
+                  stays on its own branch for you to review.
                 </p>
-                <small>Output · clean committed setup tree</small>
               </div>
             </li>
             <li>
@@ -411,17 +396,15 @@ function CommissioningTimeline() {
               <div className="commissioning-stages__body commissioning-stages__body--probe">
                 <header>
                   <div>
-                    <span>Probe</span>
-                    <h4>Prove inheritance in a fresh worktree</h4>
+                    <span>Prove</span>
+                    <h4>They prove it works in a fresh workspace</h4>
                   </div>
-                  <Badge tone="success" dot>practice live</Badge>
+                  <Badge tone="success" dot>ready for work</Badge>
                 </header>
                 <p>
-                  A throwaway worktree verifies that guidance, checks,
-                  resources, and working conditions arrive outside the setup
-                  branch.
+                  A clean copy of the project confirms that future tasks begin
+                  with the same guidance, checks, and working conditions.
                 </p>
-                <small>Output · fresh-worktree probe passed</small>
               </div>
             </li>
           </ol>
@@ -430,29 +413,29 @@ function CommissioningTimeline() {
             <div>
               <span>01</span>
               <p>
-                <strong>Consent stays visible.</strong>{" "}
-                Missing dependencies are proposed before they are installed.
+                <strong>Your choices stay yours.</strong>{" "}
+                When the code cannot answer, your agent asks.
               </p>
             </div>
             <div>
               <span>02</span>
               <p>
-                <strong>The change stays inspectable.</strong>{" "}
-                Setup remains a branch the owner can review or decline.
+                <strong>New tools need your approval.</strong>{" "}
+                Nothing is installed without it.
               </p>
             </div>
             <div>
               <span>03</span>
               <p>
-                <strong>The probe closes the loop.</strong>{" "}
-                Success means the practice survives a fresh checkout.
+                <strong>The result has to travel.</strong>{" "}
+                Setup finishes after a fresh workspace succeeds.
               </p>
             </div>
           </div>
         </div>
       }
-      caption="Commissioning is agent-led work with explicit human decisions: study first, author in an isolated branch, verify the tree, then prove the result where future work begins."
-      source="Amended website brief, commissioning section, 9 August 2026. Example commit subjects are illustrative and carry no fabricated hashes."
+      caption="Your agent studies the project, asks for the decisions only you can make, and proves the setup in a clean workspace."
+      source="Amended website brief, commissioning section, 9 August 2026."
       surface="sunken"
     />
   );
@@ -832,8 +815,8 @@ function SpecimenPreview() {
           title="A commissioning timeline"
           introduction={
             <>
-              Setup as an inspectable sequence of study, human intent, authored
-              change, structural checks, and the final fresh-worktree probe.
+              What your agent does during setup, where your decisions enter, and
+              how the result is checked before future work begins.
             </>
           }
           render={() => <CommissioningTimeline />}
