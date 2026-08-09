@@ -84,9 +84,9 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
     await scaffoldEngine(dir, { bootstrapped: false });
 
     // Human view: the verdict is qualified — a healthy install is not a finished
-    // setup, and doctor must not contradict status's SETUP NOT FINISHED banner.
+    // setup, and doctor must not contradict status's incomplete-state message.
     const human = await runAgent(dir, ["doctor"]);
-    assertStringIncludes(human.output, "Setup is NOT finished");
+    assertStringIncludes(human.output, "Setup is incomplete");
     assertStringIncludes(human.output, "discern setup done");
 
     // Machine view: the same qualifier rides the hints.
@@ -98,7 +98,7 @@ Deno.test("doctor qualifies its all-clear while setup is unfinished, then goes s
     await scaffoldEngine(dir, { bootstrapped: true });
     const human = await runAgent(dir, ["doctor"]);
     assert(
-      !human.output.includes("Setup is NOT finished"),
+      !human.output.includes("Setup is incomplete"),
       "a recorded setup must not re-raise the mid-setup banner",
     );
     const j = JSON.parse((await runAgent(dir, ["doctor", "--json"])).stdout);
@@ -262,13 +262,13 @@ Deno.test("worktree ensure reminds on session start while setup is unfinished, t
 
     const before = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(before.code, 0, before.output);
-    assertStringIncludes(before.stdout, "Setup is NOT finished");
+    assertStringIncludes(before.stdout, "Setup is incomplete");
 
     await runAgent(dir, ["setup", "done", "--force"]);
     const after = await runAgent(dir, ["worktree", "ensure"]);
     assertEquals(after.code, 0, after.output);
     assertEquals(
-      after.output.includes("Setup is NOT finished"),
+      after.output.includes("Setup is incomplete"),
       false,
       `ensure must stop reminding once setup is recorded\n${after.output}`,
     );

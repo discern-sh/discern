@@ -677,7 +677,8 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
     ]);
     assertEquals(r.code, 0, r.output);
 
-    // Both spent stages are reclaimed; their refs ride inside the live tip.
+    // Both spent stages are reclaimed; their refs remain reachable through the
+    // live tip.
     const status = await runAgent(dir, ["status", "--json"]);
     assertEquals(status.code, 0, status.output);
     const result = JSON.parse(status.stdout.trim()) as {
@@ -700,7 +701,9 @@ Deno.test("a reclaimed stage's kept ref reports as contained, never as abandoned
       "a contained ref must never read as abandoned work",
     );
     assert(
-      result.hints?.some((h) => h.includes("ride inside")) === true,
+      result.hints?.some((h) =>
+        h.includes("remain reachable through live branches")
+      ) === true,
       `the calm fact names the container\n${JSON.stringify(result.hints)}`,
     );
     assert(

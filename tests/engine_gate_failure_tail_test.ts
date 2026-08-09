@@ -520,7 +520,7 @@ Deno.test("gate failure: a gotchas doc outside the map keeps the path pointer", 
     const failure = await runAgent(dir, ["done"]);
     assertEquals(failure.code, 1, failure.output);
     const line = failure.stderr.split("\n").find((candidate) =>
-      candidate.includes("known gate failures and their fixes")
+      candidate.includes("known gate failures and fixes")
     );
     assert(line !== undefined, failure.stderr);
     assertStringIncludes(line, join(dir, doc));
