@@ -26,11 +26,17 @@ The marked Markdown is the authority for every command and outcome in the projec
 
 ## The homepage composition
 
-[`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) contains the public `/` homepage source. The page is a concise product introduction composed from the published design system. It combines an article header, compact product facts beside the main actions, native agent integrations, and the grouped site footer.
+[`site/page-src/landing.tsx`](../../../site/page-src/landing.tsx) contains the public `/` homepage source. It typesets the signed-off ten-part argument: the ambition-led hero followed by the cultural moment, delegation, commissioning, Standards, the enduring practice, the audience bridge, provider continuity and agent ergonomics, trust and founder credibility, and the closing invitation. The delegation, commissioning, Standard, and Proof specimens come directly from [`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx).
 
-The unlabeled integration band is a direct child of the article header, after its inner copy and actions, so the opening reads as one composition. It walks the native agent catalog in its canonical order and reads each label and compact Scalable Vector Graphics (SVG) mark from the provider registry. Each provider also declares an SVG silhouette with a transparent canvas: either the compact mark when it qualifies or a separate first-party asset. Light mode renders the original artwork on its expected field. Dark mode masks every silhouette with the component's semantic mark color and leaves the field transparent. The total provider registries automatically add a new provider to the homepage. The earlier control summary remains in the source as a JavaScript XML (JSX) comment for review. The rendered footer follows the integration band.
+The provider section walks the native agent catalog in its canonical order and reads each label and compact Scalable Vector Graphics (SVG) mark from the provider registry. Each provider also declares an SVG silhouette with a transparent canvas: either the compact mark when it qualifies or a separate first-party asset. Light mode renders the original artwork on its expected field. Dark mode masks every silhouette with the component's semantic mark color and leaves the field transparent. The total provider registries automatically add a new provider to the homepage.
 
-Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css). Its `.landing-*` selectors compose the page while component-owned `.discern-*` selectors stay with the package; the consumer-CSS guard below enforces this boundary. The homepage ships no page-owned JavaScript. The static theme toggle in the header is markup only. The shared `/assets/theme.js` wires every `[data-theme-toggle]` control at runtime. [`site/brand.ts`](../../../site/brand.ts) owns the page's title and description.
+Page-owned composition styles live in [`site/page-src/landing.css`](../../../site/page-src/landing.css). Its `.landing-*` selectors compose the page while component-owned `.discern-*` selectors stay with the package; the consumer-CSS guard below enforces this boundary. [`site/page-src/landing.js`](../../../site/page-src/landing.js) is the one page-owned browser script. It reveals each Copy prompt control, copies the exact visible instruction, reports success, and selects the source text when clipboard access fails. The prompt stays visible and selectable when JavaScript is unavailable. The shared `/assets/theme.js` separately wires every `[data-theme-toggle]` control. [`site/brand.ts`](../../../site/brand.ts) owns the page's exact title and description.
+
+## Public-site prose
+
+[`site/marketing_pages.ts`](../../../site/marketing_pages.ts) is the shared authority for marketing routes, output files, authored sources, and prose registers. The builder's renderer table must cover every route in that registry, the handler derives `PAGES` from it, and [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) projects every member into Vale. A future marketing page therefore joins building, serving, the site scope, and both prose Standards through one registration.
+
+The projection keeps the authored blocks a visitor reads and removes markup, attributes, code, artefact data, and repeated rendered copies. It stages each page under its declared register so the generated brand rules apply. `deno task site:prose-check` blocks Vale errors. `deno task site:prose` emits the alert numerator and exact word denominator consumed by `[standards.site_prose]`; `deno task site:reading-grade` reads the same projection for `[standards.site_reading_grade]`.
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
@@ -67,6 +73,9 @@ The published manifest automatically enrolls new package components and classes.
 deno task site:build   # emit both runtimes and the homepage shell
 deno task site         # build, then serve on the worktree's loopback port
 deno task watch        # rebuild when site-owned inputs change
+deno task site:prose-check # run the public-copy Vale gate
+deno task site:prose   # measure the pinned public-copy density
+deno task site:reading-grade # measure the pinned reading grade
 ```
 
 Only `site:build` grants `NODE_ENV`, because that build process uses React for static rendering. The long-lived `site` and `watch` server processes do not grant it. A guard rejects React runtime modules in their production entry graph. An unexpected environment read therefore appears as both a permission failure and a test failure.

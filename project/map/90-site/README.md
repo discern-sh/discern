@@ -21,18 +21,20 @@ The site source lives under [`site/`](../../../site/):
 | [`site/dev.ts`](../../../site/dev.ts)                     | Loopback-only local runner and source-driven rebuild watcher.                    |
 | [`site/build.ts`](../../../site/build.ts)                 | Emits selected package bundles and the static homepage shell.                    |
 | [`site/build_inputs.ts`](../../../site/build_inputs.ts)   | The site-owned input boundary that triggers a watched build.                     |
-| [`site/brand.ts`](../../../site/brand.ts)                 | Canonical text mark, favicon route, and drawn-mark geometry.                     |
+| [`site/marketing_pages.ts`](../../../site/marketing_pages.ts) | Canonical marketing routes, outputs, authored sources, and prose registers.   |
+| [`site/brand.ts`](../../../site/brand.ts)                 | Canonical homepage metadata, favicon route, and drawn-mark geometry.             |
 | [`site/design_system.ts`](../../../site/design_system.ts) | Canonical route bundles, package selections, assets, and theme.                  |
 | [`site/theme.ts`](../../../site/theme.ts)                 | Shared pre-paint theme bootstrap and asset paths for site and docs pages.        |
 | [`site/docs.ts`](../../../site/docs.ts)                   | The `/docs` section. See [the-docs-section.md](the-docs-section.md).             |
 | [`site/seo.ts`](../../../site/seo.ts)                     | Canonical metadata, redirects, discovery files, and security policy.             |
 | [`site/security.ts`](../../../site/security.ts)           | Security-reporting coordinates and the Request for Comments (RFC) 9116 response. |
 | [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) | Process-level crawl for local and deployed release artifacts.                    |
+| [`scripts/site_prose_lib.ts`](../../../scripts/site_prose_lib.ts) | Shared visible-prose projection for the site scope and Standards.         |
 | [`site/pages/`](../../../site/pages/)                     | Static assets and ignored build output served by the handler.                    |
 | [`site/page-src/`](../../../site/page-src/)               | Authored sources for generated static pages and their composition styles.        |
 | [`site/text/discern.txt`](../../../site/text/discern.txt) | The plaintext `llms.txt` edition, following llmstxt.org.                         |
 
-The routes, from the handler's exported `PAGES` table:
+The marketing routes originate in `MARKETING_PAGES`; the handler derives its exported `PAGES` table from that registry:
 
 | Route                       | Page                             | Text client receives                     |
 | --------------------------- | -------------------------------- | ---------------------------------------- |
@@ -84,7 +86,7 @@ The stable non-HTML endpoints are `/docs/index.json`, `/install`, `/llms.txt`, `
 
 A leaf or decision rename puts its old path in the destination page's `redirect_from`. A section-prefix or static-page move adds every displaced path to `STATIC_REDIRECTS`. A heading rename retains the old fragment as an alias anchor. A known URL removed without a replacement needs an explicit tombstone and a 410. The prelaunch route set creates no redirect debt.
 
-Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Docs pages and the homepage place `◮` beside `discern` in their brand and link `/assets/favicon.svg`. The favicon and social card draw the half-filled triangle from Scalable Vector Graphics (SVG) paths. The favicon switches its foreground color with the browser theme ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)). Docs pages add a `BreadcrumbList`, and the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
+Every successful HTML response receives a canonical link, bounded description, Open Graph and Twitter fields, and the static branded card. Docs pages and the homepage place `◮` beside `discern` in their brand and link `/assets/favicon.svg`. The favicon and social card draw the half-filled triangle from Scalable Vector Graphics (SVG) paths. The social card carries the homepage's “A bolder way to build” identity; the favicon switches its foreground color with the browser theme ([ADR 0149](../_adr/0149-the-mark-is-the-unicode-glyph.md)). Docs pages add a `BreadcrumbList`, and the landing page adds a `SoftwareApplication`. Explicit Markdown responses point at their HTML canonical and carry `noindex, follow`.
 
 Every response, including assets, redirects, and errors, carries the same security baseline: a nonce-based same-origin Content Security Policy (CSP), `nosniff`, no-referrer, permissions restrictions, and framing denial. The handler adds a nonce to inline theme bootstraps. The policy admits no third-party resource origins.
 
@@ -92,7 +94,9 @@ Unknown routes and missing files return 404. Use 410 for a known public address 
 
 ## Guards
 
-[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table. Every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) checks the composed homepage's structure: one `h1`, the install command as text, design-system markup, local assets, and no React runtime. The route test pins the favicon's theme-aware SVG geometry. A page added to the table enrolls automatically; a route without its file fails the Gate.
+[`tests/brand_mark_test.ts`](../../../tests/brand_mark_test.ts) pins the text mark's code point and the README title. [`tests/site_serve_test.ts`](../../../tests/site_serve_test.ts) iterates the exported `PAGES` table. Every declared route must serve its page, include the shared favicon, and negotiate the plaintext edition where configured. [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) checks the complete signed-off homepage sequence: one `h1`, all four artefact specimens, the install command as text, design-system markup, local assets, and no React runtime. [`tests/site_copy_prompt_test.ts`](../../../tests/site_copy_prompt_test.ts) executes the page's vanilla Copy-prompt controller, pins the exact clipboard payload, proves the static prompt survives without JavaScript, and refuses external requests. The route test pins the favicon's theme-aware SVG geometry. A page added to the registry enrolls automatically; a route without its file fails the Gate.
+
+[`tests/site_prose_test.ts`](../../../tests/site_prose_test.ts) binds serving, building, and public prose to `MARKETING_PAGES`. The shared projection removes markup, attributes, code, artefact data, and duplicate rendered strings before Vale sees the declared brand register. The `site` scope blocks error-severity findings. The `site_prose` Standard holds the launch density at 10 alerts across 1,437 projected words, or 6.96 per 1,000 words; `site_reading_grade` holds the same corpus at 8.4. Both ceilings may only fall. Run `deno task site:prose-check` for the blocking pass, `deno task site:prose` for the density, and `deno task site:reading-grade` for the reading grade.
 
 [`tests/site_docs_test.ts`](../../../tests/site_docs_test.ts) iterates the discovered Map projection. Rendering, shared branding, pristine negotiation, command-line interface (CLI) and Model Context Protocol (MCP) parity, search-index and llms coverage, and link integrity all enroll a new Map leaf automatically. [`tests/security_disclosure_test.ts`](../../../tests/security_disclosure_test.ts) binds the human policy and RFC 9116 response to one disclosure registry and fails before its expiry grows stale. [`tests/site_smoke_test.ts`](../../../tests/site_smoke_test.ts) starts the production handler on a real local socket. It drives [`scripts/site_smoke.ts`](../../../scripts/site_smoke.ts) across every HTML and Markdown route, internal link and anchor, metadata field, security response, redirect variant, machine projection, 404, and method refusal.
 
