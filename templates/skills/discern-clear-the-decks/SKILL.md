@@ -8,24 +8,6 @@ metadata:
 
 # Clear the decks — before the clutter teaches the next session to make more
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = false
-authority_sensitive = true
-relay_bearing = true
-recoverable = true
-targets = ["stable: the current worktree's declared cleanup scope", "stable: the evidence-backed candidate worklist"]
-sequence = ["act: enumerate candidates and prove each cut against dynamic reachability", "act: commit each behavior-preserving cut and cap the improved metric", "verify: run the full gate on the final committed tree"]
-stop_conditions = ["A candidate cannot be proven dead or equivalent.", "A living wrong pattern requires a migration outside the cleanup scope.", "The cleanup would loosen or move a Standard."]
-recovery = ["A cut changes behavior or fails its focused checks. => Revert that atomic cut and keep the candidate with its evidence.", "The metric change is intrinsic to required work. => Relay the measured breach and leave the limit unchanged."]
-authority = "The cleanup request covers behavior-preserving cuts in scope; a broader migration, a consequential deletion, or landing needs the owner's explicit or recorded authority."
-authority_check = "command: `discern accept` re-verifies landing authority against the final changed paths."
-relay_message = "I removed <cuts> with <evidence>. <standard> holds the improved metric. I left <residual>. <proof>"
-relay_facts = ["cuts", "evidence", "standard", "residual", "proof"]
-```
-
 Codebases built through agent sessions accumulate clutter in a recognizable way. Each session adds a little: a helper written because the existing one wasn't found, scaffolding left by an abandoned approach, a wrapper that seemed prudent and gained exactly one caller, a debug print that outlived the debugging. No single session made a mess; the mess is the _sum_. And it compounds, because agents write code by pattern-matching the code around it — every duplicated helper teaches the next session that duplication is house style. The clutter is not a cosmetic problem: it is the substrate every future session builds on, quietly degrading.
 
 This skill is the systematic sweep: know the signatures, enumerate them with structure rather than eyes, prove every cut safe before making it, land the clearing in small behaviour-preserving commits, and — the actual point — cap the entropy with a standard so the number can never quietly climb back.
@@ -45,7 +27,7 @@ Sweep for these shapes — they recur in every language and domain:
 
 ## 2. Enumerate with structure, and keep a worklist
 
-Find instances by their shape, not their spelling — the same rule that governs `discern-cure-a-bug`. Reach for what the project's stack offers: dead-code detection, unused-export analysis, reference counts, structural or AST-aware search for duplicates that share a shape but no token. A text search is a starting hint, never the enumeration. Walk the tree subsystem by subsystem, recording each candidate with its evidence (what it is, why it looks prunable, what says so) in a running worklist — the pass stays interruptible and resumable, and the worklist becomes the report.
+Find instances by their shape, not their spelling — the same rule that governs `discern-cure-a-bug`. Reach for what the project's stack offers: dead-code detection, unused-export analysis, reference counts, structural or AST-aware search for duplicates that share a shape but no token. A text search is a starting hint, never the enumeration. Keep the worklist inside the cleanup scope named by the user and the current worktree. Walk the tree subsystem by subsystem, recording each candidate with its evidence (what it is, why it looks prunable, what says so) in a running worklist — the pass stays interruptible and resumable, and the worklist becomes the report.
 
 ## 3. Prove each cut safe — adversarially
 
@@ -57,6 +39,8 @@ For duplicates, apply the essential/incidental test before merging: **essential*
 
 Cut in atomic, behaviour-preserving commits — one candidate or one tight cluster per commit — running the fast loop between cuts and the full gate on the final tree. The tree must do exactly what it did before, minus the weight; the suite passing after every cut is the evidence. Cutting small is what makes mistakes cheap: a wrong cut reverts alone instead of unwinding an afternoon.
 
+If a focused check shows behavior changed, revert that atomic cut and keep the candidate in the worklist with its evidence.
+
 ## 5. Cap the entropy with a standard
 
 The sweep is relief; the ceiling is the cure. Pick the metric your clearing actually moved and that the project can count mechanically — dead exports, duplicated blocks, total lines, suppression or TODO count — and set it as a ceiling at the new, lower value (`discern-set-the-standard` is the procedure). From then on the clutter can only shrink: a change that regrows it fails the standard and must justify itself, and the next sweep starts from here instead of rediscovering this one.
@@ -64,6 +48,10 @@ The sweep is relief; the ceiling is the cure. Pick the metric your clearing actu
 ## 6. Report the standing candidates
 
 Close with what you did **not** cut, and why: couldn't prove it dead, genuinely load-bearing, risk outweighs the weight. A clean-up that reports only its kills looks thorough while claiming nothing checkable — the residual list is what makes "the codebase is clean" a falsifiable claim, and it seeds the next sweep's worklist.
+
+Use this report shape so the evidence and residual survive the handoff:
+
+> I removed <cuts> with <evidence>. <standard> holds the improved metric. I left <residual>. <proof>
 
 One escalation to watch for: if the sweep keeps surfacing the same _living_ pattern — not dead, but everywhere and wrong — that is not clean-up, it is a migration. Hand it to `discern-set-the-standard`'s outlaw procedure, which makes a pattern illegal and standards it to zero.
 

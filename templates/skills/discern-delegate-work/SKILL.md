@@ -8,24 +8,6 @@ metadata:
 
 # Delegate work to fresh agents
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = true
-authority_sensitive = true
-relay_bearing = true
-recoverable = true
-targets = ["root: each absolute worktree path returned after an authorized dispatch", "stable: each literal branch returned by discern_start", "stable: the keyed brief and its declared file territory"]
-sequence = ["act: pin the goal, topology, boundaries, authority, and complete briefs", "act: present every brief and dispatch only after the user confirms that topology", "verify: review each returned branch against its brief, diff, and gate evidence"]
-stop_conditions = ["The user has not confirmed dispatch.", "A task boundary or dependency remains ambiguous enough to change the work.", "Parallel streams would edit the same territory."]
-recovery = ["Dispatch is not authorized. => Preserve and present the briefs, then stop before creating a session or worktree.", "A dependency branch is unavailable. => Use its exact recorded identity and the discern-await-the-fleet recovery path; never guess a replacement."]
-authority = "The user authorizes the reviewed dispatch topology; each landing also requires a current conversation grant or a recorded grant for that worktree's final paths."
-authority_check = "command: `discern accept` re-verifies landing authority; dispatch remains stopped until the current conversation confirms the presented topology."
-relay_message = "I prepared <briefs> for <topology>. Dispatch authority is <dispatch_authority>. The returned branches are <branches> and the landing rule is <landing_rule>."
-relay_facts = ["briefs", "topology", "dispatch_authority", "branches", "landing_rule"]
-```
-
 Handing work to a clean session gives you an isolated worktree, an uncluttered context window, and, when you review what comes back, a second independent pass over the same problem. A delegated agent is only as good as its prompt. It cannot see this conversation; it wakes with the prompt you write plus whatever it finds in a fresh worktree branched from the trunk. A vague brief becomes vague work, in a worktree you then have to go and find.
 
 This skill turns the work you've been discussing into briefs that stand on their own, shapes the handoff so one task goes to one agent and a large effort splits along its real seams, hands the briefs off, and closes the loop with an adversarial review of what lands.
@@ -72,7 +54,7 @@ Assume the new agent knows nothing of this conversation. Everything that mattere
 Give each prompt a clear spine. Adapt the headings to the task, but cover:
 
 - **Title and one-line goal.** What this achieves, in a sentence. When the handoff spans multiple streams (§2), lead the title with the workstream key: `1B — Add rate limiting to the upload endpoint`.
-- **Orient, re-root, then read.** Have it begin by orienting (`discern_status`), create its worktree with `discern_start` under the name the brief gives it, and re-root there before reading anything else — the project's guidance file, the brief's anchors, the code. Reads made on the trunk don't carry across: an agent that must read a file before editing it sees the worktree's copy as unread, so every trunk-side read is paid for twice. A staged brief that must wait before branching is the exception described in §2: its first action after orientation is the read-only `discern_await`, and it follows the met hint to create or update the right worktree.
+- **Orient, re-root, then read.** Have it begin by orienting (`discern_status`), create its worktree with `discern_start` under the name the brief gives it, and re-root there before reading anything else — the project's guidance file, the brief's anchors, the code. “There” is the absolute path `discern_start` returns. Reads made on the trunk don't carry across: an agent that must read a file before editing it sees the worktree's copy as unread, so every trunk-side read is paid for twice. A staged brief that must wait before branching is the exception described in §2: its first action after orientation is the read-only `discern_await`, and it follows the met hint to create or update the right worktree.
 - **Background: why this, why now.** The context you hold and it doesn't: the problem, what's true today, what made the change worth doing. Usually the part only you can supply, and the part most often skipped.
 - **Deliverables.** The concrete, ordered changes. For each, say what and where, and name an existing thing to mirror for house style ("model it on X"). Anchor each deliverable in real files, tests, and patterns.
 - **Constraints.** The rules it must hold to (see §4).
@@ -107,6 +89,10 @@ Present each finished prompt as one self-contained block the user can copy verba
 When there's more than one, also offer to save them as Markdown files in the user's project, each filename prefixed with its workstream key (`1a-<slug>.md`, `2a-<slug>.md`), in a spot you suggest from the project's own layout (an existing planning or prompts folder, say). Files keep the key first — the folder scopes them, and the key sorts them into the wave plan; only worktree names lead with the programme slug (§3). Write them only if the user says yes. Give each brief you save one final line in its own definition of done: when its task is complete, move the brief file into a `_done/` subfolder beside it (`planning/2c-<slug>.md` → `planning/_done/2c-<slug>.md`), landed as part of that work, so completed briefs don't linger for you to tidy. That line belongs only in a saved brief (a chat-only prompt has no file to move), and lands cleanly only once the briefs are committed to the trunk each stream branches from.
 
 Then explain the dispatch topology outside the copyable prompts. State how many sessions, worktrees, and sub-agents will start, which will run concurrently, and any setup or capacity the user should check. Assume the user will launch them. If you can launch them directly, offer to dispatch them and wait for explicit confirmation. Do not start anything before the user launches it or accepts the offer. Their confirmation covers only the described dispatch; if the set or topology changes, explain the new plan and ask again.
+
+After dispatch, carry the authority and returned identities forward in this form:
+
+> I prepared <briefs> for <topology>. Dispatch authority is <dispatch_authority>. The returned branches are <branches>, and the landing rule is <landing_rule>.
 
 For a one-brief fan-out, launching the prompt starts one session whose receiving agent coordinates the sub-agents described in the brief. For a multi-brief handoff, each prompt starts a separate new session on its own branch in a fresh worktree. Never ask a receiving agent to launch its sibling briefs. Restate the multi-brief landing order so the user knows which result lands first. Have the user launch each lower wave first or, after their confirmation, launch it for them; then capture its exact returned branches and finalize the already-drafted dependent briefs before dispatching them. When every cross-wave brief carries its wait (§2, §4), the user can launch the whole set in one sitting, or one confirmation can authorize you to do so, without anyone relaying readiness by hand.
 

@@ -45,7 +45,7 @@ A deterministic command does not need a Skill. Put it in a Project Script. Durab
 
 An operational Skill must let a fresh agent act without inventing a boundary. Name the root, path, or stable target; put action before verification; state when to stop; and give recovery steps. For cross-worktree, authority-sensitive, or relay-bearing work, provide the corresponding root, authority check, or ready-to-send message.
 
-discern's own bundled Skills and repository-authored voice Skills record those facts in an `Operational contract` TOML block. The repository guard derives the effective Skill set from the same resolver that materializes it, so a new or overriding Skill joins without another filename list. Supporting Markdown inherits its Skill's contract and joins the lexical review; payloads under `skeleton/` remain excluded because an agent copies them rather than follows them in place ([ADR 0266](../_adr/0266-operational-agent-copy-declares-typed-contracts.md)).
+discern's repository keeps classification metadata outside the Skills it ships. The guard derives the effective Skill set from the same resolver that materializes it, then joins each surface to an internal registry whose required fields cite exact excerpts in the agent-facing prose. A new or overriding Skill joins without another test-owned filename list. Supporting Markdown joins evidence and lexical review; payloads under `skeleton/` remain excluded because an agent copies them rather than follows them in place. A materialization test prevents internal contract metadata from entering end-user Skill files ([ADR 0267](../_adr/0267-operational-contracts-stay-outside-agent-copy.md)).
 
 ## Current state & gotchas
 
@@ -56,11 +56,11 @@ discern's own bundled Skills and repository-authored voice Skills record those f
 
 ## Where it lives in code
 
-| Concern                 | Source                                                                       |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| Built-in discovery rule | [`skills.md`](../../../templates/guidance/skills.md)                         |
-| Effective-set listing   | [`skills.ts`](../../../src/lib/skills.ts) (`listSkills`, `skillsListResult`) |
-| Operational contracts   | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)  |
-| Contract parser         | [`agent_contract.ts`](../../../scripts/agent_contract.ts)                    |
-| Listing result schema   | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                 |
-| CLI behavior            | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |
+| Concern                     | Source                                                                       |
+| --------------------------- | ---------------------------------------------------------------------------- |
+| Built-in discovery rule     | [`skills.md`](../../../templates/guidance/skills.md)                         |
+| Effective-set listing       | [`skills.ts`](../../../src/lib/skills.ts) (`listSkills`, `skillsListResult`) |
+| Operational classifications | [`agent_surface_contracts.ts`](../../../scripts/agent_surface_contracts.ts)  |
+| Contract and prose bindings | [`agent_contract.ts`](../../../scripts/agent_contract.ts)                    |
+| Listing result schema       | [`result_schemas.ts`](../../../src/shared/result_schemas.ts)                 |
+| CLI behavior                | [`engine_skills_test.ts`](../../../tests/engine_skills_test.ts)              |

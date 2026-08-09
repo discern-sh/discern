@@ -747,7 +747,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "operational-agent-surfaces",
     title: "Operational agent surfaces",
     what:
-      "The effective Skills and setup briefs that must declare an operational contract and pass the generated agent-copy lexical rules.",
+      "The effective Skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.",
     source: {
       kind: "module",
       module: "scripts/agent_surface_contracts.ts",

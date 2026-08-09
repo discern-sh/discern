@@ -1,26 +1,10 @@
 # Set up discern
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = true
-authority_sensitive = true
-relay_bearing = true
-recoverable = true
-targets = ["root: the dedicated discern-setup branch and each absolute probe-worktree path returned by discern start", "stable: the configured map, guidance, Skill, script, TODO, job, Standard, and worktree fields", "stable: the numbered setup page returned by discern setup step"]
-sequence = ["act: complete Steps 0 through 9 in numeric order and commit each coherent stage", "act: run discern refresh and correct every setup, doctor, Gate, or probe diagnostic", "verify: accept completion only when discern setup done reports success"]
-stop_conditions = ["The human has not answered the model checkpoint.", "A dependency install, paid service, external resource, or other consequential choice lacks current user confirmation.", "discern setup done or its probe remains red."]
-recovery = ["Setup is interrupted. => Run discern setup begin to restore the brief, discern status for progress, or discern setup step <n> for the required page.", "Doctor, Gate, or setup done reports a failure. => Fix the named diagnostic and rerun the same verifying command.", "The probe worktree lacks runtime state. => Wire the bounded worktree requirement or record the owner-only gap in the configured TODO."]
-authority = "The human confirms the setup plan through the verify/begin handshake; dependency installs and consequential resources need separate current confirmation."
-authority_check = "command: `discern setup begin --confirmed` re-verifies the setup consent attestation before scaffolding starts."
-relay_message = "I configured <principles>, <subtrees>, and <jobs>. I recorded <todos>. The completion evidence is <proof>."
-relay_facts = ["principles", "subtrees", "jobs", "todos", "proof"]
-```
-
 > **`discern setup begin` printed this** — the third step of the staged handshake (`verify` previewed the plan and you confirmed the essentials with your human; `begin` scaffolded and printed this brief). These are instructions for _you, the coding agent in this session_ — **work to do now, not a summary to hand back**: paraphrasing this checklist back as completed work, without doing it, is the one failure this setup exists to avoid. Work top to bottom, then run `discern setup done` to finish. **These are your setup instructions** — you are reading them right now — discern intentionally hands you this brief over stdout.
 
 `discern setup begin` has just laid down discern's machinery — a `discern.toml` with `discern tidy` prewired for discern's own surfaces but every project-specific job unset, the agent files, the merged settings, the MCP wiring — plus an empty skeleton for the map when the configured map was absent. The map is an agent-maintained account of how this codebase fits together, written as Markdown and kept current with the code. **Nothing about _this project_ is filled in yet, and that is your job:** propose the `[jobs]` that turn the gate into this project's real definition-of-done, then author the map and guidance from the project's own context, beginning with its design principles. There is no API key and no external service — the whole point is that the agent already in the loop sets the project up.
+
+`discern setup begin --confirmed` re-verifies the setup consent attestation before scaffolding starts. Dependency installs and other consequential resources still require their own current confirmation.
 
 ## Operating principles — read these first
 
@@ -373,7 +357,7 @@ files_to_read = [
   "the main checkout's untracked runtime state a copy would start without (an env file with secrets/keys, a dependency dir like vendor/ or node_modules/, a local database)",
 ]
 must_do = [
-  "Create a probe worktree with `discern start`, enter it, and run `discern done` there — it runs your `smoke` check too, so a green gate run means the app boots in the copy.",
+  "Create a probe worktree with `discern start`, enter the absolute path it returns, and run `discern done` there — it runs your `smoke` check too, so a green gate run means the app boots in the copy.",
   "Fix whatever the copy is missing by wiring [worktree]: copy env files and generate keys in `steps` (one-shot), install dependencies in `ensure` (every pass — check-then-install, so it's fast when current), declare a database/container as `[worktree.resources.<name>]`, list plain env vars in `inherit_env`.",
   "Iterate until the probe's `discern done` is green, commit your [worktree] wiring, then remove the probe; record anything you cannot resolve now in {{todo_path}}.",
 ]
@@ -458,6 +442,10 @@ You wired the jobs in Step 2 and proved the project runs in a worktree in Step 8
    - **leftover markers** — a `<!-- setup fills this -->` sentinel or the EXAMPLE principle is still in a file: fill it and re-run (or pass `--force` if a flagged file is a deliberate exception);
    - **a red `doctor` or `done`** — fix what it names (run `discern doctor` / `discern done` to see the detail), then re-run. **Don't leave a red gate or a wrong command behind**, and don't reach for `--force` to paper over a real failure — a green `setup done` with real jobs is the proof setup worked, not just that the config parses.
    - **a red worktree probe** — the gate is green here but the app can't run in a fresh worktree (an untracked env file or a dependency dir didn't travel): wire `[worktree].steps` / `ensure` / `resources` (Step 8), commit, then re-run — or, if it's a decision only the user can make (a database they must provision), record it in `{{todo_path}}`.
+
+After `discern setup done` passes, relay the completed setup in this form:
+
+> I configured <principles>, <subtrees>, and <jobs>. I recorded <todos>. The completion evidence is <proof>.
 
 ---
 

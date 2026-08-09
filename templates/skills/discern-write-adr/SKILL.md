@@ -8,20 +8,6 @@ metadata:
 
 # Write an ADR
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = false
-authority_sensitive = false
-relay_bearing = false
-recoverable = true
-targets = ["path: {{map_dir}}_adr/", "stable: the decision that satisfies the ADR criteria", "stable: the canonical ADR format in {{map_dir}}_adr/README.md"]
-sequence = ["act: verify the decision qualifies, select the next live number, and draft from the canonical template", "act: link the record from what it governs and run discern refresh", "verify: confirm the maintained index and affected documentation describe the recorded decision"]
-stop_conditions = ["The decision is easy to reverse, unsurprising without context, or has no real trade-off.", "The decision is still unresolved and the user did not ask for a proposed record."]
-recovery = ["The ADR home is absent. => Copy this Skill's skeleton before choosing a number.", "Another branch claims the number before landing. => Move the record to the next free number and refresh the index."]
-```
-
 An Architecture Decision Record captures a significant decision, the context that forced it, and the reasoning — so a future reader doesn't look at the code and wonder _"why on earth was it done this way?"_
 
 The project's ADRs live in the configured documentation tree, at `{{map_dir}}_adr/`. **The canonical format lives in `{{map_dir}}_adr/README.md`.** Read it before drafting. This skill does not restate the format — it walks you through _applying_ it. There is one home for "how we write ADRs", and that's the README; this skill points there on purpose.

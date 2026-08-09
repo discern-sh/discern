@@ -8,22 +8,6 @@ metadata:
 
 # Await the fleet
 
-## Operational contract
-
-```toml
-effectful = false
-cross_worktree = true
-authority_sensitive = false
-relay_bearing = true
-recoverable = true
-targets = ["root: the absolute path of this effort's worktree, or the main checkout before one exists", "stable: the literal branch or trunk condition returned by discern"]
-sequence = ["act: call discern_await with one grounded condition and continue only with data.resume", "act: follow the met or refusal hint", "verify: confirm the expected files or behavior arrived in the target tree"]
-stop_conditions = ["The condition is met, the watch becomes unnecessary, or an ok:false refusal needs action.", "New user input changes or cancels the dependency."]
-recovery = ["discern_await returns ok:false. => Follow its recovery hint and never resume that result.", "The condition becomes unnecessary. => Stop the watch and report the changed plan."]
-relay_message = "I waited for <condition>. The observed state is <observed_state>. I <next_action>."
-relay_facts = ["condition", "observed_state", "next_action"]
-```
-
 When your work depends on another workstream — a sibling worktree still running, or a landing that hasn't reached the trunk yet — `discern_await` holds one blocking call until the dependency is real, then names your next step. It replaces guessed status polling, sleep loops, and a human relaying "it's done" between sessions. The verb is read-only: it blocks only your call, holds no lock, and gates nothing.
 
 _If the user adds their own instructions or context when invoking this skill, those take precedence. Everything below yields to what they tell you in the moment._
@@ -50,7 +34,7 @@ If the dependency may already hold, call `discern_await` anyway: a condition tha
 
 ## 3. Spend one call, and hold it quietly
 
-Wait from your effort's worktree if it has one, or from the main checkout if your work hasn't started yet. Call `discern_await` with the one condition and omit the timeout: discern holds the call for the longest bound the transport reliably supports, and returns the moment the condition holds.
+Wait from your effort's worktree if it has one, or from the main checkout if your work hasn't started yet. Pass that checkout's absolute path to every `discern_await` call. Call `discern_await` with the one condition and omit the timeout: discern holds the call for the longest bound the transport reliably supports, and returns the moment the condition holds.
 
 Do not surface progress updates until it returns. On `data.met: false`, continue with `data.resume` without surfacing an update; repeat without a fixed limit until met, stopped, or unneeded. Never resume `ok: false`; follow its recovery hint. Report only when the condition holds, the watch is unnecessary, or a refusal/error needs action. Always respond to new user input.
 
@@ -68,6 +52,10 @@ Then verify the dependency actually arrived in your tree — the files or behavi
 ## 5. Refusals route forward
 
 A refusal (`ok: false`) means the watch as posed cannot be answered, and it carries the recovery: follow its hint rather than retrying or resuming. The common ones: `green` for a branch whose checkout is gone refuses toward the stage now containing the work, or toward `landed` for the plain arrival question; a branch missing at call start refuses with the likely reading — never started, or already landed and cleaned up.
+
+Relay the observed state without asking the user to reconstruct the watch:
+
+> I waited for <condition>. The observed state is <observed_state>. I <next_action>.
 
 ## 6. When not to await
 

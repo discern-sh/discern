@@ -10,20 +10,6 @@ metadata:
 
 # discern brand voice
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = false
-authority_sensitive = false
-relay_bearing = false
-recoverable = true
-targets = ["stable: the named public surface and its signed-off brief", "stable: the applicable claim slugs and source documents"]
-sequence = ["act: read the scoped brand sources and draft or review the named surface", "verify: apply the brand acceptance criteria and verify every public claim"]
-stop_conditions = ["The brief, audience, destination, or evidence for a required claim is unavailable."]
-recovery = ["A required source or claim is unavailable. => Request that exact source or remove the unsupported claim before drafting continues."]
-```
-
 ## Mission
 
 Create public copy that makes discern feel engaging, desirable, culturally relevant, premium, and true.
@@ -61,6 +47,8 @@ CTA destination:
 ```
 
 If these fields are unclear, the draft will usually become a feature summary.
+
+If the brief, audience, destination, or evidence for a required claim is unavailable, request that exact source or remove the unsupported claim before drafting continues.
 
 ## Voice
 

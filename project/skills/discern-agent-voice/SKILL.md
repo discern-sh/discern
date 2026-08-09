@@ -10,20 +10,6 @@ metadata:
 
 # discern agent voice
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = false
-authority_sensitive = false
-relay_bearing = false
-recoverable = true
-targets = ["stable: the named agent-facing surface and its live workflow contract", "stable: the canonical glossary and applicable authority rules"]
-sequence = ["act: declare operational or public mode and draft or review the named surface", "verify: apply the matching acceptance criteria against the live workflow contract"]
-stop_conditions = ["The runtime assumptions, working root, authority, or stop condition cannot be established."]
-recovery = ["A correctness-critical contract fact is unavailable. => Name the missing fact and stop the affected instruction."]
-```
-
 ## Mission
 
 Give an intelligent machine the information, structure, and boundaries required to act correctly with minimal wasted context.
@@ -103,6 +89,8 @@ Context budget:
 ```
 
 Do not rely on an agent to infer any field that affects correctness.
+
+If a correctness-critical runtime assumption, working root, authority boundary, or stop condition is unavailable, name the missing fact and stop the affected instruction.
 
 ## Agent ergonomics principles
 

@@ -8,24 +8,6 @@ metadata:
 
 # Teach the project
 
-## Operational contract
-
-```toml
-effectful = true
-cross_worktree = false
-authority_sensitive = true
-relay_bearing = true
-recoverable = true
-targets = ["stable: the durable lesson and its smallest existing project-owned home", "path: {{guidance_sources}}", "path: {{skills_dir}}", "path: {{scripts_dir}}", "path: {{map_dir}}"]
-sequence = ["act: verify the lesson is durable, offer capture when it was not requested, and choose one existing or new home", "act: author to that surface's own bar and make it live", "verify: confirm discovery or regeneration and tell the user what the project learned"]
-stop_conditions = ["The user declines a proactive capture.", "The fact is already recorded by code, Git history, or an existing current surface.", "No project-owned target can carry the lesson without duplicating it."]
-recovery = ["The chosen surface duplicates an existing authority. => Update the existing authority and remove the duplicate.", "Refresh or discovery does not expose the lesson. => Fix the authored source or registration before reporting it as taught."]
-authority = "An explicit capture request authorizes the scoped edit; a proactive lesson is written only after the user accepts the offer, and landing still needs recorded authority."
-authority_check = "command: `discern accept` re-verifies landing authority against the final guidance, Skill, script, Map, or ADR paths."
-relay_message = "I taught the project <lesson> in <surface>. I verified it with <verification>."
-relay_facts = ["lesson", "surface", "verification"]
-```
-
 Sessions end; what they learned usually ends with them. The correction the user gave you, the procedure you derived the hard way, the decision you both reached — unless it's written into the project, the next session rediscovers it from scratch, or worse, guesses differently. discern gives a project several surfaces built to carry knowledge forward, and **anything routed into them is inherited by every future agent session, whichever vendor's agent shows up**. That is how a project gets smarter over time instead of merely older.
 
 The judgement this skill holds is _routing_: each kind of lesson has exactly one right home, and a lesson filed in the wrong one is never found again.
@@ -85,6 +67,8 @@ Teaching isn't done until the surface is live:
 - Guidance edits: run `discern refresh` so the agent files recompile; the gate fails on drift either way.
 - A new skill or project script: confirm it's discoverable — `discern skills list` shows the skill materialized into the agent dirs; `discern scripts` lists the script.
 - Tell the user what was taught and _where_, in one line each — they're the editor of record for what their project believes.
+
+> I taught the project <lesson> in <surface>. I verified it with <verification>.
 
 ---
 

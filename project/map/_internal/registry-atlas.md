@@ -745,7 +745,7 @@ The Skills the binary ships and materializes into a project.
 
 ## `operational-agent-surfaces` — Operational agent surfaces
 
-The effective Skills and setup briefs that must declare an operational contract and pass the generated agent-copy lexical rules.
+The effective Skills and setup briefs joined to repository-only classifications, exact agent-facing prose evidence, materialized-output protection, and generated agent-copy lexical rules.
 
 - Source: `scripts/agent_surface_contracts.ts` — `operationalAgentSurfaces`
 - Members: 13

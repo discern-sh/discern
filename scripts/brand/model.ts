@@ -10,8 +10,6 @@
  * citation tokens defined here at render time.
  */
 
-import type { AgentSurfaceContract } from "../agent_contract.ts";
-
 /** The three communication registers the Brand Operating System separates,
  * in document-map order — the axis `VOICES` and the generated skills key on. */
 export const REGISTERS = ["brand", "product", "agent"] as const;
@@ -290,8 +288,6 @@ export type VoiceSection =
 export interface VoiceDefinition {
   /** The skill frontmatter description, verbatim. */
   readonly description: string;
-  /** The operational contract rendered into the generated Skill body. */
-  readonly contract: AgentSurfaceContract;
   /** The document's H1 title. */
   readonly title: string;
   readonly sections: readonly VoiceSection[];

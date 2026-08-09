@@ -1,80 +1,111 @@
 /**
- * Typed operational contract embedded in agent-facing Skills and briefs.
+ * Internal structural contracts for operational agent copy.
  *
- * The contract is a small TOML block under `## Operational contract`. Its
- * classification fields say which conditional guarantees apply; the remaining
- * fields carry stable targets, an ordered act/verify sequence, stop conditions,
- * recovery, authority verification, and an exact relay template. Parsing and
- * diagnostics live here so every surface and every fixture receives the same
- * accepted forms.
+ * Contracts live in the repository-only registry. Agent-facing Markdown owns
+ * the instructions themselves; each structural field points at an exact prose
+ * excerpt so the guard proves the shipped instruction still carries the fact.
+ * No renderer consumes this model.
  */
-
-import { parse as parseToml } from "@std/toml";
 
 export const AGENT_CONTRACT_HEADING = "## Operational contract";
 
-export const AGENT_CONTRACT_FIELDS = [
+export const AGENT_CLASSIFICATION_FIELDS = [
   "effectful",
   "cross_worktree",
   "authority_sensitive",
   "relay_bearing",
   "recoverable",
+] as const;
+
+export const AGENT_CONTRACT_FIELDS = [
+  ...AGENT_CLASSIFICATION_FIELDS,
   "targets",
   "sequence",
   "stop_conditions",
   "recovery",
   "authority",
-  "authority_check",
   "relay_message",
   "relay_facts",
 ] as const;
 
+export type AgentClassificationField =
+  (typeof AGENT_CLASSIFICATION_FIELDS)[number];
 export type AgentContractField = (typeof AGENT_CONTRACT_FIELDS)[number];
+
+/** An exact excerpt in the authored operational prose. */
+export interface AgentProseEvidence {
+  readonly text: string;
+  /** Skill-relative supporting file. Omit for the surface's primary Markdown. */
+  readonly file?: string;
+}
+
+export type AgentTargetKind = "root" | "path" | "stable";
+
+/** One exact working root, path, or stable identifier carried by the prose. */
+export interface AgentTargetBinding {
+  readonly kind: AgentTargetKind;
+  readonly value: string;
+  readonly evidence: AgentProseEvidence;
+}
+
+/** One ordered action or verification point carried by the prose. */
+export interface AgentSequenceBinding {
+  readonly kind: "act" | "verify";
+  readonly evidence: AgentProseEvidence;
+}
 
 interface AgentContractBase {
   readonly effectful: boolean;
   readonly cross_worktree: boolean;
-  readonly targets: readonly string[];
-  readonly sequence: readonly string[];
-  readonly stop_conditions: readonly string[];
+  readonly targets: readonly AgentTargetBinding[];
+  readonly sequence: readonly AgentSequenceBinding[];
+  readonly stop_conditions: readonly AgentProseEvidence[];
 }
 
 type RecoveryContract =
   | {
     readonly recoverable: true;
-    readonly recovery: readonly string[];
+    readonly recovery: readonly AgentProseEvidence[];
   }
   | {
     readonly recoverable: false;
     readonly recovery?: never;
   };
 
+/** The prose boundary plus the command that checks authority again. */
+export interface AgentAuthorityBinding {
+  readonly boundary: AgentProseEvidence;
+  readonly command: string;
+  readonly recheck: AgentProseEvidence;
+}
+
 type AuthorityContract =
   | {
     readonly authority_sensitive: true;
-    readonly authority: string;
-    readonly authority_check: string;
+    readonly authority: AgentAuthorityBinding;
   }
   | {
     readonly authority_sensitive: false;
     readonly authority?: never;
-    readonly authority_check?: never;
   };
+
+/** A ready-to-send prose message and the facts its placeholders must carry. */
+export interface AgentRelayBinding {
+  readonly message: AgentProseEvidence;
+  readonly facts: readonly string[];
+}
 
 type RelayContract =
   | {
     readonly relay_bearing: true;
-    readonly relay_message: string;
-    readonly relay_facts: readonly string[];
+    readonly relay: AgentRelayBinding;
   }
   | {
     readonly relay_bearing: false;
-    readonly relay_message?: never;
-    readonly relay_facts?: never;
+    readonly relay?: never;
   };
 
-/** One complete surface contract. Conditional fields exist only when the
- * matching classification is true. */
+/** One repository-only contract. Conditional fields exist only when classified. */
 export type AgentSurfaceContract =
   & AgentContractBase
   & RecoveryContract
@@ -85,88 +116,75 @@ export type AgentSurfaceContract =
 export interface AgentContractIssue {
   readonly field: AgentContractField | "contract";
   readonly line: number;
+  readonly file?: string;
   readonly message: string;
 }
 
-/** Parsed contract plus every issue found. `contract` exists only at green. */
-export interface ParsedAgentContract {
-  readonly contract?: AgentSurfaceContract;
-  readonly issues: readonly AgentContractIssue[];
+/** One operational Markdown document available as contract evidence. */
+export interface AgentContractDocument {
+  readonly relativePath: string;
+  readonly absolutePath: string;
+  readonly text: string;
+}
+
+/** Internal metadata that escaped into agent-facing Markdown. */
+export interface AgentCopyMetadataIssue {
+  readonly file: string;
+  readonly line: number;
+  readonly message: string;
 }
 
 const ACCEPTED_FORMS: Readonly<Record<AgentContractField, string>> = {
-  effectful: "effectful = true | false",
-  cross_worktree: "cross_worktree = true | false",
-  authority_sensitive: "authority_sensitive = true | false",
-  relay_bearing: "relay_bearing = true | false",
-  recoverable: "recoverable = true | false",
+  effectful: "effectful: true | false in the internal surface registry",
+  cross_worktree:
+    "cross_worktree: true | false in the internal surface registry",
+  authority_sensitive:
+    "authority_sensitive: true | false in the internal surface registry",
+  relay_bearing: "relay_bearing: true | false in the internal surface registry",
+  recoverable: "recoverable: true | false in the internal surface registry",
   targets:
-    'targets = ["root: <root source>", "path: /absolute/path", "stable: <identifier>"]',
+    'targets: [{ kind: "root" | "path" | "stable", value: "<exact target>", evidence: { text: "<shipped prose>" } }]',
   sequence:
-    'sequence = ["act: <ordered action>", "verify: <completion evidence>"]',
-  stop_conditions: 'stop_conditions = ["<condition that ends or pauses work>"]',
-  recovery: 'recovery = ["<failed condition> => <next valid action>"]',
-  authority: 'authority = "<who or what authorizes which effect>"',
-  authority_check:
-    'authority_check = "command: `<command>` <what it verifies>"',
-  relay_message: 'relay_message = "I verified <fact_name>."',
-  relay_facts: 'relay_facts = ["fact_name"]',
+    'sequence: [{ kind: "act", evidence: { text: "<ordered prose>" } }, { kind: "verify", evidence: { text: "<completion prose>" } }]',
+  stop_conditions: 'stop_conditions: [{ text: "<shipped stopping boundary>" }]',
+  recovery: 'recovery: [{ text: "<failed condition and next valid action>" }]',
+  authority:
+    'authority: { boundary: { text: "<shipped authority boundary>" }, command: "<reverification command>", recheck: { text: "<shipped command instruction>" } }',
+  relay_message:
+    'relay: { message: { text: "<ready-to-send message with <fact> placeholders>" }, facts: ["fact"] }',
+  relay_facts:
+    'relay: { message: { text: "<ready-to-send message with <fact> placeholders>" }, facts: ["fact"] }',
 };
 
-const TARGET_PREFIX = /^(?:root|path|stable):\s+\S/;
-const SEQUENCE_PREFIX = /^(?:act|verify):\s+\S/;
-const AUTHORITY_COMMAND = /^command:\s+`[^`]+`\s+\S/;
-const RELAY_FACT = /^[a-z][a-z0-9_]*$/;
-
-/** Recognize a parsed TOML table rather than a scalar or array. */
+/** Narrow an unknown schema node to a plain record. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Recognize an array whose every member is a string. */
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) &&
-    value.every((item) => typeof item === "string");
-}
-
-/** Locate a field assignment inside the fenced block for diagnostics. */
-function assignmentLine(
-  lines: readonly string[],
-  openLine: number,
-  field: string,
-): number {
-  const pattern = new RegExp(`^\\s*${field}\\s*=`);
-  const offset = lines.findIndex((line) => pattern.test(line));
-  return offset === -1 ? openLine : openLine + offset + 1;
-}
-
-/** Append one issue with the canonical accepted form for its field. */
+/** Append one diagnostic with the accepted internal form. */
 function issue(
   issues: AgentContractIssue[],
   field: AgentContractIssue["field"],
-  line: number,
   reason: string,
+  file?: string,
+  line = 1,
 ): void {
   const accepted = field === "contract"
-    ? `add ${AGENT_CONTRACT_HEADING} followed by a fenced \`toml\` block`
+    ? "register the derived surface in AGENT_SURFACE_CONTRACTS"
     : ACCEPTED_FORMS[field];
-  issues.push({
+  const row: AgentContractIssue = {
     field,
     line,
     message: `${reason}; accepted form: ${accepted}`,
-  });
+  };
+  if (file !== undefined) Object.assign(row, { file });
+  issues.push(row);
 }
 
-/** Read one required classification boolean and diagnose absence or type. */
+/** Read one required classification flag or report its defect. */
 function requiredBoolean(
   raw: Record<string, unknown>,
-  field:
-    | "effectful"
-    | "cross_worktree"
-    | "authority_sensitive"
-    | "relay_bearing"
-    | "recoverable",
-  line: number,
+  field: AgentClassificationField,
   issues: AgentContractIssue[],
 ): boolean | undefined {
   const value = raw[field];
@@ -174,499 +192,430 @@ function requiredBoolean(
     issue(
       issues,
       field,
-      line,
       value === undefined
-        ? `missing contract field '${field}'`
-        : `contract field '${field}' must be a boolean`,
+        ? `missing internal contract field '${field}'`
+        : `internal contract field '${field}' must be a boolean`,
     );
     return undefined;
   }
   return value;
 }
 
-/** Read one required non-empty string-array field. */
-function requiredStrings(
+/** Read one required non-empty structural array or report its defect. */
+function nonEmptyArray(
   raw: Record<string, unknown>,
-  field: "targets" | "sequence" | "stop_conditions",
-  line: number,
+  field: "targets" | "sequence" | "stop_conditions" | "recovery",
   issues: AgentContractIssue[],
-): string[] | undefined {
+): unknown[] | undefined {
   const value = raw[field];
-  if (
-    !isStringArray(value) || value.length === 0 ||
-    value.some((v) => v.trim() === "")
-  ) {
+  if (!Array.isArray(value) || value.length === 0) {
     issue(
       issues,
       field,
-      line,
       value === undefined
-        ? `missing contract field '${field}'`
-        : `contract field '${field}' must be a non-empty string array`,
+        ? `missing internal contract field '${field}'`
+        : `internal contract field '${field}' must be a non-empty array`,
     );
     return undefined;
   }
   return value;
 }
 
-/** Read one conditionally required non-empty string field. */
-function optionalString(
-  raw: Record<string, unknown>,
-  field: "authority" | "authority_check" | "relay_message",
-  line: number,
-  issues: AgentContractIssue[],
-): string | undefined {
-  const value = raw[field];
-  if (typeof value !== "string" || value.trim() === "") {
-    issue(
-      issues,
-      field,
-      line,
-      value === undefined
-        ? `missing contract field '${field}'`
-        : `contract field '${field}' must be a non-empty string`,
-    );
-    return undefined;
+/** Recognize an exact, optionally file-qualified prose binding. */
+function evidenceIsValid(value: unknown): value is AgentProseEvidence {
+  if (!isRecord(value) || typeof value.text !== "string" || value.text === "") {
+    return false;
   }
-  return value;
+  return value.file === undefined ||
+    (typeof value.file === "string" && value.file !== "");
 }
 
-/** Read one conditionally required non-empty string-array field. */
-function optionalStrings(
-  raw: Record<string, unknown>,
-  field: "recovery" | "relay_facts",
-  line: number,
-  issues: AgentContractIssue[],
-): string[] | undefined {
-  const value = raw[field];
-  if (
-    !isStringArray(value) || value.length === 0 ||
-    value.some((v) => v.trim() === "")
-  ) {
-    issue(
-      issues,
-      field,
-      line,
-      value === undefined
-        ? `missing contract field '${field}'`
-        : `contract field '${field}' must be a non-empty string array`,
-    );
-    return undefined;
-  }
-  return value;
-}
-
-/** Reject conditional fields when their classification says they do not apply. */
-function rejectInapplicable(
-  raw: Record<string, unknown>,
-  fields: readonly AgentContractField[],
-  lines: readonly string[],
-  openLine: number,
-  issues: AgentContractIssue[],
-  classification: AgentContractField,
-): void {
-  for (const field of fields) {
-    if (raw[field] !== undefined) {
-      issue(
-        issues,
-        field,
-        assignmentLine(lines, openLine, field),
-        `contract field '${field}' is present while '${classification}' is false; remove it or classify the surface truthfully`,
-      );
-    }
-  }
-}
-
-/** Validate parsed contract data and construct its discriminated type at green. */
-function validateContract(
-  raw: Record<string, unknown>,
-  blockLines: readonly string[],
-  openLine: number,
-): ParsedAgentContract {
+/** Validate the internal schema without consulting the authored prose. */
+export function agentContractStructureIssues(
+  value: unknown,
+): AgentContractIssue[] {
   const issues: AgentContractIssue[] = [];
-  const known = new Set<string>(AGENT_CONTRACT_FIELDS);
-  for (const field of Object.keys(raw)) {
-    if (!known.has(field)) {
-      issues.push({
-        field: "contract",
-        line: assignmentLine(blockLines, openLine, field),
-        message: `unknown agent contract field '${field}'; accepted fields: ${
-          AGENT_CONTRACT_FIELDS.join(", ")
-        }`,
-      });
+  if (!isRecord(value)) {
+    for (const field of AGENT_CLASSIFICATION_FIELDS) {
+      issue(issues, field, `missing internal contract field '${field}'`);
     }
+    return issues;
   }
 
-  const lineOf = (field: AgentContractField): number =>
-    assignmentLine(blockLines, openLine, field);
-  const effectful = requiredBoolean(
-    raw,
-    "effectful",
-    lineOf("effectful"),
-    issues,
-  );
-  const crossWorktree = requiredBoolean(
-    raw,
-    "cross_worktree",
-    lineOf("cross_worktree"),
-    issues,
-  );
+  const effectful = requiredBoolean(value, "effectful", issues);
+  const crossWorktree = requiredBoolean(value, "cross_worktree", issues);
   const authoritySensitive = requiredBoolean(
-    raw,
+    value,
     "authority_sensitive",
-    lineOf("authority_sensitive"),
     issues,
   );
-  const relayBearing = requiredBoolean(
-    raw,
-    "relay_bearing",
-    lineOf("relay_bearing"),
-    issues,
-  );
-  const recoverable = requiredBoolean(
-    raw,
-    "recoverable",
-    lineOf("recoverable"),
-    issues,
-  );
-  const targets = requiredStrings(raw, "targets", lineOf("targets"), issues);
-  const sequence = requiredStrings(raw, "sequence", lineOf("sequence"), issues);
-  const stopConditions = requiredStrings(
-    raw,
-    "stop_conditions",
-    lineOf("stop_conditions"),
-    issues,
-  );
+  const relayBearing = requiredBoolean(value, "relay_bearing", issues);
+  const recoverable = requiredBoolean(value, "recoverable", issues);
 
+  const targets = nonEmptyArray(value, "targets", issues);
   if (targets !== undefined) {
-    if (targets.some((target) => !TARGET_PREFIX.test(target))) {
+    for (const target of targets) {
+      if (
+        !isRecord(target) ||
+        !["root", "path", "stable"].includes(String(target.kind)) ||
+        typeof target.value !== "string" || target.value === "" ||
+        !evidenceIsValid(target.evidence)
+      ) {
+        issue(
+          issues,
+          "targets",
+          "each target must bind a named target to prose",
+        );
+        break;
+      }
+    }
+    if (
+      crossWorktree === true &&
+      !targets.some((target) =>
+        isRecord(target) && (target.kind === "root" || target.kind === "path")
+      )
+    ) {
       issue(
         issues,
         "targets",
-        lineOf("targets"),
-        "every target must declare whether it is a root, path, or stable identifier",
+        "a cross-worktree surface must bind an exact root or path",
       );
-    }
-    if (crossWorktree === true) {
-      if (!targets.some((target) => target.startsWith("root:"))) {
-        issue(
-          issues,
-          "targets",
-          lineOf("targets"),
-          "a cross-worktree surface must name the source of its working root",
-        );
-      }
-      const relativePath = targets.find((target) => {
-        if (!target.startsWith("path:")) return false;
-        return !target.slice("path:".length).trimStart().startsWith("/");
-      });
-      if (relativePath !== undefined) {
-        issue(
-          issues,
-          "targets",
-          lineOf("targets"),
-          `cross-worktree target '${relativePath}' is relative`,
-        );
-      }
     }
   }
 
+  const sequence = nonEmptyArray(value, "sequence", issues);
   if (sequence !== undefined) {
-    const validPrefixes = sequence.every((entry) =>
-      SEQUENCE_PREFIX.test(entry)
+    const valid = sequence.every((entry) =>
+      isRecord(entry) && (entry.kind === "act" || entry.kind === "verify") &&
+      evidenceIsValid(entry.evidence)
     );
-    const hasAction = sequence.some((entry) => entry.startsWith("act:"));
-    const verifiesLast = sequence.at(-1)?.startsWith("verify:") === true;
-    if (sequence.length < 2 || !validPrefixes || !hasAction || !verifiesLast) {
+    if (!valid) {
       issue(
         issues,
         "sequence",
-        lineOf("sequence"),
-        "the ordered sequence must contain an action and end with verification",
+        "each sequence entry must bind an action kind to prose",
       );
-    }
-  }
-
-  let recovery: string[] | undefined;
-  if (recoverable === true) {
-    recovery = optionalStrings(raw, "recovery", lineOf("recovery"), issues);
-    if (
-      recovery !== undefined &&
-      recovery.some((entry) => !entry.includes(" => "))
-    ) {
-      issue(
-        issues,
-        "recovery",
-        lineOf("recovery"),
-        "every recovery must bind one failed condition to one next action with ' => '",
+    } else {
+      const kinds = sequence.map((entry) =>
+        isRecord(entry) ? entry.kind : undefined
       );
-    }
-  } else if (recoverable === false) {
-    rejectInapplicable(
-      raw,
-      ["recovery"],
-      blockLines,
-      openLine,
-      issues,
-      "recoverable",
-    );
-  }
-
-  let authority: string | undefined;
-  let authorityCheck: string | undefined;
-  if (authoritySensitive === true) {
-    authority = optionalString(raw, "authority", lineOf("authority"), issues);
-    authorityCheck = optionalString(
-      raw,
-      "authority_check",
-      lineOf("authority_check"),
-      issues,
-    );
-    if (
-      authorityCheck !== undefined && !AUTHORITY_COMMAND.test(authorityCheck)
-    ) {
-      issue(
-        issues,
-        "authority_check",
-        lineOf("authority_check"),
-        "the authority check must name the command that re-verifies the boundary",
-      );
-    }
-  } else if (authoritySensitive === false) {
-    rejectInapplicable(
-      raw,
-      ["authority", "authority_check"],
-      blockLines,
-      openLine,
-      issues,
-      "authority_sensitive",
-    );
-  }
-
-  let relayMessage: string | undefined;
-  let relayFacts: string[] | undefined;
-  if (relayBearing === true) {
-    relayMessage = optionalString(
-      raw,
-      "relay_message",
-      lineOf("relay_message"),
-      issues,
-    );
-    relayFacts = optionalStrings(
-      raw,
-      "relay_facts",
-      lineOf("relay_facts"),
-      issues,
-    );
-    if (
-      relayFacts !== undefined &&
-      (new Set(relayFacts).size !== relayFacts.length ||
-        relayFacts.some((fact) => !RELAY_FACT.test(fact)))
-    ) {
-      issue(
-        issues,
-        "relay_facts",
-        lineOf("relay_facts"),
-        "relay facts must be unique lower_snake_case identifiers",
-      );
-    }
-    if (relayMessage !== undefined && relayFacts !== undefined) {
-      const missing = relayFacts.filter((fact) =>
-        !relayMessage?.includes(`<${fact}>`)
-      );
-      const declared = new Set(relayFacts);
-      const extra = [...relayMessage.matchAll(/<([a-z][a-z0-9_]*)>/g)]
-        .map((match) => match[1])
-        .filter((fact): fact is string =>
-          fact !== undefined && !declared.has(fact)
-        );
-      if (missing.length > 0 || extra.length > 0) {
+      if (kinds[0] !== "act" || kinds.at(-1) !== "verify") {
         issue(
           issues,
-          "relay_message",
-          lineOf("relay_message"),
-          `relay placeholders and relay_facts must match (missing: ${
-            missing.join(", ") || "none"
-          }; undeclared: ${extra.join(", ") || "none"})`,
+          "sequence",
+          "the ordered sequence must begin with an action and end with verification",
+        );
+      }
+      const firstVerify = kinds.indexOf("verify");
+      if (
+        firstVerify !== -1 &&
+        kinds.slice(firstVerify + 1).some((kind) => kind === "act")
+      ) {
+        issue(
+          issues,
+          "sequence",
+          "an action cannot follow verification in the ordered sequence",
         );
       }
     }
-  } else if (relayBearing === false) {
-    rejectInapplicable(
-      raw,
-      ["relay_message", "relay_facts"],
-      blockLines,
-      openLine,
-      issues,
-      "relay_bearing",
-    );
   }
 
+  const stops = nonEmptyArray(value, "stop_conditions", issues);
   if (
-    issues.length > 0 || effectful === undefined ||
-    crossWorktree === undefined ||
-    authoritySensitive === undefined || relayBearing === undefined ||
-    recoverable === undefined || targets === undefined ||
-    sequence === undefined ||
-    stopConditions === undefined
+    stops !== undefined &&
+    !stops.every((entry) => evidenceIsValid(entry))
   ) {
-    return { issues };
-  }
-
-  const base = {
-    effectful,
-    cross_worktree: crossWorktree,
-    targets,
-    sequence,
-    stop_conditions: stopConditions,
-  };
-  const recoveryPart = recoverable
-    ? { recoverable: true as const, recovery: recovery ?? [] }
-    : { recoverable: false as const };
-  const authorityPart = authoritySensitive
-    ? {
-      authority_sensitive: true as const,
-      authority: authority ?? "",
-      authority_check: authorityCheck ?? "",
-    }
-    : { authority_sensitive: false as const };
-  const relayPart = relayBearing
-    ? {
-      relay_bearing: true as const,
-      relay_message: relayMessage ?? "",
-      relay_facts: relayFacts ?? [],
-    }
-    : { relay_bearing: false as const };
-  return {
-    contract: { ...base, ...recoveryPart, ...authorityPart, ...relayPart },
-    issues,
-  };
-}
-
-/** Parse and validate the first operational-contract block in Markdown. */
-export function parseAgentSurfaceContract(text: string): ParsedAgentContract {
-  const lines = text.split("\n");
-  const heading = lines.findIndex((line) =>
-    line.trim() === AGENT_CONTRACT_HEADING
-  );
-  if (heading === -1) {
-    const empty = validateContract({}, [], 1);
-    return {
-      issues: [
-        {
-          field: "contract",
-          line: 1,
-          message:
-            `missing operational contract; accepted form: add ${AGENT_CONTRACT_HEADING} followed by a fenced \`toml\` block`,
-        },
-        ...empty.issues,
-      ],
-    };
-  }
-
-  let open = -1;
-  let close = -1;
-  for (let index = heading + 1; index < lines.length; index++) {
-    const line = (lines[index] ?? "").trim();
-    if (open === -1) {
-      if (line === "```toml") open = index;
-      if (/^#{1,2}\s/.test(line)) break;
-      continue;
-    }
-    if (line === "```") {
-      close = index;
-      break;
-    }
-  }
-  if (open === -1 || close === -1) {
-    return {
-      issues: [{
-        field: "contract",
-        line: heading + 1,
-        message:
-          `operational contract is missing its fenced \`toml\` block; accepted form: add ${AGENT_CONTRACT_HEADING} followed by a fenced \`toml\` block`,
-      }],
-    };
-  }
-
-  const blockLines = lines.slice(open + 1, close);
-  let raw: unknown;
-  try {
-    raw = parseToml(blockLines.join("\n"));
-  } catch (error) {
-    return {
-      issues: [{
-        field: "contract",
-        line: open + 2,
-        message: `operational contract is not valid TOML: ${
-          error instanceof Error ? error.message : String(error)
-        }; accepted form: add ${AGENT_CONTRACT_HEADING} followed by a fenced \`toml\` block`,
-      }],
-    };
-  }
-  if (!isRecord(raw)) {
-    return {
-      issues: [{
-        field: "contract",
-        line: open + 2,
-        message:
-          `operational contract must be a TOML table; accepted form: add ${AGENT_CONTRACT_HEADING} followed by a fenced \`toml\` block`,
-      }],
-    };
-  }
-  return validateContract(raw, blockLines, open + 1);
-}
-
-/** Encode one TOML basic string with JSON's compatible escaping. */
-function tomlString(value: string): string {
-  return JSON.stringify(value);
-}
-
-/** Encode one compact TOML array of basic strings. */
-function tomlArray(values: readonly string[]): string {
-  return `[${values.map(tomlString).join(", ")}]`;
-}
-
-/** Render a validated contract in the canonical field order. */
-export function renderAgentSurfaceContract(
-  contract: AgentSurfaceContract,
-): string {
-  const parsed = validateContract(
-    contract as unknown as Record<string, unknown>,
-    [],
-    1,
-  );
-  if (parsed.issues.length > 0) {
-    throw new Error(
-      `invalid agent surface contract: ${
-        parsed.issues.map((entry) => entry.message).join("; ")
-      }`,
+    issue(
+      issues,
+      "stop_conditions",
+      "each stop condition must cite shipped prose",
     );
   }
-  const lines = [
-    AGENT_CONTRACT_HEADING,
-    "",
-    "```toml",
-    `effectful = ${contract.effectful}`,
-    `cross_worktree = ${contract.cross_worktree}`,
-    `authority_sensitive = ${contract.authority_sensitive}`,
-    `relay_bearing = ${contract.relay_bearing}`,
-    `recoverable = ${contract.recoverable}`,
-    `targets = ${tomlArray(contract.targets)}`,
-    `sequence = ${tomlArray(contract.sequence)}`,
-    `stop_conditions = ${tomlArray(contract.stop_conditions)}`,
+
+  if (recoverable === true) {
+    const recovery = nonEmptyArray(value, "recovery", issues);
+    if (
+      recovery !== undefined &&
+      !recovery.every((entry) => evidenceIsValid(entry))
+    ) {
+      issue(issues, "recovery", "each recovery must cite shipped prose");
+    }
+  } else if (recoverable === false && value.recovery !== undefined) {
+    issue(
+      issues,
+      "recovery",
+      "recoverable: false must omit recovery ceremony",
+    );
+  }
+
+  if (authoritySensitive === true) {
+    const authority = value.authority;
+    if (
+      !isRecord(authority) || !evidenceIsValid(authority.boundary) ||
+      typeof authority.command !== "string" || authority.command === "" ||
+      !evidenceIsValid(authority.recheck) ||
+      !authority.recheck.text.includes(`\`${authority.command}\``)
+    ) {
+      issue(
+        issues,
+        "authority",
+        "authority-sensitive surfaces must bind the boundary and a code-spanned reverification command to shipped prose",
+      );
+    }
+  } else if (authoritySensitive === false && value.authority !== undefined) {
+    issue(
+      issues,
+      "authority",
+      "authority_sensitive: false must omit authority ceremony",
+    );
+  }
+
+  if (relayBearing === true) {
+    const relay = value.relay;
+    if (
+      !isRecord(relay) || !evidenceIsValid(relay.message) ||
+      !Array.isArray(relay.facts) || relay.facts.length === 0 ||
+      !relay.facts.every((fact) =>
+        typeof fact === "string" && /^[a-z][a-z0-9_]*$/.test(fact)
+      )
+    ) {
+      issue(
+        issues,
+        "relay_message",
+        "relay-bearing surfaces must bind a ready-to-send message and named facts",
+      );
+    } else {
+      const placeholders = [
+        ...relay.message.text.matchAll(/<([a-z][a-z0-9_]*)>/g),
+      ].map((match) => match[1]).filter((fact): fact is string =>
+        fact !== undefined
+      );
+      const declared = [...new Set(relay.facts)].sort();
+      const carried = [...new Set(placeholders)].sort();
+      if (JSON.stringify(declared) !== JSON.stringify(carried)) {
+        issue(
+          issues,
+          "relay_facts",
+          "relay placeholders must equal the declared fact set",
+        );
+      }
+    }
+  } else if (relayBearing === false && value.relay !== undefined) {
+    issue(
+      issues,
+      "relay_message",
+      "relay_bearing: false must omit relay ceremony",
+    );
+  }
+
+  void effectful;
+  return issues;
+}
+
+/** Missing-registry diagnostics attach to the derived agent source. */
+export function missingAgentContractIssues(): AgentContractIssue[] {
+  return AGENT_CLASSIFICATION_FIELDS.map((field) => ({
+    field,
+    line: 1,
+    message: `missing internal contract field '${field}'; accepted form: ${
+      ACCEPTED_FORMS[field]
+    }`,
+  }));
+}
+
+/** Convert a character offset to a one-based source line. */
+function lineForOffset(text: string, offset: number): number {
+  return text.slice(0, offset).split("\n").length;
+}
+
+interface EvidencePosition {
+  readonly fileIndex: number;
+  readonly offset: number;
+}
+
+/** Resolve one evidence excerpt to its unique position in the corpus. */
+function evidencePosition(
+  field: AgentContractField,
+  evidence: AgentProseEvidence,
+  primaryRelativePath: string,
+  documents: readonly AgentContractDocument[],
+  issues: AgentContractIssue[],
+): EvidencePosition | undefined {
+  const rel = evidence.file ?? primaryRelativePath;
+  const fileIndex = documents.findIndex((document) =>
+    document.relativePath === rel
+  );
+  const document = fileIndex === -1 ? undefined : documents[fileIndex];
+  if (document === undefined) {
+    issue(
+      issues,
+      field,
+      `prose evidence names unavailable operational file '${rel}'`,
+      rel,
+    );
+    return undefined;
+  }
+  const offset = document.text.indexOf(evidence.text);
+  if (offset === -1) {
+    issue(
+      issues,
+      field,
+      `shipped prose is missing the registered evidence ${
+        JSON.stringify(evidence.text)
+      }`,
+      document.absolutePath,
+    );
+    return undefined;
+  }
+  if (
+    document.text.indexOf(evidence.text, offset + evidence.text.length) !== -1
+  ) {
+    issue(
+      issues,
+      field,
+      `registered prose evidence is ambiguous because it occurs more than once: ${
+        JSON.stringify(evidence.text)
+      }`,
+      document.absolutePath,
+      lineForOffset(document.text, offset),
+    );
+    return undefined;
+  }
+  return { fileIndex, offset };
+}
+
+/** Bind every structural field to prose that an end-user agent actually reads. */
+export function agentContractEvidenceIssues(
+  contract: AgentSurfaceContract,
+  primaryRelativePath: string,
+  documents: readonly AgentContractDocument[],
+): AgentContractIssue[] {
+  const issues: AgentContractIssue[] = [];
+  const anchors: Array<{
+    field: AgentContractField;
+    evidence: AgentProseEvidence;
+  }> = [
+    ...contract.targets.map((entry) => ({
+      field: "targets" as const,
+      evidence: entry.evidence,
+    })),
+    ...contract.stop_conditions.map((evidence) => ({
+      field: "stop_conditions" as const,
+      evidence,
+    })),
   ];
   if (contract.recoverable) {
-    lines.push(`recovery = ${tomlArray(contract.recovery)}`);
+    anchors.push(...contract.recovery.map((evidence) => ({
+      field: "recovery" as const,
+      evidence,
+    })));
   }
   if (contract.authority_sensitive) {
-    lines.push(`authority = ${tomlString(contract.authority)}`);
-    lines.push(`authority_check = ${tomlString(contract.authority_check)}`);
+    anchors.push(
+      { field: "authority", evidence: contract.authority.boundary },
+      { field: "authority", evidence: contract.authority.recheck },
+    );
   }
   if (contract.relay_bearing) {
-    lines.push(`relay_message = ${tomlString(contract.relay_message)}`);
-    lines.push(`relay_facts = ${tomlArray(contract.relay_facts)}`);
+    anchors.push({
+      field: "relay_message",
+      evidence: contract.relay.message,
+    });
   }
-  lines.push("```");
-  return lines.join("\n");
+  for (const anchor of anchors) {
+    evidencePosition(
+      anchor.field,
+      anchor.evidence,
+      primaryRelativePath,
+      documents,
+      issues,
+    );
+  }
+
+  let previous: EvidencePosition | undefined;
+  for (const step of contract.sequence) {
+    const current = evidencePosition(
+      "sequence",
+      step.evidence,
+      primaryRelativePath,
+      documents,
+      issues,
+    );
+    if (
+      current !== undefined && previous !== undefined &&
+      (current.fileIndex < previous.fileIndex ||
+        (current.fileIndex === previous.fileIndex &&
+          current.offset <= previous.offset))
+    ) {
+      const currentDocument = documents[current.fileIndex];
+      issue(
+        issues,
+        "sequence",
+        "registered action and verification evidence is not ordered in the shipped prose",
+        currentDocument?.absolutePath,
+        currentDocument === undefined
+          ? 1
+          : lineForOffset(currentDocument.text, current.offset),
+      );
+    }
+    if (current !== undefined) previous = current;
+  }
+  return issues;
+}
+
+/**
+ * Find the retired schema in operational Markdown. The structural TOML check
+ * catches the same mechanism under a renamed heading; a lone coincidental key
+ * remains a legitimate TOML example.
+ */
+export function agentCopyMetadataIssues(
+  file: string,
+  text: string,
+): AgentCopyMetadataIssue[] {
+  const issues: AgentCopyMetadataIssue[] = [];
+  const lines = text.split(/\r?\n/);
+  let fenceStart: number | undefined;
+  let fenceLanguage = "";
+  let classificationCount = 0;
+  for (const [index, line] of lines.entries()) {
+    if (line.trim() === AGENT_CONTRACT_HEADING) {
+      issues.push({
+        file,
+        line: index + 1,
+        message:
+          "internal operational-contract metadata must stay outside agent-facing copy",
+      });
+    }
+    const fence = line.match(/^\s*```([^\s`]*)/);
+    if (fence === null) {
+      if (
+        fenceStart !== undefined && fenceLanguage === "toml" &&
+        /^\s*(?:effectful|cross_worktree|authority_sensitive|relay_bearing|recoverable)\s*=/
+          .test(
+            line,
+          )
+      ) {
+        classificationCount++;
+      }
+      continue;
+    }
+    if (fenceStart === undefined) {
+      fenceStart = index + 1;
+      fenceLanguage = fence[1] ?? "";
+      classificationCount = 0;
+      continue;
+    }
+    if (fenceLanguage === "toml" && classificationCount >= 2) {
+      issues.push({
+        file,
+        line: fenceStart,
+        message:
+          "internal agent-surface classification TOML must stay outside shipped instructions",
+      });
+    }
+    fenceStart = undefined;
+    fenceLanguage = "";
+    classificationCount = 0;
+  }
+  return issues;
 }

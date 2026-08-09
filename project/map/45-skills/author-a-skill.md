@@ -41,7 +41,7 @@ Describe the evidence to gather, the ordered checks, the judgment points, and th
 
 The body is a playbook for an agent with no memory of the session that authored it. Name real project commands and paths. Separate the fixed steps from decisions that need judgment. End with observable completion conditions.
 
-An effectful procedure also needs stable targets, action then verification, stop and recovery conditions, plus applicable authority or relay facts. A read-only Skill needs no invented fields. The portable validator still checks only `name` and `description`; this repository enforces the richer block on copy it ships or authors.
+An effectful procedure also needs stable targets, action then verification, stop and recovery conditions, plus applicable authority or relay facts. A read-only Skill needs no invented fields. Write those facts as direct instructions for the agent. The portable validator still checks only `name` and `description`; discern's repository binds its own shipped procedures to a separate internal classification registry.
 
 ## Materialize and inspect it
 
