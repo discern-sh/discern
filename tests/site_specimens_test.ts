@@ -119,25 +119,32 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
   const text = readableText(document.body.textContent);
-  for (const handoff of document.querySelectorAll(".wave-handoff")) {
+  for (
+    const theme of document.querySelectorAll("#delegation .specimen-theme")
+  ) {
     assertEquals(
-      [...handoff.children].map((element) => readableText(element.textContent))
-        .join(" "),
-      "1A lands → desk-1b updates → 1B lands",
+      [...theme.querySelectorAll(".wave-handoff")].map((handoff) =>
+        [...handoff.children].map((element) =>
+          readableText(element.textContent)
+        ).join(" ")
+      ),
+      ["Wave 1 lands ↓ Wave 2 opens", "Wave 2 lands ↓ Wave 3 opens"],
     );
   }
+  assertEquals(
+    document.querySelectorAll("#delegation .delegation-wave").length,
+    6,
+  );
+  assertEquals(document.querySelectorAll("#delegation .wave-task").length, 10);
   for (
     const required of [
-      "desk-1a",
-      "desk-1b",
-      "desk-2a",
-      "desk-3a",
-      "desk-4a",
-      "desk-5a",
-      "desk-6a",
-      "desk-7a",
-      "desk-8a",
-      "desk-9a",
+      "Open the project to beta users",
+      "beta-onboarding",
+      "beta-feedback",
+      "beta-journey",
+      "beta-accessibility",
+      "beta-invitation",
+      "Illustrative homepage plan.",
       "Your agent studies the project",
       "Your agent presents their findings",
       "They’ll ask you to confirm a few details about your project before they continue.",
@@ -154,6 +161,7 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   ) assertStringIncludes(text, required);
 
   assert(!text.includes("It does not claim"));
+  assert(!text.includes("Desk UX"));
   assert(!text.includes("Output ·"));
   assert(!text.includes("Example subject ·"));
   assertEquals(
@@ -164,6 +172,11 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     document.querySelectorAll(
       '#commissioning [aria-label="Figure legend"]',
     ).length,
+    0,
+  );
+  assertEquals(
+    document.querySelectorAll('#delegation [aria-label="Figure legend"]')
+      .length,
     0,
   );
   assertEquals(
@@ -208,7 +221,7 @@ Deno.test("specimen typography reserves monospace for the name and code", async 
   const css = await Deno.readTextFile(SPECIMEN_CSS);
   assertEquals(monoSelectors(css), [
     ".specimen-brand-name",
-    ".wave-task code, .wave-spine code, .wave-handoff code",
+    ".wave-task code",
     ".proof-card__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
   ]);
 });

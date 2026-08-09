@@ -21,62 +21,80 @@ interface SpecimenSectionProps {
   readonly render: () => ReactNode;
 }
 
-interface SerialWave {
+interface DelegationTask {
   readonly key: string;
   readonly title: string;
   readonly worktree: string;
   readonly dependency: string;
+  readonly landing: string;
+  readonly mode: "parallel" | "serial";
 }
 
-const SERIAL_WAVES: readonly SerialWave[] = [
+interface DelegationWave {
+  readonly label: string;
+  readonly title: string;
+  readonly tasks: readonly DelegationTask[];
+}
+
+const BETA_WAVES: readonly DelegationWave[] = [
   {
-    key: "2A",
-    title: "Render a responsive decision-first board",
-    worktree: "desk-2a",
-    dependency: "wave 1 landed",
+    label: "Wave 1",
+    title: "Build the foundations",
+    tasks: [
+      {
+        key: "1A",
+        title: "Create sign-up and first-run onboarding",
+        worktree: "beta-onboarding",
+        dependency: "nothing",
+        landing: "first",
+        mode: "parallel",
+      },
+      {
+        key: "1B",
+        title: "Give beta users a simple way to report problems",
+        worktree: "beta-feedback",
+        dependency: "nothing",
+        landing: "second",
+        mode: "parallel",
+      },
+    ],
   },
   {
-    key: "3A",
-    title: "Make every action contextual, reviewable, and safe",
-    worktree: "desk-3a",
-    dependency: "wave 2 landed",
+    label: "Wave 2",
+    title: "Bring the journey together",
+    tasks: [
+      {
+        key: "2A",
+        title: "Connect and rehearse the complete beta journey",
+        worktree: "beta-journey",
+        dependency: "wave 1 lands",
+        landing: "one landing",
+        mode: "serial",
+      },
+    ],
   },
   {
-    key: "4A",
-    title: "Complete task ingress and human-readable identity",
-    worktree: "desk-4a",
-    dependency: "wave 3 landed",
-  },
-  {
-    key: "5A",
-    title: "Make degraded and finished work recoverable",
-    worktree: "desk-5a",
-    dependency: "wave 4 landed",
-  },
-  {
-    key: "6A",
-    title: "Make the desk fully keyboard and accessibility operable",
-    worktree: "desk-6a",
-    dependency: "wave 5 landed",
-  },
-  {
-    key: "7A",
-    title: "Keep the desk responsive through refresh and failure",
-    worktree: "desk-7a",
-    dependency: "wave 6 landed",
-  },
-  {
-    key: "8A",
-    title:
-      "Close the product loop with docs, evidence, and acceptance journeys",
-    worktree: "desk-8a",
-    dependency: "wave 7 landed",
-  },
-  {
-    key: "9A",
-    title: "Decide and, if earned, ship the persistent desk",
-    worktree: "desk-9a",
-    dependency: "wave 8 landed",
+    label: "Wave 3",
+    title: "Get ready to invite people in",
+    tasks: [
+      {
+        key: "3A",
+        title:
+          "Make the experience work on small screens and with assistive technology",
+        worktree: "beta-accessibility",
+        dependency: "wave 2 lands",
+        landing: "first",
+        mode: "parallel",
+      },
+      {
+        key: "3B",
+        title: "Prepare help content and the beta invitation",
+        worktree: "beta-invitation",
+        dependency: "wave 2 lands",
+        landing: "second",
+        mode: "parallel",
+      },
+    ],
   },
 ];
 
@@ -139,152 +157,109 @@ function SpecimenSection(
   );
 }
 
-/** One of the two disjoint tasks that open the real Desk UX programme. */
-function ParallelTask(
-  { task, title, worktree, landing }: {
-    readonly task: string;
-    readonly title: string;
-    readonly worktree: string;
-    readonly landing: string;
-  },
-) {
+/** One worktree in the illustrative beta-opening plan. */
+function WaveTask({ task }: { readonly task: DelegationTask }) {
   return (
-    <article className="wave-task">
+    <article className={`wave-task wave-task--${task.mode}`}>
       <div className="wave-task__heading">
-        <strong>{task}</strong>
-        <Badge tone="accent">parallel</Badge>
+        <strong>{task.key}</strong>
+        <Badge tone={task.mode === "parallel" ? "accent" : "neutral"}>
+          {task.mode}
+        </Badge>
       </div>
-      <h4>{title}</h4>
+      <h4>{task.title}</h4>
       <dl>
         <div>
           <dt>Worktree</dt>
           <dd>
-            <code>{worktree}</code>
+            <code>{task.worktree}</code>
           </dd>
         </div>
         <div>
-          <dt>Depends on</dt>
-          <dd>nothing</dd>
+          <dt>Starts after</dt>
+          <dd>{task.dependency}</dd>
         </div>
         <div>
           <dt>Landing</dt>
-          <dd>{landing}</dd>
+          <dd>{task.landing}</dd>
         </div>
       </dl>
     </article>
   );
 }
 
-/** Faithful, designed reproduction of the Desk UX wave and landing plan. */
+/** Compact illustrative plan for opening a project to beta users. */
 function DelegationWavePlan() {
   return (
     <DataFigure
       className="delegation-figure"
-      eyebrow="Delegation wave plan · 3 Aug 2026"
-      title="Desk UX programme · ten worktrees, one landing sequence"
-      legend={[
-        { label: "parallel opening", tone: "accent" },
-        { label: "serial dependency", tone: "ink" },
-        { label: "conditional checkpoint", tone: "warning" },
-      ]}
+      eyebrow="Illustrative delegation plan"
+      title="Open the project to beta users"
       visual={
         <div className="wave-plan">
-          <div className="wave-opening">
-            <header className="wave-label">
-              <span>Wave 1</span>
-              <strong>Two disjoint surfaces move together</strong>
-            </header>
-            <div className="wave-opening__tasks">
-              <ParallelTask
-                task="1A"
-                title="Make task state answer the human decision"
-                worktree="desk-1a"
-                landing="first"
-              />
-              <ParallelTask
-                task="1B"
-                title="Give the real desk a pseudo-TTY contract"
-                worktree="desk-1b"
-                landing="after update"
-              />
-            </div>
-          </div>
-
-          <div className="wave-handoff" aria-label="Staged landing handoff">
-            <span>1A lands</span>
-            <i aria-hidden="true">→</i>
-            <span>
-              <code>desk-1b</code> updates
-            </span>
-            <i aria-hidden="true">→</i>
-            <span>1B lands</span>
-          </div>
-
-          <ol className="wave-spine" start={2}>
-            {SERIAL_WAVES.map((wave, index) => (
-              <li
-                className={wave.key === "9A"
-                  ? "wave-spine__item wave-spine__item--checkpoint"
-                  : "wave-spine__item"}
-                key={wave.key}
-              >
-                <span className="wave-spine__number" aria-hidden="true">
-                  {String(index + 2).padStart(2, "0")}
-                </span>
-                <div className="wave-spine__copy">
-                  <div>
-                    <strong>{wave.key}</strong>
-                    {wave.key === "9A"
-                      ? <Badge tone="warning">conditional</Badge>
-                      : <Badge tone="neutral">serial</Badge>}
+          <div className="wave-sequence">
+            {BETA_WAVES.map((wave, index) => (
+              <div className="wave-sequence__step" key={wave.label}>
+                <section className="delegation-wave">
+                  <header className="wave-label">
+                    <span>{wave.label}</span>
+                    <strong>{wave.title}</strong>
+                  </header>
+                  <div
+                    className={wave.tasks.length === 1
+                      ? "wave-tasks wave-tasks--single"
+                      : "wave-tasks"}
+                  >
+                    {wave.tasks.map((task) => (
+                      <WaveTask task={task} key={task.key} />
+                    ))}
                   </div>
-                  <h4>{wave.title}</h4>
-                </div>
-                <dl>
-                  <div>
-                    <dt>Worktree</dt>
-                    <dd>
-                      <code>{wave.worktree}</code>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Guard</dt>
-                    <dd>{wave.dependency}</dd>
-                  </div>
-                </dl>
-              </li>
+                </section>
+                {index < BETA_WAVES.length - 1
+                  ? (
+                    <div
+                      className="wave-handoff"
+                      aria-label={`${wave.label} landing`}
+                    >
+                      <span>{wave.label} lands</span>
+                      <i aria-hidden="true">↓</i>
+                      <span>Wave {index + 2} opens</span>
+                    </div>
+                  )
+                  : null}
+              </div>
             ))}
-          </ol>
+          </div>
 
           <ol className="specimen-annotations" aria-label="Plan annotations">
             <li>
               <span>01</span>
               <p>
-                <strong>Leverage.</strong>{" "}
-                Only the disjoint model and real-terminal harness overlap.
+                <strong>Start together.</strong>{" "}
+                Onboarding and feedback can be built side by side.
               </p>
             </li>
             <li>
               <span>02</span>
               <p>
-                <strong>Composition.</strong>{" "}
-                The second landing updates so both prerequisites sit beneath
-                wave 2.
+                <strong>Join once.</strong>{" "}
+                The complete beta journey starts after those foundations have
+                landed.
               </p>
             </li>
             <li>
               <span>03</span>
               <p>
-                <strong>Control.</strong>{" "}
-                Waves 2–9 stay serial where they meet the same presentation
-                boundary.
+                <strong>Finish together.</strong>{" "}
+                Accessibility and launch support can move side by side once the
+                journey works.
               </p>
             </li>
           </ol>
         </div>
       }
-      caption="One parallel opening creates the two surfaces every later wave consumes. Staged landings turn concurrent work into a clean serial foundation."
-      source="Desk UX programme plan, 3 August 2026. Faithful internal reproduction; no private planning link is published."
+      caption="Two foundations begin together. One shared journey follows. Once it works, the final preparations can move together."
+      source="Illustrative homepage plan. Workstreams and worktree names are placeholders, not a recorded project history."
       surface="sunken"
     />
   );
@@ -801,9 +776,8 @@ function SpecimenPreview() {
           title="The delegation wave plan"
           introduction={
             <>
-              The real Desk UX programme, reproduced as an executable-looking
-              editorial plan: waves, worktrees, dependencies, and staged
-              landings.
+              A compact plan for opening a project to beta users, showing which
+              work can begin together and what must wait.
             </>
           }
           render={() => <DelegationWavePlan />}
