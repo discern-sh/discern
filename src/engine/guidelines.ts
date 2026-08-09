@@ -187,7 +187,16 @@ export async function refreshResult(
   const result = await compileGuidelines(root, logger);
   const errors = guidanceRefreshErrors(result);
   const failed = errors.length > 0;
-  const hints = !failed && result.trackedArtifactsChanged.length > 0
+  const hints = failed
+    ? mergeHintTexts(
+      hintTexts(
+        errors.map((message) =>
+          fire(HINTS["refresh-artifact-failed"], { message })
+        ),
+      ),
+      result.hints,
+    )
+    : result.trackedArtifactsChanged.length > 0
     ? mergeHintTexts(
       hintTexts([fire(HINTS["refresh-commit-tracked-artifacts"])]),
       result.hints,

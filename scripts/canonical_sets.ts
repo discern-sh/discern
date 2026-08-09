@@ -348,7 +348,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "consent-gated-verbs",
     title: "Consent-gated verbs",
     what:
-      "The verbs with a `--confirmed` conversation-attestation boundary. The class test proves an authority-free call refuses without writing; accept can also satisfy landing consent through a machine-checked recorded grant.",
+      "The verbs with a `--confirmed` conversation-attestation boundary and the public surfaces that carry each interaction contract. The class test proves an authority-free call refuses without writing and preserves the exact act, consequence, scope, and continuation; accept can also satisfy landing consent through a machine-checked recorded grant.",
     source: {
       kind: "module",
       module: "src/shared/consent.ts",
@@ -382,6 +382,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "tests/engine_landing_authority_test.ts",
       "tests/engine_accept_authority_test.ts",
       "tests/engine_consent_gate_test.ts",
+      "tests/engine_proof_render_test.ts",
       "tests/engine_logbook_test.ts",
     ],
     artifacts: [],
@@ -1250,6 +1251,30 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     members: async () => [
       ...(await import("../src/shared/hints.ts")).FAILURE_RECOVERY_EVIDENCE,
     ],
+  },
+  {
+    id: "error-failure-recovery",
+    title: "Error-family failure recovery",
+    what:
+      "The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.",
+    source: {
+      kind: "module",
+      module: "src/shared/hints.ts",
+      exportName: "ERROR_FAILURE_RECOVERY",
+    },
+    guards: ["tests/result_schemas_test.ts"],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent:
+          "the result-contract reference explains the two recovery modes without exposing this internal policy table",
+      },
+      featureCanon: { nodeId: "hints" },
+    },
+    members: async () =>
+      Object.entries(
+        (await import("../src/shared/hints.ts")).ERROR_FAILURE_RECOVERY,
+      ).map(([error, mode]) => `${error}: ${mode}`),
   },
   {
     id: "logbook-outcomes",

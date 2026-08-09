@@ -1,4 +1,4 @@
-# ADR 0266: Operational agent copy declares typed contracts
+# ADR 0267: Operational agent copy declares typed contracts
 
 **Status**: accepted. Extends the canonical-set forcing function in [ADR 0051](0051-canonical-set-parity.md), the Skill materialization model in [ADR 0087](0087-prefix-and-expand-bundled-skills.md), and the operating-policy registry in [ADR 0181](0181-an-ssot-claim-must-anchor-a-declared-canonical-set.md). Applies the typed-registry idiom from [ADR 0257](0257-cross-agent-reference-compiles-from-a-canonical-registry.md) to operational agent copy.
 

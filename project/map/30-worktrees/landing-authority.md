@@ -44,6 +44,8 @@ When a grant exists, `data.landing_authority` carries the result:
 
 Without grant evidence, the branch returns for [conversation review](hand-work-back.md). `accept` records the source and any scopes in its result and Proof ([ADR 0188](../_adr/0188-the-receipt-relays-as-one-line.md)).
 
+When `accept` has no landing authority, it changes nothing. Every supported result says what would have landed, confirms that the worktree, branch, and trunk remain untouched, and routes the change to review. After the owner approves the change in the current conversation, run `discern accept --confirmed`. On success, `data.consent`, the proof line, and the Logbook name the permission source: current conversation, standing grant, or effort grant.
+
 An interrupted call does not widen any source. [Interrupted landing recovery](acceptance-recovery.md) explains how a journal binds consent to one transition and how a retry reconciles it.
 
 ## Where it lives in code

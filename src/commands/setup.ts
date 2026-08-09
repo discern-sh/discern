@@ -1979,6 +1979,7 @@ function emitSetupIncomplete(
       error: "incomplete",
       message,
       data: { leftover, unmet },
+      hints: hintTexts([fire(HINTS["setup-finish-incomplete"])]),
     });
     return;
   }
@@ -2718,6 +2719,7 @@ async function emitAwaitingConsent(
       error: AWAITING_CONSENT_SLUG,
       message,
       data: { guidance, command },
+      hints: hintTexts([fire(HINTS["setup-awaiting-confirmation"])]),
     });
   } else {
     // Everything on stdout — the channel the agent reads — so the served message it

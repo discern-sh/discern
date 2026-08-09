@@ -256,7 +256,8 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0263 — A ninth bundled skill routes wait-shaped asks to `await`](0263-a-ninth-bundled-skill-await-the-fleet.md)
 - [0264 — Tracked refresh convergence precedes landing](0264-tracked-refresh-convergence-precedes-landing.md)
 - [0265 — Removed worktree paths authorize bounded reappearance cleanup](0265-removed-worktree-paths-authorize-bounded-reappearance-cleanup.md)
-- [0266 — Operational agent copy declares typed contracts](0266-operational-agent-copy-declares-typed-contracts.md)
+- [0266 — Public failure recovery is classified by error family](0266-public-failure-recovery-is-classified-by-error-family.md)
+- [0267 — Operational agent copy declares typed contracts](0267-operational-agent-copy-declares-typed-contracts.md)
 
 <!-- END GENERATED: current ADR records -->
 

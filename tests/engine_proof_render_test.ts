@@ -30,6 +30,11 @@ import type {
   Proof,
   StandardsLimitsData,
 } from "../src/shared/result_schemas.ts";
+import {
+  LANDING_CONSENT_SOURCES,
+  type LandingConsent,
+  type LandingConsentSource,
+} from "../src/shared/consent.ts";
 
 type ProofFacts = Omit<Proof, "markdown" | "line">;
 
@@ -523,21 +528,33 @@ Deno.test("proof line: no standards configured claims nothing", () => {
 
 Deno.test("landing proof line records each canonical consent source", () => {
   const line = renderProofLine(FACTS);
-  assertEquals(
-    renderLandingProofLine(line, { source: "conversation" }),
-    `${line} · landed with conversation consent`,
-  );
-  assertEquals(
-    renderLandingProofLine(line, {
-      source: "standing-grant",
-      scopes: ["map", "site"],
-    }),
-    `${line} · landed under standing grant: map, site`,
-  );
-  assertEquals(
-    renderLandingProofLine(line, { source: "effort-grant" }),
-    `${line} · landed under effort grant`,
-  );
+  const cases = {
+    conversation: {
+      consent: { source: "conversation" },
+      expected: `${line} · landed with conversation consent`,
+    },
+    "standing-grant": {
+      consent: { source: "standing-grant", scopes: ["map", "site"] },
+      expected: `${line} · landed under standing grant: map, site`,
+    },
+    "effort-grant": {
+      consent: { source: "effort-grant" },
+      expected: `${line} · landed under effort grant`,
+    },
+  } satisfies Record<
+    LandingConsentSource,
+    { readonly consent: LandingConsent; readonly expected: string }
+  >;
+
+  assertEquals(Object.keys(cases).sort(), [...LANDING_CONSENT_SOURCES].sort());
+  for (const source of LANDING_CONSENT_SOURCES) {
+    const testCase = cases[source];
+    assertEquals(
+      renderLandingProofLine(line, testCase.consent),
+      testCase.expected,
+      `${source} must report its successful landing evidence`,
+    );
+  }
 });
 
 // ── the page's terminal treatment ───────────────────────────────────────────

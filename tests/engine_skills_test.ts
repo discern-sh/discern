@@ -106,6 +106,28 @@ Deno.test("discern skills eject --json emits an envelope and materializes the ov
   });
 });
 
+Deno.test("discern skills eject partial materialization carries the registered recovery", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    const skillsPath = join(dir, ".claude", "skills");
+    await Deno.remove(skillsPath, { recursive: true }).catch(() => undefined);
+    await Deno.mkdir(join(dir, ".claude"), { recursive: true });
+    await Deno.writeTextFile(skillsPath, "blocks the skills directory\n");
+
+    const result = await runAgent(dir, [
+      "skills",
+      "eject",
+      "--json",
+      "discern-write-adr",
+    ]);
+    assertEquals(result.code, 1, result.output);
+    const envelope = JSON.parse(result.stdout);
+    assertEquals(envelope.error, "partial_materialization");
+    assert(envelope.data.materialized.errors.length > 0, result.output);
+    assertHasHint(envelope, HINTS["skills-eject-finish-materialization"]);
+  });
+});
+
 Deno.test("skills eject persists an omitted skills.dir in tidy-canonical TOML", async () => {
   await withTempDir(async (dir) => {
     await scaffoldEngine(dir);

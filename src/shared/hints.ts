@@ -15,7 +15,7 @@
  * ADR-citation guard holds for these strings like any other).
  */
 
-import type { DiscernResult, FailedStage } from "./result.ts";
+import type { DiscernResult, ErrorSlug, FailedStage } from "./result.ts";
 import { SOURCE_PATHS } from "./paths_registry.ts";
 import type { LandingConsentSource } from "./consent.ts";
 import { markdownCodeSpan } from "./markdown_code.ts";
@@ -1565,6 +1565,19 @@ export const HINTS = {
       "a generated suffix.",
   }),
 
+  /** A watch cannot choose how a repository should acquire its missing trunk. */
+  "await-trunk-missing": defineHint<{ trunk: string }>({
+    id: "await-trunk-missing",
+    category: "next-step",
+    audience: "all",
+    when: "`await` cannot resolve the configured trunk branch locally.",
+    family: "await-missing-target",
+    example: { trunk: "main" },
+    template: ({ trunk }): string =>
+      `Fetch or create the configured trunk branch \`${trunk}\`, or correct ` +
+      "`[repository].trunk`, then restart the watch with its condition.",
+  }),
+
   "patterns-logbook-empty": defineHint({
     id: "patterns-logbook-empty",
     category: "notice",
@@ -1717,6 +1730,22 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       "Practice-history findings aren't available because `[project].logbook` is off.",
+  }),
+
+  /** A failed score threshold recovers through the report's ranked action, not
+   * through the threshold message alone. */
+  "improvement-follow-next-action": defineHint({
+    id: "improvement-follow-next-action",
+    category: "next-step",
+    audience: "all",
+    when: "`improvement --min-score` reports a score below its threshold.",
+    family: "improvement-recovery",
+    example: undefined,
+    template: (): string =>
+      "Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.",
+    interactiveTemplate: (): string =>
+      "Carry out the report's ranked next action, then re-run the same " +
+      "improvement command to measure the result against its threshold.",
   }),
 
   /**
@@ -2626,6 +2655,19 @@ export const HINTS = {
       "Commit the refreshed copies with the source change that produced them.",
   }),
 
+  /** A partial refresh reports each failed artifact with the correction and
+   * the command that converges the full set again. */
+  "refresh-artifact-failed": defineHint<{ message: string }>({
+    id: "refresh-artifact-failed",
+    category: "next-step",
+    audience: "all",
+    when: "`refresh` cannot reconcile one of its managed artifacts.",
+    family: "refresh-result",
+    example: { message: "could not update a co-owned agent config" },
+    template: ({ message }): string =>
+      `Fix the refresh error, then run ${CMD.refresh}: ${message}`,
+  }),
+
   /** A successful skills eject leaves the authored override ready to edit. */
   "skills-eject-edit-override": defineHint({
     id: "skills-eject-edit-override",
@@ -2637,6 +2679,24 @@ export const HINTS = {
       `Run ${
         discernCommand("skills list")
       } to locate the authored override, then edit that source.`,
+  }),
+
+  /** Ejection succeeded, but one or more configured agent directories still
+   * need the override materialized. */
+  "skills-eject-finish-materialization": defineHint({
+    id: "skills-eject-finish-materialization",
+    category: "next-step",
+    audience: "all",
+    when:
+      "`skills eject` writes the override but cannot materialize it everywhere.",
+    family: "skills-eject-recovery",
+    example: undefined,
+    template: (): string =>
+      `Fix every entry in \`data.materialized.errors\`, then run ${CMD.refresh} ` +
+      "to materialize the ejected Skill in every configured agent directory.",
+    interactiveTemplate: (): string =>
+      `Fix every reported materialization error, then run ${CMD.refresh} ` +
+      "to materialize the ejected Skill in every configured agent directory.",
   }),
 
   /** The actionable retry carried by accept's read-only consent refusal. */
@@ -2667,6 +2727,27 @@ export const HINTS = {
       `Run ${CMD.status} to get the valid Proof for the owner's review ` +
       "(data.gate_proof.proof) and the exact `git diff` command for the raw " +
       "change.",
+  }),
+
+  /** Recovery after an irreversible acceptance step follows the recorded state,
+   * never a blind retry. */
+  "accept-reconcile-partial-effects": defineHint({
+    id: "accept-reconcile-partial-effects",
+    category: "next-step",
+    audience: "all",
+    when: "Acceptance stops after at least one irreversible effect.",
+    family: "accept-recovery",
+    example: undefined,
+    template: (): string =>
+      "Read `data.landing` before acting. If `trunk_landed` is true, do not " +
+      "land the commit again; finish only the cleanup whose state is false. " +
+      `Otherwise resolve the reported failure, then run ${CMD.status} before ` +
+      `attempting ${CMD.accept} again.`,
+    interactiveTemplate: (): string =>
+      "Read the reported landing state before acting. If the trunk already " +
+      "landed, do not land the commit again; finish only the incomplete " +
+      `cleanup. Otherwise resolve the failure, then run ${CMD.status} before ` +
+      `attempting ${CMD.accept} again.`,
   }),
 
   /** Landing succeeded, but its best-effort local materialization did not. */
@@ -2962,6 +3043,43 @@ export const HINTS = {
       `Fix the setup refresh error, then run ${CMD.refresh}: ${message}`,
   }),
 
+  /** A flag-less setup begin re-serves the full consent exchange and exact
+   * attested continuation in structured fields. */
+  "setup-awaiting-confirmation": defineHint({
+    id: "setup-awaiting-confirmation",
+    category: "next-step",
+    audience: "all",
+    when: "`setup begin` has no conversation-consent attestation.",
+    family: "setup-consent",
+    example: undefined,
+    template: (): string =>
+      "Present `data.guidance` to the owner, wait for their answers, then run " +
+      "the exact command in `data.command`; its `--confirmed` flag attests " +
+      "only to that conversation.",
+    interactiveTemplate: (): string =>
+      "Review the setup guidance and answer its questions, then run the " +
+      "displayed command; its `--confirmed` flag attests only to this " +
+      "conversation.",
+  }),
+
+  /** Setup completion carries the unfinished files and checks as structured
+   * evidence, so its recovery names those fields. */
+  "setup-finish-incomplete": defineHint({
+    id: "setup-finish-incomplete",
+    category: "next-step",
+    audience: "all",
+    when: "`setup done` finds skeleton markers or unmet completion checks.",
+    family: "setup-done-recovery",
+    example: undefined,
+    template: (): string =>
+      `Complete every file in \`data.leftover\` and every check in ` +
+      `\`data.unmet\`, then re-run ${CMD.setupDone}; use \`--force\` only ` +
+      "to record completion without that proof.",
+    interactiveTemplate: (): string =>
+      `Complete every listed file and unmet check, then re-run ${CMD.setupDone}; ` +
+      "use `--force` only to record completion without that proof.",
+  }),
+
   /** Existing authored agent guidance was preserved in the canonical source. */
   "setup-guidance-preserved": defineHint<{
     paths: readonly string[];
@@ -3182,6 +3300,38 @@ export const HINTS = {
       "Use this result's message or first diagnostic to correct the reported problem before retrying.",
   }),
 
+  /** A docs/map ambiguity can only recover by selecting one exact candidate. */
+  "docs-choose-candidate": defineHint({
+    id: "docs-choose-candidate",
+    category: "next-step",
+    audience: "all",
+    when: "A docs or map target resolves to more than one entry.",
+    family: "docs-recovery",
+    example: undefined,
+    template: (): string =>
+      "Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.",
+    interactiveTemplate: (): string =>
+      "Choose one exact path from the listed candidates, then re-run the same " +
+      "command with that path as its target.",
+  }),
+
+  /** A missing docs/map target recovers through structured suggestions or the
+   * verb's index, rather than by guessing from a message alone. */
+  "docs-find-target": defineHint({
+    id: "docs-find-target",
+    category: "next-step",
+    audience: "all",
+    when: "A docs or map target does not resolve.",
+    family: "docs-recovery",
+    example: undefined,
+    template: (): string =>
+      "Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.",
+    interactiveTemplate: (): string =>
+      "Use an exact suggested path when one is listed; otherwise run the same " +
+      "command without a target to inspect its index, then retry with one " +
+      "returned path.",
+  }),
+
   /** The optional canonical suggestion in an unknown-command refusal. */
   "unknown-command-suggestion": defineHint<{ command: string }>({
     id: "unknown-command-suggestion",
@@ -3274,6 +3424,84 @@ export const FAILURE_RECOVERY_EVIDENCE = ["message", "diagnostic"] as const;
 export type FailureRecoveryEvidence =
   (typeof FAILURE_RECOVERY_EVIDENCE)[number];
 
+/** Whether one canonical error family may use the evidence-backed generic
+ * floor or must carry a narrower registered instruction. This total satellite
+ * of {@link ErrorSlug} records the semantic audit: a new slug cannot compile
+ * until its recovery contract is classified. */
+export type FailureRecoveryMode = "evidence" | "tailored";
+
+/** Error-less applied failures form one explicit compatibility family. Their
+ * first diagnostic or message is the only recovery evidence available; a
+ * data-only result still fails closed at the boundary. */
+export const ERRORLESS_FAILURE_RECOVERY: FailureRecoveryMode = "evidence";
+
+export const ERROR_FAILURE_RECOVERY = {
+  active_worktrees: "evidence",
+  ambiguous: "tailored",
+  apply_failed: "evidence",
+  awaiting_consent: "tailored",
+  below_min_score: "tailored",
+  brief_unparseable: "evidence",
+  checkout_failed: "evidence",
+  config_template_unavailable: "evidence",
+  confirmation_required: "evidence",
+  conflict: "evidence",
+  desk_already_active: "evidence",
+  detached_head: "evidence",
+  diagrams_misaligned: "evidence",
+  dirty_worktree: "evidence",
+  edit_error: "evidence",
+  gate_failed: "evidence",
+  gitignore_template_unavailable: "evidence",
+  identity_error: "evidence",
+  incomplete: "tailored",
+  internal_error: "evidence",
+  invalid_arguments: "evidence",
+  invalid_config: "evidence",
+  invalid_config_file: "evidence",
+  invalid_migrated_config: "evidence",
+  invalid_preset: "evidence",
+  invalid_settings_file: "evidence",
+  invalid_toml: "evidence",
+  invalid_value: "evidence",
+  no_docs: "evidence",
+  no_map: "evidence",
+  no_project: "evidence",
+  no_repository: "evidence",
+  no_such_step: "evidence",
+  no_target: "evidence",
+  not_found: "tailored",
+  not_initialized: "evidence",
+  not_main_checkout: "evidence",
+  not_on_trunk: "evidence",
+  not_set_up: "evidence",
+  not_setup_branch: "evidence",
+  partial_acceptance: "tailored",
+  partial_materialization: "tailored",
+  partial_refresh: "tailored",
+  pin_failed: "evidence",
+  precondition_failed: "evidence",
+  provisioned_resources: "evidence",
+  read_error: "evidence",
+  renamed_command: "evidence",
+  renamed_config_key: "evidence",
+  schema_version_too_new: "evidence",
+  setup_plan_failed: "evidence",
+  skills_eject_failed: "evidence",
+  tables_malformed: "evidence",
+  templates_not_found: "evidence",
+  tidy_parse_failed: "evidence",
+  tidy_write_failed: "evidence",
+  uncommitted_changes: "evidence",
+  unchanged_tree_rerun: "tailored",
+  unknown_category: "evidence",
+  unknown_command: "tailored",
+  unknown_key: "evidence",
+  unknown_preset: "evidence",
+  unknown_standard: "evidence",
+  write_access: "evidence",
+} as const satisfies Record<ErrorSlug, FailureRecoveryMode>;
+
 const FAILURE_RECOVERY_EVIDENCE_READERS = {
   message: (result: DiscernResult): boolean =>
     result.message !== undefined && result.message.trim().length > 0,
@@ -3289,6 +3517,15 @@ export function hasFailureRecoveryEvidence(result: DiscernResult): boolean {
   return FAILURE_RECOVERY_EVIDENCE.some((evidence) =>
     FAILURE_RECOVERY_EVIDENCE_READERS[evidence](result)
   );
+}
+
+/** Resolve the recovery contract for a failed result. */
+export function failureRecoveryMode(
+  result: DiscernResult,
+): FailureRecoveryMode {
+  return result.error === undefined
+    ? ERRORLESS_FAILURE_RECOVERY
+    : ERROR_FAILURE_RECOVERY[result.error];
 }
 
 /** Fire the registered actionable floor for a failed result. */
@@ -3324,17 +3561,19 @@ export function hasGenericFailureRecoveryHint(
 }
 
 /**
- * Add the registered recovery floor to a failed result only when no narrower
- * next step is already present and the result carries the message or diagnostic
- * the instruction tells the caller to use. Both CLI and MCP call this before
- * serialization, so their wire envelopes and locally observed hint ids stay
- * identical. A data-only failure must supply a tailored next step.
+ * Add the registered recovery floor to a failed result only when its audited
+ * family permits it, no narrower next step is present, and the result carries
+ * the message or diagnostic the instruction tells the caller to use. Both CLI
+ * and MCP call this before serialization, so their wire envelopes and locally
+ * observed hint ids stay identical. Every other failure must supply a tailored
+ * next step.
  */
 export function withFailureRecoveryHint<TData>(
   result: DiscernResult<TData>,
 ): DiscernResult<TData> {
   if (
     result.ok || hasRegisteredActionableHint(result.hints) ||
+    failureRecoveryMode(result) !== "evidence" ||
     !hasFailureRecoveryEvidence(result)
   ) {
     return result;

@@ -2433,6 +2433,13 @@ Deno.test("discern mcp: discern_accept without confirmed refuses read-only with 
       JSON.stringify(landed.result),
     );
     assertEquals(landed.result.structuredContent.ok, true);
+    assertEquals(landed.result.structuredContent.data.consent, {
+      source: "conversation",
+    });
+    assertStringIncludes(
+      landed.result.structuredContent.data.proof_line,
+      "landed with conversation consent",
+    );
     assertEquals(
       await exists(wtPath),
       false,

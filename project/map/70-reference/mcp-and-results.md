@@ -111,11 +111,15 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
+A failed CLI JSON or MCP result always includes a next action in `hints`. When `message` or the first `diagnostics` entry explains the correction, the hint points there. When recovery depends on a choice or reported state, the hint names the relevant state and action. Consent, partial operations, incomplete setup, document lookup, and improvement thresholds use these specific instructions. A caller therefore does not have to infer whether to retry, review, choose, or complete cleanup ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
+
+`setup begin` and `accept` check for the required permission before changing anything. Without permission, they return `awaiting_consent` and leave the project unchanged. The result names what needs review and gives the confirmed command that continues the operation. `setup begin` provides this contract in human and JSON CLI output. `accept` also provides it through MCP. Dry runs need no permission because they only show the plan.
+
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
 `status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `proof_honored`, `proof`, and `proof_line` fields. When Git can read the latest landed Proof's subject, `data.landed_proof.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
 
-A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.proof_line` derives from the validated Proof line and appends that consent evidence.
+A successful `accept` reports the permission it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. The terminal proof line and `data.proof_line` repeat that evidence.
 
 ### Plans and executed steps
 

@@ -20,7 +20,12 @@ import type { DiscernResult } from "../../shared/result.ts";
 import type { ImprovementData } from "../../shared/result_schemas.ts";
 import type { PatternsFinding } from "../../shared/patterns_vocabulary.ts";
 import { emitResult } from "../../shared/emit.ts";
-import { failureRecoveryHintTexts, fire, HINTS } from "../../shared/hints.ts";
+import {
+  failureRecoveryHintTexts,
+  fire,
+  HINTS,
+  hintTexts,
+} from "../../shared/hints.ts";
 import { addAdvisoryHints } from "../logbook/routing.ts";
 import { colorEnabled, makeOut, type Out, type Palette } from "../output.ts";
 import { buildContext, CATEGORIES, isDeterministic } from "./rules.ts";
@@ -311,7 +316,7 @@ export async function improvementResult(
         error: "below_min_score",
         message:
           `automated practice health ${report.score}/100 is below the required minimum score of ${opts.minScore}.`,
-        hints: failureRecoveryHintTexts("improvement"),
+        hints: hintTexts([fire(HINTS["improvement-follow-next-action"])]),
       }
       : {}),
   };

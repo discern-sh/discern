@@ -44,6 +44,8 @@ import {
 } from "../src/shared/result.ts";
 import { serializeResult } from "../src/shared/result_serialization.ts";
 import {
+  ERROR_FAILURE_RECOVERY,
+  ERRORLESS_FAILURE_RECOVERY,
   FAILURE_RECOVERY_EVIDENCE,
   failureRecoveryHintTexts,
   fire,
@@ -383,6 +385,77 @@ Deno.test("generic failure recovery is legal only across the complete evidence Ã
   }
 });
 
+Deno.test("every canonical error family is enrolled in evidence-backed or tailored recovery", () => {
+  assertEquals(
+    Object.keys(ERROR_FAILURE_RECOVERY).sort(),
+    [...ERROR_SLUGS].sort(),
+    "a new error slug needs an explicit recovery classification",
+  );
+  const tailored = hintTexts([fire(HINTS["unknown-command-help"])]);
+
+  for (const error of ERROR_SLUGS) {
+    const failure = {
+      ok: false,
+      verb: "demo",
+      error,
+      message: "The reported condition names its correction.",
+    } satisfies DiscernResult;
+    const prepared = withFailureRecoveryHint(failure);
+    if (ERROR_FAILURE_RECOVERY[error] === "evidence") {
+      assert(
+        hasRegisteredActionableHint(prepared.hints),
+        `${error}: audited evidence families receive the generic floor`,
+      );
+      serializeResult(prepared);
+    } else {
+      assertEquals(
+        prepared,
+        failure,
+        `${error}: tailored families must not receive the generic floor`,
+      );
+      assertThrows(
+        () =>
+          serializeResult({
+            ...failure,
+            hints: failureRecoveryHintTexts("demo"),
+          }),
+        Error,
+        "requires a tailored registered next-step hint",
+      );
+      serializeResult({ ...failure, hints: tailored });
+    }
+  }
+
+  const errorlessWithEvidence = {
+    ok: false,
+    verb: "demo",
+    message: "No canonical error family identifies this failure.",
+  } satisfies DiscernResult;
+  assertEquals(ERRORLESS_FAILURE_RECOVERY, "evidence");
+  const preparedErrorless = withFailureRecoveryHint(errorlessWithEvidence);
+  assert(
+    hasRegisteredActionableHint(preparedErrorless.hints),
+    "an error-less applied failure with corrective evidence receives the generic floor",
+  );
+  serializeResult(preparedErrorless);
+
+  const errorlessDataOnly = {
+    ok: false,
+    verb: "demo",
+    data: { state: "failed" },
+  } satisfies DiscernResult;
+  assertEquals(
+    withFailureRecoveryHint(errorlessDataOnly),
+    errorlessDataOnly,
+    "an error-less data-only failure must not receive a fabricated fallback",
+  );
+  assertThrows(
+    () => serializeResult(errorlessDataOnly),
+    Error,
+    "has no registered next-step hint",
+  );
+});
+
 Deno.test("runtime result schemas accept only the canonical error-slug vocabulary", () => {
   for (const error of ERROR_SLUGS) {
     assert(
@@ -406,6 +479,7 @@ Deno.test("accept's partial envelope carries the exact irreversible effect state
     verb: "accept",
     error: "partial_acceptance",
     message: "The trunk landed, but cleanup did not finish.",
+    hints: hintTexts([fire(HINTS["accept-reconcile-partial-effects"])]),
     data: {
       root: "/repo",
       consent: { source: "conversation" },
@@ -416,9 +490,9 @@ Deno.test("accept's partial envelope carries the exact irreversible effect state
         branch_deleted: false,
       },
     },
-  };
+  } satisfies DiscernResult;
   assert(
-    AcceptOutputSchema.safeParse(partial).success,
+    AcceptOutputSchema.safeParse(serializeResult(partial)).success,
     "an accept failure after irreversible effects must retain typed landing state",
   );
   assertEquals(
