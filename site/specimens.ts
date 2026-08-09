@@ -1,7 +1,7 @@
 /** Development-only server for the homepage artefact specimens.
  *
- * The preview builds the normal static site assets, adds one ignored preview
- * stylesheet, and serves a static document at the loopback root. It never
+ * The preview builds the normal static site assets, serves one authored
+ * stylesheet without caching, and renders a static document at the loopback root. It never
  * enters the production page registry or production entrypoint.
  */
 
@@ -17,12 +17,10 @@ import { fromFileUrl } from "@std/path";
 const SITE_ROOT = new URL("./", import.meta.url);
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SPECIMEN_CSS_SOURCE = new URL("page-src/specimens.css", SITE_ROOT);
-const SPECIMEN_CSS_OUTPUT = new URL(
-  "pages/assets/design-system/compositions/specimens.css",
-  SITE_ROOT,
-);
+export const SPECIMEN_STYLESHEET_PATH =
+  "/assets/design-system/compositions/specimens.css";
 
-/** Prepare the ignored runtime assets consumed only by the preview server. */
+/** Prepare the generated design-system runtime consumed by the preview server. */
 export async function buildSpecimenPreview(): Promise<void> {
   const build = await new Deno.Command(Deno.execPath(), {
     args: ["task", "site:build"],
@@ -32,17 +30,30 @@ export async function buildSpecimenPreview(): Promise<void> {
     stderr: "inherit",
   }).output();
   if (!build.success) throw new Error("Site build failed");
-  const css = await Deno.readTextFile(SPECIMEN_CSS_SOURCE);
-  await Deno.writeTextFile(
-    SPECIMEN_CSS_OUTPUT,
-    "/* Development-only homepage specimen preview. Do not publish. */\n" +
-      css,
-  );
 }
 
 /** Serve the preview root and delegate its generated assets to the live site handler. */
 export async function specimenHandler(request: Request): Promise<Response> {
   const url = new URL(request.url);
+  if (url.pathname === SPECIMEN_STYLESHEET_PATH) {
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response("405 — method not allowed\n", {
+        status: 405,
+        headers: { allow: "GET, HEAD" },
+      });
+    }
+    const body = request.method === "HEAD"
+      ? null
+      : await Deno.readTextFile(SPECIMEN_CSS_SOURCE);
+    return new Response(body, {
+      status: 200,
+      headers: {
+        "cache-control": "no-store",
+        "content-type": "text/css; charset=utf-8",
+        "x-robots-tag": "noindex, nofollow",
+      },
+    });
+  }
   if (url.pathname !== "/") return await handler(request);
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response("405 — method not allowed\n", {

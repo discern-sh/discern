@@ -499,6 +499,10 @@
     min-width: 0;
   }
 
+  .commissioning-stages__body header > span {
+    white-space: nowrap;
+  }
+
   .commissioning-stages__body h4 {
     margin: var(--discern-space-1) 0 var(--discern-space-2);
     font-family: var(--discern-font-ui);
@@ -777,7 +781,7 @@
 
   .proof-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.38fr);
+    grid-template-columns: 1fr;
     gap: var(--discern-space-4);
     align-items: start;
   }
@@ -987,6 +991,7 @@
 
   .proof-boundary {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(11rem, 0.48fr);
     gap: var(--discern-space-4);
   }
 
@@ -1119,6 +1124,10 @@
       grid-template-columns: 1fr;
     }
 
+    .proof-boundary {
+      grid-template-columns: 1fr;
+    }
+
     .proof-pin {
       display: none;
     }
@@ -1142,6 +1151,25 @@
   }
 
   @media (max-width: 520px) {
+    .standard-trajectory__summary {
+      grid-template-columns: 1fr;
+    }
+
+    .standard-data {
+      display: table;
+      table-layout: fixed;
+      overflow: visible;
+    }
+
+    .standard-data th,
+    .standard-data td {
+      padding-inline: var(--discern-space-1);
+    }
+
+    .standard-data :is(th, td):last-child {
+      display: none;
+    }
+
     .proof-tree {
       grid-template-columns: 1fr;
     }
