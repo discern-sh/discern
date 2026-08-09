@@ -1,12 +1,12 @@
 # Page-type templates
 
-These page shapes cover the map's published tiers: overview, quickstart, guide, reference, and troubleshooting. The [documenter brief](documenter-agent-brief.md) assigns each page's job and owns these structures; the [product voice skill](../../skills/discern-product-voice/SKILL.md) owns how the prose sounds inside them. Pick the shape by the page's primary job. A page serving two jobs becomes two pages.
+These page shapes cover the Map's published tiers: overview, quickstart, guide, reference, and troubleshooting. Follow the [documenter brief](documenter-agent-brief.md) for each page's purpose and structure. Follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md) for register. Select the shape by the page's primary job; split a page that serves two jobs.
 
-Every skeleton below shows the full frontmatter a page of that shape typically carries; drop keys the page doesn't need (the brief's frontmatter table has the rules). Word budgets count body prose; frontmatter and code fences are free.
+Each skeleton shows the full frontmatter that its page shape typically carries. Keep only keys permitted by the brief's frontmatter table. Word budgets count body prose and exclude frontmatter and code fences.
 
 ## Overview (section `README.md`) — 200–350 words
 
-The section's front door: what this part of the system is, why it exists, and where to read next. Ends with the curated leaf table — one line per leaf, in reading order. No mechanism detail; that belongs to the leaves.
+The section's front door states what this part of the system is, why it exists, and where to read next. End with a curated leaf table containing one line per leaf in reading order. Keep mechanism detail in the leaves.
 
 ```markdown
 ---
@@ -26,7 +26,7 @@ What this is and why it exists, in 2–3 short paragraphs a newcomer can read in
 
 ## Quickstart — 600–1,000 words
 
-Task-shaped: begin with the reader's desired outcome. State the goal and prerequisites first, then numbered steps, each with the exact command and the visible success result. End at the outcome plus one "where next" line.
+Begin with the reader's desired outcome. State the goal and prerequisites, then provide numbered steps with each exact command and visible success result. End with the achieved outcome and one next-page link.
 
 ```markdown
 ---
@@ -40,7 +40,7 @@ aliases:
 
 _What you'll have at the end, in one line._
 
-Prerequisites: the versions, accounts, or tools needed — before step 1.
+Prerequisites: list the required versions, accounts, and tools before the numbered procedure.
 
 ## 1. <First action>
 
@@ -55,7 +55,7 @@ You now have <the outcome>. Next: [<the deeper page>](x.md).
 
 ## Guide / concept — 500–900 words
 
-Explains one mechanism or workflow: what it is, how it works, when to use it, and when to choose an alternative. Subsystem leaves specialise this shape for code (the brief's per-doc template, 400–800 hard ceiling). "Where it lives in code" and "Current state & gotchas" carry every file path and known trap.
+Explain one mechanism or workflow: what it is, how it works, when to use it, and which alternative covers a different case. Subsystem leaves specialize this shape for code through the brief's 400–800-word template. Put every file path and known trap in "Where it lives in code" and "Current state & gotchas."
 
 ```markdown
 ---
@@ -71,11 +71,11 @@ What it is and the problem it solves — the answer first, then the mechanism.
 
 ## How it works
 
-Steps or short prose. Keep file paths in the table below.
+Steps or short prose. Keep file paths in "Where it lives in code."
 
-## When to use it (and when not)
+## When to use it
 
-One recommendation, plus the escape hatch.
+Give one recommendation and the alternative for cases it does not cover.
 
 ## Where it lives in code
 
@@ -89,7 +89,7 @@ The surprises: half-built corners, known traps, and stated limitations.
 
 ## Reference — unbudgeted, scannable
 
-Cover every key, flag, value, default, and limit in tables and definition lists. Use zero personality except in characterful example values. Conviction survives only as named defaults.
+Cover every key, flag, value, default, and limit in tables and definition lists. Use a neutral, scannable register. Characterful example values may retain personality. State preferences only as named defaults.
 
 ```markdown
 ---
@@ -112,7 +112,7 @@ _What this page enumerates, in one line._
 
 ## Troubleshooting — 300–700 words
 
-Symptom-first: headings quote what the reader is looking at, entries give the cause and one recommended fix before any alternative. Calm register, zero personality — the reader is having a bad moment.
+Lead with the symptom. Headings quote what the reader sees; each entry gives the cause and one recommended fix before any alternative. Use calm, neutral language.
 
 ```markdown
 ---

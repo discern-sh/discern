@@ -4,19 +4,19 @@ Read [`project/map/_internal/documenter-agent-brief.md`](../documenter-agent-bri
 
 ## What this subtree documents
 
-The public reference tier for discern's commands, configuration, environment variables, MCP results, written files, supported platforms, prerequisites, and worktree identity values. The neighboring guides explain workflows; this tier states the contracts readers need to verify them.
+The public reference tier for discern's commands, configuration, environment variables, Model Context Protocol (MCP) results, written files, supported platforms, prerequisites, and Worktree identity values. Neighboring guides explain workflows; this tier states the contracts readers use to verify them.
 
 ## Files to produce
 
-| File                       | Topic                                                                                        |
-| -------------------------- | -------------------------------------------------------------------------------------------- |
-| `README.md`                | Public 200–350-word overview and curated reading order.                                      |
-| `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                            |
-| `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.               |
-| `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                 |
-| `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes. |
-| `artifact-ownership.md`    | Approved Files & ownership exemplar, relocated without re-styling.                           |
-| `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                   |
+| File                       | Topic                                                                                                             |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `README.md`                | Public 200–350-word overview and curated reading order.                                                           |
+| `cli-reference.md`         | Generated command, subcommand, flag, and command-alias reference.                                                 |
+| `config-reference.md`      | Generated `discern.toml` section, key, type, default, and key-alias reference.                                    |
+| `environment-variables.md` | Generated public `DISCERN_*` names, grouped purpose, and short descriptions.                                      |
+| `mcp-and-results.md`       | Public MCP tools, resources, result-envelope wrapper, published schemas, and CLI exit codes.                      |
+| `artifact-ownership.md`    | Approved Files and ownership exemplar; preserve its register and update only required links or location metadata. |
+| `platforms-and-prereqs.md` | Supported release targets, required tools, identity selectors, and tokens.                                        |
 
 ## Source files to read
 
@@ -29,20 +29,20 @@ The public reference tier for discern's commands, configuration, environment var
 
 ## Area owned
 
-- The `70-reference` map path and its ordering, metadata, and lookup aliases.
+- The `70-reference` Map path and its ordering, metadata, and lookup aliases.
 - Generated reference targets and their codegen drift guards.
-- The public MCP/result contract and platform/prerequisite inventory.
+- The public MCP and result contract plus the platform and prerequisite inventory.
 
 ## Existing-doc content to preserve
 
-`artifact-ownership.md` is an approved exemplar. Preserve its register and body; change only its location, metadata, and links required by the move.
+`artifact-ownership.md` is an approved exemplar. Preserve its register and body; change only location metadata and links required by a move.
 
 ## Known overlaps / handoffs
 
 - **`../10-getting-started/`** owns installation, setup, and upgrade tasks. Link to reference pages rather than retaining reference leaves there.
-- **`../30-worktrees/`** owns the identity lifecycle and resource guides. This tier keeps the selector, env, and token lookup tables.
+- **`../30-worktrees/`** owns the identity lifecycle and resource guides. This tier keeps the selector, environment, and token lookup tables.
 - **`../50-engine-internals/`** owns result-schema and MCP implementation details. Keep only caller-visible contracts here.
-- **`../60-agent-integrations/`** owns provider-specific setup files and trust behavior. Files & ownership links to those exact inventories.
+- **`../60-agent-integrations/`** owns provider-specific setup files and trust behavior. Files and ownership links to those exact inventories.
 
 ## Length-budget note
 

@@ -1,24 +1,24 @@
 # Scope: NN-subsystem
 
 <!--
-  Copy this file to `docs/_internal/scopes/<NN-subsystem>.md` — one per subtree —
+  Copy this file to `<map-dir>/_internal/scopes/<NN-subsystem>.md` — one per subtree —
   and fill each section. It is the per-subtree complement to the constant
-  documenter brief: it names what THIS agent reads, owns, and produces.
-  Delete these comments as you go.
+  documenter brief: it names what the assigned agent reads, owns, and produces.
+  Remove these comments before handoff.
 -->
 
-Read [`docs/_internal/documenter-agent-brief.md`](../documenter-agent-brief.md) first.
+Read [`documenter-agent-brief.md`](../documenter-agent-brief.md) first.
 
 ## What this subtree documents
 
-<!-- One or two sentences: the slice of the system this subtree covers, and where
-its boundaries are (what the neighbouring subtrees own instead). -->
+<!-- One or two sentences: the slice of the system this subtree covers, its
+boundaries, and the owner of each adjacent area. -->
 
 ## Files to produce
 
-<!-- Every .md file the agent must write, with a one-line topic each. Put the README
+<!-- Every `.md` file the agent must write, with a one-line topic each. Put the README
 first. Name the page shape (overview / quickstart / guide / reference /
-troubleshooting — see page-templates.md) where it isn't the default subsystem
+troubleshooting — see page-templates.md) when it differs from the default subsystem
 leaf, and any frontmatter the page must carry beyond the brief's baseline
 (a specific `order`, `publish: false`, a `redirect_from` claim). Keep the set
 small enough to stay within the length budget. -->
@@ -38,29 +38,29 @@ paths exist before handing the manifest to an agent. -->
 
 ## Area owned
 
-<!-- The part of the codebase / config this subtree is authoritative for, so the
-agent documents only knobs and behaviour in its lane. -->
+<!-- The part of the codebase and config this subtree owns. The agent documents
+only behavior and settings within this boundary. -->
 
 -
 
 ## Existing-doc content to preserve
 
 <!-- Any current docs whose wording or structure must survive a refresh, or
-"None". Prevents a rewrite from discarding something the project values. -->
+"None". State the exact preservation requirement. -->
 
 None.
 
 ## Known overlaps / handoffs
 
 <!-- Code that sits near this subtree's edge but belongs to another. For each:
-name it, say which subtree owns it, and instruct the agent to link rather than
-document. This is what keeps parallel documenters from colliding. -->
+name it, say which subtree owns it, and instruct the agent to link to that
+authority. -->
 
 - **`../NN-other/`** owns _X_. Describe the boundary and link to that subtree for _X_'s internals.
 
 ## Length-budget note
 
-<!-- If this subtree is unusually large or small, say how to group or split so the
-agent does not over- or under-document. Otherwise "Standard budget applies." -->
+<!-- If this subtree is unusually large or small, say how to group or split the
+work within its budget. Otherwise write "Standard budget applies." -->
 
 Standard budget applies (200–350 words per README, 400–800 per leaf — hard ceiling; other page shapes carry the budgets in [`page-templates.md`](../page-templates.md)).

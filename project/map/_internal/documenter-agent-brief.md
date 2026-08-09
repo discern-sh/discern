@@ -1,42 +1,42 @@
 # Documenter agent brief
 
-This file is read by every documenter agent that produces or refreshes a subtree under the configured map directory. Each agent also receives a per-subtree **scope manifest** at `_internal/scopes/{subtree}.md` inside that directory (copy [`scopes/_template.md`](scopes/_template.md) to start one) that complements this brief with the specific files to read, the area the agent owns, and any known overlaps.
+Every documenter agent that produces or refreshes a subtree under the configured Map directory follows this brief. Each agent also receives a **scope manifest** at `_internal/scopes/{subtree}.md`. Copy [`scopes/_template.md`](scopes/_template.md) to create one. The manifest names the files to read, the assigned area, and known overlaps.
 
-This brief is the constant; the scope manifest is the variable.
+Use this brief for shared requirements. Use the scope manifest for assignment-specific requirements.
 
-The [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) skill dispatches this brief — invoke it to document or refresh a subtree rather than working freehand.
+Invoke the [`discern-document-subsystem`](../../../templates/skills/discern-document-subsystem/SKILL.md) Skill to document or refresh a subtree. The Skill dispatches this brief and the matching scope manifest.
 
 ---
 
 ## Your role
 
-You are documenting one subtree of the documentation tree. The tree shape, the orientation tier, the glossary, and the canonical terminology are already in place — your job is to fill in the leaves of your assigned subtree, plus its `README.md`.
+Your assignment is one subtree of the documentation tree. Preserve the existing tree shape, orientation tier, Glossary, and canonical terminology. Produce the assigned leaves and their `README.md`.
 
-You may not be the only documenter agent working in parallel. Do not stretch your scope to cover things another agent owns. If you discover overlap, flag it in your summary rather than absorbing it.
+Other documenter agents may work in parallel. Stop at the boundary in your scope manifest. If you discover overlap, leave the overlapping files unchanged and record the evidence in your summary.
 
 ---
 
-## Maintaining the map
+## Maintaining the Map
 
-Treat documentation as part of the change. Every page describes what exists in code today. When a change alters documented behavior, update its page in the same commit. The gate treats a stale page as a defect. Define terminology once in the [glossary](../00-orientation/glossary.md) and use it identically everywhere. Ground claims with links to the source files they describe.
+Treat documentation as part of the change. Every page describes the current code. When a change alters documented behavior, update its page in the same commit. The Gate treats a stale page as a defect. Define terminology once in the [Glossary](../00-orientation/glossary.md) and use it identically everywhere. Ground each implementation claim with a link to its source file.
 
 ---
 
 ## Who owns what
 
-This brief owns **structure**: which pages exist, each page's job, its section shapes, its facts, and its length budgets. The [product voice skill](../../skills/discern-product-voice/SKILL.md) owns **register**: how the prose sounds inside those structures, including its voice behaviors and banned moves. Write to both; this brief answers questions about shape or size, and the skill answers questions about word choice, stance, or temperature.
+For **structure**, follow this brief: page inventory, page purpose, section shape, required facts, and length budgets. For **register**, follow the [product voice Skill](../../skills/discern-product-voice/SKILL.md): voice behavior, terminology, and banned moves. Apply both authorities to every page.
 
-The map is public documentation: the published tiers render on the docs site, in `discern docs`, and over MCP. The reference corpus for a finished page comprises the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files & ownership](../70-reference/artifact-ownership.md). Calibrate against this corpus.
+The Map is public documentation. Published tiers render on the docs site, in `discern docs`, and through the Model Context Protocol (MCP). Compare every finished page with the [docs landing page](../README.md), the [quickstart](../10-getting-started/quickstart.md), and [Files and ownership](../70-reference/artifact-ownership.md).
 
 ---
 
 ## Read first (mandatory, in this order)
 
-1. **`map/README.md`** — the documentation tree's table of contents. Confirms your subtree's position and its neighbours.
-2. **`map/00-orientation/concepts.md`** — the canonical naming source. Use its capitalised nouns verbatim. Do not introduce synonyms.
-3. **`map/00-orientation/glossary.md`** — precise definitions. Cross-link to entries here; do **not** redefine terms in your leaves. The page is generated from the term registry (`scripts/glossary_registry.ts`): a new or changed entry is an edit there plus `deno task codegen`, never an edit to the page. The gate enforces the discipline: a bold-faced `**term** — …` restatement in a leaf fails the `vocabulary` standard (bold emphasis is fine when it links the entry), a term added to the registry must be used by a page in the same change, and a synonym the registry retires is banned from live pages.
-4. **The [product voice skill](../../skills/discern-product-voice/SKILL.md)** — the register your pages hold, and the banned moves the gate's prose lint watches for.
-5. **Your scope manifest** at `map/_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points / overlap warnings.
+1. **[Map README](../README.md)** — the documentation tree's table of contents. Confirm the assigned subtree and its neighbors.
+2. **[Concepts](../00-orientation/concepts.md)** — the canonical naming source. Use its capitalized nouns verbatim.
+3. **[Glossary](../00-orientation/glossary.md)** — the precise definitions. Link leaves to existing entries. The term registry at `scripts/glossary_registry.ts` owns the generated page: edit the registry and run `deno task codegen` for any approved term change. The vocabulary Standard rejects bold `**term** — …` restatements in leaves, requires a new term to appear on a page in the same change, and rejects retired synonyms. Bold linked terms remain valid.
+4. **The [product voice Skill](../../skills/discern-product-voice/SKILL.md)** — the register your pages hold and the banned moves the Gate's prose lint watches for.
+5. **Your scope manifest** at `_internal/scopes/{your-subtree}.md`. It lists the source files to read, the area you own, and known integration points and overlap warnings.
 6. **The source files** listed in your manifest. Read whole files where they are small. For large directories, get a listing first and read the most central files in full; sample the rest.
 
 ---
@@ -45,8 +45,8 @@ The map is public documentation: the published tiers render on the docs site, in
 
 Your subtree serves a layered audience:
 
-- **`README.md` in your subtree** — newcomers and visitors. 200–350 words, plain language, no internal jargon. The canonical capitalised nouns from `concepts.md` are fine. End with a table of the leaves, one line each.
-- **Child docs (leaves)** — users of discern reading the published docs, plus future-you and the AI agents grounding a change. 400–800 words each. Precise, file-pathed, stating the invariants that are not obvious from the code.
+- **`README.md` in your subtree** — newcomers and visitors. 200–350 words. Use plain language and the canonical capitalized nouns from `concepts.md`. End with a table of the leaves, one line each.
+- **Child docs (leaves)** — users reading the published docs, returning maintainers, and coding agents grounding a change. 400–800 words each. Use precise paths and state invariants that the code does not make obvious.
 
 If your subtree's audience contract differs (e.g. an existing plain-English deep-dive the project values), your scope manifest will say so.
 
@@ -54,7 +54,7 @@ If your subtree's audience contract differs (e.g. an existing plain-English deep
 
 ## Page shapes
 
-[`page-templates.md`](page-templates.md) holds skeletons for overview, quickstart, guide, reference, and troubleshooting pages. Each carries its budget and register mix. Pick the shape that matches the page's job; the subsystem-leaf template below is the guide shape specialised for documenting a code subsystem and remains the default for leaves in a numbered subtree.
+[`page-templates.md`](page-templates.md) holds skeletons for overview, quickstart, guide, reference, and troubleshooting pages. Each carries its budget and register. Select the shape that matches the page's primary job. The [subsystem-leaf template](#per-doc-template-subsystem-leaf) specializes the guide shape for code documentation and remains the default for leaves in a numbered subtree.
 
 ## Per-doc template (subsystem leaf)
 
@@ -89,7 +89,7 @@ Bullet list of glossary terms relevant to this leaf, each a cross-link: `[Term](
 
 ## Configuration
 
-The knobs that tune this behaviour, one line each. Only those your subtree owns.
+The settings that tune this behavior, one line each. Include only those your subtree owns.
 
 ## Integration points
 
@@ -98,7 +98,7 @@ The knobs that tune this behaviour, one line each. Only those your subtree owns.
 
 ## Current state & gotchas
 
-Things a future reader would be surprised to learn. Quote any TODO/FIXME/HACK comments verbatim. Note half-built features, recently changed code, reserved or dead config, and known traps. This section is high-value-per-word; include it even when the routine workflow is well covered.
+Record surprising current state. Quote any `TODO`, `FIXME`, or `HACK` comments verbatim. Note incomplete features, recent behavior changes, reserved or dead config, and known traps. Include this section whenever any such evidence exists.
 ```
 
 Skip sections that do not apply to a given leaf. Do not invent sections.
@@ -107,7 +107,7 @@ Skip sections that do not apply to a given leaf. Do not invent sections.
 
 ## Frontmatter
 
-Every published page carries frontmatter; the gate validates it against a closed schema ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)), so an unknown key or out-of-shape value fails `discern done` rather than vanishing. The keys:
+Every published page carries frontmatter. The Gate validates it against a closed schema, so an unknown key or invalid value fails `discern done` ([ADR 0140](../_adr/0140-validated-frontmatter-and-the-publish-predicate.md)). Use these keys:
 
 | Key             | Rule                                                                                        |
 | --------------- | ------------------------------------------------------------------------------------------- |
@@ -122,32 +122,32 @@ Frontmatter provides metadata. Rendered pages strip the block, and the H1 stays 
 
 ## ADR citations
 
-Cite decision records as freely as the reasoning requires; rendering handles their visible density ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). In a published tier, put linked citations in a parenthetical group at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The gate requires the sentence to remain correct after deleting the citation, which excludes a citation from the grammatical-subject position.
+Cite decision records as freely as the reasoning requires; rendering handles their visible density ([ADR 0141](../_adr/0141-adr-citations-strip-at-render.md)). In a published tier, put linked citations in a parenthetical group at clause end, e.g. `([ADR 0140](../_adr/0140-….md))`, comma-separated when a clause cites several. The Gate requires the sentence to remain correct after deleting the citation, which excludes a citation from the grammatical-subject position.
 
 ---
 
 ## Hard rules
 
-1. **Use names that appear in code.** Do not invent abstractions. If a thing has no named type, describe it by the real pieces it is made of — name what is real.
-2. **Verify every file path before writing it.** Use a listing if uncertain. A hallucinated path is the most expensive defect to fix later.
-3. **No modal verbs about the system.** Banned: `should`, `would`, `could`, `will eventually`, `is intended to`. Describe only what exists in code today. If something is half-built, write "Currently does X; does not yet do Y."
-4. **Cross-link with relative paths.** Omit the configured map-directory prefix because you are already inside it.
-5. **Cross-link within your subtree liberally; do not link across subtrees.** Inter-subtree links are added in a later polish pass by the orchestrator.
+1. **Use names that appear in code.** If no named type exists, describe the concrete pieces that implement the behavior.
+2. **Verify every file path before writing it.** Use a listing when uncertain. An unverified path is a defect.
+3. **Use present-state claims.** Omit `should`, `would`, `could`, `will eventually`, and `is intended to`. For incomplete work, write: "Currently does X. Y remains pending."
+4. **Cross-link with relative paths.** Omit the configured Map-directory prefix because you are already inside it.
+5. **Cross-link within your subtree.** Leave inter-subtree links to the orchestrator integration pass.
 6. **Put glossary additions in your summary.** If you find a term that ought to be glossary-defined, list it in your summary and leave the leaf's section set unchanged.
-7. **Report scope overlap before expanding.** If you find code that clearly belongs to another subtree, describe the overlap in your summary and let the orchestrator resolve it.
+7. **Stop at scope overlap.** If code belongs to another subtree, leave it unchanged and describe the overlap in your summary for the orchestrator.
 8. **Length budget.**
    - 200–350 words per README.
    - 400–800 words per leaf, with 800 as a **hard ceiling**. Other page shapes carry their own budgets; see [`page-templates.md`](page-templates.md).
    - If a leaf would exceed 800 words, **split it** into two with descriptive filenames and flag the split in your summary. Report any overrun.
 9. **Use code samples only when they clarify what a path cannot.** A `[file](path)` link usually suffices. Reserve code blocks for a small grammar (a config shape) or a genuinely tricky interface.
-10. **Register belongs to the product voice skill.** Hold its voice behaviors and its banned moves. The gate's prose lint blocks the zero-legitimate-use tells outright and keeps the judgment-tier findings at warning severity outside the gate. Before handing off, run `discern scripts prose-page <page…>` on every page you wrote or rewrote: the bar is zero Discern alerts, the same bar the reference corpus measures.
+10. **Apply the product voice Skill.** Hold its voice behaviors and banned moves. The Gate's prose lint blocks zero-legitimate-use patterns and reports judgment-tier findings outside the Gate. Before handoff, run `discern scripts prose-page <page…>` on every page you wrote or rewrote. The required result is zero `Discern*` alerts, matching the reference corpus.
 
 ---
 
 ## What "good output" looks like
 
 - A newcomer reading your `README.md` understands what the subtree is about in 60 seconds and knows which leaf to read next.
-- A returning contributor who has not seen this code in months finds the right leaf and re-orients in two minutes.
+- A returning maintainer finds the right leaf and re-orients in two minutes.
 - An agent that needs to make a change finds the file path it needs in 30 seconds.
 
 If any of those break, the doc is too thin or too thick.
@@ -160,9 +160,9 @@ If any of those break, the doc is too thin or too thick.
 2. Give every published page valid frontmatter (at minimum `description`, and `order` for published siblings).
 3. Return a short summary covering:
    - **What you covered** — one bullet per leaf, with its headline claim.
-   - **TODO/FIXME notes** — quote any in-code comments you preserved under "Current state & gotchas".
+   - **`TODO`/`FIXME` notes** — quote any in-code comments you preserved under "Current state & gotchas".
    - **Glossary additions/refinements** — terms that ought to be defined or sharpened in the glossary.
    - **Subtree-overlap observations** — code you noticed that belongs in another subtree.
    - **Deprecation candidates** — anything that looks half-built, abandoned, or redundant.
 
-Do not commit. Do not run the full gate. Do not edit anything outside `map/{your-subtree}/`.
+Stop after the scoped files and summary are ready. Leave the changes uncommitted, do not run the full Gate, and leave every path outside the assigned Map subtree unchanged.
