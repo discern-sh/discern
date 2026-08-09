@@ -35,6 +35,19 @@ function monoSelectors(css: string): string[] {
   return selectors;
 }
 
+/** Find callout markers that have drifted outside the section they name. */
+function misplacedProofMarkers(document: Document): string[] {
+  return [...document.querySelectorAll<HTMLElement>(".proof-pin")].flatMap(
+    (marker) => {
+      const target = marker.dataset.proofTarget;
+      const section = marker.closest<HTMLElement>("[data-proof-section]");
+      return target !== undefined && section?.dataset.proofSection === target
+        ? []
+        : [readableText(marker.textContent)];
+    },
+  );
+}
+
 Deno.test("the specimen sheet remains outside the public route registry", async () => {
   assertEquals(Object.hasOwn(PAGES, "/specimens"), false);
   const publicResponse = await handler(
@@ -134,10 +147,15 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
       "agent/homepage-1a-b9ab45",
       "9457535abebe",
       "9 configured jobs",
-      "security or absence of defects",
-      "permission to land",
+      "The owner still decides whether the change may land.",
     ]
   ) assertStringIncludes(text, required);
+
+  assert(!text.includes("It does not claim"));
+  assertEquals(
+    document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
+    0,
+  );
 
   assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(
@@ -148,6 +166,24 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     "the static preview must not ship a browser framework runtime",
   );
   dom.window.close();
+});
+
+Deno.test("Proof markers stay inside the section they annotate", () => {
+  const rendered = new JSDOM(renderSpecimens());
+  assertEquals(misplacedProofMarkers(rendered.window.document), []);
+  rendered.window.close();
+
+  const futureSibling = new JSDOM(`
+    <section data-proof-section="tree">
+      <span class="proof-pin" data-proof-target="gate">02</span>
+    </section>
+  `);
+  assertEquals(
+    misplacedProofMarkers(futureSibling.window.document),
+    ["02"],
+    "a new marker must live inside the section named by its target",
+  );
+  futureSibling.window.close();
 });
 
 Deno.test("specimen typography reserves monospace for the name and code", async () => {

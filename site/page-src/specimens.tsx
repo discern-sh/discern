@@ -623,20 +623,9 @@ function ProofSpecimen() {
       className="proof-figure"
       eyebrow="Exact-change evidence · recorded 9 Aug 2026"
       title="Proof for the homepage brief amendment"
-      legend={[
-        { label: "passed check", tone: "success" },
-        { label: "held Standard", tone: "ink" },
-        { label: "deferred measure", tone: "warning" },
-      ]}
       visual={
         <div className="proof-layout">
           <article className="proof-card">
-            <span className="proof-pin proof-pin--tree" aria-hidden="true">
-              01
-            </span>
-            <span className="proof-pin proof-pin--gate" aria-hidden="true">
-              02
-            </span>
             <header className="proof-card__header">
               <div>
                 <span>Completion evidence</span>
@@ -650,8 +639,17 @@ function ProofSpecimen() {
             <pre className="proof-line"><code>Proof: gate passed on agent/homepage-1a-b9ab45 @ 9457535abebe · 7 files +182 −149 vs main · standards held, 5 improved, 2 deferred</code></pre>
 
             <dl className="proof-tree">
-              <div>
-                <dt>Committed tree</dt>
+              <div data-proof-section="tree">
+                <dt>
+                  <span
+                    className="proof-pin"
+                    data-proof-target="tree"
+                    aria-hidden="true"
+                  >
+                    01
+                  </span>
+                  Committed tree
+                </dt>
                 <dd>
                   <code>9457535abebe</code>
                 </dd>
@@ -672,9 +670,22 @@ function ProofSpecimen() {
               </div>
             </dl>
 
-            <section className="proof-jobs" aria-label="What ran">
+            <section
+              className="proof-jobs"
+              data-proof-section="gate"
+              aria-label="What ran"
+            >
               <header>
-                <h4>What ran</h4>
+                <div className="proof-jobs__title">
+                  <span
+                    className="proof-pin"
+                    data-proof-target="gate"
+                    aria-hidden="true"
+                  >
+                    02
+                  </span>
+                  <h4>What ran</h4>
+                </div>
                 <span>9 configured jobs</span>
               </header>
               <ol>
@@ -753,19 +764,10 @@ function ProofSpecimen() {
                 </div>
               </li>
             </ol>
-            <section>
-              <h4>It does not claim</h4>
-              <ul>
-                <li>universal correctness</li>
-                <li>security or absence of defects</li>
-                <li>production suitability</li>
-                <li>permission to land</li>
-              </ul>
-            </section>
           </aside>
         </div>
       }
-      caption="Certainty is narrow and useful: this exact committed tree passed the project’s declared Gate and held its Standards. The Proof says nothing about a later tree."
+      caption="This exact committed tree passed the project’s declared Gate and held its Standards."
       source={
         <span className="proof-source">
           Landed Proof for the homepage brief amendment ·{" "}
@@ -862,7 +864,7 @@ function SpecimenPreview() {
           introduction={
             <>
               Completion evidence for one exact committed change, with the
-              checks it covers and the claims it deliberately leaves outside.
+              checks it passed and the Standards it held.
             </>
           }
           render={() => <ProofSpecimen />}

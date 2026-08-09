@@ -803,9 +803,8 @@
   }
 
   .proof-pin {
-    position: absolute;
-    z-index: 2;
     display: grid;
+    flex: none;
     place-items: center;
     inline-size: 1.7rem;
     block-size: 1.7rem;
@@ -818,16 +817,6 @@
     font-feature-settings: var(--discern-font-features-ui);
     font-size: 0.62rem;
     font-weight: var(--discern-font-weight-strong);
-  }
-
-  .proof-pin--tree {
-    top: 8.5rem;
-    right: var(--discern-space-3);
-  }
-
-  .proof-pin--gate {
-    top: 17.8rem;
-    right: var(--discern-space-3);
   }
 
   .proof-card__header {
@@ -903,6 +892,13 @@
     font-family: var(--discern-font-ui);
     font-feature-settings: var(--discern-font-features-ui);
     font-size: var(--discern-font-size-xs);
+  }
+
+  .proof-tree > div:first-child dt,
+  .proof-jobs__title {
+    display: flex;
+    align-items: center;
+    gap: var(--discern-space-2);
   }
 
   .proof-tree dd {
@@ -990,9 +986,7 @@
   }
 
   .proof-boundary {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(11rem, 0.48fr);
-    gap: var(--discern-space-4);
+    display: block;
   }
 
   .proof-boundary > ol {
@@ -1022,26 +1016,6 @@
     color: var(--discern-color-ink-muted);
     font-size: var(--discern-font-size-xs);
     line-height: 1.5;
-  }
-
-  .proof-boundary > section {
-    padding: var(--discern-space-4);
-    border: 1px solid var(--discern-color-warning);
-    border-radius: var(--discern-radius-md);
-    background: var(--discern-color-warning-soft);
-    color: var(--discern-color-warning-deep);
-  }
-
-  .proof-boundary > section h4 {
-    color: inherit;
-  }
-
-  .proof-boundary ul {
-    display: grid;
-    gap: var(--discern-space-1);
-    margin: var(--discern-space-3) 0 0;
-    padding-inline-start: 1rem;
-    font-size: var(--discern-font-size-xs);
   }
 
   .specimen-footer {
@@ -1126,10 +1100,6 @@
 
     .proof-boundary {
       grid-template-columns: 1fr;
-    }
-
-    .proof-pin {
-      display: none;
     }
 
     .wave-handoff {
