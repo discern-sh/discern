@@ -15,7 +15,7 @@ discern consumes `@discern-sh/design-system` from the JavaScript Registry (JSR) 
 The root `deno.json` exposes one stable alias:
 
 ```json
-"discern-design-system": "jsr:@discern-sh/design-system@0.10.0"
+"discern-design-system": "jsr:@discern-sh/design-system@0.10.1"
 ```
 
 Imports use only that package root and its documented `./runtime` and `./react` exports. `deno.lock` records the same release. The package root and those exports are the complete consumer application programming interface (API); source trees, registry addresses, cache internals, distribution files, workspace links, and sibling checkouts remain internal.
