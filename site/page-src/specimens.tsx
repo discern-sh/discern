@@ -564,7 +564,7 @@ function StandardTrajectory() {
         </div>
       }
       caption="The metric improved from 31 to 25. Pinning tightened its ceiling to 26, turning a cleanup into retained ground while keeping the next measured gain visible."
-      source="discern Logbook and git history · snapshot refreshed 9 August 2026 · observational internal evidence"
+      source="discern Logbook and git history · snapshot refreshed 9 August 2026 · internal evidence"
       surface="sunken"
     />
   );
@@ -802,9 +802,9 @@ function SpecimenPreview() {
           title="A Standard trajectory"
           introduction={
             <>
-              A real falling ceiling from{" "}
-              <DiscernName />’s own development, dated and bounded as
-              observational internal evidence.
+              A real quality metric from{" "}
+              <DiscernName />’s own development, improving over time and dated
+              as internal evidence.
             </>
           }
           render={() => <StandardTrajectory />}

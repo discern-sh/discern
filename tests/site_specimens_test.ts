@@ -187,6 +187,7 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     "Lower is better. Every authored Deno source file is enrolled.",
   );
   assert(!text.includes("Internal dogfooding"));
+  assert(!text.toLowerCase().includes("observational"));
 
   assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(
