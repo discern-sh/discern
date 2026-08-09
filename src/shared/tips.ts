@@ -1,14 +1,14 @@
 /**
- * The tip registry — the single module defining every tip the desk can show
+ * The tip registry — the single module defining every tip the Desk can show
  * (ADR 0234). A hint advises an agent inside a result envelope; a tip teaches
- * a human one thing discern can do, ambient at the desk. The two concepts
+ * a human one thing discern can do, ambient at the Desk. The two concepts
  * keep separate registries, separate registers, and separate delivery.
  *
  * Data only, on the hint registry's pattern (ADR 0172): entries are typed
  * templates over compiler-checked parameters, runnable commands are
  * interpolated as {@link CommandRef} tokens (never spelled as prose), and the
  * guards validate every quoted command against the live registry. No engine
- * imports — the desk's selection engine consumes this module, never the other
+ * imports — the Desk's selection engine consumes this module, never the other
  * way around.
  *
  * {@link TIPS} array order is the curriculum: the authored order is a designed
@@ -74,7 +74,7 @@ const CMD = {
 
 /**
  * When a tip is contextually relevant, as data — a closed vocabulary the
- * desk's pure evaluator interprets over the status survey plus the loaded
+ * Desk's pure evaluator interprets over the status survey plus the loaded
  * config it already holds. No predicate performs I/O. The evaluator's
  * exhaustive `switch` makes a new kind a compile error until it is handled.
  */
@@ -87,7 +87,7 @@ export type TipPredicate =
   | Readonly<{ kind: "no-landing-authority" }>
   /** Some effort's branch is behind the trunk. */
   | Readonly<{ kind: "branch-behind-trunk" }>
-  /** Some effort holds a clean, current proof ready for human review. */
+  /** Some effort holds clean, current Proof ready for human review. */
   | Readonly<{ kind: "ready-to-review" }>
   /** Some effort's work is already contained in another live branch. */
   | Readonly<{ kind: "contained-worktree" }>
@@ -96,7 +96,7 @@ export type TipPredicate =
 
 /**
  * A data-only declaration of what observable action a shown tip invites,
- * mirroring `HintFollowThroughRule`'s pattern: the logbook reader interprets
+ * mirroring `HintFollowThroughRule`'s pattern: the Logbook reader interprets
  * these shapes, and no detector function or engine import lives here. The
  * reader measuring tip adoption lands separately; carrying the declaration on
  * entries now means it reads declarations, never a hand-kept table.
@@ -110,7 +110,7 @@ export type TipFollowThroughRule = Readonly<{
 
 /** One registered tip: a stable id, its relevance data, and a typed template. */
 export interface TipDef<P = undefined> {
-  /** Stable kebab-case identifier — the logbook, seen-state, and tests key on it. */
+  /** Stable kebab-case identifier — the Logbook, seen-state, and tests key on it. */
   readonly id: string;
   /** One-line relevance description shown in the generated inventory. */
   readonly when: string;
@@ -129,7 +129,7 @@ export interface TipDef<P = undefined> {
    * discoverability guard consumes. Every id must resolve to a live node.
    */
   readonly features: readonly string[];
-  /** Optional observable-adoption declaration for the advisory logbook reader. */
+  /** Optional observable-adoption declaration for the advisory Logbook reader. */
   readonly followThrough?: TipFollowThroughRule;
   /** Realistic placeholder parameters for validation and generated inventory. */
   readonly example: P;
@@ -138,9 +138,9 @@ export interface TipDef<P = undefined> {
 }
 
 /**
- * Maximum CLI-rendered tip length. At the desk's ordinary 60–80-column
+ * Maximum CLI-rendered tip length. At the Desk's ordinary 60–80-column
  * widths, 160 characters wraps to two or three lines; anything longer is two
- * lessons or belongs in the map.
+ * lessons or belongs in the Map.
  */
 export const TIP_RENDERED_LENGTH_LIMIT = 160;
 
@@ -178,7 +178,7 @@ export function authoredTipText(tip: RegisteredTip): string {
 /**
  * A tip's delivered text: the template rendered with its registered example
  * parameters, command references resolved to their CLI spelling. One render
- * authority for the desk and the generated inventory, so what the guards
+ * authority for the Desk and the generated inventory, so what the guards
  * validate is exactly what a person reads. Current entries are parameterless;
  * a live-context parameter source is a future extension, and until it exists
  * the example parameters are the only rendering.
@@ -194,7 +194,7 @@ export function renderTipCli(tip: RegisteredTip): string {
  * only route to an action.
  */
 export const TIPS: readonly RegisteredTip[] = [
-  // ── Basics: find the desk, read the state, start isolated work. ──────────
+  // ── Basics: find the Desk, read the state, start isolated work. ──────────
 
   defineTip({
     id: "desk-is-home",
@@ -207,9 +207,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      "Bare `discern` opens the desk, where you start tasks and supervise " +
-      "their separate working copies. This line teaches one capability per " +
-      "session.",
+      "Bare `discern` opens the human view over work in progress (the Desk). " +
+      "Start tasks, supervise them, and read one short tip there.",
   }),
 
   defineTip({
@@ -239,11 +238,11 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.startNamed} gives one effort its own working copy and line of ` +
-      "saved work, keeping it away from other tasks and the main copy.",
+      `${CMD.startNamed} gives one task an isolated workspace (a Git ` +
+      "worktree) and branch, separate from other tasks and the main copy.",
   }),
 
-  // ── Daily loop: get fast feedback before the final proof. ───────────────
+  // ── Daily loop: get fast feedback before the final Proof. ───────────────
 
   defineTip({
     id: "prepare-fast-feedback",
@@ -256,8 +255,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `Use ${CMD.prepare} while a change is moving. It runs fixers and ` +
-      "read-only checks, skipping builds and tests.",
+      `Use ${CMD.prepare} while editing a change. It runs fixers and ` +
+      "read-only checks; builds and tests stay for later.",
   }),
 
   defineTip({
@@ -272,7 +271,7 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       `${CMD.test} runs the project's configured tests and quick readiness ` +
-      "check outside the full final check.",
+      "check, separate from the final quality check.",
   }),
 
   defineTip({
@@ -294,14 +293,14 @@ export const TIPS: readonly RegisteredTip[] = [
 
   defineTip({
     id: "inspect-before-accepting",
-    when: "A task has a passing proof ready for review.",
+    when: "A task has passing Proof ready for review.",
     predicate: { kind: "ready-to-review" },
     features: ["accept", "proof"],
     example: undefined,
     template: (): string =>
-      'Before accepting a task, choose "Inspect commits and changes" in the ' +
-      "desk. It shows saved work, unsaved edits, the change size, and any " +
-      "passing proof.",
+      'Before accepting, choose "Inspect commits and changes" in the Desk. ' +
+      "It shows saved and unsaved work, size, and Proof that the exact " +
+      "version passed its checks.",
   }),
 
   defineTip({
@@ -311,8 +310,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["consent-attestations"],
     example: undefined,
     template: (): string =>
-      'For a task you trust, "Pre-authorize landing once green" lets it land ' +
-      "after every check passes. The permission belongs only to that task.",
+      '"Pre-authorize landing once green" records permission for one task to ' +
+      "land after every check passes. It applies only to that task.",
   }),
 
   defineTip({
@@ -328,7 +327,7 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       `${CMD.worktreeDrop} refuses to discard unsaved or unshared work ` +
-      "without force. The desk asks you to type the branch name before that " +
+      "without force. The Desk asks you to type the branch name before that " +
       "loss.",
   }),
 
@@ -457,19 +456,18 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       `${CMD.done} runs the project's final quality check. On clean saved ` +
-      "work, a pass records the exact version and results for review.",
+      "work, a pass records Proof for the exact version and declared results.",
   }),
 
   defineTip({
     id: "standards-first-rule",
-    when: "No quality standards are configured.",
+    when: "No quality rules are configured.",
     predicate: { kind: "standards-empty" },
     features: ["standards", "standards-direction", "skill-set-the-standard"],
     example: undefined,
     template: (): string =>
-      "A quality rule holds one number at a floor or ceiling that can only " +
-      "improve. The `discern-set-the-standard` guide helps a coding agent " +
-      "add one.",
+      "A Standard is a quality measure that can only improve. " +
+      "`discern-set-the-standard` helps a coding agent set its floor or ceiling.",
   }),
 
   defineTip({
@@ -489,7 +487,7 @@ export const TIPS: readonly RegisteredTip[] = [
 
   defineTip({
     id: "standards-pin-gain",
-    when: "At least one quality standard is configured.",
+    when: "At least one quality rule is configured.",
     predicate: { kind: "standards-present" },
     features: ["standards-pin", "standards-margin"],
     followThrough: {
@@ -584,8 +582,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["no-model-inside", "stack-neutral"],
     example: undefined,
     template: (): string =>
-      "discern contains no AI model and needs no API key. It runs the commands " +
-      "your project declares, in any language.",
+      "discern contains no language model and requires no model-service " +
+      "credentials. It runs the commands your project declares, in any language.",
   }),
 
   // ── Power tools: explore wider surfaces after the core loop is familiar. ─
@@ -618,7 +616,7 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       `${CMD.impact} shows which named project areas and extra checks the ` +
-      "current change wakes.",
+      "current change activates.",
   }),
 
   defineTip({
@@ -632,7 +630,7 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.awaitGreen} waits for another task's passing proof and returns ` +
+      `${CMD.awaitGreen} waits for another task's passing Proof and returns ` +
       "the right next step, so a coding agent does not need to keep checking.",
   }),
 
@@ -717,7 +715,7 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["skill-teach-the-project"],
     example: undefined,
     template: (): string =>
-      "`discern-teach-the-project` records a hard-won lesson in project " +
+      "`discern-teach-the-project` records a durable lesson in project " +
       "instructions, a reusable guide, a script, documentation, or a decision " +
       "record.",
   }),
@@ -739,7 +737,7 @@ export const TIPS: readonly RegisteredTip[] = [
     example: undefined,
     template: (): string =>
       "`discern-delegate-work` turns a discussed task into a complete brief " +
-      "for a fresh coding agent, then reviews what comes back.",
+      "for a fresh coding agent, then reviews the resulting change.",
   }),
 
   defineTip({
@@ -763,8 +761,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.identityPort} prints a task's stable preview-server network ` +
-      "number. Other choices expose its branch and service names.",
+      `${CMD.identityPort} prints the stable network number used by that ` +
+      "task's preview server. Other choices show its branch and service names.",
   }),
 
   defineTip({
@@ -773,8 +771,8 @@ export const TIPS: readonly RegisteredTip[] = [
     features: ["worktree-resources"],
     example: undefined,
     template: (): string =>
-      "A project can give every working copy its own information store, " +
-      "emulator, or container. discern creates and removes them with the copy.",
+      "A project can give every worktree its own information store, emulator, or " +
+      "container. discern provisions and removes them with the worktree.",
   }),
 
   defineTip({
@@ -788,13 +786,13 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      'When a task has a project-owned tool, the desk offers "Run a Project ' +
+      'When a task has a project-owned tool, the Desk offers "Run a Project ' +
       `Script". ${CMD.scripts} lists the same tools from a shell.`,
   }),
 ];
 
 /**
- * Canon and verb members that deliberately receive no desk tip.
+ * Canon and verb members with no Desk tip by design.
  *
  * Keys share one namespace with the enrolment guard: `feature:<node-id>` for
  * every feature-canon node and `verb:<verb>` for the live CLI vocabulary.
@@ -806,149 +804,146 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
   Record<string, string>
 > = {
   "feature:jobs-table":
-    "Project-specific job setup belongs in the gate guide; the tip teaches the final check those jobs serve.",
+    "The Gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve.",
   "feature:job-format":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-build":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-lint":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-typecheck":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-test":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:job-smoke":
-    "A project authors this gate job; it is not a separate discern capability for a beginner to adopt.",
+    "Projects author this Gate job in config; the `done` tip teaches the combined final check.",
   "feature:staged-pipeline":
-    "This is gate execution plumbing; the `done` tip teaches its human-visible outcome.",
+    "The `done` tip teaches the human-visible result of this Gate execution sequence.",
   "feature:fail-fast":
-    "This is gate execution plumbing; a failure explains the behavior at the point it matters.",
+    "Gate failures explain this execution rule at the point it matters.",
   "feature:job-timeouts":
-    "This is gate safety plumbing; timeout diagnostics teach it at the point it matters.",
+    "Timeout diagnostics explain this Gate safety rule when it fires.",
   "feature:capture-environment":
-    "This preserves diagnostic context internally and offers no separate human action.",
+    "This internal diagnostic record preserves failure context; diagnostics provide the human action.",
   "feature:gate-streaming":
-    "This is output plumbing for long checks, not a separate capability to adopt.",
+    "This output behavior keeps long Gate checks visible; it adds no separate Desk action.",
   "feature:strand-detection":
-    "This is gate safety plumbing; its diagnostic teaches the recovery when it fires.",
+    "Its diagnostic teaches recovery when this Gate safety check fires.",
   "feature:gate-preconditions":
-    "These are safety checks; their diagnostics teach the required remedy when they fail.",
+    "Each precondition diagnostic supplies the required remedy when it fails.",
   "feature:write-preflight":
-    "This is an internal safety check with no separate beginner action.",
+    "This internal safety check supplies its action only when it detects a problem.",
   "feature:fail-open-classification":
-    "This is internal scope-classification safety with no separate human action.",
+    "This internal rule treats unmatched paths as real changes; the Gate guide documents scope configuration.",
   "feature:generated-artifact-declarations":
-    "Generated-artifact configuration is an advanced authoring choice taught by the config reference, not a beginner desk action.",
+    "The config reference teaches this advanced generated-artifact authoring choice.",
   "feature:diagnostics":
-    "Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.",
+    "Each diagnostic supplies its action at failure time, when it is relevant.",
   "feature:gotchas-pointer":
-    "The pointer appears in the failure that needs it, so a rotating tip would be less timely.",
+    "The failure that needs the troubleshooting pointer supplies it directly.",
   "feature:unchanged-tree-rerun":
-    "This is proof-reuse plumbing; the proof tip covers the human-visible result.",
+    "The Proof tip covers the review result; reuse remains an internal optimization.",
   "feature:standards-metric-protocol":
-    "Metric authoring is an advanced path taught by the standard-setting guide.",
+    "The standard-setting Skill teaches this advanced metric-authoring path.",
   "feature:standards-rates":
-    "Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.",
+    "The standard-setting Skill teaches rate-based quality-rule authoring.",
   "feature:standards-replay":
-    "Replay is measurement plumbing with no separate beginner action.",
+    "This measurement optimization reuses recorded values; the Standard tip covers the user-visible rule.",
   "feature:standards-escalation":
-    "A fired rule explains owner escalation at the point a decision is required.",
+    "A fired Standard names the owner decision at the point it is required.",
   "feature:crash-safe-provisioning":
-    "This is worktree safety plumbing; recovery guidance appears when provisioning fails.",
+    "Provisioning failures carry the recovery action for this Worktree safety mechanism.",
   "feature:env-inheritance":
-    "Private-setting inheritance is setup plumbing with no routine human action.",
+    "Setup configures private-setting inheritance; routine Desk use requires no separate action.",
   "feature:ignored-drift":
-    "Ignored-file drift is an advanced diagnostic taught when a worktree check finds it.",
+    "A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.",
   "feature:guidance-conditionals":
-    "Provider conditions are an advanced guidance-authoring feature documented in the map.",
+    "The Map documents this advanced Guidance-authoring feature.",
   "feature:providers":
-    "Provider support is an integration surface for coding agents, not a desk capability.",
+    "The agent-integration reference documents provider support; the Desk exposes actions for active tasks.",
   "feature:provider-claude-code":
-    "This is an agent-provider integration, not a human desk capability.",
+    "The agent-integration reference documents this provider; its integration adds no Desk action.",
   "feature:provider-codex":
-    "This is an agent-provider integration, not a human desk capability.",
+    "The agent-integration reference documents this provider; its integration adds no Desk action.",
   "feature:provider-gemini":
-    "This is an agent-provider integration, not a human desk capability.",
+    "The agent-integration reference documents this provider; its integration adds no Desk action.",
   "feature:provider-cursor":
-    "This is an agent-provider integration, not a human desk capability.",
+    "The agent-integration reference documents this provider; its integration adds no Desk action.",
   "feature:provider-copilot":
-    "This is an agent-provider integration, not a human desk capability.",
+    "The agent-integration reference documents this provider; its integration adds no Desk action.",
   "feature:session-hooks":
-    "Session hooks are agent-integration plumbing and are documented with setup.",
+    "Setup documentation owns session-hook integration and reactivation steps.",
   "feature:agent-autodetect":
-    "Automatic provider choice is agent-integration plumbing with no human action.",
+    "Setup selects the provider automatically and reports the choice; routine Desk use requires no action.",
   "feature:docs-integrity":
-    "This is map validation plumbing; a failure names the page and repair.",
+    "A failed Map validation names the page and repair.",
   "feature:map-freshness":
-    "This is a maintainer rule enforced by the gate, not a beginner desk action.",
+    "The Gate enforces this maintainer rule and names stale Map pages.",
   "feature:publish-predicate":
-    "Map publication boundaries are maintainer-facing and documented with the map.",
+    "The Map documentation owns publication boundaries and their maintainer action.",
   "feature:adr-discipline":
-    "Decision-record authoring is a maintainer practice taught by its specialist guide.",
+    "The `discern-write-adr` Skill teaches decision-record authoring.",
   "feature:cli-help":
-    "Built-in command help is already present beside every command and needs no rotating lesson.",
+    "Each command displays its own built-in help, making a rotating lesson redundant.",
   "feature:glossary-canon":
-    "Canonical vocabulary is documentation infrastructure, not a capability to adopt.",
-  "feature:hints":
-    "Advice notes surface at their relevant action; a generic rotating tip would be less timely.",
+    "The glossary and generated references own canonical vocabulary.",
+  "feature:hints": "Each hint appears with the action that makes it relevant.",
   "feature:install":
-    "Installation is complete before the desk can show tips and is taught by the installer.",
+    "The installer teaches installation before the Desk becomes available.",
   "feature:setup":
-    "Setup is complete before the desk can show tips and is taught by the installer.",
+    "The installer teaches setup before the Desk becomes available.",
   "feature:setup-observability":
-    "This is installer reporting plumbing, visible during setup rather than later on the desk.",
+    "Setup displays these operational reports while it runs.",
   "feature:relay-messages":
-    "Relay messages coordinate coding agents and do not expose a human action.",
+    "Relay messages coordinate coding agents; human actions arrive through the Desk.",
   "feature:ownership-buckets":
-    "Upgrade ownership is migration plumbing, explained only when an upgrade needs it.",
+    "Upgrade explains ownership buckets when a migration needs them.",
   "feature:placement-consent":
-    "Script placement consent belongs to initial setup and appears when the choice is required.",
+    "Initial setup asks for script-placement consent when the choice is required.",
   "feature:uninstall":
-    "Uninstall stays in explicit command help. The desk does not advertise leaving discern.",
+    "Explicit command help documents uninstall; the onboarding curriculum covers continued use.",
   "feature:licenses":
-    "License output is a legal reference surface, not an onboarding capability.",
+    "The legal reference and command help own license output.",
   "feature:interfaces":
-    "Machine interfaces serve integrations and coding agents, not the human desk.",
+    "Machine interfaces serve integrations and coding agents; the Desk owns human actions.",
   "feature:result-envelope":
-    "The result shape is an integration contract, not a human action.",
+    "The integration reference documents the result envelope for machine consumers.",
   "feature:idempotent-verbs":
-    "Safe replay is an engine guarantee, not a separate action to adopt.",
+    "This Engine guarantee makes safe retries possible; each command describes its own rerun behavior.",
   "feature:mcp-surface":
-    "MCP is an agent-only protocol surface and stays out of human tips.",
+    "The Model Context Protocol (MCP) is an agent integration surface; the Desk owns human actions.",
   "feature:published-contracts":
-    "Published schemas serve integrations and are documented in the reference.",
+    "The reference documents published schemas for integrations.",
   "feature:forgiving-cli":
-    "Input normalization is command-line plumbing with no separate capability.",
+    "This command-line parser behavior normalizes input; each command tip teaches the resulting action.",
   "feature:output-discipline":
-    "Output discipline is an engine contract, not a beginner action.",
+    "This Engine contract governs result rendering; individual tips teach human actions.",
   "feature:foundations":
-    "The product principles explain why discern works this way; they are not individual actions.",
+    "Product principles explain discern's design; concrete actions appear with their features.",
   "feature:agent-is-user":
-    "This is a design principle about coding agents, not a human capability.",
+    "This design principle governs coding-agent interfaces; the agent reference documents it.",
   "feature:context-budget":
-    "This is a design principle about agent attention, not a human capability.",
+    "This design principle governs coding-agent context; the agent reference documents it.",
   "feature:single-binary":
-    "Packaging is an implementation property, not a capability to adopt.",
+    "The install and architecture references document this packaging property.",
   "feature:all-subsystems-core":
-    "This is a product-shape decision, not a separate beginner action.",
+    "This product-shape decision defines the shipped subsystem set; concrete actions appear with each subsystem.",
   "feature:forcing-functions":
-    "This is an engineering principle enforced by guards, not a desk action.",
+    "Guards enforce this engineering principle; their diagnostics provide the action.",
   "feature:canonical-sets":
-    "This is maintainer infrastructure for closed sets, not a user capability.",
+    "The contributor reference documents this maintainer infrastructure for closed sets.",
   "feature:dogfooding":
-    "Running discern on itself is evidence about the product, not an action for a user.",
+    "Running discern on itself supplies product evidence; user actions appear with their concrete features.",
   "feature:interruption-safety":
-    "Interruption cleanup is an engine guarantee; it teaches itself only if a stop occurs.",
+    "The Engine applies this cleanup guarantee when a command stops and reports any recovery action.",
   "verb:help":
-    "Help is already present beside every command and needs no rotating lesson.",
-  "verb:licenses":
-    "License output is a legal reference surface, not an onboarding capability.",
+    "Each command displays its own help, making a rotating lesson redundant.",
+  "verb:licenses": "The legal reference and command help own license output.",
   "verb:mcp":
-    "MCP hosts an agent-only protocol surface and stays out of human tips.",
+    "MCP hosts the agent integration surface; the Desk owns human actions.",
   "verb:setup":
-    "Setup is complete before the desk can show tips and is taught by the installer.",
-  "verb:triangle":
-    "An Easter egg is found, never taught; a curriculum that announces it has spent it.",
+    "The installer teaches setup before the Desk becomes available.",
+  "verb:triangle": "The command is an Easter egg omitted from the curriculum.",
   "verb:uninstall":
-    "Uninstall stays in explicit command help. The desk does not advertise leaving discern.",
+    "Explicit command help documents uninstall; the onboarding curriculum covers continued use.",
 };

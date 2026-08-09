@@ -78,16 +78,16 @@ Deno.test("the committed tip inventory declares its generated provenance", async
 });
 
 Deno.test("the generated inventory explains the curriculum and its guardrails", () => {
-  assertStringIncludes(rendered, "a guided onboarding path");
+  assertStringIncludes(rendered, "defines the onboarding sequence");
   assertStringIncludes(
     rendered,
-    "place a new tip at its learning moment instead of appending it by default",
+    "Place each new tip at its intended learning point",
   );
   assertStringIncludes(
     rendered,
     `no more than ${TIP_RENDERED_LENGTH_LIMIT} characters`,
   );
-  assertStringIncludes(rendered, "There is no reading-grade ceiling");
+  assertStringIncludes(rendered, "omits a reading-grade ceiling");
 });
 
 Deno.test("the generated inventory renders every deliberate absence", () => {

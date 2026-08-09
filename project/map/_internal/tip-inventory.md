@@ -2,13 +2,13 @@
 
 # Tip inventory
 
-_Every desk tip, generated from the live registry._
+_Every Desk tip, generated from the live registry._
 
-Entries follow the authored order. The order is a guided onboarding path. It starts with the desk, orientation, a separate working copy, and the daily loop. It then teaches human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.
+Entries follow the authored order, which defines the onboarding sequence. The sequence starts with the Desk, orientation, an isolated working copy, and the daily loop. It then covers human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons may appear earlier when live state makes them relevant. Place each new tip at its intended learning point.
 
-Every rendered line is one or two short sentences and no more than 160 characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.
+Every rendered line is one or two short sentences and no more than 160 characters, a two-to-three-line wrap at ordinary Desk widths. Commands come from typed references. The register guard applies the plain-language jargon scan and permits only terms listed with a reason in its Desk allowlist.
 
-There is no reading-grade ceiling: on samples this short, command names and placeholders move the score sharply, while an aggregate can hide one dense line. The per-tip jargon, sentence, and length checks hold the intended failure directly.
+The guard omits a reading-grade ceiling because command names and placeholders distort scores on samples this short, while aggregates can hide a dense line. Per-tip jargon, sentence-count, and length checks enforce the register directly.
 
 ## `desk-is-home`
 
@@ -21,7 +21,7 @@ There is no reading-grade ceiling: on samples this short, command names and plac
 Rendered line:
 
 ```text
-Bare `discern` opens the desk, where you start tasks and supervise their separate working copies. This line teaches one capability per session.
+Bare `discern` opens the human view over work in progress (the Desk). Start tasks, supervise them, and read one short tip there.
 ```
 
 ## `status-orients-anywhere`
@@ -49,7 +49,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern start --name "<task>"` gives one effort its own working copy and line of saved work, keeping it away from other tasks and the main copy.
+`discern start --name "<task>"` gives one task an isolated workspace (a Git worktree) and branch, separate from other tasks and the main copy.
 ```
 
 ## `prepare-fast-feedback`
@@ -63,7 +63,7 @@ Rendered line:
 Rendered line:
 
 ```text
-Use `discern prepare` while a change is moving. It runs fixers and read-only checks, skipping builds and tests.
+Use `discern prepare` while editing a change. It runs fixers and read-only checks; builds and tests stay for later.
 ```
 
 ## `test-runs-alone`
@@ -77,7 +77,7 @@ Use `discern prepare` while a change is moving. It runs fixers and read-only che
 Rendered line:
 
 ```text
-`discern test` runs the project's configured tests and quick readiness check outside the full final check.
+`discern test` runs the project's configured tests and quick readiness check, separate from the final quality check.
 ```
 
 ## `tidy-discern-files`
@@ -96,7 +96,7 @@ Rendered line:
 
 ## `inspect-before-accepting`
 
-- Relevance: A task has a passing proof ready for review.
+- Relevance: A task has passing Proof ready for review.
 - Predicate: `ready-to-review`
 - Since: —
 - Teaches: `accept`, `proof`
@@ -105,7 +105,7 @@ Rendered line:
 Rendered line:
 
 ```text
-Before accepting a task, choose "Inspect commits and changes" in the desk. It shows saved work, unsaved edits, the change size, and any passing proof.
+Before accepting, choose "Inspect commits and changes" in the Desk. It shows saved and unsaved work, size, and Proof that the exact version passed its checks.
 ```
 
 ## `grant-once-green`
@@ -119,7 +119,7 @@ Before accepting a task, choose "Inspect commits and changes" in the desk. It sh
 Rendered line:
 
 ```text
-For a task you trust, "Pre-authorize landing once green" lets it land after every check passes. The permission belongs only to that task.
+"Pre-authorize landing once green" records permission for one task to land after every check passes. It applies only to that task.
 ```
 
 ## `drop-protects-work`
@@ -133,7 +133,7 @@ For a task you trust, "Pre-authorize landing once green" lets it land after ever
 Rendered line:
 
 ```text
-`discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The desk asks you to type the branch name before that loss.
+`discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The Desk asks you to type the branch name before that loss.
 ```
 
 ## `reclaim-keeps-recovery`
@@ -245,12 +245,12 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern done` runs the project's final quality check. On clean saved work, a pass records the exact version and results for review.
+`discern done` runs the project's final quality check. On clean saved work, a pass records Proof for the exact version and declared results.
 ```
 
 ## `standards-first-rule`
 
-- Relevance: No quality standards are configured.
+- Relevance: No quality rules are configured.
 - Predicate: `standards-empty`
 - Since: —
 - Teaches: `standards`, `standards-direction`, `skill-set-the-standard`
@@ -259,7 +259,7 @@ Rendered line:
 Rendered line:
 
 ```text
-A quality rule holds one number at a floor or ceiling that can only improve. The `discern-set-the-standard` guide helps a coding agent add one.
+A Standard is a quality measure that can only improve. `discern-set-the-standard` helps a coding agent set its floor or ceiling.
 ```
 
 ## `standards-on-demand`
@@ -278,7 +278,7 @@ Rules marked `measure = "on-demand"` skip routine measurement; `discern standard
 
 ## `standards-pin-gain`
 
-- Relevance: At least one quality standard is configured.
+- Relevance: At least one quality rule is configured.
 - Predicate: `standards-present`
 - Since: —
 - Teaches: `standards-pin`, `standards-margin`
@@ -371,7 +371,7 @@ Rendered line:
 Rendered line:
 
 ```text
-discern contains no AI model and needs no API key. It runs the commands your project declares, in any language.
+discern contains no language model and requires no model-service credentials. It runs the commands your project declares, in any language.
 ```
 
 ## `coupling-missing-partners`
@@ -399,7 +399,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern impact` shows which named project areas and extra checks the current change wakes.
+`discern impact` shows which named project areas and extra checks the current change activates.
 ```
 
 ## `await-other-work`
@@ -413,7 +413,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern await --green <branch>` waits for another task's passing proof and returns the right next step, so a coding agent does not need to keep checking.
+`discern await --green <branch>` waits for another task's passing Proof and returns the right next step, so a coding agent does not need to keep checking.
 ```
 
 ## `map-and-docs-search`
@@ -511,7 +511,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern-teach-the-project` records a hard-won lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
+`discern-teach-the-project` records a durable lesson in project instructions, a reusable guide, a script, documentation, or a decision record.
 ```
 
 ## `record-a-decision`
@@ -539,7 +539,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews what comes back.
+`discern-delegate-work` turns a discussed task into a complete brief for a fresh coding agent, then reviews the resulting change.
 ```
 
 ## `await-with-one-call`
@@ -567,7 +567,7 @@ Rendered line:
 Rendered line:
 
 ```text
-`discern identity --port` prints a task's stable preview-server network number. Other choices expose its branch and service names.
+`discern identity --port` prints the stable network number used by that task's preview server. Other choices show its branch and service names.
 ```
 
 ## `resources-follow-the-copy`
@@ -581,7 +581,7 @@ Rendered line:
 Rendered line:
 
 ```text
-A project can give every working copy its own information store, emulator, or container. discern creates and removes them with the copy.
+A project can give every worktree its own information store, emulator, or container. discern provisions and removes them with the worktree.
 ```
 
 ## `scripts-from-desk`
@@ -595,85 +595,85 @@ A project can give every working copy its own information store, emulator, or co
 Rendered line:
 
 ```text
-When a task has a project-owned tool, the desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
+When a task has a project-owned tool, the Desk offers "Run a Project Script". `discern scripts` lists the same tools from a shell.
 ```
 
 ## Coverage absences
 
-The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the gate.
+The enrollment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the Gate.
 
-| Member                                    | Why it has no tip                                                                                                            |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `feature:adr-discipline`                  | Decision-record authoring is a maintainer practice taught by its specialist guide.                                           |
-| `feature:agent-autodetect`                | Automatic provider choice is agent-integration plumbing with no human action.                                                |
-| `feature:agent-is-user`                   | This is a design principle about coding agents, not a human capability.                                                      |
-| `feature:all-subsystems-core`             | This is a product-shape decision, not a separate beginner action.                                                            |
-| `feature:canonical-sets`                  | This is maintainer infrastructure for closed sets, not a user capability.                                                    |
-| `feature:capture-environment`             | This preserves diagnostic context internally and offers no separate human action.                                            |
-| `feature:cli-help`                        | Built-in command help is already present beside every command and needs no rotating lesson.                                  |
-| `feature:context-budget`                  | This is a design principle about agent attention, not a human capability.                                                    |
-| `feature:crash-safe-provisioning`         | This is worktree safety plumbing; recovery guidance appears when provisioning fails.                                         |
-| `feature:diagnostics`                     | Diagnostics teach themselves at the point of failure instead of occupying a rotating tip.                                    |
-| `feature:docs-integrity`                  | This is map validation plumbing; a failure names the page and repair.                                                        |
-| `feature:dogfooding`                      | Running discern on itself is evidence about the product, not an action for a user.                                           |
-| `feature:env-inheritance`                 | Private-setting inheritance is setup plumbing with no routine human action.                                                  |
-| `feature:fail-fast`                       | This is gate execution plumbing; a failure explains the behavior at the point it matters.                                    |
-| `feature:fail-open-classification`        | This is internal scope-classification safety with no separate human action.                                                  |
-| `feature:forcing-functions`               | This is an engineering principle enforced by guards, not a desk action.                                                      |
-| `feature:forgiving-cli`                   | Input normalization is command-line plumbing with no separate capability.                                                    |
-| `feature:foundations`                     | The product principles explain why discern works this way; they are not individual actions.                                  |
-| `feature:gate-preconditions`              | These are safety checks; their diagnostics teach the required remedy when they fail.                                         |
-| `feature:gate-streaming`                  | This is output plumbing for long checks, not a separate capability to adopt.                                                 |
-| `feature:generated-artifact-declarations` | Generated-artifact configuration is an advanced authoring choice taught by the config reference, not a beginner desk action. |
-| `feature:glossary-canon`                  | Canonical vocabulary is documentation infrastructure, not a capability to adopt.                                             |
-| `feature:gotchas-pointer`                 | The pointer appears in the failure that needs it, so a rotating tip would be less timely.                                    |
-| `feature:guidance-conditionals`           | Provider conditions are an advanced guidance-authoring feature documented in the map.                                        |
-| `feature:hints`                           | Advice notes surface at their relevant action; a generic rotating tip would be less timely.                                  |
-| `feature:idempotent-verbs`                | Safe replay is an engine guarantee, not a separate action to adopt.                                                          |
-| `feature:ignored-drift`                   | Ignored-file drift is an advanced diagnostic taught when a worktree check finds it.                                          |
-| `feature:install`                         | Installation is complete before the desk can show tips and is taught by the installer.                                       |
-| `feature:interfaces`                      | Machine interfaces serve integrations and coding agents, not the human desk.                                                 |
-| `feature:interruption-safety`             | Interruption cleanup is an engine guarantee; it teaches itself only if a stop occurs.                                        |
-| `feature:job-build`                       | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:job-format`                      | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:job-lint`                        | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:job-smoke`                       | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:job-test`                        | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:job-timeouts`                    | This is gate safety plumbing; timeout diagnostics teach it at the point it matters.                                          |
-| `feature:job-typecheck`                   | A project authors this gate job; it is not a separate discern capability for a beginner to adopt.                            |
-| `feature:jobs-table`                      | Project-specific job setup belongs in the gate guide; the tip teaches the final check those jobs serve.                      |
-| `feature:licenses`                        | License output is a legal reference surface, not an onboarding capability.                                                   |
-| `feature:map-freshness`                   | This is a maintainer rule enforced by the gate, not a beginner desk action.                                                  |
-| `feature:mcp-surface`                     | MCP is an agent-only protocol surface and stays out of human tips.                                                           |
-| `feature:output-discipline`               | Output discipline is an engine contract, not a beginner action.                                                              |
-| `feature:ownership-buckets`               | Upgrade ownership is migration plumbing, explained only when an upgrade needs it.                                            |
-| `feature:placement-consent`               | Script placement consent belongs to initial setup and appears when the choice is required.                                   |
-| `feature:provider-claude-code`            | This is an agent-provider integration, not a human desk capability.                                                          |
-| `feature:provider-codex`                  | This is an agent-provider integration, not a human desk capability.                                                          |
-| `feature:provider-copilot`                | This is an agent-provider integration, not a human desk capability.                                                          |
-| `feature:provider-cursor`                 | This is an agent-provider integration, not a human desk capability.                                                          |
-| `feature:provider-gemini`                 | This is an agent-provider integration, not a human desk capability.                                                          |
-| `feature:providers`                       | Provider support is an integration surface for coding agents, not a desk capability.                                         |
-| `feature:publish-predicate`               | Map publication boundaries are maintainer-facing and documented with the map.                                                |
-| `feature:published-contracts`             | Published schemas serve integrations and are documented in the reference.                                                    |
-| `feature:relay-messages`                  | Relay messages coordinate coding agents and do not expose a human action.                                                    |
-| `feature:result-envelope`                 | The result shape is an integration contract, not a human action.                                                             |
-| `feature:session-hooks`                   | Session hooks are agent-integration plumbing and are documented with setup.                                                  |
-| `feature:setup`                           | Setup is complete before the desk can show tips and is taught by the installer.                                              |
-| `feature:setup-observability`             | This is installer reporting plumbing, visible during setup rather than later on the desk.                                    |
-| `feature:single-binary`                   | Packaging is an implementation property, not a capability to adopt.                                                          |
-| `feature:staged-pipeline`                 | This is gate execution plumbing; the `done` tip teaches its human-visible outcome.                                           |
-| `feature:standards-escalation`            | A fired rule explains owner escalation at the point a decision is required.                                                  |
-| `feature:standards-metric-protocol`       | Metric authoring is an advanced path taught by the standard-setting guide.                                                   |
-| `feature:standards-rates`                 | Rate-based quality rules are an advanced authoring choice taught by the standard-setting guide.                              |
-| `feature:standards-replay`                | Replay is measurement plumbing with no separate beginner action.                                                             |
-| `feature:strand-detection`                | This is gate safety plumbing; its diagnostic teaches the recovery when it fires.                                             |
-| `feature:unchanged-tree-rerun`            | This is proof-reuse plumbing; the proof tip covers the human-visible result.                                                 |
-| `feature:uninstall`                       | Uninstall stays in explicit command help. The desk does not advertise leaving discern.                                       |
-| `feature:write-preflight`                 | This is an internal safety check with no separate beginner action.                                                           |
-| `verb:help`                               | Help is already present beside every command and needs no rotating lesson.                                                   |
-| `verb:licenses`                           | License output is a legal reference surface, not an onboarding capability.                                                   |
-| `verb:mcp`                                | MCP hosts an agent-only protocol surface and stays out of human tips.                                                        |
-| `verb:setup`                              | Setup is complete before the desk can show tips and is taught by the installer.                                              |
-| `verb:triangle`                           | An Easter egg is found, never taught; a curriculum that announces it has spent it.                                           |
-| `verb:uninstall`                          | Uninstall stays in explicit command help. The desk does not advertise leaving discern.                                       |
+| Member                                    | Why it has no tip                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `feature:adr-discipline`                  | The `discern-write-adr` Skill teaches decision-record authoring.                                              |
+| `feature:agent-autodetect`                | Setup selects the provider automatically and reports the choice; routine Desk use requires no action.         |
+| `feature:agent-is-user`                   | This design principle governs coding-agent interfaces; the agent reference documents it.                      |
+| `feature:all-subsystems-core`             | This product-shape decision defines the shipped subsystem set; concrete actions appear with each subsystem.   |
+| `feature:canonical-sets`                  | The contributor reference documents this maintainer infrastructure for closed sets.                           |
+| `feature:capture-environment`             | This internal diagnostic record preserves failure context; diagnostics provide the human action.              |
+| `feature:cli-help`                        | Each command displays its own built-in help, making a rotating lesson redundant.                              |
+| `feature:context-budget`                  | This design principle governs coding-agent context; the agent reference documents it.                         |
+| `feature:crash-safe-provisioning`         | Provisioning failures carry the recovery action for this Worktree safety mechanism.                           |
+| `feature:diagnostics`                     | Each diagnostic supplies its action at failure time, when it is relevant.                                     |
+| `feature:docs-integrity`                  | A failed Map validation names the page and repair.                                                            |
+| `feature:dogfooding`                      | Running discern on itself supplies product evidence; user actions appear with their concrete features.        |
+| `feature:env-inheritance`                 | Setup configures private-setting inheritance; routine Desk use requires no separate action.                   |
+| `feature:fail-fast`                       | Gate failures explain this execution rule at the point it matters.                                            |
+| `feature:fail-open-classification`        | This internal rule treats unmatched paths as real changes; the Gate guide documents scope configuration.      |
+| `feature:forcing-functions`               | Guards enforce this engineering principle; their diagnostics provide the action.                              |
+| `feature:forgiving-cli`                   | This command-line parser behavior normalizes input; each command tip teaches the resulting action.            |
+| `feature:foundations`                     | Product principles explain discern's design; concrete actions appear with their features.                     |
+| `feature:gate-preconditions`              | Each precondition diagnostic supplies the required remedy when it fails.                                      |
+| `feature:gate-streaming`                  | This output behavior keeps long Gate checks visible; it adds no separate Desk action.                         |
+| `feature:generated-artifact-declarations` | The config reference teaches this advanced generated-artifact authoring choice.                               |
+| `feature:glossary-canon`                  | The glossary and generated references own canonical vocabulary.                                               |
+| `feature:gotchas-pointer`                 | The failure that needs the troubleshooting pointer supplies it directly.                                      |
+| `feature:guidance-conditionals`           | The Map documents this advanced Guidance-authoring feature.                                                   |
+| `feature:hints`                           | Each hint appears with the action that makes it relevant.                                                     |
+| `feature:idempotent-verbs`                | This Engine guarantee makes safe retries possible; each command describes its own rerun behavior.             |
+| `feature:ignored-drift`                   | A Worktree check teaches this advanced diagnostic when it detects ignored-file drift.                         |
+| `feature:install`                         | The installer teaches installation before the Desk becomes available.                                         |
+| `feature:interfaces`                      | Machine interfaces serve integrations and coding agents; the Desk owns human actions.                         |
+| `feature:interruption-safety`             | The Engine applies this cleanup guarantee when a command stops and reports any recovery action.               |
+| `feature:job-build`                       | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:job-format`                      | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:job-lint`                        | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:job-smoke`                       | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:job-test`                        | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:job-timeouts`                    | Timeout diagnostics explain this Gate safety rule when it fires.                                              |
+| `feature:job-typecheck`                   | Projects author this Gate job in config; the `done` tip teaches the combined final check.                     |
+| `feature:jobs-table`                      | The Gate guide documents project-specific job setup; the `done` tip teaches the final check those jobs serve. |
+| `feature:licenses`                        | The legal reference and command help own license output.                                                      |
+| `feature:map-freshness`                   | The Gate enforces this maintainer rule and names stale Map pages.                                             |
+| `feature:mcp-surface`                     | The Model Context Protocol (MCP) is an agent integration surface; the Desk owns human actions.                |
+| `feature:output-discipline`               | This Engine contract governs result rendering; individual tips teach human actions.                           |
+| `feature:ownership-buckets`               | Upgrade explains ownership buckets when a migration needs them.                                               |
+| `feature:placement-consent`               | Initial setup asks for script-placement consent when the choice is required.                                  |
+| `feature:provider-claude-code`            | The agent-integration reference documents this provider; its integration adds no Desk action.                 |
+| `feature:provider-codex`                  | The agent-integration reference documents this provider; its integration adds no Desk action.                 |
+| `feature:provider-copilot`                | The agent-integration reference documents this provider; its integration adds no Desk action.                 |
+| `feature:provider-cursor`                 | The agent-integration reference documents this provider; its integration adds no Desk action.                 |
+| `feature:provider-gemini`                 | The agent-integration reference documents this provider; its integration adds no Desk action.                 |
+| `feature:providers`                       | The agent-integration reference documents provider support; the Desk exposes actions for active tasks.        |
+| `feature:publish-predicate`               | The Map documentation owns publication boundaries and their maintainer action.                                |
+| `feature:published-contracts`             | The reference documents published schemas for integrations.                                                   |
+| `feature:relay-messages`                  | Relay messages coordinate coding agents; human actions arrive through the Desk.                               |
+| `feature:result-envelope`                 | The integration reference documents the result envelope for machine consumers.                                |
+| `feature:session-hooks`                   | Setup documentation owns session-hook integration and reactivation steps.                                     |
+| `feature:setup`                           | The installer teaches setup before the Desk becomes available.                                                |
+| `feature:setup-observability`             | Setup displays these operational reports while it runs.                                                       |
+| `feature:single-binary`                   | The install and architecture references document this packaging property.                                     |
+| `feature:staged-pipeline`                 | The `done` tip teaches the human-visible result of this Gate execution sequence.                              |
+| `feature:standards-escalation`            | A fired Standard names the owner decision at the point it is required.                                        |
+| `feature:standards-metric-protocol`       | The standard-setting Skill teaches this advanced metric-authoring path.                                       |
+| `feature:standards-rates`                 | The standard-setting Skill teaches rate-based quality-rule authoring.                                         |
+| `feature:standards-replay`                | This measurement optimization reuses recorded values; the Standard tip covers the user-visible rule.          |
+| `feature:strand-detection`                | Its diagnostic teaches recovery when this Gate safety check fires.                                            |
+| `feature:unchanged-tree-rerun`            | The Proof tip covers the review result; reuse remains an internal optimization.                               |
+| `feature:uninstall`                       | Explicit command help documents uninstall; the onboarding curriculum covers continued use.                    |
+| `feature:write-preflight`                 | This internal safety check supplies its action only when it detects a problem.                                |
+| `verb:help`                               | Each command displays its own help, making a rotating lesson redundant.                                       |
+| `verb:licenses`                           | The legal reference and command help own license output.                                                      |
+| `verb:mcp`                                | MCP hosts the agent integration surface; the Desk owns human actions.                                         |
+| `verb:setup`                              | The installer teaches setup before the Desk becomes available.                                                |
+| `verb:triangle`                           | The command is an Easter egg omitted from the curriculum.                                                     |
+| `verb:uninstall`                          | Explicit command help documents uninstall; the onboarding curriculum covers continued use.                    |

@@ -3,9 +3,9 @@
  * is a generated audit surface; it has no hand-maintained entry list.
  *
  * Unlike the hint inventory's id-sorted sections, entries here follow the
- * registry's authored order: that order is the desk's teaching curriculum
+ * registry's authored order: that order is the Desk's teaching curriculum
  * (ADR 0234), and the inventory exists partly so a curriculum review can read
- * it as the desk will teach it.
+ * it as the Desk will teach it.
  */
 
 import {
@@ -29,7 +29,7 @@ function renderEntry(tip: RegisteredTip): string {
   if (/\r|\n/.test(when)) {
     throw new Error(`tip ${tip.id} has a multi-line relevance context`);
   }
-  // The inventory shows the line exactly as the desk delivers it: command
+  // The inventory shows the line exactly as the Desk delivers it: command
   // references in their CLI spelling, at full width.
   const line = renderTipCli(tip);
   let fence = "```";
@@ -69,7 +69,7 @@ function renderAbsenceLedger(): string {
   return [
     "## Coverage absences",
     "",
-    "The enrolment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the gate.",
+    "The enrollment guard derives every feature node and top-level verb from its live registry. A member without a tip appears here with the reason. An unexplained member fails the Gate.",
     "",
     "| Member | Why it has no tip |",
     "| ------ | ----------------- |",
@@ -84,13 +84,13 @@ export function renderTipInventoryDoc(): string {
     "",
     "# Tip inventory",
     "",
-    "_Every desk tip, generated from the live registry._",
+    "_Every Desk tip, generated from the live registry._",
     "",
-    "Entries follow the authored order. The order is a guided onboarding path. It starts with the desk, orientation, a separate working copy, and the daily loop. It then teaches human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons can step ahead when the current state makes them timely. Authors place a new tip at its learning moment instead of appending it by default.",
+    "Entries follow the authored order, which defines the onboarding sequence. The sequence starts with the Desk, orientation, an isolated working copy, and the daily loop. It then covers human supervision, practice health, quality rules, project upkeep, reusable agent guides, and power tools. Contextual lessons may appear earlier when live state makes them relevant. Place each new tip at its intended learning point.",
     "",
-    `Every rendered line is one or two short sentences and no more than ${TIP_RENDERED_LENGTH_LIMIT} characters, a two-to-three-line wrap at ordinary desk widths. Commands come from typed references. The register guard reuses the plain-language jargon scan and permits only reasoned terms that the desk already shows.`,
+    `Every rendered line is one or two short sentences and no more than ${TIP_RENDERED_LENGTH_LIMIT} characters, a two-to-three-line wrap at ordinary Desk widths. Commands come from typed references. The register guard applies the plain-language jargon scan and permits only terms listed with a reason in its Desk allowlist.`,
     "",
-    "There is no reading-grade ceiling: on samples this short, command names and placeholders move the score sharply, while an aggregate can hide one dense line. The per-tip jargon, sentence, and length checks hold the intended failure directly.",
+    "The guard omits a reading-grade ceiling because command names and placeholders distort scores on samples this short, while aggregates can hide a dense line. Per-tip jargon, sentence-count, and length checks enforce the register directly.",
     "",
     TIPS.map(renderEntry).join("\n\n"),
     "",
