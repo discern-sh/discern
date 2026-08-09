@@ -630,14 +630,14 @@ function ProofSpecimen() {
       ]}
       visual={
         <div className="proof-layout">
-          <article className="proof-receipt">
+          <article className="proof-card">
             <span className="proof-pin proof-pin--tree" aria-hidden="true">
               01
             </span>
             <span className="proof-pin proof-pin--gate" aria-hidden="true">
               02
             </span>
-            <header className="proof-receipt__header">
+            <header className="proof-card__header">
               <div>
                 <span>Completion evidence</span>
                 <strong>

@@ -303,3 +303,18 @@ Deno.test("drift guard: every declared matcher recognises its own phrase", () =>
     );
   }
 });
+
+Deno.test("drift guard: a future CSS block cannot revive the Proof's retired noun", () => {
+  const retired = retiredSynonyms().find(({ term, synonym }) =>
+    term === "Proof" && synonym.phrase === "receipt"
+  );
+  assert(retired !== undefined, "the Proof term must retain its retired noun");
+  assertEquals(
+    bannedPhraseLines(
+      "site/page-src/future.css",
+      ".evidence-receipt { display: grid; }",
+      retiredPattern(retired.synonym),
+    ),
+    ['site/page-src/future.css:1 contains "receipt"'],
+  );
+});

@@ -156,6 +156,6 @@ Deno.test("specimen typography reserves monospace for the name and code", async 
     ".specimen-brand-name",
     ".wave-task code, .wave-spine code, .wave-handoff code",
     ".commissioning-stages__body code",
-    ".proof-receipt__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
+    ".proof-card__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
   ]);
 });

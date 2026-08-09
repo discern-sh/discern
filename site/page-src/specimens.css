@@ -786,7 +786,7 @@
     align-items: start;
   }
 
-  .proof-receipt {
+  .proof-card {
     position: relative;
     min-width: 0;
     overflow: hidden;
@@ -795,7 +795,7 @@
     background: var(--discern-color-surface);
   }
 
-  .proof-receipt::before {
+  .proof-card::before {
     display: block;
     block-size: 4px;
     background: var(--discern-color-success);
@@ -830,7 +830,7 @@
     right: var(--discern-space-3);
   }
 
-  .proof-receipt__header {
+  .proof-card__header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -839,12 +839,12 @@
     border-block-end: 1px solid var(--discern-color-border);
   }
 
-  .proof-receipt__header > div {
+  .proof-card__header > div {
     display: grid;
     gap: 0.12rem;
   }
 
-  .proof-receipt__header > div > span,
+  .proof-card__header > div > span,
   .proof-jobs > header > span,
   .proof-standard-summary > header > span {
     color: var(--discern-color-ink-faint);
@@ -853,12 +853,12 @@
     font-size: var(--discern-font-size-xs);
   }
 
-  .proof-receipt__header strong {
+  .proof-card__header strong {
     color: var(--discern-color-ink);
     font-size: var(--discern-font-size-sm);
   }
 
-  .proof-receipt__header code,
+  .proof-card__header code,
   .proof-line code,
   .proof-tree code,
   .proof-jobs code,
