@@ -46,11 +46,12 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`restricted-writer-modules`](#restricted-writer-modules--restricted-writer-modules)                                  | `tests/writer_boundaries.ts#RESTRICTED_WRITER_MODULES`                            | 4       | —                | —                           |
 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                        | `src/shared/setup_checks.ts#SETUP_COMPLETION_CHECKS`                              | 3       | —                | node `setup-observability`  |
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
-| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 158     | "Advisory"       | node `hints`                |
+| [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 167     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
 | [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 9       | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
+| [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
 | [`logbook-events`](#logbook-events--logbook-events)                                                                   | `src/engine/logbook/schema.ts#logbookEventSchema`                                 | 5       | "Logbook"        | node `logbook`              |
 | [`logbook-powered`](#logbook-powered--logbook-powered-capabilities)                                                   | `src/shared/logbook_powered.ts#LOGBOOK_POWERED`                                   | 7       | —                | node `logbook`              |
@@ -71,7 +72,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 256     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 257     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -83,9 +84,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 72      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 73      | —                | node `canonical-sets`       |
 
-72 sets · 105 guard tests · 51 committed artifacts.
+73 sets · 106 guard tests · 51 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -136,6 +137,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/engine_nondefault_paths_test.ts`            | [`source-paths`](#source-paths--source-paths)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/engine_patterns_test.ts`                    | [`git-admin-state`](#git-admin-state--git-admin-state), [`logbook-events`](#logbook-events--logbook-events), [`detector-families`](#detector-families--patterns-detector-families), [`pattern-finding-tones`](#pattern-finding-tones--patterns-finding-tones), [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                                                                                                                        |
 | `tests/engine_plan_parity_test.ts`                 | [`dry-run-verbs`](#dry-run-verbs--dry-run-capable-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `tests/engine_proof_render_test.ts`                | [`landing-consent-sources`](#landing-consent-sources--landing-consent-sources)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_setup_pages_test.ts`                 | [`setup-completion-checks`](#setup-completion-checks--setup-completion-checks)                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `tests/engine_setup_phase_parity_test.ts`          | [`setup-subverbs`](#setup-subverbs--setup-sub-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/engine_subprocess_ssot_test.ts`             | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -179,7 +181,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/reference_docs_test.ts`                     | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/repo_authored_paths_test.ts`                | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/result_codegen_test.ts`                     | [`mcp-tools`](#mcp-tools--mcp-tools), [`result-contracts`](#result-contracts--result-contracts), [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields), [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts), [`public-schema-publications`](#public-schema-publications--public-schema-publications), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes) |
-| `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                                                                                                                  |
+| `tests/result_schemas_test.ts`                     | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields), [`step-kinds`](#step-kinds--step-kinds), [`hints`](#hints--hints), [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence), [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery), [`error-slugs`](#error-slugs--result-error-slugs), [`step-outcomes`](#step-outcomes--step-outcomes)                              |
 | `tests/security_disclosure_test.ts`                | [`security-disclosure`](#security-disclosure--security-disclosure)                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/site_serve_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
@@ -485,7 +487,7 @@ The named, ordered groups used by `discern --help` and the generated CLI referen
 
 ## `consent-gated-verbs` — Consent-gated verbs
 
-The verbs with a `--confirmed` conversation-attestation boundary. The class test proves an authority-free call refuses without writing; accept can also satisfy landing consent through a machine-checked recorded grant.
+The verbs with a `--confirmed` conversation-attestation boundary and the public surfaces that carry each interaction contract. The class test proves an authority-free call refuses without writing and preserves the exact act, consequence, scope, and continuation; accept can also satisfy landing consent through a machine-checked recorded grant.
 
 - Source: `src/shared/consent.ts` — `CONSENT_GATED_VERBS`
 - Members: 2
@@ -504,7 +506,7 @@ The consent evidence recorded for every successful landing: a conversation attes
   - `conversation`
   - `standing-grant`
   - `effort-grant`
-- Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_accept_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_logbook_test.ts`
+- Guards: `tests/engine_landing_authority_test.ts`, `tests/engine_accept_authority_test.ts`, `tests/engine_consent_gate_test.ts`, `tests/engine_proof_render_test.ts`, `tests/engine_logbook_test.ts`
 - Glossary: not enrolled — the acceptance page documents these three evidence forms under landing consent
 - Feature canon: described by the `consent-attestations` node
 
@@ -934,7 +936,7 @@ The `@…@` runtime tokens substituted into a Worktree's resource commands from 
 The advisory hint registry: every hint string enters results through it.
 
 - Source: `src/shared/hints.ts` — `HINTS`
-- Members: 158
+- Members: 167
   - `setup-unfinished-status`
   - `missing-trunk-branch`
   - `silent-worktree-divergence`
@@ -990,6 +992,7 @@ The advisory hint registry: every hint string enters results through it.
   - `await-not-yet`
   - `await-green-no-worktree`
   - `await-branch-missing`
+  - `await-trunk-missing`
   - `patterns-logbook-empty`
   - `patterns-insufficient-evidence`
   - `patterns-advisory-findings`
@@ -1001,6 +1004,7 @@ The advisory hint registry: every hint string enters results through it.
   - `logbook-proof-finding`
   - `logbook-status-finding`
   - `improvement-logbook-off`
+  - `improvement-follow-next-action`
   - `setup-unfinished-gate`
   - `gate-job-loud-success`
   - `test-job-not-configured`
@@ -1058,9 +1062,12 @@ The advisory hint registry: every hint string enters results through it.
   - `standards-pinnable-slack`
   - `refresh-mcp-first-install`
   - `refresh-commit-tracked-artifacts`
+  - `refresh-artifact-failed`
   - `skills-eject-edit-override`
+  - `skills-eject-finish-materialization`
   - `accept-awaiting-confirmation`
   - `accept-review-via-status`
+  - `accept-reconcile-partial-effects`
   - `accept-refresh-failed`
   - `accept-convergence-changed-tracked`
   - `accept-relay-landing-proof`
@@ -1076,6 +1083,8 @@ The advisory hint registry: every hint string enters results through it.
   - `start-submodules-empty`
   - `ensure-main-worktree-first`
   - `setup-refresh-artifact-failed`
+  - `setup-awaiting-confirmation`
+  - `setup-finish-incomplete`
   - `setup-guidance-preserved`
   - `setup-guidance-own-render-skipped`
   - `setup-done-land-dedicated`
@@ -1089,6 +1098,8 @@ The advisory hint registry: every hint string enters results through it.
   - `upgrade-restart-session`
   - `config-job-deferred`
   - `failure-recovery`
+  - `docs-choose-candidate`
+  - `docs-find-target`
   - `unknown-command-suggestion`
   - `unknown-command-help`
   - `start-mcp-re-root`
@@ -1203,6 +1214,80 @@ The result fields a generic recovery instruction may cite. A failure with neithe
   - `diagnostic`
 - Guards: `tests/result_schemas_test.ts`
 - Glossary: not enrolled — the advisory contract documents these result-envelope evidence fields
+- Feature canon: described by the `hints` node
+
+## `error-failure-recovery` — Error-family failure recovery
+
+The audited recovery mode for every canonical error slug: use the generic floor only when the message or first diagnostic supplies the correction; otherwise require a tailored registered next step.
+
+- Source: `src/shared/hints.ts` — `ERROR_FAILURE_RECOVERY`
+- Members: 64
+  - `active_worktrees: evidence`
+  - `ambiguous: tailored`
+  - `apply_failed: evidence`
+  - `awaiting_consent: tailored`
+  - `below_min_score: tailored`
+  - `brief_unparseable: evidence`
+  - `checkout_failed: evidence`
+  - `config_template_unavailable: evidence`
+  - `confirmation_required: evidence`
+  - `conflict: evidence`
+  - `desk_already_active: evidence`
+  - `detached_head: evidence`
+  - `diagrams_misaligned: evidence`
+  - `dirty_worktree: evidence`
+  - `edit_error: evidence`
+  - `gate_failed: evidence`
+  - `gitignore_template_unavailable: evidence`
+  - `identity_error: evidence`
+  - `incomplete: tailored`
+  - `internal_error: evidence`
+  - `invalid_arguments: evidence`
+  - `invalid_config: evidence`
+  - `invalid_config_file: evidence`
+  - `invalid_migrated_config: evidence`
+  - `invalid_preset: evidence`
+  - `invalid_settings_file: evidence`
+  - `invalid_toml: evidence`
+  - `invalid_value: evidence`
+  - `no_docs: evidence`
+  - `no_map: evidence`
+  - `no_project: evidence`
+  - `no_repository: evidence`
+  - `no_such_step: evidence`
+  - `no_target: evidence`
+  - `not_found: tailored`
+  - `not_initialized: evidence`
+  - `not_main_checkout: evidence`
+  - `not_on_trunk: evidence`
+  - `not_set_up: evidence`
+  - `not_setup_branch: evidence`
+  - `partial_acceptance: tailored`
+  - `partial_materialization: tailored`
+  - `partial_refresh: tailored`
+  - `pin_failed: evidence`
+  - `precondition_failed: evidence`
+  - `provisioned_resources: evidence`
+  - `read_error: evidence`
+  - `renamed_command: evidence`
+  - `renamed_config_key: evidence`
+  - `schema_version_too_new: evidence`
+  - `setup_plan_failed: evidence`
+  - `skills_eject_failed: evidence`
+  - `tables_malformed: evidence`
+  - `templates_not_found: evidence`
+  - `tidy_parse_failed: evidence`
+  - `tidy_write_failed: evidence`
+  - `uncommitted_changes: evidence`
+  - `unchanged_tree_rerun: tailored`
+  - `unknown_category: evidence`
+  - `unknown_command: tailored`
+  - `unknown_key: evidence`
+  - `unknown_preset: evidence`
+  - `unknown_standard: evidence`
+  - `write_access: evidence`
+- Guards: `tests/result_schemas_test.ts`
+- Glossary: not enrolled — the result-contract reference explains the two recovery modes without exposing this internal policy table
 - Feature canon: described by the `hints` node
 
 ## `logbook-outcomes` — Logbook outcomes
@@ -1788,7 +1873,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 256
+- Members: 257
   - `0003`
   - `0005`
   - `0006`
@@ -2027,6 +2112,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0263`
   - `0264`
   - `0265`
+  - `0266`
   - `0001`
   - `0002`
   - `0004`
@@ -2287,7 +2373,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 72
+- Members: 73
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2327,6 +2413,7 @@ This meta-registry: the closed set of closed sets.
   - `terminal-art-variants`
   - `terminal-triangle-motifs`
   - `failure-recovery-evidence`
+  - `error-failure-recovery`
   - `logbook-outcomes`
   - `logbook-events`
   - `logbook-powered`

@@ -23,7 +23,11 @@ import {
   type LogbookEvent,
   parseLogbookLine,
 } from "../src/engine/logbook/schema.ts";
-import type { LandingConsent } from "../src/shared/consent.ts";
+import {
+  LANDING_CONSENT_SOURCES,
+  type LandingConsent,
+  type LandingConsentSource,
+} from "../src/shared/consent.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../src/shared/environment_variables.ts";
 import {
   addWorktree,
@@ -41,6 +45,31 @@ const INTERRUPTION_FIXTURES = {
   "effort-claim": "pre-CAS claim and post-CAS consumption",
   "trunk-ref": "post-CAS checkout convergence, local edits, and ABA movement",
 } as const satisfies Record<AcceptanceTransactionBoundary, string>;
+
+/** Runtime evidence accumulated by the three successful authority fixtures. */
+const SUCCESSFUL_LANDING_SOURCES_EXERCISED = new Set<LandingConsentSource>();
+
+/** Hold a successful envelope, Proof line, and Logbook event to one authority fact. */
+function assertSuccessfulLandingEvidence(
+  envelope: {
+    readonly data: {
+      readonly consent: LandingConsent;
+      readonly proof_line: string;
+    };
+  },
+  event: LogbookEvent | undefined,
+  expected: LandingConsent,
+  proofPhrase: string,
+): void {
+  assertEquals(envelope.data.consent, expected);
+  assertStringIncludes(envelope.data.proof_line, proofPhrase);
+  assert(event?.kind === "verb");
+  assertEquals(event.consent, {
+    source: expected.source,
+    ...(expected.scopes === undefined ? {} : { scopes: [...expected.scopes] }),
+  });
+  SUCCESSFUL_LANDING_SOURCES_EXERCISED.add(expected.source);
+}
 
 Deno.test("every acceptance transaction boundary has interruption fixtures", () => {
   assertEquals(
@@ -249,15 +278,7 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
-    assertEquals(envelope.data.consent, {
-      source: "standing-grant",
-      scopes: ["map"],
-    });
     assertEquals(envelope.data.scopes_changed, ["map"]);
-    assertStringIncludes(
-      envelope.data.proof_line,
-      "landed under standing grant: map",
-    );
     assertEquals(await exists(worktree), false);
     assertEquals(
       await Deno.readTextFile(join(dir, "docs", "guide.md")),
@@ -266,11 +287,13 @@ Deno.test("accept lands flagless under a standing grant and records its scopes",
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
+    assertSuccessfulLandingEvidence(
+      envelope,
+      event,
+      { source: "standing-grant", scopes: ["map"] },
+      "landed under standing grant: map",
+    );
     assert(event?.kind === "verb");
-    assertEquals(event.consent, {
-      source: "standing-grant",
-      scopes: ["map"],
-    });
     assertEquals(event.scopes, ["map"]);
   });
 });
@@ -1049,17 +1072,17 @@ Deno.test("accept records confirmed conversation consent in its proof and logboo
     ]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
-    assertEquals(envelope.data.consent, { source: "conversation" });
     assertEquals(envelope.data.scopes_changed, ["map"]);
-    assertStringIncludes(
-      envelope.data.proof_line,
-      "landed with conversation consent",
-    );
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
+    assertSuccessfulLandingEvidence(
+      envelope,
+      event,
+      { source: "conversation" },
+      "landed with conversation consent",
+    );
     assert(event?.kind === "verb");
-    assertEquals(event.consent, { source: "conversation" });
     assertEquals(event.scopes, ["map"]);
   });
 });
@@ -1092,11 +1115,6 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
     const landed = await runAgent(worktree, ["accept", "--json"]);
     assertEquals(landed.code, 0, landed.output);
     const envelope = JSON.parse(landed.stdout);
-    assertEquals(envelope.data.consent, { source: "effort-grant" });
-    assertStringIncludes(
-      envelope.data.proof_line,
-      "landed under effort grant",
-    );
     assertEquals(await exists(marker), false);
     assertEquals(
       await exists(transactionMarkers),
@@ -1106,8 +1124,12 @@ Deno.test("accept lands flagless under an effort grant and consumes it", async (
 
     const events = await acceptEvents(dir);
     const event = events.at(-1);
-    assert(event?.kind === "verb");
-    assertEquals(event.consent, { source: "effort-grant" });
+    assertSuccessfulLandingEvidence(
+      envelope,
+      event,
+      { source: "effort-grant" },
+      "landed under effort grant",
+    );
   });
 });
 
@@ -1638,4 +1660,13 @@ Deno.test("accept dry-run reports standing authority without landing", async () 
     assert(await exists(worktree));
     assertEquals(await exists(join(dir, "docs", "guide.md")), false);
   });
+});
+
+// Keep this reconciliation last: the successful fixtures above provide the
+// evidence, and a new source must add a real landing case before this can pass.
+Deno.test("successful acceptance evidence covers every canonical landing-consent source", () => {
+  assertEquals(
+    [...SUCCESSFUL_LANDING_SOURCES_EXERCISED].sort(),
+    [...LANDING_CONSENT_SOURCES].sort(),
+  );
 });

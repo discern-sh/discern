@@ -556,7 +556,7 @@ export async function awaitResult(
     return refusal(
       "not_found",
       `The trunk branch \`${trunk}\` does not exist locally, so no fleet condition can be observed against it.`,
-      failureRecoveryHintTexts("await"),
+      hintTexts([fire(HINTS["await-trunk-missing"], { trunk })]),
     );
   }
   const callerHasWorktree = await worktreeGitKey(root) !== undefined;

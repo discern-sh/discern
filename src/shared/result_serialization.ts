@@ -7,6 +7,7 @@
  */
 
 import {
+  failureRecoveryMode,
   hasFailureRecoveryEvidence,
   hasGenericFailureRecoveryHint,
   hasRegisteredActionableHint,
@@ -21,6 +22,14 @@ import { type DiscernResult, planToJson, stepResultToJson } from "./result.ts";
  * surface can emit one.
  */
 export function serializeResult(r: DiscernResult): Record<string, unknown> {
+  if (
+    !r.ok && hasGenericFailureRecoveryHint(r.hints) &&
+    failureRecoveryMode(r) !== "evidence"
+  ) {
+    throw new Error(
+      `internal result invariant: failed \`discern ${r.verb}\` result's error family requires a tailored registered next-step hint`,
+    );
+  }
   if (
     !r.ok && hasGenericFailureRecoveryHint(r.hints) &&
     !hasFailureRecoveryEvidence(r)

@@ -74,7 +74,12 @@ import {
   type HumanOutputGroup,
   renderHumanOutputGroups,
 } from "../shared/result.ts";
-import { failureRecoveryHintTexts } from "../shared/hints.ts";
+import {
+  failureRecoveryHintTexts,
+  fire,
+  HINTS,
+  hintTexts,
+} from "../shared/hints.ts";
 import type {
   DocRecord,
   DocsData,
@@ -1141,7 +1146,7 @@ async function treeResult(
           verb: desc.verb,
           error: "not_found",
           message: notFoundMessage(opts.target, []),
-          hints: failureRecoveryHintTexts(desc.verb),
+          hints: hintTexts([fire(HINTS["docs-find-target"])]),
         };
       }
       return {
@@ -1171,7 +1176,7 @@ async function treeResult(
           verb: desc.verb,
           error: "not_found",
           message: notFoundMessage(opts.target, suggestions),
-          hints: failureRecoveryHintTexts(desc.verb),
+          hints: hintTexts([fire(HINTS["docs-find-target"])]),
           ...(suggestions.length > 0
             ? {
               data: {
@@ -1188,7 +1193,7 @@ async function treeResult(
           error: "ambiguous",
           message:
             `"${opts.target}" matches ${resolvedScope.entries.length} docs.`,
-          hints: failureRecoveryHintTexts(desc.verb),
+          hints: hintTexts([fire(HINTS["docs-choose-candidate"])]),
           data: {
             candidates: resolvedScope.entries.map((entry) => entry.path),
           } satisfies DocsData,
@@ -1231,7 +1236,7 @@ async function treeResult(
         verb: desc.verb,
         error: "not_found",
         message: notFoundMessage(opts.target, suggestions),
-        hints: failureRecoveryHintTexts(desc.verb),
+        hints: hintTexts([fire(HINTS["docs-find-target"])]),
         ...(suggestions.length > 0
           ? {
             data: { suggestions: suggestions.map(toRecord) } satisfies DocsData,
@@ -1245,7 +1250,7 @@ async function treeResult(
         verb: desc.verb,
         error: "ambiguous",
         message: `"${opts.target}" matches ${res.entries.length} docs.`,
-        hints: failureRecoveryHintTexts(desc.verb),
+        hints: hintTexts([fire(HINTS["docs-choose-candidate"])]),
         data: {
           candidates: res.entries.map((e) => e.path),
         } satisfies DocsData,

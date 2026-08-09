@@ -47,6 +47,19 @@ Rendered example:
 Share this landing's Proof with other clones: `git push origin refs/notes/discern`. discern records Proof locally; network publication occurs only through the Git command you run.
 ```
 
+## `accept-reconcile-partial-effects`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `accept-recovery`
+- Emitting context: Acceptance stops after at least one irreversible effect.
+
+Rendered example:
+
+```text
+Read `data.landing` before acting. If `trunk_landed` is true, do not land the commit again; finish only the cleanup whose state is false. Otherwise resolve the reported failure, then run `discern status` before attempting `discern accept` again.
+```
+
 ## `accept-refresh-failed`
 
 - Category: `next-step`
@@ -162,6 +175,19 @@ Rendered example:
 
 ```text
 Not yet: `agent/upload-retry` has no valid Proof yet. Continue this same watch once for up to 45s: `discern await --resume C1-7K3M-PQ9D-YM --timeout 45`. It returns as soon as the condition holds. If it is still not met, use the next --resume command; do not restart the condition or stop after a fixed number of retries.
+```
+
+## `await-trunk-missing`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `await-missing-target`
+- Emitting context: `await` cannot resolve the configured trunk branch locally.
+
+Rendered example:
+
+```text
+Fetch or create the configured trunk branch `main`, or correct `[repository].trunk`, then restart the watch with its condition.
 ```
 
 ## `await-trunk-moved-met`
@@ -318,6 +344,32 @@ Rendered example:
 
 ```text
 Add a forcing-function if `src/main.ts` and `tests/main_test.ts` share an essential invariant. They change together almost every time. The `discern-cure-a-bug` skill covers the pattern.
+```
+
+## `docs-choose-candidate`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `docs-recovery`
+- Emitting context: A docs or map target resolves to more than one entry.
+
+Rendered example:
+
+```text
+Choose one exact path from `data.candidates`, then re-run the same command with that path as its target.
+```
+
+## `docs-find-target`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `docs-recovery`
+- Emitting context: A docs or map target does not resolve.
+
+Rendered example:
+
+```text
+Use an exact path from `data.suggestions` when present; otherwise run the same command without a target to inspect its index, then retry with one returned path.
 ```
 
 ## `doctor-failed-checks`
@@ -950,6 +1002,19 @@ Rendered example:
 Fix the `gotcha-match` block in the gotchas entry "A command hangs, then fails with a timeout": `stage` is "timeout", which is not a gate stage. Until it parses, the entry cannot match failures.
 ```
 
+## `improvement-follow-next-action`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `improvement-recovery`
+- Emitting context: `improvement --min-score` reports a score below its threshold.
+
+Rendered example:
+
+```text
+Carry out `data.next_action.action`, then re-run the same improvement command to measure the result against its threshold.
+```
+
 ## `improvement-logbook-off`
 
 - Category: `notice`
@@ -1171,6 +1236,19 @@ Rendered example:
 Run `discern refresh` to restore discern-managed artifacts. Provider integration files need attention (.codex/config.toml). If refresh reports a malformed settings file, repair it and run `discern refresh` again.
 ```
 
+## `refresh-artifact-failed`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `refresh-result`
+- Emitting context: `refresh` cannot reconcile one of its managed artifacts.
+
+Rendered example:
+
+```text
+Fix the refresh error, then run `discern refresh`: could not update a co-owned agent config
+```
+
 ## `refresh-commit-tracked-artifacts`
 
 - Category: `next-step`
@@ -1197,6 +1275,19 @@ Rendered example:
 Restart your coding agent now, or reload its MCP servers, before trying to use the discern tools. This refresh registered the server for the first time, and the registration persists after restart. An open agent session does not discover a newly registered or upgraded discern MCP server automatically. Restarting the session or reloading its MCP servers loads the current server, engine, and templates.
 ```
 
+## `setup-awaiting-confirmation`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-consent`
+- Emitting context: `setup begin` has no conversation-consent attestation.
+
+Rendered example:
+
+```text
+Relay `data.guidance` to your human, wait for their answers, then run the exact command in `data.command`; its `--confirmed` flag attests to that conversation.
+```
+
 ## `setup-done-land-dedicated`
 
 - Category: `next-step`
@@ -1221,6 +1312,19 @@ Rendered example:
 
 ```text
 Merge `feature/project-setup` into `main` your usual way when ready. `discern setup accept` only lands the `discern-setup` branch.
+```
+
+## `setup-finish-incomplete`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `setup-done-recovery`
+- Emitting context: `setup done` finds skeleton markers or unmet completion checks.
+
+Rendered example:
+
+```text
+Complete every file in `data.leftover` and every check in `data.unmet`, then re-run `discern setup done`; use `--force` only to record completion without that proof.
 ```
 
 ## `setup-guidance-own-render-skipped`
@@ -1351,6 +1455,19 @@ Rendered example:
 
 ```text
 Run `discern skills list` to locate the authored override, then edit that source.
+```
+
+## `skills-eject-finish-materialization`
+
+- Category: `next-step`
+- Audience: `all`
+- Family: `skills-eject-recovery`
+- Emitting context: `skills eject` writes the override but cannot materialize it everywhere.
+
+Rendered example:
+
+```text
+Fix every entry in `data.materialized.errors`, then run `discern refresh` to materialize the ejected Skill in every configured agent directory.
 ```
 
 ## `standards-limits-unverified`

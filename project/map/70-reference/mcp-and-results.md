@@ -111,11 +111,15 @@ Map search includes `publish: false`. Docs search covers the public manual. Both
 
 Undefined fields are omitted. Branch on `ok`, then `verb`, before reading `data`.
 
+Every failed CLI JSON or MCP envelope crosses the same serialization boundary and carries a registered next step. The canonical error-slug set has a total recovery classification: the generic instruction is legal only for an audited family whose `message` or first diagnostic contains the correction. Families whose continuation depends on structured state or a choice must carry a tailored registered hint. These include consent, partial effects, incomplete setup, ambiguous or missing document targets, and a failed improvement threshold. A failed result with no canonical error family also fails closed to tailored recovery ([ADR 0266](../_adr/0266-public-failure-recovery-is-classified-by-error-family.md)).
+
+`setup begin` and `accept` are the consent-gated class. Without machine-checked authority they refuse before effects with `awaiting_consent`, the shared `--confirmed` attestation vocabulary, and the exact act, consequence, scope, and continuation on every public surface the verb supports. `setup begin` serves human and JSON output; `accept` serves human, JSON, and MCP output. Dry-runs do not mutate and therefore do not require consent.
+
 `start`, `status`, and green `done` results may carry `data.landing_authority`: `authorized` or `conversation-required`, with source, scopes, uncovered paths, and warnings. `start` grants are prospective. An absent fact stays absent. See [Landing authority](../30-worktrees/landing-authority.md).
 
 `status` identifies the project in `data.project`. Every readable non-main `data.fleet` row carries `gate_proof`, whose status is `honored`, `missing`, `stale`, `dirty`, `unavailable`, or `read_failed`. Honored rows retain the earlier `proof_honored`, `proof`, and `proof_line` fields. When Git can read the latest landed Proof's subject, `data.landed_proof.commit_at` carries its committer timestamp. See [Status and session hints](../30-worktrees/status.md) for the human dashboard and structured result projections.
 
-A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.proof_line` derives from the validated Proof line and appends that consent evidence.
+A successful `accept` reports the evidence it used in `data.consent`: `source` is `conversation`, `standing-grant`, or `effort-grant`, and `scopes` is present for standing-grant coverage. Its `data.proof_line` derives from the validated Proof line and appends that consent evidence. The interactive completion prints that same line.
 
 ### Plans and executed steps
 

@@ -1204,6 +1204,9 @@ async function skillsEjectResult(
         message:
           `ejected "${name}", but could not materialize every configured agent skill directory`,
         data,
+        hints: hintTexts([
+          fire(HINTS["skills-eject-finish-materialization"]),
+        ]),
       };
     }
     return {

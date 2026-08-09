@@ -1777,9 +1777,10 @@ function partialAcceptanceResult(
         ? {}
         : { proof_note: progress.proofNote }),
     },
-    ...(progress.convergenceHints.length === 0
-      ? {}
-      : { hints: [...progress.convergenceHints] }),
+    hints: mergeHintTexts(
+      hintTexts([fire(HINTS["accept-reconcile-partial-effects"])]),
+      progress.convergenceHints,
+    ),
     ...(progress.diagnostics.length === 0
       ? {}
       : { diagnostics: [...progress.diagnostics] }),
@@ -2516,6 +2517,9 @@ async function executeAcceptPlan(
 
   ctx.log.heading("Acceptance complete.");
   ctx.log.line(`  You are on ${trunk} in ${mainRepo}.`);
+  if (proofLine !== undefined) {
+    ctx.log.line(proofLine);
+  }
   // The landing record: the proof for the tree that just landed, pasteable
   // into a PR body. Printed unindented so it relays as clean markdown; dimmed
   // so the quoted page stays visually secondary (dim is display-only — a

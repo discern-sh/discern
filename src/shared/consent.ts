@@ -61,6 +61,9 @@ export interface LandingConsent {
   readonly scopes?: readonly string[];
 }
 
+/** One rendering that must carry the gated act's complete interaction contract. */
+export type ConsentSurface = "human" | "json" | "mcp";
+
 /** One consent-gated verb — pure metadata, no behaviour. */
 export interface ConsentGatedVerb {
   /** Stable identifier for the class (matches the probe key in the class test). */
@@ -69,6 +72,8 @@ export interface ConsentGatedVerb {
   readonly command: string;
   /** The attestation flag that satisfies the gate. */
   readonly flag: string;
+  /** Public surfaces that must carry the same act, consequence, scope, and continuation. */
+  readonly surfaces: readonly ConsentSurface[];
 }
 
 /**
@@ -78,7 +83,20 @@ export interface ConsentGatedVerb {
  * names its recovery — so a future gated act can never quietly ship without the
  * structural refusal the class exists to guarantee.
  */
-export const CONSENT_GATED_VERBS: readonly ConsentGatedVerb[] = [
-  { id: "setup-begin", command: "setup begin", flag: CONFIRMED_ATTESTATION },
-  { id: "accept", command: "accept", flag: CONFIRMED_ATTESTATION },
-];
+export const CONSENT_GATED_VERBS = [
+  {
+    id: "setup-begin",
+    command: "setup begin",
+    flag: CONFIRMED_ATTESTATION,
+    surfaces: ["human", "json"],
+  },
+  {
+    id: "accept",
+    command: "accept",
+    flag: CONFIRMED_ATTESTATION,
+    surfaces: ["human", "json", "mcp"],
+  },
+] as const satisfies readonly ConsentGatedVerb[];
+
+/** Stable ids used by the authority-driven class probes. */
+export type ConsentGatedVerbId = (typeof CONSENT_GATED_VERBS)[number]["id"];

@@ -15,7 +15,7 @@
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
-import { join } from "@std/path";
+import { basename, dirname, join } from "@std/path";
 import { exists } from "@std/fs";
 import { withTempDir } from "./helpers.ts";
 import {
@@ -31,9 +31,12 @@ import {
 import {
   AWAITING_CONSENT_SLUG,
   CONSENT_GATED_VERBS,
+  type ConsentGatedVerbId,
+  type ConsentSurface,
 } from "../src/shared/consent.ts";
 import { HINTS } from "../src/shared/hints.ts";
 import { assertHasHint } from "./hint_asserts.ts";
+import { runTool, TOOLS, WorkingRoot } from "../src/engine/mcp/server.ts";
 
 /** Decode consent-gated lifecycle output for authority and no-effect assertions. */
 // deno-lint-ignore no-explicit-any
@@ -79,34 +82,115 @@ async function freshRepo(dir: string): Promise<void> {
   await gitInit(dir);
 }
 
+/** The meaning every available surface must carry without paraphrase. */
+const CONSENT_MEANING_DIMENSIONS = [
+  "act",
+  "consequence",
+  "scope",
+  "continuation",
+] as const;
+type ConsentMeaningDimension = (typeof CONSENT_MEANING_DIMENSIONS)[number];
+
+interface ConsentSurfaceObservation {
+  readonly refused: boolean;
+  /** Raw public fields from that surface; exact contract facts must occur here. */
+  readonly evidence: readonly string[];
+}
+
+interface ConsentProbeResult {
+  readonly env: ReturnType<typeof parseJson>;
+  readonly mutated: boolean;
+  readonly meaning: Readonly<Record<ConsentMeaningDimension, string>>;
+  readonly surfaces: Partial<
+    Readonly<Record<ConsentSurface, ConsentSurfaceObservation>>
+  >;
+}
+
 /**
- * One consent-gated verb's refusal probe: run the verb WITHOUT its attestation in
- * an arranged temp repo, and report the parsed refusal envelope plus whether
- * anything mutated. Keyed by the registry id — a member with no probe fails the
- * class test (fail-closed), so a newly gated verb must wire one here.
+ * Run one gated verb without authority across every surface it declares. A new
+ * registry member cannot compile without a probe; adding a surface to a member
+ * fails the class assertion until that rendering is observed too.
  */
-const PROBES: Record<
-  string,
-  // deno-lint-ignore no-explicit-any
-  (dir: string) => Promise<{ code: number; env: any; mutated: boolean }>
-> = {
+const PROBES = {
   "setup-begin": async (dir) => {
     await freshRepo(dir);
-    const r = await runAgent(dir, ["setup", "begin", "--json"]);
+    const json = await runAgent(dir, ["setup", "begin", "--json"]);
+    const env = parseJson(json.stdout);
+    const human = await runAgent(dir, ["setup", "begin"]);
     // Mutated iff the fresh scaffold wrote its config.
     const mutated = await exists(join(dir, "discern.toml"));
-    return { code: r.code, env: parseJson(r.stdout), mutated };
+    return {
+      env,
+      mutated,
+      meaning: {
+        act: "Setup needs your human's consent",
+        consequence: "before it writes anything",
+        scope: join(dirname(dir), `${basename(dir)}.worktrees`),
+        continuation: env.data.command,
+      },
+      surfaces: {
+        json: {
+          refused: json.code === 1 && env.ok === false &&
+            env.error === AWAITING_CONSENT_SLUG,
+          evidence: [env.message, env.data.guidance, env.data.command],
+        },
+        human: { refused: human.code === 1, evidence: [human.output] },
+      },
+    };
   },
   "accept": async (dir) => {
     const wt = await worktreeReadyToLand(dir);
-    const r = await runAgent(wt, ["accept", "--json"]);
+    const json = await runAgent(wt, ["accept", "--json"]);
+    const env = parseJson(json.stdout);
+    const human = await runAgent(wt, ["accept"]);
+    const tool = TOOLS.find((candidate) => candidate.name === "discern_accept");
+    assert(
+      tool !== undefined,
+      "discern_accept must be in the MCP tool registry",
+    );
+    const mcp = await runTool(
+      tool,
+      new WorkingRoot(wt),
+      {},
+      undefined,
+      () => Promise.resolve(undefined),
+    );
+    const mcpEnv = mcp.structuredContent;
     // Mutated iff the branch work fast-forwarded onto the trunk, or the worktree
     // was removed — either would mean the refusal touched the tree.
     const mutated = (await exists(join(dir, "feature.txt"))) ||
       !(await exists(wt));
-    return { code: r.code, env: parseJson(r.stdout), mutated };
+    return {
+      env,
+      mutated,
+      meaning: {
+        act: "Landing is the owner's decision",
+        consequence: "Nothing has been landed",
+        scope: "the worktree, its branch, and the trunk are untouched",
+        continuation: "discern accept --confirmed",
+      },
+      surfaces: {
+        json: {
+          refused: json.code === 1 && env.ok === false &&
+            env.error === AWAITING_CONSENT_SLUG,
+          evidence: [env.message, ...(env.hints ?? [])],
+        },
+        human: { refused: human.code === 1, evidence: [human.output] },
+        mcp: {
+          refused: mcp.isError === true &&
+            mcpEnv.error === AWAITING_CONSENT_SLUG,
+          evidence: [
+            String(mcpEnv.message ?? ""),
+            ...((mcpEnv.hints ?? []) as string[]),
+          ],
+        },
+      },
+    };
   },
-};
+} satisfies Record<
+  ConsentGatedVerbId,
+  (dir: string) => Promise<ConsentProbeResult>
+>;
 
 Deno.test("consent class: every consent-gated verb refuses without its attestation, mutation-free", async () => {
   for (const verb of CONSENT_GATED_VERBS) {
@@ -117,9 +201,9 @@ Deno.test("consent class: every consent-gated verb refuses without its attestati
         `class contract covers it`,
     );
     await withTempDir(async (dir) => {
-      const { code, env, mutated } = await probe(dir);
-      // Refused, read-only, with the one shared slug the class recognises…
-      assertEquals(code, 1, `${verb.id} must refuse (exit 1)`);
+      const observed: ConsentProbeResult = await probe(dir);
+      const { env, meaning, mutated, surfaces } = observed;
+      // Refused, read-only, with the one shared slug the class recognises.
       assertEquals(env.ok, false, `${verb.id}: ${JSON.stringify(env)}`);
       assertEquals(
         env.error,
@@ -130,8 +214,28 @@ Deno.test("consent class: every consent-gated verb refuses without its attestati
         !mutated,
         `${verb.id}: an awaiting-consent refusal must write nothing`,
       );
-      // …and the recovery names the attestation flag, wherever the verb carries
-      // it (accept in a hint, setup in data.command).
+      assertEquals(
+        Object.keys(surfaces).sort(),
+        [...verb.surfaces].sort(),
+        `${verb.id}: probe every declared public surface`,
+      );
+      for (const surface of verb.surfaces) {
+        const observation = surfaces[surface];
+        assert(
+          observation !== undefined,
+          `${verb.id}: missing ${surface} observation`,
+        );
+        assert(observation.refused, `${verb.id}: ${surface} must refuse`);
+        const publicText = observation.evidence.join("\n");
+        for (const dimension of CONSENT_MEANING_DIMENSIONS) {
+          assertStringIncludes(
+            publicText,
+            meaning[dimension],
+            `${verb.id}: ${surface} omits the exact ${dimension}`,
+          );
+        }
+      }
+      // The machine envelope also names the shared attestation vocabulary.
       assertStringIncludes(
         JSON.stringify(env),
         verb.flag,
@@ -192,6 +296,21 @@ Deno.test("accept: --confirmed preserves the conversation-consent landing path",
       "branch work should be on the trunk",
     );
     assertStringIncludes(env.data.proof, "### Proof");
+  });
+});
+
+Deno.test("accept: human success reports the same conversation-consent evidence", async () => {
+  await withTempDir(async (dir) => {
+    const wt = await worktreeReadyToLand(dir);
+
+    const landed = await runAgent(wt, ["accept", "--confirmed"]);
+    assertEquals(landed.code, 0, landed.output);
+    assertStringIncludes(
+      landed.output,
+      "landed with conversation consent",
+      "the interactive completion must report the authority used",
+    );
+    assertEquals(await exists(wt), false, landed.output);
   });
 });
 
