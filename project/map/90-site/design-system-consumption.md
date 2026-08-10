@@ -52,6 +52,10 @@ deno task site:specimens
 
 The command prints the preview address. The sheet is static HTML and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, the evidence text, unique document identifiers, absence of a browser framework runtime, and the rule that monospace appears only on the product name and code.
 
+The same local development server exposes the internal art archive at `/art/`; `deno task site:art` is the memorable alias for starting it. [`BROWSER_ARTWORKS`](../../../art/browser/registry.ts) owns the approved browser studies, their order, labels, exact reviewed source commits, and stylesheet enrollment. Its neighboring typed renderer table is exhaustive over that membership. [`site/page-src/art-gallery.tsx`](../../../site/page-src/art-gallery.tsx) derives the paired light/dark gallery and projects the terminal registries from [`art/terminal/`](../../../art/terminal/) into static terminal mockups below it. Geometry and motion remain artwork-owned rather than passing through a common animation framework.
+
+Every browser study keeps its TypeScript JSX (TSX) renderer and art-only CSS together under [`art/browser/`](../../../art/browser/). The page chrome remains in [`site/page-src/art-gallery.css`](../../../site/page-src/art-gallery.css). [`tests/art_browser_gallery_test.ts`](../../../tests/art_browser_gallery_test.ts) guards `/art/` as development-only, derives stylesheet coverage from the registry, proves prospective-member enrollment, and rejects browser framework runtime. The five `browser_art_*_test.ts` files retain each study's own geometry and motion contracts.
+
 ## Consumer guards
 
 [`tests/site_design_system_runtime_test.ts`](../../../tests/site_design_system_runtime_test.ts) reads the public `packageManifest` and the site selection table. It guards:

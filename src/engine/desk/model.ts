@@ -3,10 +3,11 @@
  * each row's state to the actions that are legal for it (ADR 0119).
  *
  * The desk owns NO state of its own — every field here comes from the `status`
- * fleet survey plus the gate-proof check, and every mutation it offers is one
- * of the existing lifecycle verbs. This module is the desk's only decision
- * logic, kept pure (time is a parameter) so `tests/engine_desk_model_test.ts`
- * can pin the whole classification table.
+ * fleet survey, whose rows already carry their gate-proof and landing-authority
+ * facts, and every mutation it offers is one of the existing lifecycle verbs.
+ * This module is the desk's only decision logic, kept pure (time is a
+ * parameter) so `tests/engine_desk_model_test.ts` can pin the whole
+ * classification table.
  */
 
 import {
@@ -286,11 +287,11 @@ function byActivityDesc(a: StatusFleetEntry, b: StatusFleetEntry): number {
  * excluded (the desk runs there — it is the vantage point, not an effort), and
  * the rest are classified and sorted into decision order — ready first, then in
  * flight, needs-attention last; within a bucket, most recently active first.
+ * The proof and effort-grant facts are read from the survey rows themselves,
+ * so the desk can never disagree with `status` about either.
  */
 export function buildDeskRows(
   fleet: readonly StatusFleetEntry[],
-  proofHonoredByPath: ReadonlyMap<string, boolean>,
-  effortGrantedByPath: ReadonlyMap<string, boolean>,
   scriptsByPath: ReadonlyMap<string, readonly ProjectScript[]>,
   agentLaunchesByPath: ReadonlyMap<string, readonly DeskAgentLaunch[]>,
   nowMs: number,
@@ -298,8 +299,9 @@ export function buildDeskRows(
   const rows = fleet
     .filter((entry) => !entry.is_main)
     .map((entry): DeskRow => {
-      const proofHonored = proofHonoredByPath.get(entry.path) ?? false;
-      const effortGranted = effortGrantedByPath.get(entry.path) ?? false;
+      const proofHonored = entry.proof_honored === true;
+      const effortGranted = entry.landing_authority?.kind === "authorized" &&
+        entry.landing_authority.source === "effort-grant";
       const scripts = scriptsByPath.get(entry.path) ?? [];
       const agentLaunches = agentLaunchesByPath.get(entry.path) ?? [];
       return {

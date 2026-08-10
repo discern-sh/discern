@@ -139,16 +139,85 @@ async function localBranchTips(
   return tips;
 }
 
-/** Whether `ancestor` is an ancestor of `descendant` (sha-level). */
-async function isAncestor(
+/**
+ * Every local branch whose tip holds `commit` (equal tips included), in ONE
+ * ref scan — ancestry for a whole candidate set at the cost of a single git
+ * read, so a growing fleet never multiplies per-pair probes. A failed read
+ * returns the empty set, which fails safe: no containment is claimed.
+ */
+async function branchesContaining(
   repoRoot: string,
-  ancestor: string,
-  descendant: string,
-): Promise<boolean> {
-  return (await runGit(
-    ["merge-base", "--is-ancestor", ancestor, descendant],
+  commit: string,
+): Promise<Set<string>> {
+  const run = await runGit(
+    [
+      "for-each-ref",
+      "--format=%(refname:short)",
+      "--contains",
+      commit,
+      "refs/heads",
+    ],
     { cwd: repoRoot },
-  )).success;
+  );
+  const out = new Set<string>();
+  if (!run.success) {
+    return out;
+  }
+  for (const line of run.stdout.split("\n")) {
+    const name = line.trim();
+    if (name !== "") {
+      out.add(name);
+    }
+  }
+  return out;
+}
+
+/** The strict-container candidates for `tip` among `containing`: never the
+ * branch itself or the trunk, and never an equal-tip twin (ambiguous, not
+ * evidence). Candidates must exist in the `tips` snapshot, so a ref created
+ * mid-scan cannot be measured against stale data. */
+function strictContainers(
+  containing: ReadonlySet<string>,
+  branch: string,
+  trunk: string,
+  tip: string,
+  tips: ReadonlyMap<string, string>,
+): string[] {
+  return [...containing].filter((candidate) => {
+    const candidateTip = tips.get(candidate);
+    return candidate !== branch && candidate !== trunk &&
+      candidateTip !== undefined && candidateTip !== tip;
+  });
+}
+
+/** Measure each candidate's lead over `tip` concurrently and keep the NEAREST:
+ * fewest commits ahead, ties broken by branch name for determinism. */
+async function nearestContainer(
+  repoRoot: string,
+  tip: string,
+  candidates: readonly string[],
+  tips: ReadonlyMap<string, string>,
+): Promise<{ branch: string; tip: string; ahead: number } | undefined> {
+  const measured = await Promise.all(
+    candidates.map(async (branch) => {
+      const candidateTip = tips.get(branch) ?? "";
+      return {
+        branch,
+        tip: candidateTip,
+        ahead: await countAhead(repoRoot, tip, candidateTip),
+      };
+    }),
+  );
+  let nearest: { branch: string; tip: string; ahead: number } | undefined;
+  for (const candidate of measured) {
+    if (
+      nearest === undefined || candidate.ahead < nearest.ahead ||
+      (candidate.ahead === nearest.ahead && candidate.branch < nearest.branch)
+    ) {
+      nearest = candidate;
+    }
+  }
+  return nearest;
 }
 
 /** Commits reachable from `to` but not `from` — the container's lead. */
@@ -190,76 +259,68 @@ export async function scanContainedWorktrees(
   const mainBranch = integrationBranch(opts.mainBranch);
   const fleet = opts.fleet ?? await listWorktreeFleet(repoRoot, mainBranch);
   const tips = await localBranchTips(repoRoot);
-  const trunkTip = tips.get(mainBranch);
-  const out: ContainedWorktree[] = [];
 
-  for (const row of fleet) {
+  // The cheap, already-in-hand clauses first; each survivor then pays exactly
+  // two git reads (the qualifying status, the one ancestry scan), and the
+  // survivors are read concurrently — the scan's cost stays one round of
+  // parallel reads however large the fleet grows.
+  const candidates = fleet.filter((row) => {
     if (row.isMain || row.path === opts.currentPath) {
-      continue; // never the main checkout, never the scanner's own checkout
+      return false; // never the main checkout, never the scanner's own checkout
     }
     if (row.locked || row.prunable) {
-      continue; // git refuses to remove locked; stale metadata has its own path
+      return false; // git refuses to remove locked; stale metadata has its own path
     }
     // An unreadable checkout's state is UNKNOWN — fail safe, never "clean".
     if (row.snapshot === undefined || !row.snapshot.clean) {
-      continue;
+      return false;
     }
     if (row.branch === "" || row.branch === mainBranch) {
-      continue;
+      return false;
+    }
+    if (tips.get(row.branch) === undefined) {
+      return false;
+    }
+    return opts.idle(row.branch, row.snapshot.lastActivity);
+  });
+
+  const found = await Promise.all(candidates.map(async (row) => {
+    const tip = tips.get(row.branch);
+    if (tip === undefined) {
+      return undefined;
     }
     // The snapshot's `clean` is the cheap pre-filter; the qualifying read proves
     // the state again at the destructive edge.
     if (!(await treeProvablyClean(row.path))) {
-      continue;
+      return undefined;
     }
-    const tip = tips.get(row.branch);
-    if (tip === undefined) {
-      continue;
-    }
+    const containing = await branchesContaining(repoRoot, tip);
     // A tip reachable from the trunk is the LANDED class — the fully-merged
     // prune path owns it; containment is strictly about unlanded work.
-    if (trunkTip !== undefined && await isAncestor(repoRoot, tip, trunkTip)) {
-      continue;
+    if (containing.has(mainBranch)) {
+      return undefined;
     }
-    if (!opts.idle(row.branch, row.snapshot.lastActivity)) {
-      continue;
-    }
-
     // Strict containers: another local branch whose tip differs and holds
     // every commit of this one. Equal tips are ambiguous twins — not evidence.
-    let nearest:
-      | { branch: string; tip: string; ahead: number }
-      | undefined;
-    for (const [candidate, candidateTip] of tips) {
-      if (
-        candidate === row.branch || candidate === mainBranch ||
-        candidateTip === tip
-      ) {
-        continue;
-      }
-      if (!(await isAncestor(repoRoot, tip, candidateTip))) {
-        continue;
-      }
-      const ahead = await countAhead(repoRoot, tip, candidateTip);
-      if (
-        nearest === undefined || ahead < nearest.ahead ||
-        (ahead === nearest.ahead && candidate < nearest.branch)
-      ) {
-        nearest = { branch: candidate, tip: candidateTip, ahead };
-      }
+    const nearest = await nearestContainer(
+      repoRoot,
+      tip,
+      strictContainers(containing, row.branch, mainBranch, tip, tips),
+      tips,
+    );
+    if (nearest === undefined) {
+      return undefined;
     }
-    if (nearest !== undefined) {
-      out.push({
-        path: row.path,
-        branch: row.branch,
-        tip,
-        containingBranch: nearest.branch,
-        containingTip: nearest.tip,
-        containerAhead: nearest.ahead,
-      });
-    }
-  }
-  return out;
+    return {
+      path: row.path,
+      branch: row.branch,
+      tip,
+      containingBranch: nearest.branch,
+      containingTip: nearest.tip,
+      containerAhead: nearest.ahead,
+    };
+  }));
+  return found.filter((fact) => fact !== undefined);
 }
 
 /** The nearest checkout-holding strict container of `tip`, from shared reads. */
@@ -271,26 +332,10 @@ async function nearestHeldContainer(
   tips: ReadonlyMap<string, string>,
   held: ReadonlySet<string>,
 ): Promise<string | undefined> {
-  let nearest: { branch: string; ahead: number } | undefined;
-  for (const [candidate, candidateTip] of tips) {
-    if (candidate === branch || candidate === trunk || candidateTip === tip) {
-      continue;
-    }
-    if (!held.has(candidate)) {
-      continue;
-    }
-    if (!(await isAncestor(repoRoot, tip, candidateTip))) {
-      continue;
-    }
-    const ahead = await countAhead(repoRoot, tip, candidateTip);
-    if (
-      nearest === undefined || ahead < nearest.ahead ||
-      (ahead === nearest.ahead && candidate < nearest.branch)
-    ) {
-      nearest = { branch: candidate, ahead };
-    }
-  }
-  return nearest?.branch;
+  const containing = await branchesContaining(repoRoot, tip);
+  const candidates = strictContainers(containing, branch, trunk, tip, tips)
+    .filter((candidate) => held.has(candidate));
+  return (await nearestContainer(repoRoot, tip, candidates, tips))?.branch;
 }
 
 /**
@@ -334,12 +379,14 @@ export async function containedRefPointers(
     return out;
   }
   const trunk = integrationBranch(mainBranch);
-  const tips = await localBranchTips(repoRoot);
-  const held = await checkoutHoldingBranches(repoRoot);
-  for (const branch of branches) {
+  const [tips, held] = await Promise.all([
+    localBranchTips(repoRoot),
+    checkoutHoldingBranches(repoRoot),
+  ]);
+  const pointers = await Promise.all(branches.map(async (branch) => {
     const tip = tips.get(branch);
     if (tip === undefined) {
-      continue;
+      return undefined;
     }
     const container = await nearestHeldContainer(
       repoRoot,
@@ -349,8 +396,11 @@ export async function containedRefPointers(
       tips,
       held,
     );
-    if (container !== undefined) {
-      out.set(branch, container);
+    return container === undefined ? undefined : { branch, container };
+  }));
+  for (const pointer of pointers) {
+    if (pointer !== undefined) {
+      out.set(pointer.branch, pointer.container);
     }
   }
   return out;

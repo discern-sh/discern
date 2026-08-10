@@ -5,7 +5,7 @@ import {
   DISCERN_ART_VARIANTS,
   type DiscernArtStyle,
   renderDiscernArt,
-} from "../src/shared/brand_art.ts";
+} from "../art/terminal/brand.ts";
 
 const EXPECTED: Readonly<Record<DiscernArtStyle, string>> = {
   compact: "◮ discern",

@@ -49,8 +49,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 167     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
-| [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
-| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 9       | —                | —                           |
+| [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
+| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `art/terminal/triangle.ts#DISCERN_TRIANGLE_MOTIFS`                                | 10      | —                | —                           |
+| [`browser-artworks`](#browser-artworks--browser-artworks)                                                             | `art/browser/registry.ts#BROWSER_ARTWORKS`                                        | 5       | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -85,11 +86,11 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
-| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
+| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 76      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 77      | —                | node `canonical-sets`       |
 
-76 sets · 108 guard tests · 53 committed artifacts.
+77 sets · 115 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -105,12 +106,18 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/agent_parity_test.ts`                       | [`agent-providers`](#agent-providers--agent-providers)                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `tests/agent_policy_parity_test.ts`                | [`operating-policies`](#operating-policies--operating-policies)                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `tests/agent_surface_contracts_test.ts`            | [`operational-agent-surfaces`](#operational-agent-surfaces--operational-agent-surfaces)                                                                                                                                                                                                                                                                                                                                                                                               |
+| `tests/art_browser_gallery_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/art_gallery_test.ts`                        | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants), [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                                                                                                                                                                                                                                                                                                           |
 | `tests/artifact_ownership_test.ts`                 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_animation_test.ts`                    | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_art_test.ts`                          | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/brand_registry_codegen_test.ts`             | [`brand-documents`](#brand-documents--brand-documents), [`brand-claims`](#brand-claims--brand-claims-ledger)                                                                                                                                                                                                                                                                                                                                                                          |
 | `tests/brand_vale_codegen_test.ts`                 | [`brand-vale-styles`](#brand-vale-styles--register-vale-styles), [`voice-enforcement-coverage`](#voice-enforcement-coverage--voice-enforcement-proposals)                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_alignment_test.ts`              | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_bifurcation_test.ts`            | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_contour_test.ts`                | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_invariant_core_test.ts`         | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `tests/browser_art_persistent_trace_test.ts`       | [`browser-artworks`](#browser-artworks--browser-artworks)                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `tests/canonical_sets_enrolment_test.ts`           | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/cli_reference_codegen_test.ts`              | [`verbs`](#verbs--top-level-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/config_banner_parity_test.ts`               | [`config-tables`](#config-tables--config-tables)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -192,6 +199,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/skill_name_parity_test.ts`                  | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -319,7 +327,7 @@ Every top-level verb kept out of the operator help listing carries a reason and 
   - `preset`
   - `setup`
   - `triangle`
-- Guards: `tests/engine_help_groups_test.ts`
+- Guards: `tests/engine_help_groups_test.ts`, `tests/spoiler_guard_test.ts`
 - Glossary: not enrolled — the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb
 - Feature canon: not enrolled — the verbs set already enrolls every member; hiding changes only its help listing
 
@@ -1196,7 +1204,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
 
 The named terminal-art family: every static renderer carries one semantic animation timeline and enters both maintainer gallery projections.
 
-- Source: `src/shared/brand_art.ts` — `DISCERN_ART_VARIANTS`
+- Source: `art/terminal/brand.ts` — `DISCERN_ART_VARIANTS`
 - Members: 13
   - `compact`
   - `split`
@@ -1219,8 +1227,8 @@ The named terminal-art family: every static renderer carries one semantic animat
 
 The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.
 
-- Source: `src/lib/triangle_art.ts` — `DISCERN_TRIANGLE_MOTIFS`
-- Members: 9
+- Source: `art/terminal/triangle.ts` — `DISCERN_TRIANGLE_MOTIFS`
+- Members: 10
   - `divider`
   - `ribbon`
   - `weave`
@@ -1230,9 +1238,25 @@ The reusable triangle treatments: every pure static frame carries one semantic a
   - `stepper`
   - `beacon`
   - `pyramid`
+  - `gasket`
 - Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
 - Glossary: not enrolled — the terminal-art gallery owns these internal motif names
 - Feature canon: not enrolled — the existing terminal surfaces consume these motifs and maintainer previews
+
+## `browser-artworks` — Browser artworks
+
+The approved browser-art family: every member supplies its metadata, renderer, immutable source provenance, stylesheet, dual-theme gallery projection, and structural guards.
+
+- Source: `art/browser/registry.ts` — `BROWSER_ARTWORKS`
+- Members: 5
+  - `alignment`
+  - `bifurcation`
+  - `contour`
+  - `persistent-trace`
+  - `invariant-core`
+- Guards: `tests/art_browser_gallery_test.ts`, `tests/browser_art_alignment_test.ts`, `tests/browser_art_bifurcation_test.ts`, `tests/browser_art_contour_test.ts`, `tests/browser_art_persistent_trace_test.ts`, `tests/browser_art_invariant_core_test.ts`
+- Glossary: not enrolled — the browser-art gallery owns these internal study names
+- Feature canon: not enrolled — the development-only gallery owns these visual references outside the public product surface
 
 ## `failure-recovery-evidence` — Generic failure-recovery evidence
 
@@ -2458,7 +2482,8 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 The top-level trees holding authored TypeScript define the scan universe for repository-wide structural sweeps. Members are stable roots. The `AUTHORED_TS_FILES` export derives its file list from Git at import time, so the atlas counts roots.
 
 - Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
-- Members: 6
+- Members: 7
+  - `art`
   - `project`
   - `scripts`
   - `site`
@@ -2493,7 +2518,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 76
+- Members: 77
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2533,6 +2558,7 @@ This meta-registry: the closed set of closed sets.
   - `tips`
   - `terminal-art-variants`
   - `terminal-triangle-motifs`
+  - `browser-artworks`
   - `failure-recovery-evidence`
   - `error-failure-recovery`
   - `logbook-outcomes`

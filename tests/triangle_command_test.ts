@@ -1,7 +1,7 @@
 /**
- * `discern triangle` verb behavior — the Easter egg's shared core: the result
+ * `discern triangle` verb behavior — the hidden verb's shared core: the result
  * envelope carries the mark and the composed art, planning keeps motion off
- * non-interactive surfaces, and the animated reveal reuses the pyramid motif's
+ * non-interactive surfaces, and the animated reveal reuses the gasket motif's
  * timeline before settling on the exact static art.
  */
 
@@ -13,7 +13,7 @@ import {
   triangleResult,
 } from "../src/commands/triangle.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../art/terminal/triangle.ts";
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 
 const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {
@@ -65,13 +65,13 @@ Deno.test("triangle planning keeps motion off non-interactive surfaces", () => {
   assertEquals(plainPlan.mode, "static");
 });
 
-Deno.test("the animated reveal reuses the pyramid motif and settles on the art", () => {
+Deno.test("the animated reveal reuses the gasket motif and settles on the art", () => {
   const plan = planTriangleCommand(CAPABLE_TERMINAL, { plain: false });
   assert(plan.mode === "animate");
   assertEquals(plan.playback.finalTranscript, renderTriangleArt());
   assertEquals(plan.playback.scenes.length, 1);
 
-  const motif = DISCERN_TRIANGLE_MOTIFS.pyramid.animate();
+  const motif = DISCERN_TRIANGLE_MOTIFS.gasket.animate();
   const scene = plan.playback.scenes[0];
   assert(scene !== undefined);
   assertEquals(scene.frameMs, motif.frameMs);

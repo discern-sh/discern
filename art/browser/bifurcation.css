@@ -1,0 +1,217 @@
+@layer discern.page {
+  .bifurcation-art {
+    position: relative;
+    isolation: isolate;
+    margin: 0;
+  }
+
+  .bifurcation-art svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .bifurcation-art__construction line,
+  .bifurcation-art__seed-line,
+  .bifurcation-art__branch,
+  .bifurcation-art__cap-outline,
+  .bifurcation-art__cap-seam {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .bifurcation-art__construction line {
+    stroke: var(--discern-color-border-strong);
+    stroke-width: 0.7;
+    opacity: 0.5;
+  }
+
+  .bifurcation-art__construction line:first-child {
+    stroke-dasharray: 1 10;
+    opacity: 0.32;
+  }
+
+  .bifurcation-art__seed-line,
+  .bifurcation-art__branch {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+
+  .bifurcation-art__seed-line {
+    stroke: var(--discern-color-ink);
+    stroke-width: 1.5;
+    opacity: 0.84;
+  }
+
+  .bifurcation-art__branch {
+    stroke: color-mix(in oklab, var(--discern-color-ink) 68%, transparent);
+    stroke-width: 1.15;
+    opacity: 0.72;
+  }
+
+  .bifurcation-art__level[data-bifurcation-level="1"] .bifurcation-art__branch {
+    stroke-width: 1.4;
+    opacity: 0.84;
+  }
+
+  .bifurcation-art__level[data-bifurcation-level="2"] .bifurcation-art__branch {
+    stroke-width: 1.25;
+    opacity: 0.78;
+  }
+
+  .bifurcation-art__level[data-bifurcation-level="3"] .bifurcation-art__branch {
+    stroke-width: 1.05;
+    opacity: 0.68;
+  }
+
+  .bifurcation-art__branch--accent {
+    stroke: var(--discern-color-accent-600);
+    stroke-width: 1.4;
+    opacity: 0.9;
+  }
+
+  .bifurcation-art__cap-outline,
+  .bifurcation-art__cap-seam {
+    stroke: var(--discern-color-ink);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .bifurcation-art__cap-outline {
+    stroke-width: 1.05;
+  }
+
+  .bifurcation-art__cap-seam {
+    stroke-width: 0.7;
+    opacity: 0.72;
+  }
+
+  .bifurcation-art__cap-fill {
+    fill: var(--discern-color-ink);
+  }
+
+  .bifurcation-art__terminal-cap {
+    opacity: 0.92;
+    transform-box: view-box;
+    transform-origin: 0 0;
+  }
+
+  .bifurcation-art__sweep-reveal {
+    --bifurcation-sweep-easing: linear(
+      0 0%,
+      0.0011 2%,
+      0.0079 4%,
+      0.0228 6%,
+      0.0435 8%,
+      0.9565 92%,
+      0.9772 94%,
+      0.9921 96%,
+      0.9989 98%,
+      1 100%
+    );
+
+    transform-box: view-box;
+  }
+
+  .bifurcation-art [data-bifurcation-motion] {
+    animation-duration: 10.8s;
+    animation-fill-mode: both;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+
+  .bifurcation-art__sweep-lines {
+    animation-name: bifurcation-art-sweep-cycle;
+  }
+
+  .bifurcation-art [data-bifurcation-sweep-motion] {
+    animation-name: bifurcation-art-sweep-reveal;
+    animation-timing-function: var(--bifurcation-sweep-easing);
+  }
+
+  .bifurcation-art [data-bifurcation-cap-motion] {
+    animation-name: bifurcation-art-terminal-cap;
+    animation-timing-function: var(--discern-ease-out);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .bifurcation-art [data-bifurcation-motion] {
+      animation: none;
+    }
+
+    .bifurcation-art__seed-line,
+    .bifurcation-art__branch {
+      stroke-dashoffset: 0;
+    }
+
+    .bifurcation-art__sweep-lines {
+      opacity: 1;
+    }
+
+    .bifurcation-art__sweep-reveal {
+      transform: none;
+    }
+
+    .bifurcation-art__terminal-cap {
+      opacity: 0.92;
+      transform: none;
+    }
+  }
+}
+
+@keyframes bifurcation-art-sweep-cycle {
+  0% {
+    opacity: 0;
+  }
+
+  3%,
+  93% {
+    opacity: 1;
+  }
+
+  98%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes bifurcation-art-sweep-reveal {
+  0% {
+    transform: scaleX(0);
+  }
+
+  3% {
+    transform: scaleX(0);
+  }
+
+  74%,
+  98% {
+    transform: scaleX(1);
+  }
+
+  100% {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes bifurcation-art-terminal-cap {
+  0%,
+  74% {
+    opacity: 0;
+    transform: scale(0.68);
+  }
+
+  82%,
+  93% {
+    opacity: 0.92;
+    transform: scale(1);
+  }
+
+  98%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}

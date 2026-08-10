@@ -1,19 +1,17 @@
 /**
- * `discern triangle` — the Easter egg behind the project mark: draw discern's
+ * `discern triangle` — the surprise behind the project mark: draw discern's
  * triangle as a triangle of triangles. The verb needs no project, config, or
  * network; the hidden-verb registry records why it stays out of the help
- * listing. On a capable interactive terminal the pyramid rises from its apex
- * before settling; everywhere else it prints once, complete.
+ * listing. On a capable interactive terminal the woven pyramid rises from its
+ * apex and opens into the recursive figure before settling; everywhere else
+ * it prints once, complete.
  */
 
 import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { TriangleData } from "../shared/result_schemas.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../shared/brand.ts";
-import {
-  DISCERN_TRIANGLE_MOTIFS,
-  renderTrianglePyramid,
-} from "../lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../../art/terminal/triangle.ts";
 import {
   planTerminalPlayback,
   type TerminalPlaybackPlan,
@@ -40,21 +38,21 @@ export type TriangleCommandPlan =
   | { readonly mode: "static"; readonly output: string }
   | { readonly mode: "animate"; readonly playback: TerminalPlaybackPlan };
 
-/** The one pyramid geometry this surface draws. */
-const PYRAMID_ROWS = 8;
+/** The one figure this surface draws, owned by the curated motif registry. */
+const FIGURE = DISCERN_TRIANGLE_MOTIFS.gasket;
 
-/** Center a line under the pyramid's base without adding trailing padding. */
-function centerUnderPyramid(line: string): string {
-  const base = 2 * PYRAMID_ROWS - 1;
+/** Center a line under the figure's base without adding trailing padding. */
+function centerUnderFigure(line: string): string {
+  const base = Math.max(
+    ...FIGURE.render().split("\n").map((row) => displayWidth(row)),
+  );
   const pad = Math.max(0, Math.floor((base - displayWidth(line)) / 2));
   return `${" ".repeat(pad)}${line}`;
 }
 
-/** Compose the resting art: the pyramid signed with the wordmark at its base. */
+/** Compose the resting art: the figure signed with the wordmark at its base. */
 export function renderTriangleArt(): string {
-  return `${renderTrianglePyramid({ rows: PYRAMID_ROWS })}\n\n${
-    centerUnderPyramid(DISCERN_WORDMARK)
-  }`;
+  return `${FIGURE.render()}\n\n${centerUnderFigure(DISCERN_WORDMARK)}`;
 }
 
 /** Build the `triangle` result envelope (the core `--json` serializes). */
@@ -71,7 +69,7 @@ export function triangleResult(): DiscernResult<TriangleData> {
 
 /**
  * Decide between the one-shot print and the animated reveal. The reveal reuses
- * the pyramid motif's timeline, so the gallery and the verb share one motion.
+ * the gasket motif's timeline, so the gallery and the verb share one motion.
  */
 export function planTriangleCommand(
   environment: TerminalAnimationEnvironment,
@@ -82,10 +80,10 @@ export function planTriangleCommand(
   if (options.plain || !terminalAnimationAllowed(environment)) {
     return staticPlan;
   }
-  const animation = DISCERN_TRIANGLE_MOTIFS.pyramid.animate();
+  const animation = FIGURE.animate();
   const playback = planTerminalPlayback(
     [{
-      label: centerUnderPyramid(DISCERN_WORDMARK),
+      label: centerUnderFigure(DISCERN_WORDMARK),
       frames: animation.frames,
       frameMs: animation.frameMs,
       finalHoldMs: animation.finalHoldMs,

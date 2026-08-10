@@ -3,7 +3,11 @@
  * Callers own colour, placement, terminal checks, and any choice of variant.
  */
 
-import { DISCERN_MARK, DISCERN_NAME, DISCERN_WORDMARK } from "./brand.ts";
+import {
+  DISCERN_MARK,
+  DISCERN_NAME,
+  DISCERN_WORDMARK,
+} from "../../src/shared/brand.ts";
 import {
   animateDiscernCompact,
   animateDiscernCompress,
@@ -19,9 +23,9 @@ import {
   animateDiscernSplit,
   animateDiscernStamp,
   type DiscernArtAnimation,
-} from "./brand_animation.ts";
+} from "./animation.ts";
 
-export type { DiscernArtAnimation } from "./brand_animation.ts";
+export type { DiscernArtAnimation } from "./animation.ts";
 
 /** The character repertoire a terminal-art variant requires. */
 export type DiscernArtCharset = "ascii" | "unicode";

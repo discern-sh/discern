@@ -46,6 +46,8 @@ Product truth constrains the brand. Product prose does not dictate the brand's s
 5. relevant claim slugs from \`claims-and-evidence.md\`
 6. \`register-bridge.md\` when product concepts must enter
 
+For manifesto, founder philosophy, motion, or extended visual work, also read \`visual-identity.md\` and \`launch-narrative.md\`. Treat the metaphysical interpretation as the founder's account. Do not assign it to the reader.
+
 Do not read the full feature canon as a tone reference. Consult it selectively to verify a mechanism or claim.`,
     }, {
       kind: "prose",
@@ -352,6 +354,8 @@ Tone: technically elegant, imaginative, slightly playful.`,
 - Personal, reflective, and precise.
 - Admit the mental-model change.
 - Let scenes and discoveries carry the argument.
+- Metaphysical reflection may enter through the founder's lived experience.
+- Leave readers free to take the meaning at their own depth.
 - Avoid converting every paragraph into product promotion.
 
 ### Campaign or social copy

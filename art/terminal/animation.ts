@@ -4,7 +4,7 @@
  * as the final frame; terminal effects remain the caller's responsibility.
  */
 
-import { DISCERN_MARK, DISCERN_NAME } from "./brand.ts";
+import { DISCERN_MARK, DISCERN_NAME } from "../../src/shared/brand.ts";
 
 /** A semantic animation timeline with no terminal cursor effects. */
 export interface DiscernArtAnimation {

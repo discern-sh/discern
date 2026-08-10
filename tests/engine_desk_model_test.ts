@@ -265,12 +265,14 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     path: "/p/ready-old",
     ahead: 1,
     last_activity: daysAgo(2),
+    proof_honored: true,
   });
   const readyNew = entry({
     branch: "agent/ready-new",
     path: "/p/ready-new",
     ahead: 3,
     last_activity: daysAgo(1),
+    proof_honored: true,
   });
   const flying = entry({
     branch: "agent/flying",
@@ -279,17 +281,11 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
     changed_files: 7,
   });
 
-  const proofs = new Map<string, boolean>([
-    ["/p/ready-old", true],
-    ["/p/ready-new", true],
-  ]);
   const scripts = new Map<string, readonly ProjectScript[]>([
     ["/p/ready-new", [{ name: "ship" }]],
   ]);
   const rows = buildDeskRows(
     [stale, main, readyOld, flying, readyNew],
-    proofs,
-    new Map(),
     scripts,
     new Map(),
     NOW,
@@ -307,11 +303,9 @@ Deno.test("buildDeskRows: main is excluded; buckets sort into decision order; re
   assertEquals(rows[1]?.scripts, []);
 });
 
-Deno.test("buildDeskRows: a path absent from the proof map is never treated as vouched", () => {
+Deno.test("buildDeskRows: a row without a survey-carried proof is never treated as vouched", () => {
   const rows = buildDeskRows(
     [entry({ ahead: 5, path: "/p/unvouched" })],
-    new Map(),
-    new Map(),
     new Map(),
     new Map(),
     NOW,
@@ -319,6 +313,43 @@ Deno.test("buildDeskRows: a path absent from the proof map is never treated as v
   assertEquals(rows.length, 1);
   assertEquals(rows[0]?.proofHonored, false);
   assertEquals(rows[0]?.bucket, "in_flight");
+});
+
+Deno.test("buildDeskRows: the effort-grant fact is read from the survey row's landing authority", () => {
+  const rows = buildDeskRows(
+    [
+      entry({
+        branch: "agent/granted",
+        path: "/p/granted",
+        ahead: 1,
+        landing_authority: { kind: "authorized", source: "effort-grant" },
+      }),
+      entry({
+        branch: "agent/standing",
+        path: "/p/standing",
+        ahead: 1,
+        landing_authority: { kind: "authorized", source: "standing-grant" },
+      }),
+      entry({ branch: "agent/plain", path: "/p/plain", ahead: 1 }),
+    ],
+    new Map(),
+    new Map(),
+    NOW,
+  );
+  assertEquals(rows.length, 3);
+  const byBranch = new Map(rows.map((r) => [r.entry.branch, r]));
+  assert(
+    byBranch.get("agent/granted")?.actions.includes("revoke_grant"),
+    "a desk effort-grant offers revocation",
+  );
+  assert(
+    byBranch.get("agent/standing")?.actions.includes("grant"),
+    "authority from any other source still offers the desk grant",
+  );
+  assert(
+    byBranch.get("agent/plain")?.actions.includes("grant"),
+    "no recorded authority offers the desk grant",
+  );
 });
 
 // ── configured agent × live PATH intersection ────────────────────────────────

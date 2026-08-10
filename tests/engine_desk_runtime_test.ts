@@ -156,7 +156,6 @@ function scriptedRuntime(
     loadConfig: () => CONFIG,
     status: () => ({ ok: true, data }),
     mainRepoPath: () => ROOT,
-    proofHonored: () => false,
     grantEffort: (_path, branch) => ({
       status: "granted",
       grant: {
@@ -291,7 +290,7 @@ Deno.test("a desk-owned child refuses a nested desk before surveying the fleet",
   assert(!joined(output).includes("cd /"));
 });
 
-Deno.test("desk session renders task-first fleet rows and checks proofs only for healthy tasks", async () => {
+Deno.test("desk session renders task-first fleet rows from the survey's own proof facts", async () => {
   const output = transcript();
   const main = fleetEntry("main", ROOT, {
     is_main: true,
@@ -302,7 +301,7 @@ Deno.test("desk session renders task-first fleet rows and checks proofs only for
   const ready = fleetEntry(
     "agent/ready-to-land-a1b2c3",
     "/worktrees/ready-to-land-a1b2c3",
-    { id: "ready-to-land-a1b2c3", ahead: 2 },
+    { id: "ready-to-land-a1b2c3", ahead: 2, proof_honored: true },
   );
   const flying = fleetEntry("agent/flying-c4d5e6", "/worktrees/flying-c4d5e6", {
     id: "flying-c4d5e6",
@@ -327,14 +326,9 @@ Deno.test("desk session renders task-first fleet rows and checks proofs only for
     ...statusData([main, ready, flying, broken, unreadable]),
     unlanded_branches: ["agent/orphan"],
   };
-  const proofPaths: string[] = [];
   const optionText: string[] = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
-    proofHonored: (path) => {
-      proofPaths.push(path);
-      return path === ready.path;
-    },
     select: (options) => {
       assertEquals(options.info, false);
       assertEquals(options.search, false);
@@ -345,7 +339,6 @@ Deno.test("desk session renders task-first fleet rows and checks proofs only for
   });
 
   assertEquals(await runDesk({}, runtime), 0);
-  assertEquals(proofPaths, [ready.path, flying.path]);
   const text = joined(output);
   assertStringIncludes(text, `heading:${DISCERN_WORDMARK} | demo`);
   assertStringIncludes(text, "4 tasks");
@@ -835,6 +828,7 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   const effort = fleetEntry("agent/inspect", "/worktrees/inspect", {
     ahead: 2,
     behind: 1,
+    proof_honored: true,
   });
   const data = statusData([
     fleetEntry("main", ROOT, { is_main: true, is_current: true }),
@@ -855,7 +849,6 @@ Deno.test("desk inspect and jump actions use the scripted effect boundary", asyn
   }> = [];
   const runtime = scriptedRuntime(output, {
     status: () => ({ ok: true, data }),
-    proofHonored: () => true,
     select: (options) => {
       menus.push(JSON.stringify(options.options));
       const choice = choices.shift();

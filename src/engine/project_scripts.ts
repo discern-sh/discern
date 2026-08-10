@@ -93,13 +93,21 @@ export async function discoverProjectScripts(
   return scripts.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Discover the Project Scripts of the checkout at `root` under an
+ * already-loaded config — for callers that hold the config in hand and must
+ * not pay for (or re-answer) a second read of it. */
+export async function listProjectScriptsWithConfig(
+  root: string,
+  config: DiscernConfig,
+): Promise<ProjectScript[]> {
+  return await discoverProjectScripts(resolveScriptsDir(root, config).abs);
+}
+
 /** Discover the Project Scripts configured by the checkout rooted at `root`. */
 export async function listProjectScripts(
   root: string,
 ): Promise<ProjectScript[]> {
-  const config = await loadConfig(root);
-  const directory = resolveScriptsDir(root, config);
-  return await discoverProjectScripts(directory.abs);
+  return await listProjectScriptsWithConfig(root, await loadConfig(root));
 }
 
 /** Build the bare `scripts --json` listing from one resolved checkout. */
