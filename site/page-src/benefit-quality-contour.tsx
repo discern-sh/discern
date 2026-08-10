@@ -1,24 +1,210 @@
 /** Reusable one-way contour artwork for the quality-retention benefit. */
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 export interface QualityContourArtworkProps {
   /** Unique prefix for the accessible SVG title and description. */
   readonly idPrefix: string;
 }
 
-const LATEST_CONTOUR =
-  "M 421 231 C 417 216 422 201 438 188 C 454 175 478 176 496 187 C 509 194 512 210 505 224 C 497 239 478 242 460 239 C 445 237 426 234 421 231 Z";
+type ContourPoint = readonly [x: number, y: number];
+
+interface QualityContourLineStyle extends CSSProperties {
+  readonly "--quality-contour-opacity": number;
+  readonly "--quality-contour-opacity-dark": number;
+}
+
+/** Format generated coordinates compactly while preserving soft irregularity. */
+function coordinate(value: number): string {
+  return String(Math.round(value * 10) / 10);
+}
 
 /**
- * Six retained boundaries converge on discern's half-filled triangle.
- * Motion only traces the latest boundary; the accumulated form is permanent.
+ * Join polygon vertices with short quadratic corners.
+ * The straight reaches retain the triangle's grammar without becoming rigid.
+ */
+function roundedPolygonPath(
+  points: readonly ContourPoint[],
+  rounding: number,
+): string {
+  if (points.length < 3) {
+    throw new Error("A retained contour needs at least three vertices.");
+  }
+
+  const corners = points.map((current, index) => {
+    const previous = points[(index - 1 + points.length) % points.length];
+    const next = points[(index + 1) % points.length];
+    if (previous === undefined || next === undefined) {
+      throw new Error("A retained contour must form a closed polygon.");
+    }
+    const before: ContourPoint = [
+      current[0] + (previous[0] - current[0]) * rounding,
+      current[1] + (previous[1] - current[1]) * rounding,
+    ];
+    const after: ContourPoint = [
+      current[0] + (next[0] - current[0]) * rounding,
+      current[1] + (next[1] - current[1]) * rounding,
+    ];
+    return { current, before, after };
+  });
+
+  const first = corners[0];
+  if (first === undefined) {
+    throw new Error("A retained contour must have a first corner.");
+  }
+  const segments = [
+    `M ${coordinate(first.before[0])} ${coordinate(first.before[1])}`,
+    `Q ${coordinate(first.current[0])} ${coordinate(first.current[1])} ${
+      coordinate(first.after[0])
+    } ${coordinate(first.after[1])}`,
+  ];
+  for (const corner of corners.slice(1)) {
+    segments.push(
+      `L ${coordinate(corner.before[0])} ${coordinate(corner.before[1])}`,
+      `Q ${coordinate(corner.current[0])} ${coordinate(corner.current[1])} ${
+        coordinate(corner.after[0])
+      } ${coordinate(corner.after[1])}`,
+    );
+  }
+  segments.push(
+    `L ${coordinate(first.before[0])} ${coordinate(first.before[1])} Z`,
+  );
+  return segments.join(" ");
+}
+
+/**
+ * The geometry authority for every retained boundary.
+ * New rings added here automatically render and enter the structural guard.
+ */
+export const QUALITY_CONTOUR_RINGS = [
+  {
+    id: "01",
+    opacity: { light: 0.12, dark: 0.18 },
+    path: roundedPolygonPath([
+      [100, 388],
+      [82, 286],
+      [124, 184],
+      [220, 108],
+      [354, 70],
+      [492, 89],
+      [606, 151],
+      [665, 249],
+      [652, 356],
+      [583, 435],
+      [454, 477],
+      [310, 470],
+      [184, 432],
+    ], 0.18),
+  },
+  {
+    id: "02",
+    opacity: { light: 0.18, dark: 0.24 },
+    path: roundedPolygonPath([
+      [157, 365],
+      [141, 288],
+      [170, 208],
+      [248, 145],
+      [355, 112],
+      [470, 126],
+      [558, 174],
+      [606, 250],
+      [594, 329],
+      [541, 389],
+      [443, 420],
+      [332, 414],
+      [233, 386],
+    ], 0.18),
+  },
+  {
+    id: "03",
+    opacity: { light: 0.24, dark: 0.31 },
+    path: roundedPolygonPath([
+      [219, 337],
+      [210, 278],
+      [234, 221],
+      [292, 176],
+      [374, 154],
+      [459, 163],
+      [524, 199],
+      [557, 254],
+      [546, 309],
+      [507, 351],
+      [437, 370],
+      [356, 364],
+      [282, 346],
+    ], 0.17),
+  },
+  {
+    id: "04",
+    opacity: { light: 0.31, dark: 0.39 },
+    path: roundedPolygonPath([
+      [285, 309],
+      [283, 266],
+      [299, 229],
+      [339, 198],
+      [397, 183],
+      [454, 190],
+      [497, 214],
+      [519, 250],
+      [511, 288],
+      [484, 316],
+      [436, 328],
+      [382, 323],
+      [333, 312],
+    ], 0.16),
+  },
+  {
+    id: "05",
+    opacity: { light: 0.4, dark: 0.48 },
+    path: roundedPolygonPath([
+      [352, 279],
+      [351, 250],
+      [364, 224],
+      [390, 205],
+      [427, 198],
+      [463, 204],
+      [489, 219],
+      [502, 244],
+      [497, 268],
+      [478, 285],
+      [447, 292],
+      [414, 288],
+      [383, 280],
+    ], 0.16),
+  },
+  {
+    id: "latest",
+    opacity: { light: 0.52, dark: 0.61 },
+    path: roundedPolygonPath([
+      [408, 252],
+      [410, 232],
+      [421, 215],
+      [442, 204],
+      [466, 203],
+      [487, 214],
+      [497, 231],
+      [495, 249],
+      [482, 264],
+      [461, 270],
+      [438, 266],
+      [420, 259],
+    ], 0.15),
+  },
+] as const;
+
+/**
+ * Retained boundaries converge on discern's half-filled triangle.
+ * The active boundary advances once; accumulated geometry never disappears.
  */
 export function QualityContourArtwork(
   { idPrefix }: QualityContourArtworkProps,
 ): ReactNode {
   const titleId = `${idPrefix}-title`;
   const descriptionId = `${idPrefix}-description`;
+  const latestContour = QUALITY_CONTOUR_RINGS.at(-1);
+  if (latestContour === undefined) {
+    throw new Error("The quality contour artwork needs a latest boundary.");
+  }
 
   return (
     <figure className="quality-contour">
@@ -29,60 +215,54 @@ export function QualityContourArtwork(
       >
         <title id={titleId}>One-way contour of retained quality</title>
         <desc id={descriptionId}>
-          Six irregular retained boundaries narrow toward a half-filled
-          triangle. Earlier boundaries remain faint while the newest boundary is
-          blue.
+          {QUALITY_CONTOUR_RINGS.length}{" "}
+          softly faceted retained boundaries narrow toward a half-filled
+          triangle. Earlier boundaries remain visible while the newest boundary
+          settles in blue.
         </desc>
 
         <g aria-hidden="true">
           <circle
             className="quality-contour__bloom"
             cx="467"
-            cy="205"
-            r="74"
+            cy="229"
+            r="72"
           />
 
           <g className="quality-contour__retained">
-            <path
-              className="quality-contour__line quality-contour__line--01"
-              d="M 92 421 C 58 330 82 199 181 108 C 278 19 447 29 586 111 C 680 166 707 291 653 391 C 596 496 441 515 287 483 C 187 462 117 442 92 421 Z"
-            />
-            <path
-              className="quality-contour__line quality-contour__line--02"
-              d="M 153 389 C 128 313 151 214 230 142 C 309 70 440 78 548 141 C 621 184 641 280 597 358 C 551 441 430 456 311 432 C 230 416 174 402 153 389 Z"
-            />
-            <path
-              className="quality-contour__line quality-contour__line--03"
-              d="M 218 354 C 200 294 219 222 280 167 C 342 111 440 116 521 163 C 575 195 590 264 558 322 C 524 384 436 394 350 378 C 289 366 236 360 218 354 Z"
-            />
-            <path
-              className="quality-contour__line quality-contour__line--04"
-              d="M 290 314 C 278 270 291 224 334 186 C 377 148 442 150 495 181 C 531 202 541 249 520 287 C 497 329 438 335 383 326 C 342 320 302 318 290 314 Z"
-            />
-            <path
-              className="quality-contour__line quality-contour__line--05"
-              d="M 362 271 C 355 244 364 218 392 194 C 420 171 460 173 493 192 C 515 205 521 232 508 255 C 493 281 457 285 426 280 C 400 276 371 274 362 271 Z"
-            />
-            <path
-              className="quality-contour__line quality-contour__line--latest"
-              d={LATEST_CONTOUR}
-            />
+            {QUALITY_CONTOUR_RINGS.map((ring, index) => {
+              const latest = index === QUALITY_CONTOUR_RINGS.length - 1;
+              return (
+                <path
+                  className={`quality-contour__line quality-contour__line--${
+                    latest ? "latest" : ring.id
+                  }`}
+                  data-contour-ring={ring.id}
+                  d={ring.path}
+                  key={ring.id}
+                  style={{
+                    "--quality-contour-opacity": ring.opacity.light,
+                    "--quality-contour-opacity-dark": ring.opacity.dark,
+                  } as QualityContourLineStyle}
+                />
+              );
+            })}
           </g>
 
           <path
-            className="quality-contour__trace"
-            d={LATEST_CONTOUR}
+            className="quality-contour__advance"
+            d={latestContour.path}
             pathLength={1}
           />
 
           <g className="quality-contour__attractor">
             <path
               className="quality-contour__attractor-fill"
-              d="M 467 184 L 467 226 L 490 226 Z"
+              d="M 467 210 L 467 248 L 488 248 Z"
             />
             <path
               className="quality-contour__attractor-outline"
-              d="M 467 184 L 444 226 L 490 226 Z"
+              d="M 467 210 L 446 248 L 488 248 Z"
             />
           </g>
         </g>
