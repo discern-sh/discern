@@ -4,9 +4,9 @@
  * `discern desk` is the named form the guards and docs see.
  *
  * The desk is a renderer and a dispatcher, never a source of truth: state comes
- * from `statusResult` (the fleet survey) plus the gate-proof check, and every
- * mutation runs the same lifecycle core the CLI verb runs — a core's refusal is
- * rendered, never bypassed. Its only owned logic is the pure classification in
+ * from `statusResult` (the fleet survey, whose rows carry their gate-proof and
+ * landing-authority facts), and every mutation runs the same lifecycle core the
+ * CLI verb runs — a core's refusal is rendered, never bypassed. Its only owned logic is the pure classification in
  * `model.ts`. Lifecycle actions echo their CLI command. The effort-grant action
  * is deliberately desk-only: this TTY is the sole write boundary, while agent
  * CLI and MCP surfaces can only read the resulting grant.
@@ -45,7 +45,6 @@ import {
   openInBrowser,
 } from "../../lib/open_browser.ts";
 import { statusResult } from "../status/status.ts";
-import { gateProofHonored } from "../gate/proof.ts";
 import {
   accept,
   IdentityError,
@@ -62,7 +61,7 @@ import { runGit } from "../../shared/subprocess.ts";
 import { colorEnabled, makeOut, type Out } from "../output.ts";
 import { runOwnedChild } from "../owned_child.ts";
 import {
-  listProjectScripts,
+  listProjectScriptsWithConfig,
   type ProjectScript,
   runProjectScriptAt,
 } from "../project_scripts.ts";
@@ -127,7 +126,6 @@ export interface DeskRuntime {
     message?: string | undefined;
   }>;
   mainRepoPath(root: string): DeskMaybePromise<string | undefined>;
-  proofHonored(path: string): DeskMaybePromise<boolean>;
   grantEffort(
     path: string,
     branch: string,
@@ -169,7 +167,12 @@ export interface DeskRuntime {
     ctx: LifecycleContext,
     opts: { worktreeRoot: string; name?: string },
   ): DeskMaybePromise<StartData>;
-  scripts(root: string): DeskMaybePromise<readonly ProjectScript[]>;
+  /** Discover `root`'s executable Project Scripts under its ALREADY-loaded
+   * config, so one board pass never reads the same config twice. */
+  scripts(
+    root: string,
+    config: DiscernConfig,
+  ): DeskMaybePromise<readonly ProjectScript[]>;
   runScript(
     root: string,
     name: string,
@@ -278,7 +281,6 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
   loadConfig: (root) => loadConfig(root),
   status: (root) => statusResult(root),
   mainRepoPath: (root) => mainRepoPath(root),
-  proofHonored: (path) => gateProofHonored(path),
   grantEffort: (path, branch) => grantEffort(path, branch),
   clearEffortGrant: (path) => clearEffortGrant(path),
   makeOut: () => makeOut(colorEnabled()),
@@ -308,13 +310,13 @@ const DEFAULT_DESK_RUNTIME: DeskRuntime = {
     }
     return result.data;
   },
-  scripts: async (root) => {
+  scripts: async (root, config) => {
     try {
-      return await listProjectScripts(root);
+      return await listProjectScriptsWithConfig(root, config);
     } catch {
-      // A branch-local config can be unreadable even while the main checkout's
-      // fleet survey remains healthy. In that state no script is safely
-      // available, so the conditional action stays hidden.
+      // A branch-local scripts directory can be unreadable even while the main
+      // checkout's fleet survey remains healthy. In that state no script is
+      // safely available, so the conditional action stays hidden.
       return [];
     }
   },
@@ -1252,46 +1254,40 @@ export async function runDesk(
   while (true) {
     clearBoard(out);
     const fleet = data.fleet ?? [];
-    const proofByPath = new Map<string, boolean>();
-    const effortGrantByPath = new Map<string, boolean>();
-    const scriptsByPath = new Map<string, readonly ProjectScript[]>();
-    const agentLaunchesByPath = new Map<
-      string,
-      readonly DeskAgentLaunch[]
-    >();
     const [detectedAgents, rootScripts] = await Promise.all([
       runtime.detectAgents(),
-      runtime.scripts(root),
+      runtime.scripts(root, config),
     ]);
-    for (const entry of fleet) {
-      if (
-        !entry.is_main && entry.broken !== true &&
-        entry.git_unavailable !== true
-      ) {
-        const [proofHonored, scripts, worktreeConfig] = await Promise.all([
-          runtime.proofHonored(entry.path),
-          runtime.scripts(entry.path),
-          loadWorktreeConfig(entry.path, runtime),
-        ]);
-        proofByPath.set(entry.path, proofHonored);
-        effortGrantByPath.set(
-          entry.path,
-          entry.landing_authority?.kind === "authorized" &&
-            entry.landing_authority.source === "effort-grant",
-        );
-        scriptsByPath.set(entry.path, scripts);
-        agentLaunchesByPath.set(
-          entry.path,
-          worktreeConfig === undefined
-            ? []
-            : buildAgentLaunches(worktreeConfig, detectedAgents),
-        );
-      }
-    }
+    // Per-row facts the survey cannot carry (each worktree's own scripts and
+    // agent launches), gathered concurrently from ONE config read per row.
+    // Proof and effort-grant state ride the fleet entries themselves.
+    const gathered = await Promise.all(
+      fleet
+        .filter((entry) =>
+          !entry.is_main && entry.broken !== true &&
+          entry.git_unavailable !== true
+        )
+        .map(async (entry) => {
+          const worktreeConfig = await loadWorktreeConfig(entry.path, runtime);
+          return {
+            path: entry.path,
+            scripts: worktreeConfig === undefined
+              ? []
+              : await runtime.scripts(entry.path, worktreeConfig),
+            agentLaunches: worktreeConfig === undefined
+              ? []
+              : buildAgentLaunches(worktreeConfig, detectedAgents),
+          };
+        }),
+    );
+    const scriptsByPath = new Map<string, readonly ProjectScript[]>(
+      gathered.map((facts) => [facts.path, facts.scripts]),
+    );
+    const agentLaunchesByPath = new Map<string, readonly DeskAgentLaunch[]>(
+      gathered.map((facts) => [facts.path, facts.agentLaunches]),
+    );
     const rows = buildDeskRows(
       fleet,
-      proofByPath,
-      effortGrantByPath,
       scriptsByPath,
       agentLaunchesByPath,
       runtime.now(),
