@@ -1,4 +1,4 @@
-/** Development-only server for the homepage artefact specimens.
+/** Development-only server for focused visual studies.
  *
  * The preview builds the normal static site assets, serves one authored
  * stylesheet without caching, and renders a static document at the loopback root. It never
@@ -10,15 +10,18 @@ import {
   SITE_DEV_BIND_HOST,
   SITE_DEV_BROWSER_HOST,
 } from "./dev.ts";
-import { renderSpecimens } from "./page-src/specimens.tsx";
+import { renderBifurcationSpecimen } from "./page-src/benefit-art-bifurcation-preview.tsx";
 import { handler } from "./serve.ts";
 import { fromFileUrl } from "@std/path";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
-const SPECIMEN_CSS_SOURCE = new URL("page-src/specimens.css", SITE_ROOT);
+const SPECIMEN_CSS_SOURCE = new URL(
+  "page-src/benefit-art-bifurcation.css",
+  SITE_ROOT,
+);
 export const SPECIMEN_STYLESHEET_PATH =
-  "/assets/design-system/compositions/specimens.css";
+  "/assets/design-system/compositions/benefit-art-bifurcation.css";
 
 /** Prepare the generated design-system runtime consumed by the preview server. */
 export async function buildSpecimenPreview(): Promise<void> {
@@ -64,7 +67,7 @@ export async function specimenHandler(request: Request): Promise<Response> {
       },
     });
   }
-  const body = request.method === "HEAD" ? null : renderSpecimens();
+  const body = request.method === "HEAD" ? null : renderBifurcationSpecimen();
   return new Response(body, {
     status: 200,
     headers: {
@@ -75,7 +78,7 @@ export async function specimenHandler(request: Request): Promise<Response> {
   });
 }
 
-/** Build and serve the specimens on the current worktree's loopback port. */
+/** Build and serve the current study on the worktree's loopback port. */
 export async function runSpecimenPreview(): Promise<void> {
   await buildSpecimenPreview();
   const port = await resolveSiteDevPort(Deno.env.get("PORT"));
@@ -85,7 +88,7 @@ export async function runSpecimenPreview(): Promise<void> {
       port,
       onListen: () => {
         console.log(
-          `Homepage specimens listening on http://${SITE_DEV_BROWSER_HOST}:${port}/`,
+          `Benefit art study listening on http://${SITE_DEV_BROWSER_HOST}:${port}/`,
         );
       },
     },

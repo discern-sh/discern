@@ -1,21 +1,21 @@
-/** Contracts for the development-only homepage artefact specimen sheet. */
+/** Contracts for the development-only bifurcation benefit-art study. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { renderSpecimens } from "../site/page-src/specimens.tsx";
+import { renderBifurcationSpecimen } from "../site/page-src/benefit-art-bifurcation-preview.tsx";
 import {
   SPECIMEN_STYLESHEET_PATH,
   specimenHandler,
 } from "../site/specimens.ts";
 import { handler, PAGES } from "../site/serve.ts";
 
-const SPECIMEN_CSS = new URL(
-  "../site/page-src/specimens.css",
+const BIFURCATION_CSS = new URL(
+  "../site/page-src/benefit-art-bifurcation.css",
   import.meta.url,
 );
 
-/** Collapse rendered prose whitespace without changing punctuation or code text. */
+/** Collapse rendered prose whitespace without changing punctuation. */
 function readableText(value: string | null): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
@@ -35,20 +35,7 @@ function monoSelectors(css: string): string[] {
   return selectors;
 }
 
-/** Find callout markers that have drifted outside the section they name. */
-function misplacedProofMarkers(document: Document): string[] {
-  return [...document.querySelectorAll<HTMLElement>(".proof-pin")].flatMap(
-    (marker) => {
-      const target = marker.dataset.proofTarget;
-      const section = marker.closest<HTMLElement>("[data-proof-section]");
-      return target !== undefined && section?.dataset.proofSection === target
-        ? []
-        : [readableText(marker.textContent)];
-    },
-  );
-}
-
-Deno.test("the specimen sheet remains outside the public route registry", async () => {
+Deno.test("the benefit-art study remains outside the public route registry", async () => {
   assertEquals(Object.hasOwn(PAGES, "/specimens"), false);
   const publicResponse = await handler(
     new Request("https://discern.sh/specimens"),
@@ -65,13 +52,13 @@ Deno.test("the specimen sheet remains outside the public route registry", async 
   );
 });
 
-Deno.test("the development handler serves only the sheet and its live stylesheet", async () => {
+Deno.test("the development handler serves the focused study and live CSS", async () => {
   const root = await specimenHandler(new Request("http://localhost/"));
   assertEquals(root.status, 200);
   assertStringIncludes(root.headers.get("content-type") ?? "", "text/html");
   assertEquals(root.headers.get("cache-control"), "no-store");
   assertEquals(root.headers.get("x-robots-tag"), "noindex, nofollow");
-  assertStringIncludes(await root.text(), "The delegation wave plan");
+  assertStringIncludes(await root.text(), "Multiply your output.");
 
   const stylesheet = await specimenHandler(
     new Request(`http://localhost${SPECIMEN_STYLESHEET_PATH}`),
@@ -82,7 +69,7 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
     "text/css",
   );
   assertEquals(stylesheet.headers.get("cache-control"), "no-store");
-  assertStringIncludes(await stylesheet.text(), ".specimen-theme");
+  assertStringIncludes(await stylesheet.text(), ".bifurcation-art");
 
   for (const path of ["/", SPECIMEN_STYLESHEET_PATH]) {
     const rejected = await specimenHandler(
@@ -94,24 +81,42 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   }
 });
 
-Deno.test("all four truthful artefacts render once in each fixed theme", () => {
-  const html = renderSpecimens();
+Deno.test("one bifurcation study renders in both fixed themes", () => {
+  const html = renderBifurcationSpecimen();
   const dom = new JSDOM(html);
   const document = dom.window.document;
 
   assertEquals(document.querySelectorAll("h1").length, 1);
-  assertEquals(document.querySelectorAll(".specimen-section").length, 4);
-  assertEquals(document.querySelectorAll(".specimen-theme").length, 8);
   assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="light"]')
-      .length,
-    4,
+    document.querySelectorAll(".benefit-art-preview__theme").length,
+    2,
   );
   assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="dark"]')
-      .length,
-    4,
+    document.querySelectorAll(
+      '.benefit-art-preview__theme[data-discern-theme="light"]',
+    ).length,
+    1,
   );
+  assertEquals(
+    document.querySelectorAll(
+      '.benefit-art-preview__theme[data-discern-theme="dark"]',
+    ).length,
+    1,
+  );
+
+  for (
+    const theme of document.querySelectorAll(".benefit-art-preview__theme")
+  ) {
+    assertEquals(theme.querySelectorAll(".bifurcation-art > svg").length, 1);
+    assertEquals(
+      theme.querySelectorAll("[data-bifurcation-trajectory]").length,
+      5,
+    );
+    assertEquals(
+      theme.querySelectorAll("[data-bifurcation-motion]").length,
+      13,
+    );
+  }
 
   const ids = [...document.querySelectorAll("[id]")].map((element) =>
     element.id
@@ -119,76 +124,11 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
   const text = readableText(document.body.textContent);
-  for (
-    const theme of document.querySelectorAll("#delegation .specimen-theme")
-  ) {
-    assertEquals(
-      [...theme.querySelectorAll(".wave-handoff")].map((handoff) =>
-        [...handoff.children].map((element) =>
-          readableText(element.textContent)
-        ).join(" ")
-      ),
-      ["Wave 1 lands ↓ Wave 2 opens", "Wave 2 lands ↓ Wave 3 opens"],
-    );
-  }
-  assertEquals(
-    document.querySelectorAll("#delegation .delegation-wave").length,
-    6,
+  assertStringIncludes(text, "Multiply your output.");
+  assertStringIncludes(
+    text,
+    "Isolation, delegation shapes, and fleet coordination raise how much work can be in flight at once.",
   );
-  assertEquals(document.querySelectorAll("#delegation .wave-task").length, 10);
-  for (
-    const required of [
-      "Open the project to beta users",
-      "beta-onboarding",
-      "beta-feedback",
-      "beta-journey",
-      "beta-accessibility",
-      "beta-invitation",
-      "Illustrative homepage plan.",
-      "Your agent studies the project",
-      "Your agent presents their findings",
-      "They’ll ask you to confirm a few details about your project before they continue.",
-      "They prove it works in a fresh workspace",
-      "New tools need your approval. Nothing is installed without it.",
-      "31 → 25",
-      "471 readings across 12 days and 40 attributed setup or release configurations.",
-      "Internal snapshot, not a customer benchmark.",
-      "agent/homepage-1a-b9ab45",
-      "9457535abebe",
-      "9 configured jobs",
-      "The owner still decides whether the change may land.",
-    ]
-  ) assertStringIncludes(text, required);
-
-  assert(!text.includes("It does not claim"));
-  assert(!text.includes("Desk UX"));
-  assert(!text.includes("Output ·"));
-  assert(!text.includes("Example subject ·"));
-  assertEquals(
-    document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll(
-      '#commissioning [aria-label="Figure legend"]',
-    ).length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll('#delegation [aria-label="Figure legend"]')
-      .length,
-    0,
-  );
-  assertEquals(
-    readableText(
-      document.querySelector("#standard .standard-trajectory__status")
-        ?.textContent ?? null,
-    ),
-    "Lower is better. Every authored Deno source file is enrolled.",
-  );
-  assert(!text.includes("Internal dogfooding"));
-  assert(!text.toLowerCase().includes("observational"));
-
   assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
@@ -200,29 +140,40 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
   dom.window.close();
 });
 
-Deno.test("Proof markers stay inside the section they annotate", () => {
-  const rendered = new JSDOM(renderSpecimens());
-  assertEquals(misplacedProofMarkers(rendered.window.document), []);
-  rendered.window.close();
+Deno.test("each artwork has a local title and description", () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const document = dom.window.document;
 
-  const futureSibling = new JSDOM(`
-    <section data-proof-section="tree">
-      <span class="proof-pin" data-proof-target="gate">02</span>
-    </section>
-  `);
-  assertEquals(
-    misplacedProofMarkers(futureSibling.window.document),
-    ["02"],
-    "a new marker must live inside the section named by its target",
-  );
-  futureSibling.window.close();
+  for (const svg of document.querySelectorAll(".bifurcation-art svg")) {
+    assertEquals(svg.getAttribute("role"), "img");
+    const labelledBy = (svg.getAttribute("aria-labelledby") ?? "").split(
+      /\s+/,
+    ).filter(Boolean);
+    assertEquals(labelledBy.length, 2);
+
+    const title = document.getElementById(labelledBy[0] ?? "");
+    const description = document.getElementById(labelledBy[1] ?? "");
+    assertEquals(title?.tagName.toLowerCase(), "title");
+    assertEquals(description?.tagName.toLowerCase(), "desc");
+    assert(readableText(title?.textContent ?? null).length > 0);
+    assert(readableText(description?.textContent ?? null).length > 0);
+  }
+  dom.window.close();
 });
 
-Deno.test("specimen typography reserves monospace for the name and code", async () => {
-  const css = await Deno.readTextFile(SPECIMEN_CSS);
-  assertEquals(monoSelectors(css), [
-    ".specimen-brand-name",
-    ".wave-task code",
-    ".proof-card__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
-  ]);
+Deno.test("the artwork keeps its culmination when motion is reduced", async () => {
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  assertStringIncludes(css, "animation-duration: 10.8s");
+  assertStringIncludes(css, "@media (prefers-reduced-motion: reduce)");
+  assertStringIncludes(
+    css,
+    ".bifurcation-art [data-bifurcation-motion] {\n      animation: none;",
+  );
+  assertStringIncludes(css, "stroke-dashoffset: 0");
+  assertStringIncludes(css, "transform: none");
+});
+
+Deno.test("the study reserves monospace for the product name", async () => {
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  assertEquals(monoSelectors(css), [".benefit-art-preview__brand"]);
 });
