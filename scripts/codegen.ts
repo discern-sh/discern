@@ -33,8 +33,10 @@ import {
 } from "./environment_variable_reference.ts";
 import { renderGlossaryDoc } from "./glossary_registry.ts";
 import {
+  FEATURE_CANON_BENEFITS_PAGE_REL,
   FEATURE_CANON_PAGE_REL,
   FEATURE_CANON_PLAIN_PAGE_REL,
+  renderFeatureCanonBenefitsDoc,
   renderFeatureCanonDoc,
   renderFeatureCanonPlainDoc,
 } from "./feature_registry.ts";
@@ -132,6 +134,10 @@ const featureCanon = relative(
 const featureCanonPlain = relative(
   repoRoot,
   join(mapDir, FEATURE_CANON_PLAIN_PAGE_REL),
+);
+const featureCanonBenefits = relative(
+  repoRoot,
+  join(mapDir, FEATURE_CANON_BENEFITS_PAGE_REL),
 );
 const installSurface = relative(
   repoRoot,
@@ -232,6 +238,7 @@ console.log(
 );
 await write(featureCanon, renderFeatureCanonDoc());
 await write(featureCanonPlain, renderFeatureCanonPlainDoc());
+await write(featureCanonBenefits, renderFeatureCanonBenefitsDoc());
 console.log(
   "Regenerating the registry atlas from scripts/canonical_sets.ts:",
 );

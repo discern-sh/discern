@@ -61,7 +61,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 34      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 126     | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 127     | —                | —                           |
+| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 42      | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 42      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -73,7 +74,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 258     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 259     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -86,9 +87,9 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
 | [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
-| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 75      | —                | node `canonical-sets`       |
+| [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 76      | —                | node `canonical-sets`       |
 
-75 sets · 107 guard tests · 52 committed artifacts.
+76 sets · 108 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -150,7 +151,8 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/environment_variables_enrolment_test.ts`    | [`environment-variables`](#environment-variables--discern-environment-variables)                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `tests/execution_model_test.ts`                    | [`stages`](#stages--stages), [`step-kinds`](#step-kinds--step-kinds)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `tests/experimental_environment_enrolment_test.ts` | [`experimental-environment-variables`](#experimental-environment-variables--experimental-environment-variables)                                                                                                                                                                                                                                                                                                                                                                       |
-| `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `tests/feature_canon_benefit_test.ts`              | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `tests/feature_canon_codegen_test.ts`              | [`feature-canon`](#feature-canon--feature-canon), [`benefit-canon`](#benefit-canon--benefit-canon)                                                                                                                                                                                                                                                                                                                                                                                    |
 | `tests/feature_canon_enrolment_test.ts`            | [`verbs`](#verbs--top-level-verbs), [`jobs`](#jobs--gate-jobs), [`stages`](#stages--stages), [`config-tables`](#config-tables--config-tables), [`bundled-skills`](#bundled-skills--bundled-skills), [`agent-providers`](#agent-providers--agent-providers), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                          |
 | `tests/feature_canon_plain_register_test.ts`       | [`glossary-terms`](#glossary-terms--glossary-terms), [`feature-canon`](#feature-canon--feature-canon)                                                                                                                                                                                                                                                                                                                                                                                 |
 | `tests/first_party_licenses_test.ts`               | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -240,6 +242,7 @@ Alphabetical by path. `deno task codegen` rewrites an entire generated file; a m
 | `project/map/_internal/brand/register-bridge.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/brand/visual-identity.md`           | generated file   | [`brand-documents`](#brand-documents--brand-documents)                                                            |
 | `project/map/_internal/cross-agent-behaviour-reference.md` | generated file   | [`cross-agent-behaviours`](#cross-agent-behaviours--cross-agent-behavior-dimensions)                              |
+| `project/map/_internal/feature-canon-benefits.md`          | generated file   | [`benefit-canon`](#benefit-canon--benefit-canon)                                                                  |
 | `project/map/_internal/feature-canon-plain.md`             | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/feature-canon.md`                   | generated file   | [`feature-canon`](#feature-canon--feature-canon)                                                                  |
 | `project/map/_internal/hint-inventory.md`                  | generated file   | [`hints`](#hints--hints)                                                                                          |
@@ -1507,7 +1510,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 126
+- Members: 127
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -1533,6 +1536,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `diagnostics`
   - `gotchas-pointer`
   - `proof`
+  - `proof-notes`
   - `unchanged-tree-rerun`
   - `standards`
   - `standards-direction`
@@ -1638,6 +1642,59 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 - Artifacts: `project/map/_internal/feature-canon.md`, `project/map/_internal/feature-canon-plain.md`
 - Glossary: not enrolled — this maintainer registry supplies the Feature canon's data
 - Feature canon: not enrolled — this is the enrolling registry; its nodes describe the product capabilities
+
+## `benefit-canon` — Benefit canon
+
+The outcome-first transposition of the feature registry: clusters of benefit entries, each citing the feature nodes it composes and the public claims it backs.
+
+- Source: `scripts/feature_registry.ts` — `BENEFIT_CANON`
+- Members: 42
+  - `done-is-a-verdict`
+  - `check-the-claim`
+  - `keep-the-evidence`
+  - `permission-separate`
+  - `route-routine-work`
+  - `bound-the-blast-radius`
+  - `no-half-states`
+  - `take-on-more-work`
+  - `fleet-on-one-machine`
+  - `no-message-bus`
+  - `build-on-unlanded`
+  - `walk-away-mid-task`
+  - `no-orphaned-mess`
+  - `numbers-one-way`
+  - `capture-the-gain`
+  - `standards-survive-growth`
+  - `make-bugs-extinct`
+  - `outlaw-a-pattern`
+  - `hold-back-clutter`
+  - `docs-cannot-rot`
+  - `teach-a-lesson-once`
+  - `audit-agent-understanding`
+  - `keep-the-why`
+  - `knowledge-at-the-failure`
+  - `orient-in-one-call`
+  - `hand-a-briefing`
+  - `inherit-the-practices`
+  - `switch-providers`
+  - `one-practice-any-stack`
+  - `adopt-without-a-leap`
+  - `leave-as-cheaply`
+  - `upgrade-on-your-schedule`
+  - `review-the-judgment`
+  - `fleet-from-one-screen`
+  - `fail-forward-fast`
+  - `the-file-you-forgot`
+  - `pay-for-what-changed`
+  - `see-the-practice`
+  - `context-on-the-work`
+  - `stays-on-the-machine`
+  - `consent-is-structural`
+  - `tooling-on-contracts`
+- Guards: `tests/feature_canon_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`
+- Artifacts: `project/map/_internal/feature-canon-benefits.md`
+- Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
+- Feature canon: not enrolled — the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces
 
 ## `result-contracts` — Result contracts
 
@@ -1900,7 +1957,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 258
+- Members: 259
   - `0003`
   - `0005`
   - `0006`
@@ -2141,6 +2198,7 @@ The numbered decision records in the Map, including records later superseded.
   - `0265`
   - `0266`
   - `0267`
+  - `0268`
   - `0001`
   - `0002`
   - `0004`
@@ -2435,7 +2493,7 @@ Every `src/lib` validator for a config-resolved authored artifact: Map, Guidance
 This meta-registry: the closed set of closed sets.
 
 - Source: `scripts/canonical_sets.ts` — `CANONICAL_SETS`
-- Members: 75
+- Members: 76
   - `verbs`
   - `hidden-verbs`
   - `dry-run-verbs`
@@ -2486,6 +2544,7 @@ This meta-registry: the closed set of closed sets.
   - `improve-categories`
   - `glossary-terms`
   - `feature-canon`
+  - `benefit-canon`
   - `result-contracts`
   - `result-contract-reference-fields`
   - `cli-json-predicates`
