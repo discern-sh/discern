@@ -5,9 +5,11 @@ import {
   allFeatureNodes,
   allSurfaceClaims,
   FEATURE_CANON,
+  FEATURE_CANON_BENEFITS_PAGE_REL,
   FEATURE_CANON_PAGE_REL,
   FEATURE_CANON_PLAIN_PAGE_REL,
   parseSurfaceKey,
+  renderFeatureCanonBenefitsDoc,
   renderFeatureCanonDoc,
   renderFeatureCanonPlainDoc,
 } from "../scripts/feature_registry.ts";
@@ -40,6 +42,18 @@ Deno.test("the configured map's plain-language canon matches the generator (run 
     await canonicalGeneratedMarkdown(path, renderFeatureCanonPlainDoc()),
     `${
       join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_PLAIN_PAGE_REL)
+    } is stale — run \`deno task codegen\``,
+  );
+});
+
+Deno.test("the configured map's benefit canon matches the generator (run `deno task codegen`)", async () => {
+  const path = join(REPO_AUTHORED_PATHS.map, FEATURE_CANON_BENEFITS_PAGE_REL);
+  const committed = await Deno.readTextFile(path);
+  assertEquals(
+    committed,
+    await canonicalGeneratedMarkdown(path, renderFeatureCanonBenefitsDoc()),
+    `${
+      join(REPO_AUTHORED_PATHS.mapRel, FEATURE_CANON_BENEFITS_PAGE_REL)
     } is stale — run \`deno task codegen\``,
   );
 });
