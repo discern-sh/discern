@@ -528,6 +528,23 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
           agent:
             "A change saved while the check was running cannot earn Proof: discern pins the exact state before the first piece of work runs and checks it again at the moment of stamping. When a passing run cannot record Proof because unsaved edits remain, the refusal names the blocking files. Before the coding agent claims completion, an advice note states the remaining action: try the real result, pass on Proof, and wait.",
         },
+        children: [
+          {
+            id: "proof-notes",
+            title: "Durable proof notes",
+            what:
+              'After a landing, `discern accept` writes the structured Proof to the landed trunk commit as a Git note in a versioned envelope ready for later signing, adding no commit to trunk history. `[repository].proof_notes = "fetch"` carries notes through ordinary fetches; publishing them stays an explicit push.',
+            why:
+              "The review evidence outlives the worktree's removal and travels with the exact commit it vouches for.",
+            plain: {
+              title: "A lasting note of the evidence",
+              what:
+                "After finished work joins the main shared version, `discern accept` attaches the evidence that every required check passed (Proof) to that exact saved change, as a note kept beside the version history — adding nothing to the project's timeline. A setting lets other copies of the project receive these notes during their ordinary updates; sending them out stays a deliberate step.",
+              why:
+                "The evidence outlives the removed working copy and stays with the exact saved change it vouches for.",
+            },
+          },
+        ],
       },
       {
         id: "unchanged-tree-rerun",
