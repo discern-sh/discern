@@ -540,7 +540,7 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
             plain: {
               title: "A lasting note of the evidence",
               what:
-                "After finished work joins the main shared version, `discern accept` attaches the evidence that every required check passed (Proof) to that exact saved change, as a note kept beside the version history — adding nothing to the project's timeline. A setting lets other copies of the project receive these notes during their ordinary updates; sending them out stays a deliberate step.",
+                "After finished work joins the main shared version, `discern accept` attaches the evidence that every required check passed (Proof) to that exact saved change, as a note kept beside the version history — adding nothing to the project's timeline. A setting lets other copies of the project receive these notes during their ordinary updates; sending them out remains a separate step.",
               why:
                 "The evidence outlives the removed working copy and stays with the exact saved change it vouches for.",
             },
@@ -2830,7 +2830,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "take-on-more-work",
         title: "Take on more work",
         what:
-          "The delegate-work playbook turns discussed work into complete, self-contained briefs for fresh agents — one handoff, a parallel fan-out, or staged programs — and `discern start` gives each one an isolated, provisioned worktree.",
+          "The delegate-work playbook turns discussed work into complete, self-contained briefs for fresh agents (one handoff, a parallel fan-out, or staged programs), and `discern start` gives each one an isolated, provisioned worktree.",
         drawsOn: ["skill-delegate-work", "start"],
         claims: ["shaped-delegation"],
       },
@@ -2888,7 +2888,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
     id: "quality-that-only-improves",
     title: "Quality that only improves",
     what:
-      "Quality numbers and disciplines only tighten: regression is a gate failure, not a review catch.",
+      "Quality numbers and disciplines only tighten: regression fails the gate before it reaches review.",
     benefits: [
       {
         id: "numbers-one-way",
@@ -2902,15 +2902,15 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "capture-the-gain",
         title: "Capture a gain the moment it exists",
         what:
-          "`discern standards --pin` tightens each improved limit to the value just measured, leaves the declared margin of headroom, and commits that change alone.",
+          "`discern standards --pin` tightens each improved limit to the newly measured value, leaves the declared margin of headroom, and commits that change alone.",
         drawsOn: ["standards-pin", "standards-margin"],
         claims: ["pin-measured-gains"],
       },
       {
         id: "standards-survive-growth",
-        title: "Keep standards honest as the project grows",
+        title: "Keep growth from tripping the standards",
         what:
-          "Rates via `per` keep a number honest as the project grows, input-keyed replay spares unrelated changes the measurement cost, on-demand measurement defers only the expensive half, any tool that prints one line can feed a standard, and a breach the work itself caused escalates to the owner instead of moving the limit.",
+          "Rates via `per` scale a number with project size, input-keyed replay spares unrelated changes the measurement cost, on-demand measurement defers only the expensive half, any tool that prints one line can feed a standard, and a breach the work itself caused escalates to the owner instead of moving the limit.",
         drawsOn: [
           "standards-rates",
           "standards-replay",
@@ -2960,7 +2960,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
     id: "knowledge-that-compounds",
     title: "Knowledge that compounds",
     what:
-      "What one session learns, every later session — and every configured agent — inherits.",
+      "What one session learns, every later session and every configured agent inherits.",
     benefits: [
       {
         id: "teach-a-lesson-once",
@@ -3035,7 +3035,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "switch-providers",
         title: "Switch providers without re-teaching the project",
         what:
-          "Guidance, skills, map, gate, standards, and worktree practice are project-owned, and each configured provider receives its instruction file, hooks, and MCP wiring from one registry — changing agents changes a configuration list, not the project's memory.",
+          "Guidance, skills, map, gate, standards, and worktree practice are project-owned, and each configured provider receives its instruction file, hooks, and MCP wiring from one registry — changing agents means editing a configuration list while the project's knowledge stays in place.",
         drawsOn: [
           "providers",
           "provider-claude-code",
@@ -3149,7 +3149,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "pay-for-what-changed",
         title: "Pay only for what changed",
         what:
-          "Scopes classify each change and wake only the affected gates, `discern impact` answers which scopes woke, and untouched standards replay their recorded measurements. Classification fails open: a mistake adds checks, never removes them.",
+          "Scopes classify each change and wake only the affected gates, `discern impact` answers which scopes woke, and untouched standards replay their recorded measurements. Classification fails open: a mistake can only add checks.",
         drawsOn: [
           "scope-gates",
           "fail-open-classification",
@@ -3159,9 +3159,9 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "see-the-practice",
-        title: "See how the practice is actually going",
+        title: "See how the practice is going",
         what:
-          "`discern patterns` turns the metadata-only logbook into counted findings and a shareable stats card, `discern improvement` ranks the next action with its evidence, and agent cohorts appear as counts beside denominators — compared, never ranked.",
+          "`discern patterns` turns the metadata-only logbook into counted findings and a shareable stats card, `discern improvement` ranks the next action with its evidence, and agent cohorts appear as counts beside denominators, with no ranking drawn between agents.",
         drawsOn: ["patterns", "improvement", "logbook"],
         claims: ["patterns-compare-cohorts"],
       },
@@ -3190,7 +3190,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         id: "stays-on-the-machine",
         title: "Keep everything on the machine",
         what:
-          "discern contains no model, needs no key, and makes no network calls — a gate test keeps network interfaces out of its code path. The logbook holds metadata only, never leaves the machine, and has a real off switch.",
+          "discern contains no model, needs no key, and makes no network calls — a gate test keeps network interfaces out of its code path. The logbook holds metadata only, stays on the machine, and has a real off switch.",
         drawsOn: ["no-model-inside", "local-evidence", "logbook"],
         claims: ["no-model-inside", "local-logbook"],
       },
