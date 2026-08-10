@@ -1,0 +1,355 @@
+@layer discern.page {
+  .persistent-trace {
+    --persistent-trace-accent: var(--discern-color-accent-600);
+    --persistent-trace-line: color-mix(in oklab,
+      var(--discern-color-ink-muted) 72%, transparent);
+    --persistent-trace-guide: color-mix(in oklab,
+      var(--discern-color-border-strong) 58%, transparent);
+    position: relative;
+    isolation: isolate;
+    margin: 0;
+    overflow: hidden;
+    border-block: 1px solid var(--discern-color-border);
+    background:
+      linear-gradient(142deg, transparent 44%,
+      color-mix(in oklab, var(--discern-color-surface-sunken) 62%,
+      transparent)),
+      var(--discern-color-canvas);
+  }
+
+  [data-discern-theme="dark"] .persistent-trace {
+    --persistent-trace-accent: var(--discern-color-accent-400);
+    --persistent-trace-line: color-mix(in oklab,
+      var(--discern-color-ink-muted) 94%, transparent);
+    --persistent-trace-guide: color-mix(in oklab,
+      var(--discern-color-border-strong) 84%, transparent);
+  }
+
+  .persistent-trace__drawing {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 24rem;
+    color: var(--discern-color-ink);
+    shape-rendering: geometricPrecision;
+  }
+
+  .persistent-trace__construction path,
+  .persistent-trace__durable path,
+  .persistent-trace__pass,
+  .persistent-trace__origin path {
+    vector-effect: non-scaling-stroke;
+  }
+
+  .persistent-trace__construction path {
+    fill: none;
+    stroke: var(--persistent-trace-guide);
+    stroke-dasharray: 2 9;
+    stroke-linecap: round;
+    stroke-width: 0.8;
+  }
+
+  .persistent-trace__construction path:first-child {
+    stroke-dasharray: none;
+    stroke-width: 0.65;
+  }
+
+  .persistent-trace__durable path {
+    fill: none;
+    stroke: var(--persistent-trace-line);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.45;
+  }
+
+  .persistent-trace__durable path:nth-child(1) {
+    opacity: 0.32;
+  }
+
+  .persistent-trace__durable path:nth-child(2) {
+    opacity: 0.4;
+  }
+
+  .persistent-trace__durable path:nth-child(3) {
+    opacity: 0.48;
+  }
+
+  .persistent-trace__durable path:nth-child(4) {
+    opacity: 0.56;
+  }
+
+  .persistent-trace__durable path:nth-child(5) {
+    opacity: 0.64;
+  }
+
+  .persistent-trace__durable path:nth-child(6) {
+    opacity: 0.74;
+  }
+
+  .persistent-trace__pass {
+    fill: none;
+    stroke: var(--persistent-trace-accent);
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    opacity: 0;
+    animation-duration: 11s;
+    animation-iteration-count: infinite;
+    animation-timing-function: linear;
+  }
+
+  .persistent-trace__pass--1 {
+    animation-name: persistent-trace-pass-1;
+  }
+
+  .persistent-trace__pass--2 {
+    animation-name: persistent-trace-pass-2;
+  }
+
+  .persistent-trace__pass--3 {
+    animation-name: persistent-trace-pass-3;
+  }
+
+  .persistent-trace__pass--4 {
+    animation-name: persistent-trace-pass-4;
+  }
+
+  .persistent-trace__pass--5 {
+    animation-name: persistent-trace-pass-5;
+  }
+
+  .persistent-trace__pass--6 {
+    animation-name: persistent-trace-pass-6;
+  }
+
+  .persistent-trace__origin path:first-child {
+    fill: var(--discern-color-canvas);
+    stroke: var(--discern-color-ink-muted);
+    stroke-linejoin: round;
+    stroke-width: 1;
+  }
+
+  .persistent-trace__origin path:last-child {
+    fill: var(--discern-color-ink);
+  }
+
+  .persistent-trace__traveler-point {
+    fill: var(--persistent-trace-accent);
+  }
+
+  .persistent-trace__traveler-halo {
+    fill: color-mix(in oklab, var(--persistent-trace-accent) 14%, transparent);
+    stroke: color-mix(in oklab,
+      var(--persistent-trace-accent) 34%, transparent);
+    stroke-width: 0.8;
+  }
+
+  .persistent-trace__bloom {
+    fill: color-mix(in oklab, var(--persistent-trace-accent) 16%, transparent);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: persistent-trace-bloom 11s ease-out infinite;
+  }
+
+  @keyframes persistent-trace-pass-1 {
+    0% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    1%,
+    12% {
+      opacity: 0.76;
+    }
+
+    12%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    17%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-pass-2 {
+    0%,
+    12% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    13%,
+    27% {
+      opacity: 0.76;
+    }
+
+    27%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    32%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-pass-3 {
+    0%,
+    27% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    28%,
+    41% {
+      opacity: 0.76;
+    }
+
+    41%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    46%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-pass-4 {
+    0%,
+    41% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    42%,
+    55% {
+      opacity: 0.76;
+    }
+
+    55%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    60%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-pass-5 {
+    0%,
+    55% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    56%,
+    69% {
+      opacity: 0.76;
+    }
+
+    69%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    74%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-pass-6 {
+    0%,
+    69% {
+      stroke-dashoffset: 1;
+      opacity: 0;
+    }
+
+    70%,
+    82% {
+      opacity: 0.76;
+    }
+
+    82%,
+    95% {
+      stroke-dashoffset: 0;
+    }
+
+    92%,
+    100% {
+      opacity: 0;
+    }
+
+    100% {
+      stroke-dashoffset: 1;
+    }
+  }
+
+  @keyframes persistent-trace-bloom {
+    0%,
+    78%,
+    100% {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+
+    84% {
+      opacity: 0.28;
+      transform: scale(1);
+    }
+
+    93% {
+      opacity: 0.05;
+      transform: scale(1.3);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .persistent-trace__pass,
+    .persistent-trace__bloom {
+      animation: none;
+    }
+
+    .persistent-trace__draw,
+    .persistent-trace__bloom,
+    .persistent-trace__traveler {
+      display: none;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .persistent-trace__drawing {
+      min-height: 20rem;
+    }
+  }
+}

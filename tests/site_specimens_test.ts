@@ -1,10 +1,11 @@
-/** Contracts for the development-only homepage artefact specimen sheet. */
+/** Contracts for the focused development-only benefit-art specimen sheet. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import { renderSpecimens } from "../site/page-src/specimens.tsx";
 import {
+  PERSISTENT_TRACE_STYLESHEET_PATH,
   SPECIMEN_STYLESHEET_PATH,
   specimenHandler,
 } from "../site/specimens.ts";
@@ -14,11 +15,6 @@ const SPECIMEN_CSS = new URL(
   "../site/page-src/specimens.css",
   import.meta.url,
 );
-
-/** Collapse rendered prose whitespace without changing punctuation or code text. */
-function readableText(value: string | null): string {
-  return (value ?? "").replace(/\s+/g, " ").trim();
-}
 
 /** Return selectors whose declarations opt into the monospace token. */
 function monoSelectors(css: string): string[] {
@@ -35,20 +31,7 @@ function monoSelectors(css: string): string[] {
   return selectors;
 }
 
-/** Find callout markers that have drifted outside the section they name. */
-function misplacedProofMarkers(document: Document): string[] {
-  return [...document.querySelectorAll<HTMLElement>(".proof-pin")].flatMap(
-    (marker) => {
-      const target = marker.dataset.proofTarget;
-      const section = marker.closest<HTMLElement>("[data-proof-section]");
-      return target !== undefined && section?.dataset.proofSection === target
-        ? []
-        : [readableText(marker.textContent)];
-    },
-  );
-}
-
-Deno.test("the specimen sheet remains outside the public route registry", async () => {
+Deno.test("the benefit-art study remains outside the public route registry", async () => {
   assertEquals(Object.hasOwn(PAGES, "/specimens"), false);
   const publicResponse = await handler(
     new Request("https://discern.sh/specimens"),
@@ -65,26 +48,39 @@ Deno.test("the specimen sheet remains outside the public route registry", async 
   );
 });
 
-Deno.test("the development handler serves only the sheet and its live stylesheet", async () => {
+Deno.test("the development handler serves the study and its live styles", async () => {
   const root = await specimenHandler(new Request("http://localhost/"));
   assertEquals(root.status, 200);
   assertStringIncludes(root.headers.get("content-type") ?? "", "text/html");
   assertEquals(root.headers.get("cache-control"), "no-store");
   assertEquals(root.headers.get("x-robots-tag"), "noindex, nofollow");
-  assertStringIncludes(await root.text(), "The delegation wave plan");
+  assertStringIncludes(await root.text(), "Knowledge that compounds");
 
-  const stylesheet = await specimenHandler(
-    new Request(`http://localhost${SPECIMEN_STYLESHEET_PATH}`),
-  );
-  assertEquals(stylesheet.status, 200);
-  assertStringIncludes(
-    stylesheet.headers.get("content-type") ?? "",
-    "text/css",
-  );
-  assertEquals(stylesheet.headers.get("cache-control"), "no-store");
-  assertStringIncludes(await stylesheet.text(), ".specimen-theme");
+  for (
+    const stylesheetPath of [
+      SPECIMEN_STYLESHEET_PATH,
+      PERSISTENT_TRACE_STYLESHEET_PATH,
+    ]
+  ) {
+    const stylesheet = await specimenHandler(
+      new Request(`http://localhost${stylesheetPath}`),
+    );
+    assertEquals(stylesheet.status, 200, stylesheetPath);
+    assertStringIncludes(
+      stylesheet.headers.get("content-type") ?? "",
+      "text/css",
+    );
+    assertEquals(stylesheet.headers.get("cache-control"), "no-store");
+    assertStringIncludes(await stylesheet.text(), ".persistent-trace");
+  }
 
-  for (const path of ["/", SPECIMEN_STYLESHEET_PATH]) {
+  for (
+    const path of [
+      "/",
+      SPECIMEN_STYLESHEET_PATH,
+      PERSISTENT_TRACE_STYLESHEET_PATH,
+    ]
+  ) {
     const rejected = await specimenHandler(
       new Request(`http://localhost${path}`, { method: "POST" }),
     );
@@ -94,102 +90,43 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   }
 });
 
-Deno.test("all four truthful artefacts render once in each fixed theme", () => {
+Deno.test("the focused study renders once in each fixed theme", () => {
   const html = renderSpecimens();
   const dom = new JSDOM(html);
   const document = dom.window.document;
 
   assertEquals(document.querySelectorAll("h1").length, 1);
-  assertEquals(document.querySelectorAll(".specimen-section").length, 4);
-  assertEquals(document.querySelectorAll(".specimen-theme").length, 8);
   assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="light"]')
-      .length,
-    4,
+    document.querySelector("h1")?.textContent,
+    "Knowledge that compounds",
+  );
+  assertStringIncludes(
+    document.body.textContent ?? "",
+    "What one session learns, every later session and every configured agent inherits.",
   );
   assertEquals(
-    document.querySelectorAll('.specimen-theme[data-discern-theme="dark"]')
-      .length,
-    4,
+    document.querySelectorAll(".persistent-trace-demo__theme").length,
+    2,
   );
+  assertEquals(
+    document.querySelectorAll(
+      '.persistent-trace-demo__theme[data-discern-theme="light"]',
+    ).length,
+    1,
+  );
+  assertEquals(
+    document.querySelectorAll(
+      '.persistent-trace-demo__theme[data-discern-theme="dark"]',
+    ).length,
+    1,
+  );
+  assertEquals(document.querySelectorAll(".persistent-trace").length, 2);
 
   const ids = [...document.querySelectorAll("[id]")].map((element) =>
     element.id
   );
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
-  const text = readableText(document.body.textContent);
-  for (
-    const theme of document.querySelectorAll("#delegation .specimen-theme")
-  ) {
-    assertEquals(
-      [...theme.querySelectorAll(".wave-handoff")].map((handoff) =>
-        [...handoff.children].map((element) =>
-          readableText(element.textContent)
-        ).join(" ")
-      ),
-      ["Wave 1 lands ↓ Wave 2 opens", "Wave 2 lands ↓ Wave 3 opens"],
-    );
-  }
-  assertEquals(
-    document.querySelectorAll("#delegation .delegation-wave").length,
-    6,
-  );
-  assertEquals(document.querySelectorAll("#delegation .wave-task").length, 10);
-  for (
-    const required of [
-      "Open the project to beta users",
-      "beta-onboarding",
-      "beta-feedback",
-      "beta-journey",
-      "beta-accessibility",
-      "beta-invitation",
-      "Illustrative homepage plan.",
-      "Your agent studies the project",
-      "Your agent presents their findings",
-      "They’ll ask you to confirm a few details about your project before they continue.",
-      "They prove it works in a fresh workspace",
-      "New tools need your approval. Nothing is installed without it.",
-      "31 → 25",
-      "471 readings across 12 days and 40 attributed setup or release configurations.",
-      "Internal snapshot, not a customer benchmark.",
-      "agent/homepage-1a-b9ab45",
-      "9457535abebe",
-      "9 configured jobs",
-      "The owner still decides whether the change may land.",
-    ]
-  ) assertStringIncludes(text, required);
-
-  assert(!text.includes("It does not claim"));
-  assert(!text.includes("Desk UX"));
-  assert(!text.includes("Output ·"));
-  assert(!text.includes("Example subject ·"));
-  assertEquals(
-    document.querySelectorAll('#proof [aria-label="Figure legend"]').length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll(
-      '#commissioning [aria-label="Figure legend"]',
-    ).length,
-    0,
-  );
-  assertEquals(
-    document.querySelectorAll('#delegation [aria-label="Figure legend"]')
-      .length,
-    0,
-  );
-  assertEquals(
-    readableText(
-      document.querySelector("#standard .standard-trajectory__status")
-        ?.textContent ?? null,
-    ),
-    "Lower is better. Every authored Deno source file is enrolled.",
-  );
-  assert(!text.includes("Internal dogfooding"));
-  assert(!text.toLowerCase().includes("observational"));
-
-  assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
@@ -197,32 +134,13 @@ Deno.test("all four truthful artefacts render once in each fixed theme", () => {
     ["/assets/theme.js"],
     "the static preview must not ship a browser framework runtime",
   );
+  assert(!html.includes("_private"), "private source paths must not render");
   dom.window.close();
 });
 
-Deno.test("Proof markers stay inside the section they annotate", () => {
-  const rendered = new JSDOM(renderSpecimens());
-  assertEquals(misplacedProofMarkers(rendered.window.document), []);
-  rendered.window.close();
-
-  const futureSibling = new JSDOM(`
-    <section data-proof-section="tree">
-      <span class="proof-pin" data-proof-target="gate">02</span>
-    </section>
-  `);
-  assertEquals(
-    misplacedProofMarkers(futureSibling.window.document),
-    ["02"],
-    "a new marker must live inside the section named by its target",
-  );
-  futureSibling.window.close();
-});
-
-Deno.test("specimen typography reserves monospace for the name and code", async () => {
+Deno.test("specimen typography reserves monospace for the product name", async () => {
   const css = await Deno.readTextFile(SPECIMEN_CSS);
   assertEquals(monoSelectors(css), [
-    ".specimen-brand-name",
-    ".wave-task code",
-    ".proof-card__header code, .proof-line code, .proof-tree code, .proof-jobs code, .proof-standard-summary code, .proof-boundary code, .proof-source code",
+    ".persistent-trace-demo__brand-name",
   ]);
 });

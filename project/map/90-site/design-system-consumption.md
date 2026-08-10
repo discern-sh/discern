@@ -34,17 +34,17 @@ Page-owned composition styles live in [`site/page-src/landing.css`](../../../sit
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
-## Development-only artefact specimens
+## Development-only benefit-art specimen
 
-[`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) composes the homepage's delegation, commissioning, Standard, and Proof artefacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artefact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document.
+[`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) frames the reusable [`PersistentTraceArtwork`](../../../site/page-src/benefit-persistent-trace.tsx) component as a focused study for the “Knowledge that compounds” benefit. Retained paths form a complete static composition while one accent point follows the plotted route. [`site/page-src/benefit-persistent-trace.css`](../../../site/page-src/benefit-persistent-trace.css) owns the artwork and its reduced-motion frame. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns the editorial preview layout without targeting package-owned `.discern-*` selectors. Fixed light and dark token roots place both readings in the same document.
 
-[`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
+[`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus both authored stylesheets directly from source on the worktree's local port:
 
 ```sh
 deno task site:specimens
 ```
 
-The command prints the preview address. The sheet is static HTML and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, the evidence text, unique document identifiers, absence of a browser framework runtime, and the rule that monospace appears only on the product name and code.
+The command prints the preview address. The sheet is static HTML, SVG, and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, paired themes, unique document identifiers, absence of a browser framework runtime, and reserved product-name monospace. [`tests/site_benefit_persistent_trace_test.ts`](../../../tests/site_benefit_persistent_trace_test.ts) guards the SVG title and description, retained layers, moving point, and reduced-motion treatment.
 
 ## Consumer guards
 
