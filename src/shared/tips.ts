@@ -841,6 +841,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "Each diagnostic supplies its action at failure time, when it is relevant.",
   "feature:gotchas-pointer":
     "The failure that needs the troubleshooting pointer supplies it directly.",
+  "feature:proof-notes":
+    "Acceptance writes the durable note automatically and `status` surfaces the landed evidence; no separate Desk action exists to teach.",
   "feature:unchanged-tree-rerun":
     "The Proof tip covers the review result; reuse remains an internal optimization.",
   "feature:standards-metric-protocol":
