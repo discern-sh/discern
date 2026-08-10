@@ -945,7 +945,8 @@ export const TIP_COVERAGE_DELIBERATELY_ABSENT: Readonly<
     "MCP hosts the agent integration surface; the Desk owns human actions.",
   "verb:setup":
     "The installer teaches setup before the Desk becomes available.",
-  "verb:triangle": "The command is an Easter egg omitted from the curriculum.",
+  "verb:triangle":
+    "The command is intentionally enigmatic and omitted from the curriculum.",
   "verb:uninstall":
     "Explicit command help documents uninstall; the onboarding curriculum covers continued use.",
 };
