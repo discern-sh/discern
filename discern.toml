@@ -239,6 +239,7 @@
       "${map.dir}_internal/tip-inventory.md",
       "${map.dir}_internal/voice-enforcement-coverage.md",
       "${map.dir}_internal/feature-canon-plain.md",
+      "${map.dir}_internal/feature-canon-benefits.md",
     ]
     neutral = true
 
@@ -292,6 +293,7 @@
       "${map.dir}70-reference/environment-variables.md",
       "${map.dir}_internal/feature-canon.md",
       "${map.dir}_internal/feature-canon-plain.md",
+      "${map.dir}_internal/feature-canon-benefits.md",
       "${map.dir}_internal/hint-inventory.md",
       "${map.dir}_internal/registry-atlas.md",
       "${map.dir}_internal/tip-inventory.md",

@@ -2524,7 +2524,7 @@ export function renderFeatureCanonDoc(): string {
     "",
     "# Feature canon",
     "",
-    "_Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md)._",
+    "_Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the outcome-first transposition is [feature-canon-benefits.md](feature-canon-benefits.md)._",
     "",
     `${FEATURE_CANON.length} pillars · ${flattened.length} nodes · ${benefits.length} benefit statements${agentStat()} · ${claims.length} closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.`,
     "",

@@ -1533,6 +1533,41 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "benefit-canon",
+    title: "Benefit canon",
+    what:
+      "The outcome-first transposition of the feature registry: clusters of benefit entries, each citing the feature nodes it composes and the public claims it backs.",
+    source: {
+      kind: "module",
+      module: "scripts/feature_registry.ts",
+      exportName: "BENEFIT_CANON",
+    },
+    guards: [
+      "tests/feature_canon_benefit_test.ts",
+      "tests/feature_canon_codegen_test.ts",
+    ],
+    artifacts: [
+      {
+        path: "project/map/_internal/feature-canon-benefits.md",
+        kind: "generated-file",
+        banner: true,
+      },
+    ],
+    enrolledIn: {
+      glossary: {
+        absent: "this maintainer registry supplies the benefit canon's data",
+      },
+      featureCanon: {
+        absent:
+          "the benefit canon is the feature canon's own transposition; its entries cite feature nodes rather than claim surfaces",
+      },
+    },
+    members: async () =>
+      (await import("./feature_registry.ts")).allBenefitEntries().map(
+        (flat) => flat.entry.id,
+      ),
+  },
+  {
     id: "result-contracts",
     title: "Result contracts",
     what:
