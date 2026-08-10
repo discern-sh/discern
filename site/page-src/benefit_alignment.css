@@ -1,0 +1,237 @@
+@layer discern.page {
+  .benefit-alignment {
+    position: relative;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    border-block: 1px solid var(--discern-color-border);
+    background:
+      linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--discern-color-surface) 72%, transparent),
+      color-mix(in oklab, var(--discern-color-canvas) 94%, transparent)
+    );
+    isolation: isolate;
+  }
+
+  .benefit-alignment::before,
+  .benefit-alignment::after {
+    position: absolute;
+    z-index: 1;
+    inline-size: 2.5rem;
+    block-size: 2.5rem;
+    border-color: var(--discern-color-border-strong);
+    content: "";
+    pointer-events: none;
+  }
+
+  .benefit-alignment::before {
+    inset: var(--discern-space-4) auto auto var(--discern-space-4);
+    border-block-start: 1px solid;
+    border-inline-start: 1px solid;
+  }
+
+  .benefit-alignment::after {
+    inset: auto var(--discern-space-4) var(--discern-space-4) auto;
+    border-block-end: 1px solid;
+    border-inline-end: 1px solid;
+  }
+
+  .benefit-alignment__art {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--discern-color-ink);
+    shape-rendering: geometricPrecision;
+  }
+
+  .benefit-alignment__construction {
+    fill: none;
+    opacity: 0.56;
+    stroke: var(--discern-color-border-strong);
+    stroke-linecap: square;
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .benefit-alignment__bloom {
+    animation: benefit-alignment-bloom 10.5s linear infinite;
+    fill: var(--discern-color-accent-400);
+    filter: blur(24px);
+    opacity: 0.035;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .benefit-alignment__plane {
+    animation-duration: 10.5s;
+    animation-iteration-count: infinite;
+    animation-timing-function: cubic-bezier(0.22, 0.74, 0.24, 1);
+    paint-order: fill stroke;
+    stroke-linejoin: miter;
+    transform-box: fill-box;
+    transform-origin: center;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .benefit-alignment__plane--outline {
+    animation-name: benefit-alignment-outline-register;
+    fill: none;
+    opacity: 0.58;
+    stroke: var(--discern-color-ink-muted);
+    stroke-width: 1;
+  }
+
+  .benefit-alignment__plane--empty {
+    animation-name: benefit-alignment-empty-register;
+    fill: var(--discern-color-canvas);
+    fill-opacity: 0.96;
+    stroke: var(--discern-color-ink);
+    stroke-width: 1.35;
+  }
+
+  .benefit-alignment__plane--filled {
+    animation-name: benefit-alignment-filled-register;
+    fill: var(--discern-color-ink);
+    fill-opacity: 0.94;
+    stroke: var(--discern-color-ink);
+    stroke-width: 1.35;
+  }
+
+  .benefit-alignment__aperture {
+    animation: benefit-alignment-aperture-settle 10.5s
+      cubic-bezier(0.2, 0.68, 0.2, 1) infinite;
+    opacity: 1;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  .benefit-alignment__aperture-clear {
+    fill: var(--discern-color-canvas);
+    fill-opacity: 0.98;
+  }
+
+  .benefit-alignment__aperture-edge {
+    fill: none;
+    stroke: var(--discern-color-accent-600);
+    stroke-width: 1.3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  [data-discern-theme="dark"] .benefit-alignment__bloom {
+    fill: var(--discern-color-accent-500);
+  }
+
+  @keyframes benefit-alignment-outline-register {
+    0%,
+    15% {
+      opacity: 0.28;
+      transform: translateY(-26px) rotate(0.9deg);
+    }
+
+    59%,
+    99.5% {
+      opacity: 0.58;
+      transform: translate(0) rotate(0);
+    }
+
+    100% {
+      opacity: 0.28;
+      transform: translateY(-26px) rotate(0.9deg);
+    }
+  }
+
+  @keyframes benefit-alignment-empty-register {
+    0%,
+    15% {
+      opacity: 0.42;
+      transform: translate(-34px, 18px) rotate(-1.8deg);
+    }
+
+    62%,
+    99.5% {
+      opacity: 1;
+      transform: translate(0) rotate(0);
+    }
+
+    100% {
+      opacity: 0.42;
+      transform: translate(-34px, 18px) rotate(-1.8deg);
+    }
+  }
+
+  @keyframes benefit-alignment-filled-register {
+    0%,
+    15% {
+      opacity: 0.34;
+      transform: translate(32px, -16px) rotate(1.55deg);
+    }
+
+    64%,
+    99.5% {
+      opacity: 1;
+      transform: translate(0) rotate(0);
+    }
+
+    100% {
+      opacity: 0.34;
+      transform: translate(32px, -16px) rotate(1.55deg);
+    }
+  }
+
+  @keyframes benefit-alignment-aperture-settle {
+    0%,
+    63% {
+      opacity: 0.12;
+      transform: translateY(-20px);
+    }
+
+    78%,
+    99.5% {
+      opacity: 1;
+      transform: translate(0);
+    }
+
+    100% {
+      opacity: 0.12;
+      transform: translateY(-20px);
+    }
+  }
+
+  @keyframes benefit-alignment-bloom {
+    0%,
+    55% {
+      opacity: 0;
+      transform: scale(0.84);
+    }
+
+    69% {
+      opacity: 0.13;
+      transform: scale(1);
+    }
+
+    84%,
+    99.5% {
+      opacity: 0.035;
+      transform: scale(1.04);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(0.84);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .benefit-alignment__plane,
+    .benefit-alignment__aperture,
+    .benefit-alignment__bloom {
+      animation: none;
+      transform: none;
+    }
+
+    .benefit-alignment__bloom {
+      opacity: 0.035;
+    }
+  }
+}
