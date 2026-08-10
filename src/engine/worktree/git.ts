@@ -2299,17 +2299,20 @@ export async function gitSnapshot(
   if (!inside.success || inside.stdout.trim() !== "true") {
     return undefined;
   }
-  const branchRun = await git(["branch", "--show-current"], cwd);
-  const branch = branchRun.success ? branchRun.stdout.trim() : "";
-  const dirtyEntries = await statusEntries(cwd, "normal");
+  // After the one gate read, the remaining reads are independent — issued
+  // together, a snapshot costs two subprocess rounds, not a chain of five.
+  const [branchRun, dirtyEntries, { ahead, behind }, headMove] = await Promise
+    .all([
+      git(["branch", "--show-current"], cwd),
+      statusEntries(cwd, "normal"),
+      aheadBehind(cwd, integrationBranch(mainBranchFallback)),
+      lastHeadMoveTime(cwd),
+    ]);
   if (dirtyEntries === undefined) {
     return undefined;
   }
-  const { ahead, behind } = await aheadBehind(
-    cwd,
-    integrationBranch(mainBranchFallback),
-  );
-  const lastActivity = await lastActivityAt(cwd, dirtyEntries);
+  const branch = branchRun.success ? branchRun.stdout.trim() : "";
+  const lastActivity = await lastActivityAt(cwd, dirtyEntries, headMove);
   return {
     branch,
     clean: dirtyEntries.length === 0,
@@ -2350,9 +2353,10 @@ async function statusEntries(
 
 /**
  * The most recent activity timestamp (unix seconds) for the checkout at `cwd`: the
- * latest of the last HEAD movement (the reflog — which captures commits, checkouts,
- * AND the worktree's own creation) and the newest mtime among the uncommitted files
- * (`dirtyEntries` from `git status --porcelain -z`). Pure reads.
+ * latest of the last HEAD movement (`headMove` — the reflog's newest entry, which
+ * captures commits, checkouts, AND the worktree's own creation) and the newest
+ * mtime among the uncommitted files (`dirtyEntries` from
+ * `git status --porcelain -z`). Pure reads.
  * Undefined when nothing can be determined. Including the reflog's creation entry
  * is deliberate: it keeps a freshly-spawned worktree from reading as old as the
  * branch point it forked from.
@@ -2360,14 +2364,18 @@ async function statusEntries(
 async function lastActivityAt(
   cwd: string,
   dirtyEntries: PorcelainEntry[],
+  headMove: number | undefined,
 ): Promise<number | undefined> {
-  // Last HEAD movement: the reflog's newest entry time. Reflog is appended only on
-  // HEAD *movement* (commit/checkout/reset/creation), never on reads, so this is
-  // stable across repeated read-only `status` runs. Fall back to the HEAD commit
-  // time when the reflog is unavailable (disabled, or an oddly-configured repo).
-  let best = await lastHeadMoveTime(cwd) ?? await headCommitTime(cwd);
-  for (const entry of dirtyEntries) {
-    const mtime = await fileMtime(join(cwd, entry.path));
+  // The reflog is appended only on HEAD *movement* (commit/checkout/reset/
+  // creation), never on reads, so `headMove` is stable across repeated
+  // read-only `status` runs. Fall back to the HEAD commit time when the reflog
+  // is unavailable (disabled, or an oddly-configured repo).
+  const anchor = headMove ?? await headCommitTime(cwd);
+  const mtimes = await Promise.all(
+    dirtyEntries.map((entry) => fileMtime(join(cwd, entry.path))),
+  );
+  let best = anchor;
+  for (const mtime of mtimes) {
     if (mtime !== undefined && (best === undefined || mtime > best)) {
       best = mtime;
     }
@@ -2446,14 +2454,16 @@ export async function listWorktreeFleet(
   if (!listRun.success) {
     return [];
   }
-  const out: FleetWorktree[] = [];
   const records = parseWorktreeList(listRun.stdout);
-  for (const [i, rec] of records.entries()) {
+  // Each row's snapshot reads only its own checkout, so the whole fleet is
+  // surveyed concurrently — the survey costs one worktree's reads, not the
+  // fleet's sum.
+  return await Promise.all(records.map(async (rec, i) => {
     const snap = await gitSnapshot(rec.path, mainBranchFallback);
     const short = rec.branch.startsWith("refs/heads/")
       ? rec.branch.slice("refs/heads/".length)
       : rec.branch;
-    out.push({
+    return {
       path: await realPathOr(rec.path),
       isMain: i === 0,
       // The porcelain branch stays the fallback: an unreadable checkout's branch
@@ -2464,9 +2474,8 @@ export async function listWorktreeFleet(
       locked: rec.locked,
       prunable: rec.prunable,
       snapshot: snap,
-    });
-  }
-  return out;
+    };
+  }));
 }
 
 /** Options for the read-only git-worktree prune scan. */
