@@ -142,7 +142,7 @@
   .bifurcation-art__branch {
     stroke-linecap: round;
     stroke-linejoin: round;
-    stroke-dasharray: 1;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 
@@ -201,8 +201,8 @@
 
   .bifurcation-art__terminal-cap {
     opacity: 0.92;
-    transform-box: fill-box;
-    transform-origin: center;
+    transform-box: view-box;
+    transform-origin: 0 0;
   }
 
   .bifurcation-art [data-bifurcation-motion] {
@@ -300,18 +300,28 @@
   0%,
   3% {
     opacity: 0;
+    stroke-dasharray: 1;
     stroke-dashoffset: 1;
   }
 
-  13%,
+  13% {
+    opacity: 0.84;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  14%,
+  75%,
   93% {
     opacity: 0.84;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 
   98%,
   100% {
     opacity: 0;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 }
@@ -320,22 +330,33 @@
   0%,
   12% {
     opacity: 0;
+    stroke-dasharray: 1;
     stroke-dashoffset: 1;
   }
 
   17% {
     opacity: 0.34;
+    stroke-dasharray: 1;
   }
 
-  32%,
+  32% {
+    opacity: 0.84;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  33%,
+  75%,
   93% {
     opacity: 0.84;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 
   98%,
   100% {
     opacity: 0;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 }
@@ -344,22 +365,33 @@
   0%,
   29% {
     opacity: 0;
+    stroke-dasharray: 1;
     stroke-dashoffset: 1;
   }
 
   34% {
     opacity: 0.3;
+    stroke-dasharray: 1;
   }
 
-  52%,
+  52% {
+    opacity: 0.78;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  53%,
+  75%,
   93% {
     opacity: 0.78;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 
   98%,
   100% {
     opacity: 0;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 }
@@ -368,22 +400,32 @@
   0%,
   49% {
     opacity: 0;
+    stroke-dasharray: 1;
     stroke-dashoffset: 1;
   }
 
   54% {
     opacity: 0.26;
+    stroke-dasharray: 1;
   }
 
-  74%,
+  74% {
+    opacity: 0.68;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 0;
+  }
+
+  75%,
   93% {
     opacity: 0.68;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 
   98%,
   100% {
     opacity: 0;
+    stroke-dasharray: none;
     stroke-dashoffset: 0;
   }
 }
@@ -392,18 +434,18 @@
   0%,
   70% {
     opacity: 0;
-    transform: translateX(-7px) scale(0.68);
+    transform: scale(0.68);
   }
 
   78%,
   93% {
     opacity: 0.92;
-    transform: translateX(0) scale(1);
+    transform: scale(1);
   }
 
   98%,
   100% {
     opacity: 0;
-    transform: translateX(0) scale(1);
+    transform: scale(1);
   }
 }

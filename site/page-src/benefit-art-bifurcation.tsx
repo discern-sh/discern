@@ -57,7 +57,12 @@ export const BIFURCATION_TOPOLOGY = {
 } as const;
 
 /** Terminal nodes derive from the last declared level, never a copied list. */
-export const BIFURCATION_TERMINALS = BIFURCATION_TOPOLOGY.levels[2].nodes;
+const bifurcationTerminalLevel = BIFURCATION_TOPOLOGY.levels.at(-1);
+if (bifurcationTerminalLevel === undefined) {
+  throw new Error("Bifurcation topology requires at least one level");
+}
+export const BIFURCATION_TERMINALS = bifurcationTerminalLevel.nodes;
+const BIFURCATION_TERMINAL_DEPTH = bifurcationTerminalLevel.depth;
 
 const topologyPoints: BifurcationPoint[] = [BIFURCATION_TOPOLOGY.root];
 for (const level of BIFURCATION_TOPOLOGY.levels) {
@@ -179,18 +184,26 @@ export function BifurcationArtwork(
 
           <g className="bifurcation-art__terminal-caps">
             {BIFURCATION_TERMINALS.map((terminal) => (
-              <use
-                className="bifurcation-art__terminal-cap"
+              <g
                 data-bifurcation-terminal={terminal.id}
-                data-bifurcation-level="4"
-                data-bifurcation-motion
-                href={`#${leafCapId}`}
-                x={terminal.x - 5}
-                y={terminal.y - 10}
-                width="20"
-                height="20"
+                data-bifurcation-level={BIFURCATION_TERMINAL_DEPTH + 1}
+                transform={`translate(${terminal.x} ${terminal.y})`}
                 key={terminal.id}
-              />
+              >
+                <g
+                  className="bifurcation-art__terminal-cap"
+                  data-bifurcation-cap-motion
+                  data-bifurcation-motion
+                >
+                  <use
+                    href={`#${leafCapId}`}
+                    x="-10"
+                    y="-10"
+                    width="20"
+                    height="20"
+                  />
+                </g>
+              </g>
             ))}
           </g>
         </g>

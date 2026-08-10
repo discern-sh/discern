@@ -39,6 +39,292 @@ function monoSelectors(css: string): string[] {
   return selectors;
 }
 
+interface RegisteredBifurcationNode {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+interface RegisteredBifurcationTopology {
+  readonly levels: readonly {
+    readonly depth: number;
+    readonly nodes: readonly RegisteredBifurcationNode[];
+  }[];
+}
+
+interface CssRule {
+  readonly selectors: readonly string[];
+  readonly declarations: ReadonlyMap<string, string>;
+}
+
+/** Parse the flat declaration bodies used by this focused stylesheet. */
+function declarations(source: string): ReadonlyMap<string, string> {
+  const result = new Map<string, string>();
+  for (const match of source.matchAll(/([a-z-]+)\s*:\s*([^;]+);/g)) {
+    const property = match[1];
+    const value = match[2];
+    if (property !== undefined && value !== undefined) {
+      result.set(property, value.trim());
+    }
+  }
+  return result;
+}
+
+/** Enumerate ordinary rules and keyframe steps without naming their classes. */
+function cssRules(source: string): CssRule[] {
+  const rules: CssRule[] = [];
+  for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectorList = match[1];
+    const body = match[2];
+    if (selectorList === undefined || body === undefined) continue;
+    rules.push({
+      selectors: selectorList.split(",").map((selector) =>
+        selector.trim().replace(/\s+/g, " ")
+      ),
+      declarations: declarations(body),
+    });
+  }
+  return rules;
+}
+
+/** Return one balanced CSS block, including nested keyframe steps. */
+function cssBlock(source: string, header: string): string | undefined {
+  const headerStart = source.indexOf(header);
+  if (headerStart < 0) return undefined;
+  const opening = source.indexOf("{", headerStart + header.length);
+  if (opening < 0) return undefined;
+  let depth = 0;
+  for (let index = opening; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "{") depth += 1;
+    if (character !== "}") continue;
+    depth -= 1;
+    if (depth === 0) return source.slice(opening + 1, index);
+  }
+  return undefined;
+}
+
+/** Read one declaration from the first exact selector that owns it. */
+function styleValue(
+  source: string,
+  selector: string,
+  property: string,
+): string | undefined {
+  return cssRules(source).find((rule) =>
+    rule.selectors.includes(selector) && rule.declarations.has(property)
+  )?.declarations.get(property);
+}
+
+/** Read one percentage step from a named animation. */
+function keyframeStep(
+  source: string,
+  name: string,
+  percentage: number,
+): ReadonlyMap<string, string> | undefined {
+  const body = cssBlock(source, `@keyframes ${name}`);
+  if (body === undefined) return undefined;
+  return cssRules(body).find((rule) =>
+    rule.selectors.includes(`${percentage}%`)
+  )?.declarations;
+}
+
+/** List every declaration step in one named animation. */
+function keyframeRules(source: string, name: string): CssRule[] {
+  const body = cssBlock(source, `@keyframes ${name}`);
+  return body === undefined ? [] : cssRules(body);
+}
+
+/** Detect incomplete or canvas-occluded settled branches by registry member. */
+function branchCulminationIssues(
+  topology: RegisteredBifurcationTopology,
+  root: ParentNode,
+  css: string,
+): string[] {
+  const rules = cssRules(css);
+  const canvasStrokeSelectors = rules.filter((rule) =>
+    rule.declarations.get("stroke")?.includes("--discern-color-canvas") ??
+      false
+  ).flatMap((rule) => rule.selectors);
+  const staticDash = styleValue(
+    css,
+    ".bifurcation-art__branch",
+    "stroke-dasharray",
+  );
+  const issues: string[] = [];
+
+  for (const level of topology.levels) {
+    const levelSelector =
+      `.bifurcation-art__level[data-bifurcation-level="${level.depth}"] .bifurcation-art__branch`;
+    const animationName = styleValue(css, levelSelector, "animation-name");
+    for (const node of level.nodes) {
+      const reasons: string[] = [];
+      const matches = root.querySelectorAll(
+        `[data-bifurcation-branch="${node.id}"]`,
+      );
+      if (matches.length !== 1) {
+        reasons.push(`renders ${matches.length} enrolled paths`);
+      }
+      const branch = matches.item(0);
+      if (branch !== null) {
+        if (branch.tagName.toLowerCase() !== "path") {
+          reasons.push("is not path geometry");
+        }
+        if (branch.getAttribute("pathLength") !== "1") {
+          reasons.push("does not normalize its draw path");
+        }
+        const shape = branch.getAttribute("d");
+        if (shape === null) {
+          reasons.push("has no path geometry");
+        } else {
+          const duplicates = [...root.querySelectorAll("path[d]")].filter(
+            (candidate) =>
+              candidate.closest("defs") === null &&
+              candidate.getAttribute("d") === shape,
+          );
+          if (duplicates.length !== 1) {
+            reasons.push(`has ${duplicates.length} copies of its geometry`);
+          }
+          if (
+            duplicates.some((candidate) =>
+              canvasStrokeSelectors.some((selector) =>
+                candidate.matches(selector)
+              )
+            )
+          ) {
+            reasons.push("has a canvas-coloured stroke copy");
+          }
+        }
+      }
+      if (staticDash !== "none") {
+        reasons.push(`rests with stroke-dasharray ${staticDash ?? "unset"}`);
+      }
+      if (animationName === undefined) {
+        reasons.push("has no level animation");
+      } else {
+        for (const percentage of [75, 93]) {
+          const step = keyframeStep(css, animationName, percentage);
+          if (step === undefined) {
+            reasons.push(`has no ${percentage}% culmination step`);
+            continue;
+          }
+          if (step.get("stroke-dasharray") !== "none") {
+            reasons.push(`${percentage}% is still dashed`);
+          }
+          if (step.get("stroke-dashoffset") !== "0") {
+            reasons.push(`${percentage}% keeps a dash offset`);
+          }
+          const opacity = Number(step.get("opacity"));
+          if (!(opacity > 0)) reasons.push(`${percentage}% is not visible`);
+        }
+      }
+      if (reasons.length > 0) issues.push(`${node.id}: ${reasons.join("; ")}`);
+    }
+  }
+  return issues;
+}
+
+/** Detect terminal motion that can alter a registry endpoint. */
+function terminalMotionIssues(
+  topology: RegisteredBifurcationTopology,
+  root: ParentNode,
+  css: string,
+): string[] {
+  const terminalLevel = topology.levels.at(-1);
+  assert(terminalLevel !== undefined);
+  const animationName = styleValue(
+    css,
+    ".bifurcation-art__terminal-cap",
+    "animation-name",
+  );
+  const transformOrigin = styleValue(
+    css,
+    ".bifurcation-art__terminal-cap",
+    "transform-origin",
+  );
+  const transformBox = styleValue(
+    css,
+    ".bifurcation-art__terminal-cap",
+    "transform-box",
+  );
+  const motionRules = animationName === undefined
+    ? []
+    : keyframeRules(css, animationName);
+  const issues: string[] = [];
+
+  for (const terminal of terminalLevel.nodes) {
+    const reasons: string[] = [];
+    const anchors = root.querySelectorAll(
+      `[data-bifurcation-terminal="${terminal.id}"]`,
+    );
+    if (anchors.length !== 1) {
+      reasons.push(`renders ${anchors.length} endpoint anchors`);
+    }
+    const anchor = anchors.item(0);
+    if (anchor !== null) {
+      if (
+        anchor.getAttribute("transform") !==
+          `translate(${terminal.x} ${terminal.y})`
+      ) {
+        reasons.push("is not statically translated to its registry endpoint");
+      }
+      if (anchor.hasAttribute("data-bifurcation-motion")) {
+        reasons.push("animates its endpoint anchor");
+      }
+      const motions = anchor.querySelectorAll("[data-bifurcation-cap-motion]");
+      if (motions.length !== 1) {
+        reasons.push(`renders ${motions.length} local motion groups`);
+      }
+      const motion = motions.item(0);
+      if (motion !== null) {
+        if (!motion.hasAttribute("data-bifurcation-motion")) {
+          reasons.push("does not enrol its local motion group");
+        }
+        const use = motion.querySelector("use");
+        const x = Number(use?.getAttribute("x"));
+        const y = Number(use?.getAttribute("y"));
+        const width = Number(use?.getAttribute("width"));
+        const height = Number(use?.getAttribute("height"));
+        if (
+          use === null || x + width / 2 !== 0 || y + height / 2 !== 0
+        ) {
+          reasons.push("does not bound its glyph around local origin 0 0");
+        }
+      }
+    }
+    if (animationName === undefined || motionRules.length === 0) {
+      reasons.push("has no cap animation");
+    } else {
+      for (const rule of motionRules) {
+        for (const property of rule.declarations.keys()) {
+          if (property !== "opacity" && property !== "transform") {
+            reasons.push(`animates ${property}`);
+          }
+        }
+        const transform = rule.declarations.get("transform");
+        if (transform !== undefined && !/^scale\([0-9.]+\)$/.test(transform)) {
+          reasons.push(`moves with ${transform}`);
+        }
+      }
+      for (const percentage of [78, 93]) {
+        const step = keyframeStep(css, animationName, percentage);
+        if (
+          step?.get("transform") !== "scale(1)" ||
+          !(Number(step.get("opacity")) > 0)
+        ) {
+          reasons.push(`${percentage}% is not a complete local cap`);
+        }
+      }
+    }
+    if (transformOrigin !== "0 0" || transformBox !== "view-box") {
+      reasons.push("does not scale around its endpoint-local origin");
+    }
+    if (reasons.length > 0) {
+      issues.push(`${terminal.id}: ${[...new Set(reasons)].join("; ")}`);
+    }
+  }
+  return issues;
+}
+
 /** Assert that every parent in one level has exactly two children in the next. */
 function assertBinaryTopology(): void {
   let parentIds = new Set<string>([BIFURCATION_TOPOLOGY.root.id]);
@@ -119,6 +405,113 @@ Deno.test("the topology doubles through three declared levels", () => {
   assertEquals(BIFURCATION_TERMINALS, lastLevel.nodes);
 });
 
+Deno.test("every registered branch culminates as one complete unoccluded stroke", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  for (
+    const theme of dom.window.document.querySelectorAll(
+      ".benefit-art-preview__theme",
+    )
+  ) {
+    const issues = branchCulminationIssues(
+      BIFURCATION_TOPOLOGY,
+      theme,
+      css,
+    );
+    assertEquals(issues, [], issues.join("\n"));
+  }
+  dom.window.close();
+});
+
+Deno.test("every registered terminal scales only inside its static endpoint anchor", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  for (
+    const theme of dom.window.document.querySelectorAll(
+      ".benefit-art-preview__theme",
+    )
+  ) {
+    const issues = terminalMotionIssues(
+      BIFURCATION_TOPOLOGY,
+      theme,
+      css,
+    );
+    assertEquals(issues, [], issues.join("\n"));
+  }
+  dom.window.close();
+});
+
+Deno.test("culmination detectors automatically reject renamed future registry members", () => {
+  const futureTopology = {
+    levels: [{
+      depth: 9,
+      nodes: [{ id: "later-limb", x: 650, y: 120 }],
+    }],
+  } as const;
+  const dom = new JSDOM(`
+    <article class="benefit-art-preview__theme">
+      <svg>
+        <g class="bifurcation-art__level" data-bifurcation-level="9">
+          <path class="bifurcation-art__branch"
+            data-bifurcation-branch="later-limb" pathLength="1"
+            d="M 0 0 L 10 0"></path>
+          <path class="later-wash" d="M 0 0 L 10 0"></path>
+        </g>
+        <g data-bifurcation-terminal="later-limb"
+          transform="translate(650 120)">
+          <g class="bifurcation-art__terminal-cap"
+            data-bifurcation-cap-motion data-bifurcation-motion>
+            <use x="640" y="110" width="20" height="20"></use>
+          </g>
+        </g>
+      </svg>
+    </article>
+  `);
+  const unsafeCss = `
+    .bifurcation-art__branch { stroke-dasharray: none; }
+    .bifurcation-art__level[data-bifurcation-level="9"]
+      .bifurcation-art__branch { animation-name: later-branch; }
+    .later-wash { stroke: var(--discern-color-canvas); }
+    .bifurcation-art__terminal-cap {
+      animation-name: later-cap;
+      transform-box: view-box;
+      transform-origin: 0 0;
+    }
+    @keyframes later-branch {
+      75%, 93% {
+        opacity: 1;
+        stroke-dasharray: 1;
+        stroke-dashoffset: 0;
+      }
+    }
+    @keyframes later-cap {
+      0% { opacity: 0; transform: translateX(-4px) scale(0.7); }
+      78%, 93% { opacity: 1; transform: scale(1); }
+    }
+  `;
+  const root = dom.window.document.querySelector(
+    ".benefit-art-preview__theme",
+  );
+  assert(root !== null);
+
+  const branchIssues = branchCulminationIssues(
+    futureTopology,
+    root,
+    unsafeCss,
+  );
+  assertEquals(branchIssues.length, 1);
+  assertStringIncludes(branchIssues[0] ?? "", "later-limb");
+  assertStringIncludes(branchIssues[0] ?? "", "canvas-coloured stroke copy");
+  assertStringIncludes(branchIssues[0] ?? "", "still dashed");
+
+  const capIssues = terminalMotionIssues(futureTopology, root, unsafeCss);
+  assertEquals(capIssues.length, 1);
+  assertStringIncludes(capIssues[0] ?? "", "later-limb");
+  assertStringIncludes(capIssues[0] ?? "", "local origin 0 0");
+  assertStringIncludes(capIssues[0] ?? "", "translateX(-4px)");
+  dom.window.close();
+});
+
 Deno.test("one bifurcation study renders in both fixed themes", () => {
   const html = renderBifurcationSpecimen();
   const dom = new JSDOM(html);
@@ -168,14 +561,31 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
     );
     assert(capSymbol !== null);
     const terminalCaps = [
-      ...theme.querySelectorAll<SVGUseElement>("[data-bifurcation-terminal]"),
+      ...theme.querySelectorAll<SVGGElement>("[data-bifurcation-terminal]"),
     ];
     assertEquals(terminalCaps.length, BIFURCATION_TERMINALS.length);
     for (const cap of terminalCaps) {
-      assertEquals(cap.getAttribute("href"), `#${capSymbol.id}`);
-      assertEquals(cap.getAttribute("width"), "20");
-      assertEquals(cap.getAttribute("height"), "20");
-      assert(cap.hasAttribute("data-bifurcation-motion"));
+      const terminal = BIFURCATION_TERMINALS.find((candidate) =>
+        candidate.id === cap.getAttribute("data-bifurcation-terminal")
+      );
+      assert(terminal !== undefined);
+      assertEquals(
+        cap.getAttribute("transform"),
+        `translate(${terminal.x} ${terminal.y})`,
+      );
+      assert(!cap.hasAttribute("data-bifurcation-motion"));
+      const motion = cap.querySelector<SVGGElement>(
+        "[data-bifurcation-cap-motion]",
+      );
+      assert(motion !== null);
+      assert(motion.hasAttribute("data-bifurcation-motion"));
+      const geometry = motion.querySelector<SVGUseElement>("use");
+      assert(geometry !== null);
+      assertEquals(geometry.getAttribute("href"), `#${capSymbol.id}`);
+      assertEquals(geometry.getAttribute("x"), "-10");
+      assertEquals(geometry.getAttribute("y"), "-10");
+      assertEquals(geometry.getAttribute("width"), "20");
+      assertEquals(geometry.getAttribute("height"), "20");
     }
 
     for (const branch of theme.querySelectorAll("[data-bifurcation-branch]")) {
@@ -232,6 +642,39 @@ Deno.test("each artwork has a local title and description", () => {
     assertEquals(description?.tagName.toLowerCase(), "desc");
     assert(readableText(title?.textContent ?? null).length > 0);
     assert(readableText(description?.textContent ?? null).length > 0);
+  }
+  dom.window.close();
+});
+
+Deno.test("the artwork remains fluid through the compact gallery breakpoints", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  assertEquals(styleValue(css, ".bifurcation-art svg", "width"), "100%");
+  assertEquals(styleValue(css, ".bifurcation-art svg", "height"), "auto");
+
+  const stacked = cssBlock(css, "@media (max-width: 68rem)");
+  assert(stacked !== undefined);
+  assertEquals(
+    styleValue(
+      stacked,
+      ".benefit-art-preview__gallery",
+      "grid-template-columns",
+    ),
+    "1fr",
+  );
+  const compact = cssBlock(css, "@media (max-width: 46rem)");
+  assert(compact !== undefined);
+  assertEquals(
+    styleValue(compact, ".benefit-art-preview__theme", "padding-inline"),
+    "var(--discern-space-2)",
+  );
+
+  for (
+    const svg of dom.window.document.querySelectorAll(".bifurcation-art svg")
+  ) {
+    assertEquals(svg.getAttribute("viewBox"), "0 0 760 460");
+    assertEquals(svg.hasAttribute("width"), false);
+    assertEquals(svg.hasAttribute("height"), false);
   }
   dom.window.close();
 });
