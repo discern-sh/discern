@@ -813,6 +813,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     cssRuleBody(landingCss, ".landing-hero").includes("min-block-size"),
     false,
   );
+  assertStringIncludes(
+    cssRuleBody(landingCss, ".landing-hero h1"),
+    "font-size: clamp(3.8rem, 5.5vw, 7.15rem);",
+  );
   assertEquals(fluidGridShorthandSelectors(landingCss), []);
   const checksRule = cssRuleBody(landingCss, ".landing-return__checks");
   assertStringIncludes(checksRule, "display: grid;");

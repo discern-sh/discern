@@ -125,7 +125,7 @@
   .landing-hero h1 {
     max-inline-size: 11.5ch;
     margin: 0;
-    font-size: clamp(3.8rem, 7vw, 7.15rem);
+    font-size: clamp(3.8rem, 5.5vw, 7.15rem);
     letter-spacing: -0.045em;
     line-height: 0.91;
     text-wrap: balance;
