@@ -89,7 +89,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 76      | —                | node `canonical-sets`       |
 
-76 sets · 108 guard tests · 53 committed artifacts.
+76 sets · 109 guard tests · 53 committed artifacts.
 
 ## Guard tests and the sets they hold
 
@@ -192,6 +192,7 @@ Alphabetical by test file. A test holding several sets fails when any one of the
 | `tests/site_smoke_test.ts`                         | [`public-schema-publications`](#public-schema-publications--public-schema-publications)                                                                                                                                                                                                                                                                                                                                                                                               |
 | `tests/site_workflow_test.ts`                      | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `tests/skill_name_parity_test.ts`                  | [`bundled-skills`](#bundled-skills--bundled-skills)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tests/spoiler_guard_test.ts`                      | [`hidden-verbs`](#hidden-verbs--hidden-verbs)                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `tests/ssot_claim_guard_test.ts`                   | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `tests/third_party_notices_test.ts`                | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `tests/tip_canon_enrolment_test.ts`                | [`tips`](#tips--tips)                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
@@ -319,7 +320,7 @@ Every top-level verb kept out of the operator help listing carries a reason and 
   - `preset`
   - `setup`
   - `triangle`
-- Guards: `tests/engine_help_groups_test.ts`
+- Guards: `tests/engine_help_groups_test.ts`, `tests/spoiler_guard_test.ts`
 - Glossary: not enrolled — the hidden-verb registry documents help visibility, its reason, and its revival condition for each existing verb
 - Feature canon: not enrolled — the verbs set already enrolls every member; hiding changes only its help listing
 

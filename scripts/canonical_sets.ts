@@ -137,7 +137,10 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       module: "src/shared/hidden_verbs.ts",
       exportName: "HIDDEN_VERBS",
     },
-    guards: ["tests/engine_help_groups_test.ts"],
+    guards: [
+      "tests/engine_help_groups_test.ts",
+      "tests/spoiler_guard_test.ts",
+    ],
     artifacts: [],
     enrolledIn: {
       glossary: {
