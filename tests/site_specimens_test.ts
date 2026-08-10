@@ -71,7 +71,7 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   assertStringIncludes(root.headers.get("content-type") ?? "", "text/html");
   assertEquals(root.headers.get("cache-control"), "no-store");
   assertEquals(root.headers.get("x-robots-tag"), "noindex, nofollow");
-  assertStringIncludes(await root.text(), "The delegation wave plan");
+  assertStringIncludes(await root.text(), "Freedom of movement");
 
   const stylesheet = await specimenHandler(
     new Request(`http://localhost${SPECIMEN_STYLESHEET_PATH}`),
@@ -82,7 +82,10 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
     "text/css",
   );
   assertEquals(stylesheet.headers.get("cache-control"), "no-store");
-  assertStringIncludes(await stylesheet.text(), ".specimen-theme");
+  assertStringIncludes(
+    await stylesheet.text(),
+    ".freedom-invariant__artboard",
+  );
 
   for (const path of ["/", SPECIMEN_STYLESHEET_PATH]) {
     const rejected = await specimenHandler(

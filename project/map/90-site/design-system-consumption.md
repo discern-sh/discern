@@ -34,9 +34,11 @@ Page-owned composition styles live in [`site/page-src/landing.css`](../../../sit
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
-## Development-only artefact specimens
+## Development-only visual studies
 
-[`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) composes the homepage's delegation, commissioning, Standard, and Proof artefacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artefact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document.
+[`site/page-src/benefit-freedom-invariant.tsx`](../../../site/page-src/benefit-freedom-invariant.tsx) owns the reusable Scalable Vector Graphics (SVG) artwork for the Freedom of movement benefit. Cartesian, oblique, and radial frames transform around a split triangular core that remains outside the transforming group. [`site/page-src/benefit-freedom-invariant-preview.tsx`](../../../site/page-src/benefit-freedom-invariant-preview.tsx) places that artwork inside fixed light and dark token roots and quotes the benefit canon's category sentence outside the composition. [`site/page-src/benefit-freedom-invariant.css`](../../../site/page-src/benefit-freedom-invariant.css) owns the concept-prefixed layout, frame motion, narrow-viewport treatment, and static reduced-motion culmination without targeting package-owned `.discern-*` selectors.
+
+The earlier homepage artefact sheet remains authored in [`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) and [`site/page-src/specimens.css`](../../../site/page-src/specimens.css). The current preview selects the focused Freedom of movement study.
 
 [`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
 
@@ -44,7 +46,7 @@ The generic component catalog, examples, component implementation, assets, and p
 deno task site:specimens
 ```
 
-The command prints the preview address. The sheet is static HTML and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, the evidence text, unique document identifiers, absence of a browser framework runtime, and the rule that monospace appears only on the product name and code.
+The command prints the preview address. The study is static HTML, SVG, and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary and the live stylesheet. [`tests/site_benefit_freedom_invariant_test.ts`](../../../tests/site_benefit_freedom_invariant_test.ts) guards the paired themes, accessible SVG title and description, unique document identifiers, frame set, invariant core placement, reduced-motion treatment, and absence of a browser framework runtime.
 
 ## Consumer guards
 
