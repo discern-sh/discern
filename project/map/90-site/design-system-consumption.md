@@ -38,7 +38,7 @@ The generic component catalog, examples, component implementation, assets, and p
 
 [`site/specimens.ts`](../../../site/specimens.ts) runs the focused visual-study preview. Its current renderer, [`site/page-src/benefit-art-bifurcation-preview.tsx`](../../../site/page-src/benefit-art-bifurcation-preview.tsx), presents the "Multiply your output" bifurcation study inside fixed light and dark token roots, side by side where space permits. The earlier homepage artefact sheet remains authored in [`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) and [`site/page-src/specimens.css`](../../../site/page-src/specimens.css), outside the current focused preview.
 
-[`site/page-src/benefit-art-bifurcation.tsx`](../../../site/page-src/benefit-art-bifurcation.tsx) owns the reusable inline Scalable Vector Graphics (SVG) artwork. One seed separates into five trajectories, one route pauses at a threshold, and all five resolve into the seam of the filled-versus-empty triangle. [`site/page-src/benefit-art-bifurcation.css`](../../../site/page-src/benefit-art-bifurcation.css) owns its `bifurcation-art` animation and page composition. The complete resting form is the default; the motion query removes every enrolled animation while retaining that culmination.
+[`site/page-src/benefit-art-bifurcation.tsx`](../../../site/page-src/benefit-art-bifurcation.tsx) owns the reusable inline Scalable Vector Graphics (SVG) artwork and its topology registry. One seed doubles through three levels (two, four, then eight paths), and each terminal path ends in a shared small filled-versus-empty triangle cap. [`site/page-src/benefit-art-bifurcation.css`](../../../site/page-src/benefit-art-bifurcation.css) owns its `bifurcation-art` animation and page composition. Each level draws after its parent level; the complete resting tree is the default, and the motion query removes every enrolled animation while retaining that culmination.
 
 [`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
 
@@ -46,7 +46,7 @@ The generic component catalog, examples, component implementation, assets, and p
 deno task site:specimens
 ```
 
-The command prints the preview address. The study is static HTML, SVG, and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, paired themes, five-trajectory structure, local SVG title and description, reduced-motion culmination, unique document identifiers, absence of a browser framework runtime, and the reserved monospace treatment.
+The command prints the preview address. The study is static HTML, SVG, and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, paired themes, binary topology, derived terminal caps, per-level motion enrollment, local SVG title and description, reduced-motion culmination, unique document identifiers, absence of a browser framework runtime, and the reserved monospace treatment.
 
 ## Consumer guards
 

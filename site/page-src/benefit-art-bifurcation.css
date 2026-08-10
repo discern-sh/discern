@@ -120,29 +120,26 @@
 
   .bifurcation-art__construction line,
   .bifurcation-art__seed-line,
-  .bifurcation-art__route,
-  .bifurcation-art__resolution-outline,
-  .bifurcation-art__resolution-seam {
+  .bifurcation-art__branch,
+  .bifurcation-art__cap-outline,
+  .bifurcation-art__cap-seam {
     fill: none;
     vector-effect: non-scaling-stroke;
   }
 
   .bifurcation-art__construction line {
     stroke: var(--discern-color-border-strong);
-    stroke-width: 0.75;
+    stroke-width: 0.7;
+    opacity: 0.5;
   }
 
-  .bifurcation-art__baseline {
-    opacity: 0.7;
-  }
-
-  .bifurcation-art__threshold {
-    stroke-dasharray: 2 9;
-    opacity: 0.72;
+  .bifurcation-art__construction line:first-child {
+    stroke-dasharray: 1 10;
+    opacity: 0.32;
   }
 
   .bifurcation-art__seed-line,
-  .bifurcation-art__route {
+  .bifurcation-art__branch {
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-dasharray: 1;
@@ -152,68 +149,58 @@
   .bifurcation-art__seed-line {
     stroke: var(--discern-color-ink);
     stroke-width: 1.5;
-    opacity: 0.82;
+    opacity: 0.84;
   }
 
-  .bifurcation-art__seed-point {
-    fill: var(--discern-color-ink);
-    opacity: 0.88;
-    transform-box: fill-box;
-    transform-origin: center;
+  .bifurcation-art__branch {
+    stroke: color-mix(in oklab, var(--discern-color-ink) 68%, transparent);
+    stroke-width: 1.15;
+    opacity: 0.72;
   }
 
-  .bifurcation-art__route {
-    stroke: color-mix(in oklab, var(--discern-color-ink) 66%, transparent);
+  .bifurcation-art__level[data-bifurcation-level="1"] .bifurcation-art__branch {
+    stroke-width: 1.4;
+    opacity: 0.84;
+  }
+
+  .bifurcation-art__level[data-bifurcation-level="2"] .bifurcation-art__branch {
     stroke-width: 1.25;
-    opacity: 0.76;
+    opacity: 0.78;
   }
 
-  .bifurcation-art__route--threshold-in,
-  .bifurcation-art__route--threshold-out {
+  .bifurcation-art__level[data-bifurcation-level="3"] .bifurcation-art__branch {
+    stroke-width: 1.05;
+    opacity: 0.68;
+  }
+
+  .bifurcation-art__branch--accent {
     stroke: var(--discern-color-accent-600);
-    stroke-width: 1.6;
-    opacity: 0.92;
+    stroke-width: 1.4;
+    opacity: 0.9;
   }
 
-  .bifurcation-art__checkpoint {
-    fill: var(--discern-color-canvas);
-    stroke: var(--discern-color-accent-600);
-    stroke-width: 1.3;
-    vector-effect: non-scaling-stroke;
-    transform-box: fill-box;
-    transform-origin: center;
-  }
-
-  .bifurcation-art__resolution-outline,
-  .bifurcation-art__resolution-seam {
+  .bifurcation-art__cap-outline,
+  .bifurcation-art__cap-seam {
     stroke: var(--discern-color-ink);
-    stroke-dasharray: 1;
-    stroke-dashoffset: 0;
     stroke-linecap: round;
     stroke-linejoin: round;
   }
 
-  .bifurcation-art__resolution-outline {
-    stroke-width: 1.35;
-    opacity: 0.9;
+  .bifurcation-art__cap-outline {
+    stroke-width: 1.05;
   }
 
-  .bifurcation-art__resolution-seam {
-    stroke-width: 0.9;
-    opacity: 0.62;
+  .bifurcation-art__cap-seam {
+    stroke-width: 0.7;
+    opacity: 0.72;
   }
 
-  .bifurcation-art__resolution-fill {
+  .bifurcation-art__cap-fill {
     fill: var(--discern-color-ink);
-    opacity: 0.88;
-    transform-box: view-box;
-    transform-origin: 596px 238px;
   }
 
-  .bifurcation-art__bloom {
-    fill: var(--discern-color-accent-300);
-    filter: blur(22px);
-    opacity: 0.08;
+  .bifurcation-art__terminal-cap {
+    opacity: 0.92;
     transform-box: fill-box;
     transform-origin: center;
   }
@@ -229,49 +216,20 @@
     animation-name: bifurcation-art-seed-line;
   }
 
-  .bifurcation-art__seed-point {
-    animation-name: bifurcation-art-seed-point;
+  .bifurcation-art__level[data-bifurcation-level="1"] .bifurcation-art__branch {
+    animation-name: bifurcation-art-level-1;
   }
 
-  .bifurcation-art__route--upper {
-    animation-name: bifurcation-art-route-upper;
+  .bifurcation-art__level[data-bifurcation-level="2"] .bifurcation-art__branch {
+    animation-name: bifurcation-art-level-2;
   }
 
-  .bifurcation-art__route--upper-middle {
-    animation-name: bifurcation-art-route-upper-middle;
+  .bifurcation-art__level[data-bifurcation-level="3"] .bifurcation-art__branch {
+    animation-name: bifurcation-art-level-3;
   }
 
-  .bifurcation-art__route--threshold-in {
-    animation-name: bifurcation-art-route-threshold-in;
-  }
-
-  .bifurcation-art__checkpoint {
-    animation-name: bifurcation-art-checkpoint;
-  }
-
-  .bifurcation-art__route--threshold-out {
-    animation-name: bifurcation-art-route-threshold-out;
-  }
-
-  .bifurcation-art__route--lower-middle {
-    animation-name: bifurcation-art-route-lower-middle;
-  }
-
-  .bifurcation-art__route--lower {
-    animation-name: bifurcation-art-route-lower;
-  }
-
-  .bifurcation-art__resolution-outline,
-  .bifurcation-art__resolution-seam {
-    animation-name: bifurcation-art-resolution-line;
-  }
-
-  .bifurcation-art__resolution-fill {
-    animation-name: bifurcation-art-resolution-fill;
-  }
-
-  .bifurcation-art__bloom {
-    animation-name: bifurcation-art-bloom;
+  .bifurcation-art__terminal-cap {
+    animation-name: bifurcation-art-terminal-cap;
   }
 
   .benefit-art-preview__footer {
@@ -327,21 +285,12 @@
     }
 
     .bifurcation-art__seed-line,
-    .bifurcation-art__route,
-    .bifurcation-art__resolution-outline,
-    .bifurcation-art__resolution-seam {
+    .bifurcation-art__branch {
       stroke-dashoffset: 0;
     }
 
-    .bifurcation-art__seed-point,
-    .bifurcation-art__checkpoint,
-    .bifurcation-art__resolution-fill {
-      opacity: 0.88;
-      transform: none;
-    }
-
-    .bifurcation-art__bloom {
-      opacity: 0.08;
+    .bifurcation-art__terminal-cap {
+      opacity: 0.92;
       transform: none;
     }
   }
@@ -349,273 +298,112 @@
 
 @keyframes bifurcation-art-seed-line {
   0%,
-  4% {
+  3% {
     opacity: 0;
     stroke-dashoffset: 1;
   }
 
-  15%,
-  91% {
-    opacity: 0.82;
+  13%,
+  93% {
+    opacity: 0.84;
     stroke-dashoffset: 0;
   }
 
-  97%,
+  98%,
   100% {
     opacity: 0;
     stroke-dashoffset: 0;
   }
 }
 
-@keyframes bifurcation-art-seed-point {
+@keyframes bifurcation-art-level-1 {
   0%,
   12% {
     opacity: 0;
-    transform: scale(0.4);
-  }
-
-  17%,
-  91% {
-    opacity: 0.88;
-    transform: scale(1);
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    transform: scale(1);
-  }
-}
-
-@keyframes bifurcation-art-route-upper {
-  0%,
-  15% {
-    opacity: 0;
     stroke-dashoffset: 1;
   }
 
-  20% {
-    opacity: 0.36;
-  }
-
-  53%,
-  91% {
-    opacity: 0.76;
-    stroke-dashoffset: 0;
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-route-upper-middle {
-  0%,
   17% {
-    opacity: 0;
-    stroke-dashoffset: 1;
+    opacity: 0.34;
   }
 
-  22% {
-    opacity: 0.32;
-  }
-
-  57%,
-  91% {
-    opacity: 0.76;
+  32%,
+  93% {
+    opacity: 0.84;
     stroke-dashoffset: 0;
   }
 
-  97%,
+  98%,
   100% {
     opacity: 0;
     stroke-dashoffset: 0;
   }
 }
 
-@keyframes bifurcation-art-route-threshold-in {
+@keyframes bifurcation-art-level-2 {
   0%,
-  16% {
+  29% {
     opacity: 0;
     stroke-dashoffset: 1;
   }
 
-  21% {
-    opacity: 0.46;
-  }
-
-  38%,
-  91% {
-    opacity: 0.92;
-    stroke-dashoffset: 0;
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-checkpoint {
-  0%,
   34% {
-    opacity: 0;
-    transform: scale(0.45);
+    opacity: 0.3;
   }
 
-  39% {
-    opacity: 1;
-    transform: scale(1.18);
+  52%,
+  93% {
+    opacity: 0.78;
+    stroke-dashoffset: 0;
   }
 
-  45%,
-  91% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-
-  97%,
+  98%,
   100% {
     opacity: 0;
-    transform: scale(1);
+    stroke-dashoffset: 0;
   }
 }
 
-@keyframes bifurcation-art-route-threshold-out {
+@keyframes bifurcation-art-level-3 {
   0%,
-  44% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-  }
-
   49% {
-    opacity: 0.46;
+    opacity: 0;
+    stroke-dashoffset: 1;
   }
 
-  64%,
-  91% {
+  54% {
+    opacity: 0.26;
+  }
+
+  74%,
+  93% {
+    opacity: 0.68;
+    stroke-dashoffset: 0;
+  }
+
+  98%,
+  100% {
+    opacity: 0;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes bifurcation-art-terminal-cap {
+  0%,
+  70% {
+    opacity: 0;
+    transform: translateX(-7px) scale(0.68);
+  }
+
+  78%,
+  93% {
     opacity: 0.92;
-    stroke-dashoffset: 0;
+    transform: translateX(0) scale(1);
   }
 
-  97%,
+  98%,
   100% {
     opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-route-lower-middle {
-  0%,
-  18% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-  }
-
-  23% {
-    opacity: 0.32;
-  }
-
-  58%,
-  91% {
-    opacity: 0.76;
-    stroke-dashoffset: 0;
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-route-lower {
-  0%,
-  15% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-  }
-
-  20% {
-    opacity: 0.36;
-  }
-
-  54%,
-  91% {
-    opacity: 0.76;
-    stroke-dashoffset: 0;
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-resolution-line {
-  0%,
-  51% {
-    opacity: 0;
-    stroke-dashoffset: 1;
-  }
-
-  73%,
-  91% {
-    opacity: 0.9;
-    stroke-dashoffset: 0;
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-resolution-fill {
-  0%,
-  63% {
-    opacity: 0;
-    transform: scaleX(0);
-  }
-
-  77%,
-  91% {
-    opacity: 0.88;
-    transform: scaleX(1);
-  }
-
-  97%,
-  100% {
-    opacity: 0;
-    transform: scaleX(1);
-  }
-}
-
-@keyframes bifurcation-art-bloom {
-  0%,
-  65% {
-    opacity: 0;
-    transform: scale(0.78);
-  }
-
-  77% {
-    opacity: 0.14;
-    transform: scale(1);
-  }
-
-  88% {
-    opacity: 0.08;
-    transform: scale(1.05);
-  }
-
-  96%,
-  100% {
-    opacity: 0;
-    transform: scale(1.05);
+    transform: translateX(0) scale(1);
   }
 }

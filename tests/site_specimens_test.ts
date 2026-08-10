@@ -3,6 +3,10 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
+import {
+  BIFURCATION_TERMINALS,
+  BIFURCATION_TOPOLOGY,
+} from "../site/page-src/benefit-art-bifurcation.tsx";
 import { renderBifurcationSpecimen } from "../site/page-src/benefit-art-bifurcation-preview.tsx";
 import {
   SPECIMEN_STYLESHEET_PATH,
@@ -33,6 +37,29 @@ function monoSelectors(css: string): string[] {
     selectors.push(selector.trim().replace(/\s+/g, " "));
   }
   return selectors;
+}
+
+/** Assert that every parent in one level has exactly two children in the next. */
+function assertBinaryTopology(): void {
+  let parentIds = new Set<string>([BIFURCATION_TOPOLOGY.root.id]);
+  for (const level of BIFURCATION_TOPOLOGY.levels) {
+    const childCounts = new Map<string, number>(
+      [...parentIds].map((id) => [id, 0]),
+    );
+    for (const node of level.nodes) {
+      assert(
+        parentIds.has(node.parent),
+        `${node.id} must branch from the preceding level`,
+      );
+      childCounts.set(node.parent, (childCounts.get(node.parent) ?? 0) + 1);
+    }
+    assertEquals(
+      [...childCounts.values()],
+      [...parentIds].map(() => 2),
+      `every parent before level ${level.depth} must bifurcate`,
+    );
+    parentIds = new Set<string>(level.nodes.map((node) => node.id));
+  }
 }
 
 Deno.test("the benefit-art study remains outside the public route registry", async () => {
@@ -81,6 +108,17 @@ Deno.test("the development handler serves the focused study and live CSS", async
   }
 });
 
+Deno.test("the topology doubles through three declared levels", () => {
+  assertEquals(
+    BIFURCATION_TOPOLOGY.levels.map((level) => level.nodes.length),
+    [2, 4, 8],
+  );
+  assertBinaryTopology();
+  const lastLevel = BIFURCATION_TOPOLOGY.levels.at(-1);
+  assert(lastLevel !== undefined);
+  assertEquals(BIFURCATION_TERMINALS, lastLevel.nodes);
+});
+
 Deno.test("one bifurcation study renders in both fixed themes", () => {
   const html = renderBifurcationSpecimen();
   const dom = new JSDOM(html);
@@ -108,15 +146,52 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
     const theme of document.querySelectorAll(".benefit-art-preview__theme")
   ) {
     assertEquals(theme.querySelectorAll(".bifurcation-art > svg").length, 1);
-    assertEquals(
-      theme.querySelectorAll("[data-bifurcation-trajectory]").length,
-      5,
+    const branchCount = BIFURCATION_TOPOLOGY.levels.reduce(
+      (total, level) => total + level.nodes.length,
+      0,
     );
+    assertEquals(
+      theme.querySelectorAll("[data-bifurcation-branch]").length,
+      branchCount,
+    );
+    for (const level of BIFURCATION_TOPOLOGY.levels) {
+      assertEquals(
+        theme.querySelectorAll(
+          `[data-bifurcation-level="${level.depth}"] [data-bifurcation-branch]`,
+        ).length,
+        level.nodes.length,
+      );
+    }
+
+    const capSymbol = theme.querySelector<SVGSymbolElement>(
+      "symbol[data-bifurcation-cap-symbol]",
+    );
+    assert(capSymbol !== null);
+    const terminalCaps = [
+      ...theme.querySelectorAll<SVGUseElement>("[data-bifurcation-terminal]"),
+    ];
+    assertEquals(terminalCaps.length, BIFURCATION_TERMINALS.length);
+    for (const cap of terminalCaps) {
+      assertEquals(cap.getAttribute("href"), `#${capSymbol.id}`);
+      assertEquals(cap.getAttribute("width"), "20");
+      assertEquals(cap.getAttribute("height"), "20");
+      assert(cap.hasAttribute("data-bifurcation-motion"));
+    }
+
+    for (const branch of theme.querySelectorAll("[data-bifurcation-branch]")) {
+      assert(branch.hasAttribute("data-bifurcation-parent"));
+      assert(branch.hasAttribute("data-bifurcation-motion"));
+    }
     assertEquals(
       theme.querySelectorAll("[data-bifurcation-motion]").length,
-      13,
+      1 + branchCount + BIFURCATION_TERMINALS.length,
     );
   }
+
+  assert(
+    !html.includes("bifurcation-art__resolution"),
+    "the obsolete converging triangle must not return",
+  );
 
   const ids = [...document.querySelectorAll("[id]")].map((element) =>
     element.id
@@ -164,6 +239,24 @@ Deno.test("each artwork has a local title and description", () => {
 Deno.test("the artwork keeps its culmination when motion is reduced", async () => {
   const css = await Deno.readTextFile(BIFURCATION_CSS);
   assertStringIncludes(css, "animation-duration: 10.8s");
+  for (const level of BIFURCATION_TOPOLOGY.levels) {
+    assertStringIncludes(
+      css,
+      `data-bifurcation-level="${level.depth}"]`,
+    );
+    assertStringIncludes(
+      css,
+      `animation-name: bifurcation-art-level-${level.depth};`,
+    );
+    assertStringIncludes(
+      css,
+      `@keyframes bifurcation-art-level-${level.depth}`,
+    );
+  }
+  assertStringIncludes(
+    css,
+    "animation-name: bifurcation-art-terminal-cap;",
+  );
   assertStringIncludes(css, "@media (prefers-reduced-motion: reduce)");
   assertStringIncludes(
     css,
@@ -171,6 +264,7 @@ Deno.test("the artwork keeps its culmination when motion is reduced", async () =
   );
   assertStringIncludes(css, "stroke-dashoffset: 0");
   assertStringIncludes(css, "transform: none");
+  assert(!css.includes("bifurcation-art-resolution"));
 });
 
 Deno.test("the study reserves monospace for the product name", async () => {

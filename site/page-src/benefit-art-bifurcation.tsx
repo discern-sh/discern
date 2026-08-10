@@ -1,19 +1,123 @@
 /** Reusable abstract artwork for the benefit category "Multiply your output." */
 
 export interface BifurcationArtworkProps {
-  /** Prefix keeps the accessible SVG title and description unique per render. */
+  /** Prefix keeps the accessible SVG and reusable leaf-cap identifiers unique. */
   readonly idPrefix: string;
 }
 
+interface BifurcationPoint {
+  readonly id: string;
+  readonly x: number;
+  readonly y: number;
+}
+
+interface BifurcationNode extends BifurcationPoint {
+  readonly parent: string;
+  readonly accent: boolean;
+}
+
 /**
- * One seed separates into five held trajectories before resolving into the
- * filled-versus-empty triangle. Motion reveals the same complete static form.
+ * The single branching authority: every level doubles its parent's paths and
+ * the final level defines the terminal cap positions.
+ */
+export const BIFURCATION_TOPOLOGY = {
+  seed: { x: 58, y: 230 },
+  root: { id: "root", x: 184, y: 230 },
+  levels: [
+    {
+      depth: 1,
+      nodes: [
+        { id: "1a", parent: "root", x: 315, y: 135, accent: false },
+        { id: "1b", parent: "root", x: 315, y: 325, accent: false },
+      ],
+    },
+    {
+      depth: 2,
+      nodes: [
+        { id: "2a", parent: "1a", x: 475, y: 89, accent: false },
+        { id: "2b", parent: "1a", x: 475, y: 181, accent: false },
+        { id: "2c", parent: "1b", x: 475, y: 279, accent: false },
+        { id: "2d", parent: "1b", x: 475, y: 371, accent: false },
+      ],
+    },
+    {
+      depth: 3,
+      nodes: [
+        { id: "3a", parent: "2a", x: 650, y: 66, accent: false },
+        { id: "3b", parent: "2a", x: 650, y: 112, accent: false },
+        { id: "3c", parent: "2b", x: 650, y: 158, accent: false },
+        { id: "3d", parent: "2b", x: 650, y: 204, accent: true },
+        { id: "3e", parent: "2c", x: 650, y: 256, accent: false },
+        { id: "3f", parent: "2c", x: 650, y: 302, accent: false },
+        { id: "3g", parent: "2d", x: 650, y: 348, accent: false },
+        { id: "3h", parent: "2d", x: 650, y: 394, accent: false },
+      ],
+    },
+  ],
+} as const;
+
+/** Terminal nodes derive from the last declared level, never a copied list. */
+export const BIFURCATION_TERMINALS = BIFURCATION_TOPOLOGY.levels[2].nodes;
+
+const topologyPoints: BifurcationPoint[] = [BIFURCATION_TOPOLOGY.root];
+for (const level of BIFURCATION_TOPOLOGY.levels) {
+  topologyPoints.push(...level.nodes);
+}
+const topologyPointById = new Map(
+  topologyPoints.map((point) => [point.id, point]),
+);
+
+/** Join one child to its declared parent with calm horizontal tangents. */
+function branchPath(node: BifurcationNode): string {
+  const parent = topologyPointById.get(node.parent);
+  if (parent === undefined) {
+    throw new Error(`Unknown bifurcation parent: ${node.parent}`);
+  }
+  const distance = node.x - parent.x;
+  const firstControl = Math.round(parent.x + distance * 0.44);
+  const secondControl = Math.round(node.x - distance * 0.32);
+  return `M ${parent.x} ${parent.y} C ${firstControl} ${parent.y} ${secondControl} ${node.y} ${node.x} ${node.y}`;
+}
+
+/** Render one declared level; every node is one parent-to-child branch. */
+function BifurcationLevel(
+  { depth, nodes }: {
+    readonly depth: number;
+    readonly nodes: readonly BifurcationNode[];
+  },
+) {
+  return (
+    <g
+      className="bifurcation-art__level"
+      data-bifurcation-level={depth}
+    >
+      {nodes.map((node) => (
+        <path
+          className={node.accent
+            ? "bifurcation-art__branch bifurcation-art__branch--accent"
+            : "bifurcation-art__branch"}
+          data-bifurcation-branch={node.id}
+          data-bifurcation-parent={node.parent}
+          data-bifurcation-motion
+          d={branchPath(node)}
+          pathLength="1"
+          key={node.id}
+        />
+      ))}
+    </g>
+  );
+}
+
+/**
+ * A single line doubles through three sparse levels into eight marked leaves.
+ * Motion reveals the same complete static tree one level at a time.
  */
 export function BifurcationArtwork(
   { idPrefix }: BifurcationArtworkProps,
 ) {
   const titleId = `${idPrefix}-title`;
   const descriptionId = `${idPrefix}-description`;
+  const leafCapId = `${idPrefix}-leaf-cap`;
 
   return (
     <figure className="bifurcation-art">
@@ -23,130 +127,71 @@ export function BifurcationArtwork(
         aria-labelledby={`${titleId} ${descriptionId}`}
         focusable="false"
       >
-        <title id={titleId}>One trajectory becomes five, then one form</title>
+        <title id={titleId}>One line multiplies into eight marked paths</title>
         <desc id={descriptionId}>
-          A single horizontal line divides into five calm curved trajectories.
-          One pauses at a vertical threshold. All five meet the centre seam of a
-          larger triangle whose right half is filled and left half remains open.
+          A single horizontal seed divides into two paths, then four, then eight
+          evenly distributed terminal paths. Each leaf ends in the same small
+          up-pointing triangle with its right half filled.
         </desc>
 
-        <g aria-hidden="true">
-          <ellipse
-            className="bifurcation-art__bloom"
-            data-bifurcation-motion
-            cx="615"
-            cy="252"
-            rx="105"
-            ry="126"
-          />
+        <defs>
+          <symbol
+            id={leafCapId}
+            data-bifurcation-cap-symbol="leaf"
+            viewBox="0 0 20 20"
+          >
+            <path
+              className="bifurcation-art__cap-outline"
+              d="M 10 0 L 20 20 L 0 20 Z"
+            />
+            <path
+              className="bifurcation-art__cap-fill"
+              d="M 10 0 L 20 20 L 10 20 Z"
+            />
+            <path className="bifurcation-art__cap-seam" d="M 10 0 L 10 20" />
+          </symbol>
+        </defs>
 
+        <g aria-hidden="true">
           <g className="bifurcation-art__construction">
-            <line
-              className="bifurcation-art__baseline"
-              x1="64"
-              y1="375"
-              x2="708"
-              y2="375"
-            />
-            <line
-              className="bifurcation-art__threshold"
-              x1="386"
-              y1="104"
-              x2="386"
-              y2="375"
-            />
-            <line x1="377" y1="104" x2="395" y2="104" />
-            <line x1="377" y1="375" x2="395" y2="375" />
+            <line x1="48" y1="230" x2="700" y2="230" />
+            {[184, 315, 475, 650].map((x) => (
+              <line x1={x} y1="225" x2={x} y2="235" key={x} />
+            ))}
           </g>
 
           <path
             className="bifurcation-art__seed-line"
             data-bifurcation-motion
-            d="M 72 238 C 116 238 158 238 204 238"
+            d={`M ${BIFURCATION_TOPOLOGY.seed.x} ${BIFURCATION_TOPOLOGY.seed.y} C 96 230 140 230 ${BIFURCATION_TOPOLOGY.root.x} ${BIFURCATION_TOPOLOGY.root.y}`}
             pathLength="1"
           />
-          <circle
-            className="bifurcation-art__seed-point"
-            data-bifurcation-motion
-            cx="204"
-            cy="238"
-            r="3"
-          />
 
-          <g className="bifurcation-art__trajectories">
-            <g data-bifurcation-trajectory="upper">
-              <path
-                className="bifurcation-art__route bifurcation-art__route--upper"
-                data-bifurcation-motion
-                d="M 204 238 C 278 238 288 144 386 144 C 470 144 526 149 596 149"
-                pathLength="1"
+          <g className="bifurcation-art__branches">
+            {BIFURCATION_TOPOLOGY.levels.map((level) => (
+              <BifurcationLevel
+                depth={level.depth}
+                nodes={level.nodes}
+                key={level.depth}
               />
-            </g>
-            <g data-bifurcation-trajectory="upper-middle">
-              <path
-                className="bifurcation-art__route bifurcation-art__route--upper-middle"
-                data-bifurcation-motion
-                d="M 204 238 C 282 238 302 196 386 196 C 474 196 526 196 596 196"
-                pathLength="1"
-              />
-            </g>
-            <g data-bifurcation-trajectory="threshold">
-              <path
-                className="bifurcation-art__route bifurcation-art__route--threshold-in"
-                data-bifurcation-motion
-                d="M 204 238 C 278 238 318 238 386 238"
-                pathLength="1"
-              />
-              <circle
-                className="bifurcation-art__checkpoint"
-                data-bifurcation-motion
-                cx="386"
-                cy="238"
-                r="6"
-              />
-              <path
-                className="bifurcation-art__route bifurcation-art__route--threshold-out"
-                data-bifurcation-motion
-                d="M 386 238 C 468 238 526 242 596 242"
-                pathLength="1"
-              />
-            </g>
-            <g data-bifurcation-trajectory="lower-middle">
-              <path
-                className="bifurcation-art__route bifurcation-art__route--lower-middle"
-                data-bifurcation-motion
-                d="M 204 238 C 282 238 302 289 386 289 C 476 289 530 289 596 289"
-                pathLength="1"
-              />
-            </g>
-            <g data-bifurcation-trajectory="lower">
-              <path
-                className="bifurcation-art__route bifurcation-art__route--lower"
-                data-bifurcation-motion
-                d="M 204 238 C 278 238 288 336 386 336 C 476 336 534 336 596 336"
-                pathLength="1"
-              />
-            </g>
+            ))}
           </g>
 
-          <g className="bifurcation-art__resolution">
-            <path
-              className="bifurcation-art__resolution-outline"
-              data-bifurcation-motion
-              d="M 596 92 L 694 375 L 498 375 Z"
-              pathLength="1"
-            />
-            <polygon
-              className="bifurcation-art__resolution-fill"
-              data-bifurcation-motion
-              points="596,92 694,375 596,375"
-            />
-            <path
-              className="bifurcation-art__resolution-seam"
-              data-bifurcation-motion
-              d="M 596 92 L 596 375"
-              pathLength="1"
-            />
+          <g className="bifurcation-art__terminal-caps">
+            {BIFURCATION_TERMINALS.map((terminal) => (
+              <use
+                className="bifurcation-art__terminal-cap"
+                data-bifurcation-terminal={terminal.id}
+                data-bifurcation-level="4"
+                data-bifurcation-motion
+                href={`#${leafCapId}`}
+                x={terminal.x - 5}
+                y={terminal.y - 10}
+                width="20"
+                height="20"
+                key={terminal.id}
+              />
+            ))}
           </g>
         </g>
       </svg>
