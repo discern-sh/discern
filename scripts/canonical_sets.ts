@@ -1234,6 +1234,39 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       ),
   },
   {
+    id: "browser-artworks",
+    title: "Browser artworks",
+    what:
+      "The approved browser-art family: every member supplies its metadata, renderer, immutable source provenance, stylesheet, dual-theme gallery projection, and structural guards.",
+    source: {
+      kind: "module",
+      module: "art/browser/registry.ts",
+      exportName: "BROWSER_ARTWORKS",
+    },
+    guards: [
+      "tests/art_browser_gallery_test.ts",
+      "tests/browser_art_alignment_test.ts",
+      "tests/browser_art_bifurcation_test.ts",
+      "tests/browser_art_contour_test.ts",
+      "tests/browser_art_persistent_trace_test.ts",
+      "tests/browser_art_invariant_core_test.ts",
+    ],
+    artifacts: [],
+    enrolledIn: {
+      glossary: {
+        absent: "the browser-art gallery owns these internal study names",
+      },
+      featureCanon: {
+        absent:
+          "the development-only gallery owns these visual references outside the public product surface",
+      },
+    },
+    members: async () =>
+      (await import("../art/browser/registry.ts")).BROWSER_ARTWORKS.map(
+        ({ slug }) => slug,
+      ),
+  },
+  {
     id: "failure-recovery-evidence",
     title: "Generic failure-recovery evidence",
     what:

@@ -1,0 +1,167 @@
+@layer discern.page {
+  .quality-contour {
+    display: grid;
+    place-items: center;
+    aspect-ratio: 4 / 3;
+    min-width: 0;
+    margin: 0;
+    padding: clamp(var(--discern-space-4), 4vw, var(--discern-space-9))
+      clamp(var(--discern-space-2), 2vw, var(--discern-space-5));
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 63% 37%,
+      color-mix(in oklab, var(--discern-color-accent-100) 38%, transparent),
+      transparent 34%),
+      var(--discern-color-canvas);
+  }
+
+  .quality-contour svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  .quality-contour__line,
+  .quality-contour__attractor-outline {
+    fill: none;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .quality-contour__line {
+    --quality-contour-visible-opacity: var(--quality-contour-opacity);
+
+    stroke: var(--discern-color-ink);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1;
+    opacity: var(--quality-contour-visible-opacity);
+    transform: var(--quality-contour-settled-transform);
+    transform-box: view-box;
+    transform-origin: 0 0;
+    animation: quality-contour-expansion 10s ease-in-out infinite;
+  }
+
+  .quality-contour__line--latest {
+    stroke: var(--discern-color-ink);
+    stroke-width: 1.2;
+  }
+
+  [data-discern-theme="dark"] .quality-contour__line {
+    --quality-contour-visible-opacity: var(--quality-contour-opacity-dark);
+  }
+
+  .quality-contour__bloom {
+    fill: var(--discern-color-accent-400);
+    opacity: 0.025;
+    filter: blur(1.6rem);
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: quality-contour-bloom 10s ease-in-out infinite;
+  }
+
+  .quality-contour__attractor-fill {
+    fill: var(--discern-color-accent-600);
+  }
+
+  .quality-contour__attractor-outline {
+    stroke: var(--discern-color-ink);
+    stroke-linejoin: round;
+    stroke-width: 1.35;
+  }
+  @keyframes quality-contour-expansion {
+    0% {
+      opacity: 0;
+      transform: var(--quality-contour-start-transform);
+    }
+
+    6% {
+      opacity: var(--quality-contour-visible-opacity);
+      transform: var(--quality-contour-start-transform);
+    }
+
+    12% {
+      opacity: var(--quality-contour-visible-opacity);
+      transform: var(--quality-contour-start-transform);
+    }
+
+    58% {
+      opacity: var(--quality-contour-visible-opacity);
+      transform: var(--quality-contour-settled-transform);
+    }
+
+    84% {
+      opacity: var(--quality-contour-visible-opacity);
+      transform: var(--quality-contour-settled-transform);
+    }
+
+    92% {
+      opacity: 0;
+      transform: var(--quality-contour-settled-transform);
+    }
+
+    100% {
+      opacity: 0;
+      transform: var(--quality-contour-start-transform);
+    }
+  }
+
+  @keyframes quality-contour-bloom {
+    0%,
+    12%,
+    100% {
+      opacity: 0.025;
+      transform: scale(0.82);
+    }
+
+    58%,
+    84% {
+      opacity: 0.08;
+      transform: scale(1);
+    }
+
+    92% {
+      opacity: 0.025;
+      transform: scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .quality-contour__line,
+    .quality-contour__bloom {
+      animation: none;
+    }
+
+    .quality-contour__line {
+      opacity: var(--quality-contour-visible-opacity);
+      transform: var(--quality-contour-settled-transform);
+    }
+
+    .quality-contour__bloom {
+      opacity: 0.055;
+      transform: none;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .quality-contour__line--latest,
+    .quality-contour__attractor-outline {
+      stroke: CanvasText;
+    }
+
+    .quality-contour__attractor-fill {
+      fill: CanvasText;
+    }
+
+    .quality-contour__bloom {
+      display: none;
+    }
+  }
+
+  @media (max-width: 460px) {
+    .quality-contour {
+      aspect-ratio: 7 / 6;
+      padding-inline: 0;
+    }
+  }
+}

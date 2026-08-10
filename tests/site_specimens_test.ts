@@ -65,7 +65,7 @@ Deno.test("the specimen sheet remains outside the public route registry", async 
   );
 });
 
-Deno.test("the development handler serves only the sheet and its live stylesheet", async () => {
+Deno.test("the development handler preserves the homepage specimen sheet", async () => {
   const root = await specimenHandler(new Request("http://localhost/"));
   assertEquals(root.status, 200);
   assertStringIncludes(root.headers.get("content-type") ?? "", "text/html");

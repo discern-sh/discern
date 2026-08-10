@@ -1,0 +1,196 @@
+@layer discern.page {
+  .persistent-trace {
+    --persistent-trace-accent: var(--discern-color-accent-600);
+    --persistent-trace-line: color-mix(in oklab,
+      var(--discern-color-ink-muted) 74%, transparent);
+    --persistent-trace-guide: color-mix(in oklab,
+      var(--discern-color-border-strong) 52%, transparent);
+    position: relative;
+    isolation: isolate;
+    margin: 0;
+    overflow: visible;
+    background: transparent;
+  }
+
+  [data-discern-theme="dark"] .persistent-trace {
+    --persistent-trace-accent: var(--discern-color-accent-400);
+    --persistent-trace-line: color-mix(in oklab,
+      var(--discern-color-ink-muted) 92%, transparent);
+    --persistent-trace-guide: color-mix(in oklab,
+      var(--discern-color-border-strong) 76%, transparent);
+  }
+
+  .persistent-trace__drawing {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: var(--discern-color-ink);
+    shape-rendering: geometricPrecision;
+  }
+
+  .persistent-trace__construction path,
+  .persistent-trace__durable path,
+  .persistent-trace__activation,
+  .persistent-trace__core path {
+    vector-effect: non-scaling-stroke;
+  }
+
+  .persistent-trace__construction path {
+    fill: none;
+    stroke: var(--persistent-trace-guide);
+    stroke-dasharray: 1.5 11;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 0.7;
+  }
+
+  .persistent-trace__durable path {
+    fill: none;
+    stroke: var(--persistent-trace-line);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.35;
+  }
+
+  .persistent-trace__durable path:nth-child(1) {
+    opacity: 0.34;
+  }
+
+  .persistent-trace__durable path:nth-child(2) {
+    opacity: 0.42;
+  }
+
+  .persistent-trace__durable path:nth-child(3) {
+    opacity: 0.5;
+  }
+
+  .persistent-trace__durable path:nth-child(4) {
+    opacity: 0.58;
+  }
+
+  .persistent-trace__durable path:nth-child(5) {
+    opacity: 0.68;
+  }
+
+  .persistent-trace__durable path:nth-child(6) {
+    opacity: 0.8;
+  }
+
+  .persistent-trace__activation {
+    fill: none;
+    stroke: var(--persistent-trace-accent);
+    stroke-dasharray: 0.052 0.948;
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 1.8;
+    opacity: 0;
+    animation: persistent-trace-activation 11s linear infinite;
+  }
+
+  .persistent-trace__core path:first-child {
+    fill: var(--discern-color-canvas);
+    stroke: var(--discern-color-ink-muted);
+    stroke-linejoin: round;
+    stroke-width: 1;
+  }
+
+  .persistent-trace__core path:last-child {
+    fill: var(--discern-color-ink);
+  }
+
+  .persistent-trace__traveler {
+    opacity: 0;
+    animation: persistent-trace-traveler 11s linear infinite;
+  }
+
+  .persistent-trace__traveler-point {
+    fill: var(--persistent-trace-accent);
+  }
+
+  .persistent-trace__traveler-halo {
+    fill: color-mix(in oklab, var(--persistent-trace-accent) 14%, transparent);
+    stroke: color-mix(in oklab,
+      var(--persistent-trace-accent) 34%, transparent);
+    stroke-width: 0.8;
+  }
+
+  .persistent-trace__bloom {
+    fill: color-mix(in oklab, var(--persistent-trace-accent) 15%, transparent);
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: persistent-trace-bloom 11s ease-out infinite;
+  }
+
+  @keyframes persistent-trace-activation {
+    0% {
+      stroke-dashoffset: 0;
+      opacity: 0;
+    }
+
+    3%,
+    82% {
+      opacity: 0.72;
+    }
+
+    84%,
+    100% {
+      stroke-dashoffset: -0.948;
+    }
+
+    89%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes persistent-trace-traveler {
+    0%,
+    100% {
+      opacity: 0;
+    }
+
+    3%,
+    82% {
+      opacity: 1;
+    }
+
+    89% {
+      opacity: 0;
+    }
+  }
+
+  @keyframes persistent-trace-bloom {
+    0%,
+    76%,
+    100% {
+      opacity: 0;
+      transform: scale(0.55);
+    }
+
+    84% {
+      opacity: 0.24;
+      transform: scale(1);
+    }
+
+    93% {
+      opacity: 0.04;
+      transform: scale(1.35);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .persistent-trace__activation,
+    .persistent-trace__traveler,
+    .persistent-trace__bloom {
+      animation: none;
+    }
+
+    .persistent-trace__activation,
+    .persistent-trace__traveler,
+    .persistent-trace__bloom {
+      display: none;
+    }
+  }
+}
