@@ -101,11 +101,12 @@
     grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);
     column-gap: clamp(1.5rem, 3vw, 3rem);
     row-gap: clamp(2.5rem, 6vw, 4rem);
+    align-content: end;
     align-items: center;
     width: min(100% - 2 * var(--discern-space-6), 86rem);
     min-block-size: 0;
     margin-inline: auto;
-    padding-block: clamp(5rem, 10vw, 9rem);
+    padding-block-start: clamp(5rem, 10vw, 9rem);
   }
 
   .landing-hero__copy {
@@ -132,10 +133,6 @@
     text-wrap: balance;
   }
 
-  .landing-hero__headline-turn {
-    display: block;
-  }
-
   .landing-hero__standfirst {
     max-inline-size: 46rem;
     margin: clamp(1.75rem, 4vw, 3rem) 0 0;
@@ -143,16 +140,6 @@
     font-size: clamp(1.12rem, 1.75vw, 1.42rem);
     line-height: 1.5;
     text-wrap: pretty;
-  }
-
-  .landing-hero__category {
-    max-inline-size: 38rem;
-    margin: var(--discern-space-6) 0 0;
-    color: var(--discern-color-ink);
-    font-family: var(--discern-font-display);
-    font-size: clamp(1.25rem, 2vw, 1.65rem);
-    font-weight: var(--discern-font-weight-strong);
-    line-height: 1.25;
   }
 
   .landing-hero__facts {
@@ -1290,7 +1277,7 @@
 
     .landing-hero__inner {
       row-gap: var(--discern-space-10);
-      padding-block: var(--discern-space-12);
+      padding-block-start: var(--discern-space-12);
     }
 
     .landing-hero__invitation {

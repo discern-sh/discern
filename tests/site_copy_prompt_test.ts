@@ -71,12 +71,12 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
   assertEquals(externalRequests, 0);
   assertEquals(
     controls[0]?.querySelector(".discern-button__label")?.textContent,
-    "Prompt copied",
+    "Copied! Now paste it to your agent.",
   );
   assertEquals(controls[0]?.hasAttribute("data-prompt-copied"), true);
   assertEquals(
     document.getElementById("hero-copy-prompt-status")?.textContent,
-    "Prompt copied",
+    "Copied! Now paste it to your agent.",
   );
 
   for (

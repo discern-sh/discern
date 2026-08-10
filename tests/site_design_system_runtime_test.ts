@@ -432,7 +432,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "Build further. Stand behind what comes back.",
+    "An engineering practice for agent-built software",
   );
   assertStringIncludes(
     text,
@@ -440,9 +440,19 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assertEquals(
     (body.querySelector(".landing-hero")?.textContent ?? "").includes(
-      "An engineering practice for agent-built software.",
+      "An engineering practice for agent-built software",
     ),
     true,
+  );
+  assert(
+    body.querySelector(
+      ".landing-hero [data-copy-prompt].discern-button--primary",
+    ) !== null,
+  );
+  assert(
+    body.querySelector(
+      '.landing-hero a[href="#delegation"].discern-button--secondary',
+    ) !== null,
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
 

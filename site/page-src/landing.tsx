@@ -6,7 +6,6 @@ import {
   Badge,
   Brand,
   Button,
-  HeadingAccent,
   LogoCloud,
   SiteFooter,
   SkipLink,
@@ -141,21 +140,13 @@ function LandingHero() {
           <p className="landing-hero__eyebrow">
             <DiscernName /> is for people who take their software seriously.
           </p>
-          <h1>
-            Build <HeadingAccent>further.</HeadingAccent>{" "}
-            <span className="landing-hero__headline-turn">
-              Stand behind what comes back.
-            </span>
-          </h1>
+          <h1>An engineering practice for agent-built software</h1>
           <p className="landing-hero__standfirst">
             Coding agents can take on substantial work. discern makes the whole
             way of working part of the project: shared understanding, isolated
             work, declared checks, and evidence for the exact change. Your
             ambition can grow without turning you into the operating layer
             around every detail.
-          </p>
-          <p className="landing-hero__category">
-            An engineering practice for agent-built software.
           </p>
           <ul className="landing-hero__facts" aria-label="Product foundations">
             <li>One complete practice</li>
@@ -169,8 +160,8 @@ function LandingHero() {
               <h2>Already working with a coding agent?</h2>
               <p>Copy the setup prompt into the conversation.</p>
             </div>
-            <CopyPrompt id="hero-copy-prompt" buttonVariant="secondary" />
-            <Button href="#delegation">
+            <CopyPrompt id="hero-copy-prompt" />
+            <Button href="#delegation" variant="secondary">
               See discern in practice
             </Button>
           </div>

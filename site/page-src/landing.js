@@ -24,9 +24,15 @@
 
     let resetTimer = null;
     const reflect = (copied) => {
-      label.textContent = copied ? "Prompt copied" : "Copy prompt";
+      label.textContent = copied
+        ? "Copied! Now paste it to your agent."
+        : "Copy prompt";
       control.toggleAttribute("data-prompt-copied", copied);
-      if (status) status.textContent = copied ? "Prompt copied" : "";
+      if (status) {
+        status.textContent = copied
+          ? "Copied! Now paste it to your agent."
+          : "";
+      }
     };
     const reset = () => reflect(false);
 
