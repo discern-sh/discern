@@ -95,6 +95,14 @@ export interface TrianglePyramidOptions {
   readonly phase?: number;
 }
 
+/** Layout inputs for one subdivision state of the recursive triangle figure. */
+export interface TriangleGasketOptions {
+  readonly rows: number;
+  /** Subdivision rounds opened; defaults to the full depth for `rows`. */
+  readonly levels?: number;
+  readonly phase?: number;
+}
+
 /** State inputs for one frame of a moving packet on a dotted activity rail. */
 export interface TriangleBeaconOptions {
   readonly width: number;
@@ -387,6 +395,83 @@ export function renderTrianglePyramid(
   ).join("\n");
 }
 
+/** Decide whether one pyramid cell survives the first `levels` subdivisions. */
+function gasketCellSurvives(
+  row: number,
+  position: number,
+  rows: number,
+  levels: number,
+): boolean {
+  let size = rows;
+  let r = row;
+  let p = position;
+  for (let remaining = levels; remaining > 0 && size > 1; remaining -= 1) {
+    const half = size / 2;
+    if (r < half) {
+      size = half;
+      continue;
+    }
+    const localRow = r - half;
+    if (p <= 2 * localRow) {
+      r = localRow;
+      size = half;
+      continue;
+    }
+    if (p < 2 * half) {
+      return false;
+    }
+    r = localRow;
+    p -= 2 * half;
+    size = half;
+  }
+  return true;
+}
+
+/**
+ * Render one subdivision state of the Sierpiński gasket over the pyramid's
+ * cells: level 0 is the solid woven pyramid, and each further level opens the
+ * inverted middle of every surviving sub-triangle. At full depth only
+ * up-pointing cells remain — the mark and its mirror, touching at points.
+ */
+export function renderTriangleGasket(
+  options: TriangleGasketOptions,
+): string {
+  assertArtDimension(options.rows, "triangle gasket rows", 1);
+  if ((options.rows & (options.rows - 1)) !== 0) {
+    throw new TypeError(
+      `triangle gasket rows must be a power of two; received ${options.rows}`,
+    );
+  }
+  const fullDepth = Math.log2(options.rows);
+  const levels = options.levels ?? fullDepth;
+  assertSafeInteger(levels, "triangle gasket levels", 0);
+  if (levels > fullDepth) {
+    throw new TypeError(
+      `triangle gasket levels must not exceed ${fullDepth} for ${options.rows} rows; received ${levels}`,
+    );
+  }
+  const phase = options.phase ?? 0;
+  if (!Number.isSafeInteger(phase)) {
+    throw new TypeError(
+      `triangle gasket phase must be a safe integer; received ${phase}`,
+    );
+  }
+  assertFrameCellBudget(options.rows * options.rows, "triangle gasket area");
+  const normalizedPhase = normalizedIndex(
+    phase,
+    DISCERN_TRIANGLE_WEAVE_CYCLE.length,
+  );
+  return Array.from({ length: options.rows }, (_, row) => {
+    let cells = "";
+    for (let position = 0; position < 2 * row + 1; position += 1) {
+      cells += gasketCellSurvives(row, position, options.rows, levels)
+        ? cycleGlyph(DISCERN_TRIANGLE_WEAVE_CYCLE, normalizedPhase + position)
+        : " ";
+    }
+    return `${" ".repeat(options.rows - 1 - row)}${cells}`;
+  }).join("\n");
+}
+
 /** Render one state of a four-glyph activity packet moving over a fixed rail. */
 export function renderTriangleBeacon(options: TriangleBeaconOptions): string {
   assertArtDimension(options.width, "triangle beacon width", 4);
@@ -418,6 +503,7 @@ const SECTION_RULE = Object.freeze({ width: 30 });
 const STEPS = Object.freeze(["inspect", "plan", "apply", "verify"] as const);
 const BEACON = Object.freeze({ width: 32, offset: 14 });
 const PYRAMID = Object.freeze({ rows: 8 });
+const GASKET = Object.freeze({ rows: 8 });
 
 /** Render the static storyboard that exposes every spinner phase without motion. */
 function renderSpinnerStoryboard(): string {
@@ -528,6 +614,27 @@ function animatePyramid(staticArt: string): DiscernArtAnimation {
   );
 }
 
+/** Raise the woven pyramid, then open its middles one subdivision at a time. */
+function animateGasket(staticArt: string): DiscernArtAnimation {
+  const woven = renderTriangleGasket({ ...GASKET, levels: 0 });
+  const wovenRows = woven.split("\n");
+  return finishAnimation(
+    staticArt,
+    [
+      ...wovenRows.slice(0, -1).map((_, index) =>
+        wovenRows.slice(0, index + 1).join("\n")
+      ),
+      woven,
+      ...Array.from(
+        { length: Math.log2(GASKET.rows) - 1 },
+        (_, level) => renderTriangleGasket({ ...GASKET, levels: level + 1 }),
+      ),
+    ],
+    90,
+    400,
+  );
+}
+
 /** Send the activity packet out and back before it settles at the centre. */
 function animateBeacon(staticArt: string): DiscernArtAnimation {
   return finishAnimation(
@@ -593,6 +700,11 @@ export const DISCERN_TRIANGLE_MOTIFS = {
     charset: "unicode",
     render: () => renderTrianglePyramid(PYRAMID),
     animate: () => animatePyramid(renderTrianglePyramid(PYRAMID)),
+  },
+  gasket: {
+    charset: "unicode",
+    render: () => renderTriangleGasket(GASKET),
+    animate: () => animateGasket(renderTriangleGasket(GASKET)),
   },
 } as const satisfies Readonly<Record<string, DiscernArtVariant>>;
 

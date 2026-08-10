@@ -50,7 +50,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 167     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
 | [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
-| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 9       | —                | —                           |
+| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 10      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -1220,7 +1220,7 @@ The named terminal-art family: every static renderer carries one semantic animat
 The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.
 
 - Source: `src/lib/triangle_art.ts` — `DISCERN_TRIANGLE_MOTIFS`
-- Members: 9
+- Members: 10
   - `divider`
   - `ribbon`
   - `weave`
@@ -1230,6 +1230,7 @@ The reusable triangle treatments: every pure static frame carries one semantic a
   - `stepper`
   - `beacon`
   - `pyramid`
+  - `gasket`
 - Guards: `tests/triangle_art_test.ts`, `tests/art_gallery_test.ts`
 - Glossary: not enrolled — the terminal-art gallery owns these internal motif names
 - Feature canon: not enrolled — the existing terminal surfaces consume these motifs and maintainer previews

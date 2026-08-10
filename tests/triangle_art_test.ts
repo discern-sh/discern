@@ -8,6 +8,7 @@ import {
   DISCERN_TRIANGLE_WEAVE_CYCLE,
   MAX_TRIANGLE_ART_CELLS,
   renderTriangleBeacon,
+  renderTriangleGasket,
   renderTrianglePattern,
   renderTriangleProgress,
   renderTrianglePyramid,
@@ -59,6 +60,16 @@ const EXPECTED_MOTIFS = {
     "  ◮⧩◭⧨◮⧩◭⧨◮⧩◭",
     " ◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮",
     "◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭",
+  ].join("\n"),
+  gasket: [
+    "       ◮",
+    "      ◮ ◭",
+    "     ◮   ◮",
+    "    ◮ ◭ ◮ ◭",
+    "   ◮       ◮",
+    "  ◮ ◭     ◮ ◭",
+    " ◮   ◮   ◮   ◮",
+    "◮ ◭ ◮ ◭ ◮ ◭ ◮ ◭",
   ].join("\n"),
 } as const;
 
@@ -178,6 +189,33 @@ Deno.test("triangle state renderers expose reusable exact frames", () => {
   );
 });
 
+Deno.test("triangle gasket opens the woven pyramid one subdivision at a time", () => {
+  assertEquals(
+    renderTriangleGasket({ rows: 8, levels: 0 }),
+    renderTrianglePyramid({ rows: 8 }),
+  );
+  assertEquals(
+    renderTriangleGasket({ rows: 8, levels: 0, phase: 3 }),
+    renderTrianglePyramid({ rows: 8, phase: 3 }),
+  );
+  assertEquals(
+    renderTriangleGasket({ rows: 4, levels: 1 }),
+    ["   ◮", "  ◮⧩◭", " ◮   ◮", "◮⧩◭ ◮⧩◭"].join("\n"),
+  );
+  assertEquals(
+    renderTriangleGasket({ rows: 4, levels: 2 }),
+    ["   ◮", "  ◮ ◭", " ◮   ◮", "◮ ◭ ◮ ◭"].join("\n"),
+  );
+  // At full depth only up-pointing cells remain: 3^depth marks, no downs.
+  const fullDepth = renderTriangleGasket({ rows: 8 });
+  assertEquals(
+    [...fullDepth].filter((glyph) => glyph === "◮" || glyph === "◭").length,
+    27,
+  );
+  assert(!fullDepth.includes("⧨"));
+  assert(!fullDepth.includes("⧩"));
+});
+
 Deno.test("triangle state renderers reject impossible frames", () => {
   const invalidRenders = [
     () => renderTrianglePattern({ columns: 0 }),
@@ -202,6 +240,11 @@ Deno.test("triangle state renderers reject impossible frames", () => {
     () => renderTriangleBeacon({ width: 8, offset: 5 }),
     () => renderTrianglePyramid({ rows: 0 }),
     () => renderTrianglePyramid({ rows: 2, phase: 0.5 }),
+    () => renderTriangleGasket({ rows: 0 }),
+    () => renderTriangleGasket({ rows: 6 }),
+    () => renderTriangleGasket({ rows: 8, levels: 4 }),
+    () => renderTriangleGasket({ rows: 8, levels: -1 }),
+    () => renderTriangleGasket({ rows: 4, phase: 0.5 }),
   ];
   for (const render of invalidRenders) {
     assertThrows(render, TypeError);
@@ -240,6 +283,7 @@ Deno.test("every triangle renderer holds the total visible-cell budget", () => {
         offset: 0,
       }),
     "pyramid area": () => renderTrianglePyramid({ rows: 101 }),
+    "gasket area": () => renderTriangleGasket({ rows: 128 }),
   } satisfies Readonly<Record<string, () => string>>;
   const unguarded: string[] = [];
   for (const [name, render] of Object.entries(overBudgetRenders)) {
