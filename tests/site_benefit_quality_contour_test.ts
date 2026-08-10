@@ -3,7 +3,13 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
-import { QUALITY_CONTOUR_RINGS } from "../site/page-src/benefit-quality-contour.tsx";
+import {
+  defineQualityContourRing,
+  QUALITY_CONTOUR_EXPANSION,
+  QUALITY_CONTOUR_RINGS,
+  qualityContourLineAttributes,
+  type QualityContourRing,
+} from "../site/page-src/benefit-quality-contour.tsx";
 import { renderQualityContourPreview } from "../site/page-src/benefit-quality-contour-preview.tsx";
 import {
   QUALITY_CONTOUR_STYLESHEET_PATH,
@@ -40,16 +46,159 @@ function cssBlock(source: string, marker: string): string {
   throw new Error(`${marker} must close its block`);
 }
 
-/** Extract a responsive two-dimensional translation from a keyframe. */
-function percentageTranslation(
-  declarations: string,
-): readonly [number, number] {
-  const match = declarations.match(
-    /transform:\s*translate\((-?[\d.]+)%,\s*(-?[\d.]+)%\)/,
-  );
-  assert(match, "the motion frame must declare a responsive translation");
-  return [Number(match[1]), Number(match[2])];
+/** List the property names used by one CSS declaration block. */
+function cssProperties(declarations: string): string[] {
+  return [...declarations.matchAll(/([a-z-]+)\s*:/g)]
+    .map((match) => match[1] ?? "")
+    .filter((property) => property !== "")
+    .filter((property, index, properties) =>
+      properties.indexOf(property) === index
+    )
+    .sort();
 }
+
+interface CssChildBlock {
+  readonly selector: string;
+  readonly declarations: string;
+}
+
+/** Enumerate every direct child block so an added keyframe joins the guard. */
+function cssChildBlocks(source: string): CssChildBlock[] {
+  const blocks: CssChildBlock[] = [];
+  let cursor = 0;
+  while (cursor < source.length) {
+    const openingBrace = source.indexOf("{", cursor);
+    if (openingBrace < 0) break;
+    const selector = source.slice(cursor, openingBrace).trim();
+    assert(selector !== "", "each CSS child block needs a selector");
+
+    let depth = 1;
+    let closingBrace = openingBrace + 1;
+    for (; closingBrace < source.length; closingBrace += 1) {
+      const character = source[closingBrace];
+      if (character === "{") depth += 1;
+      if (character === "}") depth -= 1;
+      if (depth === 0) break;
+    }
+    assert(depth === 0, `${selector} must close its block`);
+    blocks.push({
+      selector,
+      declarations: source.slice(openingBrace + 1, closingBrace),
+    });
+    cursor = closingBrace + 1;
+  }
+  assert(
+    source.slice(cursor).trim() === "",
+    "CSS child blocks must not leave unguarded declarations",
+  );
+  return blocks;
+}
+
+interface Matrix {
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly e: number;
+  readonly f: number;
+}
+
+/** Read the six numeric terms of a CSS two-dimensional matrix. */
+function matrix(transform: string): Matrix {
+  const match = transform.match(/^matrix\(([^)]+)\)$/);
+  assert(match, `${transform} must be a CSS matrix`);
+  const terms = match[1]?.split(",").map((term) => Number(term.trim())) ?? [];
+  assertEquals(terms.length, 6);
+  assert(
+    terms.every(Number.isFinite),
+    `${transform} must contain finite terms`,
+  );
+  const [a, b, c, d, e, f] = terms;
+  assert(
+    a !== undefined && b !== undefined && c !== undefined &&
+      d !== undefined && e !== undefined && f !== undefined,
+  );
+  return { a, b, c, d, e, f };
+}
+
+/** Transform authored bounds through one matrix and return their new bounds. */
+function transformedBounds(
+  ring: QualityContourRing,
+  transform: Matrix,
+): {
+  readonly centerX: number;
+  readonly centerY: number;
+  readonly width: number;
+  readonly height: number;
+} {
+  const corners = [
+    [ring.bounds.minX, ring.bounds.minY],
+    [ring.bounds.maxX, ring.bounds.minY],
+    [ring.bounds.maxX, ring.bounds.maxY],
+    [ring.bounds.minX, ring.bounds.maxY],
+  ] as const;
+  const transformed = corners.map(([x, y]) => ({
+    x: (transform.a * x) + (transform.c * y) + transform.e,
+    y: (transform.b * x) + (transform.d * y) + transform.f,
+  }));
+  const x = transformed.map((point) => point.x);
+  const y = transformed.map((point) => point.y);
+  const minX = Math.min(...x);
+  const maxX = Math.max(...x);
+  const minY = Math.min(...y);
+  const maxY = Math.max(...y);
+  return {
+    centerX: (minX + maxX) / 2,
+    centerY: (minY + maxY) / 2,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+/** Assert the geometry-derived motion contract shared by every contour. */
+function assertExpansionContract(ring: QualityContourRing): void {
+  const start = matrix(ring.motion.startTransform);
+  const settled = matrix(ring.motion.settledTransform);
+  assertEquals(settled, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
+  assert(start.a > 0 && start.a < 1, `${ring.id} must expand outward`);
+  assertEquals(start.b, 0);
+  assertEquals(start.c, 0);
+  assertEquals(start.d, start.a);
+
+  const footprint = transformedBounds(ring, start);
+  assert(
+    Math.abs(footprint.centerX - QUALITY_CONTOUR_EXPANSION.anchor.x) <= 0.1,
+    `${ring.id} must share the expansion anchor on x`,
+  );
+  assert(
+    Math.abs(footprint.centerY - QUALITY_CONTOUR_EXPANSION.anchor.y) <= 0.1,
+    `${ring.id} must share the expansion anchor on y`,
+  );
+  assert(
+    Math.abs(
+      Math.max(footprint.width, footprint.height) -
+        QUALITY_CONTOUR_EXPANSION.startSpan,
+    ) <= 0.1,
+    `${ring.id} must share the compact starting span`,
+  );
+}
+
+const PROSPECTIVE_SEVENTH_RING = defineQualityContourRing({
+  id: "prospective-boundary",
+  opacity: { light: 0.46, dark: 0.54 },
+  points: [
+    [368, 302],
+    [356, 252],
+    [383, 207],
+    [438, 183],
+    [500, 194],
+    [536, 231],
+    [530, 279],
+    [488, 314],
+    [424, 319],
+  ],
+  rounding: 0.16,
+});
 
 Deno.test("the one-way contour study renders accessibly in both fixed themes", () => {
   const dom = new JSDOM(renderQualityContourPreview());
@@ -122,14 +271,55 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
   dom.window.close();
 });
 
-Deno.test("the contour motion has a reduced-motion culmination", async () => {
+Deno.test("every contour expands from one compact footprint to its authored geometry", async () => {
   const dom = new JSDOM(renderQualityContourPreview());
   const document = dom.window.document;
   const css = await Deno.readTextFile(QUALITY_CONTOUR_CSS);
+  const enrolledWithFuture = [
+    ...QUALITY_CONTOUR_RINGS,
+    PROSPECTIVE_SEVENTH_RING,
+  ];
+  assertEquals(
+    enrolledWithFuture.length,
+    QUALITY_CONTOUR_RINGS.length + 1,
+    "the prospective contour must exercise one future registry member",
+  );
+
+  const startingFootprints = enrolledWithFuture.map((ring) => {
+    assertExpansionContract(ring);
+    return transformedBounds(ring, matrix(ring.motion.startTransform));
+  });
+  const startingWidths = startingFootprints.map((footprint) => footprint.width);
+  const startingHeights = startingFootprints.map((footprint) =>
+    footprint.height
+  );
+  assert(
+    Math.max(...startingWidths) - Math.min(...startingWidths) <= 0.2,
+    "the compact family must share one width",
+  );
+  assert(
+    Math.max(...startingHeights) - Math.min(...startingHeights) <= 9,
+    "authored proportions may vary only slightly in the compact family",
+  );
+
+  const futureAttributes = qualityContourLineAttributes(
+    PROSPECTIVE_SEVENTH_RING,
+    false,
+  );
+  assertStringIncludes(futureAttributes.className, "quality-contour__line");
+  assertEquals(futureAttributes["data-contour-motion"], "expand");
+  assertEquals(
+    futureAttributes.style["--quality-contour-start-transform"],
+    PROSPECTIVE_SEVENTH_RING.motion.startTransform,
+  );
+  assertEquals(
+    futureAttributes.style["--quality-contour-settled-transform"],
+    QUALITY_CONTOUR_EXPANSION.settledTransform,
+  );
 
   for (const artwork of document.querySelectorAll(".quality-contour")) {
     const renderedRings = artwork.querySelectorAll(
-      ".quality-contour__line[data-contour-ring]",
+      '.quality-contour__line[data-contour-ring][data-contour-motion="expand"]',
     );
     assertEquals(renderedRings.length, QUALITY_CONTOUR_RINGS.length);
     assertEquals(
@@ -145,9 +335,15 @@ Deno.test("the contour motion has a reduced-motion culmination", async () => {
         ring.getAttribute("style")?.includes(
           "--quality-contour-opacity-dark:",
         ),
+        ring.getAttribute("style")?.includes(
+          "--quality-contour-start-transform:",
+        ),
+        ring.getAttribute("style")?.includes(
+          "--quality-contour-settled-transform:",
+        ),
       ]),
-      QUALITY_CONTOUR_RINGS.map(() => [true, true]),
-      "future rings must carry intentional contrast in both themes",
+      QUALITY_CONTOUR_RINGS.map(() => [true, true, true, true]),
+      "future rings must carry theme contrast and expansion geometry",
     );
 
     for (const ring of renderedRings) {
@@ -157,61 +353,110 @@ Deno.test("the contour motion has a reduced-motion culmination", async () => {
       assert(!path.includes(" C "), "rings must stay softly faceted");
     }
 
-    const latest = artwork.querySelector<SVGPathElement>(
-      ".quality-contour__line--latest",
+    assertEquals(
+      artwork.querySelectorAll(".quality-contour__advance").length,
+      0,
     );
-    const advance = artwork.querySelector<SVGPathElement>(
-      ".quality-contour__advance",
+    assertEquals(
+      artwork.querySelectorAll("animate, animateTransform").length,
+      0,
     );
-    assert(latest);
-    assert(advance);
-    assertEquals(advance.getAttribute("d"), latest.getAttribute("d"));
-
-    assertEquals(advance.getAttribute("pathLength"), "1");
   }
 
-  const latestRule = cssBlock(css, ".quality-contour__line--latest");
-  const advanceRule = cssBlock(css, ".quality-contour__advance {");
-  assertStringIncludes(latestRule, "stroke: var(--discern-color-ink)");
-  assert(!latestRule.includes("accent"));
+  assert(!css.includes("quality-contour__advance"));
+  assert(!css.includes("stroke-dasharray"));
+  assert(!/[\s{;]d\s*:/.test(css), "motion must not morph authored paths");
+  const lineRule = cssBlock(css, ".quality-contour__line {");
   assertStringIncludes(
-    advanceRule,
-    "stroke: var(--discern-color-accent-500)",
+    lineRule,
+    `animation: quality-contour-expansion ${
+      QUALITY_CONTOUR_EXPANSION.durationMs / 1_000
+    }s ease-in-out infinite`,
   );
   assertStringIncludes(
-    advanceRule,
-    "animation: quality-contour-advance 10s ease-in-out infinite",
+    lineRule,
+    "transform: var(--quality-contour-settled-transform)",
   );
 
-  const motion = cssBlock(css, "@keyframes quality-contour-advance");
-  const start = cssBlock(motion, "0%");
-  const settle = cssBlock(motion, "62%");
-  const rest = cssBlock(motion, "84%");
-  const reset = cssBlock(motion, "100%");
-  const [startX, startY] = percentageTranslation(start);
-  const [settleX, settleY] = percentageTranslation(settle);
-  assert(
-    Math.hypot(settleX - startX, settleY - startY) >= 3,
-    "the advancing boundary must move far enough to remain legible",
+  const motion = cssBlock(css, "@keyframes quality-contour-expansion");
+  const motionFrames = cssChildBlocks(motion);
+  const expectedSelectors = ["0%", "6%", "12%", "58%", "84%", "92%", "100%"];
+  assertEquals(
+    motionFrames.map((frame) => frame.selector),
+    expectedSelectors,
+    "every contour keyframe must be enrolled in the motion guard",
   );
-  assertStringIncludes(start, "stroke-dasharray: 0 1");
-  assertStringIncludes(settle, "stroke-dasharray: 1 0");
-  assertStringIncludes(rest, "stroke-dasharray: 1 0");
-  assertStringIncludes(rest, "opacity: 1");
+  for (const frame of motionFrames) {
+    assertEquals(
+      cssProperties(frame.declarations),
+      ["opacity", "transform"],
+      "contours may move only through scale, position, and opacity",
+    );
+  }
+  const frameBySelector = new Map(
+    motionFrames.map((frame) => [frame.selector, frame.declarations]),
+  );
+  const declarationsAt = (selector: string): string => {
+    const declarations = frameBySelector.get(selector);
+    assert(declarations !== undefined, `${selector} must join the timeline`);
+    return declarations;
+  };
+  const start = declarationsAt("0%");
+  const opening = declarationsAt("6%");
+  const launch = declarationsAt("12%");
+  const settle = declarationsAt("58%");
+  const rest = declarationsAt("84%");
+  const fade = declarationsAt("92%");
+  const reset = declarationsAt("100%");
+  assertStringIncludes(
+    start,
+    "transform: var(--quality-contour-start-transform)",
+  );
+  assertStringIncludes(start, "opacity: 0");
+  assertStringIncludes(
+    opening,
+    "transform: var(--quality-contour-start-transform)",
+  );
+  assertStringIncludes(
+    opening,
+    "opacity: var(--quality-contour-visible-opacity)",
+  );
+  assertStringIncludes(
+    launch,
+    "transform: var(--quality-contour-start-transform)",
+  );
+  assertStringIncludes(
+    settle,
+    "transform: var(--quality-contour-settled-transform)",
+  );
+  assertStringIncludes(
+    rest,
+    "transform: var(--quality-contour-settled-transform)",
+  );
+  assertStringIncludes(rest, "opacity: var(--quality-contour-visible-opacity)");
+  assertStringIncludes(
+    fade,
+    "transform: var(--quality-contour-settled-transform)",
+  );
+  assertStringIncludes(fade, "opacity: 0");
+  assertStringIncludes(
+    reset,
+    "transform: var(--quality-contour-start-transform)",
+  );
   assertStringIncludes(reset, "opacity: 0");
 
   const reduced = cssBlock(css, "@media (prefers-reduced-motion: reduce)");
   assertStringIncludes(
-    cssBlock(reduced, ".quality-contour__advance,"),
+    cssBlock(reduced, ".quality-contour__line,"),
     "animation: none",
   );
   assertStringIncludes(
-    cssBlock(reduced, ".quality-contour__advance {"),
-    "display: none",
+    cssBlock(reduced, ".quality-contour__line {"),
+    "transform: var(--quality-contour-settled-transform)",
   );
   assertStringIncludes(
-    cssBlock(reduced, ".quality-contour__line--latest"),
-    "stroke: var(--discern-color-accent-600)",
+    cssBlock(css, ".quality-contour__attractor-fill"),
+    "fill: var(--discern-color-accent-600)",
   );
   dom.window.close();
 });
