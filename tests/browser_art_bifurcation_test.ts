@@ -819,7 +819,7 @@ Deno.test("culmination detectors automatically reject renamed future registry me
     }],
   } as const;
   const dom = new JSDOM(`
-    <article class="benefit-art-preview__theme">
+    <article class="art-preview__theme">
       <svg>
         <g class="bifurcation-art__level" data-bifurcation-level="9">
           <path class="bifurcation-art__branch"
@@ -860,7 +860,7 @@ Deno.test("culmination detectors automatically reject renamed future registry me
     }
   `;
   const root = dom.window.document.querySelector(
-    ".benefit-art-preview__theme",
+    ".art-preview__theme",
   );
   assert(root !== null);
 
@@ -992,7 +992,6 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
   const text = readableText(study.textContent);
-  assertStringIncludes(text, "Multiply your output");
   assertStringIncludes(text, "One uninterrupted sweep");
   assert(!html.includes("_private"), "private source paths must not render");
   assertEquals(

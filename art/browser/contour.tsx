@@ -1,15 +1,15 @@
-/** Reusable one-way contour artwork for the quality-retention benefit. */
+/** Reusable one-way contour artwork. */
 
 import type { CSSProperties, ReactNode } from "react";
 
-export interface QualityContourArtworkProps {
+export interface ContourArtworkProps {
   /** Unique prefix for the accessible SVG title and description. */
   readonly idPrefix: string;
 }
 
 export type ContourPoint = readonly [x: number, y: number];
 
-export interface QualityContourBounds {
+export interface ContourBounds {
   readonly minX: number;
   readonly maxX: number;
   readonly minY: number;
@@ -20,21 +20,21 @@ export interface QualityContourBounds {
   readonly height: number;
 }
 
-export interface QualityContourRing {
+export interface ContourRing {
   readonly id: string;
   readonly opacity: {
     readonly light: number;
     readonly dark: number;
   };
   readonly path: string;
-  readonly bounds: QualityContourBounds;
+  readonly bounds: ContourBounds;
   readonly motion: {
     readonly startTransform: string;
     readonly settledTransform: string;
   };
 }
 
-export interface QualityContourRingDefinition {
+export interface ContourRingDefinition {
   readonly id: string;
   readonly opacity: {
     readonly light: number;
@@ -44,23 +44,23 @@ export interface QualityContourRingDefinition {
   readonly rounding: number;
 }
 
-export interface QualityContourLineStyle extends CSSProperties {
-  readonly "--quality-contour-opacity": number;
-  readonly "--quality-contour-opacity-dark": number;
-  readonly "--quality-contour-start-transform": string;
-  readonly "--quality-contour-settled-transform": string;
+export interface ContourLineStyle extends CSSProperties {
+  readonly "--contour-art-opacity": number;
+  readonly "--contour-art-opacity-dark": number;
+  readonly "--contour-art-start-transform": string;
+  readonly "--contour-art-settled-transform": string;
 }
 
-export interface QualityContourLineAttributes {
+export interface ContourLineAttributes {
   readonly className: string;
   readonly "data-contour-ring": string;
   readonly "data-contour-motion": "expand";
   readonly d: string;
-  readonly style: QualityContourLineStyle;
+  readonly style: ContourLineStyle;
 }
 
 /** One compact origin and one exact resting transform for every ring. */
-export const QUALITY_CONTOUR_EXPANSION = Object.freeze(
+export const CONTOUR_EXPANSION = Object.freeze(
   {
     anchor: Object.freeze({ x: 467, y: 235 }),
     startSpan: 54,
@@ -140,7 +140,7 @@ function roundedPolygonPath(
 }
 
 /** Measure authored vertices before deriving their shared opening transform. */
-function contourBounds(points: readonly ContourPoint[]): QualityContourBounds {
+function contourBounds(points: readonly ContourPoint[]): ContourBounds {
   if (points.length < 3) {
     throw new Error("A retained contour needs at least three vertices.");
   }
@@ -174,9 +174,9 @@ function contourBounds(points: readonly ContourPoint[]): QualityContourBounds {
  * Define a ring and derive the matrix that maps its authored bounds onto the
  * shared compact footprint. New registry members cannot omit this contract.
  */
-export function defineQualityContourRing(
-  definition: QualityContourRingDefinition,
-): QualityContourRing {
+export function defineContourRing(
+  definition: ContourRingDefinition,
+): ContourRing {
   if (definition.id.trim() === "") {
     throw new Error("A retained contour needs an identifier.");
   }
@@ -192,11 +192,11 @@ export function defineQualityContourRing(
   }
 
   const bounds = contourBounds(definition.points);
-  const scale = QUALITY_CONTOUR_EXPANSION.startSpan /
+  const scale = CONTOUR_EXPANSION.startSpan /
     Math.max(bounds.width, bounds.height);
-  const translateX = QUALITY_CONTOUR_EXPANSION.anchor.x -
+  const translateX = CONTOUR_EXPANSION.anchor.x -
     (scale * bounds.centerX);
-  const translateY = QUALITY_CONTOUR_EXPANSION.anchor.y -
+  const translateY = CONTOUR_EXPANSION.anchor.y -
     (scale * bounds.centerY);
   const scaleTerm = compactNumber(scale, 5);
   const startTransform = `matrix(${scaleTerm}, 0, 0, ${scaleTerm}, ${
@@ -210,7 +210,7 @@ export function defineQualityContourRing(
     bounds,
     motion: Object.freeze({
       startTransform,
-      settledTransform: QUALITY_CONTOUR_EXPANSION.settledTransform,
+      settledTransform: CONTOUR_EXPANSION.settledTransform,
     }),
   });
 }
@@ -219,9 +219,9 @@ export function defineQualityContourRing(
  * The geometry authority for every retained boundary.
  * New rings added here automatically render and enter the motion guard.
  */
-export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
+export const CONTOUR_RINGS: readonly ContourRing[] = Object
   .freeze([
-    defineQualityContourRing({
+    defineContourRing({
       id: "01",
       opacity: { light: 0.12, dark: 0.18 },
       points: [
@@ -241,7 +241,7 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
       ],
       rounding: 0.18,
     }),
-    defineQualityContourRing({
+    defineContourRing({
       id: "02",
       opacity: { light: 0.18, dark: 0.24 },
       points: [
@@ -261,7 +261,7 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
       ],
       rounding: 0.18,
     }),
-    defineQualityContourRing({
+    defineContourRing({
       id: "03",
       opacity: { light: 0.24, dark: 0.31 },
       points: [
@@ -281,7 +281,7 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
       ],
       rounding: 0.17,
     }),
-    defineQualityContourRing({
+    defineContourRing({
       id: "04",
       opacity: { light: 0.31, dark: 0.39 },
       points: [
@@ -301,7 +301,7 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
       ],
       rounding: 0.16,
     }),
-    defineQualityContourRing({
+    defineContourRing({
       id: "05",
       opacity: { light: 0.4, dark: 0.48 },
       points: [
@@ -321,7 +321,7 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
       ],
       rounding: 0.16,
     }),
-    defineQualityContourRing({
+    defineContourRing({
       id: "latest",
       opacity: { light: 0.52, dark: 0.61 },
       points: [
@@ -343,22 +343,22 @@ export const QUALITY_CONTOUR_RINGS: readonly QualityContourRing[] = Object
   ]);
 
 /** Build the attributes that make each registry member motion-complete. */
-export function qualityContourLineAttributes(
-  ring: QualityContourRing,
+export function contourLineAttributes(
+  ring: ContourRing,
   latest: boolean,
-): QualityContourLineAttributes {
+): ContourLineAttributes {
   return {
-    className: `quality-contour__line quality-contour__line--${
+    className: `contour-art__line contour-art__line--${
       latest ? "latest" : ring.id
     }`,
     "data-contour-ring": ring.id,
     "data-contour-motion": "expand",
     d: ring.path,
     style: {
-      "--quality-contour-opacity": ring.opacity.light,
-      "--quality-contour-opacity-dark": ring.opacity.dark,
-      "--quality-contour-start-transform": ring.motion.startTransform,
-      "--quality-contour-settled-transform": ring.motion.settledTransform,
+      "--contour-art-opacity": ring.opacity.light,
+      "--contour-art-opacity-dark": ring.opacity.dark,
+      "--contour-art-start-transform": ring.motion.startTransform,
+      "--contour-art-settled-transform": ring.motion.settledTransform,
     },
   };
 }
@@ -367,53 +367,53 @@ export function qualityContourLineAttributes(
  * Retained boundaries converge on discern's half-filled triangle.
  * They expand from one shared footprint; the authored resting art is permanent.
  */
-export function QualityContourArtwork(
-  { idPrefix }: QualityContourArtworkProps,
+export function ContourArtwork(
+  { idPrefix }: ContourArtworkProps,
 ): ReactNode {
   const titleId = `${idPrefix}-title`;
   const descriptionId = `${idPrefix}-description`;
 
   return (
-    <figure className="quality-contour">
+    <figure className="contour-art">
       <svg
         viewBox="0 0 760 540"
         role="img"
         aria-labelledby={`${titleId} ${descriptionId}`}
       >
-        <title id={titleId}>One-way contour of retained quality</title>
+        <title id={titleId}>One-way contour</title>
         <desc id={descriptionId}>
-          {QUALITY_CONTOUR_RINGS.length}{" "}
+          {CONTOUR_RINGS.length}{" "}
           softly faceted retained boundaries expand from a shared center around
           a half-filled triangle into their complete nested composition.
         </desc>
 
         <g aria-hidden="true">
           <circle
-            className="quality-contour__bloom"
-            cx={QUALITY_CONTOUR_EXPANSION.anchor.x}
-            cy={QUALITY_CONTOUR_EXPANSION.anchor.y}
+            className="contour-art__bloom"
+            cx={CONTOUR_EXPANSION.anchor.x}
+            cy={CONTOUR_EXPANSION.anchor.y}
             r="72"
           />
 
-          <g className="quality-contour__retained">
-            {QUALITY_CONTOUR_RINGS.map((ring, index) => {
-              const latest = index === QUALITY_CONTOUR_RINGS.length - 1;
+          <g className="contour-art__retained">
+            {CONTOUR_RINGS.map((ring, index) => {
+              const latest = index === CONTOUR_RINGS.length - 1;
               return (
                 <path
-                  {...qualityContourLineAttributes(ring, latest)}
+                  {...contourLineAttributes(ring, latest)}
                   key={ring.id}
                 />
               );
             })}
           </g>
 
-          <g className="quality-contour__attractor">
+          <g className="contour-art__attractor">
             <path
-              className="quality-contour__attractor-fill"
+              className="contour-art__attractor-fill"
               d="M 467 210 L 467 248 L 488 248 Z"
             />
             <path
-              className="quality-contour__attractor-outline"
+              className="contour-art__attractor-outline"
               d="M 467 210 L 446 248 L 488 248 Z"
             />
           </g>

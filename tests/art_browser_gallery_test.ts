@@ -1,6 +1,8 @@
 /** Registry, routing, and static-rendering contracts for the internal art archive. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
+import { walk } from "@std/fs";
+import { join, relative } from "@std/path";
 import { createElement } from "react";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
@@ -20,6 +22,7 @@ import {
   specimenHandler,
 } from "../site/specimens.ts";
 import { handler, PAGES } from "../site/serve.ts";
+import { REPO_ROOT } from "./repo_authored_paths.ts";
 
 const EXPECTED_BROWSER_ART = [
   ["alignment", "3006e8622db947c4417b4df2055e28820646ad2e"],
@@ -33,6 +36,61 @@ const EXPECTED_BROWSER_ART = [
 function readableText(value: string | null): string {
   return (value ?? "").replace(/\s+/g, " ").trim();
 }
+
+/** Current and future files whose naming must stay independent of the old brief. */
+async function neutralArtSources(): Promise<Array<[string, string]>> {
+  const paths = [
+    join(REPO_ROOT, "site/page-src/art-gallery.tsx"),
+    join(REPO_ROOT, "site/page-src/art-gallery.css"),
+  ];
+  for await (
+    const entry of walk(join(REPO_ROOT, "art/browser"), {
+      includeDirs: false,
+    })
+  ) {
+    paths.push(entry.path);
+  }
+  for await (
+    const entry of walk(join(REPO_ROOT, "tests"), {
+      includeDirs: false,
+      exts: [".ts"],
+      maxDepth: 1,
+    })
+  ) {
+    if (/\/browser_art_.+_test\.ts$/.test(entry.path)) paths.push(entry.path);
+  }
+  return await Promise.all(
+    paths.sort().map(async (path) => [
+      relative(REPO_ROOT, path),
+      await Deno.readTextFile(path),
+    ]),
+  );
+}
+
+Deno.test("browser art uses only neutral study vocabulary", async () => {
+  const forbidden = [
+    /\bbenefit\b/i,
+    /benefit[-_]alignment/i,
+    /quality[-_]contour/i,
+    /freedom[-_]invariant/i,
+    /BenefitAlignment|QualityContour|FreedomOfMovement/,
+    /Delegate with confidence|Multiply your output/i,
+    /Quality that only improves|Knowledge that compounds/i,
+    /Freedom of movement/i,
+  ];
+  const offenders: string[] = [];
+  for (const [path, source] of await neutralArtSources()) {
+    for (const pattern of forbidden) {
+      if (pattern.test(source)) offenders.push(`${path}: ${pattern.source}`);
+    }
+  }
+  assertEquals(
+    offenders,
+    [],
+    "browser-art names must describe the studies themselves, not the " +
+      `superseded brief:\n  ${offenders.join("\n  ")}`,
+  );
+});
 
 Deno.test("the browser-art registry preserves the five approved source heads", async () => {
   assertEquals(
@@ -67,7 +125,6 @@ Deno.test("the art archive renders every browser study twice and every terminal 
       readableText(study.querySelector("h3")?.textContent ?? null),
       artwork.title,
     );
-    assertStringIncludes(readableText(study.textContent), artwork.benefit);
     assertStringIncludes(readableText(study.textContent), artwork.description);
 
     const themes = [...study.querySelectorAll(".art-gallery__theme")];
@@ -123,7 +180,6 @@ Deno.test("a future browser-art member enrolls in rendering and stylesheet proje
   const future: BrowserArtworkEntry = {
     slug: "future-study",
     title: "Future study",
-    benefit: "Future benefit",
     description: "A prospective registry member used only to prove enrollment.",
     sourceCommit: "0000000000000000000000000000000000000000",
     render: (idPrefix) =>

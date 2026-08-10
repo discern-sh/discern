@@ -1,4 +1,4 @@
-/** Reusable abstract artwork for the "Knowledge that compounds" benefit. */
+/** Reusable persistent-trace artwork. */
 
 import type { ReactNode } from "react";
 
@@ -145,7 +145,7 @@ export function PersistentTraceArtwork(
         data-center-x={center.x}
         data-center-y={center.y}
       >
-        <title id={titleId}>Knowledge retained as an inward trace</title>
+        <title id={titleId}>Persistent trace</title>
         <desc id={descriptionId}>
           A balanced angular spiral winds from a broad outer contour to a
           half-filled triangle at the exact centre. A small blue point follows

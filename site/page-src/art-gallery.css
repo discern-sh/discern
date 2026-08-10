@@ -109,8 +109,7 @@
   }
 
   .art-gallery__family-header div > p,
-  .art-gallery__study-header > span,
-  .art-gallery__study-header div > p:first-child {
+  .art-gallery__study-header > span {
     color: var(--discern-color-accent-700);
     font-family: var(--discern-font-ui);
     font-feature-settings: var(--discern-font-features-ui);
@@ -150,7 +149,7 @@
   }
 
   .art-gallery__study-header h3 {
-    margin: var(--discern-space-2) 0 var(--discern-space-3);
+    margin: 0 0 var(--discern-space-3);
     font-size: clamp(2rem, 4vw, 3.8rem);
   }
 

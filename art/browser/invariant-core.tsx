@@ -1,8 +1,8 @@
-/** Reusable invariant-core artwork for the Freedom of movement benefit. */
+/** Reusable invariant-core artwork. */
 
 import type { ReactNode } from "react";
 
-interface FreedomOfMovementArtProps {
+interface InvariantCoreArtworkProps {
   /** Prefix keeps the SVG accessibility IDs unique when themes sit together. */
   readonly idPrefix: string;
 }
@@ -25,22 +25,22 @@ const RADIAL_TICKS = [
  * Draw three changing coordinate systems around one fixed split triangle.
  * The core is intentionally outside the transforming apparatus group.
  */
-export function FreedomOfMovementArt(
-  { idPrefix }: FreedomOfMovementArtProps,
+export function InvariantCoreArtwork(
+  { idPrefix }: InvariantCoreArtworkProps,
 ): ReactNode {
   const titleId = `${idPrefix}-title`;
   const descriptionId = `${idPrefix}-description`;
 
   return (
     <svg
-      className="freedom-invariant__art"
+      className="invariant-core-art__art"
       viewBox="0 0 720 560"
       role="img"
       aria-labelledby={`${titleId} ${descriptionId}`}
       data-art-center-x={ART_CENTER.x}
       data-art-center-y={ART_CENTER.y}
     >
-      <title id={titleId}>Freedom of movement: invariant core</title>
+      <title id={titleId}>Invariant core</title>
       <desc id={descriptionId}>
         Cartesian, oblique, and radial hairline frames change around a small
         split triangle that remains fixed at their shared center. The complete
@@ -48,12 +48,12 @@ export function FreedomOfMovementArt(
       </desc>
 
       <g
-        className="freedom-invariant__apparatus"
+        className="invariant-core-art__apparatus"
         data-transforming-apparatus
         aria-hidden="true"
       >
         <g
-          className="freedom-invariant__frame freedom-invariant__frame--cartesian"
+          className="invariant-core-art__frame invariant-core-art__frame--cartesian"
           data-coordinate-frame="cartesian"
         >
           <rect x="134" y="54" width="452" height="452" />
@@ -63,7 +63,7 @@ export function FreedomOfMovementArt(
         </g>
 
         <g
-          className="freedom-invariant__frame freedom-invariant__frame--oblique"
+          className="invariant-core-art__frame invariant-core-art__frame--oblique"
           data-coordinate-frame="oblique"
         >
           <path d="M 360 82 L 552 280 L 360 478 L 168 280 Z" />
@@ -73,18 +73,18 @@ export function FreedomOfMovementArt(
         </g>
 
         <g
-          className="freedom-invariant__frame freedom-invariant__frame--radial"
+          className="invariant-core-art__frame invariant-core-art__frame--radial"
           data-coordinate-frame="radial"
         >
           <circle
-            className="freedom-invariant__radial-ring freedom-invariant__radial-ring--outer"
+            className="invariant-core-art__radial-ring invariant-core-art__radial-ring--outer"
             data-radial-ring
             cx={ART_CENTER.x}
             cy={ART_CENTER.y}
             r="162"
           />
           <circle
-            className="freedom-invariant__radial-ring freedom-invariant__radial-ring--inner"
+            className="invariant-core-art__radial-ring invariant-core-art__radial-ring--inner"
             data-radial-ring
             cx={ART_CENTER.x}
             cy={ART_CENTER.y}
@@ -92,7 +92,7 @@ export function FreedomOfMovementArt(
           />
           {RADIAL_TICKS.map((tick, index) => (
             <line
-              className="freedom-invariant__radial-tick"
+              className="invariant-core-art__radial-tick"
               data-radial-tick
               x1={tick.x1}
               y1={tick.y1}
@@ -105,7 +105,7 @@ export function FreedomOfMovementArt(
       </g>
 
       <circle
-        className="freedom-invariant__bloom"
+        className="invariant-core-art__bloom"
         cx="360"
         cy="280"
         r="45"
@@ -113,25 +113,25 @@ export function FreedomOfMovementArt(
       />
 
       <g
-        className="freedom-invariant__core"
+        className="invariant-core-art__core"
         data-invariant-core
         transform={`translate(${ART_CENTER.x} ${ART_CENTER.y})`}
         aria-hidden="true"
       >
         <path
-          className="freedom-invariant__core-ground"
+          className="invariant-core-art__core-ground"
           d="M 0 -27 L 27 21 H -27 Z"
         />
         <path
-          className="freedom-invariant__core-fill"
+          className="invariant-core-art__core-fill"
           d="M 0 -27 L 27 21 H 0 Z"
         />
         <path
-          className="freedom-invariant__core-outline"
+          className="invariant-core-art__core-outline"
           d="M 0 -27 L 27 21 H -27 Z"
         />
         <line
-          className="freedom-invariant__core-split"
+          className="invariant-core-art__core-split"
           x1="0"
           y1="-27"
           x2="0"

@@ -40,7 +40,6 @@ function BrowserArtwork(
       <header className="art-gallery__study-header">
         <span>{String(index + 1).padStart(2, "0")}</span>
         <div>
-          <p>{artwork.benefit}</p>
           <h3 id={headingId}>{artwork.title}</h3>
           <p>{artwork.description}</p>
         </div>

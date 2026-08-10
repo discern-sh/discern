@@ -1,5 +1,5 @@
 @layer discern.page {
-  .benefit-alignment {
+  .alignment-art {
     position: relative;
     min-width: 0;
     margin: 0;
@@ -7,7 +7,7 @@
     isolation: isolate;
   }
 
-  .benefit-alignment__art {
+  .alignment-art__art {
     display: block;
     width: 100%;
     height: auto;
@@ -15,7 +15,7 @@
     shape-rendering: geometricPrecision;
   }
 
-  .benefit-alignment__construction {
+  .alignment-art__construction {
     fill: none;
     opacity: 0.5;
     stroke: var(--discern-color-border-strong);
@@ -24,8 +24,8 @@
     vector-effect: non-scaling-stroke;
   }
 
-  .benefit-alignment__bloom {
-    animation: benefit-alignment-bloom 12s linear infinite;
+  .alignment-art__bloom {
+    animation: alignment-art-bloom 12s linear infinite;
     fill: var(--discern-color-accent-400);
     filter: blur(24px);
     opacity: 0.025;
@@ -33,8 +33,8 @@
     transform-origin: center;
   }
 
-  .benefit-alignment__plane {
-    animation: benefit-alignment-register 12s
+  .alignment-art__plane {
+    animation: alignment-art-register 12s
       cubic-bezier(0.22, 0.74, 0.24, 1) infinite;
     opacity: var(--alignment-rest-opacity);
     paint-order: fill stroke;
@@ -45,7 +45,7 @@
     vector-effect: non-scaling-stroke;
   }
 
-  .benefit-alignment__plane--outline {
+  .alignment-art__plane--outline {
     --alignment-open-angle: -5deg;
     --alignment-open-opacity: 0.34;
     --alignment-open-x: -28px;
@@ -57,7 +57,7 @@
     stroke-width: 1.15;
   }
 
-  .benefit-alignment__plane--ghost {
+  .alignment-art__plane--ghost {
     --alignment-open-angle: -7deg;
     --alignment-open-opacity: 0.44;
     --alignment-open-x: -50px;
@@ -69,7 +69,7 @@
     stroke-width: 1;
   }
 
-  .benefit-alignment__plane--filled {
+  .alignment-art__plane--filled {
     --alignment-open-angle: 6deg;
     --alignment-open-opacity: 0.4;
     --alignment-open-x: 44px;
@@ -80,8 +80,8 @@
     stroke: none;
   }
 
-  .benefit-alignment__authority {
-    animation: benefit-alignment-authority-settle 12s
+  .alignment-art__authority {
+    animation: alignment-art-authority-settle 12s
       cubic-bezier(0.2, 0.68, 0.2, 1) infinite;
     fill: none;
     opacity: 0.78;
@@ -93,11 +93,11 @@
     vector-effect: non-scaling-stroke;
   }
 
-  [data-discern-theme="dark"] .benefit-alignment__bloom {
+  [data-discern-theme="dark"] .alignment-art__bloom {
     fill: var(--discern-color-accent-500);
   }
 
-  @keyframes benefit-alignment-register {
+  @keyframes alignment-art-register {
     0%,
     14%,
     100% {
@@ -114,7 +114,7 @@
     }
   }
 
-  @keyframes benefit-alignment-authority-settle {
+  @keyframes alignment-art-authority-settle {
     0%,
     52%,
     100% {
@@ -129,7 +129,7 @@
     }
   }
 
-  @keyframes benefit-alignment-bloom {
+  @keyframes alignment-art-bloom {
     0%,
     46%,
     100% {
@@ -150,14 +150,14 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .benefit-alignment__plane,
-    .benefit-alignment__authority,
-    .benefit-alignment__bloom {
+    .alignment-art__plane,
+    .alignment-art__authority,
+    .alignment-art__bloom {
       animation: none;
       transform: none;
     }
 
-    .benefit-alignment__bloom {
+    .alignment-art__bloom {
       opacity: 0.025;
     }
   }

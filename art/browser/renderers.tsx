@@ -1,10 +1,10 @@
 /** Exhaustive browser renderers derived from the pure artwork registry. */
 
 import type { ReactNode } from "react";
-import { BenefitAlignmentArtwork } from "./alignment.tsx";
+import { AlignmentArtwork } from "./alignment.tsx";
 import { BifurcationArtwork } from "./bifurcation.tsx";
-import { QualityContourArtwork } from "./contour.tsx";
-import { FreedomOfMovementArt } from "./invariant-core.tsx";
+import { ContourArtwork } from "./contour.tsx";
+import { InvariantCoreArtwork } from "./invariant-core.tsx";
 import { PersistentTraceArtwork } from "./persistent-trace.tsx";
 import {
   BROWSER_ARTWORKS,
@@ -18,13 +18,13 @@ export type BrowserArtworkRenderer = (idPrefix: string) => ReactNode;
 export const BROWSER_ARTWORK_RENDERERS: Readonly<
   Record<BrowserArtworkSlug, BrowserArtworkRenderer>
 > = {
-  alignment: (idPrefix) => <BenefitAlignmentArtwork id={idPrefix} />,
+  alignment: (idPrefix) => <AlignmentArtwork id={idPrefix} />,
   bifurcation: (idPrefix) => <BifurcationArtwork idPrefix={idPrefix} />,
-  contour: (idPrefix) => <QualityContourArtwork idPrefix={idPrefix} />,
+  contour: (idPrefix) => <ContourArtwork idPrefix={idPrefix} />,
   "persistent-trace": (idPrefix) => <PersistentTraceArtwork id={idPrefix} />,
   "invariant-core": (idPrefix) => (
-    <div className="freedom-invariant__artboard">
-      <FreedomOfMovementArt idPrefix={idPrefix} />
+    <div className="invariant-core-art__artboard">
+      <InvariantCoreArtwork idPrefix={idPrefix} />
     </div>
   ),
 };

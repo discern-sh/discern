@@ -1,8 +1,8 @@
-/** Reusable abstract artwork for the "Delegate with confidence" benefit. */
+/** Reusable alignment artwork. */
 
 import type { ReactElement } from "react";
 
-export interface BenefitAlignmentArtworkProps {
+export interface AlignmentArtworkProps {
   /** Stable prefix for the SVG title and description identifiers. */
   readonly id: string;
 }
@@ -12,16 +12,16 @@ export interface BenefitAlignmentArtworkProps {
  * authority mark settles nearby. The authored SVG is the complete final
  * composition; CSS only supplies the optional journey into that state.
  */
-export function BenefitAlignmentArtwork(
-  { id }: BenefitAlignmentArtworkProps,
+export function AlignmentArtwork(
+  { id }: AlignmentArtworkProps,
 ): ReactElement {
   const titleId = `${id}-title`;
   const descriptionId = `${id}-description`;
 
   return (
-    <figure className="benefit-alignment">
+    <figure className="alignment-art">
       <svg
-        className="benefit-alignment__art"
+        className="alignment-art__art"
         viewBox="0 0 760 540"
         role="img"
         aria-labelledby={`${titleId} ${descriptionId}`}
@@ -36,7 +36,7 @@ export function BenefitAlignmentArtwork(
         </desc>
 
         <g aria-hidden="true">
-          <g className="benefit-alignment__construction">
+          <g className="alignment-art__construction">
             <line x1="380" y1="66" x2="380" y2="98" />
             <line x1="380" y1="456" x2="380" y2="478" />
             <line x1="90" y1="430" x2="166" y2="430" />
@@ -44,7 +44,7 @@ export function BenefitAlignmentArtwork(
           </g>
 
           <ellipse
-            className="benefit-alignment__bloom"
+            className="alignment-art__bloom"
             cx="380"
             cy="278"
             rx="62"
@@ -52,23 +52,23 @@ export function BenefitAlignmentArtwork(
           />
 
           <polygon
-            className="benefit-alignment__plane benefit-alignment__plane--outline"
+            className="alignment-art__plane alignment-art__plane--outline"
             data-alignment-plane="outline"
             points="380,124 198,430 562,430"
           />
           <polygon
-            className="benefit-alignment__plane benefit-alignment__plane--ghost"
+            className="alignment-art__plane alignment-art__plane--ghost"
             data-alignment-plane="ghost"
             points="380,124 198,430 380,430"
           />
           <polygon
-            className="benefit-alignment__plane benefit-alignment__plane--filled"
+            className="alignment-art__plane alignment-art__plane--filled"
             data-alignment-plane="filled"
             points="380,124 562,430 380,430"
           />
 
           <line
-            className="benefit-alignment__authority"
+            className="alignment-art__authority"
             data-alignment-authority
             x1="578"
             y1="340"

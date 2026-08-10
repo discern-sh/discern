@@ -1,4 +1,4 @@
-/** Reusable abstract artwork for the benefit category "Multiply your output." */
+/** Reusable bifurcation artwork. */
 
 import type { ReactNode } from "react";
 

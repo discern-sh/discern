@@ -209,17 +209,14 @@ Deno.test("the focused alignment study renders once in each fixed theme", () => 
       .length,
     1,
   );
-  assertEquals(study.querySelectorAll(".benefit-alignment").length, 2);
+  assertEquals(study.querySelectorAll(".alignment-art").length, 2);
 
   const ids = [...document.querySelectorAll("[id]")].map((element) =>
     element.id
   );
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
-  assertStringIncludes(
-    readableText(study.textContent),
-    "Delegate with confidence",
-  );
+  assertStringIncludes(readableText(study.textContent), "Alignment");
   assertEquals(
     [...document.querySelectorAll<HTMLScriptElement>("script[src]")].map(
       (script) => script.getAttribute("src"),
@@ -234,7 +231,7 @@ Deno.test("alignment artwork names its final state and motion alternative", asyn
   const dom = new JSDOM(renderArtGallery());
   const document = dom.window.document;
   const artworks = document.querySelectorAll<SVGElement>(
-    ".benefit-alignment__art",
+    ".alignment-art__art",
   );
   assertEquals(artworks.length, 2);
 
@@ -270,9 +267,9 @@ Deno.test("alignment artwork names its final state and motion alternative", asyn
 
   const css = await Deno.readTextFile(ALIGNMENT_CSS);
   assertStringIncludes(css, "@media (prefers-reduced-motion: reduce)");
-  assertStringIncludes(css, ".benefit-alignment__plane,");
-  assertStringIncludes(css, ".benefit-alignment__authority,");
-  assertStringIncludes(css, ".benefit-alignment__bloom {");
+  assertStringIncludes(css, ".alignment-art__plane,");
+  assertStringIncludes(css, ".alignment-art__authority,");
+  assertStringIncludes(css, ".alignment-art__bloom {");
   assertStringIncludes(css, "animation: none;");
   assertStringIncludes(css, "12s");
   assertEquals(css.includes("99.5%"), false);
@@ -280,7 +277,7 @@ Deno.test("alignment artwork names its final state and motion alternative", asyn
   assertStringIncludes(css, "0%,\n    52%,\n    100%");
   assertStringIncludes(css, "0%,\n    46%,\n    100%");
 
-  const artworkRule = cssRule(css, ".benefit-alignment");
+  const artworkRule = cssRule(css, ".alignment-art");
   assertEquals(/(?:background|border)[^:]*:/.test(artworkRule), false);
 });
 
@@ -294,7 +291,7 @@ Deno.test("alignment resolves to exact canonical geometry", async () => {
 
   for (
     const artwork of dom.window.document.querySelectorAll(
-      ".benefit-alignment__art",
+      ".alignment-art__art",
     )
   ) {
     const planes = [...artwork.querySelectorAll("[data-alignment-plane]")];
@@ -322,13 +319,13 @@ Deno.test("alignment resolves to exact canonical geometry", async () => {
 
   const css = await Deno.readTextFile(ALIGNMENT_CSS);
   assertStringIncludes(
-    cssRule(css, ".benefit-alignment__plane--ghost"),
+    cssRule(css, ".alignment-art__plane--ghost"),
     "--alignment-rest-opacity: 0;",
   );
   for (
     const selector of [
-      ".benefit-alignment__plane--outline",
-      ".benefit-alignment__plane--filled",
+      ".alignment-art__plane--outline",
+      ".alignment-art__plane--filled",
     ]
   ) {
     assertStringIncludes(
@@ -337,7 +334,7 @@ Deno.test("alignment resolves to exact canonical geometry", async () => {
     );
   }
   assertStringIncludes(
-    cssRule(css, ".benefit-alignment__plane--filled"),
+    cssRule(css, ".alignment-art__plane--filled"),
     "stroke: none;",
   );
   assertEquals(css.includes("aperture"), false);
@@ -347,7 +344,7 @@ Deno.test("alignment preserves its composition at compact widths", async () => {
   const dom = new JSDOM(renderArtGallery());
   for (
     const artwork of dom.window.document.querySelectorAll(
-      ".benefit-alignment__art",
+      ".alignment-art__art",
     )
   ) {
     assertEquals(artwork.getAttribute("viewBox"), "0 0 760 540");
@@ -355,10 +352,10 @@ Deno.test("alignment preserves its composition at compact widths", async () => {
   dom.window.close();
 
   const alignmentCss = await Deno.readTextFile(ALIGNMENT_CSS);
-  const figureRule = cssRule(alignmentCss, ".benefit-alignment");
+  const figureRule = cssRule(alignmentCss, ".alignment-art");
   assertStringIncludes(figureRule, "min-width: 0;");
   assertStringIncludes(figureRule, "overflow: hidden;");
-  const svgRule = cssRule(alignmentCss, ".benefit-alignment__art");
+  const svgRule = cssRule(alignmentCss, ".alignment-art__art");
   assertStringIncludes(svgRule, "width: 100%;");
   assertStringIncludes(svgRule, "height: auto;");
 
@@ -373,9 +370,9 @@ Deno.test("alignment preserves its composition at compact widths", async () => {
 Deno.test("opening plane registration is deliberate and distinct", async () => {
   const css = await Deno.readTextFile(ALIGNMENT_CSS);
   const openingTransforms = [
-    ".benefit-alignment__plane--outline",
-    ".benefit-alignment__plane--ghost",
-    ".benefit-alignment__plane--filled",
+    ".alignment-art__plane--outline",
+    ".alignment-art__plane--ghost",
+    ".alignment-art__plane--filled",
   ].map((selector) => {
     const declarations = cssRule(css, selector);
     const x = cssCustomNumber(declarations, "--alignment-open-x");
@@ -398,7 +395,7 @@ Deno.test("non-primary hard edges cannot bisect the resolved triangle", () => {
   const dom = new JSDOM(renderArtGallery());
   for (
     const artwork of dom.window.document.querySelectorAll(
-      ".benefit-alignment__art",
+      ".alignment-art__art",
     )
   ) {
     assertEquals(centerSpanningHardEdges(artwork), []);

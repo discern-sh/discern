@@ -62,7 +62,7 @@ function declarationsAt(body: string, percentage: number): string {
   throw new Error(`${percentage}% keyframe must exist`);
 }
 
-Deno.test("the Freedom of movement study renders one fixed invariant in each theme", () => {
+Deno.test("the invariant-core study renders one fixed center in each theme", () => {
   const dom = new JSDOM(renderArtGallery());
   const document = dom.window.document;
   const study = document.querySelector(
@@ -102,7 +102,7 @@ Deno.test("the Freedom of movement study renders one fixed invariant in each the
       svg.getAttribute("aria-labelledby"),
       `${title.id} ${description.id}`,
     );
-    assertStringIncludes(readableText(title.textContent), "invariant core");
+    assertStringIncludes(readableText(title.textContent), "Invariant core");
     assertStringIncludes(
       readableText(description.textContent),
       "remains fixed",
@@ -183,10 +183,10 @@ Deno.test("the coordinate transformation closes on its balanced resting state", 
   const css = await Deno.readTextFile(STUDY_CSS);
   for (
     const keyframes of [
-      "freedom-invariant-cartesian",
-      "freedom-invariant-oblique",
-      "freedom-invariant-radial",
-      "freedom-invariant-bloom",
+      "invariant-core-art-cartesian",
+      "invariant-core-art-oblique",
+      "invariant-core-art-radial",
+      "invariant-core-art-bloom",
     ]
   ) {
     assertStringIncludes(css, `animation: ${keyframes} 12s`);
@@ -198,7 +198,7 @@ Deno.test("the coordinate transformation closes on its balanced resting state", 
       opening,
       `${keyframes} must cross the loop boundary without a jump`,
     );
-    if (keyframes !== "freedom-invariant-bloom") {
+    if (keyframes !== "invariant-core-art-bloom") {
       assertStringIncludes(opening, "transform: none;");
     }
   }
@@ -208,9 +208,9 @@ Deno.test("the coordinate transformation closes on its balanced resting state", 
   );
   assert(reducedMotionStart >= 0);
   const reducedMotion = css.slice(reducedMotionStart);
-  assertStringIncludes(reducedMotion, ".freedom-invariant__frame--cartesian");
-  assertStringIncludes(reducedMotion, ".freedom-invariant__frame--oblique");
-  assertStringIncludes(reducedMotion, ".freedom-invariant__frame--radial");
-  assertStringIncludes(reducedMotion, ".freedom-invariant__bloom");
+  assertStringIncludes(reducedMotion, ".invariant-core-art__frame--cartesian");
+  assertStringIncludes(reducedMotion, ".invariant-core-art__frame--oblique");
+  assertStringIncludes(reducedMotion, ".invariant-core-art__frame--radial");
+  assertStringIncludes(reducedMotion, ".invariant-core-art__bloom");
   assertStringIncludes(reducedMotion, "animation: none;");
 });

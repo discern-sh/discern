@@ -1,4 +1,4 @@
-/** Structural and geometric guards for the persistent-trace benefit artwork. */
+/** Structural and geometric guards for the persistent-trace artwork. */
 
 import {
   assert,
@@ -140,7 +140,7 @@ Deno.test("persistent-trace SVGs name the complete centred composition", () => {
     const description = dom.window.document.getElementById(descriptionId);
     assert(title !== null && artwork.contains(title));
     assert(description !== null && artwork.contains(description));
-    assertStringIncludes(title.textContent ?? "", "inward trace");
+    assertStringIncludes(title.textContent ?? "", "Persistent trace");
     assertStringIncludes(description.textContent ?? "", "exact centre");
 
     const layers = [...svg.querySelectorAll<SVGPathElement>(

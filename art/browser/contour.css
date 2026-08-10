@@ -1,5 +1,5 @@
 @layer discern.page {
-  .quality-contour {
+  .contour-art {
     display: grid;
     place-items: center;
     aspect-ratio: 4 / 3;
@@ -15,98 +15,98 @@
       var(--discern-color-canvas);
   }
 
-  .quality-contour svg {
+  .contour-art svg {
     display: block;
     width: 100%;
     height: auto;
     overflow: visible;
   }
 
-  .quality-contour__line,
-  .quality-contour__attractor-outline {
+  .contour-art__line,
+  .contour-art__attractor-outline {
     fill: none;
     vector-effect: non-scaling-stroke;
   }
 
-  .quality-contour__line {
-    --quality-contour-visible-opacity: var(--quality-contour-opacity);
+  .contour-art__line {
+    --contour-art-visible-opacity: var(--contour-art-opacity);
 
     stroke: var(--discern-color-ink);
     stroke-linecap: round;
     stroke-linejoin: round;
     stroke-width: 1;
-    opacity: var(--quality-contour-visible-opacity);
-    transform: var(--quality-contour-settled-transform);
+    opacity: var(--contour-art-visible-opacity);
+    transform: var(--contour-art-settled-transform);
     transform-box: view-box;
     transform-origin: 0 0;
-    animation: quality-contour-expansion 10s ease-in-out infinite;
+    animation: contour-art-expansion 10s ease-in-out infinite;
   }
 
-  .quality-contour__line--latest {
+  .contour-art__line--latest {
     stroke: var(--discern-color-ink);
     stroke-width: 1.2;
   }
 
-  [data-discern-theme="dark"] .quality-contour__line {
-    --quality-contour-visible-opacity: var(--quality-contour-opacity-dark);
+  [data-discern-theme="dark"] .contour-art__line {
+    --contour-art-visible-opacity: var(--contour-art-opacity-dark);
   }
 
-  .quality-contour__bloom {
+  .contour-art__bloom {
     fill: var(--discern-color-accent-400);
     opacity: 0.025;
     filter: blur(1.6rem);
     transform-box: fill-box;
     transform-origin: center;
-    animation: quality-contour-bloom 10s ease-in-out infinite;
+    animation: contour-art-bloom 10s ease-in-out infinite;
   }
 
-  .quality-contour__attractor-fill {
+  .contour-art__attractor-fill {
     fill: var(--discern-color-accent-600);
   }
 
-  .quality-contour__attractor-outline {
+  .contour-art__attractor-outline {
     stroke: var(--discern-color-ink);
     stroke-linejoin: round;
     stroke-width: 1.35;
   }
-  @keyframes quality-contour-expansion {
+  @keyframes contour-art-expansion {
     0% {
       opacity: 0;
-      transform: var(--quality-contour-start-transform);
+      transform: var(--contour-art-start-transform);
     }
 
     6% {
-      opacity: var(--quality-contour-visible-opacity);
-      transform: var(--quality-contour-start-transform);
+      opacity: var(--contour-art-visible-opacity);
+      transform: var(--contour-art-start-transform);
     }
 
     12% {
-      opacity: var(--quality-contour-visible-opacity);
-      transform: var(--quality-contour-start-transform);
+      opacity: var(--contour-art-visible-opacity);
+      transform: var(--contour-art-start-transform);
     }
 
     58% {
-      opacity: var(--quality-contour-visible-opacity);
-      transform: var(--quality-contour-settled-transform);
+      opacity: var(--contour-art-visible-opacity);
+      transform: var(--contour-art-settled-transform);
     }
 
     84% {
-      opacity: var(--quality-contour-visible-opacity);
-      transform: var(--quality-contour-settled-transform);
+      opacity: var(--contour-art-visible-opacity);
+      transform: var(--contour-art-settled-transform);
     }
 
     92% {
       opacity: 0;
-      transform: var(--quality-contour-settled-transform);
+      transform: var(--contour-art-settled-transform);
     }
 
     100% {
       opacity: 0;
-      transform: var(--quality-contour-start-transform);
+      transform: var(--contour-art-start-transform);
     }
   }
 
-  @keyframes quality-contour-bloom {
+  @keyframes contour-art-bloom {
     0%,
     12%,
     100% {
@@ -127,39 +127,39 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .quality-contour__line,
-    .quality-contour__bloom {
+    .contour-art__line,
+    .contour-art__bloom {
       animation: none;
     }
 
-    .quality-contour__line {
-      opacity: var(--quality-contour-visible-opacity);
-      transform: var(--quality-contour-settled-transform);
+    .contour-art__line {
+      opacity: var(--contour-art-visible-opacity);
+      transform: var(--contour-art-settled-transform);
     }
 
-    .quality-contour__bloom {
+    .contour-art__bloom {
       opacity: 0.055;
       transform: none;
     }
   }
 
   @media (forced-colors: active) {
-    .quality-contour__line--latest,
-    .quality-contour__attractor-outline {
+    .contour-art__line--latest,
+    .contour-art__attractor-outline {
       stroke: CanvasText;
     }
 
-    .quality-contour__attractor-fill {
+    .contour-art__attractor-fill {
       fill: CanvasText;
     }
 
-    .quality-contour__bloom {
+    .contour-art__bloom {
       display: none;
     }
   }
 
   @media (max-width: 460px) {
-    .quality-contour {
+    .contour-art {
       aspect-ratio: 7 / 6;
       padding-inline: 0;
     }

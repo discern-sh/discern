@@ -1,14 +1,14 @@
-/** Contracts for the development-only quality-retention artwork study. */
+/** Contracts for the development-only one-way contour study. */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 // @ts-types="@types/jsdom"
 import { JSDOM } from "jsdom";
 import {
-  defineQualityContourRing,
-  QUALITY_CONTOUR_EXPANSION,
-  QUALITY_CONTOUR_RINGS,
-  qualityContourLineAttributes,
-  type QualityContourRing,
+  CONTOUR_EXPANSION,
+  CONTOUR_RINGS,
+  contourLineAttributes,
+  type ContourRing,
+  defineContourRing,
 } from "../art/browser/contour.tsx";
 import { browserArtworkStylesheetName } from "../art/browser/registry.ts";
 import { renderArtGallery } from "../site/page-src/art-gallery.tsx";
@@ -18,7 +18,7 @@ import {
   specimenHandler,
 } from "../site/specimens.ts";
 
-const QUALITY_CONTOUR_CSS = new URL(
+const CONTOUR_CSS = new URL(
   "../art/browser/contour.css",
   import.meta.url,
 );
@@ -123,7 +123,7 @@ function matrix(transform: string): Matrix {
 
 /** Transform authored bounds through one matrix and return their new bounds. */
 function transformedBounds(
-  ring: QualityContourRing,
+  ring: ContourRing,
   transform: Matrix,
 ): {
   readonly centerX: number;
@@ -156,7 +156,7 @@ function transformedBounds(
 }
 
 /** Assert the geometry-derived motion contract shared by every contour. */
-function assertExpansionContract(ring: QualityContourRing): void {
+function assertExpansionContract(ring: ContourRing): void {
   const start = matrix(ring.motion.startTransform);
   const settled = matrix(ring.motion.settledTransform);
   assertEquals(settled, { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 });
@@ -167,23 +167,23 @@ function assertExpansionContract(ring: QualityContourRing): void {
 
   const footprint = transformedBounds(ring, start);
   assert(
-    Math.abs(footprint.centerX - QUALITY_CONTOUR_EXPANSION.anchor.x) <= 0.1,
+    Math.abs(footprint.centerX - CONTOUR_EXPANSION.anchor.x) <= 0.1,
     `${ring.id} must share the expansion anchor on x`,
   );
   assert(
-    Math.abs(footprint.centerY - QUALITY_CONTOUR_EXPANSION.anchor.y) <= 0.1,
+    Math.abs(footprint.centerY - CONTOUR_EXPANSION.anchor.y) <= 0.1,
     `${ring.id} must share the expansion anchor on y`,
   );
   assert(
     Math.abs(
       Math.max(footprint.width, footprint.height) -
-        QUALITY_CONTOUR_EXPANSION.startSpan,
+        CONTOUR_EXPANSION.startSpan,
     ) <= 0.1,
     `${ring.id} must share the compact starting span`,
   );
 }
 
-const PROSPECTIVE_SEVENTH_RING = defineQualityContourRing({
+const PROSPECTIVE_SEVENTH_RING = defineContourRing({
   id: "prospective-boundary",
   opacity: { light: 0.46, dark: 0.54 },
   points: [
@@ -230,7 +230,7 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
   assertEquals(ids.length, new Set(ids).size, "rendered ids must be unique");
 
   const artworks = study.querySelectorAll<SVGSVGElement>(
-    '.quality-contour svg[role="img"]',
+    '.contour-art svg[role="img"]',
   );
   assertEquals(artworks.length, 2);
   for (const artwork of artworks) {
@@ -244,15 +244,15 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
     assert(readableText(artwork.querySelector("desc")?.textContent ?? null));
     assertEquals(artwork.querySelectorAll("text").length, 0);
     assertEquals(
-      artwork.querySelectorAll(".quality-contour__line").length,
-      QUALITY_CONTOUR_RINGS.length,
+      artwork.querySelectorAll(".contour-art__line").length,
+      CONTOUR_RINGS.length,
     );
     assertEquals(
-      artwork.querySelectorAll(".quality-contour__line--latest").length,
+      artwork.querySelectorAll(".contour-art__line--latest").length,
       1,
     );
     assertEquals(
-      artwork.querySelectorAll(".quality-contour__attractor-fill").length,
+      artwork.querySelectorAll(".contour-art__attractor-fill").length,
       1,
     );
   }
@@ -270,14 +270,14 @@ Deno.test("the one-way contour study renders accessibly in both fixed themes", (
 Deno.test("every contour expands from one compact footprint to its authored geometry", async () => {
   const dom = new JSDOM(renderArtGallery());
   const document = dom.window.document;
-  const css = await Deno.readTextFile(QUALITY_CONTOUR_CSS);
+  const css = await Deno.readTextFile(CONTOUR_CSS);
   const enrolledWithFuture = [
-    ...QUALITY_CONTOUR_RINGS,
+    ...CONTOUR_RINGS,
     PROSPECTIVE_SEVENTH_RING,
   ];
   assertEquals(
     enrolledWithFuture.length,
-    QUALITY_CONTOUR_RINGS.length + 1,
+    CONTOUR_RINGS.length + 1,
     "the prospective contour must exercise one future registry member",
   );
 
@@ -298,47 +298,47 @@ Deno.test("every contour expands from one compact footprint to its authored geom
     "authored proportions may vary only slightly in the compact family",
   );
 
-  const futureAttributes = qualityContourLineAttributes(
+  const futureAttributes = contourLineAttributes(
     PROSPECTIVE_SEVENTH_RING,
     false,
   );
-  assertStringIncludes(futureAttributes.className, "quality-contour__line");
+  assertStringIncludes(futureAttributes.className, "contour-art__line");
   assertEquals(futureAttributes["data-contour-motion"], "expand");
   assertEquals(
-    futureAttributes.style["--quality-contour-start-transform"],
+    futureAttributes.style["--contour-art-start-transform"],
     PROSPECTIVE_SEVENTH_RING.motion.startTransform,
   );
   assertEquals(
-    futureAttributes.style["--quality-contour-settled-transform"],
-    QUALITY_CONTOUR_EXPANSION.settledTransform,
+    futureAttributes.style["--contour-art-settled-transform"],
+    CONTOUR_EXPANSION.settledTransform,
   );
 
-  for (const artwork of document.querySelectorAll(".quality-contour")) {
+  for (const artwork of document.querySelectorAll(".contour-art")) {
     const renderedRings = artwork.querySelectorAll(
-      '.quality-contour__line[data-contour-ring][data-contour-motion="expand"]',
+      '.contour-art__line[data-contour-ring][data-contour-motion="expand"]',
     );
-    assertEquals(renderedRings.length, QUALITY_CONTOUR_RINGS.length);
+    assertEquals(renderedRings.length, CONTOUR_RINGS.length);
     assertEquals(
       [...renderedRings].map((ring) => ring.getAttribute("d")),
-      QUALITY_CONTOUR_RINGS.map((ring) => ring.path),
+      CONTOUR_RINGS.map((ring) => ring.path),
       "the registry must enroll every retained ring",
     );
     assertEquals(
       [...renderedRings].map((ring) => [
         ring.getAttribute("style")?.includes(
-          "--quality-contour-opacity:",
+          "--contour-art-opacity:",
         ),
         ring.getAttribute("style")?.includes(
-          "--quality-contour-opacity-dark:",
+          "--contour-art-opacity-dark:",
         ),
         ring.getAttribute("style")?.includes(
-          "--quality-contour-start-transform:",
+          "--contour-art-start-transform:",
         ),
         ring.getAttribute("style")?.includes(
-          "--quality-contour-settled-transform:",
+          "--contour-art-settled-transform:",
         ),
       ]),
-      QUALITY_CONTOUR_RINGS.map(() => [true, true, true, true]),
+      CONTOUR_RINGS.map(() => [true, true, true, true]),
       "future rings must carry theme contrast and expansion geometry",
     );
 
@@ -350,7 +350,7 @@ Deno.test("every contour expands from one compact footprint to its authored geom
     }
 
     assertEquals(
-      artwork.querySelectorAll(".quality-contour__advance").length,
+      artwork.querySelectorAll(".contour-art__advance").length,
       0,
     );
     assertEquals(
@@ -359,22 +359,22 @@ Deno.test("every contour expands from one compact footprint to its authored geom
     );
   }
 
-  assert(!css.includes("quality-contour__advance"));
+  assert(!css.includes("contour-art__advance"));
   assert(!css.includes("stroke-dasharray"));
   assert(!/[\s{;]d\s*:/.test(css), "motion must not morph authored paths");
-  const lineRule = cssBlock(css, ".quality-contour__line {");
+  const lineRule = cssBlock(css, ".contour-art__line {");
   assertStringIncludes(
     lineRule,
-    `animation: quality-contour-expansion ${
-      QUALITY_CONTOUR_EXPANSION.durationMs / 1_000
+    `animation: contour-art-expansion ${
+      CONTOUR_EXPANSION.durationMs / 1_000
     }s ease-in-out infinite`,
   );
   assertStringIncludes(
     lineRule,
-    "transform: var(--quality-contour-settled-transform)",
+    "transform: var(--contour-art-settled-transform)",
   );
 
-  const motion = cssBlock(css, "@keyframes quality-contour-expansion");
+  const motion = cssBlock(css, "@keyframes contour-art-expansion");
   const motionFrames = cssChildBlocks(motion);
   const expectedSelectors = ["0%", "6%", "12%", "58%", "84%", "92%", "100%"];
   assertEquals(
@@ -406,52 +406,52 @@ Deno.test("every contour expands from one compact footprint to its authored geom
   const reset = declarationsAt("100%");
   assertStringIncludes(
     start,
-    "transform: var(--quality-contour-start-transform)",
+    "transform: var(--contour-art-start-transform)",
   );
   assertStringIncludes(start, "opacity: 0");
   assertStringIncludes(
     opening,
-    "transform: var(--quality-contour-start-transform)",
+    "transform: var(--contour-art-start-transform)",
   );
   assertStringIncludes(
     opening,
-    "opacity: var(--quality-contour-visible-opacity)",
+    "opacity: var(--contour-art-visible-opacity)",
   );
   assertStringIncludes(
     launch,
-    "transform: var(--quality-contour-start-transform)",
+    "transform: var(--contour-art-start-transform)",
   );
   assertStringIncludes(
     settle,
-    "transform: var(--quality-contour-settled-transform)",
+    "transform: var(--contour-art-settled-transform)",
   );
   assertStringIncludes(
     rest,
-    "transform: var(--quality-contour-settled-transform)",
+    "transform: var(--contour-art-settled-transform)",
   );
-  assertStringIncludes(rest, "opacity: var(--quality-contour-visible-opacity)");
+  assertStringIncludes(rest, "opacity: var(--contour-art-visible-opacity)");
   assertStringIncludes(
     fade,
-    "transform: var(--quality-contour-settled-transform)",
+    "transform: var(--contour-art-settled-transform)",
   );
   assertStringIncludes(fade, "opacity: 0");
   assertStringIncludes(
     reset,
-    "transform: var(--quality-contour-start-transform)",
+    "transform: var(--contour-art-start-transform)",
   );
   assertStringIncludes(reset, "opacity: 0");
 
   const reduced = cssBlock(css, "@media (prefers-reduced-motion: reduce)");
   assertStringIncludes(
-    cssBlock(reduced, ".quality-contour__line,"),
+    cssBlock(reduced, ".contour-art__line,"),
     "animation: none",
   );
   assertStringIncludes(
-    cssBlock(reduced, ".quality-contour__line {"),
-    "transform: var(--quality-contour-settled-transform)",
+    cssBlock(reduced, ".contour-art__line {"),
+    "transform: var(--contour-art-settled-transform)",
   );
   assertStringIncludes(
-    cssBlock(css, ".quality-contour__attractor-fill"),
+    cssBlock(css, ".contour-art__attractor-fill"),
     "fill: var(--discern-color-accent-600)",
   );
   dom.window.close();
@@ -478,5 +478,5 @@ Deno.test("the focused development handler serves the contour stylesheet", async
     stylesheet.headers.get("content-type") ?? "",
     "text/css",
   );
-  assertStringIncludes(await stylesheet.text(), ".quality-contour__line");
+  assertStringIncludes(await stylesheet.text(), ".contour-art__line");
 });

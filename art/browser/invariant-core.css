@@ -1,5 +1,5 @@
 @layer discern.page {
-  .freedom-invariant__artboard {
+  .invariant-core-art__artboard {
     position: relative;
     display: grid;
     place-items: center;
@@ -16,7 +16,7 @@
       var(--discern-color-surface-sunken)));
   }
 
-  .freedom-invariant__art {
+  .invariant-core-art__art {
     display: block;
     width: min(100%, 46rem);
     height: auto;
@@ -24,7 +24,7 @@
     shape-rendering: geometricPrecision;
   }
 
-  .freedom-invariant__frame {
+  .invariant-core-art__frame {
     fill: none;
     stroke: var(--discern-color-ink-faint);
     stroke-linecap: square;
@@ -35,60 +35,60 @@
     transform-origin: center;
   }
 
-  .freedom-invariant__frame--cartesian {
+  .invariant-core-art__frame--cartesian {
     opacity: 0.46;
     transform: none;
-    animation: freedom-invariant-cartesian 12s cubic-bezier(0.45, 0, 0.2, 1)
+    animation: invariant-core-art-cartesian 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
   }
 
-  .freedom-invariant__frame--oblique {
+  .invariant-core-art__frame--oblique {
     opacity: 0.3;
     transform: none;
-    animation: freedom-invariant-oblique 12s cubic-bezier(0.45, 0, 0.2, 1)
+    animation: invariant-core-art-oblique 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
   }
 
-  .freedom-invariant__frame--radial {
+  .invariant-core-art__frame--radial {
     opacity: 0.38;
     transform: none;
-    animation: freedom-invariant-radial 12s cubic-bezier(0.45, 0, 0.2, 1)
+    animation: invariant-core-art-radial 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
   }
 
-  .freedom-invariant__radial-ring--outer {
+  .invariant-core-art__radial-ring--outer {
     stroke-opacity: 0.84;
   }
 
-  .freedom-invariant__radial-ring--inner {
+  .invariant-core-art__radial-ring--inner {
     stroke-opacity: 0.42;
   }
 
-  .freedom-invariant__radial-tick {
+  .invariant-core-art__radial-tick {
     stroke-linecap: round;
     stroke-opacity: 0.78;
     stroke-width: 1.05;
   }
 
-  .freedom-invariant__bloom {
+  .invariant-core-art__bloom {
     fill: var(--discern-color-accent-500);
     opacity: 0.035;
     filter: blur(15px);
     transform-box: fill-box;
     transform-origin: center;
     transform: scale(0.68);
-    animation: freedom-invariant-bloom 12s ease-in-out infinite;
+    animation: invariant-core-art-bloom 12s ease-in-out infinite;
   }
 
-  .freedom-invariant__core-ground {
+  .invariant-core-art__core-ground {
     fill: var(--discern-color-canvas);
   }
 
-  .freedom-invariant__core-fill {
+  .invariant-core-art__core-fill {
     fill: var(--discern-color-ink);
   }
 
-  .freedom-invariant__core-outline {
+  .invariant-core-art__core-outline {
     fill: none;
     stroke: var(--discern-color-ink);
     stroke-linejoin: miter;
@@ -96,12 +96,12 @@
     vector-effect: non-scaling-stroke;
   }
 
-  .freedom-invariant__core-split {
+  .invariant-core-art__core-split {
     stroke: var(--discern-color-accent-600);
     stroke-width: 0.9;
     vector-effect: non-scaling-stroke;
   }
-  @keyframes freedom-invariant-cartesian {
+  @keyframes invariant-core-art-cartesian {
     0%,
     12%,
     88%,
@@ -126,7 +126,7 @@
     }
   }
 
-  @keyframes freedom-invariant-oblique {
+  @keyframes invariant-core-art-oblique {
     0%,
     12%,
     88%,
@@ -151,7 +151,7 @@
     }
   }
 
-  @keyframes freedom-invariant-radial {
+  @keyframes invariant-core-art-radial {
     0%,
     12%,
     88%,
@@ -176,7 +176,7 @@
     }
   }
 
-  @keyframes freedom-invariant-bloom {
+  @keyframes invariant-core-art-bloom {
     0%,
     16%,
     84%,
@@ -202,22 +202,22 @@
   }
 
   @media (max-width: 1120px) {
-    .freedom-invariant__artboard {
+    .invariant-core-art__artboard {
       min-block-size: clamp(24rem, 75vw, 42rem);
     }
   }
 
   @media (max-width: 640px) {
-    .freedom-invariant__artboard {
+    .invariant-core-art__artboard {
       min-block-size: clamp(18rem, 94vw, 29rem);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .freedom-invariant__frame--cartesian,
-    .freedom-invariant__frame--oblique,
-    .freedom-invariant__frame--radial,
-    .freedom-invariant__bloom {
+    .invariant-core-art__frame--cartesian,
+    .invariant-core-art__frame--oblique,
+    .invariant-core-art__frame--radial,
+    .invariant-core-art__bloom {
       animation: none;
     }
   }
