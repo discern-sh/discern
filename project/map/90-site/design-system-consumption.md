@@ -34,9 +34,9 @@ Page-owned composition styles live in [`site/page-src/landing.css`](../../../sit
 
 The generic component catalog, examples, component implementation, assets, and package tooling live only in the package repository. The discern site does not mount `/style-guide/` in development or production.
 
-## Development-only artefact specimens
+## Development-only visual studies
 
-[`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) composes the homepage's delegation, commissioning, Standard, and Proof artefacts from the published design-system primitives. [`site/page-src/specimens.css`](../../../site/page-src/specimens.css) owns their editorial layout without targeting package-owned `.discern-*` selectors. Each artefact renders inside fixed light and dark token roots, side by side where space permits, so the owner can review both themes in the same document.
+[`site/page-src/benefit-quality-contour.tsx`](../../../site/page-src/benefit-quality-contour.tsx) owns the reusable Scalable Vector Graphics (SVG) artwork for the Quality that only improves benefit. Retained contours tighten in one direction around a split triangular culmination; the newest boundary carries the restrained accent. [`site/page-src/benefit-quality-contour-preview.tsx`](../../../site/page-src/benefit-quality-contour-preview.tsx) presents the study inside fixed light and dark token roots, while [`site/page-src/benefit-quality-contour.css`](../../../site/page-src/benefit-quality-contour.css) owns its responsive composition and optional tracer motion. The earlier homepage artefact sheet remains authored in [`site/page-src/specimens.tsx`](../../../site/page-src/specimens.tsx) and [`site/page-src/specimens.css`](../../../site/page-src/specimens.css), outside the current focused preview.
 
 [`site/specimens.ts`](../../../site/specimens.ts) builds the normal static design-system assets and serves the specimen document plus its composition CSS directly from source on the worktree's local port:
 
@@ -44,7 +44,7 @@ The generic component catalog, examples, component implementation, assets, and p
 deno task site:specimens
 ```
 
-The command prints the preview address. The sheet is static HTML and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, the evidence text, unique document identifiers, absence of a browser framework runtime, and the rule that monospace appears only on the product name and code.
+The command prints the preview address. The study is static HTML, inline SVG, and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards the development boundary and live stylesheet; [`tests/site_benefit_quality_contour_test.ts`](../../../tests/site_benefit_quality_contour_test.ts) guards the paired themes, accessible SVG title and description, unique identifiers, six-contour structure, static runtime, and complete reduced-motion state.
 
 ## Consumer guards
 
