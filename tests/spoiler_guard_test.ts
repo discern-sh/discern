@@ -1,14 +1,14 @@
 /**
  * Spoiler guard — the surprise behind the hidden `triangle` verb survives
- * only while committed text never names the convention it belongs to. The one
- * sanctioned home for that name is the leading comment block of
- * `src/commands/triangle.ts`, where it addresses a reader who has already
- * found the verb.
+ * only while committed text never names the convention it belongs to. No
+ * committed file says it today; `SANCTIONED` keeps one carve-out in reserve —
+ * the leading comment block of `src/commands/triangle.ts` — should the verb
+ * ever need to address a reader who has already found it.
  *
  * The banned phrase lives here encoded, so the guard is not itself the leak:
- * anyone searching the repo for the phrase finds the sanctioned comment and
- * nothing else. Generated Markdown is deliberately in the scanned universe —
- * a registry string leaking through codegen fails exactly like a hand edit.
+ * anyone searching the repo for the phrase finds nothing at all. Generated
+ * Markdown is deliberately in the scanned universe — a registry string
+ * leaking through codegen fails exactly like a hand edit.
  */
 
 import { assert, assertEquals, assertMatch } from "@std/assert";
@@ -18,17 +18,22 @@ import { AUTHORED_TEXT_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 /** The phrase, assembled at runtime only; tolerates any word separator. */
 const PHRASE = new RegExp(`${atob("ZWFzdGVy")}[\\s-]*${atob("ZWdn")}`, "i");
 
-/** The one file allowed to say it, inside its leading comment block only. */
+/** The one file whose leading comment block may say it, held in reserve. */
 const SANCTIONED = "src/commands/triangle.ts";
+
+/** The portion of one file the sweep scans; the sanctioned file forfeits
+ * only its leading comment block. */
+function scannedPortion(rel: string, text: string): string {
+  return rel === SANCTIONED
+    ? text.slice(text.indexOf("*/") + "*/".length)
+    : text;
+}
 
 Deno.test("the hidden verb's surprise stays out of committed text", async () => {
   const offenders: string[] = [];
   for (const rel of AUTHORED_TEXT_FILES) {
     const text = await Deno.readTextFile(join(REPO_ROOT, rel));
-    const scanned = rel === SANCTIONED
-      ? text.slice(text.indexOf("*/") + "*/".length)
-      : text;
-    if (PHRASE.test(scanned)) {
+    if (PHRASE.test(scannedPortion(rel, text))) {
       offenders.push(rel);
     }
   }
@@ -50,11 +55,14 @@ Deno.test("spoiler guard: the detector matches the phrase it bans", () => {
   assert(!PHRASE.test("weave, spinner, gasket, pyramid"));
 });
 
-Deno.test("spoiler guard: the sanctioned home still opens its file", async () => {
-  const text = await Deno.readTextFile(join(REPO_ROOT, SANCTIONED));
+Deno.test("spoiler guard: the reserve carve-out shields only the leading block", () => {
+  const phrase = atob("RWFzdGVyIGVnZw==");
+  const shielded = `/**\n * ${phrase} lives here.\n */\nconst x = 1;\n`;
   assert(
-    text.startsWith("/**"),
-    "the sanctioned file must open with its leading comment block",
+    !PHRASE.test(scannedPortion(SANCTIONED, shielded)),
+    "the sanctioned file's leading comment block must stay shielded",
   );
-  assertMatch(text.slice(0, text.indexOf("*/")), PHRASE);
+  assertMatch(scannedPortion("src/any/other.ts", shielded), PHRASE);
+  const leaked = `/** clean */\nconst note = "${phrase}";\n`;
+  assertMatch(scannedPortion(SANCTIONED, leaked), PHRASE);
 });
