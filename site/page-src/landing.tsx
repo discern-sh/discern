@@ -6,7 +6,6 @@ import {
   Brand,
   Button,
   HeadingAccent,
-  LogoCloud,
   SiteFooter,
   SkipLink,
 } from "discern-design-system/react";
@@ -22,29 +21,26 @@ export const COPY_PROMPT_TEXT =
   "Set this project up with discern. Start by fetching https://discern.sh/llms.txt, then follow the setup instructions there.";
 export const INSTALL_COMMAND = "curl -fsSL https://discern.sh/install | sh";
 
-/** The native provider set, in the catalogue's canonical display order. */
-const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
+/** Beam origins for the native providers, in the catalogue's canonical display order. */
+const PRISM_PROVIDER_X = {
+  claude_code: 58,
+  codex: 179,
+  gemini: 300,
+  cursor: 421,
+  copilot: 542,
+} as const satisfies Record<(typeof AGENT_NAMES)[number], number>;
+
+/** The native provider set projected into the interactive hero artwork. */
+const PRISM_PROVIDERS = AGENT_NAMES.map((name, index) => {
   const provider = PROVIDERS[name];
   const silhouette = providerBrandSilhouette(provider.brand);
   return {
+    delay: `${index * -0.31}s`,
+    id: name,
     name: provider.label,
-    mark: (
-      <span
-        className="landing-provider-logo-frame"
-        style={{
-          "--landing-provider-logo-mask": `url("${silhouette.path}")`,
-        } as CSSProperties}
-      >
-        <img
-          className="landing-provider-logo"
-          src={provider.brand.mark.path}
-          alt=""
-          width={32}
-          height={32}
-          decoding="async"
-        />
-      </span>
-    ),
+    path: provider.brand.mark.path,
+    silhouette: silhouette.path,
+    x: PRISM_PROVIDER_X[name],
   };
 });
 
@@ -80,9 +76,8 @@ function DiscernName() {
 
 /** Progressive Copy prompt control; its source text remains visible without JavaScript. */
 function CopyPrompt(
-  { id, buttonVariant = "primary" }: {
+  { id }: {
     readonly id: string;
-    readonly buttonVariant?: "primary" | "secondary";
   },
 ) {
   const statusId = `${id}-status`;
@@ -93,9 +88,9 @@ function CopyPrompt(
       </blockquote>
       <Button
         className="landing-copy-prompt__button"
-        variant={buttonVariant}
         type="button"
         data-copy-prompt=""
+        data-copy-prompt-progressive=""
         data-copy-prompt-target={id}
         aria-describedby={`${id} ${statusId}`}
         hidden
@@ -107,6 +102,200 @@ function CopyPrompt(
         className="landing-copy-prompt__status"
         aria-live="polite"
       />
+    </div>
+  );
+}
+
+/** A provider-selectable setup action rendered as discern's intelligence prism. */
+function ProviderPrism() {
+  const promptId = "hero-copy-prompt";
+  const statusId = `${promptId}-status`;
+  return (
+    <div className="landing-prism" data-provider-prism="">
+      <div className="landing-prism__header">
+        <p>Choose your coding agent</p>
+        <p data-prism-instruction="">Hover to channel. Click to copy.</p>
+      </div>
+
+      <div className="landing-prism__stage">
+        <div
+          className="landing-prism__providers"
+          role="group"
+          aria-label="Copy the discern setup prompt for your coding agent"
+        >
+          {PRISM_PROVIDERS.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              className="landing-prism__provider"
+              style={{
+                "--landing-prism-delay": provider.delay,
+                "--landing-prism-position": provider.x / 6,
+                "--landing-provider-logo-mask": `url("${provider.silhouette}")`,
+              } as CSSProperties}
+              data-prism-provider={provider.id}
+              data-copy-prompt=""
+              data-copy-prompt-provider={provider.name}
+              data-copy-prompt-target={promptId}
+              data-copy-prompt-status={statusId}
+              aria-label={`Copy setup prompt for ${provider.name}`}
+              aria-describedby={`${promptId} ${statusId}`}
+            >
+              <span className="landing-provider-logo-frame">
+                <img
+                  className="landing-provider-logo"
+                  src={provider.path}
+                  alt=""
+                  width={42}
+                  height={42}
+                  decoding="async"
+                />
+              </span>
+              <span className="landing-prism__provider-name">
+                {provider.name}
+              </span>
+              <span
+                className="landing-visually-hidden"
+                data-copy-prompt-label=""
+                aria-hidden="true"
+              >
+                Copy setup prompt for {provider.name}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <svg
+          className="landing-prism__art"
+          viewBox="0 0 600 470"
+          role="img"
+          aria-label="Coding agent providers channel energy into the discern mark"
+        >
+          <defs>
+            <linearGradient id="landing-prism-beam" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor="var(--landing-prism-cyan)" />
+              <stop
+                offset="0.55"
+                stopColor="var(--landing-prism-violet)"
+              />
+              <stop offset="1" stopColor="var(--landing-prism-pink)" />
+            </linearGradient>
+            <linearGradient id="landing-prism-left" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stopColor="#b88cff" stopOpacity="0.34" />
+              <stop offset="1" stopColor="#6038a8" stopOpacity="0.06" />
+            </linearGradient>
+            <linearGradient
+              id="landing-prism-right"
+              x1="1"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0" stopColor="#8ef2ff" stopOpacity="0.28" />
+              <stop offset="1" stopColor="#5742a0" stopOpacity="0.05" />
+            </linearGradient>
+            <radialGradient id="landing-prism-core">
+              <stop offset="0" stopColor="#ffffff" />
+              <stop offset="0.3" stopColor="#d7c4ff" />
+              <stop offset="1" stopColor="#8f68dc" stopOpacity="0" />
+            </radialGradient>
+            <filter
+              id="landing-prism-glow"
+              x="-80%"
+              y="-80%"
+              width="260%"
+              height="260%"
+            >
+              <feGaussianBlur stdDeviation="8" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <g className="landing-prism__grid" aria-hidden="true">
+            <path d="M48 123H552" />
+            <path d="M48 183H552" />
+            <path d="M48 243H552" />
+            <path d="M48 303H552" />
+            <path d="M48 363H552" />
+            <path d="M108 94V414" />
+            <path d="M204 94V414" />
+            <path d="M300 94V414" />
+            <path d="M396 94V414" />
+            <path d="M492 94V414" />
+          </g>
+
+          {PRISM_PROVIDERS.map((provider) => (
+            <g
+              key={provider.id}
+              className="landing-prism__beam"
+              data-prism-beam={provider.id}
+              style={{
+                "--landing-prism-delay": provider.delay,
+              } as CSSProperties}
+            >
+              <path
+                className="landing-prism__beam-rail"
+                d={`M${provider.x} 65 L300 161`}
+              />
+              <path
+                className="landing-prism__beam-energy"
+                d={`M${provider.x} 65 L300 161`}
+              />
+            </g>
+          ))}
+
+          <path
+            className="landing-prism__triangle-glow"
+            d="M300 157 496 421H104Z"
+          />
+          <path
+            className="landing-prism__triangle landing-prism__triangle--left"
+            d="M300 157 300 421H104Z"
+          />
+          <path
+            className="landing-prism__triangle landing-prism__triangle--right"
+            d="M300 157 496 421H300Z"
+          />
+          <path className="landing-prism__facet" d="M300 157V421" />
+          <path className="landing-prism__facet" d="M201 289H399" />
+          <path className="landing-prism__facet" d="M151 356H449" />
+          <circle
+            className="landing-prism__apex-glow"
+            cx="300"
+            cy="160"
+            r="42"
+          />
+          <circle
+            className="landing-prism__apex"
+            cx="300"
+            cy="160"
+            r="4"
+          />
+        </svg>
+
+        <div className="landing-prism__core" aria-hidden="true">
+          <span className="landing-prism__mark">{DISCERN_MARK}</span>
+          <span className="landing-prism__name">discern</span>
+          <span className="landing-prism__core-label">practice online</span>
+        </div>
+      </div>
+
+      <div className="landing-prism__readout">
+        <span className="landing-prism__readout-label">Copies to chat</span>
+        <blockquote id={promptId} className="landing-prism__prompt">
+          {COPY_PROMPT_TEXT}
+        </blockquote>
+      </div>
+      <p
+        id={statusId}
+        className="landing-prism__status"
+        aria-live="polite"
+      >
+        Choose a provider
+      </p>
     </div>
   );
 }
@@ -141,20 +330,14 @@ function LandingHero() {
             <DiscernName /> is for people who take their software seriously.
           </p>
           <h1>
-            Build <HeadingAccent>further.</HeadingAccent>{" "}
-            <span className="landing-hero__headline-turn">
-              Stand behind what comes back.
-            </span>
+            An engineering practice for{" "}
+            <HeadingAccent>agent-built software</HeadingAccent>
           </h1>
           <p className="landing-hero__standfirst">
-            Coding agents can take on substantial work. discern makes the whole
-            way of working part of the project: shared understanding, isolated
-            work, declared checks, and evidence for the exact change. Your
-            ambition can grow without turning you into the operating layer
-            around every detail.
-          </p>
-          <p className="landing-hero__category">
-            An engineering practice for agent-built software.
+            Coding agents can take on real work. discern makes the way of
+            working part of the project: shared context, work in its own place,
+            declared checks, and evidence for each change. You can aim higher
+            without staying inside every detail.
           </p>
           <ul className="landing-hero__facts" aria-label="Product foundations">
             <li>One complete practice</li>
@@ -162,24 +345,13 @@ function LandingHero() {
             <li>No model inside</li>
           </ul>
         </div>
-        <aside className="landing-hero__action" aria-label="Begin with discern">
-          <div className="landing-hero__invitation">
-            <div>
-              <h2>Already working with a coding agent?</h2>
-              <p>Copy the setup prompt into the conversation.</p>
-            </div>
-            <CopyPrompt id="hero-copy-prompt" buttonVariant="secondary" />
-            <Button href="#delegation">
-              See discern in practice
-            </Button>
-          </div>
+        <aside
+          className="landing-hero__action"
+          aria-label="Choose your coding agent and copy the discern setup prompt"
+        >
+          <ProviderPrism />
         </aside>
       </div>
-      <LogoCloud
-        className="landing-integrations"
-        aria-label={`${PROVIDER_LOGOS.length} supported coding agent providers`}
-        items={PROVIDER_LOGOS}
-      />
     </header>
   );
 }

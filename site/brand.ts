@@ -10,7 +10,7 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
  * values, so the public identity line has one source.
  */
 export const LANDING_TITLE =
-  "discern · Build further. Stand behind what comes back.";
+  "discern · An engineering practice for agent-built software";
 export const LANDING_DESCRIPTION =
   "Coding agents can take on substantial work. discern puts shared understanding, isolated work, declared checks, and exact-change evidence in the project.";
 

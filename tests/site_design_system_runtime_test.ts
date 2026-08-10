@@ -432,17 +432,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertEquals(body.querySelectorAll("h1").length, 1);
   assertEquals(
     body.querySelector("h1")?.textContent?.trim(),
-    "Build further. Stand behind what comes back.",
+    "An engineering practice for agent-built software",
   );
   assertStringIncludes(
     text,
     "discern is for people who take their software seriously.",
-  );
-  assertEquals(
-    (body.querySelector(".landing-hero")?.textContent ?? "").includes(
-      "An engineering practice for agent-built software.",
-    ),
-    true,
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
 
@@ -497,19 +491,16 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     false,
   );
   assertEquals(html.includes("grain.css"), false);
-  const invitation = hero.querySelector(".landing-hero__invitation");
-  assert(invitation !== null);
+  assertEquals(hero.querySelector(".landing-hero__invitation"), null);
+  assertEquals(hero.querySelector(".landing-integrations"), null);
+  const prism = hero.querySelector(".landing-prism");
+  assert(prism !== null);
+  assertEquals(prism.querySelectorAll("[data-prism-provider]").length, 5);
+  assertEquals(prism.querySelectorAll("[data-prism-beam]").length, 5);
   assertEquals(
-    invitation.querySelector("h2")?.textContent?.trim(),
-    "Already working with a coding agent?",
+    prism.querySelector(".landing-prism__prompt")?.textContent?.trim(),
+    COPY_PROMPT_TEXT,
   );
-  assertEquals(
-    invitation.querySelector("h2 + p")?.textContent?.trim(),
-    "Copy the setup prompt into the conversation.",
-  );
-  const integrations = hero.querySelector(".landing-integrations");
-  assert(integrations !== null);
-  assertEquals(body.querySelector("#agents .landing-integrations"), null);
   assertEquals(body.querySelectorAll(".discern-data-figure").length, 0);
   for (
     const selector of [
@@ -594,11 +585,13 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     "/docs/worktrees/team-workflow",
   );
-  assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 2);
+  assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 6);
   assertEquals(
-    [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
-      prompt.textContent?.trim()
-    ),
+    [
+      ...body.querySelectorAll(
+        ".landing-prism__prompt, .landing-copy-prompt__text",
+      ),
+    ].map((prompt) => prompt.textContent?.trim()),
     [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT],
   );
   assertEquals(
@@ -617,39 +610,58 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
 
   // Provider labels and artwork remain derived from the canonical catalogue.
-  const integrationItems = [...integrations.querySelectorAll("li")];
-  const integrationImages = integrationItems.map((item) =>
-    item.querySelector("img")
+  const providerControls = [
+    ...prism.querySelectorAll<HTMLButtonElement>("[data-prism-provider]"),
+  ];
+  const providerImages = providerControls.map((control) =>
+    control.querySelector("img")
   );
   assertEquals(
-    integrationItems.map((item) => item.lastElementChild?.textContent?.trim()),
+    providerControls.map((control) =>
+      control.querySelector(".landing-prism__provider-name")?.textContent
+        ?.trim()
+    ),
     AGENT_NAMES.map((name) => PROVIDERS[name].label),
   );
   assertEquals(
-    integrationImages.map((image) => image?.getAttribute("src")),
+    providerControls.map((control) =>
+      control.getAttribute("data-prism-provider")
+    ),
+    [...AGENT_NAMES],
+  );
+  assertEquals(
+    providerControls.map((control) =>
+      control.getAttribute("data-copy-prompt-provider")
+    ),
+    AGENT_NAMES.map((name) => PROVIDERS[name].label),
+  );
+  assertEquals(
+    providerImages.map((image) => image?.getAttribute("src")),
     AGENT_NAMES.map((name) => PROVIDERS[name].brand.mark.path),
   );
   assertEquals(
-    integrationImages.map((image) => image?.getAttribute("alt")),
+    providerImages.map((image) => image?.getAttribute("alt")),
     AGENT_NAMES.map(() => ""),
   );
   assertEquals(
-    integrationImages.map((image) => image?.getAttribute("class")),
+    providerImages.map((image) => image?.getAttribute("class")),
     AGENT_NAMES.map(() => "landing-provider-logo"),
   );
-  assertEquals(
-    integrationItems.map((item) =>
-      item.querySelector(".landing-provider-logo-frame")?.getAttribute("style")
-    ),
-    AGENT_NAMES.map((name) =>
+  for (const [index, control] of providerControls.entries()) {
+    const name = AGENT_NAMES[index];
+    assert(name !== undefined);
+    assertStringIncludes(
+      control.getAttribute("style") ?? "",
       `--landing-provider-logo-mask:url("${
         providerBrandSilhouette(PROVIDERS[name].brand).path
-      }")`
-    ),
-  );
+      }")`,
+    );
+  }
   assertEquals(
-    body.querySelector(".landing-integrations")?.getAttribute("aria-label"),
-    `${AGENT_NAMES.length} supported coding agent providers`,
+    [...prism.querySelectorAll("[data-prism-beam]")].map((beam) =>
+      beam.getAttribute("data-prism-beam")
+    ),
+    [...AGENT_NAMES],
   );
   assertEquals(transparentNavigationActions(body), []);
   const workstreamAction = [...body.querySelectorAll("a.discern-button")].find(
@@ -700,17 +712,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     false,
   );
-  const integrationsRule = cssRuleBody(landingCss, ".landing-integrations");
-  assertStringIncludes(
-    integrationsRule,
-    "width: min(100% - 2 * var(--discern-space-6), 86rem);",
-  );
-  assertStringIncludes(integrationsRule, "margin-inline: auto;");
-  assertEquals(integrationsRule.includes("border-block"), false);
+  assertEquals(landingCss.includes(".landing-integrations"), false);
   const heroGridRule = cssRuleBody(landingCss, ".landing-hero__inner");
   assertStringIncludes(
     heroGridRule,
-    "grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);",
+    "grid-template-columns: minmax(24rem, 0.88fr) minmax(31rem, 1.12fr);",
   );
   assertStringIncludes(heroGridRule, "column-gap:");
   assertStringIncludes(heroGridRule, "row-gap:");
@@ -724,14 +730,15 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertEquals(heroGlowRule.includes("filter:"), false);
   assertEquals(heroGlowRule.includes("opacity:"), false);
   assertEquals(landingCss.includes("textures/grain.png"), false);
-  assertStringIncludes(landingCss, "inset-block-start: -3px;");
+  assertStringIncludes(landingCss, "@keyframes landing-prism-beam");
+  assertStringIncludes(landingCss, ".landing-prism__beam-energy");
   assertStringIncludes(landingCss, ".landing-provider-logo");
   assertStringIncludes(
     cssRuleBody(
       landingCss,
       'html[data-discern-theme="dark"] .landing-provider-logo-frame',
     ),
-    "background: transparent;",
+    "var(--discern-color-canvas) 72%",
   );
   const darkSilhouetteRule = cssRuleBody(
     landingCss,
