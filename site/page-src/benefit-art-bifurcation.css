@@ -205,31 +205,42 @@
     transform-origin: 0 0;
   }
 
+  .bifurcation-art__sweep-reveal {
+    --bifurcation-sweep-easing: linear(
+      0 0%,
+      0.0011 2%,
+      0.0079 4%,
+      0.0228 6%,
+      0.0435 8%,
+      0.9565 92%,
+      0.9772 94%,
+      0.9921 96%,
+      0.9989 98%,
+      1 100%
+    );
+
+    transform-box: view-box;
+  }
+
   .bifurcation-art [data-bifurcation-motion] {
     animation-duration: 10.8s;
     animation-fill-mode: both;
     animation-iteration-count: infinite;
-    animation-timing-function: var(--discern-ease-in-out);
+    animation-timing-function: linear;
   }
 
-  .bifurcation-art__seed-line {
-    animation-name: bifurcation-art-seed-line;
+  .bifurcation-art__sweep-lines {
+    animation-name: bifurcation-art-sweep-cycle;
   }
 
-  .bifurcation-art__level[data-bifurcation-level="1"] .bifurcation-art__branch {
-    animation-name: bifurcation-art-level-1;
+  .bifurcation-art [data-bifurcation-sweep-motion] {
+    animation-name: bifurcation-art-sweep-reveal;
+    animation-timing-function: var(--bifurcation-sweep-easing);
   }
 
-  .bifurcation-art__level[data-bifurcation-level="2"] .bifurcation-art__branch {
-    animation-name: bifurcation-art-level-2;
-  }
-
-  .bifurcation-art__level[data-bifurcation-level="3"] .bifurcation-art__branch {
-    animation-name: bifurcation-art-level-3;
-  }
-
-  .bifurcation-art__terminal-cap {
+  .bifurcation-art [data-bifurcation-cap-motion] {
     animation-name: bifurcation-art-terminal-cap;
+    animation-timing-function: var(--discern-ease-out);
   }
 
   .benefit-art-preview__footer {
@@ -289,6 +300,14 @@
       stroke-dashoffset: 0;
     }
 
+    .bifurcation-art__sweep-lines {
+      opacity: 1;
+    }
+
+    .bifurcation-art__sweep-reveal {
+      transform: none;
+    }
+
     .bifurcation-art__terminal-cap {
       opacity: 0.92;
       transform: none;
@@ -296,148 +315,49 @@
   }
 }
 
-@keyframes bifurcation-art-seed-line {
-  0%,
+@keyframes bifurcation-art-sweep-cycle {
+  0% {
+    opacity: 0;
+  }
+
+  3%,
+  93% {
+    opacity: 1;
+  }
+
+  98%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes bifurcation-art-sweep-reveal {
+  0% {
+    transform: scaleX(0);
+  }
+
   3% {
-    opacity: 0;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
+    transform: scaleX(0);
   }
 
-  13% {
-    opacity: 0.84;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 0;
+  74%,
+  98% {
+    transform: scaleX(1);
   }
 
-  14%,
-  75%,
-  93% {
-    opacity: 0.84;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
-  98%,
   100% {
-    opacity: 0;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-level-1 {
-  0%,
-  12% {
-    opacity: 0;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-  }
-
-  17% {
-    opacity: 0.34;
-    stroke-dasharray: 1;
-  }
-
-  32% {
-    opacity: 0.84;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 0;
-  }
-
-  33%,
-  75%,
-  93% {
-    opacity: 0.84;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
-  98%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-level-2 {
-  0%,
-  29% {
-    opacity: 0;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-  }
-
-  34% {
-    opacity: 0.3;
-    stroke-dasharray: 1;
-  }
-
-  52% {
-    opacity: 0.78;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 0;
-  }
-
-  53%,
-  75%,
-  93% {
-    opacity: 0.78;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
-  98%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes bifurcation-art-level-3 {
-  0%,
-  49% {
-    opacity: 0;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-  }
-
-  54% {
-    opacity: 0.26;
-    stroke-dasharray: 1;
-  }
-
-  74% {
-    opacity: 0.68;
-    stroke-dasharray: 1;
-    stroke-dashoffset: 0;
-  }
-
-  75%,
-  93% {
-    opacity: 0.68;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
-  }
-
-  98%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: none;
-    stroke-dashoffset: 0;
+    transform: scaleX(0);
   }
 }
 
 @keyframes bifurcation-art-terminal-cap {
   0%,
-  70% {
+  74% {
     opacity: 0;
     transform: scale(0.68);
   }
 
-  78%,
+  82%,
   93% {
     opacity: 0.92;
     transform: scale(1);

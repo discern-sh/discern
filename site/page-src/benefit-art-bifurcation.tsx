@@ -63,6 +63,42 @@ if (bifurcationTerminalLevel === undefined) {
 }
 export const BIFURCATION_TERMINALS = bifurcationTerminalLevel.nodes;
 const BIFURCATION_TERMINAL_DEPTH = bifurcationTerminalLevel.depth;
+const bifurcationTerminalIds = new Set<string>(
+  BIFURCATION_TERMINALS.map((terminal) => terminal.id),
+);
+
+/**
+ * One shared cap authority. The terminal registry point remains the semantic
+ * branch destination; the mark sits slightly beyond it at every rendered size.
+ */
+export const BIFURCATION_TERMINAL_CAP = {
+  size: 14,
+  offsetX: 10,
+} as const;
+
+/** Meet the transparent triangle at its left edge, not beneath its empty half. */
+function branchEndpoint(node: BifurcationNode): BifurcationPoint {
+  if (!bifurcationTerminalIds.has(node.id)) return node;
+  return {
+    id: node.id,
+    x: node.x + BIFURCATION_TERMINAL_CAP.offsetX -
+      BIFURCATION_TERMINAL_CAP.size / 4,
+    y: node.y,
+  };
+}
+
+/** The one horizontal reveal span derives from all authored line geometry. */
+const BIFURCATION_SWEEP_PADDING = 2;
+const branchEndpoints = BIFURCATION_TOPOLOGY.levels.flatMap((level) =>
+  level.nodes.map(branchEndpoint)
+);
+export const BIFURCATION_SWEEP = {
+  startX: BIFURCATION_TOPOLOGY.seed.x - BIFURCATION_SWEEP_PADDING,
+  endX: Math.max(...branchEndpoints.map((point) => point.x)) +
+    BIFURCATION_SWEEP_PADDING,
+} as const;
+const BIFURCATION_SWEEP_WIDTH = BIFURCATION_SWEEP.endX -
+  BIFURCATION_SWEEP.startX;
 
 const topologyPoints: BifurcationPoint[] = [BIFURCATION_TOPOLOGY.root];
 for (const level of BIFURCATION_TOPOLOGY.levels) {
@@ -78,10 +114,11 @@ function branchPath(node: BifurcationNode): string {
   if (parent === undefined) {
     throw new Error(`Unknown bifurcation parent: ${node.parent}`);
   }
-  const distance = node.x - parent.x;
+  const endpoint = branchEndpoint(node);
+  const distance = endpoint.x - parent.x;
   const firstControl = Math.round(parent.x + distance * 0.44);
-  const secondControl = Math.round(node.x - distance * 0.32);
-  return `M ${parent.x} ${parent.y} C ${firstControl} ${parent.y} ${secondControl} ${node.y} ${node.x} ${node.y}`;
+  const secondControl = Math.round(endpoint.x - distance * 0.32);
+  return `M ${parent.x} ${parent.y} C ${firstControl} ${parent.y} ${secondControl} ${endpoint.y} ${endpoint.x} ${endpoint.y}`;
 }
 
 /** Render one declared level; every node is one parent-to-child branch. */
@@ -103,9 +140,7 @@ function BifurcationLevel(
             : "bifurcation-art__branch"}
           data-bifurcation-branch={node.id}
           data-bifurcation-parent={node.parent}
-          data-bifurcation-motion
           d={branchPath(node)}
-          pathLength="1"
           key={node.id}
         />
       ))}
@@ -123,6 +158,7 @@ export function BifurcationArtwork(
   const titleId = `${idPrefix}-title`;
   const descriptionId = `${idPrefix}-description`;
   const leafCapId = `${idPrefix}-leaf-cap`;
+  const sweepClipId = `${idPrefix}-sweep-clip`;
 
   return (
     <figure className="bifurcation-art">
@@ -155,6 +191,20 @@ export function BifurcationArtwork(
             />
             <path className="bifurcation-art__cap-seam" d="M 10 0 L 10 20" />
           </symbol>
+          <clipPath id={sweepClipId} clipPathUnits="userSpaceOnUse">
+            <rect
+              className="bifurcation-art__sweep-reveal"
+              data-bifurcation-sweep-motion
+              data-bifurcation-motion
+              x={BIFURCATION_SWEEP.startX}
+              y="0"
+              width={BIFURCATION_SWEEP_WIDTH}
+              height="460"
+              style={{
+                transformOrigin: `${BIFURCATION_SWEEP.startX}px center`,
+              }}
+            />
+          </clipPath>
         </defs>
 
         <g aria-hidden="true">
@@ -165,21 +215,26 @@ export function BifurcationArtwork(
             ))}
           </g>
 
-          <path
-            className="bifurcation-art__seed-line"
+          <g
+            className="bifurcation-art__sweep-lines"
+            data-bifurcation-sweep-lines
             data-bifurcation-motion
-            d={`M ${BIFURCATION_TOPOLOGY.seed.x} ${BIFURCATION_TOPOLOGY.seed.y} C 96 230 140 230 ${BIFURCATION_TOPOLOGY.root.x} ${BIFURCATION_TOPOLOGY.root.y}`}
-            pathLength="1"
-          />
+            clipPath={`url(#${sweepClipId})`}
+          >
+            <path
+              className="bifurcation-art__seed-line"
+              d={`M ${BIFURCATION_TOPOLOGY.seed.x} ${BIFURCATION_TOPOLOGY.seed.y} C 96 230 140 230 ${BIFURCATION_TOPOLOGY.root.x} ${BIFURCATION_TOPOLOGY.root.y}`}
+            />
 
-          <g className="bifurcation-art__branches">
-            {BIFURCATION_TOPOLOGY.levels.map((level) => (
-              <BifurcationLevel
-                depth={level.depth}
-                nodes={level.nodes}
-                key={level.depth}
-              />
-            ))}
+            <g className="bifurcation-art__branches">
+              {BIFURCATION_TOPOLOGY.levels.map((level) => (
+                <BifurcationLevel
+                  depth={level.depth}
+                  nodes={level.nodes}
+                  key={level.depth}
+                />
+              ))}
+            </g>
           </g>
 
           <g className="bifurcation-art__terminal-caps">
@@ -187,7 +242,9 @@ export function BifurcationArtwork(
               <g
                 data-bifurcation-terminal={terminal.id}
                 data-bifurcation-level={BIFURCATION_TERMINAL_DEPTH + 1}
-                transform={`translate(${terminal.x} ${terminal.y})`}
+                transform={`translate(${
+                  terminal.x + BIFURCATION_TERMINAL_CAP.offsetX
+                } ${terminal.y})`}
                 key={terminal.id}
               >
                 <g
@@ -197,10 +254,10 @@ export function BifurcationArtwork(
                 >
                   <use
                     href={`#${leafCapId}`}
-                    x="-10"
-                    y="-10"
-                    width="20"
-                    height="20"
+                    x={-BIFURCATION_TERMINAL_CAP.size / 2}
+                    y={-BIFURCATION_TERMINAL_CAP.size / 2}
+                    width={BIFURCATION_TERMINAL_CAP.size}
+                    height={BIFURCATION_TERMINAL_CAP.size}
                   />
                 </g>
               </g>

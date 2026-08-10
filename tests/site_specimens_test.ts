@@ -57,6 +57,15 @@ interface CssRule {
   readonly declarations: ReadonlyMap<string, string>;
 }
 
+type CssSpecificity = readonly [number, number, number];
+
+interface PathEndpoints {
+  readonly startX: number;
+  readonly startY: number;
+  readonly endX: number;
+  readonly endY: number;
+}
+
 /** Parse the flat declaration bodies used by this focused stylesheet. */
 function declarations(source: string): ReadonlyMap<string, string> {
   const result = new Map<string, string>();
@@ -115,6 +124,109 @@ function styleValue(
   )?.declarations.get(property);
 }
 
+/** Approximate the standards cascade for the focused selectors in this sheet. */
+function selectorSpecificity(selector: string): CssSpecificity {
+  const ids = [...selector.matchAll(/#[\w-]+/g)].length;
+  const classLike = [
+    ...selector.matchAll(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g),
+  ].length;
+  const remainder = selector.replace(
+    /#[\w-]+|\.[\w-]+|\[[^\]]+\]|::?[\w-]+/g,
+    " ",
+  );
+  const types =
+    remainder.split(/[\s>+~]+/).filter((token) => /^[a-z][\w-]*$/i.test(token))
+      .length;
+  return [ids, classLike, types];
+}
+
+/** Later equal-specificity rules win, as do rules with a stronger tuple. */
+function specificityWins(
+  candidate: CssSpecificity,
+  current: CssSpecificity | undefined,
+): boolean {
+  if (current === undefined) return true;
+  for (let index = 0; index < candidate.length; index += 1) {
+    const candidatePart = candidate[index];
+    const currentPart = current[index];
+    if (candidatePart === undefined || currentPart === undefined) continue;
+    if (candidatePart !== currentPart) return candidatePart > currentPart;
+  }
+  return true;
+}
+
+/** Resolve one authored property by matching selector specificity and order. */
+function resolvedStyleValue(
+  element: Element,
+  css: string,
+  property: string,
+): string | undefined {
+  let value: string | undefined;
+  let specificity: CssSpecificity | undefined;
+  for (const rule of cssRules(css)) {
+    const candidateValue = rule.declarations.get(property);
+    if (candidateValue === undefined) continue;
+    for (const selector of rule.selectors) {
+      try {
+        if (!element.matches(selector)) continue;
+      } catch {
+        continue;
+      }
+      const candidateSpecificity = selectorSpecificity(selector);
+      if (!specificityWins(candidateSpecificity, specificity)) continue;
+      value = candidateValue;
+      specificity = candidateSpecificity;
+    }
+  }
+  return value;
+}
+
+/** Reject timing profiles that restart motion inside the shared sweep. */
+function sweepEasingIssues(value: string): string[] {
+  const stops = [...value.matchAll(
+    /([0-9]*\.?[0-9]+)\s+([0-9]*\.?[0-9]+)%/g,
+  )].map((match) => ({
+    progress: Number(match[1]),
+    percentage: Number(match[2]),
+  }));
+  const issues: string[] = [];
+  const first = stops[0];
+  const last = stops.at(-1);
+  if (
+    first?.progress !== 0 || first.percentage !== 0 ||
+    last?.progress !== 1 || last.percentage !== 100
+  ) {
+    issues.push("does not span zero to one");
+  }
+  for (let index = 1; index < stops.length; index += 1) {
+    const previous = stops[index - 1];
+    const current = stops[index];
+    if (previous === undefined || current === undefined) continue;
+    if (
+      current.percentage <= previous.percentage ||
+      current.progress < previous.progress
+    ) {
+      issues.push("contains a discontinuous stop");
+      break;
+    }
+  }
+  const easeInEnd = stops.find((stop) => stop.percentage === 8);
+  const easeOutStart = stops.find((stop) => stop.percentage === 92);
+  if (
+    easeInEnd === undefined || easeOutStart === undefined ||
+    !(easeInEnd.progress > 0 && easeInEnd.progress < 0.1) ||
+    !(easeOutStart.progress > 0.9 && easeOutStart.progress < 1)
+  ) {
+    issues.push("does not confine easing to its outer eight percent");
+  }
+  if (
+    stops.some((stop) => stop.percentage > 8 && stop.percentage < 92)
+  ) {
+    issues.push("restarts easing inside the linear travel interval");
+  }
+  return issues;
+}
+
 /** Read one percentage step from a named animation. */
 function keyframeStep(
   source: string,
@@ -134,6 +246,209 @@ function keyframeRules(source: string, name: string): CssRule[] {
   return body === undefined ? [] : cssRules(body);
 }
 
+/** Read the first and last authored coordinates from one SVG path. */
+function pathEndpoints(path: Element): PathEndpoints | undefined {
+  const shape = path.getAttribute("d");
+  if (shape === null) return undefined;
+  const values = [...shape.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) =>
+    Number(match[0])
+  );
+  const startX = values[0];
+  const startY = values[1];
+  const endX = values.at(-2);
+  const endY = values.at(-1);
+  if (
+    startX === undefined || startY === undefined ||
+    endX === undefined || endY === undefined
+  ) return undefined;
+  return { startX, startY, endX, endY };
+}
+
+/** Read a static two-dimensional SVG translation. */
+function translation(element: Element): { x: number; y: number } | undefined {
+  const match = element.getAttribute("transform")?.match(
+    /^translate\((-?[0-9.]+) (-?[0-9.]+)\)$/,
+  );
+  if (match === undefined || match === null) return undefined;
+  const x = Number(match[1]);
+  const y = Number(match[2]);
+  return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined;
+}
+
+/** Find animation declarations that apply directly to one rendered member. */
+function elementAnimationRules(element: Element, css: string): CssRule[] {
+  return cssRules(css).filter((rule) =>
+    rule.declarations.has("animation-name") &&
+    rule.selectors.some((selector) => {
+      try {
+        return element.matches(selector);
+      } catch {
+        return false;
+      }
+    })
+  );
+}
+
+/** Detect independent segment timing or a discontinuous registry reveal. */
+function sweepContinuityIssues(
+  topology: RegisteredBifurcationTopology,
+  root: ParentNode,
+  css: string,
+): string[] {
+  const issues: string[] = [];
+  const sweepGroups = root.querySelectorAll("[data-bifurcation-sweep-lines]");
+  const sweepGroup = sweepGroups.item(0);
+  const revealFronts = root.querySelectorAll(
+    "[data-bifurcation-sweep-motion]",
+  );
+  if (sweepGroups.length !== 1) {
+    issues.push(`sweep: renders ${sweepGroups.length} line groups`);
+  }
+  if (revealFronts.length !== 1) {
+    issues.push(`sweep: renders ${revealFronts.length} reveal fronts`);
+  }
+
+  const members: { readonly id: string; readonly element: Element | null }[] = [
+    {
+      id: "seed",
+      element: root.querySelector(".bifurcation-art__seed-line"),
+    },
+  ];
+  for (const level of topology.levels) {
+    for (const node of level.nodes) {
+      members.push({
+        id: node.id,
+        element: root.querySelector(
+          `[data-bifurcation-branch="${node.id}"]`,
+        ),
+      });
+    }
+  }
+
+  const endpoints: PathEndpoints[] = [];
+  for (const member of members) {
+    const reasons: string[] = [];
+    if (member.element === null) {
+      reasons.push("does not render");
+    } else {
+      const endpoint = pathEndpoints(member.element);
+      if (endpoint === undefined) {
+        reasons.push("has no measurable authored endpoints");
+      } else {
+        endpoints.push(endpoint);
+        if (endpoint.endX <= endpoint.startX) {
+          reasons.push("is not monotonic in the sweep direction");
+        }
+      }
+      if (
+        member.element.closest("[data-bifurcation-sweep-lines]") !== sweepGroup
+      ) {
+        reasons.push("is outside the shared reveal");
+      }
+      if (member.element.hasAttribute("data-bifurcation-motion")) {
+        reasons.push("owns segment motion");
+      }
+      if (elementAnimationRules(member.element, css).length > 0) {
+        reasons.push("owns an animation instead of the shared front");
+      }
+    }
+    if (reasons.length > 0) {
+      issues.push(`${member.id}: ${reasons.join("; ")}`);
+    }
+  }
+
+  const reveal = revealFronts.item(0);
+  if (reveal !== null && endpoints.length > 0) {
+    const clipPath = reveal.parentElement;
+    const start = Number(reveal.getAttribute("x"));
+    const width = Number(reveal.getAttribute("width"));
+    const lineStart = Math.min(...endpoints.map((endpoint) => endpoint.startX));
+    const lineEnd = Math.max(...endpoints.map((endpoint) => endpoint.endX));
+    if (
+      clipPath?.tagName.toLowerCase() !== "clippath" ||
+      clipPath.getAttribute("clipPathUnits") !== "userSpaceOnUse" ||
+      clipPath.hasAttribute("transform")
+    ) {
+      issues.push("sweep: reveal is nested inside transformed clip geometry");
+    }
+    if (
+      !Number.isFinite(start) || !(width > 0) ||
+      start > lineStart || start + width < lineEnd
+    ) {
+      issues.push("sweep: reveal bounds do not cover the authored line span");
+    }
+    const clipId = clipPath?.getAttribute("id");
+    if (
+      clipId === null || clipId === undefined ||
+      sweepGroup?.getAttribute("clip-path") !== `url(#${clipId})`
+    ) {
+      issues.push("sweep: line group does not reference its direct reveal");
+    }
+    const transformOrigin = reveal.getAttribute("style")?.match(
+      /transform-origin:\s*(-?[0-9.]+)px center/,
+    );
+    if (
+      transformOrigin === null || transformOrigin === undefined ||
+      Number(transformOrigin[1]) !== start
+    ) {
+      issues.push("sweep: transform origin is not its authored start bound");
+    }
+    if (!reveal.hasAttribute("data-bifurcation-motion")) {
+      issues.push("sweep: reveal front is not motion-enrolled");
+    }
+  }
+
+  const revealAnimation = reveal === null
+    ? undefined
+    : resolvedStyleValue(reveal, css, "animation-name");
+  const revealEasing = styleValue(
+    css,
+    ".bifurcation-art__sweep-reveal",
+    "--bifurcation-sweep-easing",
+  );
+  const revealTiming = reveal === null
+    ? undefined
+    : resolvedStyleValue(reveal, css, "animation-timing-function");
+  if (revealAnimation === undefined) {
+    issues.push("sweep: has no single reveal animation");
+  } else {
+    const opening = keyframeStep(css, revealAnimation, 3);
+    const culmination = keyframeStep(css, revealAnimation, 74);
+    if (opening?.get("transform") !== "scaleX(0)") {
+      issues.push("sweep: does not begin from one closed front");
+    }
+    if (culmination?.get("transform") !== "scaleX(1)") {
+      issues.push("sweep: does not reach the whole line span");
+    }
+    const transforms = keyframeRules(css, revealAnimation).flatMap((rule) =>
+      rule.declarations.has("transform")
+        ? [rule.declarations.get("transform")]
+        : []
+    );
+    if (
+      transforms.some((transform) =>
+        transform !== "scaleX(0)" && transform !== "scaleX(1)"
+      )
+    ) {
+      issues.push("sweep: contains an intermediate segment transform");
+    }
+  }
+  if (revealEasing === undefined || !revealEasing.startsWith("linear(")) {
+    issues.push("sweep: has no once-only linear-interior easing profile");
+  } else {
+    issues.push(
+      ...sweepEasingIssues(revealEasing).map((issue) =>
+        `sweep: easing ${issue}`
+      ),
+    );
+  }
+  if (revealTiming !== "var(--bifurcation-sweep-easing)") {
+    issues.push("sweep: does not apply its easing to the reveal animation");
+  }
+
+  return issues;
+}
+
 /** Detect incomplete or canvas-occluded settled branches by registry member. */
 function branchCulminationIssues(
   topology: RegisteredBifurcationTopology,
@@ -150,12 +465,13 @@ function branchCulminationIssues(
     ".bifurcation-art__branch",
     "stroke-dasharray",
   );
+  const reveal = root.querySelector("[data-bifurcation-sweep-motion]");
+  const revealAnimation = reveal === null
+    ? undefined
+    : resolvedStyleValue(reveal, css, "animation-name");
   const issues: string[] = [];
 
   for (const level of topology.levels) {
-    const levelSelector =
-      `.bifurcation-art__level[data-bifurcation-level="${level.depth}"] .bifurcation-art__branch`;
-    const animationName = styleValue(css, levelSelector, "animation-name");
     for (const node of level.nodes) {
       const reasons: string[] = [];
       const matches = root.querySelectorAll(
@@ -169,8 +485,8 @@ function branchCulminationIssues(
         if (branch.tagName.toLowerCase() !== "path") {
           reasons.push("is not path geometry");
         }
-        if (branch.getAttribute("pathLength") !== "1") {
-          reasons.push("does not normalize its draw path");
+        if (branch.hasAttribute("pathLength")) {
+          reasons.push("retains a normalized per-path draw length");
         }
         const shape = branch.getAttribute("d");
         if (shape === null) {
@@ -198,23 +514,21 @@ function branchCulminationIssues(
       if (staticDash !== "none") {
         reasons.push(`rests with stroke-dasharray ${staticDash ?? "unset"}`);
       }
-      if (animationName === undefined) {
-        reasons.push("has no level animation");
+      if (branch !== null && elementAnimationRules(branch, css).length > 0) {
+        reasons.push("retains an individual branch animation");
+      }
+      if (revealAnimation === undefined) {
+        reasons.push("has no shared reveal animation");
       } else {
-        for (const percentage of [75, 93]) {
-          const step = keyframeStep(css, animationName, percentage);
+        for (const percentage of [74, 98]) {
+          const step = keyframeStep(css, revealAnimation, percentage);
           if (step === undefined) {
-            reasons.push(`has no ${percentage}% culmination step`);
+            reasons.push(`shared reveal has no ${percentage}% hold boundary`);
             continue;
           }
-          if (step.get("stroke-dasharray") !== "none") {
-            reasons.push(`${percentage}% is still dashed`);
+          if (step.get("transform") !== "scaleX(1)") {
+            reasons.push(`${percentage}% does not expose the complete stroke`);
           }
-          if (step.get("stroke-dashoffset") !== "0") {
-            reasons.push(`${percentage}% keeps a dash offset`);
-          }
-          const opacity = Number(step.get("opacity"));
-          if (!(opacity > 0)) reasons.push(`${percentage}% is not visible`);
         }
       }
       if (reasons.length > 0) issues.push(`${node.id}: ${reasons.join("; ")}`);
@@ -231,11 +545,6 @@ function terminalMotionIssues(
 ): string[] {
   const terminalLevel = topology.levels.at(-1);
   assert(terminalLevel !== undefined);
-  const animationName = styleValue(
-    css,
-    ".bifurcation-art__terminal-cap",
-    "animation-name",
-  );
   const transformOrigin = styleValue(
     css,
     ".bifurcation-art__terminal-cap",
@@ -246,13 +555,12 @@ function terminalMotionIssues(
     ".bifurcation-art__terminal-cap",
     "transform-box",
   );
-  const motionRules = animationName === undefined
-    ? []
-    : keyframeRules(css, animationName);
   const issues: string[] = [];
 
   for (const terminal of terminalLevel.nodes) {
     const reasons: string[] = [];
+    let animationName: string | undefined;
+    let motionRules: CssRule[] = [];
     const anchors = root.querySelectorAll(
       `[data-bifurcation-terminal="${terminal.id}"]`,
     );
@@ -263,9 +571,9 @@ function terminalMotionIssues(
     if (anchor !== null) {
       if (
         anchor.getAttribute("transform") !==
-          `translate(${terminal.x} ${terminal.y})`
+          `translate(${terminal.x + 10} ${terminal.y})`
       ) {
-        reasons.push("is not statically translated to its registry endpoint");
+        reasons.push("is not shifted ten authored units from its endpoint");
       }
       if (anchor.hasAttribute("data-bifurcation-motion")) {
         reasons.push("animates its endpoint anchor");
@@ -279,6 +587,20 @@ function terminalMotionIssues(
         if (!motion.hasAttribute("data-bifurcation-motion")) {
           reasons.push("does not enrol its local motion group");
         }
+        animationName = resolvedStyleValue(
+          motion,
+          css,
+          "animation-name",
+        );
+        motionRules = animationName === undefined
+          ? []
+          : keyframeRules(css, animationName);
+        if (
+          resolvedStyleValue(motion, css, "animation-timing-function") !==
+            "var(--discern-ease-out)"
+        ) {
+          reasons.push("does not win the cascade with its local easing");
+        }
         const use = motion.querySelector("use");
         const x = Number(use?.getAttribute("x"));
         const y = Number(use?.getAttribute("y"));
@@ -288,6 +610,23 @@ function terminalMotionIssues(
           use === null || x + width / 2 !== 0 || y + height / 2 !== 0
         ) {
           reasons.push("does not bound its glyph around local origin 0 0");
+        }
+        if (width !== 14 || height !== 14) {
+          reasons.push("does not use the shared fourteen-unit cap size");
+        }
+        const branch = root.querySelector(
+          `[data-bifurcation-branch="${terminal.id}"]`,
+        );
+        const endpoint = branch === null ? undefined : pathEndpoints(branch);
+        const anchorPoint = translation(anchor);
+        if (
+          endpoint === undefined || anchorPoint === undefined ||
+          endpoint.endY !== anchorPoint.y ||
+          Math.abs(endpoint.endX - (anchorPoint.x - width / 4)) > 0.001
+        ) {
+          reasons.push(
+            "does not end at the transparent triangle's left boundary",
+          );
         }
       }
     }
@@ -305,7 +644,7 @@ function terminalMotionIssues(
           reasons.push(`moves with ${transform}`);
         }
       }
-      for (const percentage of [78, 93]) {
+      for (const percentage of [82, 93]) {
         const step = keyframeStep(css, animationName, percentage);
         if (
           step?.get("transform") !== "scale(1)" ||
@@ -423,6 +762,58 @@ Deno.test("every registered branch culminates as one complete unoccluded stroke"
   dom.window.close();
 });
 
+Deno.test("one continuous reveal front enrolls every registered line", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  for (
+    const theme of dom.window.document.querySelectorAll(
+      ".benefit-art-preview__theme",
+    )
+  ) {
+    const issues = sweepContinuityIssues(
+      BIFURCATION_TOPOLOGY,
+      theme,
+      css,
+    );
+    assertEquals(issues, [], issues.join("\n"));
+  }
+  dom.window.close();
+});
+
+Deno.test("the shared front rejects transformed clip wrappers", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  const theme = dom.window.document.querySelector(
+    ".benefit-art-preview__theme",
+  );
+  assert(theme !== null);
+  const reveal = theme.querySelector("[data-bifurcation-sweep-motion]");
+  const clipPath = reveal?.parentElement;
+  assert(reveal !== null);
+  assert(clipPath !== null && clipPath !== undefined);
+  const wrapper = dom.window.document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "g",
+  );
+  wrapper.setAttribute("transform", "translate(56 0)");
+  clipPath.insertBefore(wrapper, reveal);
+  wrapper.append(reveal);
+  reveal.setAttribute("x", "0");
+
+  const issues = sweepContinuityIssues(
+    BIFURCATION_TOPOLOGY,
+    theme,
+    css,
+  );
+  assert(
+    issues.includes(
+      "sweep: reveal is nested inside transformed clip geometry",
+    ),
+    issues.join("\n"),
+  );
+  dom.window.close();
+});
+
 Deno.test("every registered terminal scales only inside its static endpoint anchor", async () => {
   const dom = new JSDOM(renderBifurcationSpecimen());
   const css = await Deno.readTextFile(BIFURCATION_CSS);
@@ -438,6 +829,47 @@ Deno.test("every registered terminal scales only inside its static endpoint anch
     );
     assertEquals(issues, [], issues.join("\n"));
   }
+  dom.window.close();
+});
+
+Deno.test("motion-role easing must win the authored cascade", async () => {
+  const dom = new JSDOM(renderBifurcationSpecimen());
+  const css = await Deno.readTextFile(BIFURCATION_CSS);
+  const shadowedCss = `${css}
+    .bifurcation-art [data-bifurcation-sweep-motion],
+    .bifurcation-art [data-bifurcation-cap-motion] {
+      animation-timing-function: linear;
+    }
+  `;
+  const theme = dom.window.document.querySelector(
+    ".benefit-art-preview__theme",
+  );
+  assert(theme !== null);
+
+  const sweepIssues = sweepContinuityIssues(
+    BIFURCATION_TOPOLOGY,
+    theme,
+    shadowedCss,
+  );
+  assert(
+    sweepIssues.includes(
+      "sweep: does not apply its easing to the reveal animation",
+    ),
+    sweepIssues.join("\n"),
+  );
+
+  const capIssues = terminalMotionIssues(
+    BIFURCATION_TOPOLOGY,
+    theme,
+    shadowedCss,
+  );
+  assertEquals(capIssues.length, BIFURCATION_TERMINALS.length);
+  assert(
+    capIssues.every((issue) =>
+      issue.includes("does not win the cascade with its local easing")
+    ),
+    capIssues.join("\n"),
+  );
   dom.window.close();
 });
 
@@ -502,7 +934,20 @@ Deno.test("culmination detectors automatically reject renamed future registry me
   assertEquals(branchIssues.length, 1);
   assertStringIncludes(branchIssues[0] ?? "", "later-limb");
   assertStringIncludes(branchIssues[0] ?? "", "canvas-coloured stroke copy");
-  assertStringIncludes(branchIssues[0] ?? "", "still dashed");
+  assertStringIncludes(branchIssues[0] ?? "", "individual branch animation");
+
+  const sweepIssues = sweepContinuityIssues(
+    futureTopology,
+    root,
+    unsafeCss,
+  );
+  assert(
+    sweepIssues.some((issue) =>
+      issue.startsWith("later-limb:") &&
+      issue.includes("owns an animation")
+    ),
+    sweepIssues.join("\n"),
+  );
 
   const capIssues = terminalMotionIssues(futureTopology, root, unsafeCss);
   assertEquals(capIssues.length, 1);
@@ -571,7 +1016,7 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
       assert(terminal !== undefined);
       assertEquals(
         cap.getAttribute("transform"),
-        `translate(${terminal.x} ${terminal.y})`,
+        `translate(${terminal.x + 10} ${terminal.y})`,
       );
       assert(!cap.hasAttribute("data-bifurcation-motion"));
       const motion = cap.querySelector<SVGGElement>(
@@ -582,19 +1027,19 @@ Deno.test("one bifurcation study renders in both fixed themes", () => {
       const geometry = motion.querySelector<SVGUseElement>("use");
       assert(geometry !== null);
       assertEquals(geometry.getAttribute("href"), `#${capSymbol.id}`);
-      assertEquals(geometry.getAttribute("x"), "-10");
-      assertEquals(geometry.getAttribute("y"), "-10");
-      assertEquals(geometry.getAttribute("width"), "20");
-      assertEquals(geometry.getAttribute("height"), "20");
+      assertEquals(geometry.getAttribute("x"), "-7");
+      assertEquals(geometry.getAttribute("y"), "-7");
+      assertEquals(geometry.getAttribute("width"), "14");
+      assertEquals(geometry.getAttribute("height"), "14");
     }
 
     for (const branch of theme.querySelectorAll("[data-bifurcation-branch]")) {
       assert(branch.hasAttribute("data-bifurcation-parent"));
-      assert(branch.hasAttribute("data-bifurcation-motion"));
+      assert(!branch.hasAttribute("data-bifurcation-motion"));
     }
     assertEquals(
       theme.querySelectorAll("[data-bifurcation-motion]").length,
-      1 + branchCount + BIFURCATION_TERMINALS.length,
+      2 + BIFURCATION_TERMINALS.length,
     );
   }
 
@@ -682,20 +1127,14 @@ Deno.test("the artwork remains fluid through the compact gallery breakpoints", a
 Deno.test("the artwork keeps its culmination when motion is reduced", async () => {
   const css = await Deno.readTextFile(BIFURCATION_CSS);
   assertStringIncludes(css, "animation-duration: 10.8s");
-  for (const level of BIFURCATION_TOPOLOGY.levels) {
-    assertStringIncludes(
-      css,
-      `data-bifurcation-level="${level.depth}"]`,
-    );
-    assertStringIncludes(
-      css,
-      `animation-name: bifurcation-art-level-${level.depth};`,
-    );
-    assertStringIncludes(
-      css,
-      `@keyframes bifurcation-art-level-${level.depth}`,
-    );
-  }
+  assertStringIncludes(
+    css,
+    "animation-name: bifurcation-art-sweep-reveal;",
+  );
+  assertStringIncludes(css, "@keyframes bifurcation-art-sweep-reveal");
+  assertStringIncludes(css, "@keyframes bifurcation-art-sweep-cycle");
+  assert(!css.includes("bifurcation-art-level-"));
+  assert(!css.includes("bifurcation-art-seed-line {"));
   assertStringIncludes(
     css,
     "animation-name: bifurcation-art-terminal-cap;",
