@@ -44,7 +44,7 @@ The generic component catalog, examples, component implementation, assets, and p
 deno task site:specimens
 ```
 
-The command prints the preview address. The sheet is static HTML, inline Scalable Vector Graphics (SVG), and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, unique document identifiers, the SVG title and description, the reduced-motion resting state, absence of a browser framework runtime, and the reserved monospace treatment.
+The command prints the preview address. The sheet is static HTML, inline Scalable Vector Graphics (SVG), and CSS with the shared theme controller as its only external browser script. It is absent from `PAGES`, returns `404` through the production handler, and carries `noindex` response headers. [`tests/site_specimens_test.ts`](../../../tests/site_specimens_test.ts) guards that development boundary, the paired themes, unique document identifiers, the SVG title and description, the exact settled geometry, distinct opening transforms, matching loop endpoints, compact secondary mark, reduced-motion resting state, absence of a browser framework runtime, and the reserved monospace treatment.
 
 ## Consumer guards
 

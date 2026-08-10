@@ -8,8 +8,8 @@ export interface BenefitAlignmentArtworkProps {
 }
 
 /**
- * Three geometric planes register into the discern triangle before a narrow
- * aperture settles independently. The authored SVG is the complete final
+ * Three geometric planes register into the discern triangle before a compact
+ * authority mark settles nearby. The authored SVG is the complete final
  * composition; CSS only supplies the optional journey into that state.
  */
 export function BenefitAlignmentArtwork(
@@ -30,18 +30,17 @@ export function BenefitAlignmentArtwork(
         <title id={titleId}>Planes resolving into exact alignment</title>
         <desc id={descriptionId}>
           Three translucent geometric planes settle into one precise,
-          half-filled triangle. A narrow central aperture settles afterward as a
-          separate condition. The complete final form remains visible without
+          half-filled triangle. A short blue registration mark settles nearby as
+          a separate condition. The complete final form remains visible without
           motion.
         </desc>
 
         <g aria-hidden="true">
           <g className="benefit-alignment__construction">
-            <path d="M 90 430 H 670" />
-            <path d="M 380 66 V 478" />
-            <path d="M 188 430 H 208 M 198 420 V 440" />
-            <path d="M 552 430 H 572 M 562 420 V 440" />
-            <path d="M 370 124 H 390 M 380 114 V 134" />
+            <line x1="380" y1="66" x2="380" y2="98" />
+            <line x1="380" y1="456" x2="380" y2="478" />
+            <line x1="90" y1="430" x2="166" y2="430" />
+            <line x1="594" y1="430" x2="670" y2="430" />
           </g>
 
           <ellipse
@@ -52,35 +51,30 @@ export function BenefitAlignmentArtwork(
             ry="166"
           />
 
-          <path
+          <polygon
             className="benefit-alignment__plane benefit-alignment__plane--outline"
             data-alignment-plane="outline"
-            d="M 380 124 L 198 430 L 562 430 Z"
+            points="380,124 198,430 562,430"
           />
-          <path
-            className="benefit-alignment__plane benefit-alignment__plane--empty"
-            data-alignment-plane="empty"
-            d="M 380 124 L 198 430 L 380 430 Z"
+          <polygon
+            className="benefit-alignment__plane benefit-alignment__plane--ghost"
+            data-alignment-plane="ghost"
+            points="380,124 198,430 380,430"
           />
-          <path
+          <polygon
             className="benefit-alignment__plane benefit-alignment__plane--filled"
             data-alignment-plane="filled"
-            d="M 380 124 L 562 430 L 380 430 Z"
+            points="380,124 562,430 380,430"
           />
 
-          <g
-            className="benefit-alignment__aperture"
-            data-alignment-aperture
-          >
-            <path
-              className="benefit-alignment__aperture-clear"
-              d="M 376.5 124 H 383.5 V 430 H 376.5 Z"
-            />
-            <path
-              className="benefit-alignment__aperture-edge"
-              d="M 380 124 V 430"
-            />
-          </g>
+          <line
+            className="benefit-alignment__authority"
+            data-alignment-authority
+            x1="578"
+            y1="340"
+            x2="592"
+            y2="364"
+          />
         </g>
       </svg>
     </figure>
