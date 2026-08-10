@@ -434,6 +434,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     body.querySelector("h1")?.textContent?.trim(),
     "An engineering practice for agent-built software",
   );
+  assertEquals(
+    body.querySelector("h1 .discern-heading__accent")?.textContent,
+    "practice",
+  );
   assertStringIncludes(
     text,
     "discern is for people who take their software seriously.",
@@ -771,7 +775,15 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assertStringIncludes(heroGridRule, "column-gap:");
   assertStringIncludes(heroGridRule, "row-gap:");
+  assertStringIncludes(
+    heroGridRule,
+    "padding-block-start: var(--discern-space-8);",
+  );
   assertEquals(/(?:^|;)\s*gap\s*:/.test(heroGridRule), false);
+  assertEquals(
+    cssRuleBody(landingCss, ".landing-hero").includes("min-block-size"),
+    false,
+  );
   assertEquals(fluidGridShorthandSelectors(landingCss), []);
   assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
   const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");

@@ -70,7 +70,6 @@
     isolation: isolate;
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
-    min-block-size: calc(100svh - 4.5rem);
     overflow: hidden;
     border-block-end: 1px solid var(--discern-color-border-strong);
     background: transparent;
@@ -101,12 +100,11 @@
     grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);
     column-gap: clamp(1.5rem, 3vw, 3rem);
     row-gap: clamp(2.5rem, 6vw, 4rem);
-    align-content: end;
     align-items: center;
     width: min(100% - 2 * var(--discern-space-6), 86rem);
     min-block-size: 0;
     margin-inline: auto;
-    padding-block-start: clamp(5rem, 10vw, 9rem);
+    padding-block-start: var(--discern-space-8);
   }
 
   .landing-hero__copy {
@@ -1277,7 +1275,6 @@
 
     .landing-hero__inner {
       row-gap: var(--discern-space-10);
-      padding-block-start: var(--discern-space-12);
     }
 
     .landing-hero__invitation {
