@@ -21,6 +21,38 @@ The project mark is the Unicode glyph **◮** (U+25EE, up-pointing triangle with
 
 The shape carries the name: one form split into parts you can tell apart, which is the act of discerning. The triangle also reads as a delta, the change the Gate judges.
 
+### Human, agent, and project
+
+discern's triangle holds a relationship among **the human, the agent, and the project**.
+
+At the scale of the emblem, the filled and unfilled parts show human and agent as the visible duality. The enclosing triangle is the project holding their work together. Its integrity turns two distinguishable participants into one connected practice.
+
+At the scale of a relational diagram, the participants occupy its vertices and the edges carry their exchanges:
+
+- **Human ↔ agent:** direction and delegation.
+- **Agent ↔ project:** inheritance, implementation, and verification.
+- **Project ↔ human:** memory, evidence, and authority.
+
+Authority remains asymmetric: the human grants it, the project records its boundary, and the agent acts within it.
+
+A unit of work receives human intent, moves through an agent, enters the project, and returns with evidence for a human decision. When work divides into smaller tasks or moves in parallel, each unit carries the same relationship.
+
+The project carries human judgment into each task, allowing it to influence implementation the human never personally inspects.
+
+Internally, discern calls this relation a **trinity**. The metaphysical weight of the word is intentional. Most public work names the participants and their relationship; founder-led and manifesto work may reveal the trinity as a personal interpretation.
+
+### The recursive triangle
+
+The Sierpiński triangle is the extended symbol of this continuous practice. Its self-similarity expresses a comprehensible rule that survives larger ambitions, smaller tasks, and parallel work. Its open spaces make distinctions and boundaries visible while the figure stays connected. This resonates with isolated worktrees held within a shared project.
+
+Rules for the extended form:
+
+- The ◮ glyph remains the primary everyday mark. The recursive form extends it and never replaces it.
+- Reserve the Sierpiński triangle for manifesto art, motion, relational diagrams, major brand moments, and occasional details that reward recognition.
+- Treat it as ceremonial. Keep it out of ambient backgrounds, generic imagery of AI complexity, and automatic decoration.
+- Tie each appearance to a real relationship, recursive practice, or boundary. A reader never needs to decode it to understand the surface.
+- Authentic project artifacts remain the primary visual language on product pages.
+
 Rules that travel with the mark:
 
 - The canonical reading is **filled versus unfilled**. A glyph renders in the reader's foreground color, so light and dark readings invert with the theme. The mirror ◭ carries no distinct meaning for the same reason.

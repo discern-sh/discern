@@ -45,7 +45,7 @@ The public brand should make that seriousness feel like an earned privilege: mor
 | [`messaging.md`](messaging.md)                                                                    | Canonical       | Turns the positioning into message territories, descriptions, proof order, CTAs, and approved creative directions.                                                          |                         |
 | [`register-bridge.md`](register-bridge.md)                                                        | Canonical       | Prevents product ontology from directly dictating brand copy; maps product truth into human situations and benefits.                                                        |                         |
 | [`claims-and-evidence.md`](claims-and-evidence.md)                                                | Canonical       | States the strongest defensible public claims, evidence, conditions, and forbidden inferences.                                                                              |                         |
-| [`visual-identity.md`](visual-identity.md)                                                        | Canonical       | Records the visual system: the Editorial Engineering aesthetic, the ◮ mark, and the `discern-design-system` package.                                                        |                         |
+| [`visual-identity.md`](visual-identity.md)                                                        | Canonical       | Records the visual system: the Editorial Engineering aesthetic, the ◮ mark, its recursive extended language, and the `discern-design-system` package.                       |                         |
 | [`project/skills/discern-brand-voice/SKILL.md`](../../../skills/discern-brand-voice/SKILL.md)     | Canonical skill | Produces engaging, premium public-facing copy.                                                                                                                              |                         |
 | [`project/skills/discern-product-voice/SKILL.md`](../../../skills/discern-product-voice/SKILL.md) | Canonical skill | Produces exact human-facing product and documentation copy.                                                                                                                 |                         |
 | [`project/skills/discern-agent-voice/SKILL.md`](../../../skills/discern-agent-voice/SKILL.md)     | Canonical skill | Produces agent-operational and agent-facing public copy.                                                                                                                    |                         |
@@ -75,6 +75,18 @@ Read, in order:
 6. only the relevant claims from `claims-and-evidence.md`
 
 Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.
+
+### Manifesto, founder philosophy, or extended visual work
+
+Read, in order:
+
+1. `positioning.md`;
+2. `visual-identity.md`;
+3. `launch-narrative.md`;
+4. the `discern-brand-voice` skill;
+5. the relevant surface brief and only the claims the work introduces.
+
+Treat the metaphysical reading as founder-authentic territory. Do not assign it to the audience. Reserve the Sierpiński triangle for the uses governed by `visual-identity.md`.
 
 ### Product, documentation, or CLI copy
 
@@ -187,6 +199,7 @@ Recommended candidates for later registry-backed generation:
 - **Energy:** a bolder way to build; build further.
 - **Human outcome:** ambitious software that holds up and earns confidence.
 - **Category:** an engineering practice for agent-built software, installed into the project.
+- **Relationship:** human judgment, agent capability, and project continuity.
 - **Conversion benefits:** greater personal reach, meaningful delegation, preserved standards, reduced review burden, and clearer evidence.
 - **Technical distinction:** agent ergonomics.
 - **Authority:** the human decides what becomes shared.

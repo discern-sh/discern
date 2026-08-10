@@ -56,6 +56,20 @@ export const READING_PATHS = [
       "Do **not** load the complete product canon as a style model. Consult product sources only to verify a claim or mechanism.",
   },
   {
+    id: "manifesto-founder-visual",
+    heading: "Manifesto, founder philosophy, or extended visual work",
+    intro: "Read, in order:",
+    steps: [
+      "`positioning.md`;",
+      "`visual-identity.md`;",
+      "`launch-narrative.md`;",
+      "the `discern-brand-voice` skill;",
+      "the relevant surface brief and only the claims the work introduces.",
+    ],
+    note:
+      "Treat the metaphysical reading as founder-authentic territory. Do not assign it to the audience. Reserve the Sierpiński triangle for the uses governed by `visual-identity.md`.",
+  },
+  {
     id: "product-documentation-cli",
     heading: "Product, documentation, or CLI copy",
     intro: "Read:",
@@ -153,6 +167,10 @@ export const WORKING_SUMMARY = [
     label: "Category",
     value:
       "an engineering practice for agent-built software, installed into the project.",
+  },
+  {
+    label: "Relationship",
+    value: "human judgment, agent capability, and project continuity.",
   },
   {
     label: "Conversion benefits",
