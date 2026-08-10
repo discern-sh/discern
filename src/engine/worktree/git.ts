@@ -1317,6 +1317,29 @@ export interface FleetCollision {
 }
 
 /**
+ * Each branch's fork point vs `mainBranch` (`merge-base`), read concurrently —
+ * the shared anchor every cross-branch scan diffs from. A branch whose fork
+ * point cannot be resolved is simply absent, and every consumer skips what it
+ * cannot anchor. Callers running more than one scan over overlapping branch
+ * sets resolve the union ONCE and pass it to each, so no branch is anchored
+ * twice in a single survey.
+ */
+export async function forkPoints(
+  cwd: string,
+  branches: readonly string[],
+  mainBranch: string,
+): Promise<Map<string, string>> {
+  const resolved = await Promise.all(
+    [...new Set(branches)].map(async (branch) => {
+      const run = await git(["merge-base", mainBranch, branch], cwd);
+      const base = run.success ? run.stdout.trim() : "";
+      return base === "" ? undefined : ([branch, base] as const);
+    }),
+  );
+  return new Map(resolved.filter((entry) => entry !== undefined));
+}
+
+/**
  * Cross-worktree changed-file collisions — the fact only a fleet-wide view can
  * hold: two efforts touching the same paths are a semantic collision in the
  * making even when both would merge cleanly, and whoever lands second must
@@ -1324,29 +1347,27 @@ export interface FleetCollision {
  * trunk (`merge-base(main, branch)..branch`, the same "own" side
  * {@link incomingOverlap} reads), and pairs intersect via {@link overlapPaths}.
  * Branches are repo-wide, so one checkout answers for the whole fleet.
- * Read-only; every git read fails open to an empty result.
+ * Read-only; every git read fails open to an empty result. Pass `bases` (from
+ * {@link forkPoints}) to reuse already-resolved anchors.
  */
 export async function fleetCollisions(
   cwd: string,
   branches: string[],
   mainBranch: string,
   cap: number,
+  bases?: ReadonlyMap<string, string>,
 ): Promise<FleetCollision[]> {
-  const changed: [string, string[]][] = [];
-  for (const branch of [...new Set(branches)]) {
-    const baseRun = await git(["merge-base", mainBranch, branch], cwd);
-    if (!baseRun.success) {
-      continue;
-    }
-    const base = baseRun.stdout.trim();
-    if (base === "") {
-      continue;
-    }
-    const paths = await diffNames(cwd, base, branch);
-    if (paths.length > 0) {
-      changed.push([branch, paths]);
-    }
-  }
+  const anchors = bases ?? await forkPoints(cwd, branches, mainBranch);
+  const changed = (await Promise.all(
+    [...new Set(branches)].map(async (branch) => {
+      const base = anchors.get(branch);
+      if (base === undefined) {
+        return undefined;
+      }
+      const paths = await diffNames(cwd, base, branch);
+      return paths.length > 0 ? ([branch, paths] as const) : undefined;
+    }),
+  )).filter((entry) => entry !== undefined);
   const out: FleetCollision[] = [];
   for (const [i, [a, aPaths]] of changed.entries()) {
     for (const [b, bPaths] of changed.slice(i + 1)) {
@@ -1377,23 +1398,22 @@ export interface AdrNumberCollision {
  * renumber is still cheap (nothing cites the number yet). Each branch's claim
  * set is the record files its fork diff ADDS under `adrDir` (repo-relative,
  * POSIX), read with a pathspec so the cost stays one scoped diff per branch.
- * Read-only; every git read fails open to an empty result.
+ * Read-only; every git read fails open to an empty result. Pass `bases` (from
+ * {@link forkPoints}) to reuse already-resolved anchors.
  */
 export async function adrNumberCollisions(
   cwd: string,
   branches: string[],
   mainBranch: string,
   adrDir: string,
+  bases?: ReadonlyMap<string, string>,
 ): Promise<AdrNumberCollision[]> {
-  const claims = new Map<string, Map<string, string[]>>();
-  for (const branch of [...new Set(branches)]) {
-    const baseRun = await git(["merge-base", mainBranch, branch], cwd);
-    if (!baseRun.success) {
-      continue;
-    }
-    const base = baseRun.stdout.trim();
-    if (base === "") {
-      continue;
+  const unique = [...new Set(branches)];
+  const anchors = bases ?? await forkPoints(cwd, unique, mainBranch);
+  const added = await Promise.all(unique.map(async (branch) => {
+    const base = anchors.get(branch);
+    if (base === undefined) {
+      return { branch, paths: [] as string[] };
     }
     const r = await git([
       "diff",
@@ -1406,10 +1426,11 @@ export async function adrNumberCollisions(
       "--",
       adrDir,
     ], cwd);
-    if (!r.success) {
-      continue;
-    }
-    for (const path of splitNulRecords(r.stdout)) {
+    return { branch, paths: r.success ? splitNulRecords(r.stdout) : [] };
+  }));
+  const claims = new Map<string, Map<string, string[]>>();
+  for (const { branch, paths: addedPaths } of added) {
+    for (const path of addedPaths) {
       const number = adrNumberOf(path);
       if (number === undefined) {
         continue;

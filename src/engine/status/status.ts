@@ -85,6 +85,7 @@ import {
   type FleetCollision,
   fleetCollisions,
   type FleetWorktree,
+  forkPoints,
   gitSnapshot,
   hasUncommittedTrackedChanges,
   incomingOverlap,
@@ -435,6 +436,14 @@ export async function statusResult(
     };
   }
 
+  // In-flight `<branch_prefix>` branches, read once for both cross-branch
+  // scans below (changed-file collisions, ADR number collisions), whose
+  // fork-point anchors are likewise resolved once for their union.
+  const inFlightBranches = includeFleet || location === "worktree"
+    ? await prefixBranches(root, cfg.repository.branch_prefix)
+    : [];
+  let sharedForkPoints: Map<string, string> | undefined;
+
   // The fleet survey, each row augmented with its id/port — read from its env
   // files when recorded, else DERIVED from the worktree's own identity, so a
   // project with no env file still gets real ids (never a truncated branch name).
@@ -496,11 +505,17 @@ export async function statusResult(
       )
       .map((e) => e.branch);
     if (collisionBranches.length >= 2) {
+      sharedForkPoints = await forkPoints(
+        root,
+        [...collisionBranches, ...inFlightBranches],
+        mainBranch,
+      );
       const collisions = await fleetCollisions(
         root,
         collisionBranches,
         mainBranch,
         STATUS_OVERLAP_CAP,
+        sharedForkPoints,
       );
       if (collisions.length > 0) {
         data.fleet_collisions = collisions;
@@ -552,10 +567,15 @@ export async function statusResult(
   // the ones this session can renumber its way out of.
   let adrCollisions: AdrNumberCollision[] | undefined;
   if (includeFleet || location === "worktree") {
-    const inFlight = await prefixBranches(root, cfg.repository.branch_prefix);
-    if (inFlight.length >= 2) {
+    if (inFlightBranches.length >= 2) {
       const adrDir = `${cfg.map.dir.replace(/\/+$/, "")}/${ADR_SUBDIR}`;
-      let found = await adrNumberCollisions(root, inFlight, mainBranch, adrDir);
+      let found = await adrNumberCollisions(
+        root,
+        inFlightBranches,
+        mainBranch,
+        adrDir,
+        sharedForkPoints,
+      );
       if (!includeFleet) {
         const branch = git?.branch ?? "";
         found = found.filter((c) => c.branches.includes(branch));
