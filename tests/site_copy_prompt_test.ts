@@ -27,9 +27,7 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
   const window = dom.window as unknown as PromptWindow;
   const document = window.document;
   const prompts = [
-    ...document.querySelectorAll<HTMLElement>(
-      ".landing-prism__prompt, .landing-copy-prompt__text",
-    ),
+    ...document.querySelectorAll<HTMLElement>(".landing-copy-prompt__text"),
   ];
   const controls = [
     ...document.querySelectorAll<HTMLButtonElement>("[data-copy-prompt]"),
@@ -44,11 +42,7 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
     prompts.every((prompt) => prompt.closest("[hidden]") === null),
     "the approved prompt must remain visible and selectable without JavaScript",
   );
-  assertEquals(controls.length, 6);
-  assertEquals(
-    controls.map((control) => control.hidden),
-    [false, false, false, false, false, true],
-  );
+  assertEquals(controls.map((control) => control.hidden), [true, true]);
 
   const copied: string[] = [];
   let externalRequests = 0;
@@ -69,51 +63,19 @@ Deno.test("Copy prompt stays readable without JavaScript and copies the exact ap
   assertEquals(controls.map((control) => control.hidden), [
     false,
     false,
-    false,
-    false,
-    false,
-    false,
   ]);
-  controls[0]?.dispatchEvent(new dom.window.Event("mouseenter"));
-  assertEquals(controls[0]?.hasAttribute("data-prism-selected"), true);
-  assertEquals(
-    document.querySelector('[data-prism-beam="claude_code"]')?.hasAttribute(
-      "data-prism-selected",
-    ),
-    true,
-  );
-  assertEquals(
-    document.getElementById("hero-copy-prompt-status")?.textContent,
-    "Claude Code ready",
-  );
   controls[0]?.click();
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   assertEquals(copied, [COPY_PROMPT_TEXT]);
   assertEquals(externalRequests, 0);
   assertEquals(
-    controls[0]?.querySelector("[data-copy-prompt-label]")?.textContent,
-    "Claude Code prompt copied",
+    controls[0]?.querySelector(".discern-button__label")?.textContent,
+    "Prompt copied",
   );
   assertEquals(controls[0]?.hasAttribute("data-prompt-copied"), true);
   assertEquals(
     document.getElementById("hero-copy-prompt-status")?.textContent,
-    "Claude Code prompt copied",
-  );
-  assertEquals(
-    document.querySelector("[data-prism-instruction]")?.textContent,
-    "Prompt copied. Paste it into the agent.",
-  );
-
-  controls[5]?.click();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  assertEquals(copied, [COPY_PROMPT_TEXT, COPY_PROMPT_TEXT]);
-  assertEquals(
-    controls[5]?.querySelector(".discern-button__label")?.textContent,
-    "Prompt copied",
-  );
-  assertEquals(
-    document.getElementById("closing-copy-prompt-status")?.textContent,
     "Prompt copied",
   );
 

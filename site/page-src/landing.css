@@ -68,6 +68,8 @@
   .landing-hero {
     position: relative;
     isolation: isolate;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
     min-block-size: calc(100svh - 4.5rem);
     overflow: hidden;
     border-block-end: 1px solid var(--discern-color-border-strong);
@@ -77,15 +79,14 @@
   .landing-hero::before {
     position: absolute;
     z-index: -1;
-    inset: 50% -16rem auto auto;
-    inline-size: min(72vw, 66rem);
+    inset: -18rem -12rem auto auto;
+    inline-size: min(62vw, 52rem);
     aspect-ratio: 1;
     border-radius: 50%;
-    transform: translateY(-50%);
     background: radial-gradient(circle in oklab,
-      color-mix(in oklab, var(--discern-color-accent-300) 42%,
+      color-mix(in oklab, var(--discern-color-accent-300) 30%,
       var(--discern-color-canvas)) 0%,
-      color-mix(in oklab, var(--discern-color-accent-300) 18%,
+      color-mix(in oklab, var(--discern-color-accent-300) 14%,
       var(--discern-color-canvas)) 34%,
       color-mix(in oklab, var(--discern-color-accent-300) 4%,
       var(--discern-color-canvas)) 56%,
@@ -93,27 +94,11 @@
     content: "";
   }
 
-  .landing-hero::after {
-    position: absolute;
-    z-index: -1;
-    inset: 0;
-    background-image:
-      linear-gradient(color-mix(in oklab,
-      var(--discern-color-accent-500) 8%, transparent) 1px,
-      transparent 1px),
-      linear-gradient(90deg, color-mix(in oklab,
-      var(--discern-color-accent-500) 8%, transparent) 1px,
-      transparent 1px);
-    background-size: 4rem 4rem;
-    content: "";
-    mask-image: radial-gradient(circle at 78% 50%, black, transparent 54%);
-  }
-
   .landing-hero__inner {
     position: relative;
     z-index: 1;
     display: grid;
-    grid-template-columns: minmax(24rem, 0.88fr) minmax(31rem, 1.12fr);
+    grid-template-columns: minmax(0, 1fr) clamp(22rem, 31.5vw, 29.5rem);
     column-gap: clamp(1.5rem, 3vw, 3rem);
     row-gap: clamp(2.5rem, 6vw, 4rem);
     align-items: center;
@@ -124,7 +109,7 @@
   }
 
   .landing-hero__copy {
-    max-inline-size: 48rem;
+    max-inline-size: 52rem;
   }
 
   .landing-hero__eyebrow {
@@ -139,12 +124,16 @@
   }
 
   .landing-hero h1 {
-    max-inline-size: 12.5ch;
+    max-inline-size: 11.5ch;
     margin: 0;
-    font-size: clamp(3.65rem, 5.8vw, 6.5rem);
+    font-size: clamp(3.8rem, 7vw, 7.15rem);
     letter-spacing: -0.045em;
-    line-height: 0.93;
+    line-height: 0.91;
     text-wrap: balance;
+  }
+
+  .landing-hero__headline-turn {
+    display: block;
   }
 
   .landing-hero__standfirst {
@@ -154,6 +143,16 @@
     font-size: clamp(1.12rem, 1.75vw, 1.42rem);
     line-height: 1.5;
     text-wrap: pretty;
+  }
+
+  .landing-hero__category {
+    max-inline-size: 38rem;
+    margin: var(--discern-space-6) 0 0;
+    color: var(--discern-color-ink);
+    font-family: var(--discern-font-display);
+    font-size: clamp(1.25rem, 2vw, 1.65rem);
+    font-weight: var(--discern-font-weight-strong);
+    line-height: 1.25;
   }
 
   .landing-hero__facts {
@@ -176,389 +175,59 @@
   }
 
   .landing-hero__action {
-    min-inline-size: 0;
-  }
-
-  .landing-prism {
-    --landing-prism-cyan: #8ef2ff;
-    --landing-prism-violet: #b88cff;
-    --landing-prism-pink: #ff74c8;
-    position: relative;
-    isolation: isolate;
     display: grid;
-    gap: var(--discern-space-3);
-    min-inline-size: 0;
-    padding-block: var(--discern-space-4);
-  }
-
-  .landing-prism::before {
-    position: absolute;
-    z-index: -1;
-    inset: 17% 4% 10%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse in oklab,
-      color-mix(in oklab, var(--landing-prism-violet) 24%, transparent),
-      color-mix(in oklab, var(--landing-prism-cyan) 9%, transparent) 44%,
-      transparent 72%);
-    filter: blur(1.2rem);
-    content: "";
-  }
-
-  .landing-prism__header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
     gap: var(--discern-space-4);
-    padding-inline: clamp(0.25rem, 2vw, 1rem);
-    color: var(--discern-color-ink-faint);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(0.65rem, 1vw, 0.75rem);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
   }
 
-  .landing-prism__header p {
-    margin: 0;
-  }
-
-  .landing-prism__header p:last-child {
-    color: var(--discern-color-accent-700);
-    text-align: end;
-  }
-
-  .landing-prism__stage {
-    position: relative;
-    min-inline-size: 0;
-    aspect-ratio: 600 / 470;
-  }
-
-  .landing-prism__providers {
-    position: absolute;
-    z-index: 5;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  .landing-prism__provider {
-    position: absolute;
-    inset-block-start: 0;
-    inset-inline-start: calc(var(--landing-prism-position) * 1%);
-    display: grid;
-    gap: var(--discern-space-2);
-    justify-items: center;
-    inline-size: clamp(4.25rem, 8vw, 5.3rem);
-    margin: 0;
-    padding: 0;
-    transform: translateX(-50%);
-    border: 0;
-    background: transparent;
-    color: var(--discern-color-ink-muted);
-    cursor: pointer;
-    font: inherit;
-    pointer-events: auto;
-  }
-
-  .landing-provider-logo-frame {
+  .landing-hero__invitation {
     position: relative;
     display: grid;
-    place-items: center;
-    box-sizing: border-box;
-    inline-size: clamp(2.65rem, 5vw, 3.25rem);
-    aspect-ratio: 1;
+    gap: var(--discern-space-5);
     overflow: hidden;
-    border: 1px solid color-mix(in oklab,
-      var(--discern-color-accent-400) 46%, var(--discern-color-border));
-    border-radius: 50%;
-    background: #fff;
-    box-shadow:
-      0 0 0 0.28rem color-mix(in oklab,
-      var(--discern-color-canvas) 84%, transparent),
-      0 0 1.5rem color-mix(in oklab,
-      var(--landing-prism-violet) 28%, transparent);
-    transition:
-      border-color 180ms ease,
-      box-shadow 180ms ease,
-      transform 180ms ease;
+    padding: clamp(1.4rem, 3vw, 2.25rem);
+    border: 1px solid var(--discern-color-accent-300);
+    border-radius: var(--discern-radius-lg);
+    background:
+      linear-gradient(145deg,
+      color-mix(in oklab, var(--discern-color-accent-200) 84%, transparent),
+      transparent 64%),
+      var(--discern-color-surface);
+    box-shadow: var(--discern-shadow-window);
   }
 
-  .landing-provider-logo-frame::after {
+  .landing-hero__invitation::before {
     position: absolute;
-    inset: -45%;
-    transform: translateX(-82%) rotate(25deg);
-    background: linear-gradient(90deg,
-      transparent,
-      rgb(255 255 255 / 0.7),
-      transparent);
+    inset: 0 0 auto;
+    block-size: 0.25rem;
+    background: var(--discern-color-accent-600);
     content: "";
-    transition: transform 440ms ease;
   }
 
-  .landing-provider-logo {
-    display: block;
-    inline-size: 100%;
-    block-size: 100%;
-    padding: 0.28rem;
-    object-fit: contain;
+  .landing-hero__invitation h2 {
+    max-inline-size: 18ch;
+    margin: 0;
+    font-size: clamp(1.65rem, 2.4vw, 2.2rem);
+    letter-spacing: -0.025em;
+    line-height: 1.08;
+    text-wrap: balance;
   }
 
-  .landing-prism__provider-name {
-    max-inline-size: 100%;
-    font-family: var(--discern-font-ui);
-    font-feature-settings: var(--discern-font-features-ui);
-    font-size: clamp(0.58rem, 1vw, 0.7rem);
-    font-weight: var(--discern-font-weight-strong);
-    line-height: 1.1;
-    text-align: center;
+  .landing-hero__invitation h2 + p {
+    margin: var(--discern-space-3) 0 0;
+    color: var(--discern-color-ink-muted);
+    line-height: 1.55;
   }
 
-  .landing-prism__provider:hover .landing-provider-logo-frame,
-  .landing-prism__provider:focus-visible .landing-provider-logo-frame,
-  .landing-prism__provider[data-prism-selected] .landing-provider-logo-frame {
-    transform: translateY(-0.2rem) scale(1.08);
-    border-color: var(--landing-prism-cyan);
-    box-shadow:
-      0 0 0 0.32rem color-mix(in oklab,
-      var(--discern-color-canvas) 78%, transparent),
-      0 0 0.9rem var(--landing-prism-cyan),
-      0 0 2.3rem color-mix(in oklab,
-      var(--landing-prism-violet) 78%, transparent);
-  }
-
-  .landing-prism__provider:hover .landing-provider-logo-frame::after,
-  .landing-prism__provider:focus-visible .landing-provider-logo-frame::after,
-  .landing-prism__provider[data-prism-selected] .landing-provider-logo-frame::after {
-    transform: translateX(82%) rotate(25deg);
-  }
-
-  .landing-prism__provider:focus-visible {
-    border-radius: var(--discern-radius-sm);
-    outline: 2px solid var(--discern-color-focus);
-    outline-offset: 0.35rem;
-  }
-
-  .landing-prism__provider[data-prompt-copied] .landing-provider-logo-frame {
-    border-color: var(--discern-color-success);
-    box-shadow:
-      0 0 0 0.32rem color-mix(in oklab,
-      var(--discern-color-canvas) 78%, transparent),
-      0 0 1rem var(--discern-color-success),
-      0 0 2.6rem color-mix(in oklab,
-      var(--landing-prism-cyan) 82%, transparent);
-  }
-
-  .landing-prism__art {
-    position: absolute;
-    inset: 0;
-    display: block;
-    inline-size: 100%;
-    block-size: 100%;
-    overflow: visible;
-  }
-
-  .landing-prism__grid path {
-    fill: none;
-    stroke: color-mix(in oklab,
-      var(--discern-color-accent-500) 15%, transparent);
-    stroke-width: 0.7;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .landing-prism__beam-rail,
-  .landing-prism__beam-energy {
-    fill: none;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .landing-prism__beam-rail {
-    stroke: color-mix(in oklab,
-      var(--landing-prism-violet) 28%, transparent);
-    stroke-width: 1;
-  }
-
-  .landing-prism__beam-energy {
-    animation: landing-prism-beam 1.55s linear infinite;
-    animation-delay: var(--landing-prism-delay);
-    filter: url("#landing-prism-glow");
-    stroke: url("#landing-prism-beam");
-    stroke-dasharray: 2 15;
-    stroke-linecap: round;
-    stroke-width: 2;
-  }
-
-  .landing-prism__beam[data-prism-selected] .landing-prism__beam-energy {
-    animation-duration: 0.72s;
-    stroke-dasharray: 8 9;
-    stroke-width: 4;
-  }
-
-  .landing-prism__triangle-glow {
-    fill: color-mix(in oklab, var(--landing-prism-violet) 10%, transparent);
-    filter: url("#landing-prism-glow");
-    stroke: color-mix(in oklab,
-      var(--landing-prism-violet) 52%, transparent);
-    stroke-width: 4;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .landing-prism__triangle {
-    stroke: color-mix(in oklab,
-      var(--landing-prism-cyan) 58%, var(--discern-color-accent-500));
-    stroke-width: 1.4;
-    transition: fill 220ms ease, stroke 220ms ease;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .landing-prism__triangle--left {
-    fill: url("#landing-prism-left");
-  }
-
-  .landing-prism__triangle--right {
-    fill: url("#landing-prism-right");
-  }
-
-  .landing-prism__facet {
-    fill: none;
-    stroke: color-mix(in oklab,
-      var(--landing-prism-cyan) 26%, transparent);
-    stroke-width: 0.8;
-    vector-effect: non-scaling-stroke;
-  }
-
-  .landing-prism__apex-glow {
-    fill: url("#landing-prism-core");
-    filter: url("#landing-prism-glow");
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: landing-prism-apex 2.2s ease-in-out infinite;
-  }
-
-  .landing-prism__apex {
-    fill: #fff;
-    filter: url("#landing-prism-glow");
-  }
-
-  .landing-prism[data-prism-engaged] .landing-prism__triangle {
-    stroke: var(--landing-prism-cyan);
-  }
-
-  .landing-prism[data-prism-engaged] .landing-prism__triangle--left {
-    fill: color-mix(in oklab,
-      var(--landing-prism-violet) 28%, transparent);
-  }
-
-  .landing-prism[data-prism-engaged] .landing-prism__triangle--right {
-    fill: color-mix(in oklab,
-      var(--landing-prism-cyan) 22%, transparent);
-  }
-
-  .landing-prism__core {
-    position: absolute;
-    z-index: 3;
-    inset-block-start: 61%;
-    inset-inline-start: 50%;
-    display: grid;
-    justify-items: center;
-    transform: translate(-50%, -50%);
+  .landing-hero__invitation .landing-copy-prompt__text {
+    border-color: color-mix(in oklab,
+      var(--discern-color-accent-400) 42%, var(--discern-color-border));
+    background: color-mix(in oklab, var(--discern-color-canvas) 84%,
+      transparent);
     color: var(--discern-color-ink);
-    text-align: center;
-    text-shadow: 0 0 1.2rem color-mix(in oklab,
-      var(--landing-prism-violet) 76%, transparent);
   }
 
-  .landing-prism__mark {
-    color: var(--discern-color-accent-700);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(3.6rem, 8vw, 5.6rem);
-    line-height: 0.75;
-  }
-
-  .landing-prism__name {
-    font-family: var(--discern-font-mono);
-    font-size: clamp(1.1rem, 2vw, 1.45rem);
-    font-weight: var(--discern-font-weight-strong);
-    letter-spacing: -0.035em;
-  }
-
-  .landing-prism__core-label {
-    margin-block-start: var(--discern-space-2);
-    color: var(--discern-color-ink-faint);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(0.52rem, 0.9vw, 0.65rem);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .landing-prism__readout {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: var(--discern-space-4);
-    align-items: start;
-    padding: var(--discern-space-3) clamp(0.25rem, 2vw, 1rem);
-    border-block: 1px solid color-mix(in oklab,
-      var(--discern-color-accent-500) 28%, var(--discern-color-border));
-    background: linear-gradient(90deg,
-      transparent,
-      color-mix(in oklab, var(--discern-color-accent-200) 28%, transparent),
-      transparent);
-  }
-
-  .landing-prism__readout-label,
-  .landing-prism__status {
-    color: var(--discern-color-accent-700);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(0.58rem, 0.9vw, 0.68rem);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .landing-prism__readout-label {
-    padding-block-start: 0.16rem;
-    white-space: nowrap;
-  }
-
-  .landing-prism__prompt {
-    margin: 0;
-    color: var(--discern-color-ink-muted);
-    font-family: var(--discern-font-mono);
-    font-size: clamp(0.61rem, 1vw, 0.72rem);
-    line-height: 1.45;
-    text-wrap: pretty;
-    user-select: text;
-  }
-
-  .landing-prism__status {
-    min-block-size: 1.2em;
-    margin: 0;
-    padding-inline: clamp(0.25rem, 2vw, 1rem);
-    text-align: end;
-  }
-
-  .landing-visually-hidden {
-    position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  @keyframes landing-prism-beam {
-    to {
-      stroke-dashoffset: -34;
-    }
-  }
-
-  @keyframes landing-prism-apex {
-    0%,
-    100% {
-      transform: scale(0.78);
-      opacity: 0.55;
-    }
-
-    50% {
-      transform: scale(1.12);
-      opacity: 1;
-    }
+  .landing-hero__invitation .landing-copy-prompt__button {
+    justify-self: stretch;
   }
 
   .landing-copy-prompt {
@@ -972,15 +641,43 @@
     text-wrap: balance;
   }
 
+  .landing-integrations {
+    position: relative;
+    z-index: 1;
+    width: min(100% - 2 * var(--discern-space-6), 86rem);
+    margin-block: 0;
+    margin-inline: auto;
+    padding-block: var(--discern-space-8);
+  }
+
+  .landing-provider-logo-frame {
+    position: relative;
+    inset-block-start: -3px;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    overflow: hidden;
+    border-radius: var(--discern-radius-xs);
+    background: #fff;
+  }
+
+  .landing-provider-logo {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    padding: 0.125rem;
+    object-fit: contain;
+  }
+
   html[data-discern-theme="dark"] .landing-provider-logo-frame {
-    background: color-mix(in oklab,
-      var(--discern-color-canvas) 72%, transparent);
+    background: transparent;
   }
 
   html[data-discern-theme="dark"] .landing-provider-logo-frame::before {
     position: absolute;
-    z-index: 1;
-    inset: 0.38rem;
+    inset: 0.125rem;
     background: currentColor;
     content: "";
     -webkit-mask: var(--landing-provider-logo-mask) center / contain no-repeat;
@@ -1103,8 +800,7 @@
     }
 
     .landing-hero__action {
-      inline-size: min(100%, 44rem);
-      justify-self: center;
+      max-inline-size: 42rem;
     }
 
     .landing-split--reverse > :first-child,
@@ -1137,6 +833,7 @@
   @media (max-width: 780px) {
     .landing-masthead__inner,
     .landing-hero__inner,
+    .landing-integrations,
     .landing-section__inner {
       width: min(100% - 2 * var(--discern-space-4), 86rem);
     }
@@ -1146,7 +843,7 @@
     }
 
     .landing-hero h1 {
-      font-size: clamp(3.25rem, 14vw, 5.5rem);
+      font-size: clamp(3.45rem, 16vw, 5.75rem);
     }
 
     .landing-section__header {
@@ -1209,34 +906,8 @@
       padding-block: var(--discern-space-12);
     }
 
-    .landing-prism__header {
-      display: grid;
-      justify-items: start;
-    }
-
-    .landing-prism__header p:last-child {
-      text-align: start;
-    }
-
-    .landing-prism__provider {
-      inline-size: min(4.25rem, 18vw);
-    }
-
-    .landing-provider-logo-frame {
-      inline-size: min(2.65rem, 12vw);
-    }
-
-    .landing-prism__provider-name {
-      font-size: clamp(0.5rem, 2.2vw, 0.62rem);
-    }
-
-    .landing-prism__readout {
-      grid-template-columns: 1fr;
-      gap: var(--discern-space-2);
-    }
-
-    .landing-prism__status {
-      text-align: start;
+    .landing-hero__invitation {
+      padding: var(--discern-space-4);
     }
 
     .landing-section__inner {
@@ -1297,17 +968,6 @@
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
-    }
-
-    .landing-prism__beam-energy,
-    .landing-prism__apex-glow {
-      animation: none;
-    }
-
-    .landing-provider-logo-frame,
-    .landing-provider-logo-frame::after,
-    .landing-prism__triangle {
-      transition: none;
     }
   }
 }

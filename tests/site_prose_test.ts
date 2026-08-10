@@ -49,7 +49,7 @@ Deno.test("the homepage projection measures authored prose once and excludes cod
   assert(homepage !== undefined);
   assertStringIncludes(
     homepage.prose,
-    "An engineering practice for agent-built software",
+    "Build further. Stand behind what comes back.",
   );
   assertStringIncludes(
     homepage.prose,
@@ -63,7 +63,7 @@ Deno.test("the homepage projection measures authored prose once and excludes cod
   assertEquals(homepage.prose.includes(INSTALL_COMMAND), false);
   assertEquals(homepage.prose.includes("9 August 2026"), false);
   assertEquals(homepage.prose.includes("customer benchmark"), false);
-  assertEquals(siteProseReadingGrade(pages), 8.36);
+  assertEquals(siteProseReadingGrade(pages), 8.4);
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {
