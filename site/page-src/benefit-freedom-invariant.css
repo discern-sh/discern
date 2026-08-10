@@ -128,18 +128,13 @@
     overflow: hidden;
     background:
       radial-gradient(circle at 50% 50%,
-      color-mix(in oklab, var(--discern-color-accent-100) 46%, transparent),
-      transparent 31%),
-      var(--discern-color-surface-sunken);
-  }
-
-  .freedom-invariant__artboard::before {
-    position: absolute;
-    inset: var(--discern-space-5);
-    border: 1px solid color-mix(in oklab, var(--discern-color-border) 52%,
-      transparent);
-    content: "";
-    pointer-events: none;
+      color-mix(in oklab, var(--discern-color-accent-100) 28%, transparent),
+      transparent 35%),
+      linear-gradient(180deg,
+      color-mix(in oklab, var(--discern-color-canvas) 94%,
+      var(--discern-color-surface-sunken)),
+      color-mix(in oklab, var(--discern-color-canvas) 80%,
+      var(--discern-color-surface-sunken)));
   }
 
   .freedom-invariant__art {
@@ -147,6 +142,7 @@
     width: min(100%, 46rem);
     height: auto;
     overflow: visible;
+    shape-rendering: geometricPrecision;
   }
 
   .freedom-invariant__frame {
@@ -154,37 +150,55 @@
     stroke: var(--discern-color-ink-faint);
     stroke-linecap: square;
     stroke-linejoin: miter;
-    stroke-width: 1.1;
+    stroke-width: 0.9;
     vector-effect: non-scaling-stroke;
     transform-box: view-box;
     transform-origin: center;
   }
 
   .freedom-invariant__frame--cartesian {
-    opacity: 0.5;
-    animation: freedom-invariant-cartesian 11s cubic-bezier(0.45, 0, 0.2, 1)
+    opacity: 0.46;
+    transform: none;
+    animation: freedom-invariant-cartesian 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
   }
 
   .freedom-invariant__frame--oblique {
-    opacity: 0.36;
-    animation: freedom-invariant-oblique 11s cubic-bezier(0.45, 0, 0.2, 1)
+    opacity: 0.3;
+    transform: none;
+    animation: freedom-invariant-oblique 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
   }
 
   .freedom-invariant__frame--radial {
-    opacity: 0.4;
-    animation: freedom-invariant-radial 11s cubic-bezier(0.45, 0, 0.2, 1)
+    opacity: 0.38;
+    transform: none;
+    animation: freedom-invariant-radial 12s cubic-bezier(0.45, 0, 0.2, 1)
       infinite;
+  }
+
+  .freedom-invariant__radial-ring--outer {
+    stroke-opacity: 0.84;
+  }
+
+  .freedom-invariant__radial-ring--inner {
+    stroke-opacity: 0.42;
+  }
+
+  .freedom-invariant__radial-tick {
+    stroke-linecap: round;
+    stroke-opacity: 0.78;
+    stroke-width: 1.05;
   }
 
   .freedom-invariant__bloom {
     fill: var(--discern-color-accent-500);
-    opacity: 0.09;
+    opacity: 0.035;
     filter: blur(15px);
     transform-box: fill-box;
     transform-origin: center;
-    animation: freedom-invariant-bloom 11s ease-in-out infinite;
+    transform: scale(0.68);
+    animation: freedom-invariant-bloom 12s ease-in-out infinite;
   }
 
   .freedom-invariant__core-ground {
@@ -199,13 +213,13 @@
     fill: none;
     stroke: var(--discern-color-ink);
     stroke-linejoin: miter;
-    stroke-width: 1.4;
+    stroke-width: 1.25;
     vector-effect: non-scaling-stroke;
   }
 
   .freedom-invariant__core-split {
     stroke: var(--discern-color-accent-600);
-    stroke-width: 1;
+    stroke-width: 0.9;
     vector-effect: non-scaling-stroke;
   }
 
@@ -220,85 +234,101 @@
 
   @keyframes freedom-invariant-cartesian {
     0%,
-    16%,
+    12%,
+    88%,
     100% {
-      opacity: 0.68;
-      transform: rotate(0deg) skew(0deg) scale(1);
+      opacity: 0.46;
+      transform: none;
     }
 
-    38% {
-      opacity: 0.2;
-      transform: rotate(9deg) skewX(-5deg) scale(0.94, 0.9);
+    32% {
+      opacity: 0.24;
+      transform: rotate(8deg) skewX(-4deg) scale(0.97, 0.93);
     }
 
-    66% {
-      opacity: 0.12;
-      transform: rotate(18deg) skewX(-9deg) scale(0.88, 0.82);
+    56% {
+      opacity: 0.13;
+      transform: rotate(17deg) skewX(-8deg) scale(0.91, 0.86);
     }
 
-    86% {
+    72% {
       opacity: 0.28;
-      transform: rotate(5deg) skewX(-2deg) scale(0.96);
+      transform: rotate(7deg) skewX(-3deg) scale(0.96, 0.93);
     }
   }
 
   @keyframes freedom-invariant-oblique {
     0%,
     12%,
+    88%,
     100% {
-      opacity: 0.16;
-      transform: rotate(-14deg) scale(0.9);
-    }
-
-    35%,
-    49% {
-      opacity: 0.66;
-      transform: rotate(0deg) scale(1);
-    }
-
-    68% {
       opacity: 0.3;
-      transform: rotate(12deg) scale(0.95);
+      transform: none;
     }
 
-    86% {
-      opacity: 0.14;
-      transform: rotate(23deg) scale(0.88);
+    30% {
+      opacity: 0.6;
+      transform: rotate(-9deg) scale(0.96, 1.02);
+    }
+
+    54% {
+      opacity: 0.32;
+      transform: rotate(-19deg) scale(0.9, 1.04);
+    }
+
+    72% {
+      opacity: 0.48;
+      transform: rotate(-8deg) scale(0.97);
     }
   }
 
   @keyframes freedom-invariant-radial {
     0%,
-    34%,
+    12%,
+    88%,
     100% {
-      opacity: 0.13;
-      transform: rotate(-24deg) scale(0.86);
+      opacity: 0.38;
+      transform: none;
     }
 
-    57%,
-    74% {
-      opacity: 0.64;
-      transform: rotate(0deg) scale(1);
-    }
-
-    90% {
+    30% {
       opacity: 0.2;
-      transform: rotate(22deg) scale(0.9);
+      transform: rotate(15deg) scale(0.95);
+    }
+
+    56% {
+      opacity: 0.66;
+      transform: rotate(31deg) scale(1.02);
+    }
+
+    72% {
+      opacity: 0.34;
+      transform: rotate(13deg) scale(0.98);
     }
   }
 
   @keyframes freedom-invariant-bloom {
     0%,
-    40%,
+    16%,
+    84%,
     100% {
-      opacity: 0.04;
-      transform: scale(0.72);
+      opacity: 0.035;
+      transform: scale(0.68);
     }
 
-    61%,
-    72% {
-      opacity: 0.14;
+    42% {
+      opacity: 0.08;
+      transform: scale(0.82);
+    }
+
+    56% {
+      opacity: 0.135;
       transform: scale(1);
+    }
+
+    72% {
+      opacity: 0.075;
+      transform: scale(0.8);
     }
   }
 
@@ -348,10 +378,13 @@
     .freedom-invariant__artboard {
       min-block-size: clamp(18rem, 94vw, 29rem);
     }
+  }
 
-    .freedom-invariant__artboard::before {
-      inset: var(--discern-space-3);
-    }
+  .freedom-invariant__page[data-motion="reduce"] .freedom-invariant__frame--cartesian,
+  .freedom-invariant__page[data-motion="reduce"] .freedom-invariant__frame--oblique,
+  .freedom-invariant__page[data-motion="reduce"] .freedom-invariant__frame--radial,
+  .freedom-invariant__page[data-motion="reduce"] .freedom-invariant__bloom {
+    animation: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -360,26 +393,6 @@
     .freedom-invariant__frame--radial,
     .freedom-invariant__bloom {
       animation: none;
-    }
-
-    .freedom-invariant__frame--cartesian {
-      opacity: 0.5;
-      transform: none;
-    }
-
-    .freedom-invariant__frame--oblique {
-      opacity: 0.36;
-      transform: none;
-    }
-
-    .freedom-invariant__frame--radial {
-      opacity: 0.4;
-      transform: none;
-    }
-
-    .freedom-invariant__bloom {
-      opacity: 0.09;
-      transform: none;
     }
   }
 }

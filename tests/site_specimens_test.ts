@@ -73,6 +73,11 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   assertEquals(root.headers.get("x-robots-tag"), "noindex, nofollow");
   assertStringIncludes(await root.text(), "Freedom of movement");
 
+  const reducedRoot = await specimenHandler(
+    new Request("http://localhost/?motion=reduce"),
+  );
+  assertStringIncludes(await reducedRoot.text(), 'data-motion="reduce"');
+
   const stylesheet = await specimenHandler(
     new Request(`http://localhost${SPECIMEN_STYLESHEET_PATH}`),
   );

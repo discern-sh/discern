@@ -7,6 +7,20 @@ interface FreedomOfMovementArtProps {
   readonly idPrefix: string;
 }
 
+const ART_CENTER = { x: 360, y: 280 } as const;
+
+/** Eight short marks constrained to the outer ring's circumference annulus. */
+const RADIAL_TICKS = [
+  { x1: 360, y1: 126, x2: 360, y2: 112 },
+  { x1: 468.9, y1: 171.1, x2: 478.8, y2: 161.2 },
+  { x1: 514, y1: 280, x2: 528, y2: 280 },
+  { x1: 468.9, y1: 388.9, x2: 478.8, y2: 398.8 },
+  { x1: 360, y1: 434, x2: 360, y2: 448 },
+  { x1: 251.1, y1: 388.9, x2: 241.2, y2: 398.8 },
+  { x1: 206, y1: 280, x2: 192, y2: 280 },
+  { x1: 251.1, y1: 171.1, x2: 241.2, y2: 161.2 },
+] as const;
+
 /**
  * Draw three changing coordinate systems around one fixed split triangle.
  * The core is intentionally outside the transforming apparatus group.
@@ -23,6 +37,8 @@ export function FreedomOfMovementArt(
       viewBox="0 0 720 560"
       role="img"
       aria-labelledby={`${titleId} ${descriptionId}`}
+      data-art-center-x={ART_CENTER.x}
+      data-art-center-y={ART_CENTER.y}
     >
       <title id={titleId}>Freedom of movement: invariant core</title>
       <desc id={descriptionId}>
@@ -60,9 +76,31 @@ export function FreedomOfMovementArt(
           className="freedom-invariant__frame freedom-invariant__frame--radial"
           data-coordinate-frame="radial"
         >
-          <circle cx="360" cy="280" r="156" />
-          <circle cx="360" cy="280" r="92" />
-          <path d="M 360 104 V 128 M 360 432 V 456 M 184 280 H 208 M 512 280 H 536 M 235.5 155.5 L 252.5 172.5 M 467.5 387.5 L 484.5 404.5 M 484.5 155.5 L 467.5 172.5 M 252.5 387.5 L 235.5 404.5" />
+          <circle
+            className="freedom-invariant__radial-ring freedom-invariant__radial-ring--outer"
+            data-radial-ring
+            cx={ART_CENTER.x}
+            cy={ART_CENTER.y}
+            r="162"
+          />
+          <circle
+            className="freedom-invariant__radial-ring freedom-invariant__radial-ring--inner"
+            data-radial-ring
+            cx={ART_CENTER.x}
+            cy={ART_CENTER.y}
+            r="106"
+          />
+          {RADIAL_TICKS.map((tick, index) => (
+            <line
+              className="freedom-invariant__radial-tick"
+              data-radial-tick
+              x1={tick.x1}
+              y1={tick.y1}
+              x2={tick.x2}
+              y2={tick.y2}
+              key={index}
+            />
+          ))}
         </g>
       </g>
 
@@ -77,26 +115,27 @@ export function FreedomOfMovementArt(
       <g
         className="freedom-invariant__core"
         data-invariant-core
+        transform={`translate(${ART_CENTER.x} ${ART_CENTER.y})`}
         aria-hidden="true"
       >
         <path
           className="freedom-invariant__core-ground"
-          d="M 360 253 L 384 296 H 336 Z"
+          d="M 0 -27 L 27 21 H -27 Z"
         />
         <path
           className="freedom-invariant__core-fill"
-          d="M 360 253 L 384 296 H 360 Z"
+          d="M 0 -27 L 27 21 H 0 Z"
         />
         <path
           className="freedom-invariant__core-outline"
-          d="M 360 253 L 384 296 H 336 Z"
+          d="M 0 -27 L 27 21 H -27 Z"
         />
         <line
           className="freedom-invariant__core-split"
-          x1="360"
-          y1="253"
-          x2="360"
-          y2="296"
+          x1="0"
+          y1="-27"
+          x2="0"
+          y2="21"
         />
       </g>
     </svg>

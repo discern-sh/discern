@@ -69,7 +69,9 @@ export async function specimenHandler(request: Request): Promise<Response> {
   }
   const body = request.method === "HEAD"
     ? null
-    : renderFreedomInvariantPreview();
+    : renderFreedomInvariantPreview({
+      reducedMotion: url.searchParams.get("motion") === "reduce",
+    });
   return new Response(body, {
     status: 200,
     headers: {

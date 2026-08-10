@@ -9,6 +9,14 @@ import { FreedomOfMovementArt } from "./benefit-freedom-invariant.tsx";
 
 const PREVIEW_THEMES = ["light", "dark"] as const;
 
+interface FreedomInvariantPreviewProps {
+  readonly reducedMotion: boolean;
+}
+
+interface FreedomInvariantPreviewOptions {
+  readonly reducedMotion?: boolean;
+}
+
 /** Reserve monospace for the product name, as required by the brand canon. */
 function DiscernName(): ReactNode {
   return <span className="freedom-invariant__brand-name">discern</span>;
@@ -37,9 +45,14 @@ function ThemeStudy(
 }
 
 /** The focused dual-theme study page used only by the specimen server. */
-function FreedomInvariantPreview(): ReactNode {
+function FreedomInvariantPreview(
+  { reducedMotion }: FreedomInvariantPreviewProps,
+): ReactNode {
   return (
-    <div className="freedom-invariant__page">
+    <div
+      className="freedom-invariant__page"
+      data-motion={reducedMotion ? "reduce" : undefined}
+    >
       <SkipLink href="#freedom-invariant-study">Skip to the study</SkipLink>
       <header className="freedom-invariant__masthead">
         <Brand
@@ -93,7 +106,9 @@ function FreedomInvariantPreview(): ReactNode {
 }
 
 /** Render the focused study with the shared static document shell. */
-export function renderFreedomInvariantPreview(): string {
+export function renderFreedomInvariantPreview(
+  options: FreedomInvariantPreviewOptions = {},
+): string {
   return pageDocument({
     source: "benefit-freedom-invariant-preview.tsx",
     title: "Freedom of movement study · discern",
@@ -106,6 +121,10 @@ export function renderFreedomInvariantPreview(): string {
       "benefit-freedom-invariant.css",
     ],
     scripts: [],
-    body: renderToStaticMarkup(<FreedomInvariantPreview />),
+    body: renderToStaticMarkup(
+      <FreedomInvariantPreview
+        reducedMotion={options.reducedMotion ?? false}
+      />,
+    ),
   });
 }
