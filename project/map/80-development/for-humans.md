@@ -60,7 +60,7 @@ deno task art --animate
 
 Motion is opt-in. A pipe, CI run, `TERM=dumb`, or terminal without a spare wrapping row and column receives the static gallery with no cursor controls. If the terminal becomes too small during playback, the command stops redrawing and prints the static gallery below the existing output.
 
-[`scripts/art.ts`](../../../scripts/art.ts) provides this maintainer helper. It sits outside the discern CLI verbs, Gate jobs, templates, and compiled-binary surfaces. The art-variant registry in [`brand_art.ts`](../../../src/shared/brand_art.ts) and motif registry in [`triangle_art.ts`](../../../src/lib/triangle_art.ts) own membership. The motif registry also exports the pure frame functions for reuse. Add a new design to its owning registry with static and animated renderers. Both gallery projections then include it automatically.
+[`scripts/art.ts`](../../../scripts/art.ts) is the thin task entrypoint for the maintainer helper. The implementation lives beside the art it previews in [`art/terminal/`](../../../art/terminal/), outside the discern CLI verbs, Gate jobs, templates, and compiled-binary surfaces. The variant registry in [`brand.ts`](../../../art/terminal/brand.ts) and motif registry in [`triangle.ts`](../../../art/terminal/triangle.ts) own membership. The motif registry also exports the pure frame functions for reuse. Add a new design to its owning registry with static and animated renderers. Both gallery projections then include it automatically.
 
 ## Inspecting the MCP server
 

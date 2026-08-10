@@ -6,7 +6,7 @@ import {
   type DiscernArtStyle,
   renderDiscernArt,
   renderDiscernArtAnimation,
-} from "../src/shared/brand_art.ts";
+} from "../art/terminal/brand.ts";
 
 interface ExpectedMotion {
   readonly frameCount: number;

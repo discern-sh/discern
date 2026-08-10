@@ -49,8 +49,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`worktree-tokens`](#worktree-tokens--worktree-adapter-tokens)                                                        | `src/engine/worktree/tokens.ts#WORKTREE_TOKENS`                                   | 7       | —                | node `worktree-resources`   |
 | [`hints`](#hints--hints)                                                                                              | `src/shared/hints.ts#HINTS`                                                       | 167     | "Advisory"       | node `hints`                |
 | [`tips`](#tips--tips)                                                                                                 | `src/shared/tips.ts#TIPS`                                                         | 42      | "Tip"            | node `tips`                 |
-| [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `src/shared/brand_art.ts#DISCERN_ART_VARIANTS`                                    | 13      | —                | —                           |
-| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `src/lib/triangle_art.ts#DISCERN_TRIANGLE_MOTIFS`                                 | 10      | —                | —                           |
+| [`terminal-art-variants`](#terminal-art-variants--terminal-art-variants)                                              | `art/terminal/brand.ts#DISCERN_ART_VARIANTS`                                      | 13      | —                | —                           |
+| [`terminal-triangle-motifs`](#terminal-triangle-motifs--terminal-triangle-motifs)                                     | `art/terminal/triangle.ts#DISCERN_TRIANGLE_MOTIFS`                                | 10      | —                | —                           |
 | [`failure-recovery-evidence`](#failure-recovery-evidence--generic-failure-recovery-evidence)                          | `src/shared/hints.ts#FAILURE_RECOVERY_EVIDENCE`                                   | 2       | —                | node `hints`                |
 | [`error-failure-recovery`](#error-failure-recovery--error-family-failure-recovery)                                    | `src/shared/hints.ts#ERROR_FAILURE_RECOVERY`                                      | 64      | —                | node `hints`                |
 | [`logbook-outcomes`](#logbook-outcomes--logbook-outcomes)                                                             | `src/engine/logbook/schema.ts#LOGBOOK_OUTCOMES`                                   | 4       | —                | node `logbook`              |
@@ -85,7 +85,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`first-party-legal-documents`](#first-party-legal-documents--first-party-legal-documents)                            | `src/shared/license_registry.ts#FIRST_PARTY_LEGAL_DOCUMENTS`                      | 3       | —                | node `licenses`             |
 | [`third-party-artifacts`](#third-party-artifacts--third-party-artifacts)                                              | `src/shared/third_party_codegen.ts#THIRD_PARTY_ARTIFACT_PATHS`                    | 3       | —                | node `licenses`             |
 | [`spawn-surfaces`](#spawn-surfaces--spawn-surfaces)                                                                   | `tests/spawn_surfaces.ts#SPAWN_HOMES`                                             | 9       | —                | node `interruption-safety`  |
-| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 6       | —                | —                           |
+| [`authored-ts-universe`](#authored-ts-universe--authored-typescript-universe)                                         | `tests/repo_authored_paths.ts#AUTHORED_TS_ROOTS`                                  | 7       | —                | —                           |
 | [`artifact-validators`](#artifact-validators--artifact-validators)                                                    | `tests/validator_registry.ts#ARTIFACT_VALIDATORS`                                 | 9       | —                | —                           |
 | [`canonical-sets`](#canonical-sets--canonical-sets)                                                                   | `scripts/canonical_sets.ts#CANONICAL_SETS`                                        | 76      | —                | node `canonical-sets`       |
 
@@ -1197,7 +1197,7 @@ The Desk tip registry: every teaching line the Desk can show enters through it, 
 
 The named terminal-art family: every static renderer carries one semantic animation timeline and enters both maintainer gallery projections.
 
-- Source: `src/shared/brand_art.ts` — `DISCERN_ART_VARIANTS`
+- Source: `art/terminal/brand.ts` — `DISCERN_ART_VARIANTS`
 - Members: 13
   - `compact`
   - `split`
@@ -1220,7 +1220,7 @@ The named terminal-art family: every static renderer carries one semantic animat
 
 The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.
 
-- Source: `src/lib/triangle_art.ts` — `DISCERN_TRIANGLE_MOTIFS`
+- Source: `art/terminal/triangle.ts` — `DISCERN_TRIANGLE_MOTIFS`
 - Members: 10
   - `divider`
   - `ribbon`
@@ -2460,7 +2460,8 @@ Every file permitted to spawn a subprocess, with the interrupt contract each one
 The top-level trees holding authored TypeScript define the scan universe for repository-wide structural sweeps. Members are stable roots. The `AUTHORED_TS_FILES` export derives its file list from Git at import time, so the atlas counts roots.
 
 - Source: `tests/repo_authored_paths.ts` — `AUTHORED_TS_ROOTS`
-- Members: 6
+- Members: 7
+  - `art`
   - `project`
   - `scripts`
   - `site`

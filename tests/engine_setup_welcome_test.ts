@@ -17,7 +17,7 @@ import { withTempDir } from "./helpers.ts";
 import { gitInit, runAgent, scaffoldEngine } from "./engine_helpers.ts";
 import { SOURCE_PATHS } from "../src/shared/paths_registry.ts";
 import { DISCERN_MARK } from "../src/shared/brand.ts";
-import { renderDiscernArt } from "../src/shared/brand_art.ts";
+import { renderDiscernArt } from "../art/terminal/brand.ts";
 import {
   SetupDoneOutputSchema,
   SetupVerifyOutputSchema,

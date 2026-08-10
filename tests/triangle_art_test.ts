@@ -15,7 +15,7 @@ import {
   renderTriangleSectionRule,
   renderTriangleSpinnerFrame,
   renderTriangleStepper,
-} from "../src/lib/triangle_art.ts";
+} from "../art/terminal/triangle.ts";
 import { displayWidth } from "../src/lib/text.ts";
 
 const DIVIDER = "◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨◮⧩◭⧨";

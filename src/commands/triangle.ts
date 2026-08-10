@@ -11,7 +11,7 @@ import { Logger } from "../lib/log.ts";
 import type { DiscernResult } from "../shared/result.ts";
 import type { TriangleData } from "../shared/result_schemas.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../shared/brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../../art/terminal/triangle.ts";
 import {
   planTerminalPlayback,
   type TerminalPlaybackPlan,

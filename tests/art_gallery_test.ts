@@ -15,8 +15,8 @@ import {
   planArtCommand,
   renderArtGallery,
 } from "../scripts/art.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
-import { DISCERN_ART_VARIANTS } from "../src/shared/brand_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../art/terminal/triangle.ts";
+import { DISCERN_ART_VARIANTS } from "../art/terminal/brand.ts";
 
 const REPO_ROOT = dirname(dirname(fromFileUrl(import.meta.url)));
 const DECODER = new TextDecoder();

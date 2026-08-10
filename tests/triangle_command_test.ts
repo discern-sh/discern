@@ -13,7 +13,7 @@ import {
   triangleResult,
 } from "../src/commands/triangle.ts";
 import { DISCERN_MARK, DISCERN_WORDMARK } from "../src/shared/brand.ts";
-import { DISCERN_TRIANGLE_MOTIFS } from "../src/lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_MOTIFS } from "../art/terminal/triangle.ts";
 import type { TerminalAnimationEnvironment } from "../src/lib/terminal_animation.ts";
 
 const CAPABLE_TERMINAL: TerminalAnimationEnvironment = {

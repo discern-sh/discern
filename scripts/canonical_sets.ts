@@ -1180,7 +1180,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "The named terminal-art family: every static renderer carries one semantic animation timeline and enters both maintainer gallery projections.",
     source: {
       kind: "module",
-      module: "src/shared/brand_art.ts",
+      module: "art/terminal/brand.ts",
       exportName: "DISCERN_ART_VARIANTS",
     },
     guards: [
@@ -1200,7 +1200,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () =>
       Object.keys(
-        (await import("../src/shared/brand_art.ts")).DISCERN_ART_VARIANTS,
+        (await import("../art/terminal/brand.ts")).DISCERN_ART_VARIANTS,
       ),
   },
   {
@@ -1210,7 +1210,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
       "The reusable triangle treatments: every pure static frame carries one semantic animation timeline and enters both maintainer gallery projections.",
     source: {
       kind: "module",
-      module: "src/lib/triangle_art.ts",
+      module: "art/terminal/triangle.ts",
       exportName: "DISCERN_TRIANGLE_MOTIFS",
     },
     guards: [
@@ -1229,7 +1229,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     },
     members: async () =>
       Object.keys(
-        (await import("../src/lib/triangle_art.ts"))
+        (await import("../art/terminal/triangle.ts"))
           .DISCERN_TRIANGLE_MOTIFS,
       ),
   },

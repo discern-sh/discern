@@ -18,7 +18,7 @@
 
 import { emitResult } from "../shared/emit.ts";
 import { DISCERN_WORDMARK } from "../shared/brand.ts";
-import { renderDiscernArt } from "../shared/brand_art.ts";
+import { renderDiscernArt } from "../../art/terminal/brand.ts";
 import { type DiscernConfig, loadConfig } from "../shared/config_schema.ts";
 import { findRoot } from "../shared/env.ts";
 import { displayWidth } from "../lib/text.ts";

@@ -3,13 +3,10 @@
  * triangles. Callers own colour, placement, capability checks, and time.
  */
 
-import { displayWidth } from "./text.ts";
-import { DISCERN_MARK } from "../shared/brand.ts";
-import {
-  type DiscernArtAnimation,
-  finishAnimation,
-} from "../shared/brand_animation.ts";
-import type { DiscernArtVariant } from "../shared/brand_art.ts";
+import { displayWidth } from "../../src/lib/text.ts";
+import { DISCERN_MARK } from "../../src/shared/brand.ts";
+import { type DiscernArtAnimation, finishAnimation } from "./animation.ts";
+import type { DiscernArtVariant } from "./brand.ts";
 
 /**
  * The four marks, named once by their Unicode orientation and filled half.

@@ -6,7 +6,7 @@
  */
 
 import { DISCERN_MARK } from "../../../src/shared/brand.ts";
-import { DISCERN_TRIANGLE_GLYPHS } from "../../../src/lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_GLYPHS } from "../../../art/terminal/triangle.ts";
 
 /** The rules that travel with the mark, in rendering order. */
 export const MARK_RULES: readonly string[] = [

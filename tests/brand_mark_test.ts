@@ -19,7 +19,7 @@ import {
   DISCERN_MARK,
   DISCERN_WORDMARK,
 } from "../src/shared/brand.ts";
-import { DISCERN_TRIANGLE_GLYPHS } from "../src/lib/triangle_art.ts";
+import { DISCERN_TRIANGLE_GLYPHS } from "../art/terminal/triangle.ts";
 import { AUTHORED_DENO_FILES, REPO_ROOT } from "./repo_authored_paths.ts";
 
 Deno.test("the project mark is U+25EE and the README opens with its wordmark", async () => {
@@ -49,15 +49,15 @@ const MARK_GLYPH_HOMES: ReadonlyMap<string, readonly string[]> = new Map([
     ...GOLDEN_FRAME_TESTS,
   ]],
   [DISCERN_TRIANGLE_GLYPHS.upLeft, [
-    "src/lib/triangle_art.ts",
+    "art/terminal/triangle.ts",
     ...GOLDEN_FRAME_TESTS,
   ]],
   [DISCERN_TRIANGLE_GLYPHS.downLeft, [
-    "src/lib/triangle_art.ts",
+    "art/terminal/triangle.ts",
     ...GOLDEN_FRAME_TESTS,
   ]],
   [DISCERN_TRIANGLE_GLYPHS.downRight, [
-    "src/lib/triangle_art.ts",
+    "art/terminal/triangle.ts",
     ...GOLDEN_FRAME_TESTS,
   ]],
 ]);
@@ -70,7 +70,7 @@ Deno.test("mark-family glyph literals stay at their constants and golden tests",
       if (text.includes(glyph) && !homes.includes(rel)) {
         offenders.push(
           `${rel} spells ${glyph} directly — import it from ` +
-            `src/shared/brand.ts (DISCERN_MARK) or src/lib/triangle_art.ts ` +
+            `src/shared/brand.ts (DISCERN_MARK) or art/terminal/triangle.ts ` +
             `(DISCERN_TRIANGLE_GLYPHS), or enrol the file in MARK_GLYPH_HOMES ` +
             `in tests/brand_mark_test.ts with its reason`,
         );
