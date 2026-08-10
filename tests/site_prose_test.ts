@@ -63,7 +63,7 @@ Deno.test("the homepage projection measures authored prose once and excludes cod
   assertEquals(homepage.prose.includes(INSTALL_COMMAND), false);
   assertEquals(homepage.prose.includes("9 August 2026"), false);
   assertEquals(homepage.prose.includes("customer benchmark"), false);
-  assertEquals(siteProseReadingGrade(pages), 8.4);
+  assertEquals(siteProseReadingGrade(pages), 7.91);
 });
 
 Deno.test("the Vale numerator and denominator read the exact same staged bytes", async () => {

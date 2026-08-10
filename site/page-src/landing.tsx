@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  Badge,
   Brand,
   Button,
   HeadingAccent,
@@ -181,6 +182,143 @@ function LandingHero() {
         items={PROVIDER_LOGOS}
       />
     </header>
+  );
+}
+
+/** Illustrative return packet that separates account, evidence, and authority. */
+function ReturnedChange() {
+  return (
+    <div className="landing-return" data-site-prose-exclude>
+      <header className="landing-return__header">
+        <div>
+          <span>Illustrative returned change</span>
+          <h3>Saved views are ready for a decision</h3>
+        </div>
+        <Badge tone="success" dot>Gate passed</Badge>
+      </header>
+
+      <div className="landing-return__body">
+        <div className="landing-return__work">
+          <section className="landing-return__account">
+            <p className="landing-return__label">
+              <span>01</span> Agent account
+            </p>
+            <h4>The requested behavior is working.</h4>
+            <p>
+              Named views now preserve filters, sort order, and the active view
+              between sessions. A local preview is ready.
+            </p>
+            <dl className="landing-return__change">
+              <div>
+                <dt>Change</dt>
+                <dd>7 files · +286 −41</dd>
+              </div>
+              <div>
+                <dt>Worktree</dt>
+                <dd>
+                  <code>agent/saved-views</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Result</dt>
+                <dd>Preview available</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section className="landing-return__checks">
+            <header>
+              <p className="landing-return__label">
+                <span>02</span> Project checks
+              </p>
+              <strong>The declared Gate ran over the finished tree.</strong>
+            </header>
+            <ol>
+              <li>
+                <span aria-hidden="true">✓</span>Format passed
+              </li>
+              <li>
+                <span aria-hidden="true">✓</span>Types passed
+              </li>
+              <li>
+                <span aria-hidden="true">✓</span>Tests passed
+              </li>
+              <li>
+                <span aria-hidden="true">✓</span>Standards held
+              </li>
+            </ol>
+          </section>
+        </div>
+
+        <div className="landing-return__verdict">
+          <section className="landing-return__proof">
+            <p className="landing-return__label">
+              <span>03</span> Exact-tree evidence
+            </p>
+            <div className="landing-return__commit">
+              <span>Proof covers</span>
+              <strong>
+                <code>8f2c1ab</code>
+              </strong>
+              <small>clean committed tree</small>
+            </div>
+            <p>
+              The evidence belongs to this commit and the declared checks. A
+              later edit clears it.
+            </p>
+          </section>
+
+          <section className="landing-return__decision">
+            <p className="landing-return__label">
+              <span>04</span> Human decision
+            </p>
+            <h4>Ready for your review.</h4>
+            <p>
+              Passing makes this change eligible for a decision. Authority
+              remains with the person responsible.
+            </p>
+            <div className="landing-return__decision-status">
+              <Badge tone="accent">Awaiting your decision</Badge>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** One lesson moving from a review moment into durable project memory. */
+function ProjectMemory() {
+  return (
+    <div className="landing-memory">
+      <div className="landing-memory__lesson">
+        <span>Review correction</span>
+        <strong>
+          “Keep every public claim beside the evidence boundary it depends on.”
+        </strong>
+      </div>
+      <ol className="landing-memory__routes">
+        <li>
+          <span>Guidance</span>
+          <strong>A rule every configured agent receives</strong>
+        </li>
+        <li>
+          <span>Skill</span>
+          <strong>A method a future agent can load and apply</strong>
+        </li>
+        <li>
+          <span>Map</span>
+          <strong>An account of the project people can inspect</strong>
+        </li>
+      </ol>
+      <div className="landing-memory__next">
+        <span aria-hidden="true">{DISCERN_MARK}</span>
+        <div>
+          <small>Next session</small>
+          <strong>Begins with the lesson in view</strong>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -434,83 +572,89 @@ function LandingPage() {
         </LandingSection>
 
         <LandingSection
-          id="practice"
-          heading="The project keeps the way of working."
-          className="landing-section--practice"
+          id="decision"
+          heading="Come back to work that is ready for a decision."
+          className="landing-section--decision"
         >
-          <div className="landing-reasons">
-            <article>
-              <h3>A starting point for every agent.</h3>
-              <p>
-                One authored source becomes guidance for every configured
-                coding-agent provider. Reusable methods and a maintained project
-                guide carry the project's expectations and understanding into
-                future sessions.
-              </p>
-              <p>
-                Change agents without rebuilding the project from conversation
-                history.
-              </p>
-            </article>
-            <article>
-              <h3>A proper place for every effort.</h3>
-              <p>
-                Each task receives its own Git worktree and branch, together
-                with its own identity, environment values, and declared
-                resources.
-              </p>
-              <p>
-                Parallel agents cannot overwrite one another's checkout. When
-                separate branches touch the same source files, discern surfaces
-                the overlap for integration.
-              </p>
-            </article>
-            <article>
-              <h3>Evidence for the exact change.</h3>
-              <p>
-                At completion, the <strong>Gate</strong>{" "}
-                runs the project's declared commands. Its result decides whether
-                the work is green; the agent's confidence remains advisory.
-              </p>
-              <p>
-                When a clean committed tree passes, a <strong>Proof</strong>
-                names the exact commit and the conditions it covered. Add
-                another commit and the evidence becomes stale.
-              </p>
-              <p>
-                Passing prepares a change for a decision. It never grants
-                authority by itself.
-              </p>
-            </article>
+          <div className="landing-prose landing-prose--wide">
+            <p>
+              A finished change should come back with more than a confident
+              summary.
+            </p>
+            <p>
+              discern runs the project's final quality check, the{" "}
+              <strong>Gate</strong>, over a clean, committed tree. When it
+              passes, <strong>Proof</strong>{" "}
+              ties the result to that exact change.
+            </p>
+            <p>
+              You receive the agent's account, the working result, the checks
+              that ran, and the evidence they produced. The remaining judgment
+              stays in view.
+            </p>
+            <p>
+              Passing prepares the change for a decision. The decision remains
+              yours.
+            </p>
           </div>
-          <div className="landing-standard-feature">
-            <div className="landing-prose">
-              <h3>A stronger baseline after good work.</h3>
-              <p>
-                A <strong>Standard</strong>{" "}
-                turns a useful measure into a one-way limit.
-              </p>
-              <p>
-                When the project improves, discern can pin the stronger value.
-                Later branches can meet it or improve it; they cannot quietly
-                loosen it.
-              </p>
-              <p>
-                Measures still require judgment. Legitimate growth can change
-                the right limit. The purpose is to make that change deliberate
-                rather than incidental.
-              </p>
-            </div>
-            <div
-              className="landing-artefact landing-artefact--standard"
-              data-site-prose-exclude
-            >
-              <CompactStandardTrajectory />
-            </div>
-          </div>
+          <ReturnedChange />
           <div className="landing-section__action">
-            <Button href="/docs" variant="secondary">
-              Explore the complete engineering practice
+            <Button href="/docs/quality-gate/the-proof" variant="secondary">
+              See what a Proof can claim
+            </Button>
+          </div>
+        </LandingSection>
+
+        <LandingSection
+          id="compounding"
+          heading="Make an improvement part of the next starting point."
+          className="landing-section--compounding"
+        >
+          <div className="landing-prose landing-prose--wide">
+            <p>Good work can improve more than the feature it delivers.</p>
+            <p>
+              When a configured measure improves, discern can pin the stronger
+              value as a{" "}
+              <strong>Standard</strong>. Later branches can meet it or improve
+              it. They cannot weaken it to pass.
+            </p>
+            <p>
+              A useful correction can travel too. Put the lesson in shared
+              guidance, a reusable Skill, or the maintained Map. Future agents
+              begin with the stronger baseline and the lesson you chose to keep.
+            </p>
+          </div>
+
+          <div className="landing-compounding" data-site-prose-exclude>
+            <article className="landing-compounding__measure">
+              <header>
+                <span>01 · Retain the measurable gain</span>
+                <h3>The bar moves with the work.</h3>
+              </header>
+              <div className="landing-artefact landing-artefact--standard">
+                <CompactStandardTrajectory />
+              </div>
+              <p>
+                Six suppressions removed. The ceiling falls from 31 to 26 and
+                becomes the next branch's limit.
+              </p>
+            </article>
+
+            <article className="landing-compounding__memory">
+              <header>
+                <span>02 · Retain the useful lesson</span>
+                <h3>Put the lesson where the next agent will find it.</h3>
+              </header>
+              <ProjectMemory />
+            </article>
+          </div>
+
+          <div className="landing-inline-actions landing-section__action">
+            <Button href="/docs/quality-gate/standards" variant="secondary">
+              See how Standards retain gains
+            </Button>
+            <Button href="/docs/agent-guidance" variant="secondary">
+              See how project guidance travels
             </Button>
           </div>
         </LandingSection>

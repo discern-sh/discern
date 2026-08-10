@@ -446,11 +446,11 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   );
   assertStringIncludes(text, COPY_PROMPT_TEXT);
 
-  // The transcript-led argument is one hero followed by eight sections.
+  // The transcript-led argument is one hero followed by nine sections.
   assertEquals(body.querySelectorAll("main#main").length, 1);
   assert(body.querySelector(".discern-skip-link") !== null);
   assertEquals(body.querySelector(".discern-article-layout"), null);
-  assertEquals(body.querySelectorAll("main > .landing-section").length, 8);
+  assertEquals(body.querySelectorAll("main > .landing-section").length, 9);
   assertEquals(
     [...body.querySelectorAll("main > .landing-section h2")].map((heading) =>
       heading.textContent?.trim()
@@ -459,7 +459,8 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
       "More capability should widen your ambition.",
       "Turn a backlog into organized work.",
       "A complete practice, by design.",
-      "The project keeps the way of working.",
+      "Come back to work that is ready for a decision.",
+      "Make an improvement part of the next starting point.",
       "You do not need the same background. You do need to care what happens next.",
       "Change the agent. Keep the project.",
       "Exact evidence. Explicit authority.",
@@ -544,6 +545,52 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
       "Project setup · step by step",
     ]
   ) assertEquals(text.includes(retiredHomepageArtefact), false);
+
+  const returnedChange = body.querySelector("#decision .landing-return");
+  assert(returnedChange !== null);
+  assert(returnedChange.hasAttribute("data-site-prose-exclude"));
+  assertEquals(
+    [...returnedChange.querySelectorAll(".landing-return__label")].map(
+      (label) => label.textContent?.replace(/\s+/g, " ").trim(),
+    ),
+    [
+      "01 Agent account",
+      "02 Project checks",
+      "03 Exact-tree evidence",
+      "04 Human decision",
+    ],
+  );
+  assertEquals(
+    returnedChange.querySelectorAll(".landing-return__checks li").length,
+    4,
+  );
+  assertEquals(
+    body.querySelector("#decision .landing-section__action a")?.getAttribute(
+      "href",
+    ),
+    "/docs/quality-gate/the-proof",
+  );
+
+  const compounding = body.querySelector("#compounding .landing-compounding");
+  assert(compounding !== null);
+  assert(compounding.hasAttribute("data-site-prose-exclude"));
+  assertEquals(compounding.querySelectorAll(":scope > article").length, 2);
+  assert(
+    compounding.querySelector(
+      ".landing-compounding__measure .standard-trajectory--compact",
+    ) !== null,
+  );
+  assertEquals(
+    compounding.querySelectorAll(".landing-memory__routes > li").length,
+    3,
+  );
+  assert(compounding.querySelector(".landing-memory__next") !== null);
+  assertEquals(
+    [...body.querySelectorAll("#compounding .landing-section__action a")].map(
+      (link) => link.getAttribute("href"),
+    ),
+    ["/docs/quality-gate/standards", "/docs/agent-guidance"],
+  );
 
   const possibility = body.querySelector("#possibility");
   assert(possibility !== null);
