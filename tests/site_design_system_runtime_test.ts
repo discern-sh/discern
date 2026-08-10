@@ -655,6 +655,31 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     ),
     "/docs/worktrees/team-workflow",
   );
+  assert(
+    body.querySelector(
+      "#audiences .landing-pullquote.landing-pullquote--balanced",
+    ) !== null,
+  );
+  for (const sectionId of ["agents", "trust"]) {
+    const sidecar = body.querySelector(`#${sectionId} .landing-sidecar`);
+    assert(sidecar !== null, sectionId);
+    assertEquals(sidecar.querySelectorAll(":scope > article").length, 2);
+    assert(sidecar.querySelector(":scope > .landing-sidecar__main") !== null);
+    assert(
+      sidecar.querySelector(":scope > .landing-sidecar__callout") !== null,
+    );
+  }
+  assertEquals(
+    body.querySelector("#agents .landing-sidecar__callout h3")?.textContent,
+    "Built for the machine doing the work.",
+  );
+  assertEquals(
+    [...body.querySelectorAll("#agents .landing-sidecar__main a")].map((link) =>
+      link.getAttribute("href")
+    ),
+    ["/docs/agent-integrations", "/llms.txt"],
+  );
+  assertEquals(body.querySelector("#agents .landing-machine"), null);
   assertEquals(body.querySelectorAll("[data-copy-prompt]").length, 2);
   assertEquals(
     [...body.querySelectorAll(".landing-copy-prompt__text")].map((prompt) =>
@@ -767,6 +792,10 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     "width: min(100% - 2 * var(--discern-space-6), 86rem);",
   );
   assertStringIncludes(integrationsRule, "margin-inline: auto;");
+  assertStringIncludes(
+    integrationsRule,
+    "padding-block: var(--discern-space-20);",
+  );
   assertEquals(integrationsRule.includes("border-block"), false);
   const heroGridRule = cssRuleBody(landingCss, ".landing-hero__inner");
   assertStringIncludes(
@@ -777,7 +806,7 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
   assertStringIncludes(heroGridRule, "row-gap:");
   assertStringIncludes(
     heroGridRule,
-    "padding-block-start: var(--discern-space-8);",
+    "padding-block-start: var(--discern-space-20);",
   );
   assertEquals(/(?:^|;)\s*gap\s*:/.test(heroGridRule), false);
   assertEquals(
@@ -785,6 +814,13 @@ Deno.test("the public homepage presents the complete signed-off launch sequence"
     false,
   );
   assertEquals(fluidGridShorthandSelectors(landingCss), []);
+  const checksRule = cssRuleBody(landingCss, ".landing-return__checks");
+  assertStringIncludes(checksRule, "display: grid;");
+  assertStringIncludes(checksRule, "align-content: center;");
+  assertStringIncludes(
+    cssRuleBody(landingCss, ".landing-pullquote--balanced"),
+    "margin-block: clamp(2.5rem, 6vw, 5rem);",
+  );
   assertEquals(offsetDecoratedHeadingSelectors(landingCss, body), []);
   const heroGlowRule = cssRuleBody(landingCss, ".landing-hero::before");
   assertStringIncludes(heroGlowRule, "radial-gradient(circle in oklab,");

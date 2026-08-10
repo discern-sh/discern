@@ -668,7 +668,7 @@ function LandingPage() {
             <p>
               They begin in different places. They share the same threshold:
             </p>
-            <blockquote className="landing-pullquote">
+            <blockquote className="landing-pullquote landing-pullquote--balanced">
               The software has consequences now.
             </blockquote>
             <p>
@@ -693,23 +693,31 @@ function LandingPage() {
           heading="Change the agent. Keep the project."
           className="landing-section--agents"
         >
-          <div className="landing-prose landing-prose--wide">
-            <p>
-              Configure Claude Code, Codex, Gemini, Cursor, or GitHub Copilot.
-              Each receives the same project-owned guidance and works through
-              the same discern practice.
-            </p>
-            <p>
-              Move when task fit, preference, availability, or quota changes
-              without teaching the project from the beginning again.
-            </p>
-            <p>
-              Hidden conversational state and provider-specific capabilities do
-              not transfer. The project's way of working does.
-            </p>
-          </div>
-          <div className="landing-machine">
-            <div>
+          <div className="landing-sidecar">
+            <article className="landing-sidecar__main">
+              <p>
+                Configure Claude Code, Codex, Gemini, Cursor, or GitHub Copilot.
+                Each receives the same project-owned guidance and works through
+                the same discern practice.
+              </p>
+              <p>
+                Move when task fit, preference, availability, or quota changes
+                without teaching the project from the beginning again.
+              </p>
+              <p>
+                Hidden conversational state and provider-specific capabilities
+                do not transfer. The project's way of working does.
+              </p>
+              <div className="landing-inline-actions">
+                <Button href="/docs/agent-integrations" variant="secondary">
+                  Compare the agent integrations
+                </Button>
+                <Button href="/llms.txt" variant="secondary">
+                  Read the machine guide
+                </Button>
+              </div>
+            </article>
+            <article className="landing-sidecar__callout">
               <h3>Built for the machine doing the work.</h3>
               <p>
                 discern treats the coding agent as its day-to-day operator. Its
@@ -719,15 +727,7 @@ function LandingPage() {
                 answer. That leaves less to translate and more context for the
                 work.
               </p>
-            </div>
-            <div className="landing-machine__actions">
-              <Button href="/docs/agent-integrations" variant="secondary">
-                Compare the agent integrations
-              </Button>
-              <Button href="/llms.txt" variant="secondary">
-                Read the machine guide
-              </Button>
-            </div>
+            </article>
           </div>
         </LandingSection>
 
@@ -736,8 +736,8 @@ function LandingPage() {
           heading="Exact evidence. Explicit authority."
           className="landing-section--trust"
         >
-          <div className="landing-trust-grid">
-            <article>
+          <div className="landing-sidecar">
+            <article className="landing-sidecar__main">
               <p>
                 discern is a local, self-contained binary. It contains no AI
                 model and needs no API key.
@@ -780,7 +780,7 @@ function LandingPage() {
                 </Button>
               </div>
             </article>
-            <article>
+            <article className="landing-sidecar__callout">
               <h3>Built under its own practice.</h3>
               <p>
                 discern began when capable agents multiplied implementation
