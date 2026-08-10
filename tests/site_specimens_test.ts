@@ -5,6 +5,7 @@ import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { JSDOM } from "jsdom";
 import { renderSpecimens } from "../site/page-src/specimens.tsx";
 import {
+  QUALITY_CONTOUR_STYLESHEET_PATH,
   SPECIMEN_STYLESHEET_PATH,
   specimenHandler,
 } from "../site/specimens.ts";
@@ -71,7 +72,7 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   assertStringIncludes(root.headers.get("content-type") ?? "", "text/html");
   assertEquals(root.headers.get("cache-control"), "no-store");
   assertEquals(root.headers.get("x-robots-tag"), "noindex, nofollow");
-  assertStringIncludes(await root.text(), "The delegation wave plan");
+  assertStringIncludes(await root.text(), "Quality that only improves");
 
   const stylesheet = await specimenHandler(
     new Request(`http://localhost${SPECIMEN_STYLESHEET_PATH}`),
@@ -84,7 +85,13 @@ Deno.test("the development handler serves only the sheet and its live stylesheet
   assertEquals(stylesheet.headers.get("cache-control"), "no-store");
   assertStringIncludes(await stylesheet.text(), ".specimen-theme");
 
-  for (const path of ["/", SPECIMEN_STYLESHEET_PATH]) {
+  for (
+    const path of [
+      "/",
+      SPECIMEN_STYLESHEET_PATH,
+      QUALITY_CONTOUR_STYLESHEET_PATH,
+    ]
+  ) {
     const rejected = await specimenHandler(
       new Request(`http://localhost${path}`, { method: "POST" }),
     );

@@ -1,7 +1,7 @@
-/** Development-only server for the homepage artefact specimens.
+/** Development-only server for focused site specimens.
  *
- * The preview builds the normal static site assets, serves one authored
- * stylesheet without caching, and renders a static document at the loopback root. It never
+ * The preview builds the normal static site assets, serves authored
+ * stylesheets without caching, and renders a static document at the loopback root. It never
  * enters the production page registry or production entrypoint.
  */
 
@@ -10,15 +10,21 @@ import {
   SITE_DEV_BIND_HOST,
   SITE_DEV_BROWSER_HOST,
 } from "./dev.ts";
-import { renderSpecimens } from "./page-src/specimens.tsx";
+import { renderQualityContourPreview } from "./page-src/benefit-quality-contour-preview.tsx";
 import { handler } from "./serve.ts";
 import { fromFileUrl } from "@std/path";
 
 const SITE_ROOT = new URL("./", import.meta.url);
 const REPO_ROOT = fromFileUrl(new URL("../", import.meta.url));
 const SPECIMEN_CSS_SOURCE = new URL("page-src/specimens.css", SITE_ROOT);
+const QUALITY_CONTOUR_CSS_SOURCE = new URL(
+  "page-src/benefit-quality-contour.css",
+  SITE_ROOT,
+);
 export const SPECIMEN_STYLESHEET_PATH =
   "/assets/design-system/compositions/specimens.css";
+export const QUALITY_CONTOUR_STYLESHEET_PATH =
+  "/assets/design-system/compositions/benefit-quality-contour.css";
 
 /** Prepare the generated design-system runtime consumed by the preview server. */
 export async function buildSpecimenPreview(): Promise<void> {
@@ -35,16 +41,22 @@ export async function buildSpecimenPreview(): Promise<void> {
 /** Serve the preview root and delegate its generated assets to the live site handler. */
 export async function specimenHandler(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  if (url.pathname === SPECIMEN_STYLESHEET_PATH) {
+  if (
+    url.pathname === SPECIMEN_STYLESHEET_PATH ||
+    url.pathname === QUALITY_CONTOUR_STYLESHEET_PATH
+  ) {
     if (request.method !== "GET" && request.method !== "HEAD") {
       return new Response("405 — method not allowed\n", {
         status: 405,
         headers: { allow: "GET, HEAD" },
       });
     }
+    const source = url.pathname === QUALITY_CONTOUR_STYLESHEET_PATH
+      ? QUALITY_CONTOUR_CSS_SOURCE
+      : SPECIMEN_CSS_SOURCE;
     const body = request.method === "HEAD"
       ? null
-      : await Deno.readTextFile(SPECIMEN_CSS_SOURCE);
+      : await Deno.readTextFile(source);
     return new Response(body, {
       status: 200,
       headers: {
@@ -64,7 +76,7 @@ export async function specimenHandler(request: Request): Promise<Response> {
       },
     });
   }
-  const body = request.method === "HEAD" ? null : renderSpecimens();
+  const body = request.method === "HEAD" ? null : renderQualityContourPreview();
   return new Response(body, {
     status: 200,
     headers: {
@@ -85,7 +97,7 @@ export async function runSpecimenPreview(): Promise<void> {
       port,
       onListen: () => {
         console.log(
-          `Homepage specimens listening on http://${SITE_DEV_BROWSER_HOST}:${port}/`,
+          `Benefit artwork specimen listening on http://${SITE_DEV_BROWSER_HOST}:${port}/`,
         );
       },
     },
