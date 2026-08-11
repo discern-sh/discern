@@ -182,6 +182,10 @@ import {
   type ReappearedWorktreePathPruneResult,
   scanReappearedWorktreePaths,
 } from "./retired_paths.ts";
+import {
+  deleteDropBranchAtCommit,
+  preserveDropRecoveryRef,
+} from "./recovery_refs.ts";
 
 // worktree setup recompiles the agent guidance as its final step — which also
 // materializes skills into .claude/skills/ inside the freshly created worktree (a
@@ -1298,6 +1302,52 @@ export async function worktreeDrop(
 
   ctx.log.heading(`Dropping worktree '${plan.id}'…`);
   const steps: StepResult[] = [];
+  let preservedCommit: string | undefined;
+
+  // Preserve the branch's committed tip before any resource, filesystem, or
+  // ref deletion. Branch deletion removes its branch reflog; this ordinary Git
+  // ref keeps the commit reachable independently of reflog and object-prune
+  // settings. A failed write stops the drop with every original object intact.
+  if (plan.deleteBranch) {
+    let recovery;
+    try {
+      recovery = await preserveDropRecoveryRef(
+        ctx.root,
+        plan.branch,
+        plan.id,
+      );
+    } catch (error) {
+      throw new WorktreeGitError(
+        `The drop stopped before changing the worktree because discern could ` +
+          `not preserve branch '${plan.branch}' under refs/discern/recovery/. ` +
+          `Fix the Git error, then re-run \`discern worktree drop ${plan.id}\`. ` +
+          `Git said: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    preservedCommit = recovery.commit;
+    ctx.log.ok(`Preserved branch tip at ${recovery.ref}.`);
+    steps.push({
+      step: {
+        kind: "git",
+        label: "preserve-branch-tip",
+        disposition: "run",
+        note: recovery.ref,
+      },
+      outcome: "ok",
+    });
+  } else {
+    steps.push({
+      step: {
+        kind: "git",
+        label: "preserve-branch-tip",
+        disposition: "skip",
+        note: plan.branch === ""
+          ? "detached — no branch tip to preserve"
+          : `${plan.branch} is the trunk — kept`,
+      },
+      outcome: "skipped",
+    });
+  }
 
   // 1. Tear down its resources, best-effort — from inside the target so
   // `@dir@`-bearing destroys resolve; a configless (broken) worktree falls back to
@@ -1358,15 +1408,19 @@ export async function worktreeDrop(
   // unmerged branch; a merged one deletes the same way). Never the trunk: a
   // worktree holding it loses only its checkout (`plan.deleteBranch`).
   if (plan.deleteBranch) {
-    const del = await makeGitRunner(ctx)(
-      ["branch", "-D", plan.branch],
-      ctx.root,
-    );
-    if (!del.success) {
+    const del = preservedCommit === undefined
+      ? { deleted: false, reason: "the preserved commit id is unavailable" }
+      : await deleteDropBranchAtCommit(
+        ctx.root,
+        plan.branch,
+        preservedCommit,
+      );
+    if (!del.deleted) {
       throw new WorktreeGitError(
         `The worktree was removed, but Git could not delete its branch ` +
-          `'${plan.branch}'. Delete it with \`git branch -D ${plan.branch}\` after ` +
-          `reviewing the error below.\nGit said: ${del.stderr.trim()}`,
+          `'${plan.branch}' at the preserved commit. The branch is still present; ` +
+          `review whether it moved, then delete it with \`git branch -D ${plan.branch}\` ` +
+          `only if its current tip is no longer needed.\nGit said: ${del.reason}`,
       );
     }
     ctx.log.ok(`Deleted branch ${plan.branch}.`);

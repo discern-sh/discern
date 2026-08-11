@@ -44,6 +44,8 @@ Setup runs in this order:
 
 `discern update` merges trunk or `--from`, requires tracked-clean files, and leaves untracked scratch.
 
+discern states its merge topology and status visibility on each Git command. Repository or global values such as `merge.ff`, `branch.<name>.mergeOptions`, `status.showUntrackedFiles`, and `diff.ignoreSubmodules` cannot turn a planned fast-forward into a merge commit or make a safety check overlook work.
+
 Only conflicts confined to [generated artifacts](../00-orientation/glossary.md#generated-artifact) auto-resolve; other conflicts abort. After a merge, `update` runs and commits every generator and tracked refresh output, then runs both ensures. An already-contained source still refreshes and converges. When a no-op update changes tracked paths, `update` names and leaves them for review instead of creating a commit ([ADR 0055](../_adr/0055-update-verb.md), [ADR 0059](../_adr/0059-worktree-setup-ensure.md), [ADR 0153](../_adr/0153-repository-owns-shared-checkout-convergence.md), [ADR 0264](../_adr/0264-tracked-refresh-convergence-precedes-landing.md)). Regeneration uses declared sources instead of conflicted temporary bytes, and failures remain visible ([ADR 0247](../_adr/0247-generated-artifacts-regenerate-never-merge.md)).
 
 On first setup, provisioned worktrees with a managed block install `merge.discern-generated.driver`. Raw merge keeps the marked side without conflict markers; `done` or `update` regenerates it. Plain clones, CI, and main lack the driver (never global), so conflicts remain; `update` still resolves generated paths ([ADR 0093](../_adr/0093-upgrade-reconciles-gitignore-block.md)).
@@ -66,6 +68,17 @@ Acceptance journals its transition and recovers without replaying one-shot autho
 
 From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision.
 
+Before any resource, checkout, or branch removal, drop preserves the branch's committed tip under `refs/discern/recovery/` and prints the exact ref. A failed preservation stops the drop with the branch and worktree intact. The repository keeps the newest 32 drop refs. Dry-run creates none; a detached worktree has no branch to preserve, and a worktree holding the trunk keeps that branch instead. Acceptance creates no recovery ref because the accepted commit remains reachable from the trunk ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
+
+List retained tips and restore one as a branch:
+
+```sh
+git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
+git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
+```
+
+These refs are local to this clone. They retain committed snapshots only: staged, working-tree, ignored, and untracked bytes are absent from the branch tip, so a forced drop can still destroy them permanently. Review a recovered branch before deleting its ref.
+
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, reappeared worktree paths, and resource records. It rechecks eligibility before removal.
 
 [Cleaning up a reappeared worktree path](reappeared-worktree-paths.md) explains the removal evidence, status notice, and confirmed prune boundary.
@@ -81,6 +94,7 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 | Landing-authority resolution  | [`src/engine/worktree/landing_authority.ts`](../../../src/engine/worktree/landing_authority.ts)           |
 | Proof-note recording          | [`src/engine/gate/proof_notes.ts`](../../../src/engine/gate/proof_notes.ts)                               |
 | Git preconditions and removal | [`src/engine/worktree/git.ts`](../../../src/engine/worktree/git.ts)                                       |
+| Drop recovery refs            | [`src/engine/worktree/recovery_refs.ts`](../../../src/engine/worktree/recovery_refs.ts)                   |
 | Contained-worktree scan       | [`src/engine/worktree/containment.ts`](../../../src/engine/worktree/containment.ts)                       |
 | Plan rendering                | [`src/engine/worktree/plan.ts`](../../../src/engine/worktree/plan.ts)                                     |
 | Lifecycle tests               | [`tests/engine_worktree_test.ts`](../../../tests/engine_worktree_test.ts)                                 |
@@ -95,3 +109,4 @@ Prune also reports **contained** worktrees: spent `start --from` stages whose co
 - Proof-note recording and fetch-configuration reconciliation follow the trunk fast-forward. Their failures report a cause once and cannot fail or undo acceptance; later local-artifact materialization does not retry transport.
 - A first setup-step or convergence failure aborts creation. discern reports later convergence failures without undoing a completed update, blocking session start, or interrupting post-landing cleanup.
 - `discern doctor` reports repository layouts that `start` and `accept` cannot use.
+- Drop recovery refs keep committed branch tips reachable independently of reflog expiry while they remain in the bounded namespace. They do not make `--force` safe for uncommitted work.

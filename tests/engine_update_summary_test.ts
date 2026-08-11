@@ -147,6 +147,16 @@ Deno.test("update: overlap names the files you AND main both changed (clean merg
       "upstream.txt": "u\n",
     });
 
+    // Both global and per-branch options can otherwise turn a divergent update
+    // into an ff-only refusal. discern owns this merge's topology.
+    await git(wt, "config", "merge.ff", "only");
+    await git(
+      wt,
+      "config",
+      "branch.agent/overlap.mergeOptions",
+      "--ff-only",
+    );
+
     const r = await runAgent(wt, ["update", "--json"]);
     assertEquals(r.code, 0, r.output);
     const result = parse(r.stdout);

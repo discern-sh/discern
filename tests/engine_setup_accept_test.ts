@@ -76,6 +76,8 @@ Deno.test("setup accept merges when the integration branch has advanced", async 
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "main advanced", "--no-gpg-sign");
     await git(dir, "checkout", "discern-setup");
+    await git(dir, "config", "merge.ff", "only");
+    await git(dir, "config", "branch.main.mergeOptions", "--ff-only");
 
     const res = await runAgent(dir, ["setup", "accept", "--json"]);
     assertEquals(res.code, 0, res.output);

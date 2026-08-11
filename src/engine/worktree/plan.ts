@@ -15,6 +15,7 @@ import type { EnginePlan, PlanStep } from "../../shared/result.ts";
 import type { ResolvedGeneratedGroup } from "../../shared/generated_artifacts.ts";
 import type { IgnoredFileChangeSummary } from "./ignored.ts";
 import type { LedgerItem } from "./resources.ts";
+import { DROP_RECOVERY_REF_LIMIT } from "./recovery_refs.ts";
 import type { GitWorktreePruneScan, OrphanWorktreeSweepScan } from "./git.ts";
 import type { ContainedWorktree } from "./containment.ts";
 import type { ReappearedWorktreePathScan } from "./retired_paths.ts";
@@ -424,6 +425,16 @@ export interface DropPlan {
  * worktree, delete its branch. */
 export function dropPlanToEngine(plan: DropPlan): EnginePlan {
   const steps: PlanStep[] = [];
+  steps.push({
+    kind: "git",
+    label: "preserve-branch-tip",
+    disposition: plan.deleteBranch ? "run" : "skip",
+    note: plan.deleteBranch
+      ? `retain the commit under refs/discern/recovery/ (newest ${DROP_RECOVERY_REF_LIMIT})`
+      : plan.branch === ""
+      ? "detached — no branch tip to preserve"
+      : `${plan.branch} is the trunk — kept`,
+  });
   steps.push({
     kind: "resource-destroy",
     label: "teardown resources",

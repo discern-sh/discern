@@ -844,6 +844,26 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         },
       },
       {
+        id: "drop-recovery",
+        title: "Bounded drop recovery",
+        what:
+          "Before `discern worktree drop` deletes a branch, it keeps the committed tip under `refs/discern/recovery/`, prints that ref, and atomically limits the repository to the newest 32 retained tips.",
+        why:
+          "A mistaken drop has a direct route back to committed work without turning destructive cleanup into an unbounded archive.",
+        agent:
+          "The recovery ref is written before resources, files, or the branch change. A failed write stops the drop intact; dry-run writes nothing, and uncommitted bytes remain outside the guarantee.",
+        plain: {
+          title: "A way back from a mistaken removal",
+          what:
+            "Before discern removes a task's saved-change name, it keeps that task's latest saved point in a local recovery list, shows the exact entry, and limits the project to its 32 newest entries.",
+          why:
+            "An accidental removal has a direct route back to saved work without allowing recovery history to grow forever.",
+          agent:
+            "discern writes the recovery entry before removing services, files, or the task name. If that write fails, the removal stops intact; a preview writes nothing, and work that was never saved remains outside the guarantee.",
+        },
+        surfaces: ["verb:worktree"],
+      },
+      {
         id: "worktree-prune",
         title: "Orphan reclamation",
         what:
@@ -1675,19 +1695,19 @@ export const FEATURE_CANON: readonly FeatureNode[] = [
         id: "doctor",
         title: "Doctor",
         what:
-          "`discern doctor` verifies the installation without changing it — config validity, schema version, job commands on `PATH`, git and shell prerequisites, guidance sources, skills, worktree automation, resource commands — and prints each verb's execution model: which steps are the project's and which are discern's.",
+          "`discern doctor` verifies the installation without changing it: config validity, schema version, job commands on `PATH`, Git recovery retention, commit identity and signing programs, index visibility, worktree-config placement, repository ownership, guidance, skills, automation, and resource commands. It also prints each verb's execution model: which steps are the project's and which are discern's.",
         why:
           "Facts before judgments, and a misconfigured install names its own fix.",
         agent:
-          "Every remedy points at a command that can help from the state the reader is in: an older config is sent to `discern upgrade`, and a config newer than the binary is not, because upgrade refuses that state — the fix it names is a newer binary.",
+          "Every remedy points at a command that can help from the state the reader is in. Git checks inspect every registered checkout, distinguish advisory recovery floors from commit-blocking state, and never suggest a wildcard `safe.directory` trust. An older discern config goes to `discern upgrade`; a config newer than the binary goes to a newer binary because upgrade refuses that state.",
         plain: {
           title: "Health check",
           what:
-            "`discern doctor` verifies the installation without changing it — that the settings make sense and match the expected format version, that the declared instructions exist in the computer's standard installed-program list (called `PATH`), that the version-history and command-running basics are present, along with the instruction text, the how-to guides, the working-copy automation, and the supporting-service instructions — and explains, for every instruction, which steps are the project's and which are discern's.",
+            "`discern doctor` verifies the installation without changing it: that the settings make sense and match the expected format version; that declared instructions exist in the computer's standard installed-program list (called `PATH`); that recovery history, saved-change identity, signing tools, hidden-file state, separate-copy settings, and project ownership are safe; and that instruction text, how-to guides, working-copy automation, and supporting-service instructions are connected. It also explains, for every instruction, which steps are the project's and which are discern's.",
           why:
             "Facts before judgments, and a misconfigured installation names its own fix.",
           agent:
-            "Every remedy points at an instruction that can help from the state the reader is in: older settings go to `discern upgrade`, and settings newer than the program do not — because upgrade refuses that state, the fix it names is a newer discern.",
+            "Every remedy points at an instruction that can help from the state the reader is in. Version-history checks inspect every separate copy, distinguish recovery advice from state that prevents saving work, and never tell someone to trust every project directory. Older settings go to `discern upgrade`; settings newer than the program go to a newer discern because upgrade refuses that state.",
         },
         surfaces: ["verb:doctor"],
       },
@@ -3270,12 +3290,12 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "clean-abandoned-environments",
-        title: "Clean up abandoned task environments safely",
+        title: "Clean up abandoned tasks without a cliff edge",
         value:
-          "Resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
+          "Recent committed work from a mistaken task removal still has a direct route back, while resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
         whyItFollows:
-          "`discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.",
-        drawsOn: ["worktree-prune", "ignored-drift"],
+          "Before drop removes a branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.",
+        drawsOn: ["drop-recovery", "worktree-prune", "ignored-drift"],
       },
     ],
   },

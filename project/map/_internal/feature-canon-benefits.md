@@ -4,7 +4,7 @@
 
 _discern's internal commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._
 
-8 clusters · 44 benefits · 127 of 127 feature nodes cited · 20 of 20 public claims carried.
+8 clusters · 44 benefits · 128 of 128 feature nodes cited · 20 of 20 public claims carried.
 
 ## How to use this canon
 
@@ -293,11 +293,11 @@ More of the backlog can move at once. The person spends less time running the wo
 - **Mechanism:** The discern repository is configured as a discern project and runs development work through the product's own lifecycle and quality conditions.
 - **Product basis:** Run on itself.
 
-### Clean up abandoned task environments safely
+### Clean up abandoned tasks without a cliff edge
 
-- **Value:** Resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.
-- **Mechanism:** `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.
-- **Product basis:** Orphan reclamation · Ignored-file drift.
+- **Value:** Recent committed work from a mistaken task removal still has a direct route back, while resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.
+- **Mechanism:** Before drop removes a branch, discern keeps its committed tip in a bounded local recovery list. `discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.
+- **Product basis:** Bounded drop recovery · Orphan reclamation · Ignored-file drift.
 
 ## Change tools without starting over
 

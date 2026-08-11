@@ -21,7 +21,9 @@ Run the install diagnostic from anywhere inside the project:
 discern doctor
 ```
 
-It checks that `discern.toml` parses, the schema matches the installed binary, configured commands resolve on `PATH`, and each selected coding agent has its expected integration. For a bug report, capture the structured result:
+It checks that `discern.toml` parses, the schema matches the installed binary, configured commands resolve on `PATH`, and each selected coding agent has its expected integration. In a Git repository it also checks recovery retention, author and committer identity, required signing programs, hidden index flags and sparse checkout, worktree-local config placement, and repository ownership. It reads every registered worktree because one checkout can carry a narrower Git override than its siblings.
+
+Recovery advice warns without making doctor fail. An unusable commit identity or required signer, hidden tracked paths outside an intentional sparse checkout, unsafe worktree-config placement, or Git's dubious-ownership refusal fails and names the next command. For a bug report, capture the structured result:
 
 ```sh
 discern doctor --json
@@ -70,6 +72,23 @@ The scoped command runs when a matching path changes.
 ## Worktrees are using too much disk
 
 Land finished work with `discern accept`. It removes the accepted worktree. Then run `discern worktree prune` to clear merged worktrees and stale git administration left by manual deletion. Change `[worktree].root` if the default sibling directory is unsuitable.
+
+## A worktree or branch was dropped by mistake
+
+Read the ref printed by `discern worktree drop`. If that output is unavailable, list the newest retained drop refs:
+
+```sh
+git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
+```
+
+Create a normal branch at the selected ref, then inspect it:
+
+```sh
+git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
+git log --stat recovered-work
+```
+
+The repository retains the newest 32 committed branch tips from drop. This list is local and is not pushed or fetched automatically. It cannot restore work that was never committed. For other lost Git refs, use `git reflog`; `discern doctor` warns when reflog recording is disabled or its configured retention falls below discern's recovery floor.
 
 ## Remove discern from the repository
 

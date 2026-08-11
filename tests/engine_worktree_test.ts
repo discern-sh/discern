@@ -955,10 +955,15 @@ Deno.test("update: no-op when the branch already contains main", async () => {
 Deno.test("update: behind main fast-forwards and re-materializes the agent files", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "lambda");
+    const branchTipBeforeUpdate = await gitOut(wt, "rev-parse", "HEAD");
     // Advance main after the worktree branched off it → the branch is behind by one.
     await Deno.writeTextFile(join(dir, "upstream.txt"), "from main\n");
     await git(dir, "add", "-A");
     await git(dir, "commit", "-q", "-m", "upstream work", "--no-gpg-sign");
+    const mainTip = await gitOut(dir, "rev-parse", "main");
+    // Ambient merge.ff=false must not turn discern's fast-forward update into
+    // an extra merge commit.
+    await git(wt, "config", "merge.ff", "false");
     // Stale an agent file (gitignored, so the tree stays clean to merge into).
     await Deno.writeTextFile(
       join(wt, "CLAUDE.md"),
@@ -973,6 +978,20 @@ Deno.test("update: behind main fast-forwards and re-materializes the agent files
     assert(
       await exists(join(wt, "upstream.txt")),
       `main was not merged into the worktree\n${r.output}`,
+    );
+    assertEquals(
+      await gitOut(
+        wt,
+        "rev-list",
+        "--merges",
+        `${branchTipBeforeUpdate}..HEAD`,
+      ),
+      "",
+      "a possible fast-forward must not gain a merge commit",
+    );
+    assertEquals(
+      await gitOut(wt, "merge-base", "--is-ancestor", mainTip, "HEAD"),
+      "",
     );
     // …and the stale generated file was re-materialized — the core value of bundling
     // the refresh into update (a bare `git merge` would leave it stale).

@@ -9,6 +9,12 @@
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";
 import { basename, join } from "@std/path";
 import { exists } from "@std/fs";
+import {
+  deleteDropBranchAtCommit,
+  DROP_RECOVERY_REF_LIMIT,
+  DROP_RECOVERY_REF_PREFIX,
+  preserveDropRecoveryRef,
+} from "../src/engine/worktree/recovery_refs.ts";
 import { withTempDir } from "./helpers.ts";
 import {
   addWorktree,
@@ -32,9 +38,27 @@ async function branchExists(dir: string, branch: string): Promise<boolean> {
   return (await gitOut(dir, "branch", "--list", branch)) !== "";
 }
 
+/** Recovery refs and their target commits, newest name first. */
+async function recoveryRefs(
+  dir: string,
+): Promise<Array<{ ref: string; commit: string }>> {
+  const output = await gitOut(
+    dir,
+    "for-each-ref",
+    "--sort=-refname",
+    "--format=%(refname) %(objectname)",
+    `${DROP_RECOVERY_REF_PREFIX}/`,
+  );
+  return output === "" ? [] : output.split("\n").map((line) => {
+    const [ref = "", commit = ""] = line.split(" ");
+    return { ref, commit };
+  });
+}
+
 Deno.test("worktree drop <id>: removes a clean, merged worktree and deletes its branch", async () => {
   await withTempDir(async (dir) => {
     const wt = await mainWithWorktree(dir, "abandoned");
+    const branchTip = await gitOut(wt, "rev-parse", "HEAD");
 
     const r = await runAgent(dir, ["worktree", "drop", "abandoned"]);
     assertEquals(r.code, 0, r.output);
@@ -44,6 +68,15 @@ Deno.test("worktree drop <id>: removes a clean, merged worktree and deletes its 
       false,
       `branch deleted\n${r.output}`,
     );
+    const refs = await recoveryRefs(dir);
+    assertEquals(
+      refs.length,
+      1,
+      `the dropped branch keeps one ref\n${r.output}`,
+    );
+    assertEquals(refs[0]?.commit, branchTip);
+    assertStringIncludes(refs[0]?.ref ?? "", "abandoned");
+    assertStringIncludes(r.output, refs[0]?.ref ?? "missing recovery ref");
     assertStringIncludes(r.output, "dropped");
   });
 });
@@ -231,6 +264,7 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
     await Deno.writeTextFile(join(wt, "real-work.txt"), "not landed\n");
     await git(wt, "add", "-A");
     await git(wt, "commit", "-q", "-m", "unlanded work", "--no-gpg-sign");
+    const unlandedTip = await gitOut(wt, "rev-parse", "HEAD");
 
     const refused = await runAgent(dir, ["worktree", "drop", "unmerged-drop"]);
     assertEquals(refused.code, 1, refused.output);
@@ -250,6 +284,87 @@ Deno.test("worktree drop: refuses unmerged commits without --force, discards wit
       await branchExists(dir, "agent/unmerged-drop"),
       false,
       `the unmerged branch goes with the forced drop\n${forced.output}`,
+    );
+    const refs = await recoveryRefs(dir);
+    assertEquals(refs.length, 1, forced.output);
+    assertEquals(refs[0]?.commit, unlandedTip);
+
+    // The ref is ordinary Git recovery evidence: recreating a branch from it
+    // restores the committed file even though the original branch reflog died.
+    const ref = refs[0]?.ref ?? "";
+    await git(dir, "branch", "recovered-unmerged", ref);
+    assertEquals(
+      await gitOut(dir, "show", "recovered-unmerged:real-work.txt"),
+      "not landed",
+    );
+  });
+});
+
+Deno.test("drop recovery refs retain the newest bounded set", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await git(dir, "branch", "agent/recovery-source");
+
+    const written: string[] = [];
+    for (let i = 0; i < DROP_RECOVERY_REF_LIMIT + 3; i++) {
+      written.push(
+        (await preserveDropRecoveryRef(
+          dir,
+          "agent/recovery-source",
+          `drop-${i}`,
+        ))
+          .ref,
+      );
+    }
+
+    const refs = await recoveryRefs(dir);
+    assertEquals(refs.length, DROP_RECOVERY_REF_LIMIT);
+    assert(
+      refs.some((entry) => entry.ref === written.at(-1)),
+      "the newest recovery ref must survive the cap",
+    );
+    assert(
+      !refs.some((entry) => entry.ref === written[0]),
+      "the oldest recovery ref must be evicted",
+    );
+  });
+});
+
+Deno.test("drop recovery branch deletion keeps a branch that moved after preservation", async () => {
+  await withTempDir(async (dir) => {
+    await scaffoldEngine(dir);
+    await gitInit(dir);
+    await git(dir, "branch", "agent/recovery-race");
+    const preserved = await preserveDropRecoveryRef(
+      dir,
+      "agent/recovery-race",
+      "recovery-race",
+    );
+    await git(dir, "switch", "agent/recovery-race");
+    await Deno.writeTextFile(join(dir, "newer.txt"), "newer commit\n");
+    await git(dir, "add", "newer.txt");
+    await git(
+      dir,
+      "commit",
+      "-q",
+      "-m",
+      "move preserved branch",
+      "--no-gpg-sign",
+    );
+    const movedTip = await gitOut(dir, "rev-parse", "agent/recovery-race");
+    await git(dir, "switch", "main");
+
+    const deletion = await deleteDropBranchAtCommit(
+      dir,
+      "agent/recovery-race",
+      preserved.commit,
+    );
+    assertEquals(deletion.deleted, false);
+    assertEquals(
+      await gitOut(dir, "rev-parse", "agent/recovery-race"),
+      movedTip,
+      "a ref move after preservation must keep the newer branch tip",
     );
   });
 });
@@ -477,5 +592,6 @@ Deno.test("worktree drop --dry-run: shows what a drop would discard and touches 
     assertStringIncludes(r.output, "uncommitted change");
     assertEquals(await exists(wt), true, "a dry-run must not remove anything");
     assert(await branchExists(dir, "agent/preview-drop"));
+    assertEquals(await recoveryRefs(dir), [], "a dry-run must not create refs");
   });
 });

@@ -23,7 +23,11 @@ import type { EnvReader } from "../../shared/env.ts";
 import { DISCERN_ENVIRONMENT_VARIABLES } from "../../shared/environment_variables.ts";
 import { gitAdminStatePath } from "../../shared/git_admin_state.ts";
 import { fire, type FiredHint, HINTS } from "../../shared/hints.ts";
-import { type GitResult, runGit } from "../../shared/subprocess.ts";
+import {
+  discernMergeArgs,
+  type GitResult,
+  runGit,
+} from "../../shared/subprocess.ts";
 import {
   commitDiscernChanges,
   DISCERN_AUTHORED_COMMIT_SITES,
@@ -936,9 +940,18 @@ export async function updateMain(
   // fork point). `after` is read post-merge below. They let the summary layer report
   // exactly what landed — and an agent diff the full set in one call when capped.
   const anchors = await resolveIntegrationAnchors(cwd, source);
-  // `--no-edit` accepts git's default merge-commit message without opening an
-  // editor, so a divergent merge stays non-interactive.
-  const merge = await git(["merge", "--no-edit", source], cwd);
+  // Resolve the checked-out branch for the per-branch merge-options override.
+  // update runs only in a linked branch worktree, but retain a fallback so an
+  // unexpected detached state fails through Git rather than interpolating an
+  // empty config subsection.
+  const currentBranchRun = await git(
+    ["symbolic-ref", "--quiet", "--short", "HEAD"],
+    cwd,
+  );
+  const currentBranch = currentBranchRun.success
+    ? currentBranchRun.stdout.trim()
+    : "HEAD";
+  const merge = await git(discernMergeArgs(currentBranch, source), cwd);
   if (merge.success) {
     const after = (await git(["rev-parse", "HEAD"], cwd)).stdout.trim();
     return {
