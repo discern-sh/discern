@@ -1572,7 +1572,7 @@ export const CANONICAL_SETS: readonly CanonicalSetEntry[] = [
     id: "benefit-canon",
     title: "Benefit canon",
     what:
-      "The outcome-first transposition of the feature registry: clusters of benefit entries, each citing the feature nodes it composes and the public claims it backs.",
+      "The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.",
     source: {
       kind: "module",
       module: "scripts/feature_registry.ts",

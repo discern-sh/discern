@@ -28,7 +28,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`accept-landing-state-fields`](#accept-landing-state-fields--acceptance-landing-state-fields)                        | `src/shared/accept_landing_state.ts#ACCEPT_LANDING_STATE_FIELDS`                  | 4       | —                | node `published-contracts`  |
 | [`worktree-lifecycle-repo-root-verbs`](#worktree-lifecycle-repo-root-verbs--repository-root-worktree-lifecycle-verbs) | `src/engine/worktree/lifecycle.ts#WORKTREE_LIFECYCLE_REPO_ROOT_VERBS`             | 2       | —                | node `worktrees`            |
 | [`desk-actions`](#desk-actions--desk-actions)                                                                         | `src/engine/desk/model.ts#DESK_ACTIONS`                                           | 10      | —                | node `desk`                 |
-| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 19      | —                | —                           |
+| [`git-admin-state`](#git-admin-state--git-admin-state)                                                                | `src/shared/git_admin_state.ts#GIT_ADMIN_STATE`                                   | 20      | —                | —                           |
 | [`jobs`](#jobs--gate-jobs)                                                                                            | `src/shared/capabilities.ts#KNOWN_JOBS`                                           | 6       | "Gate job"       | surface `job`               |
 | [`stages`](#stages--stages)                                                                                           | `src/shared/capabilities.ts#STAGES`                                               | 4       | "Stage"          | surface `stage`             |
 | [`diagnostic-formats`](#diagnostic-formats--diagnostic-formats)                                                       | `src/engine/gate/diagnostics.ts#DIAGNOSTIC_FORMATS`                               | 2       | —                | node `diagnostics`          |
@@ -62,8 +62,8 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`patterns-detectors`](#patterns-detectors--patterns-detectors)                                                       | `src/engine/logbook/detectors.ts#DETECTORS`                                       | 34      | "Patterns"       | node `patterns`             |
 | [`improve-categories`](#improve-categories--improvement-categories)                                                   | `src/engine/improve/rules.ts#CATEGORIES`                                          | 7       | —                | node `improvement`          |
 | [`glossary-terms`](#glossary-terms--glossary-terms)                                                                   | `scripts/glossary_registry.ts#GLOSSARY`                                           | 40      | —                | node `glossary-canon`       |
-| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 127     | —                | —                           |
-| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 42      | —                | —                           |
+| [`feature-canon`](#feature-canon--feature-canon)                                                                      | `scripts/feature_registry.ts#FEATURE_CANON`                                       | 128     | —                | —                           |
+| [`benefit-canon`](#benefit-canon--benefit-canon)                                                                      | `scripts/feature_registry.ts#BENEFIT_CANON`                                       | 44      | —                | —                           |
 | [`result-contracts`](#result-contracts--result-contracts)                                                             | `src/shared/result_contracts.ts#CLI_JSON_RESULT_CONTRACTS`                        | 42      | —                | node `published-contracts`  |
 | [`result-contract-reference-fields`](#result-contract-reference-fields--result-contract-reference-fields)             | `src/shared/result_contracts.ts#RESULT_CONTRACT_REFERENCE_FIELDS`                 | 2       | —                | node `published-contracts`  |
 | [`cli-json-predicates`](#cli-json-predicates--cli-json-predicate-contracts)                                           | `src/shared/result_contracts.ts#CLI_JSON_PREDICATE_CONTRACTS`                     | 2       | —                | node `published-contracts`  |
@@ -75,7 +75,7 @@ One row per set, in registry order. The detail sections use the same order and c
 | [`step-outcomes`](#step-outcomes--step-outcomes)                                                                      | `src/shared/result.ts#STEP_OUTCOMES`                                              | 4       | —                | node `published-contracts`  |
 | [`public-doc-surfaces`](#public-doc-surfaces--public-doc-surfaces)                                                    | `src/lib/docs.ts#PUBLIC_DOC_SURFACES`                                             | 4       | —                | node `publish-predicate`    |
 | [`docs-workflow-directives`](#docs-workflow-directives--docs-workflow-directives)                                     | `site/workflow_registry.ts#WORKFLOW_DIRECTIVES`                                   | 5       | —                | node `bundled-docs`         |
-| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 259     | —                | node `adr-discipline`       |
+| [`adrs`](#adrs--architecture-decision-records)                                                                        | `src/lib/docs.ts#adrRecords`                                                      | 261     | —                | node `adr-discipline`       |
 | [`project-artifacts`](#project-artifacts--project-artifacts)                                                          | `src/lib/artifact_ownership.ts#projectArtifactPaths`                              | 27      | "File ownership" | node `ownership-buckets`    |
 | [`distribution-vocabulary`](#distribution-vocabulary--distribution-vocabulary)                                        | `src/shared/vocabulary.ts#RETIRED_COMMAND_REDIRECTS`                              | 22      | —                | node `forgiving-cli`        |
 | [`voice-banned-moves`](#voice-banned-moves--voice-banned-moves)                                                       | `scripts/brand/voice.ts#BANNED_WORDS`                                             | 26      | —                | —                           |
@@ -600,7 +600,7 @@ The Desk's per-Worktree action vocabulary and menu order. The legality table exe
 Every discern-owned Git-admin artifact carries its path, lifetime, shape, and validation-write policy. Registry-driven guards enroll each new member in placement and lifecycle checks.
 
 - Source: `src/shared/git_admin_state.ts` — `GIT_ADMIN_STATE`
-- Members: 19
+- Members: 20
   - `resources`
   - `logbook`
   - `crash`
@@ -609,6 +609,7 @@ Every discern-owned Git-admin artifact carries its path, lifetime, shape, and va
   - `tempArtifactSweep`
   - `continuations`
   - `retiredWorktreePaths`
+  - `dropRecoveryLock`
   - `gateProof`
   - `lastGateRun`
   - `standardMeasurements`
@@ -1534,7 +1535,7 @@ The term registry behind the glossary page, its search aliases, and the retired-
 The feature registry behind the canon pages: pillars, nodes, and surface claims, each node carrying a technical and a plain-language account.
 
 - Source: `scripts/feature_registry.ts` — `FEATURE_CANON`
-- Members: 127
+- Members: 128
   - `gate`
   - `jobs-table`
   - `job-format`
@@ -1579,6 +1580,7 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
   - `worktree-identity`
   - `worktree-resources`
   - `crash-safe-provisioning`
+  - `drop-recovery`
   - `worktree-prune`
   - `env-inheritance`
   - `ignored-drift`
@@ -1669,52 +1671,54 @@ The feature registry behind the canon pages: pillars, nodes, and surface claims,
 
 ## `benefit-canon` — Benefit canon
 
-The outcome-first transposition of the feature registry: clusters of benefit entries, each citing the feature nodes it composes and the public claims it backs.
+The commercially ordered transposition of the feature registry: human value and the reason it follows, with explicit feature and public-claim traceability.
 
 - Source: `scripts/feature_registry.ts` — `BENEFIT_CANON`
-- Members: 42
-  - `done-is-a-verdict`
-  - `check-the-claim`
-  - `keep-the-evidence`
-  - `permission-separate`
-  - `route-routine-work`
-  - `bound-the-blast-radius`
-  - `no-half-states`
-  - `take-on-more-work`
-  - `fleet-on-one-machine`
-  - `no-message-bus`
-  - `build-on-unlanded`
-  - `walk-away-mid-task`
-  - `no-orphaned-mess`
-  - `numbers-one-way`
-  - `capture-the-gain`
-  - `standards-survive-growth`
-  - `make-bugs-extinct`
-  - `outlaw-a-pattern`
-  - `hold-back-clutter`
-  - `docs-cannot-rot`
-  - `teach-a-lesson-once`
-  - `audit-agent-understanding`
-  - `keep-the-why`
-  - `knowledge-at-the-failure`
-  - `orient-in-one-call`
-  - `hand-a-briefing`
-  - `inherit-the-practices`
+- Members: 44
+  - `shape-substantial-work`
+  - `parallel-work-on-one-machine`
+  - `wait-without-relay`
+  - `compose-staged-work`
+  - `resume-later`
+  - `reduce-routine-review`
+  - `decisions-in-one-view`
+  - `useful-failures-sooner`
+  - `catch-related-files`
+  - `run-relevant-checks`
+  - `context-for-the-task`
+  - `project-defined-completion`
+  - `evidence-for-this-change`
+  - `evidence-that-lasts`
+  - `explicit-release-decision`
+  - `bounded-standing-permission`
+  - `unfinished-work-stays-isolated`
+  - `recover-interrupted-operations`
+  - `retain-measured-gains`
+  - `pin-new-baseline`
+  - `standards-that-scale`
+  - `remove-bug-class`
+  - `retire-old-pattern`
+  - `keep-clutter-down`
+  - `catch-documentation-breakage`
+  - `improve-practice-from-evidence`
+  - `teach-project-once`
+  - `inspect-agent-understanding`
+  - `preserve-decision-reasons`
+  - `guidance-at-failure`
+  - `orient-new-session`
+  - `export-project-briefing`
+  - `reuse-engineering-discipline`
+  - `agent-commissioning`
+  - `small-installation-footprint`
+  - `inspect-live-example`
+  - `clean-abandoned-environments`
   - `switch-providers`
-  - `one-practice-any-stack`
-  - `adopt-without-a-leap`
-  - `leave-as-cheaply`
-  - `upgrade-on-your-schedule`
-  - `review-the-judgment`
-  - `fleet-from-one-screen`
-  - `fail-forward-fast`
-  - `the-file-you-forgot`
-  - `pay-for-what-changed`
-  - `see-the-practice`
-  - `context-on-the-work`
-  - `stays-on-the-machine`
-  - `consent-is-structural`
-  - `tooling-on-contracts`
+  - `practice-across-stacks`
+  - `build-on-published-contracts`
+  - `planned-upgrades`
+  - `retain-work-after-uninstall`
+  - `local-without-another-model`
+  - `explicit-write-authority`
 - Guards: `tests/feature_canon_benefit_test.ts`, `tests/feature_canon_codegen_test.ts`
 - Artifacts: `project/map/_internal/feature-canon-benefits.md`
 - Glossary: not enrolled — this maintainer registry supplies the benefit canon's data
@@ -1981,7 +1985,7 @@ The source Markdown markers the browser manual projects through the design syste
 The numbered decision records in the Map, including records later superseded.
 
 - Source: `src/lib/docs.ts` — `adrRecords`
-- Members: 259
+- Members: 261
   - `0003`
   - `0005`
   - `0006`
@@ -2223,6 +2227,8 @@ The numbered decision records in the Map, including records later superseded.
   - `0266`
   - `0267`
   - `0268`
+  - `0270`
+  - `0271`
   - `0001`
   - `0002`
   - `0004`

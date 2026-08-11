@@ -57,9 +57,12 @@ import {
 import {
   gitVersion,
   hasAnyCommit,
-  repoToplevel,
   resolveCommonGitDir,
 } from "../engine/worktree/git.ts";
+import {
+  type GitHealthReport,
+  inspectGitHealth,
+} from "../engine/doctor/git_health.ts";
 import { logbookDir } from "../engine/logbook/store.ts";
 import { z } from "@zod/zod";
 import type { DiscernResult } from "../shared/result.ts";
@@ -772,6 +775,7 @@ export async function runChecks(
   // workflow, standards' base comparison, acceptance, scope diffing, status), so a
   // missing git breaks the core of the tool. Required (not advisory): the version
   // string doubles as triage context in a bug report.
+  let gitHealth: GitHealthReport | undefined;
   {
     const version = await gitVersion();
     checks.push(
@@ -785,6 +789,10 @@ export async function runChecks(
             "install git — discern's worktrees, standards, acceptance, and status all shell out to it",
         },
     );
+    if (version !== undefined) {
+      gitHealth = await inspectGitHealth(destDir);
+      checks.push(...gitHealth.checks);
+    }
   }
 
   // 7c. repository shape — the two layouts the worktree lifecycle cannot work
@@ -794,8 +802,10 @@ export async function runChecks(
   // whole-repository checkout, so the new copy would nest inside the repo and
   // carry its discern.toml somewhere setup doesn't look).
   {
-    const toplevel = await repoToplevel(destDir);
-    if (toplevel === undefined) {
+    const repository = gitHealth?.repository;
+    if (repository === undefined) {
+      // The Git prerequisite check already owns the missing-binary failure.
+    } else if (repository.kind === "not-repository") {
       checks.push({
         name: "repository shape",
         ok: true,
@@ -803,6 +813,11 @@ export async function runChecks(
         detail: "not a git repository — the worktree workflow is unavailable",
         fix: "run `git init` and make a first commit to enable worktrees",
       });
+    } else if (repository.kind === "dubious-ownership") {
+      // The ownership row carries the exact safe.directory recovery. Calling
+      // this "not a repository" as well would misdiagnose the same refusal.
+    } else if (repository.kind === "other") {
+      // The repository-access row carries Git's actual refusal.
     } else if (!(await hasAnyCommit(destDir))) {
       checks.push({
         name: "repository shape",
@@ -813,14 +828,14 @@ export async function runChecks(
       });
     } else {
       const projectRoot = await Deno.realPath(destDir).catch(() => destDir);
-      if (projectRoot !== toplevel) {
+      if (projectRoot !== repository.toplevel) {
         checks.push({
           name: "repository shape",
           ok: false,
           detail:
-            `discern.toml lives at ${projectRoot}, but the git repository's root is ${toplevel} — worktrees are whole-repository checkouts, so \`discern start\` will refuse`,
+            `discern.toml lives at ${projectRoot}, but the git repository's root is ${repository.toplevel} — worktrees are whole-repository checkouts, so \`discern start\` will refuse`,
           fix:
-            `move discern.toml (and its authored files) to ${toplevel}, or make ${projectRoot} its own repository`,
+            `move discern.toml (and its authored files) to ${repository.toplevel}, or make ${projectRoot} its own repository`,
         });
       } else {
         checks.push({
@@ -839,7 +854,7 @@ export async function runChecks(
   // On-but-empty is red: either writes are failing, or the install is so new
   // that no verb has completed yet — and since this doctor run itself appends
   // an event on completion, a healthy install turns the re-run green.
-  if (config !== undefined && (await repoToplevel(destDir)) !== undefined) {
+  if (gitHealth?.repository.kind === "repository") {
     const commonGitDir = await resolveCommonGitDir(destDir);
     if (commonGitDir !== undefined) {
       checks.push(await logbookCheck(config, commonGitDir));

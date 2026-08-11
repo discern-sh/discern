@@ -392,7 +392,7 @@ Usage: `discern upgrade [options]`
 
 ### `discern doctor`
 
-Check the install (config, schema, commands on PATH) and print each verb's execution model.
+Check the install and Git safety settings, then print each verb's execution model.
 
 Usage: `discern doctor [options]`
 

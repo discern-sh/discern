@@ -26,7 +26,7 @@ import {
 } from "../shared/command_reference.ts";
 import { findRoot, NO_PROJECT_MESSAGE } from "../shared/env.ts";
 import { emitResult } from "../shared/emit.ts";
-import { runGit } from "../shared/subprocess.ts";
+import { discernMergeArgs, runGit } from "../shared/subprocess.ts";
 import { SETUP_BRANCH } from "../shared/setup_state.ts";
 import { type ErrorSlug, renderHumanOutputGroups } from "../shared/result.ts";
 import { worktreeState } from "../lib/git.ts";
@@ -293,9 +293,10 @@ export async function runSetupAccept(
       code: 1,
     });
   }
-  const merge = fastForward
-    ? await run(["merge", "--ff-only", "--quiet", branch])
-    : await run(["merge", "--no-edit", branch]);
+  const merge = await run(discernMergeArgs(target, branch, {
+    ffOnly: fastForward,
+    quiet: fastForward,
+  }));
   if (!merge.success) {
     // Step the conflict aside so the tree is left clean, then refuse.
     await run(["merge", "--abort"]);

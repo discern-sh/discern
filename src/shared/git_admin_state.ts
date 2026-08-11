@@ -69,6 +69,12 @@ export const GIT_ADMIN_STATE = {
     kind: "directory",
     validation: false,
   },
+  dropRecoveryLock: {
+    path: "discern/drop-recovery.lock",
+    scope: "common",
+    kind: "file",
+    validation: false,
+  },
   gateProof: {
     path: "discern/gate-proof",
     scope: "worktree",

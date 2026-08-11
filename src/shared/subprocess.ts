@@ -116,6 +116,21 @@ interface GitInvocation {
   readonly inlineConfigKeys: readonly string[];
 }
 
+/** Whether one status argv already selects how untracked paths are shown. */
+function hasUntrackedStatusPolicy(args: readonly string[]): boolean {
+  return args.some((arg) =>
+    arg === "-u" || arg.startsWith("-u") ||
+    arg === "--untracked-files" || arg.startsWith("--untracked-files=")
+  );
+}
+
+/** Whether one status argv already selects how submodule changes are shown. */
+function hasSubmoduleStatusPolicy(args: readonly string[]): boolean {
+  return args.some((arg) =>
+    arg === "--ignore-submodules" || arg.startsWith("--ignore-submodules=")
+  );
+}
+
 /** The case-insensitive config key before its `=value` or `=environment`. */
 function gitConfigKey(value: string): string {
   const separator = value.indexOf("=");
@@ -189,6 +204,81 @@ function gitInvocation(args: readonly string[]): GitInvocation | undefined {
 }
 
 /**
+ * Apply the generic Git funnel's configuration invariants to one argv.
+ *
+ * A configured alias is neutralized for every real subcommand. `git status`
+ * additionally receives Git's ordinary visibility defaults as explicit CLI
+ * options unless its caller selected another policy. This keeps
+ * `status.showUntrackedFiles` and `diff.ignoreSubmodules` from changing a
+ * machine-read safety predicate. Explicit caller options remain authoritative.
+ */
+export function configInvariantGitArgs(args: readonly string[]): string[] {
+  const invocation = gitInvocation(args);
+  if (invocation === undefined) {
+    return [...args];
+  }
+  const tail = args.slice(invocation.subcommandIndex + 1);
+  const pathspecSeparator = tail.indexOf("--");
+  const subcommandOptions = pathspecSeparator === -1
+    ? tail
+    : tail.slice(0, pathspecSeparator);
+  const defaults = invocation.subcommand === "status"
+    ? [
+      ...(!hasUntrackedStatusPolicy(subcommandOptions)
+        ? ["--untracked-files=normal"]
+        : []),
+      ...(!hasSubmoduleStatusPolicy(subcommandOptions)
+        ? ["--ignore-submodules=none"]
+        : []),
+    ]
+    : [];
+  return [
+    ...args.slice(0, invocation.subcommandIndex),
+    "-c",
+    `alias.${invocation.subcommand}=`,
+    invocation.subcommand,
+    ...defaults,
+    ...tail,
+  ];
+}
+
+/** Options for {@link discernMergeArgs}. */
+export interface DiscernMergeOptions {
+  /** Require a fast-forward instead of permitting a merge commit. */
+  readonly ffOnly?: boolean;
+  /** Suppress Git's routine merge output. */
+  readonly quiet?: boolean;
+}
+
+/**
+ * Git argv for a discern-owned branch merge.
+ *
+ * The current branch's `branch.<name>.mergeOptions` is cleared for this call,
+ * then the intended topology is stated on the command line. Ambient
+ * `merge.ff` and per-branch options therefore cannot add a merge commit, force
+ * an ff-only refusal, squash, or leave a successful merge uncommitted.
+ */
+export function discernMergeArgs(
+  currentBranch: string,
+  source: string,
+  opts: DiscernMergeOptions = {},
+): string[] {
+  return [
+    "-c",
+    `branch.${currentBranch}.mergeOptions=`,
+    "-c",
+    "merge.ff=true",
+    "merge",
+    opts.ffOnly === true ? "--ff-only" : "--ff",
+    "--commit",
+    "--no-squash",
+    "--no-edit",
+    ...(opts.quiet === true ? ["--quiet"] : []),
+    source,
+  ];
+}
+
+/**
  * Run a git subcommand, capturing stdout+stderr. `cwd` is the required directory
  * git runs in (the equivalent of `-C`), so the checkout a git call targets is part
  * of the contract, never inherited from ambient process state; `env` is forwarded
@@ -228,15 +318,9 @@ export async function runGit(
       stderr: GIT_ALIAS_BOUNDARY_ERROR,
     };
   }
-  // A configured alias is another spelling for an arbitrary command. Override
-  // the resolved subcommand's alias after all caller-supplied global options:
-  // built-ins still run, while an alias-only name fails instead of expanding.
-  const safeArgs = invocation === undefined ? args : [
-    ...args.slice(0, invocation.subcommandIndex),
-    "-c",
-    `alias.${invocation.subcommand}=`,
-    ...args.slice(invocation.subcommandIndex),
-  ];
+  // A configured alias is another spelling for an arbitrary command. The same
+  // normalization pins machine-read status visibility at this shared funnel.
+  const safeArgs = configInvariantGitArgs(args);
   let output: Deno.CommandOutput;
   try {
     const command = new Deno.Command(gitBin(), {

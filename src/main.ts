@@ -491,7 +491,7 @@ export function buildCli(
   root
     .command("doctor")
     .description(
-      "Check the install (config, schema, commands on PATH) and print each verb's execution model.",
+      "Check the install and Git safety settings, then print each verb's execution model.",
     )
     .option(
       "-v, --verbose",
