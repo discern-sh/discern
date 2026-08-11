@@ -12,7 +12,7 @@ export const DISCERN_FAVICON_PATH = "/assets/favicon.svg";
 export const LANDING_TITLE =
   "discern · Build further. Stand behind what comes back.";
 export const LANDING_DESCRIPTION =
-  "Coding agents can take on substantial work. discern puts shared understanding, isolated work, declared checks, and exact-change evidence in the project.";
+  "An engineering practice for agent-built software. Put more work in motion, review less code, and keep the final say.";
 
 /**
  * Landing-family routes that carry their own exact titles. Serving appends

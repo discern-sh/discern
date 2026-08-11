@@ -26,7 +26,7 @@
     const reflect = (copied) => {
       label.textContent = copied
         ? "Copied! Now paste it to your agent."
-        : "Copy prompt";
+        : "Copy setup prompt";
       control.toggleAttribute("data-prompt-copied", copied);
       if (status) {
         status.textContent = copied

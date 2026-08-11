@@ -18,7 +18,7 @@ import { pageDocument } from "./document.ts";
 import { CompactStandardTrajectory } from "./specimens.tsx";
 
 const GITHUB = "https://github.com/jackwh/discern";
-const LICENSE = `${GITHUB}/blob/main/LICENSE`;
+const LICENSE = GITHUB + "/blob/main/LICENSE";
 export const COPY_PROMPT_TEXT =
   "Set this project up with discern. Start by fetching https://discern.sh/llms.txt, then follow the setup instructions there.";
 export const INSTALL_COMMAND = "curl -fsSL https://discern.sh/install | sh";
@@ -33,7 +33,7 @@ const PROVIDER_LOGOS = AGENT_NAMES.map((name) => {
       <span
         className="landing-provider-logo-frame"
         style={{
-          "--landing-provider-logo-mask": `url("${silhouette.path}")`,
+          "--landing-provider-logo-mask": 'url("' + silhouette.path + '")',
         } as CSSProperties}
       >
         <img
@@ -54,6 +54,12 @@ interface LandingSectionProps {
   readonly heading: string;
   readonly children: ReactNode;
   readonly className?: string;
+}
+
+interface ProductTerm {
+  readonly name: string;
+  readonly definition: string;
+  readonly href: string;
 }
 
 /** Static theme toggle wired at runtime by the shared /assets/theme.js. */
@@ -79,14 +85,14 @@ function DiscernName() {
   return <span className="landing-brand-name">discern</span>;
 }
 
-/** Progressive Copy prompt control; its source text remains visible without JavaScript. */
+/** Progressive copy-prompt control; its source text remains visible without JavaScript. */
 function CopyPrompt(
   { id, buttonVariant = "primary" }: {
     readonly id: string;
     readonly buttonVariant?: "primary" | "secondary";
   },
 ) {
-  const statusId = `${id}-status`;
+  const statusId = id + "-status";
   return (
     <div className="landing-copy-prompt">
       <blockquote id={id} className="landing-copy-prompt__text">
@@ -98,10 +104,10 @@ function CopyPrompt(
         type="button"
         data-copy-prompt=""
         data-copy-prompt-target={id}
-        aria-describedby={`${id} ${statusId}`}
+        aria-describedby={id + " " + statusId}
         hidden
       >
-        Copy prompt
+        Copy setup prompt
       </Button>
       <span
         id={statusId}
@@ -112,19 +118,19 @@ function CopyPrompt(
   );
 }
 
-/** Shared editorial wrapper for one signed-off homepage section. */
+/** Shared editorial wrapper for one numbered homepage section. */
 function LandingSection(
   { id, heading, children, className = "" }: LandingSectionProps,
 ) {
   return (
     <section
       id={id}
-      className={`landing-section ${className}`.trim()}
-      aria-labelledby={`${id}-title`}
+      className={("landing-section " + className).trim()}
+      aria-labelledby={id + "-title"}
     >
       <div className="landing-section__inner">
         <header className="landing-section__header">
-          <h2 id={`${id}-title`}>{heading}</h2>
+          <h2 id={id + "-title"}>{heading}</h2>
         </header>
         {children}
       </div>
@@ -132,7 +138,62 @@ function LandingSection(
   );
 }
 
-/** Introduce the ambition, category, and signature action. */
+/** Focusable, optional definitions for product vocabulary introduced nearby. */
+function ProductTerms({ terms }: { readonly terms: readonly ProductTerm[] }) {
+  return (
+    <aside className="landing-terms" aria-label="Concepts introduced">
+      <p>Concepts introduced:</p>
+      <div className="landing-terms__items">
+        {terms.map((term) => (
+          <details className="landing-term" key={term.name}>
+            <summary>{term.name}</summary>
+            <div>
+              <p>{term.definition}</p>
+              <a href={term.href}>Read the documentation ↗</a>
+            </div>
+          </details>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+/** A deliberately cropped preview of the result the page later explains. */
+function HeroOutcomePreview() {
+  return (
+    <aside
+      className="landing-hero-preview"
+      aria-label="Returned change preview"
+    >
+      <div className="landing-hero-preview__card">
+        <header>
+          <span>Returned change</span>
+          <Badge tone="success" dot>Gate passed</Badge>
+        </header>
+        <h2>Saved views are ready for a decision</h2>
+        <dl>
+          <div>
+            <dt>Project checks</dt>
+            <dd>4 passed</dd>
+          </div>
+          <div>
+            <dt>Proof covers</dt>
+            <dd>
+              <code>8f2c1ab</code>
+            </dd>
+          </div>
+          <div>
+            <dt>Decision</dt>
+            <dd>Awaiting you</dd>
+          </div>
+        </dl>
+      </div>
+      <a href="#returned-change">See how the change reached this point.</a>
+    </aside>
+  );
+}
+
+/** Introduce the category, promise, and destination of the practice. */
 function LandingHero() {
   return (
     <header className="landing-hero">
@@ -145,11 +206,17 @@ function LandingHero() {
             An engineering <HeadingAccent>practice</HeadingAccent>{" "}
             for agent-built software
           </h1>
+          <p className="landing-hero__promise">
+            Build more ambitious software. Review less code. Keep the final say.
+          </p>
           <p className="landing-hero__standfirst">
-            Coding agents can take on substantial work. discern makes the whole
-            way of working part of the project: shared understanding, isolated
-            work, declared checks, and evidence for the exact change. Your
-            ambition can grow without turning you into the operating layer
+            Coding agents can carry substantial implementation. discern puts the
+            practice around that work into the project itself: shared
+            understanding for every agent, isolated work for every task, the
+            project's real checks, and evidence attached to the exact change.
+          </p>
+          <p className="landing-hero__standfirst landing-hero__standfirst--closing">
+            More work can move without turning you into the operating layer
             around every detail.
           </p>
           <ul className="landing-hero__facts" aria-label="Product foundations">
@@ -157,30 +224,133 @@ function LandingHero() {
             <li>One local binary</li>
             <li>No model inside</li>
           </ul>
-        </div>
-        <aside className="landing-hero__action" aria-label="Begin with discern">
-          <div className="landing-hero__invitation">
-            <div>
-              <h2>Already working with a coding agent?</h2>
-              <p>Copy the setup prompt into the conversation.</p>
-            </div>
-            <CopyPrompt id="hero-copy-prompt" />
-            <Button href="#delegation" variant="secondary">
-              See discern in practice
+          <div className="landing-hero__buttons">
+            <Button href="#returned-change" variant="primary">
+              See a change come back
+            </Button>
+            <Button href="#begin" variant="secondary">
+              Tell your agent to set it up
             </Button>
           </div>
-        </aside>
+        </div>
+        <HeroOutcomePreview />
       </div>
-      <LogoCloud
-        className="landing-integrations"
-        aria-label={`${PROVIDER_LOGOS.length} supported coding agent providers`}
-        items={PROVIDER_LOGOS}
-      />
     </header>
   );
 }
 
-/** Illustrative return packet that separates account, evidence, and authority. */
+/** The opening handoff from a human reader to their coding agent. */
+function BeginWithDiscern() {
+  return (
+    <section id="begin" className="landing-begin" aria-labelledby="begin-title">
+      <div className="landing-begin__inner">
+        <div className="landing-begin__setup">
+          <p className="landing-begin__eyebrow">Begin with discern</p>
+          <h2 id="begin-title">Already working with a coding agent?</h2>
+          <p className="landing-begin__lead">Give it one instruction.</p>
+          <CopyPrompt id="hero-copy-prompt" />
+          <Button
+            href="/docs/getting-started/quickstart"
+            variant="secondary"
+          >
+            Open the setup guide
+          </Button>
+        </div>
+        <div className="landing-begin__explanation">
+          <h3>What happens after you paste it</h3>
+          <p>
+            Your agent studies the repository and the tools already in use. It
+            asks for the intent it cannot infer, wires the project's real
+            checks, and proposes any missing conventional tools with your
+            consent. Before setup can finish, it proves the practice in a fresh
+            worktree.
+          </p>
+          <p>
+            You make the decisions only you can make. The agent carries the
+            project-specific setup.
+          </p>
+        </div>
+        <div className="landing-begin__providers">
+          <p>Works with:</p>
+          <LogoCloud
+            className="landing-begin__logo-cloud"
+            aria-label="Supported coding-agent providers"
+            items={PROVIDER_LOGOS}
+          />
+        </div>
+        <nav className="landing-proof-strip" aria-label="Project evidence">
+          <a href="/docs/worktrees/team-workflow">
+            Built under its own practice
+          </a>
+          <a href={GITHUB}>Public source</a>
+          <a href="/docs/decisions">Inspectable decisions</a>
+        </nav>
+      </div>
+    </section>
+  );
+}
+
+/** Three human outcomes from the practice, before product vocabulary enters. */
+function HumanOutcomes() {
+  return (
+    <div className="landing-outcomes">
+      <article>
+        <span>01</span>
+        <h3>Build further</h3>
+        <p>
+          Shape substantial work into parallel or staged efforts and let more of
+          it remain in motion.
+        </p>
+      </article>
+      <article>
+        <span>02</span>
+        <h3>Review less code</h3>
+        <p>
+          Begin with the working result, the checks that ran, and evidence for
+          the exact committed change.
+        </p>
+      </article>
+      <article>
+        <span>03</span>
+        <h3>Keep the final say</h3>
+        <p>
+          Passing conditions prepare a change for your decision. They never make
+          that decision for you.
+        </p>
+      </article>
+    </div>
+  );
+}
+
+/** A restrained comparison between a conversational and project-backed return. */
+function ReviewComparison() {
+  return (
+    <div className="landing-review-comparison" data-site-prose-exclude>
+      <article>
+        <span>Starting from conversation</span>
+        <h3>A conversational return</h3>
+        <ul>
+          <li>Agent summary</li>
+          <li>Code diff</li>
+          <li>Test claims to reconstruct</li>
+          <li>Final tree state to establish</li>
+        </ul>
+      </article>
+      <article className="landing-review-comparison__discern">
+        <span>Starting further ahead</span>
+        <h3>A discern return</h3>
+        <ul>
+          <li>Working result</li>
+          <li>Declared checks</li>
+          <li>Proof for the exact commit</li>
+          <li>A decision that still belongs to you</li>
+        </ul>
+      </article>
+    </div>
+  );
+}
+
+/** Illustrative return packet separating account, project verdict, evidence, and authority. */
 function ReturnedChange() {
   return (
     <div className="landing-return" data-site-prose-exclude>
@@ -248,29 +418,35 @@ function ReturnedChange() {
         <div className="landing-return__verdict">
           <section className="landing-return__proof">
             <p className="landing-return__label">
-              <span>03</span> Exact-tree evidence
+              <span>03</span> Exact-change evidence
             </p>
-            <div className="landing-return__commit">
-              <span>Proof covers</span>
-              <strong>
-                <code>8f2c1ab</code>
-              </strong>
-              <small>clean committed tree</small>
-            </div>
+            <dl className="landing-return__evidence">
+              <div>
+                <dt>Proof covers</dt>
+                <dd>
+                  <code>8f2c1ab</code>
+                </dd>
+              </div>
+              <div>
+                <dt>Tree state</dt>
+                <dd>clean and committed</dd>
+              </div>
+            </dl>
             <p>
-              The evidence belongs to this commit and the declared checks. A
+              The evidence belongs to this commit and these declared checks. A
               later edit clears it.
             </p>
           </section>
 
           <section className="landing-return__decision">
             <p className="landing-return__label">
-              <span>04</span> Human decision
+              <span>04</span> Your decision
             </p>
-            <h4>Ready for your review.</h4>
+            <h4>Ready for the review you choose to do.</h4>
             <p>
-              Passing makes this change eligible for a decision. Authority
-              remains with the person responsible.
+              The routine conditions have been established. Inspect the change
+              as deeply as its risk deserves, then decide whether it becomes
+              shared.
             </p>
             <div className="landing-return__decision-status">
               <Badge tone="accent">Awaiting your decision</Badge>
@@ -279,6 +455,46 @@ function ReturnedChange() {
         </div>
       </div>
     </div>
+  );
+}
+
+/** One real project workstream expressed as a compact editorial artifact. */
+function WorkstreamSteps() {
+  return (
+    <dl className="landing-demonstration-steps">
+      <div>
+        <dt>Discussed objective</dt>
+        <dd>
+          Make the operator view show what is happening, whether the work needs
+          the person responsible, and what the recommended action will do.
+        </dd>
+      </div>
+      <div>
+        <dt>Chosen plan</dt>
+        <dd>
+          Complete briefs arranged into parallel foundations and dependent later
+          work.
+        </dd>
+      </div>
+      <div>
+        <dt>Isolated work</dt>
+        <dd>
+          Separate environments with named boundaries, resources, and recorded
+          dependencies.
+        </dd>
+      </div>
+      <div>
+        <dt>Independent review</dt>
+        <dd>A technical pass against each brief before the work returns.</dd>
+      </div>
+      <div>
+        <dt>Returned decision</dt>
+        <dd>
+          The working result, evidence for the exact changes, and the decisions
+          still required.
+        </dd>
+      </div>
+    </dl>
   );
 }
 
@@ -303,7 +519,9 @@ function ProjectMemory() {
         </li>
         <li>
           <span>Map</span>
-          <strong>An account of the project people can inspect</strong>
+          <strong>
+            An account of the project that people and agents can inspect
+          </strong>
         </li>
       </ol>
       <div className="landing-memory__next">
@@ -317,7 +535,42 @@ function ProjectMemory() {
   );
 }
 
-/** The complete signed-off homepage sequence and lean public navigation. */
+/** One project-owned practice configured for every supported provider. */
+function ProviderOrbit() {
+  return (
+    <div className="landing-provider-orbit" data-site-prose-exclude>
+      <svg
+        viewBox="0 0 600 420"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        <path d="M300 210 120 72" />
+        <path d="M300 210 480 72" />
+        <path d="M300 210 68 226" />
+        <path d="M300 210 532 226" />
+        <path d="M300 210 300 360" />
+      </svg>
+      <div className="landing-provider-orbit__project">
+        <span aria-hidden="true">{DISCERN_MARK}</span>
+        <strong>Project-owned practice</strong>
+        <small>guidance · methods · checks · evidence</small>
+      </div>
+      {PROVIDER_LOGOS.map((provider, index) => (
+        <div
+          className={"landing-provider-orbit__provider landing-provider-orbit__provider--" +
+            String(index + 1)}
+          key={provider.name}
+        >
+          {provider.mark}
+          <strong>{provider.name}</strong>
+          <small>configured instructions, hooks, and tools</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The complete proposed homepage sequence and lean public navigation. */
 function LandingPage() {
   return (
     <>
@@ -333,8 +586,20 @@ function LandingPage() {
             />
           </a>
           <nav className="landing-masthead__nav" aria-label="Site">
-            <a href="/docs">Docs</a>
-            <a href={GITHUB}>GitHub ↗</a>
+            <a className="landing-masthead__link" href="/docs">Docs</a>
+            <a
+              className="landing-masthead__link landing-masthead__link--github"
+              href={GITHUB}
+            >
+              GitHub ↗
+            </a>
+            <Button
+              className="landing-masthead__action"
+              href="#begin"
+              variant="primary"
+            >
+              Set up discern
+            </Button>
             <LandingThemeToggle />
           </nav>
         </div>
@@ -342,179 +607,262 @@ function LandingPage() {
 
       <main id="main">
         <LandingHero />
+        <BeginWithDiscern />
 
         <LandingSection
-          id="possibility"
+          id="ambition"
           heading="More capability should widen your ambition."
           className="landing-section--moment"
         >
           <div className="landing-prose landing-prose--wide">
             <p>
-              One person can now attempt work that used to require a team, a
+              One person can now attempt software that once required a team, a
               longer schedule, or specialist access. That is a genuine expansion
               of human capability.
             </p>
             <p>
-              But implementation is only part of the work. Someone still has to
-              preserve project context, turn objectives into viable work, and
-              prepare environments. They have to coordinate dependencies, check
-              what actually ran, reconcile parallel changes, and decide what
+              Implementation is only part of the work. Someone still has to
+              preserve project context, turn objectives into viable tasks,
+              prepare environments, coordinate dependencies, establish what
+              actually passed, reconcile parallel changes, and decide what
               becomes shared.
             </p>
             <p>
-              The person gained execution capacity and became the operating
-              layer around it.
+              Too often, the person gains execution capacity and becomes the
+              operating layer around it.
             </p>
             <p>discern moves that operating practice into the project.</p>
             <p>
-              Software earns confidence through the way it is built. discern
-              gives that way of working somewhere durable to live.
+              It gives coding agents a durable way to understand the project,
+              carry complete units of work, verify the finished change, and
+              return with a meaningful basis for a human decision.
             </p>
             <blockquote className="landing-pullquote">
-              More implementation can move. Your attention can stay with
-              direction, architecture, trade-offs, exceptions, and the working
-              result.
+              More implementation can move without demanding the same increase
+              in your coordination and review.
             </blockquote>
           </div>
+          <HumanOutcomes />
+        </LandingSection>
+
+        <LandingSection
+          id="returned-change"
+          heading="Review less code. Know exactly what passed."
+          className="landing-section--decision"
+        >
+          <div className="landing-prose landing-prose--wide">
+            <p>
+              A coding agent can tell you what it changed. discern lets the
+              project show you what passed.
+            </p>
+            <p>
+              The project's final check, the{" "}
+              <strong>Gate</strong>, runs over a clean, committed tree. When it
+              passes, <strong>Proof</strong>{" "}
+              names the exact commit and the declared conditions that succeeded.
+              A later edit clears that evidence.
+            </p>
+            <p>
+              That removes a layer of routine reconstruction from review. You do
+              not have to read every line merely to discover whether the final
+              version formatted, built, typechecked, or passed its tests. You
+              can inspect more deeply wherever novelty, risk, architecture,
+              taste, or product behavior deserves it.
+            </p>
+            <p>
+              Passing makes the change eligible for a decision. It never grants
+              itself permission to land.
+            </p>
+          </div>
+          <ProductTerms
+            terms={[
+              {
+                name: "Gate",
+                definition:
+                  "The project's final declared check over a clean, committed tree.",
+                href: "/docs/quality-gate",
+              },
+              {
+                name: "Proof",
+                definition:
+                  "Evidence tied to the exact committed change and declared conditions that passed.",
+                href: "/docs/quality-gate/the-proof",
+              },
+              {
+                name: "Accept",
+                definition:
+                  "The recorded operation that moves an authorized exact change onto the shared branch.",
+                href: "/docs/worktrees/team-workflow",
+              },
+            ]}
+          />
+          <ReviewComparison />
+          <ReturnedChange />
+          <div className="landing-section__action">
+            <Button href="/docs/quality-gate/the-proof" variant="secondary">
+              See what a Proof can claim
+            </Button>
+          </div>
+          <blockquote className="landing-pullquote">
+            Build further. Stand behind what comes back.
+          </blockquote>
         </LandingSection>
 
         <LandingSection
           id="delegation"
-          heading="Turn a backlog into organized work."
+          heading="Put more work in motion."
           className="landing-section--artefact"
         >
           <div className="landing-prose landing-prose--wide">
             <p>
               Useful work rarely arrives with clean seams. It arrives as a
-              discussion, audit findings, backlog items, and decisions that have
-              not yet been made.
+              discussion, an audit, a backlog, a half-formed objective, and
+              decisions that have not yet been made.
             </p>
             <p>
               discern's <strong>Delegate Work</strong>{" "}
-              method turns that material into complete briefs. It makes the plan
-              explicit: one handoff, several independent workstreams, or stages
-              with recorded dependencies.
+              method turns that material into complete briefs and an explicit
+              plan: one handoff, several independent workstreams, or stages with
+              recorded dependencies.
             </p>
-            <p>Nothing is dispatched until you choose the plan.</p>
+            <p>Nothing starts until you choose the plan.</p>
             <p>
-              Each workstream receives a literal boundary, its own worktree, a
-              definition of done, and a clear scope of authority. Dependencies
-              move through the recorded plan instead of through you.
-            </p>
-            <p>
-              Finished work returns through an independent technical review. The
-              working result, its evidence, and the next decision come back
-              together.
+              Each effort receives a literal scope, its own isolated and
+              provisioned worktree, a definition of done, and a clear boundary
+              of authority. Dependent efforts can wait on recorded project
+              conditions instead of asking you to relay messages between agents.
             </p>
             <p>
-              We used this method to redesign discern's own operator view. Two
-              foundations could move at the same time. Later work waited for the
-              results it needed. The complete plan, briefs, reviews, and
-              returned evidence are inspectable.
+              Several substantial pieces can move at once without making you
+              their courier.
             </p>
           </div>
-          <dl className="landing-demonstration-steps">
+          <ProductTerms
+            terms={[
+              {
+                name: "Delegate Work",
+                definition:
+                  "A project method for turning discussed work into complete handoffs, parallel streams, or staged dependencies.",
+                href: "/docs/worktrees/team-workflow",
+              },
+              {
+                name: "Start",
+                definition:
+                  "Creates one isolated, prepared worktree for a bounded effort.",
+                href: "/docs/worktrees",
+              },
+              {
+                name: "Await",
+                definition:
+                  "Waits on a recorded branch or trunk condition without making you relay readiness.",
+                href: "/docs/worktrees/team-workflow",
+              },
+            ]}
+          />
+          <div className="landing-workstream">
             <div>
-              <dt>Discussed objective</dt>
-              <dd>
-                Make the operator view show what is happening, whether the work
-                needs the person responsible, and what the recommended action
-                will do.
-              </dd>
+              <h3>A real discern workstream</h3>
+              <p>
+                We used this practice to redesign discern's own operator view.
+                Two foundations moved at the same time. Later work began from
+                the exact results it needed. The complete plan, briefs, reviews,
+                and returned evidence are inspectable.
+              </p>
             </div>
-            <div>
-              <dt>Plan</dt>
-              <dd>
-                Complete briefs arranged into independent and staged
-                workstreams.
-              </dd>
+            <WorkstreamSteps />
+            <div className="landing-section__action">
+              <Button href="/docs/worktrees/team-workflow" variant="secondary">
+                See the real workstream plan
+              </Button>
             </div>
-            <div>
-              <dt>Work</dt>
-              <dd>
-                Separate environments with named boundaries and recorded
-                dependencies.
-              </dd>
-            </div>
-            <div>
-              <dt>Review</dt>
-              <dd>An independent technical pass against each brief.</dd>
-            </div>
-            <div>
-              <dt>Return</dt>
-              <dd>
-                The working result, evidence for the exact change, and a
-                decision.
-              </dd>
-            </div>
-          </dl>
-          <div className="landing-section__action">
-            <Button href="/docs/worktrees/team-workflow" variant="secondary">
-              See the real workstream plan
-            </Button>
+            <aside className="landing-built-under">
+              <h3>Built under its own practice</h3>
+              <p>
+                discern began when capable agents multiplied implementation
+                faster than personal review could comfortably follow. It has
+                been developed under the resulting practice ever since. Its{" "}
+                <a href={GITHUB}>public source</a> and{" "}
+                <a href="/docs/decisions">decision records</a>{" "}
+                make that process inspectable.
+              </p>
+            </aside>
           </div>
         </LandingSection>
 
         <LandingSection
           id="commissioning"
-          heading="A complete practice, by design."
+          heading="Every agent starts with the project already in view."
           className="landing-section--split-artefact"
         >
           <div className="landing-prose landing-prose--wide">
             <p>
-              Each part of discern reinforces the next.
+              Repeated prompts and private conversation history are weak places
+              to keep a project's way of working.
             </p>
             <p>
-              Project understanding shapes the brief. The brief defines the
-              work. The work runs in an isolated environment. The project's own
-              commands judge the finished tree. Evidence records exactly what
-              passed. A person with authority decides what lands. A demonstrated
-              improvement can become part of the next baseline.
+              <strong>Commissioning</strong>{" "}
+              begins with the repository you already have. Your agent studies
+              the code, structure, tools, and checks in use. It asks for the
+              intent it cannot infer, proposes missing conventional tools with
+              your consent, and establishes the shared guidance, reusable
+              methods, project map, and declared checks that future agents will
+              inherit.
             </p>
             <p>
-              Every discern project adopts the whole method. Configuration fits
-              it to the repository; it does not decide which parts count.
+              Before Commissioning can finish, discern proves the practice in a
+              fresh worktree. If the probe fails, setup remains open and
+              identifies what still needs resolving.
+            </p>
+            <p>
+              Once the practice is established, every configured agent begins
+              with the same project-owned understanding. A new session does not
+              have to reconstruct the project's standards from the last
+              conversation.
             </p>
             <blockquote className="landing-pullquote">
-              The consistency is the product.
+              Teach the project once. Let future agents begin from what it
+              knows.
             </blockquote>
           </div>
-
-          <ol
-            className="landing-practice-flow"
-            aria-label="The discern practice"
-          >
-            <li>Commission the project</li>
-            <li>Shape the work</li>
-            <li>Isolate each effort</li>
-            <li>Verify the exact change</li>
-            <li>Decide what lands</li>
-            <li>Keep the gains</li>
-          </ol>
-
+          <ProductTerms
+            terms={[
+              {
+                name: "Commissioning",
+                definition:
+                  "The agent studies, establishes, and proves the project's way of working.",
+                href: "/docs/getting-started/walkthrough",
+              },
+              {
+                name: "Guidance",
+                definition:
+                  "Shared project instructions written once and supplied to every configured agent.",
+                href: "/docs/agent-guidance",
+              },
+              {
+                name: "Skill",
+                definition:
+                  "A reusable agent playbook that future sessions can load and apply.",
+                href: "/docs/skills",
+              },
+              {
+                name: "Map",
+                definition:
+                  "A maintained, inspectable account of what agents understand about the project.",
+                href: "/docs/project-map",
+              },
+            ]}
+          />
           <div className="landing-commissioning">
-            <h3>Commission the project you already have.</h3>
+            <h3>Commissioning the existing project</h3>
             <div className="landing-split">
               <div className="landing-prose">
                 <p>
-                  <strong>Commissioning</strong> begins with the repository.
-                </p>
-                <p>
-                  Your agent studies the code and the tools already in use, then
-                  asks for the intent it cannot infer. It wires the project's
-                  real checks and proposes missing conventional tools only with
-                  your consent. It establishes the guidance, principles,
-                  reusable methods, and maintained project guide that future
-                  agents will inherit.
-                </p>
-                <p>
-                  Before Commissioning can finish, discern proves the practice
-                  in a fresh Git worktree. If that probe fails, setup remains
-                  open and identifies what still needs resolving.
-                </p>
-                <p>
                   Your agent carries the project-specific setup. You make the
                   decisions only you can make.
+                </p>
+                <p>
+                  The resulting practice belongs to the repository, where the
+                  next configured agent can begin from it.
                 </p>
               </div>
               <div className="landing-commissioning-summary">
@@ -537,8 +885,8 @@ function LandingPage() {
                   <li>
                     <strong>Establish the practice</strong>
                     <span>
-                      Create the shared guidance, methods, checks, and project
-                      understanding.
+                      Create the shared guidance, methods, checks, and
+                      maintained project understanding.
                     </span>
                   </li>
                   <li>
@@ -548,10 +896,10 @@ function LandingPage() {
                     </span>
                   </li>
                   <li>
-                    <strong>Accept the result</strong>
+                    <strong>Begin from one starting point</strong>
                     <span>
-                      Begin future sessions from the same established starting
-                      point.
+                      Give each configured agent the same established way of
+                      working.
                     </span>
                   </li>
                 </ol>
@@ -567,83 +915,56 @@ function LandingPage() {
         </LandingSection>
 
         <LandingSection
-          id="decision"
-          heading="Come back to work that is ready for a decision."
-          className="landing-section--decision"
-        >
-          <div className="landing-prose landing-prose--wide">
-            <p>
-              A finished change should come back with more than a confident
-              summary.
-            </p>
-            <p>
-              discern runs the project's final quality check, the{" "}
-              <strong>Gate</strong>, over a clean, committed tree. When it
-              passes, <strong>Proof</strong>{" "}
-              ties the result to that exact change.
-            </p>
-            <p>
-              You receive the agent's account, the working result, the checks
-              that ran, and the evidence they produced. The remaining judgment
-              stays in view.
-            </p>
-            <p>
-              Passing prepares the change for a decision. The decision remains
-              yours.
-            </p>
-          </div>
-          <ReturnedChange />
-          <div className="landing-section__action">
-            <Button href="/docs/quality-gate/the-proof" variant="secondary">
-              See what a Proof can claim
-            </Button>
-          </div>
-        </LandingSection>
-
-        <LandingSection
           id="compounding"
           heading="Make an improvement part of the next starting point."
           className="landing-section--compounding"
         >
           <div className="landing-prose landing-prose--wide">
             <p>Good work can improve more than the feature it delivers.</p>
+            <p>Two kinds of progress can survive the task that created them.</p>
+            <h3>Retain the measurable gain</h3>
             <p>
               When a configured measure improves, discern can pin the stronger
               value as a{" "}
               <strong>Standard</strong>. Later branches can meet it or improve
-              it. They cannot weaken it to pass.
+              it. They cannot weaken the committed limit merely to pass.
             </p>
+            <h3>Retain the useful lesson</h3>
             <p>
-              A useful correction can travel too. Put the lesson in shared
-              guidance, a reusable Skill, or the maintained Map. Future agents
-              begin with the stronger baseline and the lesson you chose to keep.
+              A correction can travel too. Put it in shared Guidance, a reusable
+              Skill, the maintained Map, a decision record, or a gotcha that
+              appears when the same kind of failure returns.
             </p>
           </div>
 
           <div className="landing-compounding" data-site-prose-exclude>
             <article className="landing-compounding__measure">
               <header>
-                <span>01 · Retain the measurable gain</span>
+                <span>01 · Standard trajectory</span>
                 <h3>The bar moves with the work.</h3>
               </header>
               <div className="landing-artefact landing-artefact--standard">
                 <CompactStandardTrajectory />
               </div>
               <p>
-                Six suppressions removed. The ceiling falls from 31 to 26 and
-                becomes the next branch's limit.
+                Six suppressions were removed. The stronger limit becomes the
+                next branch's starting point.
               </p>
             </article>
 
             <article className="landing-compounding__memory">
               <header>
-                <span>02 · Retain the useful lesson</span>
+                <span>02 · Lesson retained</span>
                 <h3>Put the lesson where the next agent will find it.</h3>
               </header>
               <ProjectMemory />
             </article>
           </div>
 
+          <blockquote className="landing-pullquote">
+            The next branch starts from the gain. The next session starts from
+            the lesson.
+          </blockquote>
           <div className="landing-inline-actions landing-section__action">
             <Button href="/docs/quality-gate/standards" variant="secondary">
               See how Standards retain gains
@@ -655,80 +976,56 @@ function LandingPage() {
         </LandingSection>
 
         <LandingSection
-          id="audiences"
-          heading="You do not need the same background. You do need to care what happens next."
-          className="landing-section--audiences"
-        >
-          <div className="landing-prose landing-prose--wide">
-            <p>Some people arrive with years of engineering judgment.</p>
-            <p>
-              Others arrive because the thing they built through agents now has
-              users, data, revenue, maintenance obligations, or a reputation.
-            </p>
-            <p>
-              They begin in different places. They share the same threshold:
-            </p>
-            <blockquote className="landing-pullquote landing-pullquote--balanced">
-              The software has consequences now.
-            </blockquote>
-            <p>
-              For experienced engineers, discern turns accumulated judgment into
-              a project-owned practice that can influence more of the
-              implementation.
-            </p>
-            <p>
-              For newer builders, it provides a serious starting point, brings
-              consequential choices into view, and makes clear where experience
-              still matters.
-            </p>
-          </div>
-          <p className="landing-audiences__bridge">
-            Experience remains valuable. discern gives it somewhere durable to
-            work.
-          </p>
-        </LandingSection>
-
-        <LandingSection
-          id="agents"
+          id="providers"
           heading="Change the agent. Keep the project."
           className="landing-section--agents"
         >
-          <div className="landing-sidecar">
-            <article className="landing-sidecar__main">
-              <p>
-                Configure Claude Code, Codex, Gemini, Cursor, or GitHub Copilot.
-                Each receives the same project-owned guidance and works through
-                the same discern practice.
-              </p>
-              <p>
-                Move when task fit, preference, availability, or quota changes
-                without teaching the project from the beginning again.
-              </p>
-              <p>
-                Hidden conversational state and provider-specific capabilities
-                do not transfer. The project's way of working does.
-              </p>
-              <div className="landing-inline-actions">
-                <Button href="/docs/agent-integrations" variant="secondary">
-                  Compare the agent integrations
-                </Button>
-                <Button href="/llms.txt" variant="secondary">
-                  Read the machine guide
-                </Button>
-              </div>
-            </article>
-            <article className="landing-sidecar__callout">
-              <h3>Built for the machine doing the work.</h3>
-              <p>
-                discern treats the coding agent as its day-to-day operator. Its
-                structured tools return bounded results, explicit state, and a
-                useful next step. When an action is refused, the result explains
-                how to proceed. People and agents see the same underlying
-                answer. That leaves less to translate and more context for the
-                work.
-              </p>
-            </article>
+          <div className="landing-prose landing-prose--wide">
+            <p>
+              People move between coding-agent providers because of task fit,
+              preference, availability, subscription limits, and changing model
+              quality.
+            </p>
+            <p>
+              discern keeps the working practice in the project. Configure
+              Claude Code, Codex, Gemini, Cursor, or GitHub Copilot, and each
+              receives the same project-owned guidance and works through the
+              same checks, methods, standards, and evidence model.
+            </p>
+            <p>
+              Move when the work calls for it without teaching the project from
+              the beginning again.
+            </p>
+            <p>
+              Hidden conversational state and provider-specific capabilities do
+              not transfer. The project's way of working does.
+            </p>
+            <blockquote className="landing-pullquote">
+              Switch providers without re-teaching the work.
+            </blockquote>
           </div>
+          <ProviderOrbit />
+          <div className="landing-inline-actions landing-section__action">
+            <Button href="/docs/agent-integrations" variant="secondary">
+              Compare the agent integrations
+            </Button>
+            <Button href="/llms.txt" variant="secondary">
+              Read the machine guide
+            </Button>
+          </div>
+          <aside className="landing-agent-operator">
+            <h3>Built for the machine doing the work.</h3>
+            <p>
+              discern treats the coding agent as its day-to-day operator. Its
+              structured tools return bounded results, explicit state, and a
+              useful next step. When an action is refused, the result explains
+              how to proceed. People and agents see the same underlying answer.
+            </p>
+            <p>
+              Less has to be translated. More agent context remains available
+              for the work itself.
+            </p>
+          </aside>
         </LandingSection>
 
         <LandingSection
@@ -736,104 +1033,130 @@ function LandingPage() {
           heading="Exact evidence. Explicit authority."
           className="landing-section--trust"
         >
-          <div className="landing-sidecar">
-            <article className="landing-sidecar__main">
+          <p className="landing-section__intro">
+            discern is designed to make its claims inspectable and its
+            boundaries plain.
+          </p>
+          <div className="landing-trust-grid">
+            <article>
+              <h3>Local by design</h3>
               <p>
-                discern is a local, self-contained binary. It contains no AI
-                model and needs no API key.
+                discern is a self-contained local binary. It contains no model,
+                needs no API key, and makes no network calls. Its optional
+                activity record stays on the machine and contains metadata
+                rather than source code or command output.
               </p>
               <p>
-                Its local activity record stays on the machine, contains
-                metadata, and excludes source code and command output. Coding
-                agents and project commands may still use networks, models, or
-                paid services.
+                Coding agents and the commands your project declares may still
+                use networks, models, or paid services.
               </p>
+            </article>
+            <article>
+              <h3>Evidence that stays exact</h3>
               <p>
                 A Proof says that one exact clean commit passed the Gate and the
                 conditions the project declared. It does not certify security,
                 universal correctness, or production suitability.
               </p>
-              <p>
-                Passing grants no authority by itself. The person responsible
-                decides what becomes shared, or records a narrower permission in
-                advance.
-              </p>
-              <p>
-                discern does not sandbox the coding agent. Use it inside the
-                security boundary appropriate to your project.
-              </p>
-              <p>
-                The source is available under <a href={LICENSE}>FSL-1.1-ALv2</a>
-                {" "}
-                and free to use for permitted purposes. Each version receives an
-                Apache-2.0 future license on its second anniversary.
-              </p>
-              <div className="landing-inline-actions">
-                <Button
-                  href="/docs/orientation/trust-and-data"
-                  variant="secondary"
-                >
-                  Review the trust boundaries
-                </Button>
-                <Button href={GITHUB} variant="secondary">
-                  Inspect the public source
-                </Button>
-              </div>
             </article>
-            <article className="landing-sidecar__callout">
-              <h3>Built under its own practice.</h3>
+            <article>
+              <h3>Authority remains yours</h3>
               <p>
-                discern began when capable agents multiplied implementation
-                faster than personal review could comfortably follow. The answer
-                was to move more of the working practice out of one person's
-                head and into the project.
-              </p>
-              <p>
-                discern has been developed under that practice ever since. Its
-                public source and <a href="/docs/decisions">decision records</a>
-                {" "}
-                make the process inspectable.
+                A green Gate grants nothing by itself. You accept the change, or
+                record a narrower permission in advance. Uncertainty returns to
+                the person responsible.
               </p>
             </article>
+            <article>
+              <h3>Use the right security boundary</h3>
+              <p>
+                discern does not sandbox the coding agent. Run the agent inside
+                the security boundary appropriate to your project.
+              </p>
+            </article>
+          </div>
+          <p className="landing-license">
+            The source is available under <a href={LICENSE}>FSL-1.1-ALv2</a>
+            {" "}
+            and free to use for permitted purposes. Each version receives an
+            Apache-2.0 future license on its second anniversary.
+          </p>
+          <div className="landing-inline-actions landing-section__action">
+            <Button
+              href="/docs/orientation/trust-and-data"
+              variant="secondary"
+            >
+              Review the trust boundaries
+            </Button>
+            <Button href={GITHUB} variant="secondary">
+              Inspect the public source
+            </Button>
           </div>
         </LandingSection>
 
         <LandingSection
-          id="begin"
+          id="serious-software"
           heading="Software worth putting your name to."
           className="landing-section--closing"
         >
-          <div className="landing-closing">
-            <div>
-              <p>
-                Let coding agents carry more of the implementation. Put one
-                complete engineering practice behind the work.
-              </p>
+          <div className="landing-prose landing-prose--wide">
+            <p>
+              Coding agents have expanded who can build software and how far one
+              person can take an idea. discern exists for the moment that
+              software matters enough to deserve a durable way of working.
+            </p>
+            <p>
+              Some people arrive with years of engineering judgment. Others
+              arrive because the thing they built with agents now has users,
+              data, revenue, maintenance obligations, or a reputation.
+            </p>
+            <p>
+              They begin in different places. They share a choice: take the
+              software seriously and lean further into what coding agents make
+              possible.
+            </p>
+            <p>
+              The prototype can become a product. The side project can become
+              part of someone's workday. The thing you built can grow into
+              software you are proud to stand behind.
+            </p>
+            <blockquote className="landing-pullquote">
+              Let agents carry more of the implementation. Review less code.
+              Keep the final say.
+            </blockquote>
+          </div>
+          <div className="landing-final-cta">
+            <header>
+              <h3>Put the practice in your project.</h3>
               <p>
                 Already working with a coding agent? Give it the next
                 instruction.
               </p>
               <p>
                 The setup prompt sends it to discern's machine guide and through
-                Commissioning for the current repository. It will carry the
-                project-specific work and bring you the decisions it cannot
+                Commissioning for the current repository. It carries the
+                project-specific work and brings you the decisions it cannot
                 make.
               </p>
-              <CopyPrompt id="closing-copy-prompt" />
-            </div>
-            <div className="landing-install">
-              <p>Prefer the terminal?</p>
-              <pre><code>{INSTALL_COMMAND}</code></pre>
-              <p>
-                Install the local binary, then ask your agent to commission the
-                project.
-              </p>
-              <Button
-                href="/docs/getting-started/quickstart"
-                variant="secondary"
-              >
-                Open the setup guide
-              </Button>
+            </header>
+            <div className="landing-closing">
+              <div>
+                <CopyPrompt id="closing-copy-prompt" />
+              </div>
+              <div className="landing-install">
+                <p className="landing-install__label">Prefer the terminal?</p>
+                <pre><code>{INSTALL_COMMAND}</code></pre>
+                <p>
+                  Install the local binary, then ask your agent to commission
+                  the project.
+                </p>
+                <Button
+                  href="/docs/getting-started/quickstart"
+                  variant="secondary"
+                >
+                  Open the setup guide
+                </Button>
+              </div>
             </div>
           </div>
         </LandingSection>
