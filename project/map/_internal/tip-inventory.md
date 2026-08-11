@@ -111,12 +111,12 @@ Rendered line:
 - Relevance: At least one task is in flight.
 - Predicate: `fleet-min-size`
 - Since: —
-- Teaches: `worktrees`
+- Teaches: `worktrees`, `drop-recovery`
 - Follow-through: `verb-run-after-tip` (`worktree`)
 
 Rendered line:
 
-> `discern worktree drop <worktree>` refuses to discard unsaved or unshared work without force. The Desk asks you to type the branch name before that loss.
+> `discern worktree drop <worktree>` keeps a local recovery ref for committed work before removing a branch. Force can still destroy every unsaved byte.
 
 ## `reclaim-keeps-recovery`
 

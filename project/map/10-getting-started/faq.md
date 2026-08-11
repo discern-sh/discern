@@ -75,20 +75,7 @@ Land finished work with `discern accept`. It removes the accepted worktree. Then
 
 ## A worktree or branch was dropped by mistake
 
-Read the ref printed by `discern worktree drop`. If that output is unavailable, list the newest retained drop refs:
-
-```sh
-git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
-```
-
-Create a normal branch at the selected ref, then inspect it:
-
-```sh
-git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
-git log --stat recovered-work
-```
-
-The repository retains the newest 32 committed branch tips from drop. This list is local and is not pushed or fetched automatically. It cannot restore work that was never committed. For other lost Git refs, use `git reflog`; `discern doctor` warns when reflog recording is disabled or its configured retention falls below discern's recovery floor.
+`discern worktree drop` prints a recovery ref before it removes a branch. [Recover a dropped branch](../30-worktrees/drop-recovery.md) gives the listing and restore commands, the 32-ref bound, and the uncommitted-work limit. For other lost Git refs, use `git reflog`; `discern doctor` warns when reflog recording is disabled or its configured retention falls below discern's recovery floor.
 
 ## Remove discern from the repository
 

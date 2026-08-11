@@ -177,6 +177,10 @@ const WRITE_SITE_HOMES = new Map<string, string>([
     "bounded evidence for removed worktree paths — registry-resolved .git-internal state outside the project tree",
   ],
   [
+    "src/engine/worktree/recovery_refs.ts",
+    "the drop-recovery advisory lock — registry-resolved .git-internal state outside the project tree; Git owns the recovery refs",
+  ],
+  [
     "src/shared/setup_machinery_evidence.ts",
     "setup machinery retry evidence — registry-resolved .git-internal state outside the project tree",
   ],

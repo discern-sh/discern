@@ -68,16 +68,7 @@ Acceptance journals its transition and recovers without replaying one-shot autho
 
 From the main checkout, `discern worktree drop <id|path>` removes an abandoned worktree and branch. A bare id or directory name must identify 1 registered worktree. If several paths share it, discern lists them and requires the selected path. Uncommitted or unlanded work needs explicit `--force`. A Git lock still protects it. If Git cannot read the worktree's status, discern treats its cleanliness as unknown and requires `--force`. The command is CLI-only because discarding another line of work requires a person's local decision.
 
-Before any resource, checkout, or branch removal, drop preserves the branch's committed tip under `refs/discern/recovery/` and prints the exact ref. A failed preservation stops the drop with the branch and worktree intact. The repository keeps the newest 32 drop refs. Dry-run creates none; a detached worktree has no branch to preserve, and a worktree holding the trunk keeps that branch instead. Acceptance creates no recovery ref because the accepted commit remains reachable from the trunk ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
-
-List retained tips and restore one as a branch:
-
-```sh
-git for-each-ref --sort=-refname --format='%(refname) %(objectname:short)' refs/discern/recovery/
-git switch -c recovered-work refs/discern/recovery/20260811T120000000Z-example-1234abcd
-```
-
-These refs are local to this clone. They retain committed snapshots only: staged, working-tree, ignored, and untracked bytes are absent from the branch tip, so a forced drop can still destroy them permanently. Review a recovered branch before deleting its ref.
+Before destructive effects, drop retains the branch's committed tip in a bounded local ref. [Recover a dropped branch](drop-recovery.md) explains the guarantee, its uncommitted-work boundary, and the restore commands. A failed preservation stops the drop intact ([ADR 0271](../_adr/0271-destructive-drops-retain-bounded-recovery-refs.md)).
 
 After confirmation, `discern worktree prune` removes clean merged worktrees, stale registrations, orphan directories, reappeared worktree paths, and resource records. It rechecks eligibility before removal.
 

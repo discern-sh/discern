@@ -318,7 +318,7 @@ export const TIPS: readonly RegisteredTip[] = [
     id: "drop-protects-work",
     when: "At least one task is in flight.",
     predicate: { kind: "fleet-min-size", min: 1 },
-    features: ["worktrees"],
+    features: ["worktrees", "drop-recovery"],
     followThrough: {
       family: "tip-adoption",
       kind: "verb-run-after-tip",
@@ -326,9 +326,8 @@ export const TIPS: readonly RegisteredTip[] = [
     },
     example: undefined,
     template: (): string =>
-      `${CMD.worktreeDrop} refuses to discard unsaved or unshared work ` +
-      "without force. The Desk asks you to type the branch name before that " +
-      "loss.",
+      `${CMD.worktreeDrop} keeps a local recovery ref for committed work ` +
+      "before removing a branch. Force can still destroy every unsaved byte.",
   }),
 
   defineTip({
