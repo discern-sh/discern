@@ -167,6 +167,9 @@ export async function engineEnv(
   const tmp = await suiteTempDir();
   return {
     NO_COLOR: "1",
+    // A fixture models a normal local invocation unless its test opts into CI.
+    // This keeps the harness independent of the environment running the suite.
+    CI: "false",
     // FORCE_COLOR flips Deno.noColor false even when NO_COLOR is set; empty
     // means unset, so an inherited value can't recolour spawned output.
     FORCE_COLOR: "",

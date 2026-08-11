@@ -21,11 +21,11 @@ discern makes **zero network calls** and ships **no telemetry**. It uploads noth
 
 The public site uses no client-side tracking or cookies.
 
-One thing is measured, and it stays on your machine. The Logbook records discern's own use, has its own switch, and can be deleted with one command.
+One thing is measured, and it stays on your machine. The Logbook records discern's own use, has its own switch, and can be sealed or deleted through a terminal-confirmed owner command.
 
 ## The logbook: local history, one switch
 
-With recording on and the project's `discern.toml` readable, discern records one line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. A call outside every discern project records nothing. Each line holds names and numbers: the verb, branch, outcome, duration, change size, and each Standard's measured value. Possible coding-agent identity signals may also appear, including environment marker names with their values removed and the MCP client's declared name, title, and version. Those clues do not establish which agent drove a run. No code, prompts, command output, or file contents enter the Logbook. Read it with `cat .git/discern/logbook/*.jsonl`, delete it by removing that directory, or turn it off with `logbook = false` under `[project]`. Turning recording off also disables the features listed under [what it powers](../70-reference/the-logbook.md#what-it-powers).
+With recording on and the project's `discern.toml` readable, discern records one line for each CLI verb run and each Model Context Protocol (MCP) invocation resolved to that project. A call outside every discern project records nothing. Each line holds names and numbers: the verb, branch, outcome, duration, change size, and each Standard's measured value. Possible coding-agent identity signals may also appear, including environment marker names with their values removed and the MCP client's declared name, title, and version. Those clues do not establish which agent drove a run. No code, prompts, command output, or file contents enter the Logbook. Read active history with `discern patterns`; seal it for later reports with `discern patterns archive`; remove it with `discern patterns reset`; or turn recording off with `logbook = false` under `[project]`. Archive and reset apply only after a terminal operator reviews the scope and answers Yes. Turning recording off also disables the features listed under [what it powers](../70-reference/the-logbook.md#what-it-powers).
 
 The Logbook never leaves the machine. An architectural test keeps network interfaces out of its code path, so adding one would fail discern's own Gate. [The Logbook](../70-reference/the-logbook.md) reference lists every recorded field.
 

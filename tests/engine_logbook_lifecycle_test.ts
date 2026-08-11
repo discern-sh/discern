@@ -37,6 +37,7 @@ import {
   logbookDir,
   LogbookLifecycleBusyError,
   LogbookLifecycleError,
+  logbookLifecycleLockPath,
   nextLogbookArchiveFileName,
   withLogbookLifecycleLock,
 } from "../src/engine/logbook/store.ts";
@@ -282,6 +283,11 @@ Deno.test({
           assertEquals(
             await exists(join(dir, ".git", "discern", "logbook-archives")),
             false,
+          );
+          assertEquals(
+            await exists(logbookLifecycleLockPath(join(dir, ".git"))),
+            false,
+            "cancellation must not create lifecycle state",
           );
         }
       });

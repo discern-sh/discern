@@ -1653,7 +1653,7 @@ export const HINTS = {
     example: undefined,
     template: (): string =>
       `${
-        discernCommand("patterns archives")
+        ownerDiscernCommand("patterns archives")
       } lists the sealed archive filenames that can be read.`,
   }),
 

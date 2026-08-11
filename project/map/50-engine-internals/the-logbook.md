@@ -56,13 +56,22 @@ Events live in month-stamped JSON Lines files beside the worktree resource ledge
 <git-common-dir>/discern/logbook/
   2026-07.jsonl   one month of events, one line each
   epoch.json      per-branch config-epoch state
+
+<git-common-dir>/discern/logbook-archives/
+  logbook-20260811T143015Z.jsonl   sealed event history
 ```
 
 Every linked worktree shares the common directory, so fleet activity converges into one Logbook with no unification logic. Nothing under the Git admin area lands in a commit or needs a gitignore entry. Events attribute by branch name rather than worktree path, so history survives `accept` removing the worktree.
 
 Each append makes 1 `write()` of 1 whole line to an `O_APPEND` handle. For lines of this size, that write is atomic in practice across concurrent worktrees. Readers classify a line before using it. They skip and count a torn line from a crashed append or a foreign line with an unknown schema major or event kind. A crash after an effectful begin leaves that unmatched event as evidence. A crash before the begin append can still leave no line. Rotation keeps the newest 24 month files and prunes oldest-first when a new month begins. Rotation digests each removed month first, including line totals and verb-event counts by outcome and verb. The `prune` event carries the digests, so coarse long-horizon trends survive removal of the raw lines.
 
-`patterns reset` renames the live `logbook/` directory to a unique sibling before removing the detached snapshot. A recorder that arrives during cleanup writes to a new canonical directory. It cannot repopulate the snapshot or make recursive deletion fail.
+`patterns reset` and `patterns archive` share a repository-common advisory lock. Before confirmation they inspect the active stream for a fresh unmatched begin from another invocation and refuse when one remains. After confirmation they verify that the reviewed source bytes have not changed. The recorder does not acquire this lock: recording remains fail-open, and a racing append lands wholly on one side of the atomic directory detachment.
+
+Reset renames the live `logbook/` directory into the registered recovery area before removing that detached snapshot. A recorder that arrives during cleanup writes to a new canonical directory. It cannot repopulate the snapshot or make recursive deletion fail. Reset never targets `logbook-archives/` or another registered Git-admin sibling.
+
+Archive uses the same detachment, then streams each month shard's raw bytes in name order into a synced temporary file. It omits `epoch.json`, active per-branch recorder state. Publication uses an atomic no-clobber link in `logbook-archives/`; only after that durable name exists does the executor remove the detached source. A sealing failure leaves the detached source in `logbook-recovery/`. UTC-second filenames gain a numeric suffix on collision.
+
+The full historical reader accepts a regular archive basename resolved inside `logbook-archives/`. It reuses the tolerant line parser, so torn and foreign lines keep the same accounting. `data.logbook.source` distinguishes active and archive reads. Operational readers retain their active-only entrypoints.
 
 ## Config epochs
 
@@ -75,6 +84,8 @@ The Logbook records masked limits separately. A `standards --pin` reports its ap
 Each surface has 1 recording point after it resolves a project. MCP dispatch opens the recorder only after resolving a project root, then `runTool` completes that known-root result after delivery-time hints are attached. This includes refusals returned before a verb handler runs. An explicit `path` outside every discern project returns `not_initialized` without recording. That path has no project Logbook to host the event and no readable `discern.toml` setting to consent to it.
 
 CLI uses `recordedExit`, the shared action wrapper, which owns `Deno.exit`, timing, and completion recording. Both surfaces open the recorder with the verb, driver evidence, and flags known at invocation. From the canonical verb vocabulary, the recorder classifies effectful calls, automatically appends their begin, and reuses its id at completion. A parity test enrolls every effectful top-level CLI verb. Result envelopes reach the recorder through the `emitResult` and gate seams; verbs without one (`identity`, `script`) still record a minimal completion.
+
+The Logbook lifecycle registry defines an exception. `patterns reset` and `patterns archive` record neither a begin nor a completion, because either event could be detached from its pair or recreate the active store after the action. The same registry drives dispatch, this recording exclusion, and the terminal-only safety tests. A future action that can detach active history therefore inherits its confirmation policy and no-split recording boundary.
 
 The desk records its shown tip through a process-local accumulator because the interactive session has no result envelope. CLI completion drains that accumulator once into `tip_ids`; a desk invocation that showed no tip omits the field. The registry id is stored verbatim, giving the adoption reader its join key.
 

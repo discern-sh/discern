@@ -1734,6 +1734,20 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
     // means the logbook directory alone. New registry members auto-enrol.
     const siblings = await seedAdminSiblings(dir);
     const logDir = join(dir, ".git", "discern", "logbook");
+    const sealedArchive = join(
+      dir,
+      ".git",
+      "discern",
+      "logbook-archives",
+      "logbook-20260811T120000Z.jsonl",
+    );
+    const sealedContents = `${
+      seededEvent(
+        "2026-08-11T12:00:00.000Z",
+        "ok",
+      )
+    }\n`;
+    await Deno.writeTextFile(sealedArchive, sealedContents);
 
     // The preview lists the files and removes nothing.
     const preview = await runAgent(dir, [
@@ -1793,6 +1807,11 @@ Deno.test("patterns reset: preview is read-only and terminal apply removes exact
         `reset must preserve ${sibling.path}`,
       );
     }
+    assertEquals(
+      await Deno.readTextFile(sealedArchive),
+      sealedContents,
+      "reset must preserve every sealed archive",
+    );
 
     // Afterwards the verb reports a genuinely fresh active logbook.
     const after = await runAgent(dir, ["patterns", "--json"]);

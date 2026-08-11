@@ -38,3 +38,4 @@ For setup and first-use steps, start in [Getting started](../10-getting-started/
 | [Platforms & prerequisites](platforms-and-prereqs.md)                     | Check release targets, required tools, identity selectors, and tokens.                   |
 | [MCP call duration](mcp-call-duration.md)                                 | Compare verified tool-call bounds and resumable waits across coding agents.              |
 | [Temp files & retention](temp-files-and-retention.md)                     | Know what discern writes to your temp directory, for how long, and how it leaves.        |
+| [Logbook lifecycle](logbook-lifecycle.md)                                 | Preview, confirm, archive, reset, recover, and read sealed Logbook history.              |

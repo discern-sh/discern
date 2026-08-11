@@ -1731,7 +1731,7 @@ function changedDuringConfirmation<T>(
   };
 }
 
-/** Interactive reset apply under the common lifecycle lock. */
+/** Review reset scope, then apply under the common lifecycle lock. */
 async function applyReset(
   root: string,
   confirm: LifecycleConfirmation,
@@ -1745,35 +1745,33 @@ async function applyReset(
     );
   }
   try {
+    const reviewed = await activeLifecycleSnapshot(root, commonGitDir);
+    const reviewedData = resetData(reviewed);
+    const running = inFlightRefusal(
+      "patterns reset",
+      reviewed,
+      reviewedData,
+    );
+    if (running !== undefined) {
+      return presentLifecycleResult("reset", running, false);
+    }
+    const out = makeOut(colorEnabled());
+    renderResetScope(out, reviewedData);
+    const filenames = reviewed.files.length === 0
+      ? "no source files"
+      : reviewed.files.map((file) => file.file).join(", ");
+    const accepted = await confirmLifecycle(
+      `Permanently remove ${plural(reviewedData.events, "event")} from ${
+        lifecycleSpan(reviewedData)
+      } across ${plural(reviewedData.removed.length, "file")} (${filenames}), ${
+        formatHumanNumber(reviewedData.bytes)
+      } bytes? This permanently resets the evidence listed above. Recording starts again with the next eligible command when enabled.`,
+      confirm,
+    );
+    if (!accepted) {
+      return presentLifecycleCancellation();
+    }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
-      const reviewed = await activeLifecycleSnapshot(root, commonGitDir);
-      const reviewedData = resetData(reviewed);
-      const running = inFlightRefusal(
-        "patterns reset",
-        reviewed,
-        reviewedData,
-      );
-      if (running !== undefined) {
-        return presentLifecycleResult("reset", running, false);
-      }
-      const out = makeOut(colorEnabled());
-      renderResetScope(out, reviewedData);
-      const filenames = reviewed.files.length === 0
-        ? "no source files"
-        : reviewed.files.map((file) => file.file).join(", ");
-      const accepted = await confirmLifecycle(
-        `Permanently remove ${plural(reviewedData.events, "event")} from ${
-          lifecycleSpan(reviewedData)
-        } across ${
-          plural(reviewedData.removed.length, "file")
-        } (${filenames}), ${
-          formatHumanNumber(reviewedData.bytes)
-        } bytes? This permanently resets the evidence listed above. Recording starts again with the next eligible command when enabled.`,
-        confirm,
-      );
-      if (!accepted) {
-        return presentLifecycleCancellation();
-      }
       const current = await activeLifecycleSnapshot(root, commonGitDir);
       if (!sameActiveSnapshot(reviewed, current)) {
         return presentLifecycleResult(
@@ -1837,7 +1835,7 @@ async function applyReset(
   }
 }
 
-/** Interactive archive apply under the common lifecycle lock. */
+/** Review archive scope, then apply under the common lifecycle lock. */
 async function applyArchive(
   root: string,
   confirm: LifecycleConfirmation,
@@ -1851,34 +1849,34 @@ async function applyArchive(
     );
   }
   try {
+    const reviewed = await activeLifecycleSnapshot(root, commonGitDir);
+    const filename = await nextLogbookArchiveFileName(commonGitDir);
+    const reviewedData = archiveData(reviewed, filename);
+    const running = inFlightRefusal(
+      "patterns archive",
+      reviewed,
+      reviewedData,
+    );
+    if (running !== undefined) {
+      return presentLifecycleResult("archive", running, false);
+    }
+    const out = makeOut(colorEnabled());
+    renderArchiveScope(out, reviewedData);
+    const filenames = reviewed.files.length === 0
+      ? "no source files"
+      : reviewed.files.map((file) => file.file).join(", ");
+    const accepted = await confirmLifecycle(
+      `Seal ${plural(reviewedData.events, "event")} from ${
+        lifecycleSpan(reviewedData)
+      } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
+        formatHumanNumber(reviewedData.source_bytes)
+      } bytes, as ${filename} and begin a fresh active Logbook? Recording restarts with the next eligible command when enabled.`,
+      confirm,
+    );
+    if (!accepted) {
+      return presentLifecycleCancellation();
+    }
     return await withLogbookLifecycleLock(commonGitDir, async () => {
-      const reviewed = await activeLifecycleSnapshot(root, commonGitDir);
-      const filename = await nextLogbookArchiveFileName(commonGitDir);
-      const reviewedData = archiveData(reviewed, filename);
-      const running = inFlightRefusal(
-        "patterns archive",
-        reviewed,
-        reviewedData,
-      );
-      if (running !== undefined) {
-        return presentLifecycleResult("archive", running, false);
-      }
-      const out = makeOut(colorEnabled());
-      renderArchiveScope(out, reviewedData);
-      const filenames = reviewed.files.length === 0
-        ? "no source files"
-        : reviewed.files.map((file) => file.file).join(", ");
-      const accepted = await confirmLifecycle(
-        `Seal ${plural(reviewedData.events, "event")} from ${
-          lifecycleSpan(reviewedData)
-        } across ${plural(reviewedData.files.length, "file")} (${filenames}), ${
-          formatHumanNumber(reviewedData.source_bytes)
-        } bytes, as ${filename} and begin a fresh active Logbook? Recording restarts with the next eligible command when enabled.`,
-        confirm,
-      );
-      if (!accepted) {
-        return presentLifecycleCancellation();
-      }
       const current = await activeLifecycleSnapshot(root, commonGitDir);
       if (!sameActiveSnapshot(reviewed, current)) {
         return presentLifecycleResult(

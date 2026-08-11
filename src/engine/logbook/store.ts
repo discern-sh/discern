@@ -498,7 +498,7 @@ async function sealDetachedLogbook(
   return bytesWritten;
 }
 
-/** Injectable sealing seam used to prove recovery after a post-detach failure. */
+/** Injectable sealing seam for recovery tests after a post-detach failure. */
 export interface ArchiveLogbookOptions {
   readonly seal?: (
     detachedPath: string,
