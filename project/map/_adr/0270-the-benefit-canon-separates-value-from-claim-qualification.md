@@ -14,12 +14,14 @@ The canon therefore has two distinct jobs to serve: state the genuine human valu
 
 ## Decision
 
-The benefit canon becomes discern's private, commercially ordered account of the product's human value.
+The benefit canon becomes discern's internal, commercially ordered account of the product's human value.
+
+Here, internal is a publication boundary rather than a confidentiality promise. The generated page stays out of published documentation surfaces while remaining visible to someone browsing a public source repository. Confidential customer evidence, pricing, market experiments, and other sensitive commercial material belong in a private overlay instead of this canon.
 
 - Every benefit carries a plain-language `title`, a `value` stating what improves for the user, and `whyItFollows` stating the factual or deductive chain from product behavior to that value. Feature citations and claim slugs remain typed traceability data.
 - Every cluster declares its commercial role, primary readers, human promise, and commercial value. Cluster order follows the commercial story: ambition and returned attention first; confidence and compounding value next; adoption, differentiation, and trust after the primary case is established.
 - A reasoned consequence belongs in the canon when its premises are product facts and its conclusion stays within what those facts establish. Population-wide outcomes, quantified savings, customer behavior, and market validation still require the evidence appropriate to those claims.
-- The generated main body renders value, why it follows, and the product basis. Claim slugs remain in the traceability appendix. Evidence classes, forbidden inferences, and publication qualifications remain in the claims ledger.
+- The generated main body renders `value` as **Value**, `whyItFollows` as **Mechanism**, and feature citations as **Product basis**. Claim slugs remain in the traceability appendix. Evidence classes, forbidden inferences, and publication qualifications remain in the claims ledger.
 - The `caveat` field and the guard requiring it for observational claims are removed. A replacement guard keeps claim slugs, evidence-class labels, and inline caveats out of the commercial body.
 - The canon remains source material. It does not become finished public copy, a substitute for surface-specific strategy, or permission to publish wording beyond the scope of the stated deduction.
 

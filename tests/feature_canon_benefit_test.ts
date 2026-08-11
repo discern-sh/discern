@@ -235,6 +235,24 @@ Deno.test("the rendered page carries the banner, every cluster, every benefit, a
   assertStringIncludes(doc, "### Claim homes");
 });
 
+Deno.test("the rendered commercial account uses the short scan labels", () => {
+  const doc = renderFeatureCanonBenefitsDoc();
+  const count = (label: string): number =>
+    doc.match(new RegExp(`^\\* \\*\\*${label}:\\*\\*`, "gm"))?.length ?? 0;
+  for (const label of ["Role", "Promise", "Commercial value", "Audience"]) {
+    assertEquals(count(label), BENEFIT_CANON.length, `${label} cluster labels`);
+  }
+  const benefitCount = allBenefitEntries().length;
+  for (const label of ["Value", "Mechanism", "Product basis"]) {
+    assertEquals(count(label), benefitCount, `${label} benefit labels`);
+  }
+  for (
+    const retired of ["Commercial role", "Primary readers", "Why it follows"]
+  ) {
+    assertEquals(count(retired), 0, `${retired} label should stay retired`);
+  }
+});
+
 Deno.test("the commercial account is not interrupted by claim-review qualifications", () => {
   const doc = renderFeatureCanonBenefitsDoc();
   const [commercialBody = doc] = doc.split(

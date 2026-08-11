@@ -2815,7 +2815,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "wait-without-relay",
-        title: "Let dependent work wait without making you the messenger",
+        title: "Stop playing messenger between your agents",
         value:
           "A later task can pause until a sibling is proven, its work lands, or the trunk changes. The person does not have to poll sessions or carry status updates between agents.",
         whyItFollows:
@@ -2824,7 +2824,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "compose-staged-work",
-        title: "Start the next stage while earlier work waits for approval",
+        title: "Start the next task before the last one lands",
         value:
           "A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Staged programs can keep moving while each landing decision remains separate.",
         whyItFollows:
@@ -2833,7 +2833,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "resume-later",
-        title: "Pause and resume work without rebuilding the situation",
+        title: "Walk away mid-task and pick up where you left off",
         value:
           "A task can outlive one agent session. Whoever returns can recover the worktree, setup state, and next action instead of reconstructing the task from conversation history.",
         whyItFollows:
@@ -2859,7 +2859,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
     benefits: [
       {
         id: "reduce-routine-review",
-        title: "Spend less review time confirming tests and checks",
+        title: "Review less, knowing what already passed",
         value:
           "Proof removes a category of review work: reconstructing whether the declared checks ran, whether they passed, and which change they covered. Review time can move to behavior, design, risk, and the decision to ship.",
         whyItFollows:
@@ -2967,7 +2967,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "evidence-for-this-change",
-        title: "See the evidence for the change in front of you",
+        title: "Get proof of what passed, tied to the commit it passed on",
         value:
           "A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering.",
         whyItFollows:
@@ -2986,7 +2986,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "explicit-release-decision",
-        title: "Keep the shipping decision under explicit control",
+        title: "Keep the final say over what ships",
         value:
           "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared.",
         whyItFollows:
@@ -3345,7 +3345,7 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
       },
       {
         id: "retain-work-after-uninstall",
-        title: "Keep the useful work if you uninstall discern",
+        title: "Uninstall cleanly and keep everything you wrote",
         value:
           "Guidance, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.",
         whyItFollows:
@@ -3460,14 +3460,14 @@ export function renderFeatureCanonBenefitsDoc(): string {
     "",
     "# Benefit canon",
     "",
-    "_discern's private commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._",
+    "_discern's internal commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._",
     "",
     `${BENEFIT_CANON.length} clusters · ${flattened.length} benefits · ${citedIds.size} of ${nodeCount} feature nodes cited · ${claimSlugs.size} of ${ledgerCount} public claims carried.`,
     "",
     "## How to use this canon",
     "",
     "- Start with the value or commercial value. Use the product mechanism only when the reader needs a reason to believe it.",
-    "- Follow the commercial role and primary-reader labels. Lead promises create desire; conversion benefits make the purchase useful now; durable value, differentiators, adoption benefits, and trust assurances support the decision.",
+    "- Follow the Role and Audience labels. Lead promises create desire; conversion benefits make the purchase useful now; durable value, differentiators, adoption benefits, and trust assurances support the decision.",
     "- Treat a reasoned consequence as real value when its premises are product facts and its conclusion stays within what those facts establish. Population claims and quantified results still require the appropriate customer evidence. Direct causal consequences stand on the product facts that produce them.",
     "- Check the claims ledger before publishing exact claim language. Keep its qualification work out of the benefit unless the proposed public line crosses that boundary.",
     "- Select the smallest set of benefits that serves the audience and surface. Build the page around its own audience and argument.",
@@ -3482,7 +3482,7 @@ export function renderFeatureCanonBenefitsDoc(): string {
     "",
     "## At a glance",
     "",
-    "| Commercial role | Benefit territory | Primary readers | Commercial value |",
+    "| Role | Benefit territory | Audience | Commercial value |",
     "| --- | --- | --- | --- |",
   ];
   for (const cluster of BENEFIT_CANON) {
@@ -3497,12 +3497,10 @@ export function renderFeatureCanonBenefitsDoc(): string {
     lines.push(
       `## ${cluster.title}`,
       "",
-      `**Commercial role:** ${cluster.role}  `,
-      `**Primary readers:** ${cluster.primaryFor.join(", ")}`,
-      "",
-      `**Promise:** ${cluster.promise}`,
-      "",
-      `**Commercial value:** ${cluster.commercialValue}`,
+      `* **Role:** ${cluster.role}`,
+      `* **Promise:** ${cluster.promise}`,
+      `* **Commercial value:** ${cluster.commercialValue}`,
+      `* **Audience:** ${cluster.primaryFor.join(", ")}`,
       "",
     );
     for (const entry of cluster.benefits) {
@@ -3512,11 +3510,9 @@ export function renderFeatureCanonBenefitsDoc(): string {
       lines.push(
         `### ${entry.title}`,
         "",
-        `**Value:** ${entry.value}`,
-        "",
-        `**Why it follows:** ${entry.whyItFollows}`,
-        "",
-        `**Product basis:** ${drawn}.`,
+        `* **Value:** ${entry.value}`,
+        `* **Mechanism:** ${entry.whyItFollows}`,
+        `* **Product basis:** ${drawn}.`,
         "",
       );
     }
