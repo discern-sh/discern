@@ -7,7 +7,7 @@
  * be carried by at least one benefit, so public wording always has a
  * benefit-shaped home. A stranded citation — a feature id or claim slug that
  * no longer exists — fails loudly. Commercial value and the reason it follows
- * stay separate from the claim ledger's publication qualifications (ADR 0269).
+ * stay separate from the claim ledger's publication qualifications (ADR 0270).
  */
 
 import { assert, assertEquals, assertStringIncludes } from "@std/assert";

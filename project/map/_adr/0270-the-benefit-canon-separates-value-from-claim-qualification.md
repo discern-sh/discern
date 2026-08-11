@@ -1,4 +1,4 @@
-# ADR 0269: The benefit canon separates commercial value from claim qualification
+# ADR 0270: The benefit canon separates commercial value from claim qualification
 
 **Status**: accepted. Amends [ADR 0268](0268-the-benefit-canon-transposes-the-feature-registry.md).
 

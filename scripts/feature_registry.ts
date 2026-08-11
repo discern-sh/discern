@@ -2704,7 +2704,7 @@ export function renderFeatureCanonPlainDoc(): string {
 
 // ────────────────────────────────────────────────────────────────────────────
 // The benefit canon — the commercially ordered, outcome-first transposition of
-// the feature canon (ADRs 0268 and 0269). Commercial value and the reason it
+// the feature canon (ADRs 0268 and 0270). Commercial value and the reason it
 // follows are separate fields, so the canon can brief persuasive work without
 // mixing the benefit with claim-review qualifications. The guards hold
 // coverage in both directions: every feature node is cited or recorded absent,
