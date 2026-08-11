@@ -259,6 +259,7 @@ A record captures a significant choice, its context, and the rejected alternativ
 - [0266 — Public failure recovery is classified by error family](0266-public-failure-recovery-is-classified-by-error-family.md)
 - [0267 — Operational contracts stay outside agent copy](0267-operational-contracts-stay-outside-agent-copy.md)
 - [0268 — The benefit canon transposes the feature registry](0268-the-benefit-canon-transposes-the-feature-registry.md)
+- [0269 — The benefit canon separates commercial value from claim qualification](0269-the-benefit-canon-separates-value-from-claim-qualification.md)
 
 <!-- END GENERATED: current ADR records -->
 

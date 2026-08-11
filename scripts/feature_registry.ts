@@ -2524,7 +2524,7 @@ export function renderFeatureCanonDoc(): string {
     "",
     "# Feature canon",
     "",
-    "_Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the outcome-first transposition is [feature-canon-benefits.md](feature-canon-benefits.md)._",
+    "_Every product feature and benefit, enumerated once, at every resolution. Creative, technical, and marketing work reads this canon (or `scripts/feature_registry.ts`, which it compiles from) instead of re-deriving the feature list. The same canon in plain language is [feature-canon-plain.md](feature-canon-plain.md), and the commercially ordered human-value account is [feature-canon-benefits.md](feature-canon-benefits.md)._",
     "",
     `${FEATURE_CANON.length} pillars · ${flattened.length} nodes · ${benefits.length} benefit statements${agentStat()} · ${claims.length} closed-set claims. Depth is resolution: the pillars provide the shortest account, and the leaves provide the exhaustive one.`,
     "",
@@ -2703,142 +2703,108 @@ export function renderFeatureCanonPlainDoc(): string {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// The benefit canon — the outcome-first transposition of the feature canon
-// (ADR 0268). Clusters group benefit entries by the human outcome they serve;
-// each entry composes feature nodes by explicit citation and names the public
-// claims it backs, so a wording constraint rides the citation as a caveat.
-// The guards hold coverage in both directions: every feature node is cited or
-// recorded absent, and every claims-ledger slug is carried by a benefit.
+// The benefit canon — the commercially ordered, outcome-first transposition of
+// the feature canon (ADRs 0268 and 0269). Commercial value and the reason it
+// follows are separate fields, so the canon can brief persuasive work without
+// mixing the benefit with claim-review qualifications. The guards hold
+// coverage in both directions: every feature node is cited or recorded absent,
+// and every claims-ledger slug is carried by a benefit.
 // ────────────────────────────────────────────────────────────────────────────
 
-/** One benefit: an outcome for the owner, composed from cited feature nodes. */
+/** The job one cluster performs in the commercial story. */
+export type BenefitCommercialRole =
+  | "lead promise"
+  | "conversion benefit"
+  | "core value"
+  | "durable value"
+  | "differentiator"
+  | "adoption benefit"
+  | "trust assurance";
+
+/** A primary reader whose situation makes a benefit cluster especially useful. */
+export type BenefitAudience =
+  | "experienced engineers"
+  | "new consequential builders"
+  | "coding agents";
+
+/** One benefit: a commercial outcome composed from cited feature nodes. */
 export interface BenefitEntry {
   /** Stable kebab-case id, unique across clusters, entries, and feature nodes. */
   id: string;
-  /** The outcome, as a verb phrase addressed to the owner — no trailing period. */
+  /** The human outcome in ordinary language — no trailing period. */
   title: string;
-  /** How the cited features compose into the outcome: one or two plain sentences. */
-  what: string;
+  /** What improves for the user and why that improvement has practical value. */
+  value: string;
+  /** The factual or deductive chain from product behavior to the stated value. */
+  whyItFollows: string;
   /** Feature-node ids this benefit composes — explicit citations, the same discipline as `surfaces`. */
   drawsOn: readonly string[];
   /** Public-claims-ledger slugs this benefit backs (compile-time checked against the ledger). */
   claims?: readonly ClaimSlug[];
-  /**
-   * A wording constraint quoting copy must carry. Required whenever a cited
-   * claim's evidence includes the observational class, so the qualifier
-   * travels with the citation instead of the reviewer's memory.
-   */
-  caveat?: string;
 }
 
-/** One cluster: a human outcome grouping benefit entries. */
+/** One cluster: a commercially ranked family of human outcomes. */
 export interface BenefitCluster {
   /** Stable kebab-case id, unique across the benefit canon and the feature tree. */
   id: string;
-  /** The outcome family, as a short noun or verb phrase — no trailing period. */
+  /** The outcome family in ordinary language — no trailing period. */
   title: string;
-  /** What the cluster's benefits have in common: one sentence. */
-  what: string;
+  /** The cluster's job in the commercial story. */
+  role: BenefitCommercialRole;
+  /** The readers for whom this cluster is most immediately valuable. */
+  primaryFor: readonly BenefitAudience[];
+  /** The human promise shared by the cluster's entries. */
+  promise: string;
+  /** Why the cluster matters in time, capacity, confidence, continuity, or control. */
+  commercialValue: string;
   readonly benefits: readonly BenefitEntry[];
 }
 
+/** The category that gives the commercial benefits a literal product context. */
+export const BENEFIT_CANON_CATEGORY =
+  "discern is an engineering practice for agent-built software, installed in the project.";
+
+/** The benefit canon's master promise: the conclusion every cluster supports. */
+export const BENEFIT_CANON_PROMISE =
+  "discern lets one person give coding agents substantial, complete pieces of work without personally coordinating every task, repeating the project context, or reconstructing which checks passed.";
+
+/** The practical value created when the master promise is true. */
+export const BENEFIT_CANON_COMMERCIAL_VALUE =
+  "More of the backlog can move at once. The person spends less time running the workflow, and completed changes return with the evidence needed to decide what ships.";
+
 /**
- * The benefit canon. Cluster order is narrative order — trust first,
- * sovereignty last; the renderer preserves it.
+ * The benefit canon. Cluster order is commercial order: lead with ambition and
+ * returned attention, establish confidence and compounding value, then support
+ * adoption, differentiation, and trust.
  */
 export const BENEFIT_CANON: readonly BenefitCluster[] = [
   {
-    id: "delegate-with-confidence",
-    title: "Delegate with confidence",
-    what:
-      "Correctness, permission, and blast radius are held by separate mechanisms, so delegated work is verified rather than taken on trust.",
+    id: "build-further",
+    title: "Build further",
+    role: "lead promise",
+    primaryFor: ["experienced engineers", "new consequential builders"],
+    promise:
+      "discern helps one person direct more substantial agent work while the project carries the coordination required to keep that work separate and moving.",
+    commercialValue:
+      "More of a backlog can progress at once without adding the same amount of scheduling, workspace administration, and message relaying to the human's day.",
     benefits: [
       {
-        id: "done-is-a-verdict",
-        title: "Treat done as a verdict, not a claim",
-        what:
-          "`discern done` runs the project's declared jobs by stage — format, build, lint, typecheck, test, and smoke — wakes the scope gates the change touched, and measures every standard. Work counts as finished when the project's own commands agree; an agent's confidence stays advisory.",
-        drawsOn: [
-          "gate",
-          "jobs-table",
-          "job-format",
-          "job-build",
-          "job-lint",
-          "job-typecheck",
-          "job-test",
-          "job-smoke",
-        ],
-      },
-      {
-        id: "check-the-claim",
-        title: "Check the claim instead of trusting the account",
-        what:
-          "A green gate over a clean, committed tree mints Proof: one line naming the exact commit, the change's size, and what was checked, backed by a full review page. A later commit or edit invalidates it, so the evidence only ever describes the tree on disk.",
-        drawsOn: ["proof"],
-        claims: ["proof-exact-tree"],
-      },
-      {
-        id: "keep-the-evidence",
-        title: "Keep the evidence after the task is gone",
-        what:
-          "Landing writes the structured Proof onto the trunk commit as a durable note, so the review record outlives the worktree's cleanup and travels with the exact commit it vouches for.",
-        drawsOn: ["proof-notes"],
-      },
-      {
-        id: "permission-separate",
-        title: "Separate permission from correctness",
-        what:
-          "A green gate grants nothing. Landing needs consent in the conversation, a standing grant recorded on the trunk, or a one-shot grant made at the desk — resolved against the exact changed paths, with every uncertainty returning to the conversation.",
-        drawsOn: ["consent-attestations", "accept"],
-        claims: ["gate-grants-no-authority"],
-      },
-      {
-        id: "route-routine-work",
-        title: "Let routine work land, keep judgment work reviewed",
-        what:
-          "Scopes named under `[acceptance].pre_authorized` land green changes without a fresh conversation — documentation in the seeded example — while agent-instruction surfaces stay outside the grant, so a change to how future sessions behave always reaches review.",
-        drawsOn: ["consent-attestations", "desk"],
-      },
-      {
-        id: "bound-the-blast-radius",
-        title: "Bound the blast radius",
-        what:
-          "Every effort runs in its own worktree, forked from the trunk; the trunk moves only by fast-forwarding an accepted branch; and supervision of other efforts stays on the owner's command line.",
-        drawsOn: ["worktrees", "start", "accept"],
-        claims: ["isolated-worktrees"],
-      },
-      {
-        id: "no-half-states",
-        title: "Never inherit a half-finished state",
-        what:
-          "Effectful verbs plan before they apply and rehearse under `--dry-run`, provisioning records its intent before acting, and interruption leaves either a finished state or a recoverable one — never a convincing half.",
-        drawsOn: [
-          "plan-apply",
-          "crash-safe-provisioning",
-          "interruption-safety",
-        ],
-      },
-    ],
-  },
-  {
-    id: "multiply-your-output",
-    title: "Multiply your output",
-    what:
-      "Isolation, delegation shapes, and fleet coordination raise how much work can be in flight at once.",
-    benefits: [
-      {
-        id: "take-on-more-work",
-        title: "Take on more work",
-        what:
-          "The delegate-work playbook turns discussed work into complete, self-contained briefs for fresh agents (one handoff, a parallel fan-out, or staged programs), and `discern start` gives each one an isolated, provisioned worktree.",
+        id: "shape-substantial-work",
+        title: "Turn a large objective into work agents can carry",
+        value:
+          "A broad goal can become complete handoffs, parallel streams, or a staged program. One person can move more of the backlog while each agent receives enough context and a clear boundary to do meaningful work.",
+        whyItFollows:
+          "The Delegate Work Skill identifies real seams, writes self-contained briefs, records dependencies and authority, and requires independent review; `discern start` gives each resulting task a prepared worktree.",
         drawsOn: ["skill-delegate-work", "start"],
         claims: ["shaped-delegation"],
       },
       {
-        id: "fleet-on-one-machine",
-        title: "Run a fleet on one machine",
-        what:
-          "Every worktree derives a distinct port, site, and database name, inherits the declared secrets, and provisions its declared resources; the fleet view names the files two efforts both changed.",
+        id: "parallel-work-on-one-machine",
+        title: "Keep several tasks moving at the same time",
+        value:
+          "Agents can work concurrently without overwriting the same checkout or competing for the same declared port, site, database, or resource. Parallel work becomes practical on one machine instead of creating a workspace administration job.",
+        whyItFollows:
+          "Each worktree receives a separate checkout and deterministic identity, inherits declared environment values, provisions its own declared resources, and appears in a fleet view that reports overlapping source files before integration.",
         drawsOn: [
           "worktree-identity",
           "worktree-resources",
@@ -2846,28 +2812,32 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "fleet",
         ],
         claims: ["no-checkout-collisions"],
-        caveat:
-          "Checkout collisions are designed out; overlapping edits to the same source files remain possible and are surfaced as fleet collisions rather than prevented.",
       },
       {
-        id: "no-message-bus",
-        title: "Stop relaying messages between agents",
-        what:
-          "`discern await` blocks on one condition — a sibling branch green, its work landed, or the trunk moved — using the longest reliable call with a continuation that survives the gap, so a dependent agent waits on evidence instead of polling or asking a person to relay.",
+        id: "wait-without-relay",
+        title: "Let dependent work wait without making you the messenger",
+        value:
+          "A later task can pause until a sibling is proven, its work lands, or the trunk changes. The person does not have to poll sessions or carry status updates between agents.",
+        whyItFollows:
+          "`discern await` blocks on an authoritative repository condition and returns a continuation when the reliable call window ends; the Await the Fleet Skill makes that wait the agent's operating procedure.",
         drawsOn: ["await", "skill-await-the-fleet"],
       },
       {
-        id: "build-on-unlanded",
-        title: "Build on work before it lands",
-        what:
-          "`discern start` and `discern update` take a `from` ref, so a dependent effort forks from a sibling's exact proven commit while the trunk waits for `discern accept`.",
+        id: "compose-staged-work",
+        title: "Start the next stage while earlier work waits for approval",
+        value:
+          "A dependent task can build from a proven sibling commit while the earlier branch waits for acceptance. Staged programs can keep moving while each landing decision remains separate.",
+        whyItFollows:
+          "`discern start` and `discern update` accept a source ref, so the next effort can fork from the precise commit it depends on and later reconcile with the trunk through the normal update path.",
         drawsOn: ["compose-below-trunk", "update"],
       },
       {
-        id: "walk-away-mid-task",
-        title: "Walk away mid-task",
-        what:
-          "Worktrees persist between sessions, session hooks re-ready a resumed checkout, unfinished setup stays a machine-readable state, and one `discern status` call re-orients whoever returns.",
+        id: "resume-later",
+        title: "Pause and resume work without rebuilding the situation",
+        value:
+          "A task can outlive one agent session. Whoever returns can recover the worktree, setup state, and next action instead of reconstructing the task from conversation history.",
+        whyItFollows:
+          "Worktrees persist, lifecycle hooks re-ready a resumed checkout, unfinished setup remains machine-readable, idempotent verbs converge on the intended state, and `discern status` supplies a fresh orientation in one call.",
         drawsOn: [
           "status",
           "session-hooks",
@@ -2875,255 +2845,44 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "idempotent-verbs",
         ],
       },
-      {
-        id: "no-orphaned-mess",
-        title: "Leave no orphaned mess",
-        what:
-          "`discern worktree prune` reclaims the resources of worktrees that vanished without a clean teardown, and ignored-file drift is reported before removal deletes work hiding outside version control.",
-        drawsOn: ["worktree-prune", "ignored-drift"],
-      },
     ],
   },
   {
-    id: "quality-that-only-improves",
-    title: "Quality that only improves",
-    what:
-      "Quality numbers and disciplines only tighten: regression fails the gate before it reaches review.",
+    id: "return-human-attention",
+    title: "Spend more time on the product",
+    role: "conversion benefit",
+    primaryFor: ["experienced engineers", "new consequential builders"],
+    promise:
+      "discern handles routine checking, status, and tool operation around agent work so the responsible person can focus on behavior, design, priorities, risk, and what ships.",
+    commercialValue:
+      "Each additional agent task demands less status chasing, check verification, and workspace administration from the person responsible for the project.",
     benefits: [
       {
-        id: "numbers-one-way",
-        title: "Hold numbers that move one way",
-        what:
-          "A standard's floor may only rise and its ceiling only fall, compared against the trunk's committed limit on every run — the bar cannot be loosened by the branch under pressure to pass it.",
-        drawsOn: ["standards", "standards-direction"],
-        claims: ["standards-cannot-loosen"],
-      },
-      {
-        id: "capture-the-gain",
-        title: "Capture a gain the moment it exists",
-        what:
-          "`discern standards --pin` tightens each improved limit to the newly measured value, leaves the declared margin of headroom, and commits that change alone.",
-        drawsOn: ["standards-pin", "standards-margin"],
-        claims: ["pin-measured-gains"],
-      },
-      {
-        id: "standards-survive-growth",
-        title: "Keep growth from tripping the standards",
-        what:
-          "Rates via `per` scale a number with project size, input-keyed replay spares unrelated changes the measurement cost, on-demand measurement defers only the expensive half, any tool that prints one line can feed a standard, and a breach the work itself caused escalates to the owner instead of moving the limit.",
-        drawsOn: [
-          "standards-rates",
-          "standards-replay",
-          "standards-on-demand",
-          "standards-escalation",
-          "standards-metric-protocol",
-        ],
-      },
-      {
-        id: "make-bugs-extinct",
-        title: "Make a fixed bug extinct",
-        what:
-          "The cure-a-bug playbook proves the cause, fixes the class, and leaves a guard driven off the single source of truth; the forcing-function discipline ties every canonical set to its satellites, so a new member cannot arrive half-wired.",
-        drawsOn: ["skill-cure-a-bug", "forcing-functions", "canonical-sets"],
-      },
-      {
-        id: "outlaw-a-pattern",
-        title: "Outlaw a legacy pattern",
-        what:
-          "The set-the-standard playbook retires a legacy pattern for good: a detector, a ceiling that only falls, then a permanent rule at zero.",
-        drawsOn: ["skill-set-the-standard"],
-      },
-      {
-        id: "hold-back-clutter",
-        title: "Hold back the clutter",
-        what:
-          "The clear-the-decks playbook sweeps the clutter agent-built projects accumulate as proven-safe commits and caps what remains behind a standard, while `discern tidy` keeps discern's own prose and config surfaces from collecting format churn.",
-        drawsOn: ["skill-clear-the-decks", "tidy"],
-      },
-      {
-        id: "docs-cannot-rot",
-        title: "Keep documentation that cannot rot",
-        what:
-          "Every gate run validates the map's links, anchors, fenced commands, frontmatter, audience boundaries, and skill citations; a generated file that drifts from its sources stops the gate early; the glossary holds one name per concept; and the decision-record index maintains itself.",
-        drawsOn: [
-          "docs-integrity",
-          "generated-artifact-declarations",
-          "gate-preconditions",
-          "glossary-canon",
-          "publish-predicate",
-        ],
-        claims: ["map-mechanically-checked"],
-      },
-    ],
-  },
-  {
-    id: "knowledge-that-compounds",
-    title: "Knowledge that compounds",
-    what:
-      "What one session learns, every later session and every configured agent inherits.",
-    benefits: [
-      {
-        id: "teach-a-lesson-once",
-        title: "Teach a lesson once",
-        what:
-          "One authored guidance body compiles into every configured agent's instruction file, skills make recurring procedures one file every session can load, and the teach-the-project playbook routes a lesson into its smallest durable home. Config-aware templating keeps the compiled instructions scoped to the project they describe.",
-        drawsOn: [
-          "guidance",
-          "guidance-compile",
-          "guidance-conditionals",
-          "skills",
-          "skill-teach-the-project",
-        ],
-        claims: ["one-guidance-source"],
-      },
-      {
-        id: "audit-agent-understanding",
-        title: "Audit what the agents believe",
-        what:
-          "Agents maintain the map under the gate, file-linked freshness facts say which sources each page covers and when they moved, and the document-subsystem playbook refreshes a subtree from the real code — so reading the map audits what the agents understand.",
-        drawsOn: ["map", "map-freshness", "skill-document-subsystem"],
-      },
-      {
-        id: "keep-the-why",
-        title: "Keep the why behind decisions",
-        what:
-          "Decision records carry context, decision, and consequences from a canonical template, guided by the write-adr playbook, so the reasons outlive the sessions that decided them.",
-        drawsOn: ["adr-discipline", "skill-write-adr"],
-      },
-      {
-        id: "knowledge-at-the-failure",
-        title: "Meet failure knowledge at the failure",
-        what:
-          "A gotchas entry whose matcher fits the failure arrives inline in the failing result, and every registered hint fires inside the result that made it relevant — knowledge delivered at the moment it applies, remembered by nobody.",
-        drawsOn: ["gotchas-pointer", "hints"],
-      },
-      {
-        id: "orient-in-one-call",
-        title: "Orient any session in one call",
-        what:
-          "The discovery funnel finds the right page from task language, the bundled manual answers offline, command help mirrors `--help`, and a forgiving command line turns renames and synonyms into pointers at the canonical verb.",
-        drawsOn: [
-          "discovery-funnel",
-          "bundled-docs",
-          "cli-help",
-          "forgiving-cli",
-        ],
-      },
-      {
-        id: "hand-a-briefing",
-        title: "Hand anyone a curated briefing",
-        what:
-          "`discern map --export` writes the public projection, a selection, or a named scope's pages — in their declared order — into one file: a curated briefing for a new person or a new agent.",
-        drawsOn: ["map-browser"],
-      },
-      {
-        id: "inherit-the-practices",
-        title: "Inherit the practices that keep facts written once",
-        what:
-          "The write-it-once playbook carries discern's own construction discipline into any stack: one authority per shared fact, guards that enrol future members, effects planned before they run.",
-        drawsOn: ["skill-write-it-once"],
-      },
-    ],
-  },
-  {
-    id: "freedom-of-movement",
-    title: "Freedom of movement",
-    what:
-      "Nothing about the practice binds the project to one agent vendor, one stack, or to discern itself.",
-    benefits: [
-      {
-        id: "switch-providers",
-        title: "Switch providers without re-teaching the project",
-        what:
-          "Guidance, skills, map, gate, standards, and worktree practice are project-owned, and each configured provider receives its instruction file, hooks, and MCP wiring from one registry — changing agents means editing a configuration list while the project's knowledge stays in place.",
-        drawsOn: [
-          "providers",
-          "provider-claude-code",
-          "provider-codex",
-          "provider-gemini",
-          "provider-cursor",
-          "provider-copilot",
-          "skills-materialization",
-          "mcp-surface",
-        ],
-        claims: ["switch-without-reteaching"],
-      },
-      {
-        id: "one-practice-any-stack",
-        title: "Bring one practice to every stack",
-        what:
-          "The engine ships none of the stack's tools and runs whatever commands the project declares; every subsystem is core and the guarantees are structural, so habits, guidance, and docs transfer between projects verbatim.",
-        drawsOn: ["stack-neutral", "all-subsystems-core", "foundations"],
-      },
-      {
-        id: "adopt-without-a-leap",
-        title: "Adopt without a leap of faith",
-        what:
-          "Setup is a staged, consent-first handshake the agent completes — installed agents detected, `[jobs]` filled by examining the repository, worktree viability proven before done is claimed. Presets fill without overwriting, the binary is self-contained, the tracked footprint is one root file, and discern develops under its own gate.",
-        drawsOn: [
-          "install",
-          "setup",
-          "relay-messages",
-          "agent-autodetect",
-          "presets",
-          "one-file-footprint",
-          "single-binary",
-          "dogfooding",
-        ],
-        claims: [
-          "installs-a-practice",
-          "no-manual-configuration",
-          "setup-proves-worktree",
-          "one-config-file",
-          "runs-on-itself",
-        ],
-        caveat:
-          "Dogfooding is internal evidence: discern's own use of discern demonstrates the practice, and independent external validation stays separate.",
-      },
-      {
-        id: "leave-as-cheaply",
-        title: "Leave as cheaply as you came",
-        what:
-          "`discern uninstall` reverses the wiring from the ownership registry and keeps `discern.toml`, guidance, map, skills, and scripts as plain files at the paths the project chose.",
-        drawsOn: ["uninstall", "ownership-buckets"],
-      },
-      {
-        id: "upgrade-on-your-schedule",
-        title: "Upgrade on your own schedule",
-        what:
-          "The binary never checks the network or updates itself. `discern upgrade` migrates configuration idempotently and validates before stamping, and `discern doctor` verifies the install and names each fix.",
-        drawsOn: ["upgrade", "doctor"],
-      },
-    ],
-  },
-  {
-    id: "attention-where-it-matters",
-    title: "Attention where it matters",
-    what:
-      "The person's reading, and the agent's context, go to judgment instead of mechanics.",
-    benefits: [
-      {
-        id: "review-the-judgment",
-        title: "Review the judgment, not the mechanics",
-        what:
-          "Work arrives with the gate passed and Proof pinned to the exact tree, so human reading concentrates on intent, design, and the decision to ship.",
+        id: "reduce-routine-review",
+        title: "Spend less review time confirming tests and checks",
+        value:
+          "Proof removes a category of review work: reconstructing whether the declared checks ran, whether they passed, and which change they covered. Review time can move to behavior, design, risk, and the decision to ship.",
+        whyItFollows:
+          "The Gate runs the project's declared checks and Standards before Proof records the result against the clean committed tree, so the check status arrives as inspectable evidence rather than an unsupported completion message.",
         drawsOn: ["gate", "proof", "standards"],
         claims: ["reduced-review-burden"],
-        caveat:
-          "An observational claim: founder-experienced rather than independently measured, and the right review depth stays a function of project risk and the owner's confidence in the configured practice.",
       },
       {
-        id: "fleet-from-one-screen",
-        title: "Supervise the fleet from one screen",
-        what:
-          "Bare `discern` opens the desk: every effort grouped by the decision it needs, only valid actions offered, each action echoing its command-line equivalent — and one deterministic tip per session teaches the next capability.",
+        id: "decisions-in-one-view",
+        title: "See which tasks need a decision",
+        value:
+          "One view shows work in flight grouped by the decision it needs and offers the actions that are valid in the current state. The person can return at decision points instead of opening every session to ask for status.",
+        whyItFollows:
+          "The Desk projects the fleet's current state into decision-oriented groups, and its tips teach relevant capabilities without requiring a separate tour of the command line.",
         drawsOn: ["desk", "tips"],
       },
       {
-        id: "fail-forward-fast",
-        title: "Fail forward, fast",
-        what:
-          "`discern prepare` is the sub-minute loop; fail-fast cancellation, time budgets, and the capture environment keep a red gate short; strand detection stops a proof-eligible run at the first stranded file; diagnostics carry the file, line, and reproducing command; an unchanged tree refuses a rerun, so a flake becomes a recorded probe instead of a retry habit; and the write preflight spends a few filesystem operations instead of a discarded run. `discern test` runs the suite without the rest, and live streaming watches a slow job.",
+        id: "useful-failures-sooner",
+        title: "Get useful failures sooner",
+        value:
+          "When work is not ready, the agent receives a focused failure, the relevant output, and a reproducing command as early as the pipeline can provide them. Shorter feedback loops mean less time waiting on doomed runs and less context lost to diagnosis.",
+        whyItFollows:
+          "`discern prepare` supplies the fast fix-and-check loop; staging, cancellation, time budgets, strand detection, write preflight, captured diagnostics, live output, focused tests, and attested reruns stop or explain failed work at the earliest reliable point.",
         drawsOn: [
           "prepare",
           "test-verb",
@@ -3139,17 +2898,21 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         ],
       },
       {
-        id: "the-file-you-forgot",
-        title: "Hear about the file you forgot",
-        what:
-          "`discern coupling` mines the project's own history for the habitual partners missing from a change — self-calibrating, evidence attached, surfaced while the change is still open.",
+        id: "catch-related-files",
+        title: "Catch related files before the change closes",
+        value:
+          "The project can point out files that usually change together while the task is still open. That lowers the chance of discovering a missing companion during review or after the branch has moved on.",
+        whyItFollows:
+          "`discern coupling` mines the repository's own co-change history, attaches the evidence behind each suggestion, and reports habitual partners missing from the current change.",
         drawsOn: ["coupling"],
       },
       {
-        id: "pay-for-what-changed",
-        title: "Pay only for what changed",
-        what:
-          "Scopes classify each change and wake only the affected gates, `discern impact` answers which scopes woke, and untouched standards replay their recorded measurements. Classification fails open: a mistake can only add checks.",
+        id: "run-relevant-checks",
+        title: "Run the checks relevant to this change",
+        value:
+          "A focused change can avoid unrelated scope gates and repeated measurements while every check classified as relevant still runs. Agents get faster feedback without turning optimization into a bypass.",
+        whyItFollows:
+          "Scopes wake checks from the changed paths, classification fails open when uncertain, `discern impact` explains the decision, and input-keyed replay reuses a Standard measurement only when its declared inputs are unchanged.",
         drawsOn: [
           "scope-gates",
           "fail-open-classification",
@@ -3158,18 +2921,12 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
         ],
       },
       {
-        id: "see-the-practice",
-        title: "See how the practice is going",
-        what:
-          "`discern patterns` turns the metadata-only logbook into counted findings and a shareable stats card, `discern improvement` ranks the next action with its evidence, and agent cohorts appear as counts beside denominators, with no ranking drawn between agents.",
-        drawsOn: ["patterns", "improvement", "logbook"],
-        claims: ["patterns-compare-cohorts"],
-      },
-      {
-        id: "context-on-the-work",
-        title: "Spend agent context on the work",
-        what:
-          "Every surface an agent reads is designed for that reader: results sized for a context window, discovery starting from region names instead of an index, a curated and budget-held skill set, and advisories arriving inside results already being read.",
+        id: "context-for-the-task",
+        title: "Use agent context on the task itself",
+        value:
+          "Agents receive bounded results, task-ranked documentation, curated procedures, and relevant advice at the moment it applies. Less context is spent rediscovering the tool, leaving more for understanding and changing the project.",
+        whyItFollows:
+          "discern treats the agent as its principal operator, budgets every returned surface, curates the Skill set, and delivers advisories inside results the agent already needs to read.",
         drawsOn: [
           "agent-is-user",
           "context-budget",
@@ -3181,31 +2938,392 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
     ],
   },
   {
-    id: "sovereignty",
-    title: "Sovereignty",
-    what:
-      "The practice runs on the owner's machine, under the owner's consent, on contracts the owner can build against.",
+    id: "know-what-is-ready",
+    title: "Know what is ready",
+    role: "core value",
+    primaryFor: ["experienced engineers", "new consequential builders"],
+    promise:
+      "discern turns completion from a conversational assertion into inspectable evidence about one committed change.",
+    commercialValue:
+      "The user can make faster, better-informed release decisions because the status of the declared checks and the scope of the evidence are already clear.",
     benefits: [
       {
-        id: "stays-on-the-machine",
-        title: "Keep everything on the machine",
-        what:
-          "discern contains no model, needs no key, and makes no network calls — a gate test keeps network interfaces out of its code path. The logbook holds metadata only, stays on the machine, and has a real off switch.",
-        drawsOn: ["no-model-inside", "local-evidence", "logbook"],
-        claims: ["no-model-inside", "local-logbook"],
+        id: "project-defined-completion",
+        title: "Know when the project's own checks have passed",
+        value:
+          "Finished work comes with the result of the checks this project chose to require. The user does not have to infer readiness from the agent's confidence or ask which routine commands were run.",
+        whyItFollows:
+          "`discern done` runs the declared format, build, lint, typecheck, test, and smoke jobs by stage, wakes the scope gates touched by the change, and measures the configured Standards before it can report a pass.",
+        drawsOn: [
+          "gate",
+          "jobs-table",
+          "job-format",
+          "job-build",
+          "job-lint",
+          "job-typecheck",
+          "job-test",
+          "job-smoke",
+        ],
       },
       {
-        id: "consent-is-structural",
-        title: "Make consent structural",
-        what:
-          "Destructive verbs refuse read-only until consent lands in the transcript, and discern writes only where placement licenses it — an architectural test enforces the boundary.",
-        drawsOn: ["placement-consent"],
+        id: "evidence-for-this-change",
+        title: "See the evidence for the change in front of you",
+        value:
+          "A Proof names the commit, the size of the change, and the checks that passed. A later edit invalidates it, so the user can tell that the evidence belongs to the same work they are considering.",
+        whyItFollows:
+          "The Gate pins a clean committed tree before evaluation and rechecks it when Proof is minted; any later commit or working-tree edit changes the state and makes the recorded Proof stale.",
+        drawsOn: ["proof"],
+        claims: ["proof-exact-tree"],
       },
       {
-        id: "tooling-on-contracts",
-        title: "Build your own tooling on the contracts",
-        what:
-          "One result envelope backs the human rendering, `--json`, and the MCP tools alike; schemas and TypeScript declarations publish from the build; project scripts receive the environment contract; terminal output honors automation conventions; and `discern licenses` answers compliance offline.",
+        id: "evidence-that-lasts",
+        title: "Keep the completion record with the code",
+        value:
+          "The evidence survives after the temporary task environment is removed. A future maintainer can recover what was checked for the landed commit instead of depending on an old chat transcript.",
+        whyItFollows:
+          "Acceptance writes the structured Proof onto the trunk commit as a durable Git note tied to the identity of that commit.",
+        drawsOn: ["proof-notes"],
+      },
+      {
+        id: "explicit-release-decision",
+        title: "Keep the shipping decision under explicit control",
+        value:
+          "Passing checks makes a change ready for a decision. The responsible person, or a grant they recorded, still decides whether that exact change becomes shared.",
+        whyItFollows:
+          "`discern accept` resolves conversational consent, a standing scope grant, or a one-shot worktree grant against the changed paths at the landing boundary; a green Gate supplies no authority on its own.",
+        drawsOn: ["consent-attestations", "accept"],
+        claims: ["gate-grants-no-authority"],
+      },
+      {
+        id: "bounded-standing-permission",
+        title: "Pre-approve routine changes within clear boundaries",
+        value:
+          "A person can pre-authorize a tightly defined scope, such as documentation, and route everything outside that scope for fresh review. Repeated low-risk approvals disappear while permission remains bounded by the files that changed.",
+        whyItFollows:
+          "The acceptance policy records allowed scopes on the trunk, the Desk can record one effort's grant, and every acceptance recalculates coverage from the final changed paths.",
+        drawsOn: ["consent-attestations", "desk"],
+      },
+      {
+        id: "unfinished-work-stays-isolated",
+        title: "Keep unfinished work away from the shared branch",
+        value:
+          "Each discern task can change, fail, and recover in its own checkout and branch. When discern lands that work, the shared branch moves only after the task is accepted.",
+        whyItFollows:
+          "`discern start` creates an isolated worktree from the trunk, and `discern accept` lands only the authorized branch after its exact tree has satisfied the acceptance conditions.",
+        drawsOn: ["worktrees", "start", "accept"],
+        claims: ["isolated-worktrees"],
+      },
+      {
+        id: "recover-interrupted-operations",
+        title: "Recover cleanly from interrupted operations",
+        value:
+          "An interrupted action leaves enough recorded state to resume or repair it without guessing which effects already happened. Less time is lost untangling convincing but incomplete states.",
+        whyItFollows:
+          "Effectful verbs compute a plan before applying it, expose dry runs, record provisioning intent before acting, and use interruption-safe cleanup and recovery paths.",
+        drawsOn: [
+          "plan-apply",
+          "crash-safe-provisioning",
+          "interruption-safety",
+        ],
+      },
+    ],
+  },
+  {
+    id: "make-improvement-accumulate",
+    title: "Keep the gains the project earns",
+    role: "durable value",
+    primaryFor: ["experienced engineers", "new consequential builders"],
+    promise:
+      "discern turns hard-won improvements into conditions future work must preserve.",
+    commercialValue:
+      "The codebase can become easier to trust and maintain over time because later branches start from retained gains instead of renegotiating them.",
+    benefits: [
+      {
+        id: "retain-measured-gains",
+        title: "Keep measurable quality gains from slipping backward",
+        value:
+          "Once a configured measure improves, a later branch cannot weaken its limit merely to make new work pass. The project keeps the ground it has already earned.",
+        whyItFollows:
+          "Every Gate compares each Standard with the trunk's committed limit and rejects a floor that fell or a ceiling that rose.",
+        drawsOn: ["standards", "standards-direction"],
+        claims: ["standards-cannot-loosen"],
+      },
+      {
+        id: "pin-new-baseline",
+        title: "Make today's improvement tomorrow's starting point",
+        value:
+          "A measured gain can become the baseline every future branch inherits. Improvements stop being encouraging moments in a report and become part of the project's working conditions.",
+        whyItFollows:
+          "`discern standards --pin` tightens an improved limit to the measured value, applies the configured margin, and commits that limit change on its own.",
+        drawsOn: ["standards-pin", "standards-margin"],
+        claims: ["pin-measured-gains"],
+      },
+      {
+        id: "standards-that-scale",
+        title: "Use standards that stay useful as the project grows",
+        value:
+          "Quality measures can remain meaningful without making every small change pay the full measurement cost or treating healthy project growth as regression. A genuine breach caused by the work reaches the person responsible for the limit.",
+        whyItFollows:
+          "Rates scale with project size, replay keys measurements to declared inputs, on-demand mode separates expensive measurement from limit verification, any one-line metric can participate, and breach escalation refuses to move the limit automatically.",
+        drawsOn: [
+          "standards-rates",
+          "standards-replay",
+          "standards-on-demand",
+          "standards-escalation",
+          "standards-metric-protocol",
+        ],
+      },
+      {
+        id: "remove-bug-class",
+        title: "Remove the cause and guard every instance of the bug class",
+        value:
+          "A repair can cover every current instance and automatically enroll future members in the same protection. The same defect cannot pass that guard in another member, so review and debugging time are not spent on a repeat that should have been eliminated.",
+        whyItFollows:
+          "The Cure a Bug Skill requires a proven cause, a class-wide fix, and a guard driven from the canonical membership source; forcing-function and canonical-set checks make new members join that guard.",
+        drawsOn: ["skill-cure-a-bug", "forcing-functions", "canonical-sets"],
+      },
+      {
+        id: "retire-old-pattern",
+        title: "Retire an old pattern across the codebase",
+        value:
+          "A migration gains a measurable finish line, the remaining count can only fall, and new uses are blocked once the count reaches zero. The old way stops reappearing behind the work already completed.",
+        whyItFollows:
+          "The Set the Standard Skill pairs a repository-wide detector with a falling ceiling, then replaces the temporary ceiling with a permanent zero rule.",
+        drawsOn: ["skill-set-the-standard"],
+      },
+      {
+        id: "keep-clutter-down",
+        title: "Keep maintenance clutter from growing back",
+        value:
+          "Cleanup can reduce duplicated helpers, dead code, stale scaffolding, and format churn while a measured ceiling prevents the remaining count from rising. The codebase does not have to repeat the same cleanup campaign every few months.",
+        whyItFollows:
+          "The Clear the Decks Skill requires proven-safe cleanup commits and a Standard over what remains; `discern tidy` gives discern-owned prose and configuration one convergent format.",
+        drawsOn: ["skill-clear-the-decks", "tidy"],
+      },
+      {
+        id: "catch-documentation-breakage",
+        title: "Catch broken project documentation before it lands",
+        value:
+          "Broken links, stale generated pages, invalid command examples, malformed metadata, and vocabulary drift can fail alongside code. Agents and people spend less time following guidance whose mechanics no longer work.",
+        whyItFollows:
+          "The Map preflight validates links, anchors, commands, metadata, audience boundaries, and Skill references; generated-artifact declarations and fail-fast preconditions catch drift; the glossary and publication registry keep names and visibility consistent.",
+        drawsOn: [
+          "docs-integrity",
+          "generated-artifact-declarations",
+          "gate-preconditions",
+          "glossary-canon",
+          "publish-predicate",
+        ],
+        claims: ["map-mechanically-checked"],
+      },
+      {
+        id: "improve-practice-from-evidence",
+        title: "Improve the way the agents work from real evidence",
+        value:
+          "Recurring friction, slow stages, adoption gaps, and quality trends become counted findings rather than anecdotes. The person can improve guidance, configuration, or checks where the local evidence says the practice is losing time.",
+        whyItFollows:
+          "The local Logbook records metadata about discern's use, `discern patterns` analyzes comparable events and cohorts with denominators, and `discern improvement` ranks the next supported action without grading individual agents.",
+        drawsOn: ["patterns", "improvement", "logbook"],
+        claims: ["patterns-compare-cohorts"],
+      },
+    ],
+  },
+  {
+    id: "keep-project-knowledge-working",
+    title: "Keep project knowledge available",
+    role: "durable value",
+    primaryFor: [
+      "experienced engineers",
+      "new consequential builders",
+      "coding agents",
+    ],
+    promise:
+      "discern stores decisions, expectations, and working methods in project-owned forms every future session can use.",
+    commercialValue:
+      "Each task begins with more accumulated context, reducing repeated explanation, rediscovery, and dependence on one person's memory.",
+    benefits: [
+      {
+        id: "teach-project-once",
+        title: "Teach the project once",
+        value:
+          "A lesson captured after one task can guide later sessions and every configured agent provider. Repeated explanation becomes a reusable project asset instead of a recurring cost paid in prompts and corrections.",
+        whyItFollows:
+          "One authored guidance source compiles into every provider's instruction file, reusable Skills carry procedures, conditional guidance keeps the result project-specific, and the Teach the Project Skill routes each lesson into its smallest durable home.",
+        drawsOn: [
+          "guidance",
+          "guidance-compile",
+          "guidance-conditionals",
+          "skills",
+          "skill-teach-the-project",
+        ],
+        claims: ["one-guidance-source"],
+      },
+      {
+        id: "inspect-agent-understanding",
+        title: "See what agents understand about the project",
+        value:
+          "The human can inspect a readable account of the architecture, conventions, and subsystem knowledge agents are using. Project understanding no longer has to remain hidden inside session history.",
+        whyItFollows:
+          "Agents maintain the Map under the Gate, file-linked freshness records which sources a page covers and when they changed, and the Document a Subsystem Skill refreshes a section from the current code.",
+        drawsOn: ["map", "map-freshness", "skill-document-subsystem"],
+      },
+      {
+        id: "preserve-decision-reasons",
+        title: "Preserve why a decision was made",
+        value:
+          "Future agents and maintainers can recover the context and trade-offs behind a significant choice. They are less likely to reopen a settled question or repeat an alternative already rejected for a good reason.",
+        whyItFollows:
+          "The decision-record discipline stores context, decision, consequences, and alternatives in a canonical project location, and the Write an ADR Skill guides the author through the threshold and format.",
+        drawsOn: ["adr-discipline", "skill-write-adr"],
+      },
+      {
+        id: "guidance-at-failure",
+        title: "Put the right guidance beside the failure",
+        value:
+          "An agent can meet a known recovery procedure at the moment the matching problem appears. Recurring knowledge does not depend on somebody remembering the relevant note or searching for it under pressure.",
+        whyItFollows:
+          "Matched gotchas and registered hints are inserted into the same structured result that reports the failure or state that made them relevant.",
+        drawsOn: ["gotchas-pointer", "hints"],
+      },
+      {
+        id: "orient-new-session",
+        title: "Bring a new session up to speed quickly",
+        value:
+          "A fresh agent can find the project's current state, the right documentation, and the canonical command without receiving the entire manual in its prompt. Less time is lost at the beginning of resumed or reassigned work.",
+        whyItFollows:
+          "The discovery funnel ranks pages from task language, the bundled manual works offline, generated help mirrors the live command tree, and forgiving command parsing redirects renamed or synonymous requests.",
+        drawsOn: [
+          "discovery-funnel",
+          "bundled-docs",
+          "cli-help",
+          "forgiving-cli",
+        ],
+      },
+      {
+        id: "export-project-briefing",
+        title: "Export the right project briefing for the next reader",
+        value:
+          "A new person or agent can receive the relevant project pages in a defined order instead of a documentation dump. Briefings become repeatable and easier to tailor to the work ahead.",
+        whyItFollows:
+          "`discern map --export` writes the public projection, an explicit selection, or a named scope's ordered reading list into one portable file.",
+        drawsOn: ["map-browser"],
+      },
+      {
+        id: "reuse-engineering-discipline",
+        title: "Carry proven engineering practices between projects",
+        value:
+          "A project can adopt disciplines for shared facts, growing canonical sets, and safe effects without inventing each method from scratch. Good construction practice becomes portable knowledge.",
+        whyItFollows:
+          "The Write It Once Skill packages discern's own discipline around one authority per fact, automatic enrollment for future members, and planning effects before execution in a stack-neutral playbook.",
+        drawsOn: ["skill-write-it-once"],
+      },
+    ],
+  },
+  {
+    id: "put-practice-in-place",
+    title: "Put a serious practice in place",
+    role: "adoption benefit",
+    primaryFor: ["new consequential builders", "experienced engineers"],
+    promise:
+      "A coding agent can study the repository and establish discern's working practice, while the person supplies the intent and decisions the code cannot reveal.",
+    commercialValue:
+      "Adoption does not require the human to become the integration engineer for a new platform, and the project proves the setup before treating it as ready.",
+    benefits: [
+      {
+        id: "agent-commissioning",
+        title: "Have your agent set up the practice for this project",
+        value:
+          "The human can add a project-specific engineering practice without manually configuring every check, instruction file, and worktree condition. Their effort goes into intent and consequential choices while the agent handles repository study and implementation.",
+        whyItFollows:
+          "The setup agent detects installed providers, studies the repository before asking one concise batch of questions, configures the project's real jobs and guidance, relays consent points clearly, and refuses completion until the Gate and a throwaway worktree probe pass.",
+        drawsOn: ["setup", "relay-messages", "agent-autodetect"],
+        claims: [
+          "installs-a-practice",
+          "no-manual-configuration",
+          "setup-proves-worktree",
+        ],
+      },
+      {
+        id: "small-installation-footprint",
+        title: "Adopt discern without running another service",
+        value:
+          "discern arrives as one self-contained binary and keeps project-specific settings in one root file. Presets can supply useful defaults without overwriting decisions already present.",
+        whyItFollows:
+          "The installer lays down the binary and integration surfaces, the one-file footprint points to authored or generated project assets, and preset fills apply only where a value is absent.",
+        drawsOn: [
+          "install",
+          "presets",
+          "one-file-footprint",
+          "single-binary",
+        ],
+        claims: ["one-config-file"],
+      },
+      {
+        id: "inspect-live-example",
+        title: "Inspect discern working under its own practice",
+        value:
+          "discern's own repository is a complete internal working example. Its changes use the same Gate, worktrees, Standards, Map, and Logbook it asks other projects to adopt.",
+        whyItFollows:
+          "The discern repository is configured as a discern project and runs development work through the product's own lifecycle and quality conditions.",
+        drawsOn: ["dogfooding"],
+        claims: ["runs-on-itself"],
+      },
+      {
+        id: "clean-abandoned-environments",
+        title: "Clean up abandoned task environments safely",
+        value:
+          "Resources from a vanished worktree can be reclaimed without treating untracked work as disposable. Long-running use does not have to leave ports, databases, directories, and hidden edits accumulating on the machine.",
+        whyItFollows:
+          "`discern worktree prune` finds worktrees that disappeared without teardown, plans their resource cleanup, and reports ignored-file drift before removal can proceed.",
+        drawsOn: ["worktree-prune", "ignored-drift"],
+      },
+    ],
+  },
+  {
+    id: "change-tools-without-starting-over",
+    title: "Change tools without starting over",
+    role: "differentiator",
+    primaryFor: ["experienced engineers", "coding agents"],
+    promise:
+      "The project's way of working belongs to the project, so agents, stacks, and surrounding tooling can change without taking accumulated practice with them.",
+    commercialValue:
+      "Provider switching costs fall, subscriptions and capacity become easier to juggle, and investment in guidance and quality remains useful as the market changes.",
+    benefits: [
+      {
+        id: "switch-providers",
+        title: "Switch coding agents without re-teaching the project",
+        value:
+          "A provider change does not require the project explanation, working methods, and quality conditions to be rebuilt from scratch. The accumulated investment remains useful when preferences, model quality, quotas, or subscriptions change.",
+        whyItFollows:
+          "Guidance, Skills, Map, Gate, Standards, and worktree practice remain project-owned, while the provider registry generates each configured agent's instruction file, Skill materialization, hooks, and MCP wiring.",
+        drawsOn: [
+          "providers",
+          "provider-claude-code",
+          "provider-codex",
+          "provider-gemini",
+          "provider-cursor",
+          "provider-copilot",
+          "skills-materialization",
+          "mcp-surface",
+        ],
+        claims: ["switch-without-reteaching"],
+      },
+      {
+        id: "practice-across-stacks",
+        title: "Use the same working practice across different stacks",
+        value:
+          "The habits, guidance, documentation discipline, and acceptance model can move between projects that use different languages and tools. Learning the practice creates value beyond one codebase.",
+        whyItFollows:
+          "discern ships none of the project's stack tools, runs the commands each project declares, and keeps every subsystem available through the same stack-neutral foundation.",
+        drawsOn: ["stack-neutral", "all-subsystems-core", "foundations"],
+      },
+      {
+        id: "build-on-published-contracts",
+        title: "Build integrations against published contracts",
+        value:
+          "A project can automate or extend discern without scraping terminal prose or depending on hidden internal state. The same structured result can support humans, agents, scripts, and custom tooling.",
+        whyItFollows:
+          "One result envelope backs human output, `--json`, and MCP tools; generated schemas and TypeScript declarations publish from the build; project scripts receive a declared environment; output follows automation conventions; and local commands expose configuration and license facts.",
         drawsOn: [
           "interfaces",
           "result-envelope",
@@ -3215,6 +3333,55 @@ export const BENEFIT_CANON: readonly BenefitCluster[] = [
           "config-command",
           "licenses",
         ],
+      },
+      {
+        id: "planned-upgrades",
+        title: "Choose when to upgrade",
+        value:
+          "The tool does not change itself in the middle of project work. Upgrades can be scheduled, reviewed, migrated repeatedly without duplicate effects, and checked against a clear installation diagnosis.",
+        whyItFollows:
+          "The binary performs no update checks, `discern upgrade` applies idempotent validated migrations before stamping the new schema, and `discern doctor` reports the current installation with a fix for each problem.",
+        drawsOn: ["upgrade", "doctor"],
+      },
+      {
+        id: "retain-work-after-uninstall",
+        title: "Keep the useful work if you uninstall discern",
+        value:
+          "Guidance, project knowledge, Skills, scripts, and configuration remain ordinary files the project can continue to use. Trying discern does not turn that investment into hostage data or disposable setup work.",
+        whyItFollows:
+          "`discern uninstall` derives the removable integration wiring from the ownership registry and leaves the project's authored files at the paths it chose.",
+        drawsOn: ["uninstall", "ownership-buckets"],
+      },
+    ],
+  },
+  {
+    id: "keep-control",
+    title: "Keep control of the project",
+    role: "trust assurance",
+    primaryFor: ["experienced engineers", "new consequential builders"],
+    promise:
+      "discern runs locally, acts only through explicit authority, and keeps its operating boundaries inspectable.",
+    commercialValue:
+      "The practice can support serious work without introducing a hosted control plane, another model, or an opaque decision-maker.",
+    benefits: [
+      {
+        id: "local-without-another-model",
+        title: "Run discern locally without another model or API key",
+        value:
+          "Using discern adds no model call or API-key requirement of its own. Its activity record stays on the machine, contains metadata rather than code or command output, and can be turned off.",
+        whyItFollows:
+          "discern is a deterministic local binary with no network interfaces in its code path, while the Logbook and its analysis use repository-local evidence and have an explicit disable switch.",
+        drawsOn: ["no-model-inside", "local-evidence", "logbook"],
+        claims: ["no-model-inside", "local-logbook"],
+      },
+      {
+        id: "explicit-write-authority",
+        title: "Make write authority explicit",
+        value:
+          "An agent or integration can call discern knowing that the operation must prove it is allowed to write where it intends. The person retains a visible boundary around effects that change the project or machine.",
+        whyItFollows:
+          "Effectful verbs verify placement and transcript consent before writing, and an architectural test keeps destructive operations outside locations that have not licensed them.",
+        drawsOn: ["placement-consent"],
       },
     ],
   },
@@ -3273,19 +3440,9 @@ function citedTitle(titles: Map<string, string>, id: string): string {
   return title;
 }
 
-/** One benefit's claim segment: each slug with its evidence classes. */
-function claimSegment(entry: BenefitEntry): string {
-  const cited = entry.claims ?? [];
-  if (cited.length === 0) return "";
-  const parts = cited.map((slug) =>
-    `\`${slug}\` (${CLAIMS[slug].evidence.join(", ")})`
-  );
-  return ` *Claims: ${parts.join("; ")}.*`;
-}
-
 /**
- * Render the benefit-canon page: the at-a-glance cluster list, every cluster
- * with its benefits and their citations, and the coverage appendix.
+ * Render the benefit-canon page: the commercial center, ranked clusters,
+ * human value, reasons each value follows, and the traceability appendix.
  */
 export function renderFeatureCanonBenefitsDoc(): string {
   const titles = featureTitlesById();
@@ -3303,38 +3460,71 @@ export function renderFeatureCanonBenefitsDoc(): string {
     "",
     "# Benefit canon",
     "",
-    "_The product's benefits by human outcome — the feature canon transposed (ADR 0268). Each benefit composes feature nodes by explicit citation and names the public claims it backs; a wording constraint rides its citation as a caveat. Creative and product work quotes this canon; the mechanism account stays in [feature-canon.md](feature-canon.md)._",
+    "_discern's private commercial account of what the product gives people. It is designed to brief strategy, marketing, sales, and copywriting work. Each benefit states the human value first and then explains why that value follows from product facts. It is source material rather than finished public copy. The [feature canon](feature-canon.md) owns the mechanism account; the [claims ledger](brand/claims-and-evidence.md) owns the boundaries of exact public claims._",
     "",
     `${BENEFIT_CANON.length} clusters · ${flattened.length} benefits · ${citedIds.size} of ${nodeCount} feature nodes cited · ${claimSlugs.size} of ${ledgerCount} public claims carried.`,
     "",
+    "## How to use this canon",
+    "",
+    "- Start with the value or commercial value. Use the product mechanism only when the reader needs a reason to believe it.",
+    "- Follow the commercial role and primary-reader labels. Lead promises create desire; conversion benefits make the purchase useful now; durable value, differentiators, adoption benefits, and trust assurances support the decision.",
+    "- Treat a reasoned consequence as real value when its premises are product facts and its conclusion stays within what those facts establish. Population claims and quantified results still require the appropriate customer evidence. Direct causal consequences stand on the product facts that produce them.",
+    "- Check the claims ledger before publishing exact claim language. Keep its qualification work out of the benefit unless the proposed public line crosses that boundary.",
+    "- Select the smallest set of benefits that serves the audience and surface. Build the page around its own audience and argument.",
+    "",
+    "## Commercial center",
+    "",
+    `**Category:** ${BENEFIT_CANON_CATEGORY}`,
+    "",
+    `> ${BENEFIT_CANON_PROMISE}`,
+    "",
+    BENEFIT_CANON_COMMERCIAL_VALUE,
+    "",
     "## At a glance",
     "",
+    "| Commercial role | Benefit territory | Primary readers | Commercial value |",
+    "| --- | --- | --- | --- |",
   ];
   for (const cluster of BENEFIT_CANON) {
-    lines.push(`- **${cluster.title}** — ${cluster.what}`);
+    lines.push(
+      `| ${cluster.role} | **${cluster.title}** | ${
+        cluster.primaryFor.join(", ")
+      } | ${cluster.commercialValue} |`,
+    );
   }
   lines.push("");
   for (const cluster of BENEFIT_CANON) {
-    lines.push(`## ${cluster.title}`, "", cluster.what, "");
+    lines.push(
+      `## ${cluster.title}`,
+      "",
+      `**Commercial role:** ${cluster.role}  `,
+      `**Primary readers:** ${cluster.primaryFor.join(", ")}`,
+      "",
+      `**Promise:** ${cluster.promise}`,
+      "",
+      `**Commercial value:** ${cluster.commercialValue}`,
+      "",
+    );
     for (const entry of cluster.benefits) {
       const drawn = entry.drawsOn
         .map((id) => citedTitle(titles, id))
         .join(" · ");
-      const caveat = entry.caveat === undefined
-        ? ""
-        : ` *Caveat: ${entry.caveat}*`;
       lines.push(
-        `- **${entry.title}** — ${entry.what} *Draws on: ${drawn}.*${
-          claimSegment(entry)
-        }${caveat}`,
+        `### ${entry.title}`,
+        "",
+        `**Value:** ${entry.value}`,
+        "",
+        `**Why it follows:** ${entry.whyItFollows}`,
+        "",
+        `**Product basis:** ${drawn}.`,
+        "",
       );
     }
-    lines.push("");
   }
-  lines.push("## Coverage", "");
+  lines.push("## Coverage and claim traceability", "");
   const absences = Object.entries(BENEFIT_COVERAGE_ABSENCES);
   lines.push(
-    `Every feature node is cited by a benefit or recorded absent below; every public claim in the ledger is carried by a benefit. The guard (\`tests/feature_canon_benefit_test.ts\`) holds both directions.`,
+    `Every feature node is cited by a benefit or recorded absent below; every public claim in the ledger has a benefit-shaped home. The guard (\`tests/feature_canon_benefit_test.ts\`) holds both directions. Claim evidence classes and wording boundaries remain in the claims ledger so they cannot dilute the commercial account above.`,
     "",
     "### Recorded absences",
     "",
@@ -3346,7 +3536,7 @@ export function renderFeatureCanonBenefitsDoc(): string {
       lines.push(`- \`${id}\` — ${reason}`);
     }
   }
-  lines.push("", "### Claims by benefit", "");
+  lines.push("", "### Claim homes", "");
   for (const slug of Object.keys(CLAIMS) as ClaimSlug[]) {
     const carriers = flattened
       .filter(({ entry }) => (entry.claims ?? []).includes(slug))

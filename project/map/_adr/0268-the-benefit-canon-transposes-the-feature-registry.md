@@ -1,6 +1,6 @@
 # ADR 0268: The benefit canon transposes the feature registry
 
-**Status**: accepted
+**Status**: accepted; **amended by [ADR 0269](0269-the-benefit-canon-separates-value-from-claim-qualification.md)**, which replaces inline benefit caveats with a separate commercial-value and causal-support register.
 
 ## Context
 
